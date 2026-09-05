@@ -375,8 +375,13 @@ export function isAppointmentRecordWorkTime(value: unknown): value is string {
 	return toMinutes(end) >= toMinutes(start);
 }
 
-/** 预约记录摘要不包含 provider appointmentInfoId、费用、支付或患者身份字段。 */
+/**
+ * 预约记录摘要只允许携带平台生成的详情引用；众阳 appointmentInfoId、费用、
+ * 支付和患者身份字段仍然不进入列表。平台 appointmentId 只用于当前 owner
+ * 打开自己的详情页，服务端详情接口还会再次校验 owner + patientId。
+ */
 export const AppointmentRecordSchema = Type.Object({
+	appointmentId: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
@@ -396,6 +401,41 @@ export const AppointmentRecordListResponse = Type.Object({
 	data: Type.Object({
 		items: Type.Array(AppointmentRecordSchema),
 		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+/** 详情页只返回脱敏后的当前就诊人展示信息，不返回身份证、手机号或完整卡号。 */
+const AppointmentDetailPatientSchema = Type.Object({
+	displayName: Type.String({ minLength: 1, maxLength: 128 }),
+	cardNumberMasked: PatientCardNumberMaskedSchema,
+});
+
+/**
+ * 旧端 registration_detail.vue 的受控迁移读模型。
+ *
+ * 详情金额来自服务端已落库的预约金额，不能由小程序重新提交；appointmentId
+ * 是平台内部生成的 opaque 引用，providerAppointmentId 等上游标识不出网。
+ */
+export const AppointmentDetailResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		appointmentId: Type.String({ minLength: 1, maxLength: 64 }),
+		patientId: Type.String({ minLength: 1, maxLength: 128 }),
+		patient: AppointmentDetailPatientSchema,
+		hospitalName: Type.String({ minLength: 1, maxLength: 128 }),
+		departmentName: Type.String({ minLength: 1, maxLength: 128 }),
+		doctorName: Type.String({ minLength: 1, maxLength: 128 }),
+		workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+		shiftName: Type.String({ minLength: 1, maxLength: 64 }),
+		workTime: Type.Optional(
+			Type.String({
+				pattern: APPOINTMENT_RECORD_WORK_TIME_PATTERN,
+				maxLength: 11,
+			}),
+		),
+		sourceSerialNumber: Type.String({ minLength: 1, maxLength: 32 }),
+		totalFen: Type.Integer({ minimum: 1 }),
+		status: AppointmentRecordStatusSchema,
 	}),
 });
 
@@ -729,6 +769,20 @@ export const OutpatientPaymentListResponse = Type.Object({
 	}),
 });
 
+/**
+ * 门诊费用详情目前只开放已由 2.6.33 核对的单笔摘要。
+ *
+ * 项目级费用明细、医保分摊和电子票据字段尚未有可引用的众阳正式 contract，
+ * 因此不能为了还原旧页面而在这里新增未经确认的价格、数量或医保字段。
+ */
+export const OutpatientPaymentDetailResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		patientId: Type.String({ minLength: 1, maxLength: 128 }),
+		item: OutpatientPaymentRecordSchema,
+	}),
+});
+
 export const ReadyResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
@@ -941,6 +995,7 @@ export type AppointmentRecordPayload = Static<typeof AppointmentRecordSchema>;
 export type AppointmentRecordListPayload = Static<
 	typeof AppointmentRecordListResponse
 >;
+export type AppointmentDetailPayload = Static<typeof AppointmentDetailResponse>;
 export type AppointmentHoldRequestPayload = Static<
 	typeof AppointmentHoldRequest
 >;
@@ -1013,6 +1068,9 @@ export type OutpatientPaymentRecordPayload = Static<
 >;
 export type OutpatientPaymentListPayload = Static<
 	typeof OutpatientPaymentListResponse
+>;
+export type OutpatientPaymentDetailPayload = Static<
+	typeof OutpatientPaymentDetailResponse
 >;
 export type PaymentAmountsPayload = Static<typeof PaymentAmountsSchema>;
 export type PaymentOrderPayload = Static<typeof PaymentOrderResponse>;

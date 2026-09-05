@@ -1,6 +1,8 @@
 import type {
 	AppointmentDepartmentListPayload,
 	AppointmentDepartmentTreePayload,
+	AppointmentCancellationPayload,
+	AppointmentDetailPayload,
 	AppointmentRecordListPayload,
 	AppointmentScheduleListPayload,
 	AppointmentScheduleSourceListPayload,
@@ -16,6 +18,7 @@ import type {
 	MyDoctorListPayload,
 	MyDoctorResponsePayload,
 	OutpatientPaymentListPayload,
+	OutpatientPaymentDetailPayload,
 	PatientBindingPayload,
 	PatientBindingRequestPayload,
 	PatientListPayload,
@@ -75,7 +78,10 @@ export type MyDoctorListResponse = MyDoctorListPayload;
 export type MyDoctorResponse = MyDoctorResponsePayload;
 export type MyDoctorDeleteResponse = MyDoctorDeletePayload;
 export type AppointmentRecordListResponse = AppointmentRecordListPayload;
+export type AppointmentDetailResponse = AppointmentDetailPayload;
+export type AppointmentCancellationResponse = AppointmentCancellationPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
+export type OutpatientPaymentDetailResponse = OutpatientPaymentDetailPayload;
 export type ReportListResponse = ReportListPayload;
 export type ReportDetailResponse = ReportDetailPayload;
 export type WechatPrepayResponse = WechatPrepayPayload;
@@ -127,8 +133,21 @@ export type AppointmentDoctorCard = {
 export type AppointmentScheduleMode = "doctor" | "date";
 export type AppointmentRecord =
 	AppointmentRecordListResponse["data"]["items"][number];
+export type AppointmentDetail = AppointmentDetailResponse["data"];
 export type OutpatientPaymentRecord =
 	OutpatientPaymentListResponse["data"]["items"][number];
+export type OutpatientPaymentDetail = OutpatientPaymentDetailResponse["data"];
+/** 门诊费用详情页只展示服务端核对后的单笔摘要。 */
+export type OutpatientPaymentDetailPageData = {
+	loading: boolean;
+	error: string;
+	hospitalName: string;
+	selectedPatient: Patient | null;
+	item: OutpatientPaymentRecord | null;
+	sourcePatientId: string;
+	sourceRecordId: string;
+	sourceStatus: "unpaid" | "paid" | "";
+};
 export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
 	/** 仅用于当前费用查询批次的 WXML 事件回查，不是账单号或支付业务引用。 */
 	viewKey: string;
@@ -395,6 +414,35 @@ export type AppointmentRecordView = AppointmentRecord & {
 	statusClass: string;
 	/** 旧端把就诊日期与上午/下午作为独立视觉层级展示。 */
 	periodLabel: string;
+};
+
+/** 挂号详情页只承载服务端已确认的受控字段和当前患者脱敏展示信息。 */
+export type AppointmentDetailPageData = {
+	loading: boolean;
+	error: string;
+	appointmentId: string;
+	patientId: string;
+	patientName: string;
+	patientCardLabel: string;
+	hospitalName: string;
+	departmentName: string;
+	doctorName: string;
+	workDate: string;
+	shiftName: string;
+	workTime: string;
+	periodLabel: string;
+	sourceSerialNumber: string;
+	totalFen: number;
+	totalLabel: string;
+	status: AppointmentDetail["status"] | "";
+	statusLabel: string;
+	canCancel: boolean;
+	canceling: boolean;
+	/** Provider-only 历史记录没有平台详情引用，只允许显示列表摘要。 */
+	localDetail: boolean;
+	sourceAppointmentId: string;
+	sourcePatientId: string;
+	legacySummary: boolean;
 };
 
 /**

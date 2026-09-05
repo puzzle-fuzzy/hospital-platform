@@ -145,6 +145,8 @@ function localRegistrationRecord(
 	registration: AppointmentRegistration,
 ): AppointmentRecord {
 	return {
+		// 这是平台生成的 opaque 详情引用；provider 预约号仍不会进入患者端。
+		appointmentId: registration.appointmentId,
 		departmentName: registration.departmentName,
 		doctorName: registration.doctorName,
 		workDate: registration.workDate,

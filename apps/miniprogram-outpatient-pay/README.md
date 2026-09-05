@@ -11,8 +11,9 @@
 - 登录：`POST /api/v2/auth/wechat`
 - 就诊人：`GET /api/v2/patients`
 - 待缴费目录：`GET /api/v2/payments/outpatient/records?patientId=...&status=unpaid`
+- 费用摘要详情：`GET /api/v2/payments/outpatient/records/{recordId}?patientId=...&status=unpaid|paid`
 
-当前版本只接入服务端已经开放并有明确合同的门诊费用查询（对应众阳 2.6.33）。页面会展示就诊人、门诊项目、账单时间和服务端返回的金额，不接触 provider 患者号、订单号或医保原始字段。
+当前版本只接入服务端已经开放并有明确合同的门诊费用查询（对应众阳 2.6.33），并支持打开已核对的单笔摘要详情。页面会展示就诊人、门诊项目、账单时间和服务端返回的金额，不接触 provider 患者号、订单号或医保原始字段；项目级费用明细、支付、医保分摊和电子票据没有正式 contract 时保持关闭。
 
 ## 支付接口准入边界
 

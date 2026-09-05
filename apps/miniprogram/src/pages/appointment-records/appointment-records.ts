@@ -440,8 +440,11 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	/**
-	 * 旧端卡片点击会打开挂号详情；新 contract 没有稳定的详情引用，
-	 * 所以这里必须进入固定迁移状态页，不能把 WXML 的列表索引拼成详情 URL。
+	 * 旧端卡片点击会打开挂号详情。
+	 *
+	 * 本地新预约携带平台 appointmentId，详情页会再走 owner-scoped 真实接口；
+	 * 只有旧 Provider 历史记录没有平台详情引用时，才把已经在列表 contract
+	 * 中确认的摘要字段带到详情页只读展示，绝不拼接 provider 原始参数。
 	 */
 	onRecordTap(event: ViewKeyEvent): void {
 		if (!this.isPatientContextCurrent()) return;
@@ -450,7 +453,25 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			event.currentTarget?.dataset?.viewKey,
 		);
 		if (!record) return;
-		navigateToFeatureStatus("appointment-detail");
+		const patientId = this.data.selectedPatient?.id;
+		if (!patientId) return;
+		const query: string[] = [`patientId=${encodeURIComponent(patientId)}`];
+		if (record.appointmentId) {
+			query.push(`appointmentId=${encodeURIComponent(record.appointmentId)}`);
+		}
+		const append = (name: string, value: string | undefined): void => {
+			if (value) query.push(`${name}=${encodeURIComponent(value)}`);
+		};
+		append("departmentName", record.departmentName);
+		append("doctorName", record.doctorName);
+		append("workDate", record.workDate);
+		append("workTime", record.workTime);
+		append("location", record.location);
+		append("serialNumber", record.serialNumber);
+		append("status", record.status);
+		wx.navigateTo({
+			url: `/pages/appointment-detail/appointment-detail?${query.join("&")}`,
+		});
 	},
 
 	/** 操作按钮只执行自身动作，不能继续冒泡触发卡片详情提示。 */

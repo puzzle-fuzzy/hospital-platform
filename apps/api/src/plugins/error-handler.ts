@@ -72,6 +72,7 @@ import {
 import {
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
+	OutpatientPaymentRecordNotFoundError,
 } from "../modules/outpatient-payments";
 import { PatientBindingInputError } from "../modules/patients/binding-service";
 import { PatientServiceInputError } from "../modules/patients/service";
@@ -143,6 +144,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"payment-prepay-unknown": 50250,
 	"outpatient-payment-query-invalid": 50300,
 	"outpatient-payment-patient-not-found": 50310,
+	"outpatient-payment-record-not-found": 50320,
 	"health-knowledge-query-invalid": 60100,
 	"health-knowledge-not-found": 60110,
 	"health-knowledge-unavailable": 60120,
@@ -447,6 +449,14 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"outpatient-payment-patient-not-found",
 					"当前就诊人暂未建立门诊缴费映射",
+				);
+			}
+
+			if (error instanceof OutpatientPaymentRecordNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"outpatient-payment-record-not-found",
+					"未找到对应的门诊缴费记录",
 				);
 			}
 

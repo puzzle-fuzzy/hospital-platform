@@ -116,8 +116,8 @@ describe("全量阻断业务域准入目录", () => {
 		expect(
 			FROZEN_DOMAIN_GATE_CATALOG.find(
 				(gate) => gate.id === "outpatient-payment-write",
-			)?.legacyActions,
-		).toEqual(["门诊费用:outpatient-payment-write"]);
+			)?.legacyPaths,
+		).toEqual(["pagesB/health/outpatient_pay.vue"]);
 		expect(
 			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "patient-agreement")
 				?.safeReadOnlyTarget,

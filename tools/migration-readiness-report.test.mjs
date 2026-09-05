@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildMigrationReadinessReport } from "./migration-readiness-report.mjs";
 
 describe("全项目迁移 readiness 报告", () => {
-	// 报告会扫描旧端台账、42 个原生页面、迁移合同和 pending/live 运行包；
+	// 报告会扫描旧端台账、43 个原生页面、迁移合同和 pending/live 运行包；
 	// Windows 下单独执行已经超过 Bun 默认 5 秒，但这不是放宽业务断言。
 	test("区分入口结构完成、运行包发布和真实业务完成", {
 		timeout: 30_000,
@@ -13,17 +13,17 @@ describe("全项目迁移 readiness 报告", () => {
 		);
 
 		expect(report.entryCoverage.legacy.legacyPageCount).toBe(64);
-		expect(report.entryCoverage.nativePageCount).toBe(42);
+		expect(report.entryCoverage.nativePageCount).toBe(43);
 		expect(report.entryCoverage.legacy.blockedPageCount).toBe(2);
 		expect(report.entryCoverage.frozenBoundary).toMatchObject({
 			domainCount: 33,
-			legacyEntryCount: 38,
-			legacyActionCount: 12,
-			coveredEntryCount: 50,
+			legacyEntryCount: 39,
+			legacyActionCount: 9,
+			coveredEntryCount: 48,
 			actionFeatureKeyCount: 15,
 			uncoveredActionFeatureKeys: [],
-			featureStatusCallCount: 14,
-			featureStatusFeatureKeyCount: 13,
+			featureStatusCallCount: 11,
+			featureStatusFeatureKeyCount: 10,
 			uncoveredFeatureStatusKeys: [],
 			passed: true,
 		});
@@ -31,9 +31,9 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.entryCoverage.frozenBoundary.batchCoverage).toMatchObject([
 			{
 				batchId: "A-readonly-evidence",
-				gateCount: 4,
-				legacyEntryCount: 3,
-				legacyActionCount: 2,
+				gateCount: 5,
+				legacyEntryCount: 4,
+				legacyActionCount: 1,
 			},
 			{
 				batchId: "B-health-content",
@@ -61,9 +61,9 @@ describe("全项目迁移 readiness 报告", () => {
 			},
 			{
 				batchId: "F-payment-and-writeback",
-				gateCount: 7,
+				gateCount: 6,
 				legacyEntryCount: 7,
-				legacyActionCount: 3,
+				legacyActionCount: 1,
 			},
 		]);
 		expect(report.entryCoverage.legacy.domainCoverage).toHaveLength(7);
@@ -101,7 +101,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationBreadth.passed).toBe(true);
 		expect(report.migrationBreadth.pages).toHaveLength(2);
 		expect(report.migrationBreadth.tabBarPageCount).toBe(4);
-		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(42);
+		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(43);
 		expect(report.migrationBreadth.interactionAudit.failures).toEqual([]);
 		expect(report.readOnly.domainCount).toBe(5);
 		expect(report.readOnly.semanticStateCount).toBe(35);
@@ -248,7 +248,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[3].blockedPageCount).toBe(0);
 		expect(report.migrationQueue[4].blockedPageCount).toBe(1);
 		expect(report.migrationQueue[5].blockedPageCount).toBe(0);
-		expect(report.migrationQueue[0].frozenGateCount).toBe(4);
+		expect(report.migrationQueue[0].frozenGateCount).toBe(5);
 		expect(report.migrationQueue[2].frozenGateCount).toBe(3);
 		expect(report.migrationQueue[2]).toMatchObject({
 			contractIntakeStatus: "awaiting-formal-contract",
@@ -270,7 +270,7 @@ describe("全项目迁移 readiness 报告", () => {
 			contractRequiredEvidenceCount: 6,
 			contractImplementationStepCount: 6,
 		});
-		expect(report.migrationQueue[5].frozenGateCount).toBe(7);
+		expect(report.migrationQueue[5].frozenGateCount).toBe(6);
 		expect(report.businessCompletion.codeReadyDomainCount).toBe(5);
 		expect(report.businessCompletion.realEvidenceReadyDomainCount).toBe(0);
 		expect(report.businessCompletion.passed).toBe(false);

@@ -1,5 +1,6 @@
 import { isAppointmentRecordWorkTime } from "@hospital/contracts";
 import { parseIsoCalendarDate, parseStrictIsoInstant } from "./date-range";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /** 患者端可展示的科室最小读模型；provider 机构字段不直接透传。 */
@@ -784,6 +785,8 @@ export type AppointmentRecordStatus =
  * 缺少预约号的摘要伪造公共业务 ID。
  */
 export type AppointmentRecord = {
+	/** 仅由平台本地预约写入生成；Provider 历史记录没有这个引用。 */
+	appointmentId?: string;
 	departmentName?: string;
 	doctorName?: string;
 	workDate: string;
@@ -923,11 +926,19 @@ export function normalizeAppointmentRecordResults(
 
 		const departmentName = optionalRecordText(record, "departmentName", 128);
 		const doctorName = optionalRecordText(record, "doctorName", 128);
+		const appointmentId = record.appointmentId;
+		if (
+			appointmentId !== undefined &&
+			(!isBoundedOpaqueIdentifier(appointmentId) || appointmentId.length > 64)
+		) {
+			invalidRecordResult("display-text-invalid");
+		}
 		const workTime = optionalRecordWorkTime(record);
 		const location = optionalRecordText(record, "location", 256);
 		const serialNumber = optionalRecordText(record, "serialNumber", 64);
 
 		return {
+			...(appointmentId ? { appointmentId } : {}),
 			...(departmentName ? { departmentName } : {}),
 			...(doctorName ? { doctorName } : {}),
 			workDate: record.workDate,

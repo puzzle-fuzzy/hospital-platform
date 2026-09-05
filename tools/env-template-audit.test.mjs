@@ -9,7 +9,7 @@ test("仓库开发模板与生产 API 模板通过职责和安全默认值审计
 
 	expect(result.passed).toBe(true);
 	expect(result.failures).toEqual([]);
-	expect(result.sharedKeyCount).toBe(49);
+	expect(result.sharedKeyCount).toBe(59);
 });
 
 test("生产模板拒绝本机地址和真实凭据占位符缺失", () => {

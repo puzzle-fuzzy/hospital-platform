@@ -1,0 +1,26 @@
+page { background: #f5f6f8; }
+.page { box-sizing: border-box; min-height: 100vh; padding: 28rpx 24rpx 48rpx; }
+.title-row, .line { display: flex; align-items: center; justify-content: space-between; }
+.title-row { margin-bottom: 24rpx; }
+.eyebrow { margin-bottom: 10rpx; color: #2677ff; font-size: 21rpx; font-weight: 700; letter-spacing: 4rpx; }
+.title { color: #20242b; font-size: 48rpx; font-weight: 700; }
+.status { padding: 10rpx 16rpx; border-radius: 10rpx; background: #fff4e9; color: #d97726; font-size: 24rpx; }
+.card, .notice-card, .state-card { box-sizing: border-box; margin-bottom: 20rpx; padding: 28rpx; border-radius: 20rpx; background: #fff; }
+.label { margin-bottom: 16rpx; color: #8b949e; font-size: 26rpx; }
+.patient-name, .value { color: #20242b; font-size: 34rpx; font-weight: 700; }
+.muted { color: #8b949e; font-size: 24rpx; line-height: 1.6; }
+.patient-name + .muted { margin-top: 8rpx; }
+.line { min-height: 72rpx; border-bottom: 1rpx solid #edf0f4; color: #6d7680; font-size: 27rpx; }
+.line text:last-child { color: #20242b; text-align: right; }
+.line.last { border-bottom: 0; }
+.amount { color: #e8753e !important; font-size: 36rpx; font-weight: 700; }
+.notice-card { background: #f1f6ff; border: 1rpx solid #dce9ff; }
+.notice-title { margin-bottom: 10rpx; color: #31557f; font-size: 28rpx; font-weight: 700; }
+.state-card { display: flex; align-items: center; justify-content: center; min-height: 420rpx; flex-direction: column; color: #777f89; font-size: 28rpx; text-align: center; }
+.state-title { color: #333; font-size: 30rpx; font-weight: 700; }
+.error { margin-top: 12rpx; color: #e04f4f; font-size: 24rpx; line-height: 1.5; }
+.retry-button, .back-button { min-width: 180rpx; margin-top: 24rpx; border: 0; border-radius: 10rpx; font-size: 25rpx; }
+.retry-button { background: #2677ff; color: #fff; }
+.back-button { background: #edf1f5; color: #4f5964; }
+.retry-button::after, .back-button::after { border: 0; }
+.back-link { padding: 20rpx; color: #2677ff; font-size: 27rpx; text-align: center; }

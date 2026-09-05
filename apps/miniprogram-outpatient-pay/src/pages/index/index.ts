@@ -40,6 +40,7 @@ Page<
 		loadRecords(): Promise<void>;
 		formatAmount(amountFen: number): string;
 		formatPaymentType(): string;
+		onRecordTap(event: WechatMiniprogram.TouchEvent): void;
 	}
 >({
 	data: {
@@ -110,5 +111,18 @@ Page<
 
 	formatPaymentType(): string {
 		return "医保支付 / 医保混合支付 / 自费支付";
+	},
+
+	onRecordTap(event) {
+		const recordId = String(
+			event.currentTarget?.dataset?.recordId || "",
+		).trim();
+		const status = event.currentTarget?.dataset?.status;
+		const patientId = this.data.selectedPatient?.id;
+		if (!patientId || !recordId || (status !== "unpaid" && status !== "paid"))
+			return;
+		wx.navigateTo({
+			url: `/pages/detail/detail?patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(recordId)}&status=${encodeURIComponent(status)}`,
+		});
 	},
 });

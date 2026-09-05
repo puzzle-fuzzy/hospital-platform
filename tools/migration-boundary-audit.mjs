@@ -163,9 +163,9 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 				`${gate.name} 的 ${legacyPath} 落点不符合 contract 边界：期望 ${expectedTarget}，实际 ${entry.nativeTarget}`,
 			);
 		}
-		// 静态原文页可以在真实协议写入 contract 之前上线，但只能是
-		// 明确的 replaced 只读页面；它仍保留 contract FeatureKey 用于
-		// 迁移追踪，但不能因此被解释成已经记录了同意。
+		// 只读或只读为主的安全页面可以在独立写入 contract 之前上线，
+		// 但必须是明确的 replaced 页面；它仍保留 contract FeatureKey
+		// 用于迁移追踪，不能因此把独立写入能力解释成已开放。
 		if (gate.safeReadOnlyTarget) {
 			if (entry.status !== "replaced") {
 				fail(
@@ -330,7 +330,7 @@ for await (const file of miniprogramGlob.scan({
 for (const gate of FROZEN_DOMAIN_GATES) {
 	const failureCount = gateFailureCounts.get(gate.name) ?? 1;
 	const targetDescription = gate.safeReadOnlyTarget
-		? `${gate.safeReadOnlyTarget}（静态只读已迁移，真实 contract 仍关闭）`
+		? `${gate.safeReadOnlyTarget}（安全只读入口已迁移，独立写入能力仍按 contract 管理）`
 		: gate.safeSurfaceTarget
 			? `${gate.safeSurfaceTarget}（页面外壳/安全子集已迁移，真实 contract 仍关闭）`
 			: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;

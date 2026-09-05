@@ -64,6 +64,7 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"payment-prepay-unknown": 50250,
 	"outpatient-payment-query-invalid": 50300,
 	"outpatient-payment-patient-not-found": 50310,
+	"outpatient-payment-record-not-found": 50320,
 	"health-knowledge-query-invalid": 60100,
 	"health-knowledge-not-found": 60110,
 	"health-knowledge-unavailable": 60120,

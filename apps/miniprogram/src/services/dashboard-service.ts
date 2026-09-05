@@ -6,6 +6,7 @@ import type {
 	AppointmentSchedule,
 	HealthResponse,
 	OutpatientPaymentRecord,
+	OutpatientPaymentDetail,
 	Patient,
 	PatientBindingRequest,
 	PatientListResponse,
@@ -24,6 +25,7 @@ import {
 	requestAppointmentRecords,
 	requestAppointmentSchedules,
 	requestOutpatientPaymentRecords,
+	requestOutpatientPaymentDetail,
 	requestReports,
 	requestWithSession,
 	requireSuccessDataResponse,
@@ -594,6 +596,31 @@ export function requireOutpatientPaymentListData(
 	};
 }
 
+/** 门诊详情沿用列表摘要的运行时校验，不允许网络响应带入未确认明细字段。 */
+export function requireOutpatientPaymentDetailData(
+	value: unknown,
+	patientId: string,
+	recordId: string,
+	status: "unpaid" | "paid",
+): OutpatientPaymentDetail {
+	if (!isRecord(value) || value.patientId !== patientId) {
+		throw new ApiError("Outpatient payment detail patient is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	const list = requireOutpatientPaymentListData(
+		{ status, items: [value.item], total: 1 },
+		status,
+	);
+	const item = list.items[0];
+	if (!item || item.recordId !== recordId) {
+		throw new ApiError("Outpatient payment detail record is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	return { patientId, item };
+}
+
 /**
  * 我的挂号列表也必须在客户端边界保持公共读模型形状。
  *
@@ -617,6 +644,11 @@ export function requireAppointmentRecordListData(
 		const departmentName = optionalDisplayText(
 			item.departmentName,
 			128,
+			"Appointment record response item is invalid",
+		);
+		const appointmentId = optionalDisplayText(
+			item.appointmentId,
+			64,
 			"Appointment record response item is invalid",
 		);
 		const doctorName = optionalDisplayText(
@@ -658,6 +690,7 @@ export function requireAppointmentRecordListData(
 			});
 		}
 		items.push({
+			...(appointmentId === undefined ? {} : { appointmentId }),
 			status: item.status as AppointmentRecord["status"],
 			workDate: item.workDate,
 			...(departmentName === undefined ? {} : { departmentName }),
@@ -1192,6 +1225,41 @@ export function loadOutpatientPaymentRecords(
 		expectedSessionGeneration,
 	).then(
 		(payload) => requireOutpatientPaymentListData(payload.data, status).items,
+	);
+}
+
+/** 读取单笔已核对的门诊费用摘要；项目级明细仍按 Provider contract 关闭。 */
+export function loadOutpatientPaymentDetail(
+	patientId: string,
+	recordId: string,
+	status: "unpaid" | "paid",
+	expectedSessionGeneration: number,
+): Promise<OutpatientPaymentDetail> {
+	const normalizedPatientId = requirePatientId(patientId);
+	if (!hasBoundedDisplayText(recordId, 128)) {
+		return Promise.reject(
+			new ApiError("门诊缴费详情引用无效", {
+				code: "outpatient-payment-query-invalid",
+			}),
+		);
+	}
+	if (!isOutpatientPaymentStatus(status)) {
+		return Promise.reject(
+			new ApiError("门诊缴费查询状态不合法", {
+				code: "outpatient-payment-query-invalid",
+			}),
+		);
+	}
+	return requestOutpatientPaymentDetail(
+		{ patientId: normalizedPatientId, recordId, status },
+		expectedSessionGeneration,
+	).then((payload) =>
+		requireOutpatientPaymentDetailData(
+			payload.data,
+			normalizedPatientId,
+			recordId,
+			status,
+		),
 	);
 }
 

@@ -120,7 +120,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/me/profile` | Bearer | 读取当前用户的普通展示资料；不存在时返回安全默认值，不隐式创建记录 |
 | `PUT` | `/api/v2/me/profile` | Bearer | 使用 `version` 更新昵称、性别、年龄、邮箱；不接收实名/微信/患者/头像字段 |
 | `POST` | `/api/v2/patients/sync` | Bearer + 必填幂等键 | 从 provider 刷新当前用户的患者目录；不接受 body |
-| `POST` | `/api/v2/patients/bind` | Bearer + 必填幂等键 | body 为 `{displayName,mobile,identityNumber,consent:true}`；服务端按旧服务顺序查档、建档（必要时）、绑卡并同步脱敏目录 |
+| `POST` | `/api/v2/patients/bind` | Bearer + 必填幂等键 | body 为 `{displayName,mobile,identityNumber,consent:true}`；当前路由保留 fail-closed 行为，只有患者绑定 contract 和 Provider gateway 就绪后才按旧服务顺序查档、建档（必要时）、绑卡并同步脱敏目录；当前小程序页面不调用 |
 | `GET` | `/api/v2/patients` | Bearer | 返回当前用户 owner-scoped 的脱敏患者目录 |
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
 | `GET` | `/api/v2/appointments/department-tree` | Bearer；幂等键可选 | 返回挂号页的一级/二级真实科室树 |
@@ -129,6 +129,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/appointments/schedules/{scheduleId}/sources` | Bearer；幂等键可选 | 读取单个排班的分时段号源；`scheduleId` 必须对应未过期排班快照，否则 404 `appointment-schedule-reference-expired`；不返回 provider 号源 ID、锁号状态或费用 |
 | `POST` | `/api/v2/appointments/holds` | Bearer + 幂等键 | body 为 `{patientId, scheduleId, sourceSerialNumber}`；服务端重新读取有效排班、号源和挂号费，创建 60 秒服务端占位 |
 | `POST` | `/api/v2/appointments/registrations` | Bearer + 幂等键 | body 为 `{patientId, holdId}`；服务端执行重复预约检查、预约写入并保存 owner-scoped 取消映射 |
+| `GET` | `/api/v2/appointments/registrations/{appointmentId}` | Bearer | 必填 query `patientId`；仅返回当前账号、当前就诊人对应的挂号详情和脱敏就诊卡；Provider 历史记录没有平台详情引用时由小程序按已核实摘要展示 |
 | `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射调用取消接口；重复取消返回已取消，不接收 provider 预约号 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
 | `POST` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 必填幂等键 | 从已写入预约读取服务端挂号费，创建普通微信 JSAPI 自费订单并返回小程序调起参数；不会进入医保授权 |
@@ -156,6 +157,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg` |
 | `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；只返回已开放的检验详情白名单，不返回文件 URL |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
+| `GET` | `/api/v2/payments/outpatient/records/{recordId}` | Bearer；幂等键可选 | 必填 query `patientId`、`status=unpaid|paid`；返回当前用户/就诊人范围内已核对的单笔门诊费用摘要，不返回项目级费用明细 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
 | `GET` | `/api/v2/payments/orders/{orderId}` | Bearer | 读取当前用户自己的平台支付订单 |
 | `GET` | `/api/v2/payments/orders/{orderId}/wechat-prepay` | Bearer + 必填幂等键 | 读取微信预支付尝试状态；不代表支付成功 |
@@ -458,6 +460,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | 30510 | `medical-insurance-appointment-not-found` | 关联预约不存在、已取消或不属于当前用户 |
 | 404 | 30520 | `medical-insurance-order-not-found` | 医保订单不存在或不属于当前用户 |
 | 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
+| 404 | 50320 | `outpatient-payment-record-not-found` | 当前用户/就诊人范围内未找到对应门诊缴费记录 |
 | 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
 | 404 | 40120 | `report-not-found` | 报告详情不可用或尚未通过 gate |
 | 404 | 60110 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |

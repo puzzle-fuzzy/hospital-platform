@@ -1,1 +1,236 @@
-@import "../../styles/migration-surface.wxss";
+.appointment-detail-scroll {
+	box-sizing: border-box;
+	height: 100vh;
+	background: #f5f6f8;
+}
+
+.appointment-detail-page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 24rpx 24rpx 56rpx;
+	background: #f5f6f8;
+}
+
+.detail-state-card,
+.detail-status-card,
+.detail-card,
+.detail-legacy-note {
+	box-sizing: border-box;
+	margin-bottom: 20rpx;
+	border-radius: 18rpx;
+	background: #ffffff;
+}
+
+.detail-state-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 360rpx;
+	padding: 40rpx;
+	color: #667085;
+	font-size: 28rpx;
+	flex-direction: column;
+	gap: 18rpx;
+}
+
+.detail-loading-dot {
+	width: 44rpx;
+	height: 44rpx;
+	border: 5rpx solid #e4e9f2;
+	border-top-color: #3d6df6;
+	border-radius: 50%;
+}
+
+.detail-error-card {
+	align-items: stretch;
+	justify-content: flex-start;
+}
+
+.detail-state-title {
+	color: #1f2937;
+	font-size: 32rpx;
+	font-weight: 600;
+}
+
+.detail-state-message {
+	color: #667085;
+	font-size: 27rpx;
+	line-height: 1.6;
+	text-align: center;
+}
+
+.detail-status-card {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 30rpx 28rpx;
+}
+
+.detail-status-main {
+	display: flex;
+	align-items: center;
+}
+
+.detail-status-dot {
+	width: 22rpx;
+	height: 22rpx;
+	margin-right: 14rpx;
+	border-radius: 50%;
+	background: #98a2b3;
+}
+
+.detail-status-scheduled {
+	background: #3d6df6;
+}
+
+.detail-status-completed,
+.detail-status-registered {
+	background: #20b26b;
+}
+
+.detail-status-cancelled,
+.detail-status-missed,
+.detail-status-unknown {
+	background: #98a2b3;
+}
+
+.detail-status-stopped,
+.detail-status-substituted {
+	background: #f79009;
+}
+
+.detail-status-label {
+	color: #1f2937;
+	font-size: 32rpx;
+	font-weight: 600;
+}
+
+.detail-total {
+	color: #667085;
+	font-size: 28rpx;
+}
+
+.detail-card {
+	overflow: hidden;
+	padding: 0 28rpx;
+}
+
+.detail-card-title {
+	padding: 28rpx 0 20rpx;
+	border-bottom: 1rpx solid #eef0f4;
+	color: #1f2937;
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.detail-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 82rpx;
+	padding: 24rpx 0;
+	border-bottom: 1rpx solid #f0f2f5;
+	gap: 24rpx;
+}
+
+.detail-row-last {
+	border-bottom: 0;
+}
+
+.detail-row-label {
+	flex: 0 0 220rpx;
+	color: #8a94a6;
+	font-size: 27rpx;
+}
+
+.detail-row-value {
+	flex: 1;
+	color: #1f2937;
+	font-size: 27rpx;
+	line-height: 1.5;
+	text-align: right;
+	word-break: break-all;
+}
+
+.detail-time-value {
+	display: flex;
+	flex-direction: column;
+	gap: 6rpx;
+}
+
+.detail-time {
+	color: #667085;
+}
+
+.detail-fee-row {
+	border-bottom: 0;
+}
+
+.detail-fee {
+	flex: 1;
+	color: #f04438;
+	font-size: 30rpx;
+	font-weight: 600;
+	text-align: right;
+}
+
+.detail-address-card {
+	padding-bottom: 24rpx;
+}
+
+.detail-notice {
+	display: block;
+	color: #f04438;
+	font-size: 24rpx;
+	line-height: 1.7;
+}
+
+.detail-legacy-note {
+	padding: 22rpx 26rpx;
+	color: #8a94a6;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.detail-actions {
+	display: flex;
+	padding: 4rpx 0 16rpx;
+	flex-direction: column;
+	gap: 18rpx;
+}
+
+.detail-actions button,
+.detail-state-card button {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0;
+	border-radius: 44rpx;
+	font-size: 30rpx;
+}
+
+.detail-cancel-button {
+	border: 1rpx solid #3d6df6;
+	background: #ffffff;
+	color: #3d6df6;
+}
+
+.detail-back-button {
+	border: 1rpx solid #d0d5dd;
+	background: #ffffff;
+	color: #344054;
+}
+
+.detail-retry-button {
+	border: 0;
+	background: #3d6df6;
+	color: #ffffff;
+}
+
+.detail-footnote {
+	padding: 8rpx 12rpx;
+	color: #98a2b3;
+	font-size: 23rpx;
+	line-height: 1.6;
+	text-align: center;
+}

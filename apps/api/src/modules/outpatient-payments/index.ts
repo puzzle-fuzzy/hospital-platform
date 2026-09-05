@@ -1,4 +1,5 @@
 import {
+	OutpatientPaymentDetailResponse,
 	OutpatientPaymentListResponse,
 	OutpatientPaymentStatusSchema,
 	success,
@@ -39,6 +40,14 @@ export class OutpatientPaymentPatientNotFoundError extends Error {
 	constructor() {
 		super("Outpatient payment patient is not available");
 		this.name = "OutpatientPaymentPatientNotFoundError";
+	}
+}
+
+/** 当前用户/就诊人范围内找不到指定费用摘要；不把它降级成 Provider 500。 */
+export class OutpatientPaymentRecordNotFoundError extends Error {
+	constructor() {
+		super("Outpatient payment record is not available");
+		this.name = "OutpatientPaymentRecordNotFoundError";
 	}
 }
 
@@ -395,6 +404,112 @@ export class OutpatientPaymentService {
 			throw error;
 		}
 	}
+
+	/**
+	 * 读取单笔门诊费用摘要。
+	 *
+	 * 当前众阳正式合同只确认了 2.6.33 列表公开字段，没有项目级费用明细
+	 * 合同；详情因此复用同一条 owner/patient/provider 读取链，只允许返回
+	 * 列表中已经核对过的摘要，不能根据旧页面字段自行拼出医保分摊或明细。
+	 */
+	async detail(
+		ownerUserId: string,
+		patientId: string,
+		recordId: string,
+		status: OutpatientPaymentStatus,
+		context: AdapterCallContext,
+	) {
+		let normalizedContext: AdapterCallContext | undefined;
+		try {
+			normalizedContext = requireOutpatientContext(context);
+			if (!isBoundedOpaqueIdentifier(recordId)) {
+				throw new OutpatientPaymentQueryError();
+			}
+			this.logger.info(
+				{
+					event: "outpatient.payment.detail.requested",
+					traceId: adapterContextTraceId(normalizedContext),
+					provider: "zhongyang",
+					businessType: "outpatient",
+					orderType: "DiagPay",
+					capability: "record-detail-read",
+					patientId: isBoundedOpaqueIdentifier(patientId)
+						? patientId
+						: "invalid",
+					recordId,
+					status: isOutpatientPaymentStatus(status) ? status : "invalid",
+				},
+				"Outpatient payment detail requested",
+			);
+
+			const list = await this.list(
+				ownerUserId,
+				patientId,
+				status,
+				normalizedContext,
+			);
+			const item = list.items.find((record) => record.recordId === recordId);
+			if (!item) {
+				this.logger.warn(
+					{
+						event: "outpatient.payment.detail.not_found",
+						traceId: adapterContextTraceId(normalizedContext),
+						provider: "zhongyang",
+						businessType: "outpatient",
+						orderType: "DiagPay",
+						capability: "record-detail-read",
+						patientId,
+						recordId,
+						status,
+					},
+					"Outpatient payment detail not found",
+				);
+				throw new OutpatientPaymentRecordNotFoundError();
+			}
+
+			this.logger.info(
+				{
+					event: "outpatient.payment.detail.loaded",
+					traceId: adapterContextTraceId(normalizedContext),
+					provider: "zhongyang",
+					businessType: "outpatient",
+					orderType: "DiagPay",
+					capability: "record-detail-read",
+					patientId,
+					recordId: item.recordId,
+					status: item.status,
+					amountFen: item.amountFen,
+				},
+				"Outpatient payment detail loaded",
+			);
+			return { patientId, item };
+		} catch (error) {
+			// not_found 已经是预期的业务分支；不要再记录一条 error，避免
+			// 后台把正常的“记录不在当前患者范围”误判成 Provider 故障。
+			if (error instanceof OutpatientPaymentRecordNotFoundError) {
+				throw error;
+			}
+			this.logger.error(
+				{
+					event: "outpatient.payment.detail.failed",
+					traceId: adapterContextTraceId(normalizedContext ?? context),
+					provider: "zhongyang",
+					businessType: "outpatient",
+					orderType: "DiagPay",
+					capability: "record-detail-read",
+					patientId: isBoundedOpaqueIdentifier(patientId)
+						? patientId
+						: "invalid",
+					recordId: isBoundedOpaqueIdentifier(recordId) ? recordId : "invalid",
+					status: isOutpatientPaymentStatus(status) ? status : "invalid",
+					errorType: error instanceof Error ? error.name : "UnknownError",
+					...providerFailureMetadata(error),
+				},
+				"Outpatient payment detail failed",
+			);
+			throw error;
+		}
+	}
 }
 
 const AuthorizationHeaders = t.Object({
@@ -408,6 +523,10 @@ const OutpatientPaymentQuery = t.Object({
 	status: OutpatientPaymentStatusSchema,
 });
 
+const OutpatientPaymentDetailParams = t.Object({
+	recordId: t.String({ minLength: 1, maxLength: 128 }),
+});
+
 /** 门诊费用列表只接受内部 patientId 和状态，不接受 provider patId 或金额。 */
 export function outpatientPaymentsModule(
 	service: OutpatientPaymentService,
@@ -416,6 +535,28 @@ export function outpatientPaymentsModule(
 	const authentication = createRequestPrincipalResolver(sessions);
 	return new Elysia({ name: "outpatient-payments-module" })
 		.onTransform({ as: "local" }, authentication.authenticate)
+		.get(
+			"/payments/outpatient/records/:recordId",
+			async ({ request, headers, params, query }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await service.detail(
+						principal.userId,
+						query.patientId,
+						params.recordId,
+						query.status,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				params: OutpatientPaymentDetailParams,
+				headers: AuthorizationHeaders,
+				query: OutpatientPaymentQuery,
+				response: { 200: OutpatientPaymentDetailResponse },
+				tags: ["payments"],
+			},
+		)
 		.get(
 			"/payments/outpatient/records",
 			async ({ request, headers, query }) => {

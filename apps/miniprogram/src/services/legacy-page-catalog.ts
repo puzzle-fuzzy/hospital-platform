@@ -246,15 +246,16 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			legacyPath: "pagesB/health/outpatient_pay_detail.vue",
 			domain: "健康",
 			status: "partial",
-			nativeTarget: "pages/feature-status/feature-status",
+			nativeTarget: "pages/outpatient-payment-detail/outpatient-payment-detail",
 			featureKey: "outpatient-payment-detail",
-			note: "等待费用明细白名单、金额单位、归属和短期引用。",
+			note: "已迁移 owner/patient 作用域的已核对费用摘要详情；项目级明细、支付和电子票据继续关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/outpatient_pay.vue",
 			domain: "健康",
 			status: "partial",
 			nativeTarget: "pages/outpatient-payment/outpatient-payment",
+			featureKey: "outpatient-payment-write",
 			note: "已迁移门诊费用只读列表；支付、医保、结算和退费未开放。",
 		},
 		{
@@ -416,10 +417,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/hospital/registration_detail.vue",
 			domain: "预约",
-			status: "surface-only",
+			status: "replaced",
 			nativeTarget: "pages/appointment-detail/appointment-detail",
 			featureKey: "appointment-detail",
-			note: "已迁移挂号详情原生页面外壳和患者入口；详情引用、患者归属、状态映射和敏感字段白名单仍待 contract。",
+			note: "已迁移挂号详情、患者脱敏信息、预约状态、金额和 owner-scoped 取消预约；Provider 历史记录无平台引用时仅展示安全摘要。",
 		},
 		{
 			legacyPath: "pagesB/hospital/registration_medical_pay.vue",
@@ -531,7 +532,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			domain: "用户",
 			status: "partial",
 			nativeTarget: "pages/appointment-records/appointment-records",
-			note: "已迁移在线/全部预约历史只读，详情/取消/支付仍关闭。",
+			note: "已迁移在线/全部预约历史只读；本地平台预约支持详情和 owner-scoped 取消，Provider 历史摘要不提供写操作，支付仍由 miniprogram-pay 处理。",
 		},
 		{
 			legacyPath: "pagesB/user/subscription_message.vue",

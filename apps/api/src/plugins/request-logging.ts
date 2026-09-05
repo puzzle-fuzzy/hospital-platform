@@ -42,7 +42,9 @@ type ErrorMetadata = {
 	providerRetryable?: boolean;
 	providerFailureStage?: "validation" | "transport" | "http" | "response";
 	providerRequestOutcome?: "not_sent" | "rejected" | "unknown";
-	providerFailureReason?: "appointment-source-unavailable";
+	providerFailureReason?:
+		| "appointment-source-unavailable"
+		| "payment-order-not-found";
 	/** 只记录 observability 包登记过的 TLS/DNS/连接错误码。 */
 	providerTransportErrorCode?: ProviderTransportErrorCode;
 	/** 持久化内部操作分类，不包含 SQL、连接串或原始错误消息。 */

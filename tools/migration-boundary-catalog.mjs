@@ -79,7 +79,7 @@ const MIGRATION_BATCH_BY_FEATURE_KEY = Object.freeze({
 	"appointment-write": "F-payment-and-writeback",
 	cashier: "F-payment-and-writeback",
 	"electronic-bill": "F-payment-and-writeback",
-	"outpatient-payment-detail": "F-payment-and-writeback",
+	"outpatient-payment-detail": "A-readonly-evidence",
 	"outpatient-payment-write": "F-payment-and-writeback",
 });
 
@@ -502,11 +502,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "appointment-detail",
 		name: "挂号详情",
 		featureKey: "appointment-detail",
-		readiness: "待 provider contract",
+		readiness: "已迁移",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/hospital/registration_detail.vue"],
-		safeSurfaceTarget: "pages/appointment-detail/appointment-detail",
-		legacyActions: ["预约记录:appointment-detail"],
+		// 详情读取和平台预约引用校验已完成；取消预约是独立的本地写入
+		// contract，不把它误算成 Provider 详情读取未完成。
+		safeReadOnlyTarget: "pages/appointment-detail/appointment-detail",
 		requiredMaterials: [
 			"appointment-reference",
 			"status-enum",
@@ -715,11 +716,11 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "outpatient-payment-detail",
 		name: "费用记录详情",
 		featureKey: "outpatient-payment-detail",
-		readiness: "全量替换进行中",
-		contractFamily: "payment-write",
+		readiness: "已接入安全子集",
+		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/health/outpatient_pay_detail.vue"],
-		legacyActions: ["门诊费用:outpatient-payment-detail"],
-		safeSurfaceTarget: "pages/feature-status/feature-status",
+		safeSurfaceTarget:
+			"pages/outpatient-payment-detail/outpatient-payment-detail",
 		safePartialPaths: ["pagesB/health/outpatient_pay_detail.vue"],
 		requiredMaterials: [
 			"bill-reference",
@@ -739,8 +740,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		featureKey: "outpatient-payment-write",
 		readiness: "全量替换进行中",
 		contractFamily: "payment-write",
-		legacyPaths: [],
-		legacyActions: ["门诊费用:outpatient-payment-write"],
+		// 旧门诊缴费页同时承载费用列表和支付入口；新端只迁移了列表
+		// 安全子集，支付 action 已明确移除，因此由同一个旧页面作为
+		// write gate 的来源，不虚构一个当前不存在的 action。
+		legacyPaths: ["pagesB/health/outpatient_pay.vue"],
+		safeSurfaceTarget: "pages/outpatient-payment/outpatient-payment",
+		safePartialPaths: ["pagesB/health/outpatient_pay.vue"],
 		requiredMaterials: [
 			"order-owner",
 			"amount-conservation",

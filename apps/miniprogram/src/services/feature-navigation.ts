@@ -55,6 +55,7 @@ export type FeatureStatus = {
 	 */
 	readiness:
 		| "已迁移"
+		| "已接入安全子集"
 		| "全量替换进行中"
 		| "待 provider contract"
 		| "待临床审核"
@@ -126,6 +127,12 @@ export function getFeatureUserFacingCopy(
 				description: "该服务入口无效，请返回首页后重新选择服务。",
 				progress: "当前不会读取旧缓存或发起业务请求，请从首页重新进入。",
 			};
+		case "已接入安全子集":
+			return {
+				badge: "部分服务已接入",
+				description: `${feature.title}已接入受控的只读服务。`,
+				progress: "当前仅展示已核对信息，未开放的支付或扩展能力不会被调用。",
+			};
 		case "已迁移":
 			return {
 				badge: "服务已接入",
@@ -152,9 +159,10 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"appointment-detail": {
 		title: "挂号详情",
-		readiness: "待 provider contract",
-		description: "挂号详情正在迁移中，当前不会展示未经引用校验的预约明细。",
-		contractHint: "等待挂号详情引用、患者归属、状态映射和敏感字段白名单确认。",
+		readiness: "已迁移",
+		description: "挂号详情已接入平台服务，可查看预约信息、就诊人和预约状态。",
+		contractHint:
+			"详情引用、患者归属、状态映射和敏感字段白名单已由服务端校验。",
 		icon: "/assets/legacy-user/appointment-status.svg",
 	},
 	"appointment-write": {
@@ -351,10 +359,11 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"outpatient-payment-detail": {
 		title: "费用记录详情",
-		readiness: "全量替换进行中",
-		description: "门诊费用详情正在迁移中，当前不会展示未经引用校验的费用明细。",
+		readiness: "已接入安全子集",
+		description:
+			"门诊费用摘要详情已接入；项目级费用明细和支付动作仍按 Provider 合同关闭。",
 		contractHint:
-			"等待账单引用、患者归属、金额单位、明细白名单和短期授权确认。",
+			"摘要使用 2.6.33 已确认字段；项目明细、医保分摊、电子票据和短期授权仍待正式合同。",
 		icon: "/assets/legacy-home/top-payment.svg",
 	},
 	"outpatient-payment-write": {
@@ -370,9 +379,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		title: "添加就诊人",
 		readiness: "待患者绑定 contract",
 		description:
-			"填写实名信息后，服务端会按医院规则查档、建档并绑定就诊卡；医院接口未配置时保持安全关闭。",
+			"实名绑定服务正在完善中，当前不会采集或提交姓名、手机号、身份证号等实名信息。",
 		contractHint:
-			"已接入查档、必要时建档、绑卡、服务端幂等和完成后的目录同步；医院接口未配置时保持安全关闭。",
+			"等待查档、建档、绑卡、幂等、重复绑定、撤回和完成后目录同步规则确认。",
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"pre-visit": {

@@ -1,4 +1,5 @@
 import type {
+	AppointmentDetailPayload,
 	AppointmentHoldPayload,
 	AppointmentRegistrationPayload,
 } from "@hospital/contracts";
@@ -11,6 +12,7 @@ import {
 	type MedicalInsuranceOrderRepository,
 	normalizeAdapterCallContext,
 	normalizeExternalTrace,
+	normalizePatientReadModel,
 	type PatientRepository,
 	type UserIdentityRepository,
 } from "@hospital/domain";
@@ -247,6 +249,100 @@ export class AppointmentWriteService {
 			patientId: registration.patientId,
 			totalFen: registration.totalFen,
 		};
+	}
+
+	/**
+	 * 读取旧端 registration_detail.vue 所需的安全详情。
+	 *
+	 * 详情必须从 owner-scoped 本地预约记录读取，不能让小程序提交科室、医生、
+	 * 金额或众阳预约号来“拼出”一张详情。patientId 同时作为二次归属校验，
+	 * 即使用户手工替换 URL 中的 appointmentId，也只能得到自己的记录。
+	 */
+	async getDetail(input: {
+		ownerUserId: string;
+		patientId: string;
+		appointmentId: string;
+		context: unknown;
+	}): Promise<AppointmentDetailPayload["data"]> {
+		const context = contextOf(input.context);
+		const ownerUserId = id(input.ownerUserId, "ownerUserId");
+		const patientId = id(input.patientId, "patientId");
+		const appointmentId = id(input.appointmentId, "appointmentId");
+		this.logger.info(
+			{
+				event: "appointment.detail.requested",
+				traceId: context.traceId,
+				ownerUserId,
+				patientId,
+				appointmentId,
+			},
+			"Appointment detail requested",
+		);
+		const registration = await this.dependencies.repository.findRegistration(
+			ownerUserId,
+			appointmentId,
+		);
+		if (!registration || registration.patientId !== patientId) {
+			this.logger.warn(
+				{
+					event: "appointment.detail.not_found",
+					traceId: context.traceId,
+					ownerUserId,
+					patientId,
+					appointmentId,
+				},
+				"Appointment detail was not found in the current patient scope",
+			);
+			throw new AppointmentRegistrationNotFoundError();
+		}
+		const patient = normalizePatientReadModel(
+			await this.dependencies.patients.listByOwner(ownerUserId),
+			ownerUserId,
+		).find((item) => item.id === patientId);
+		if (!patient) throw new AppointmentRegistrationNotFoundError();
+		if (
+			!Number.isSafeInteger(registration.totalFen) ||
+			registration.totalFen <= 0
+		) {
+			throw new AppointmentWriteInputError(
+				"Appointment registration amount is invalid",
+			);
+		}
+		const status: AppointmentDetailPayload["data"]["status"] =
+			registration.status === "booked"
+				? "scheduled"
+				: registration.status === "cancelled"
+					? "cancelled"
+					: "unknown";
+		const detail: AppointmentDetailPayload["data"] = {
+			appointmentId: registration.appointmentId,
+			patientId: registration.patientId,
+			patient: {
+				displayName: patient.displayName,
+				cardNumberMasked: patient.cardNumberMasked,
+			},
+			hospitalName: "高平市人民医院",
+			departmentName: registration.departmentName,
+			doctorName: registration.doctorName,
+			workDate: registration.workDate,
+			shiftName: registration.shiftName,
+			sourceSerialNumber: registration.sourceSerialNumber,
+			totalFen: registration.totalFen,
+			status,
+		};
+		this.logger.info(
+			{
+				event: "appointment.detail.loaded",
+				traceId: context.traceId,
+				ownerUserId,
+				patientId,
+				appointmentId,
+				status,
+				totalFen: detail.totalFen,
+			},
+			"Appointment detail loaded",
+		);
+		return detail;
 	}
 
 	async hold(input: {

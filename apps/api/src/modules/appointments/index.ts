@@ -1,6 +1,7 @@
 import {
 	AppointmentDepartmentListResponse,
 	AppointmentDepartmentTreeResponse,
+	AppointmentDetailResponse,
 	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
 	AppointmentScheduleSourceListResponse,
@@ -64,6 +65,11 @@ const AppointmentRecordQuery = t.Object({
 	scope: t.Optional(t.Union([t.Literal("online"), t.Literal("all")])),
 	startDate: t.Optional(t.String({ pattern: DatePattern })),
 	endDate: t.Optional(t.String({ pattern: DatePattern })),
+});
+
+/** 详情查询必须同时提交当前平台 patientId，服务端再次执行患者归属校验。 */
+const AppointmentDetailQuery = t.Object({
+	patientId: t.String({ minLength: 1, maxLength: 128 }),
 });
 
 /** 预约目录必须经过平台会话，provider 授权只存在服务端组合根。 */
@@ -222,6 +228,29 @@ export function appointmentsModule(
 					scheduleId: t.String({ minLength: 1, maxLength: 128 }),
 				}),
 				response: { 200: AppointmentScheduleSourceListResponse },
+				tags: ["appointments"],
+			},
+		)
+		.get(
+			"/appointments/registrations/:appointmentId",
+			async ({ request, headers, params, query }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await appointmentWrites.getDetail({
+						ownerUserId: principal.userId,
+						patientId: query.patientId,
+						appointmentId: params.appointmentId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: AppointmentHeaders,
+				params: t.Object({
+					appointmentId: t.String({ minLength: 1, maxLength: 64 }),
+				}),
+				query: AppointmentDetailQuery,
+				response: { 200: AppointmentDetailResponse },
 				tags: ["appointments"],
 			},
 		)

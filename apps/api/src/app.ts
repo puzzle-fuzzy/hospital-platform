@@ -112,6 +112,9 @@ export function createApp(options: AppOptions = {}) {
 			cancel: async () => {
 				throw new DependencyNotConfiguredError("appointment-writes");
 			},
+			getDetail: async () => {
+				throw new DependencyNotConfiguredError("appointment-writes");
+			},
 		} as unknown as AppointmentWriteService);
 	const medicalInsurance =
 		services.medicalInsurance ??

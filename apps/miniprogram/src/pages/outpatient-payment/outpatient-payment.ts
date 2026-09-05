@@ -6,7 +6,6 @@ import {
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentRecords,
 } from "../../services/dashboard-service";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -418,12 +417,10 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	},
 
 	/**
-	 * 只读阶段不伪造支付调起；真正支付接入医保/微信订单后再开放。
+	 * 费用卡片先进入 owner/patient-scoped 摘要详情。
 	 *
-	 * 待缴记录和已缴记录虽然共用同一张卡片，但业务事实不同：前者只能
-	 * 进入固定状态页，前者提示支付契约未开放，后者提示详情仍在迁移；
-	 * 不能把已缴状态误导成待支付。两种情况都不调用 `wx.requestPayment`，
-	 * 也不修改服务端状态。
+	 * 详情页会再次确认当前患者和会话；这里只传当前查询批次中回查得到的
+	 * opaque recordId，不把 Provider 账单号或旧页面字段拼入导航参数。
 	 */
 	onRecordTap(event: ViewKeyEvent): void {
 		if (!this.isPatientContextCurrent()) return;
@@ -431,12 +428,11 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			this.data.visibleItems,
 			event.currentTarget?.dataset?.viewKey,
 		);
-		if (!record) return;
-		navigateToFeatureStatus(
-			record.status === "unpaid"
-				? "outpatient-payment-write"
-				: "outpatient-payment-detail",
-		);
+		const patientId = this.data.selectedPatient?.id;
+		if (!record || !patientId) return;
+		wx.navigateTo({
+			url: `/pages/outpatient-payment-detail/outpatient-payment-detail?patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(record.recordId)}&status=${encodeURIComponent(record.status)}`,
+		});
 	},
 
 	toView(

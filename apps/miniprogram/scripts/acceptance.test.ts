@@ -1912,7 +1912,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(42);
+	expect(app.pages).toHaveLength(43);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2413,14 +2413,16 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(recordsTemplate).not.toContain('wx:for="{{tabBarItems}}"');
 	expect(recordsTemplate).not.toContain('bindtap="onTabBarTap"');
 	expect(records).not.toContain("LEGACY_TAB_BAR_ITEMS");
-	// 卡片详情还没有稳定公开引用时，点击必须给出明确的迁移状态，
-	// 不能把列表索引误当成预约详情或取消/支付业务主键。
+	// 卡片点击必须使用当前渲染批次的视图 key，并进入真实详情页；不能把
+	// 列表索引误当成预约详情或取消/支付业务主键。
 	expect(recordsTemplate).toContain('bindtap="onRecordTap"');
 	expect(recordsTemplate).toContain('data-view-key="{{item.viewKey}}"');
 	expect(recordsTemplate).not.toContain('data-index="{{index}}"');
 	expect(records).toContain("findVisibleRecord");
 	expect(records).toContain("requestToken),");
-	expect(records).toContain('navigateToFeatureStatus("appointment-detail")');
+	expect(records).toContain(
+		'url: `/pages/appointment-detail/appointment-detail?${query.join("&")}`',
+	);
 	// 我的挂号必须保留旧端的患者/院区选择区、状态标签和卡片操作位置。
 	expect(recordsTemplate).toContain("当前院区");
 	// 旧端院区行有右侧箭头和底部选择面板；新端只展示一个受控院区，
@@ -2923,13 +2925,12 @@ test("native blocked domains keep one explicit current-patient context", async (
 		].map((file) => source(file)),
 	);
 	const templates = await Promise.all(
-		[
-			"pages/admission-preconsultation/admission-preconsultation.wxml",
-			"pages/appointment-detail/appointment-detail.wxml",
-		].map((file) => source(file)),
+		["pages/admission-preconsultation/admission-preconsultation.wxml"].map(
+			(file) => source(file),
+		),
 	);
 
-	// 这些页面都还没有正式 Provider/临床 contract，但用户从选择页返回后
+	// 这个页面还没有正式 Provider/临床 contract，但用户从选择页返回后
 	// 必须能看到当前上下文、失败原因和重试入口；不能只有一个“选择就诊人”
 	// 按钮，却让用户无法判断后续业务究竟针对谁。
 	expect(context).toContain("loadCurrentPatient");
@@ -3107,6 +3108,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(app).toContain('"pages/my/my"');
 	expect(client).toContain("requestOutpatientPaymentRecords");
 	expect(client).toContain("/payments/outpatient/records?");
+	expect(client).toContain("requestOutpatientPaymentDetail");
 	expect(home).toContain("navigateToPatientScopedPage");
 	expect(home).toContain('"/pages/outpatient-payment/outpatient-payment"');
 	expect(app).toContain('"custom": false');
@@ -3134,15 +3136,16 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatientTemplate).toContain("加载更多缴费记录");
 	expect(outpatientTemplate).toContain("{{item.billDateLabel}}");
 	expect(outpatient).toContain("formatOutpatientBillDateLabel");
+	expect(outpatient).toContain(
+		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
+	);
 	expect(outpatientTemplate).toContain(
 		"当前仅提供门诊费用查询，支付、医保授权和结算功能正在完善中",
 	);
 	// 旧端文案会暗示支付或医保已经可以在此页面执行；只读页面必须明确拒绝这种语义回流。
 	expect(outpatientTemplate).not.toContain("缴费后如需退费需至窗口办理");
 	expect(outpatientTemplate).not.toContain("目前支付宝支持");
-	expect(outpatient).toContain("navigateToFeatureStatus");
-	expect(outpatient).toContain('"outpatient-payment-detail"');
-	expect(outpatient).toContain('"outpatient-payment-write"');
+	expect(outpatientTemplate).toContain('bindtap="onRecordTap"');
 	expect(outpatientTemplate).toContain("支付、医保授权和结算功能正在完善中");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(my).toContain("navigateToPatientScopedPage");
@@ -3629,7 +3632,7 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 		'navigateToFeatureStatus("appointment-write")',
 	);
 	expect(appointmentRecords).toContain(
-		'navigateToFeatureStatus("appointment-detail")',
+		'url: `/pages/appointment-detail/appointment-detail?${query.join("&")}`',
 	);
 	expect(appointmentRecords).toContain('navigateToFeatureStatus("pre-visit")');
 	expect(reportDetail).toContain(
@@ -3638,9 +3641,10 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	expect(reportDetail).toContain('navigateToFeatureStatus("report-share")');
 	expect(reportDetail).toContain('navigateToFeatureStatus("report-follow-up")');
 	expect(reportDirectory).toContain('navigateToFeatureStatus("report-detail")');
-	expect(outpatientPayment).toContain("navigateToFeatureStatus");
-	expect(outpatientPayment).toContain('"outpatient-payment-write"');
-	expect(outpatientPayment).toContain('"outpatient-payment-detail"');
+	expect(outpatientPayment).toContain(
+		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
+	);
+	expect(outpatientPayment).not.toContain("navigateToFeatureStatus");
 
 	// 迁移边界的反馈必须能进入稳定页面，不能因为 Toast 消失而让用户
 	// 误以为点击没有生效；真实 contract 完成前仍不允许创建业务数据。

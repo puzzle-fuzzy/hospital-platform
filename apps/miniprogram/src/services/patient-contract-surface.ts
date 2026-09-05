@@ -18,7 +18,7 @@ type PatientContractSurfaceDefinition = {
 };
 
 /**
- * 患者域的三个页面先统一迁移“入口 + 关闭态”，不共享患者写入模型。
+ * 患者域的两个页面先统一迁移“入口 + 关闭态”，不共享患者写入模型。
  *
  * 旧端的新增绑定、患者签名和快递页面都存在未确认的 provider 或外部
  * 合同：绑定页不能在查档失败后继续建档，签名页不能复用假患者和硬编码
@@ -87,6 +87,10 @@ function toPageData(
 		icon: coverage.feature.icon,
 		readiness: coverage.feature.readiness,
 		...USER_FACING_SURFACE_COPY,
+		scopeTitle: definition.scopeTitle,
+		scopeDescription: definition.scopeDescription,
+		boundaryItems: definition.boundaryItems,
+		contractItems: definition.contractItems,
 		showPatientSelector: definition.showPatientSelector,
 	};
 }

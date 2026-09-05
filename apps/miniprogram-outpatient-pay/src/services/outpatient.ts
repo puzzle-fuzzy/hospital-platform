@@ -9,6 +9,11 @@ export type OutpatientRecord = {
 	amountFen: number;
 };
 
+export type OutpatientRecordDetail = {
+	patientId: string;
+	item: OutpatientRecord;
+};
+
 function normalize(value: unknown): OutpatientRecord {
 	const item = asRecord(value);
 	const status: OutpatientRecord["status"] =
@@ -48,6 +53,29 @@ export async function loadUnpaidRecords(
 	});
 	if (data.status !== "unpaid") throw new Error("服务端未返回待缴费目录");
 	return (data.items || []).map(normalize);
+}
+
+/** 读取服务端按当前患者核对过的单笔门诊费用摘要。 */
+export async function loadRecordDetail(
+	patientId: string,
+	recordId: string,
+	status: "unpaid" | "paid",
+): Promise<OutpatientRecordDetail> {
+	const data = await request<{
+		patientId: string;
+		item: unknown;
+	}>({
+		path: `/payments/outpatient/records/${encodeURIComponent(recordId)}`,
+		query: { patientId, status },
+	});
+	if (data.patientId !== patientId) {
+		throw new Error("服务端返回的门诊费用患者不一致");
+	}
+	const item = normalize(data.item);
+	if (item.recordId !== recordId || item.status !== status) {
+		throw new Error("服务端返回的门诊费用记录不一致");
+	}
+	return { patientId, item };
 }
 
 export function amountYuan(amountFen: number): string {

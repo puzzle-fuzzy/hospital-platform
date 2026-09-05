@@ -3,7 +3,7 @@ import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	AppointmentDepartment,
 	AppointmentDirectoryGateway,
-	type AppointmentRegistration,
+	AppointmentRegistration,
 	AppointmentProviderSchedule,
 	AppointmentRecord,
 	AppointmentScheduleQuery,
@@ -709,6 +709,7 @@ test("appointment records include registrations written by the payment flow", as
 	).resolves.toEqual({
 		items: [
 			{
+				appointmentId: "appointment-local-001",
 				departmentName: "风湿免疫门诊",
 				doctorName: "温慧芬",
 				workDate: "2026-09-07",

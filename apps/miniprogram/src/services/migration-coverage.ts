@@ -149,7 +149,7 @@ const MIGRATION_BATCH_BY_FEATURE_KEY: Readonly<
 	"appointment-write": "F-payment-and-writeback",
 	cashier: "F-payment-and-writeback",
 	"electronic-bill": "F-payment-and-writeback",
-	"outpatient-payment-detail": "F-payment-and-writeback",
+	"outpatient-payment-detail": "A-readonly-evidence",
 	"outpatient-payment-write": "F-payment-and-writeback",
 });
 
@@ -188,7 +188,7 @@ const MIGRATION_CONTRACT_FAMILY_BY_FEATURE_KEY: Readonly<
 	"inpatient-payment": "payment-write",
 	insurance: "payment-write",
 	"medical-record": "provider-read-only",
-	"outpatient-payment-detail": "payment-write",
+	"outpatient-payment-detail": "provider-read-only",
 	"outpatient-payment-write": "payment-write",
 	"patient-binding": "patient-write",
 	"patient-express": "provider-read-only",

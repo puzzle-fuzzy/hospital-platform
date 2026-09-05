@@ -11,9 +11,7 @@ import {
 } from "./patient-surface-context";
 import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 
-export type ProviderEntrySurfaceFeature =
-	| "blood-appointment"
-	| "appointment-detail";
+export type ProviderEntrySurfaceFeature = "blood-appointment";
 
 export type ProviderEntrySurfacePageData = PatientSurfaceContextData & {
 	title: string;

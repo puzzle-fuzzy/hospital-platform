@@ -1,0 +1,190 @@
+page {
+	background: #f5f6f8;
+}
+
+.detail-scroll {
+	height: 100vh;
+}
+
+.page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 28rpx 20rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.title-row,
+.detail-line {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.title-row {
+	margin-bottom: 24rpx;
+}
+
+.eyebrow {
+	margin-bottom: 10rpx;
+	color: #3d6df6;
+	font-size: 21rpx;
+	font-weight: 700;
+	letter-spacing: 4rpx;
+}
+
+.title {
+	color: #1f252d;
+	font-size: 48rpx;
+	font-weight: 700;
+}
+
+.status {
+	padding: 10rpx 16rpx;
+	border-radius: 10rpx;
+	font-size: 24rpx;
+}
+
+.status-paid {
+	background: #eef8f1;
+	color: #31824a;
+}
+
+.status-unpaid {
+	background: #fff4e9;
+	color: #d97726;
+}
+
+.card,
+.notice-card,
+.state-card {
+	box-sizing: border-box;
+	margin-bottom: 20rpx;
+	padding: 28rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+}
+
+.label {
+	margin-bottom: 16rpx;
+	color: #8b949e;
+	font-size: 26rpx;
+}
+
+.patient-name,
+.value {
+	color: #20242b;
+	font-size: 34rpx;
+	font-weight: 700;
+}
+
+.muted {
+	color: #8b949e;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.patient-card .muted {
+	margin-top: 8rpx;
+}
+
+.detail-line {
+	min-height: 72rpx;
+	border-bottom: 1rpx solid #edf0f4;
+	color: #6d7680;
+	font-size: 27rpx;
+}
+
+.detail-line-last {
+	border-bottom: 0;
+}
+
+.detail-label {
+	flex: 0 0 180rpx;
+}
+
+.detail-value {
+	flex: 1;
+	color: #20242b;
+	text-align: right;
+}
+
+.amount {
+	color: #e8753e;
+	font-size: 36rpx;
+	font-weight: 700;
+}
+
+.notice-card {
+	background: #f1f6ff;
+	border: 1rpx solid #dce9ff;
+}
+
+.notice-title {
+	margin-bottom: 10rpx;
+	color: #31557f;
+	font-size: 28rpx;
+	font-weight: 700;
+}
+
+.notice-text {
+	color: #5d7795;
+}
+
+.state-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 420rpx;
+	flex-direction: column;
+	color: #777f89;
+	font-size: 28rpx;
+	text-align: center;
+}
+
+.error-state {
+	border: 1rpx solid #ffd8d8;
+	background: #fff7f7;
+}
+
+.state-title {
+	color: #333333;
+	font-size: 30rpx;
+	font-weight: 700;
+}
+
+.state-message {
+	margin-top: 12rpx;
+	color: #e04f4f;
+	font-size: 24rpx;
+	line-height: 1.5;
+}
+
+.retry-button,
+.back-button {
+	min-width: 180rpx;
+	margin-top: 24rpx;
+	border: 0;
+	border-radius: 10rpx;
+	font-size: 25rpx;
+}
+
+.retry-button {
+	background: #3d6df6;
+	color: #ffffff;
+}
+
+.back-button {
+	background: #edf1f5;
+	color: #4f5964;
+}
+
+.retry-button::after,
+.back-button::after {
+	border: 0;
+}
+
+.back-link {
+	padding: 20rpx;
+	color: #3d6df6;
+	font-size: 27rpx;
+	text-align: center;
+}

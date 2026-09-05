@@ -1,7 +1,9 @@
 import type {
 	ApiRequestOptions,
+	AppointmentCancellationResponse,
 	AppointmentDepartmentListResponse,
 	AppointmentDepartmentTreeResponse,
+	AppointmentDetailResponse,
 	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
 	AppointmentScheduleSourceListResponse,
@@ -16,6 +18,7 @@ import type {
 	MyDoctorListResponse,
 	MyDoctorResponse,
 	OutpatientPaymentListResponse,
+	OutpatientPaymentDetailResponse,
 	PatientBindingRequest,
 	PatientBindingResponse,
 	PatientListResponse,
@@ -27,6 +30,7 @@ import type {
 	WechatPrepayResponse,
 	WechatPrepayStatusResponse,
 } from "../types";
+import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import {
 	recordApiRequestObservation,
 	sanitizeApiRequestPath,
@@ -154,6 +158,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"report-patient-not-found": "未查询到检查报告",
 		"report-not-found": "未找到这份报告",
 		"outpatient-payment-patient-not-found": "未查询到缴费记录",
+		"outpatient-payment-record-not-found": "未找到对应的门诊缴费记录",
 		"payment-order-invalid": "暂时无法发起支付，请稍后再试",
 		"payment-order-not-found": "未找到这笔支付记录",
 		"payment-quote-not-found": "暂时无法获取费用信息，请稍后再试",
@@ -2211,6 +2216,151 @@ export function requestAppointmentRecords(
 	);
 }
 
+const APPOINTMENT_DETAIL_STATUSES = new Set([
+	"scheduled",
+	"cancelled",
+	"completed",
+	"missed",
+	"stopped",
+	"substituted",
+	"registered",
+	"unknown",
+]);
+
+function invalidAppointmentDetailResponse(): never {
+	throw new ApiError("挂号详情响应无效", { code: "provider-response-invalid" });
+}
+
+function isMaskedPatientCard(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		(value === "未绑定" || /^[A-Za-z0-9]{0,5}\*+[A-Za-z0-9]{0,4}$/u.test(value))
+	);
+}
+
+/**
+ * 详情响应在小程序边界再次做白名单校验，防止旧缓存、代理或版本错配把
+ * 身份证、手机号、Provider 单号等扩展字段直接画到挂号详情页。
+ */
+export function requireAppointmentDetailResponse(
+	value: unknown,
+	expectedAppointmentId: string,
+	expectedPatientId: string,
+): AppointmentDetailResponse {
+	if (
+		!isRecord(value) ||
+		value.success !== true ||
+		!isRecord(value.data) ||
+		typeof expectedAppointmentId !== "string" ||
+		typeof expectedPatientId !== "string"
+	) {
+		return invalidAppointmentDetailResponse();
+	}
+	const data = value.data;
+	if (
+		typeof data.appointmentId !== "string" ||
+		data.appointmentId !== expectedAppointmentId ||
+		typeof data.patientId !== "string" ||
+		data.patientId !== expectedPatientId ||
+		!isRecord(data.patient) ||
+		!hasSafeReportText(data.patient.displayName, 128) ||
+		!isMaskedPatientCard(data.patient.cardNumberMasked) ||
+		!hasSafeReportText(data.hospitalName, 128) ||
+		!hasSafeReportText(data.departmentName, 128) ||
+		!hasSafeReportText(data.doctorName, 128) ||
+		!isCanonicalCalendarDate(data.workDate) ||
+		!hasSafeReportText(data.shiftName, 64) ||
+		!hasSafeReportText(data.sourceSerialNumber, 32) ||
+		!Number.isSafeInteger(data.totalFen) ||
+		(data.totalFen as number) <= 0 ||
+		!APPOINTMENT_DETAIL_STATUSES.has(data.status as string)
+	) {
+		return invalidAppointmentDetailResponse();
+	}
+	if (
+		data.workTime !== undefined &&
+		(typeof data.workTime !== "string" ||
+			!isAppointmentRecordWorkTime(data.workTime))
+	) {
+		return invalidAppointmentDetailResponse();
+	}
+	return {
+		success: true,
+		data: {
+			appointmentId: data.appointmentId,
+			patientId: data.patientId,
+			patient: {
+				displayName: data.patient.displayName,
+				cardNumberMasked: data.patient.cardNumberMasked,
+			},
+			hospitalName: data.hospitalName,
+			departmentName: data.departmentName,
+			doctorName: data.doctorName,
+			workDate: data.workDate,
+			shiftName: data.shiftName,
+			...(data.workTime === undefined ? {} : { workTime: data.workTime }),
+			sourceSerialNumber: data.sourceSerialNumber,
+			totalFen: data.totalFen as number,
+			status: data.status as AppointmentDetailResponse["data"]["status"],
+		},
+	};
+}
+
+/** 读取本地预约详情；服务端负责 owner、patientId 和 appointmentId 的最终授权。 */
+export function requestAppointmentDetail(
+	appointmentId: string,
+	patientId: string,
+	expectedSessionGeneration: number,
+): Promise<AppointmentDetailResponse> {
+	if (
+		typeof appointmentId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(appointmentId) ||
+		appointmentId.length > 64
+	) {
+		return Promise.reject(
+			new ApiError("挂号详情引用无效", { code: "appointment-query-invalid" }),
+		);
+	}
+	const normalizedPatientId = requirePatientScopedId(patientId);
+	return requestWithStableSession<unknown>(
+		{
+			url: `/appointments/registrations/${encodeURIComponent(appointmentId)}?patientId=${encodeURIComponent(normalizedPatientId)}`,
+		},
+		expectedSessionGeneration,
+	).then((payload) =>
+		requireAppointmentDetailResponse(
+			payload,
+			appointmentId,
+			normalizedPatientId,
+		),
+	);
+}
+
+/** 详情页沿用旧端“取消预约”动作，但幂等键和 owner 只由平台生成/校验。 */
+export function requestAppointmentCancellation(
+	appointmentId: string,
+): Promise<AppointmentCancellationResponse> {
+	if (
+		typeof appointmentId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(appointmentId) ||
+		appointmentId.length > 64
+	) {
+		return Promise.reject(
+			new ApiError("预约引用无效", { code: "appointment-query-invalid" }),
+		);
+	}
+	return requestWithSession<unknown>({
+		url: `/appointments/registrations/${encodeURIComponent(appointmentId)}/cancel`,
+		method: "POST",
+		data: {},
+		idempotencyKey: createIdempotencyKey("appointment-cancel"),
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentCancellationResponse["data"]>(
+			payload,
+		),
+	);
+}
+
 /** 读取当前用户所选就诊人的门诊费用摘要；临床患者映射只在服务端解析。 */
 export function requestOutpatientPaymentRecords(
 	options: {
@@ -2236,6 +2386,47 @@ export function requestOutpatientPaymentRecords(
 		expectedSessionGeneration,
 	).then((payload) =>
 		requireSuccessDataResponse<OutpatientPaymentListResponse["data"]>(payload),
+	);
+}
+
+/**
+ * 读取单笔已核对的门诊费用摘要。
+ * 项目级费用明细仍没有正式 Provider contract，客户端不能自行拼装或补全。
+ */
+export function requestOutpatientPaymentDetail(
+	options: {
+		patientId: string;
+		recordId: string;
+		status: "unpaid" | "paid";
+	},
+	expectedSessionGeneration: number,
+): Promise<OutpatientPaymentDetailResponse> {
+	const patientId = requirePatientScopedId(options?.patientId);
+	const recordId =
+		typeof options?.recordId === "string" ? options.recordId.trim() : "";
+	if (!recordId || recordId.length > 128) {
+		throw new ApiError("门诊缴费详情引用无效", {
+			code: "outpatient-payment-query-invalid",
+		});
+	}
+	if (options?.status !== "unpaid" && options?.status !== "paid") {
+		throw new ApiError("门诊缴费查询条件不合法", {
+			code: "outpatient-payment-query-invalid",
+		});
+	}
+	const query = [
+		`patientId=${encodeURIComponent(patientId)}`,
+		`status=${encodeURIComponent(options.status)}`,
+	].join("&");
+	return requestWithStableSession<unknown>(
+		{
+			url: `/payments/outpatient/records/${encodeURIComponent(recordId)}?${query}`,
+		},
+		expectedSessionGeneration,
+	).then((payload) =>
+		requireSuccessDataResponse<OutpatientPaymentDetailResponse["data"]>(
+			payload,
+		),
 	);
 }
 

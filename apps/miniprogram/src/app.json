@@ -15,6 +15,7 @@
 		"pages/report-directory/report-directory",
 		"pages/report-detail/report-detail",
 		"pages/outpatient-payment/outpatient-payment",
+		"pages/outpatient-payment-detail/outpatient-payment-detail",
 		"pages/profile/profile",
 		"pages/hospital-navigation/hospital-navigation",
 		"pages/patient-agreement/patient-agreement",

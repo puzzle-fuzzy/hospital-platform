@@ -1,62 +1,95 @@
-<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="migration-surface-page">
-		<view class="migration-surface-hero">
-			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="migration-surface-hero-copy">
-				<text class="migration-surface-title">{{title}}</text>
-				<text class="migration-surface-label">{{surfaceLabel}}</text>
+<scroll-view class="appointment-detail-scroll" scroll-y="true" enhanced="true">
+	<view class="appointment-detail-page">
+		<view wx:if="{{loading}}" class="detail-state-card">
+			<view class="detail-loading-dot"></view>
+			<text>正在加载挂号详情...</text>
+		</view>
+
+		<view wx:elif="{{error}}" class="detail-state-card detail-error-card">
+			<text class="detail-state-title">挂号详情不可用</text>
+			<text class="detail-state-message">{{error}}</text>
+			<button
+				wx:if="{{sourceAppointmentId && sourcePatientId}}"
+				class="detail-retry-button"
+				bindtap="onRetry"
+			>重新加载</button>
+			<button class="detail-back-button" bindtap="onBack">返回挂号列表</button>
+		</view>
+
+		<block wx:elif="{{status}}">
+			<view class="detail-status-card">
+				<view class="detail-status-main">
+					<view class="detail-status-dot detail-status-{{status}}"></view>
+					<text class="detail-status-label">{{statusLabel}}</text>
+				</view>
+				<text class="detail-total">{{totalLabel}}</text>
 			</view>
-		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">{{scopeTitle}}</text>
-			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
-		</view>
-
-		<view class="migration-surface-patient-card">
-			<view class="migration-surface-patient-copy">
-				<text class="migration-surface-patient-label">当前就诊人</text>
-				<block wx:if="{{patientContextLoading && !patientContextLoaded}}">
-					<text class="migration-surface-patient-name">正在获取就诊人...</text>
-					<text class="migration-surface-patient-meta">当前只读取已确认的患者目录</text>
-				</block>
-				<block wx:elif="{{patientContextError}}">
-					<text wx:if="{{currentPatient}}" class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text wx:if="{{currentPatient}}" class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-					<text class="migration-surface-patient-error">{{patientContextError}}</text>
-					<button class="migration-surface-patient-retry" bindtap="onRetry">重新读取</button>
-				</block>
-				<block wx:else>
-					<text class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-				</block>
-			</view>
-			<button class="migration-surface-patient-action" bindtap="onOpenPatientSelector">{{patientActionLabel}}</button>
-		</view>
-
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">服务状态</text>
-			<text class="migration-surface-card-copy">{{description}}</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
+			<view class="detail-card">
+				<view class="detail-card-title">预约信息</view>
+				<view class="detail-row">
+					<text class="detail-row-label">预约医院</text>
+					<text class="detail-row-value">{{hospitalName}}</text>
+				</view>
+				<view class="detail-row">
+					<text class="detail-row-label">预约科室</text>
+					<text class="detail-row-value">{{departmentName}}</text>
+				</view>
+				<view class="detail-row">
+					<text class="detail-row-label">预约医生</text>
+					<text class="detail-row-value">{{doctorName}}</text>
+				</view>
+				<view class="detail-row">
+					<text class="detail-row-label">预约挂号序号</text>
+					<text class="detail-row-value">{{sourceSerialNumber}}号</text>
+				</view>
+				<view class="detail-row detail-row-last">
+					<text class="detail-row-label">预约就诊时间</text>
+					<view class="detail-row-value detail-time-value">
+						<text>{{workDate}} {{periodLabel}}</text>
+						<text wx:if="{{workTime}}" class="detail-time">{{workTime}}</text>
+					</view>
+				</view>
+				<view class="detail-row detail-fee-row">
+					<text class="detail-row-label">挂号记账金额</text>
+					<text class="detail-fee">{{totalLabel}}</text>
 				</view>
 			</view>
-		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">使用说明</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
+			<view class="detail-card detail-address-card">
+				<view class="detail-row detail-row-last">
+					<text class="detail-row-label">就诊地址</text>
+					<text class="detail-row-value">{{location || "以医院现场指引为准"}}</text>
+				</view>
+				<text class="detail-notice">请携带有效证件按就诊日期到院取号候诊，具体取号时间以医院现场公示为准。</text>
+			</view>
+
+			<view class="detail-card">
+				<view class="detail-card-title">就诊人</view>
+				<view class="detail-row">
+					<text class="detail-row-label">姓名</text>
+					<text class="detail-row-value">{{patientName}}</text>
+				</view>
+				<view class="detail-row detail-row-last">
+					<text class="detail-row-label">就诊卡</text>
+					<text class="detail-row-value">{{patientCardLabel}}</text>
 				</view>
 			</view>
-			<text class="migration-surface-coverage">{{coverageLabel}}</text>
-		</view>
 
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
-		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
+			<view wx:if="{{legacySummary}}" class="detail-legacy-note">
+				<text>这条记录来自历史挂号摘要，当前未建立平台详情引用，仅展示已核实信息。</text>
+			</view>
+
+			<view class="detail-actions">
+				<button wx:if="{{canCancel}}" class="detail-cancel-button" bindtap="onCancel">
+					{{canceling ? "取消中..." : "取消预约"}}
+				</button>
+				<button class="detail-back-button" bindtap="onBack">返回挂号列表</button>
+			</view>
+
+			<view class="detail-footnote">
+				<text>预约状态和金额以服务端及医院最终记录为准。</text>
+			</view>
+		</block>
 	</view>
 </scroll-view>

@@ -233,7 +233,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				});
 				this.logger.info(
 					{
-						event: "worker.payment.medical_order_query.completed_terminal_order",
+						event:
+							"worker.payment.medical_order_query.completed_terminal_order",
 						taskId: task.taskId,
 						orderId: task.medicalOrderId,
 						status: order.status,

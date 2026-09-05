@@ -110,15 +110,6 @@ export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 		],
 	},
 	{
-		featureKey: "appointment-detail",
-		target: "pages/appointment-detail/appointment-detail",
-		mode: "surface-factory",
-		source:
-			"apps/miniprogram/src/pages/appointment-detail/appointment-detail.ts",
-		registration: 'registerProviderEntrySurfacePage("appointment-detail")',
-		sharedSources: ["apps/miniprogram/src/services/provider-entry-surface.ts"],
-	},
-	{
 		featureKey: "patient-binding",
 		target: "pages/patient-binding/patient-binding",
 		mode: "surface-factory",
@@ -383,7 +374,7 @@ export function inspectForbiddenCalls(relativePath, source) {
 /**
  * 执行关闭态页面、共享页面工厂和 WXML 的静态审计。
  *
- * 返回结构化结果，便于 Bun 单测锁定“15 个目标、14 个工厂页、1 个本地
+ * 返回结构化结果，便于 Bun 单测锁定“10 个目标、9 个工厂页、1 个本地
  * 子集”的事实；CLI 输出则给维护者提供具体失败文件和禁止调用名称。
  */
 export async function auditSurfaceOnlyClosure(root = repositoryRoot) {

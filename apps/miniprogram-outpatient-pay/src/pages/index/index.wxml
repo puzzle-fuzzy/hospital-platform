@@ -24,7 +24,7 @@
 			<view class="label">待缴费用</view>
 			<view class="muted">{{records.length}} 笔</view>
 		</view>
-		<view wx:for="{{records}}" wx:key="recordId" class="bill-row">
+		<view wx:for="{{records}}" wx:key="recordId" class="bill-row" bindtap="onRecordTap" data-record-id="{{item.recordId}}" data-status="{{item.status}}">
 			<view class="bill-main">
 				<view class="bill-name">{{item.departmentName || '门诊费用'}}</view>
 				<view wx:if="{{item.doctorName}}" class="muted">{{item.billDate}} · {{item.doctorName}}</view>

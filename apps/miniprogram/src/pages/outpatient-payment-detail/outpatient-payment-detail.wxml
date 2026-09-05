@@ -1,0 +1,45 @@
+<scroll-view class="detail-scroll" scroll-y="true" enhanced="true">
+	<view class="page">
+		<view wx:if="{{loading || error}}" class="state-card {{error ? 'error-state' : ''}}">
+			<text wx:if="{{loading}}">正在加载门诊费用详情...</text>
+			<block wx:else>
+				<text class="state-title">门诊费用详情暂不可用</text>
+				<text class="state-message">{{error}}</text>
+				<button wx:if="{{sourcePatientId && sourceRecordId && sourceStatus}}" class="retry-button" size="mini" bindtap="onRetry">重新加载</button>
+				<button class="back-button" size="mini" bindtap="onBack">返回费用记录</button>
+			</block>
+		</view>
+
+		<block wx:elif="{{item}}">
+			<view class="title-row">
+				<view>
+					<view class="eyebrow">OUTPATIENT PAYMENT</view>
+					<view class="title">门诊费用详情</view>
+				</view>
+				<view class="status status-{{item.status}}">{{statusLabel(item.status)}}</view>
+			</view>
+
+			<view class="card patient-card">
+				<view class="label">就诊人</view>
+				<view class="patient-name">{{selectedPatient.displayName}}</view>
+				<view class="muted">{{selectedPatient.cardNumberMasked}}</view>
+			</view>
+
+			<view class="card">
+				<view class="label">医院</view>
+				<view class="value">{{hospitalName}}</view>
+				<view class="detail-line"><text class="detail-label">就诊科室</text><text class="detail-value">{{item.departmentName || '门诊费用'}}</text></view>
+				<view wx:if="{{item.doctorName}}" class="detail-line"><text class="detail-label">就诊医生</text><text class="detail-value">{{item.doctorName}}</text></view>
+				<view class="detail-line"><text class="detail-label">费用日期</text><text class="detail-value">{{formatDate(item.billDate)}}</text></view>
+				<view class="detail-line detail-line-last"><text class="detail-label">账单金额</text><text class="amount">{{formatAmount(item.amountFen)}}</text></view>
+			</view>
+
+			<view class="notice-card">
+				<view class="notice-title">已核对的费用摘要</view>
+				<view class="muted notice-text">当前详情只展示众阳 2.6.33 已确认的摘要字段。项目级费用明细、医保分摊和电子票据需待正式接口合同确认后开放。</view>
+			</view>
+
+			<view class="back-link" bindtap="onBack">返回费用记录</view>
+		</block>
+	</view>
+</scroll-view>
