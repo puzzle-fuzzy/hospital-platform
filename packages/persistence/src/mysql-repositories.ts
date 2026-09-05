@@ -398,15 +398,20 @@ type MIRow = RowDataPacket & {
 	fund_fen: number;
 	setl_type: string | null;
 	revs_token_hash: string | null;
-	revs_token_expires_at: Date | null;
+	// 运行时 pool 开启了 `dateStrings: true`，DATETIME 不会被 mysql2
+	// 转成 Date；这里必须和真实返回值保持一致，避免读取医保订单时对
+	// 字符串调用 `.toISOString()`，在授权前直接抛出原生 TypeError。
+	revs_token_expires_at: string | null;
 	last_error: string | null;
 	wechat_mix_trade_no: string | null;
 	wechat_out_trade_no: string | null;
 	wechat_payment_state: string;
 	wechat_pay_params_ciphertext: string | null;
 	version: number;
-	created_at: Date;
-	updated_at: Date;
+	// 同上：医保订单是授权前必读的幂等记录，时间字段必须在 persistence
+	// 边界统一从 MySQL UTC DATETIME 转成 ISO，而不是让领域层猜类型。
+	created_at: string;
+	updated_at: string;
 };
 
 type MedicalInsuranceQueryTaskRow = RowDataPacket & {
@@ -746,15 +751,17 @@ function miOrder(
 				: null,
 		setlType: (row.setl_type as "ALL" | "CASH" | "HI" | null) ?? null,
 		revsTokenHash: row.revs_token_hash,
-		revsTokenExpiresAt: row.revs_token_expires_at?.toISOString() ?? null,
+		revsTokenExpiresAt: row.revs_token_expires_at
+			? mysqlUtcDateTimeToIso(row.revs_token_expires_at)
+			: null,
 		lastError: row.last_error,
 		wechatMixTradeNo: row.wechat_mix_trade_no,
 		wechatOutTradeNo: row.wechat_out_trade_no,
 		wechatPayParams: storedPayParams,
 		wechatPaymentState: miWechatPaymentState(row.wechat_payment_state),
 		version: row.version,
-		createdAt: row.created_at.toISOString(),
-		updatedAt: row.updated_at.toISOString(),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
 	};
 }
 
