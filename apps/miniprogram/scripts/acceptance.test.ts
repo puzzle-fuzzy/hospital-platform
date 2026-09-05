@@ -3628,7 +3628,12 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	const confirmRegistration = await source(
 		"pages/confirm-registration/confirm-registration.ts",
 	);
+	expect(confirmRegistration).toContain("requestAppointmentHold(");
+	expect(confirmRegistration).toContain("requestAppointmentRegistration(");
 	expect(confirmRegistration).toContain(
+		"pages/appointment-detail/appointment-detail?",
+	);
+	expect(confirmRegistration).not.toContain(
 		'navigateToFeatureStatus("appointment-write")',
 	);
 	expect(appointmentRecords).toContain(
@@ -3646,8 +3651,8 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	);
 	expect(outpatientPayment).not.toContain("navigateToFeatureStatus");
 
-	// 迁移边界的反馈必须能进入稳定页面，不能因为 Toast 消失而让用户
-	// 误以为点击没有生效；真实 contract 完成前仍不允许创建业务数据。
+	// 已确认的预约写入链路必须进入真实服务端命令；其它未确认 contract
+	// 仍通过稳定状态页或只读页面反馈，不能因为 Toast 消失而制造“点击无效”。
 	expect(appointmentSchedule).not.toContain("预约下单功能迁移中");
 	expect(appointmentRecords).not.toContain("挂号详情暂未开放");
 	expect(appointmentRecords).not.toContain("预问诊功能正在迁移中");

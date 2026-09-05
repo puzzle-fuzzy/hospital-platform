@@ -26,7 +26,7 @@ type TimeslotSourcePageMethods = {
  *
  * 旧端同时请求排班详情和号源明细，并展示 provider 挂号费；新端只消费
  * 服务端白名单后的排班展示上下文与分时段号源，不展示费用，也不把
- * provider 号源 ID 拼进后续路由——写入合同在服务端重新解析号源。
+ * provider 号源 ID 拼进后续路由——预约写入时由服务端重新解析号源。
  */
 Page<TimeslotSourcePageData, TimeslotSourcePageMethods>({
 	data: {
@@ -77,7 +77,7 @@ Page<TimeslotSourcePageData, TimeslotSourcePageMethods>({
 			});
 	},
 
-	/** 选择时段只携带展示事实进入确认页；provider 号源 ID 不进路由。 */
+	/** 选择时段只携带展示事实和 opaque scheduleId；provider 号源 ID 不进路由。 */
 	onSlotTap(event): void {
 		const index = event.currentTarget?.dataset?.index;
 		if (typeof index !== "number" && typeof index !== "string") return;

@@ -384,7 +384,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "partial",
 			nativeTarget: "pages/confirm-registration/confirm-registration",
 			featureKey: "appointment-write",
-			note: "确认信息页已迁移：展示排班/号别/序号/时段与当前就诊人脱敏上下文，须知为重写的通用文案；锁号、费用报价、执行预约、支付前置和 HIS 回写仍关闭，提交进入统一关闭态。",
+			note: "确认信息页已接入服务端占位与预约写入：展示排班/号别/序号/时段与当前就诊人脱敏上下文，提交只携带 opaque 引用，成功后进入平台挂号详情；支付前置和医保/HIS 回写仍由独立 miniprogram-pay 流程承接。",
 		},
 		{
 			legacyPath: "pagesB/hospital/department_select.vue",

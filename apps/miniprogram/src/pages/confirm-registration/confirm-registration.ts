@@ -1,5 +1,11 @@
+import {
+	contextualApiErrorMessage,
+	createIdempotencyKey,
+	requestAppointmentHold,
+	requestAppointmentRegistration,
+} from "../../services/api-client";
 import { loadCurrentPatient } from "../../services/dashboard-service";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { logClientErrorTransformed } from "../../services/telemetry";
 import type { ConfirmRegistrationPageData } from "../../types";
 
@@ -23,27 +29,35 @@ const REGISTRATION_NOTICE = [
  * 对应旧项目 `/pagesB/hospital/confirm_registration`。
  *
  * 旧端在此页拼接 provider 号源 ID、挂号费并直接调用执行预约接口；新端
- * 只展示排班与号源的确认事实和当前就诊人脱敏上下文。“确定预约”进入
- * 统一的预约写入关闭态，不在客户端组装费用或写入参数；就诊人证件、
- * 手机号等敏感字段不进入本页。
+ * 只提交服务端签发的 scheduleId、号源序号和平台 patientId。锁号、费用、
+ * Provider 患者映射与预约写入由服务端完成；就诊人证件、手机号等敏感字段
+ * 不进入本页。
  */
 Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	data: {
 		hospitalName: "高平市人民医院",
+		scheduleId: "",
 		departmentName: "",
 		doctorName: "",
 		workDate: "",
 		shiftName: "",
 		timeLabel: "",
 		serialNumber: "",
+		patientId: "",
 		patientName: "",
 		patientCardLabel: "",
 		patientLoading: true,
 		agreed: false,
+		submitting: false,
+		holdId: "",
+		holdIdempotencyKey: "",
+		registrationIdempotencyKey: "",
+		error: "",
 	},
 
 	onLoad(options: Record<string, string | undefined>) {
 		this.setData({
+			scheduleId: decodeRouteValue(options.scheduleId) ?? "",
 			departmentName: decodeRouteValue(options.departmentName) ?? "",
 			doctorName: decodeRouteValue(options.doctorName) ?? "",
 			workDate: decodeRouteValue(options.workDate) ?? "",
@@ -52,6 +66,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 			serialNumber: decodeRouteValue(options.serialNumber) ?? "",
 		});
 		if (
+			!this.data.scheduleId ||
 			!this.data.departmentName ||
 			!this.data.doctorName ||
 			!/^\d{4}-\d{2}-\d{2}$/.test(this.data.workDate) ||
@@ -73,12 +88,22 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		this.setData({ patientLoading: true });
 		loadCurrentPatient()
 			.then((patient) => {
+				const patientChanged =
+					Boolean(this.data.patientId) && this.data.patientId !== patient.id;
 				this.setData({
+					patientId: patient.id,
 					patientName: patient.displayName,
 					patientCardLabel:
 						patient.cardNumberMasked === "未绑定"
 							? "就诊卡未绑定"
 							: `就诊卡：${patient.cardNumberMasked}`,
+					...(patientChanged
+						? {
+								holdId: "",
+								holdIdempotencyKey: "",
+								registrationIdempotencyKey: "",
+							}
+						: {}),
 				});
 			})
 			.catch((error: unknown) => {
@@ -88,8 +113,12 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 					error,
 				);
 				this.setData({
+					patientId: "",
 					patientName: "未选择就诊人",
 					patientCardLabel: "请先选择就诊人",
+					holdId: "",
+					holdIdempotencyKey: "",
+					registrationIdempotencyKey: "",
 				});
 			})
 			.finally(() => {
@@ -98,6 +127,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	},
 
 	onOpenPatientSelector(): void {
+		if (this.data.submitting) return;
 		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
 	},
 
@@ -114,17 +144,81 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		});
 	},
 
-	/** 写入未开放：进入统一关闭态，不在客户端伪造预约成功。 */
+	/**
+	 * 预约写入采用“占位 → 注册”两步命令。
+	 *
+	 * 两个幂等键和 holdId 只保留在当前页面实例：注册请求超时后再次点击会
+	 * 复用同一占位和同一注册幂等键，避免 Provider 已成功但客户端未收到响应
+	 * 时产生第二次挂号。支付仍由独立的 `miniprogram-pay` 测试项目承接，
+	 * 本页只负责把预约事实写入并进入详情。
+	 */
 	onConfirmTap(): void {
+		if (this.data.submitting) return;
 		if (!this.data.agreed) {
 			wx.showToast({ title: "请先阅读并同意预约挂号须知", icon: "none" });
 			return;
 		}
-		if (this.data.patientName === "未选择就诊人") {
+		if (!this.data.patientId || this.data.patientName === "未选择就诊人") {
 			wx.showToast({ title: "请先选择就诊人", icon: "none" });
 			return;
 		}
-		navigateToFeatureStatus("appointment-write");
+		if (!this.data.scheduleId || !this.data.serialNumber) {
+			wx.showToast({ title: "预约号源已失效，请返回重新选择", icon: "none" });
+			return;
+		}
+
+		const holdIdempotencyKey =
+			this.data.holdIdempotencyKey || createIdempotencyKey("appointment-hold");
+		const registrationIdempotencyKey =
+			this.data.registrationIdempotencyKey ||
+			createIdempotencyKey("appointment-register");
+		this.setData({
+			submitting: true,
+			error: "",
+			holdIdempotencyKey,
+			registrationIdempotencyKey,
+		});
+
+		void (async () => {
+			let holdId = this.data.holdId;
+			if (!holdId) {
+				const hold = await requestAppointmentHold(
+					{
+						patientId: this.data.patientId,
+						scheduleId: this.data.scheduleId,
+						sourceSerialNumber: this.data.serialNumber,
+					},
+					holdIdempotencyKey,
+				);
+				holdId = hold.data.holdId;
+				this.setData({ holdId });
+			}
+			const registration = await requestAppointmentRegistration(
+				{ patientId: this.data.patientId, holdId },
+				registrationIdempotencyKey,
+			);
+			this.setData({ submitting: false, holdId: "", error: "" });
+			const query =
+				`patientId=${encodeURIComponent(registration.data.patientId)}` +
+				`&appointmentId=${encodeURIComponent(registration.data.appointmentId)}`;
+			wx.redirectTo({
+				url: `/pages/appointment-detail/appointment-detail?${query}`,
+				fail: () =>
+					wx.navigateTo({
+						url: `/pages/appointment-detail/appointment-detail?${query}`,
+					}),
+			});
+		})().catch((error: unknown) => {
+			const message = contextualApiErrorMessage(
+				error,
+				"预约暂时无法完成，请稍后重试",
+			);
+			this.setData({
+				submitting: false,
+				error: errorMessageWithCode(error, message),
+			});
+			logClientErrorTransformed("confirm-registration.submit", error);
+		});
 	},
 });
 

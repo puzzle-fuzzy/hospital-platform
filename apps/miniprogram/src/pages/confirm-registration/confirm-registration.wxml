@@ -53,11 +53,15 @@
 		<text class="confirm-agree-link" catchtap="onOpenNotice">《预约挂号须知》</text>
 	</view>
 
-	<view class="confirm-submit {{agreed ? '' : 'confirm-submit-off'}}" bindtap="onConfirmTap">
-		<text>确定预约</text>
+	<view class="confirm-submit {{agreed && !submitting ? '' : 'confirm-submit-off'}}" bindtap="onConfirmTap">
+		<text>{{submitting ? '正在提交预约…' : '确定预约'}}</text>
+	</view>
+
+	<view wx:if="{{error}}" class="confirm-note confirm-error">
+		<text>{{error}}</text>
 	</view>
 
 	<view class="confirm-note">
-		<text>预约写入与在线支付功能正在按医院安排逐步开放；当前提交将进入服务进度说明，不会产生预约记录或扣费。</text>
+		<text>预约会先由服务端重新核验号源并写入；预约详情中的支付由独立的 miniprogram-pay 测试项目承接，本页不会自行拼接金额或医保信息。</text>
 	</view>
 </scroll-view>

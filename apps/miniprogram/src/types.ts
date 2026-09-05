@@ -1,9 +1,11 @@
 import type {
+	AppointmentCancellationPayload,
 	AppointmentDepartmentListPayload,
 	AppointmentDepartmentTreePayload,
-	AppointmentCancellationPayload,
 	AppointmentDetailPayload,
+	AppointmentHoldPayload,
 	AppointmentRecordListPayload,
+	AppointmentRegistrationPayload,
 	AppointmentScheduleListPayload,
 	AppointmentScheduleSourceListPayload,
 	AuthSessionPayload,
@@ -17,8 +19,8 @@ import type {
 	MyDoctorDeletePayload,
 	MyDoctorListPayload,
 	MyDoctorResponsePayload,
-	OutpatientPaymentListPayload,
 	OutpatientPaymentDetailPayload,
+	OutpatientPaymentListPayload,
 	PatientBindingPayload,
 	PatientBindingRequestPayload,
 	PatientListPayload,
@@ -80,6 +82,8 @@ export type MyDoctorDeleteResponse = MyDoctorDeletePayload;
 export type AppointmentRecordListResponse = AppointmentRecordListPayload;
 export type AppointmentDetailResponse = AppointmentDetailPayload;
 export type AppointmentCancellationResponse = AppointmentCancellationPayload;
+export type AppointmentHoldResponse = AppointmentHoldPayload;
+export type AppointmentRegistrationResponse = AppointmentRegistrationPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
 export type OutpatientPaymentDetailResponse = OutpatientPaymentDetailPayload;
 export type ReportListResponse = ReportListPayload;
@@ -466,21 +470,28 @@ export type TimeslotSourcePageData = {
 /**
  * 旧项目 `confirm_registration` 对应的“确认挂号信息”页。
  *
- * 只承载排班与号源的展示事实和当前就诊人上下文；“确定预约”进入统一的
- * 预约写入关闭态，不在客户端拼装费用或 provider 写入参数。
+ * 承载排班与号源的展示事实和当前就诊人上下文。提交只发送平台 opaque
+ * 引用，锁号、金额、Provider 患者信息和预约写入仍由服务端完成。
  */
 export type ConfirmRegistrationPageData = {
 	hospitalName: string;
+	scheduleId: string;
 	departmentName: string;
 	doctorName: string;
 	workDate: string;
 	shiftName: string;
 	timeLabel: string;
 	serialNumber: string;
+	patientId: string;
 	patientName: string;
 	patientCardLabel: string;
 	patientLoading: boolean;
 	agreed: boolean;
+	submitting: boolean;
+	holdId: string;
+	holdIdempotencyKey: string;
+	registrationIdempotencyKey: string;
+	error: string;
 };
 
 /**

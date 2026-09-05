@@ -120,3 +120,7 @@
 	font-size: 24rpx;
 	line-height: 40rpx;
 }
+
+.confirm-error {
+	color: #c84b4b;
+}

@@ -276,6 +276,10 @@ provider 患者号、预约号、身份证、卡号、授权码和 payToken 不�
 医保 adapter 或
 持久化未配置时统一 fail-closed，不返回伪造成功。
 
+主小程序的确认页复用同一组预约基础命令，但只完成预约事实写入并进入挂号详情，不在主
+小程序中复制支付状态机：`POST /appointments/holds` → `POST /appointments/registrations`。
+支付入口仍由 `miniprogram-pay` 独立承接，避免一个页面同时持有预约提交和医保授权回跳状态。
+
 ### 3.4 我的医生
 
 “我的医生”是当前平台用户级关系，沿用旧端的用户级语义，但不复用旧端客户端快照写入。

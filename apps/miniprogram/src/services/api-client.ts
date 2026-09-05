@@ -4,7 +4,9 @@ import type {
 	AppointmentDepartmentListResponse,
 	AppointmentDepartmentTreeResponse,
 	AppointmentDetailResponse,
+	AppointmentHoldResponse,
 	AppointmentRecordListResponse,
+	AppointmentRegistrationResponse,
 	AppointmentScheduleListResponse,
 	AppointmentScheduleSourceListResponse,
 	AuthSessionResponse,
@@ -17,8 +19,8 @@ import type {
 	MyDoctorDeleteResponse,
 	MyDoctorListResponse,
 	MyDoctorResponse,
-	OutpatientPaymentListResponse,
 	OutpatientPaymentDetailResponse,
+	OutpatientPaymentListResponse,
 	PatientBindingRequest,
 	PatientBindingResponse,
 	PatientListResponse,
@@ -30,12 +32,12 @@ import type {
 	WechatPrepayResponse,
 	WechatPrepayStatusResponse,
 } from "../types";
-import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import {
 	recordApiRequestObservation,
 	sanitizeApiRequestPath,
 } from "./api-request-observability";
 import { getRegisteredApp } from "./app-runtime-context";
+import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import { resolveErrorNumericCode } from "./error-registry";
 import { isBoundedPatientId } from "./patient-identifiers";
 import { notifySessionChanged } from "./session-events";
@@ -333,6 +335,113 @@ function isBoundedAppointmentRequestIdentifier(
 
 function invalidAppointmentRequest(message: string): never {
 	throw new ApiError(message, { code: "appointment-query-invalid" });
+}
+
+/** 预约写入命令的运行时标识边界；不能把页面文本当作 Provider 引用。 */
+function requireAppointmentWriteIdentifier(value: unknown): string {
+	if (!isBoundedAppointmentRequestIdentifier(value)) {
+		throw new ApiError("预约请求参数不合法", {
+			code: "appointment-write-invalid",
+		});
+	}
+	return value;
+}
+
+/** 写入命令必须带稳定幂等键，不能让空键进入服务端唯一约束。 */
+function requireCommandIdempotencyKey(value: unknown): string {
+	if (typeof value !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/u.test(value)) {
+		throw new ApiError("预约请求幂等键不合法", {
+			code: "appointment-write-invalid",
+		});
+	}
+	return value;
+}
+
+function isSafeAppointmentWriteText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function invalidAppointmentWriteResponse(): never {
+	throw new ApiError("预约服务返回数据异常", {
+		code: "provider-response-invalid",
+	});
+}
+
+/** 小程序边界再次校验占位响应，避免坏响应被当成可继续写入的 hold。 */
+function requireAppointmentHoldResponse(
+	value: unknown,
+): AppointmentHoldResponse {
+	const payload =
+		requireSuccessDataResponse<AppointmentHoldResponse["data"]>(value);
+	const data = payload.data;
+	if (
+		!isSafeAppointmentWriteText(data.holdId, 64) ||
+		data.status !== "held" ||
+		!Number.isSafeInteger(data.totalFen) ||
+		data.totalFen <= 0 ||
+		!isSafeAppointmentWriteText(data.expiresAt, 128)
+	) {
+		return invalidAppointmentWriteResponse();
+	}
+	return {
+		success: true,
+		data: {
+			holdId: data.holdId,
+			status: "held",
+			totalFen: data.totalFen,
+			expiresAt: data.expiresAt,
+		},
+	};
+}
+
+/** 注册响应必须与当前 patientId 对齐；duplicate 也必须带可回查的预约引用。 */
+function requireAppointmentRegistrationResponse(
+	value: unknown,
+	expectedPatientId: string,
+): AppointmentRegistrationResponse {
+	const payload =
+		requireSuccessDataResponse<AppointmentRegistrationResponse["data"]>(value);
+	const data = payload.data;
+	if (
+		!isSafeAppointmentWriteText(data.appointmentId, 64) ||
+		(data.status !== "booked" && data.status !== "duplicate") ||
+		data.patientId !== expectedPatientId ||
+		!isSafeAppointmentWriteText(data.departmentName, 128) ||
+		!isSafeAppointmentWriteText(data.doctorName, 128) ||
+		!isCanonicalCalendarDate(data.workDate) ||
+		!isSafeAppointmentWriteText(data.shiftName, 64) ||
+		!isSafeAppointmentWriteText(data.sourceSerialNumber, 32) ||
+		!Number.isSafeInteger(data.totalFen) ||
+		data.totalFen <= 0
+	) {
+		return invalidAppointmentWriteResponse();
+	}
+	return {
+		success: true,
+		data: {
+			appointmentId: data.appointmentId,
+			status: data.status,
+			patientId: data.patientId,
+			departmentName: data.departmentName,
+			doctorName: data.doctorName,
+			workDate: data.workDate,
+			shiftName: data.shiftName,
+			sourceSerialNumber: data.sourceSerialNumber,
+			totalFen: data.totalFen,
+		},
+	};
 }
 
 function invalidAppointmentRecordRequest(message: string): never {
@@ -2137,6 +2246,54 @@ export function requestAppointmentScheduleSources(
 		requireSuccessDataResponse<AppointmentScheduleSourceListResponse["data"]>(
 			payload,
 		),
+	);
+}
+
+/**
+ * 预约占位只接受目录返回的 opaque 引用和号源序号。
+ *
+ * 金额、Provider sourceId、患者证件和预约业务号都不能由小程序提交；服务端
+ * 会重新读取短期排班快照、患者映射和真实费用，并在同一幂等键下返回占位。
+ */
+export function requestAppointmentHold(
+	input: {
+		patientId: string;
+		scheduleId: string;
+		sourceSerialNumber: string;
+	},
+	idempotencyKey = createIdempotencyKey("appointment-hold"),
+): Promise<AppointmentHoldResponse> {
+	const patientId = requirePatientScopedId(input?.patientId);
+	const scheduleId = requireAppointmentWriteIdentifier(input?.scheduleId);
+	const sourceSerialNumber = requireAppointmentWriteIdentifier(
+		input?.sourceSerialNumber,
+	);
+	return requestWithSession<unknown>({
+		url: "/appointments/holds",
+		method: "POST",
+		data: { patientId, scheduleId, sourceSerialNumber },
+		idempotencyKey: requireCommandIdempotencyKey(idempotencyKey),
+	}).then(requireAppointmentHoldResponse);
+}
+
+/**
+ * 预约写入与占位分开调用，注册幂等键必须在一次页面尝试内保持不变。
+ * 这样网络超时后用户再次点击时，服务端可以返回同一笔预约，而不是重复
+ * 调用 Provider 写入。
+ */
+export function requestAppointmentRegistration(
+	input: { patientId: string; holdId: string },
+	idempotencyKey = createIdempotencyKey("appointment-register"),
+): Promise<AppointmentRegistrationResponse> {
+	const patientId = requirePatientScopedId(input?.patientId);
+	const holdId = requireAppointmentWriteIdentifier(input?.holdId);
+	return requestWithSession<unknown>({
+		url: "/appointments/registrations",
+		method: "POST",
+		data: { patientId, holdId },
+		idempotencyKey: requireCommandIdempotencyKey(idempotencyKey),
+	}).then((payload) =>
+		requireAppointmentRegistrationResponse(payload, patientId),
 	);
 }
 

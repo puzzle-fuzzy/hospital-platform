@@ -55,6 +55,7 @@ export type FeatureStatus = {
 	 */
 	readiness:
 		| "已迁移"
+		| "读写已实现"
 		| "已接入安全子集"
 		| "全量替换进行中"
 		| "待 provider contract"
@@ -134,6 +135,7 @@ export function getFeatureUserFacingCopy(
 				progress: "当前仅展示已核对信息，未开放的支付或扩展能力不会被调用。",
 			};
 		case "已迁移":
+		case "读写已实现":
 			return {
 				badge: "服务已接入",
 				description: `${feature.title}已接入平台服务。`,
@@ -167,9 +169,11 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"appointment-write": {
 		title: "预约下单",
-		readiness: "全量替换进行中",
-		description: "预约下单正在迁移中，当前不会锁号、创建预约或发起支付。",
-		contractHint: "等待锁号、幂等、取消、费用、支付前置和 HIS 回写规则确认。",
+		readiness: "读写已实现",
+		description:
+			"预约下单已接入服务端占位、预约写入、详情和取消；支付仍由独立支付测试项目承接。",
+		contractHint:
+			"小程序只提交 opaque 排班、号源和就诊人引用；支付与医保结算继续按 miniprogram-pay 的独立流程验收。",
 		icon: "/assets/legacy-home/service-registration.svg",
 	},
 	"blood-appointment": {
