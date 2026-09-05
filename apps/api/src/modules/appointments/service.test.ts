@@ -3,9 +3,9 @@ import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	AppointmentDepartment,
 	AppointmentDirectoryGateway,
-	AppointmentRegistration,
 	AppointmentProviderSchedule,
 	AppointmentRecord,
+	AppointmentRegistration,
 	AppointmentScheduleQuery,
 	AppointmentScheduleSnapshotRepository,
 	PatientRepository,
@@ -639,7 +639,7 @@ test("appointment date ranges accept the configured span and reject anything wid
 	expect(recordProviderCalls).toBe(1);
 });
 
-test("appointment records include registrations written by the payment flow", async () => {
+test("appointment records associate provider facts with local detail references", async () => {
 	const localRegistration: AppointmentRegistration = {
 		appointmentId: "appointment-local-001",
 		ownerUserId: "user-001",
@@ -657,6 +657,11 @@ test("appointment records include registrations written by the payment flow", as
 		status: "booked",
 		createdAt: "2026-09-04T12:23:00.000Z",
 		updatedAt: "2026-09-04T12:23:00.000Z",
+	};
+	const localRegistrationNotReturnedByProvider: AppointmentRegistration = {
+		...localRegistration,
+		appointmentId: "appointment-local-not-returned",
+		providerAppointmentId: "provider-appointment-not-returned",
 	};
 	const service = new AppointmentService({
 		directory: {
@@ -686,7 +691,21 @@ test("appointment records include registrations written by the payment flow", as
 		} as unknown as PatientRepository,
 		records: {
 			listRecords: async () => ({
-				records: [],
+				records: [
+					{
+						departmentName: "风湿免疫门诊",
+						doctorName: "温慧芬",
+						workDate: "2026-09-07",
+						serialNumber: "1",
+						status: "cancelled",
+					},
+				],
+				providerRecordReferences: [
+					{
+						recordIndex: 0,
+						providerAppointmentId: "provider-appointment-local-001",
+					},
+				],
 				trace: {
 					provider: "zhongyang",
 					operation: "appointment-records",
@@ -695,7 +714,10 @@ test("appointment records include registrations written by the payment flow", as
 			}),
 		},
 		appointmentWrites: {
-			listRegistrationsByPatient: async () => [localRegistration],
+			listRegistrationsByPatient: async () => [
+				localRegistration,
+				localRegistrationNotReturnedByProvider,
+			],
 		},
 	});
 
@@ -714,7 +736,7 @@ test("appointment records include registrations written by the payment flow", as
 				doctorName: "温慧芬",
 				workDate: "2026-09-07",
 				serialNumber: "1",
-				status: "scheduled",
+				status: "cancelled",
 			},
 		],
 		total: 1,
@@ -788,6 +810,10 @@ test("appointment record empty results are successful and record failures are lo
 			event: "appointment.records.synced",
 			itemCount: 0,
 			statusCounts: {},
+			providerReferenceCount: 0,
+			providerRecordsWithoutReferenceCount: 0,
+			matchedLocalRegistrationCount: 0,
+			localOnlyCount: 0,
 		}),
 	);
 	expect(successEvents).not.toContainEqual(

@@ -21,6 +21,25 @@
   → GET /payments/medical-insurance/orders/{orderId}（处理中时查单）
 ```
 
+如果费用上传阶段收到众阳 2.6.33 明确的“正在收款中，不允许再次缴费”（服务端错误码
+`medical-insurance-payment-in-progress`），本端才进入专用恢复分支：
+
+```text
+2.6.33 payment-in-progress
+  → POST /payments/medical-insurance/orders/{orderId}/cancel
+  → 服务端 2.6.65.4 支付查单
+  → 2.6.65.11 支付关单
+  → 2.6.65.6 取消结算
+  → 返回 status/paymentState/settlementState/restartAllowed
+  → 复用仍在有效期内的医保授权上下文
+  → 创建新的平台医保订单
+  → 重新执行费用上传和医保结算
+```
+
+只有 `status=cancelled` 且 `restartAllowed=true` 才会重开；查到已支付、关单失败、取消结算失败或
+上下文缺失时进入人工复核，不会盲目重复 6201/6202。新门诊小程序不会调用这个 cancel 接口，
+只向前端返回“当前已有一笔支付在进行中”。同一恢复尝试最多重开一次，避免形成循环订单。
+
 页面不会因为已有预约而自动取消。服务端发现已有预约后，用户必须点击“取消后重新挂号”，先调用
 独立取消命令，再重新占位、预约写入和医保支付。不存在“预约+支付”的单一快速编排接口。
 

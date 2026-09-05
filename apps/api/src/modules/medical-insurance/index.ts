@@ -1,6 +1,8 @@
 import {
 	MedicalInsuranceAuthorizeRequest,
 	MedicalInsuranceAuthorizeResponse,
+	MedicalInsuranceCancelRequest,
+	MedicalInsuranceCancellationResponse,
 	MedicalInsuranceOrderResponse,
 	MedicalInsuranceWechatPayResponse,
 	success,
@@ -37,7 +39,7 @@ const MedicalInsuranceOrderParams = t.Object({
 });
 
 /**
- * 医保流程拆成四个明确的服务端命令：授权、费用上传、结算、查单。
+ * 医保流程拆成明确的服务端命令：授权、费用上传、结算、查单和支付中关单。
  * 这里不提供“快速挂号编排”入口，预约写入和取消由 appointments 模块独立负责。
  */
 export function medicalInsuranceModule(
@@ -106,6 +108,27 @@ export function medicalInsuranceModule(
 				headers: MedicalInsuranceCommandHeaders,
 				params: MedicalInsuranceOrderParams,
 				response: { 200: MedicalInsuranceOrderResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.post(
+			"/payments/medical-insurance/orders/:orderId/cancel",
+			async ({ request, headers, params, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await registrationService.cancel({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						reason: body.reason,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceCommandHeaders,
+				params: MedicalInsuranceOrderParams,
+				body: MedicalInsuranceCancelRequest,
+				response: { 200: MedicalInsuranceCancellationResponse },
 				tags: ["medical-insurance"],
 			},
 		)

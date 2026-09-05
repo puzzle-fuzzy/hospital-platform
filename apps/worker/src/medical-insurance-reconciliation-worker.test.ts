@@ -113,6 +113,9 @@ function gatewayFor(
 		settle: async () => {
 			throw new Error("settle is not used by reconciliation tests");
 		},
+		cancel: async () => {
+			throw new Error("cancel is not used by reconciliation tests");
+		},
 		query,
 	};
 }

@@ -12,7 +12,6 @@ import {
 	type AppointmentDepartmentTreeGateway,
 	type AppointmentDirectoryGateway,
 	AppointmentDirectoryResultValidationError,
-	type AppointmentRegistration,
 	type AppointmentProviderSchedule,
 	type AppointmentRecord,
 	type AppointmentRecordDirectoryGateway,
@@ -22,6 +21,7 @@ import {
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
 	type AppointmentScheduleSourceQuery,
+	type AppointmentWriteRepository,
 	adapterContextTraceId,
 	DependencyNotConfiguredError,
 	type ExternalTrace,
@@ -30,11 +30,11 @@ import {
 	normalizeAdapterCallContext,
 	normalizeAppointmentDepartmentGroupResults,
 	normalizeAppointmentDepartmentResults,
+	normalizeAppointmentRecordProviderReferences,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
 	normalizeAppointmentScheduleSourceResults,
 	normalizeExternalTrace,
-	type AppointmentWriteRepository,
 	type PatientRepository,
 	parseIsoCalendarDate,
 	validatePatientProviderReference,
@@ -52,7 +52,7 @@ export type AppointmentServiceDependencies = {
 	/** 记录查询需要 owner-scoped provider mapping；目录查询不依赖该 repository。 */
 	repository?: PatientRepository;
 	records?: AppointmentRecordDirectoryGateway;
-	/** 支付小程序写入的预约先落在本地仓储；记录页必须把这条事实合并进来。 */
+	/** 支付小程序写入的预约只用于服务端关联详情/取消，不覆盖 Provider 读模型。 */
 	appointmentWrites?: Pick<
 		AppointmentWriteRepository,
 		"listRegistrationsByPatient"
@@ -138,58 +138,6 @@ function countAppointmentRecordStatuses(
 		statusCounts[record.status] = (statusCounts[record.status] ?? 0) + 1;
 	}
 	return statusCounts;
-}
-
-/** 将新预约写入仓储中的状态投影到“我的挂号”公共状态。 */
-function localRegistrationRecord(
-	registration: AppointmentRegistration,
-): AppointmentRecord {
-	return {
-		// 这是平台生成的 opaque 详情引用；provider 预约号仍不会进入患者端。
-		appointmentId: registration.appointmentId,
-		departmentName: registration.departmentName,
-		doctorName: registration.doctorName,
-		workDate: registration.workDate,
-		serialNumber: registration.sourceSerialNumber,
-		status:
-			registration.status === "booked"
-				? "scheduled"
-				: registration.status === "cancelled"
-					? "cancelled"
-					: "unknown",
-	};
-}
-
-/**
- * 合并 Provider 历史与平台预约写入事实。
- *
- * 新支付小程序的预约写入已经成功落库，但 Provider 记录查询可能存在
- * 最终一致性窗口；因此当前用户的预约不能只依赖随后一次 Provider 读取。
- * 匹配到同一条记录时以本地预约状态为准（取消只有 Provider 取消成功后
- * 才会写入），没有匹配到时补入本地记录，旧项目历史仍继续来自 Provider。
- */
-function mergeLocalAppointmentRecords(
-	providerRecords: readonly AppointmentRecord[],
-	localRecords: readonly AppointmentRecord[],
-): { records: AppointmentRecord[]; localOnlyCount: number } {
-	const records = providerRecords.map((record) => ({ ...record }));
-	let localOnlyCount = 0;
-	for (const local of localRecords) {
-		const match = records.findIndex(
-			(record) =>
-				record.workDate === local.workDate &&
-				record.departmentName === local.departmentName &&
-				record.doctorName === local.doctorName &&
-				record.serialNumber === local.serialNumber,
-		);
-		if (match >= 0) {
-			records[match] = { ...records[match], ...local };
-		} else {
-			records.push(local);
-			localOnlyCount += 1;
-		}
-	}
-	return { records, localOnlyCount };
 }
 
 /**
@@ -1095,9 +1043,18 @@ export class AppointmentService {
 			// adapter 已经完成 Provider 字段白名单映射，但 service 端口仍可
 			// 被其它实现注入；在 `synced` 日志和 API 响应前再做一次校验并
 			// 重新投影，确保患者身份、预约号、费用和支付字段不会越过边界。
+			const rawResult = result as {
+				records?: unknown;
+				providerRecordReferences?: unknown;
+			};
 			const providerRecords = normalizeAppointmentRecordResults(
-				(result as { records?: unknown } | undefined)?.records,
+				rawResult.records,
 			);
+			const providerRecordReferences =
+				normalizeAppointmentRecordProviderReferences(
+					rawResult.providerRecordReferences,
+					providerRecords.length,
+				);
 			const localRegistrations = this.dependencies.appointmentWrites
 				? await this.dependencies.appointmentWrites.listRegistrationsByPatient({
 						ownerUserId,
@@ -1106,14 +1063,44 @@ export class AppointmentService {
 						...(query.endDate ? { endDate: query.endDate } : {}),
 					})
 				: [];
-			const localRecords = localRegistrations.map(localRegistrationRecord);
-			const merged = mergeLocalAppointmentRecords(
-				providerRecords,
-				localRecords,
+			const localByProviderAppointmentId = new Map(
+				localRegistrations.map((registration) => [
+					registration.providerAppointmentId,
+					registration,
+				]),
+			);
+			const matchedLocalRegistrationIds = new Set<string>();
+			const providerReferenceByIndex = new Map(
+				providerRecordReferences.map((reference) => [
+					reference.recordIndex,
+					reference.providerAppointmentId,
+				]),
+			);
+			// Provider 是预约记录和状态的唯一事实源。本地仓储只负责把已经
+			// 通过稳定 providerAppointmentId 关联上的平台 opaque appointmentId
+			// 补回去，绝不覆盖 Provider status，也不补入 Provider 没有返回的本地行。
+			const recordsWithPlatformReferences = providerRecords.map(
+				(record, recordIndex) => {
+					const providerAppointmentId =
+						providerReferenceByIndex.get(recordIndex);
+					const local = providerAppointmentId
+						? localByProviderAppointmentId.get(providerAppointmentId)
+						: undefined;
+					if (local) matchedLocalRegistrationIds.add(local.appointmentId);
+					return local
+						? { ...record, appointmentId: local.appointmentId }
+						: record;
+				},
 			);
 			const normalizedRecords = normalizeAppointmentRecordResults(
-				merged.records,
+				recordsWithPlatformReferences,
 			);
+			const localOnlyCount = localRegistrations.filter(
+				(registration) =>
+					!matchedLocalRegistrationIds.has(registration.appointmentId),
+			).length;
+			const providerRecordsWithoutReferenceCount =
+				providerRecords.length - providerRecordReferences.length;
 			validateAppointmentRecordWindow(normalizedRecords, query);
 			this.logger.info(
 				{
@@ -1126,7 +1113,10 @@ export class AppointmentService {
 					itemCount: normalizedRecords.length,
 					providerItemCount: providerRecords.length,
 					localRegistrationCount: localRegistrations.length,
-					localOnlyCount: merged.localOnlyCount,
+					providerReferenceCount: providerRecordReferences.length,
+					providerRecordsWithoutReferenceCount,
+					matchedLocalRegistrationCount: matchedLocalRegistrationIds.size,
+					localOnlyCount,
 					statusCounts: countAppointmentRecordStatuses(normalizedRecords),
 				},
 				"Appointment records loaded",

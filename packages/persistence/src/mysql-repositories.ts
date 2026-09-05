@@ -3421,7 +3421,7 @@ export function createMySqlRepositories(
 		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {
 			const rows = await execute<MIRow[]>(
 				pool,
-				`${MI_SELECT} WHERE owner_user_id = ? AND appointment_id = ? LIMIT 1`,
+				`${MI_SELECT} WHERE owner_user_id = ? AND appointment_id = ? ORDER BY updated_at DESC, medical_order_id DESC LIMIT 1`,
 				[ownerUserId, appointmentId],
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
@@ -3429,7 +3429,7 @@ export function createMySqlRepositories(
 		async findByOwnerAndBusinessKey(ownerUserId, businessType, businessId) {
 			const rows = await execute<MIRow[]>(
 				pool,
-				`${MI_SELECT} WHERE owner_user_id = ? AND business_type = ? AND business_id = ? LIMIT 1`,
+				`${MI_SELECT} WHERE owner_user_id = ? AND business_type = ? AND business_id = ? ORDER BY updated_at DESC, medical_order_id DESC LIMIT 1`,
 				[ownerUserId, businessType, businessId],
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;

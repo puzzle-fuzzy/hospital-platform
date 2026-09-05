@@ -798,6 +798,18 @@ export type AppointmentRecord = {
 };
 
 /**
+ * Provider 记录与平台本地预约之间的服务端内部关联。
+ *
+ * `recordIndex` 对应同一次 `listRecords` 返回中的 records 下标，
+ * `providerAppointmentId` 只用于 owner-scoped 关联详情/取消/支付，不能进入
+ * `AppointmentRecord` 公共模型，也不能通过 API 返回给小程序。
+ */
+export type AppointmentRecordProviderReference = {
+	recordIndex: number;
+	providerAppointmentId: string;
+};
+
+/**
  * 预约记录网关结果违反公共读模型时使用的低敏原因。
  *
  * adapter 是第一道 Provider 白名单边界，但 `AppointmentRecordDirectoryGateway`
@@ -813,7 +825,8 @@ export type AppointmentRecordResultViolation =
 	| "work-date-outside-query"
 	| "status-invalid"
 	| "work-time-invalid"
-	| "display-text-invalid";
+	| "display-text-invalid"
+	| "provider-reference-invalid";
 
 /** Provider 结果二次校验错误；它属于上游读模型异常，不是患者输入错误。 */
 export class AppointmentRecordResultValidationError extends Error {
@@ -950,6 +963,55 @@ export function normalizeAppointmentRecordResults(
 	});
 }
 
+/**
+ * 校验 adapter 返回的 Provider 记录内部关联。
+ *
+ * 这个字段是服务端组合层的控制信息，不是患者端读模型。允许缺失是为了
+ * 兼容历史回放和没有稳定 appointmentInfoId 的 Provider 记录；一旦存在，
+ * 下标、Provider ID 和唯一性都必须严格成立，不能再退回日期/科室/医生等
+ * 展示字段猜测同一条预约。
+ */
+export function normalizeAppointmentRecordProviderReferences(
+	value: unknown,
+	recordCount: number,
+): AppointmentRecordProviderReference[] {
+	if (value === undefined) return [];
+	if (
+		!Array.isArray(value) ||
+		!Number.isSafeInteger(recordCount) ||
+		recordCount < 0
+	) {
+		invalidRecordResult("provider-reference-invalid");
+	}
+
+	const seenIndexes = new Set<number>();
+	const seenProviderIds = new Set<string>();
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidRecordResult("provider-reference-invalid");
+		}
+		const reference = item as Record<string, unknown>;
+		const recordIndex = reference.recordIndex;
+		const providerAppointmentId = reference.providerAppointmentId;
+		if (
+			!Number.isSafeInteger(recordIndex) ||
+			(recordIndex as number) < 0 ||
+			(recordIndex as number) >= recordCount ||
+			!isBoundedOpaqueIdentifier(providerAppointmentId) ||
+			seenIndexes.has(recordIndex as number) ||
+			seenProviderIds.has(providerAppointmentId)
+		) {
+			invalidRecordResult("provider-reference-invalid");
+		}
+		seenIndexes.add(recordIndex as number);
+		seenProviderIds.add(providerAppointmentId);
+		return {
+			recordIndex: recordIndex as number,
+			providerAppointmentId,
+		};
+	});
+}
+
 /** 预约记录对应旧端的两个只读渠道；渠道由服务端选择，不能透传 Provider 数字。 */
 export type AppointmentRecordScope = "online" | "all";
 
@@ -1037,6 +1099,8 @@ export interface AppointmentRecordDirectoryGateway {
 		context: AdapterCallContext,
 	): Promise<{
 		records: readonly AppointmentRecord[];
+		/** 仅供服务端把众阳记录关联到本地控制数据，不出 API。 */
+		providerRecordReferences?: readonly AppointmentRecordProviderReference[];
 		trace: ExternalTrace;
 	}>;
 }

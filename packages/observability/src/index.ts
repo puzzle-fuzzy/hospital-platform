@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import pino, { type DestinationStream, type Logger as PinoLogger } from "pino";
 
 export type { DestinationStream } from "pino";
@@ -35,9 +36,10 @@ export type ProviderFailureMetadata = {
 	providerFailureReason?:
 		| "appointment-source-unavailable"
 		| "payment-order-not-found";
-	/** Provider 错误响应的有限检索字段，不记录原始响应 body。 */
+	/** Provider 错误响应的有限检索字段，不记录原始响应 body 或错误正文。 */
 	providerErrorCode?: string;
-	providerErrorMessage?: string;
+	providerErrorMessageLength?: number;
+	providerErrorMessageSha256?: string;
 	/**
 	 * 传输层底层错误的有限枚举，例如证书过期或 DNS 失败。
 	 * 只允许基础设施错误码，绝不把异常 message、URL 或证书内容写入日志。
@@ -99,6 +101,19 @@ function safeProviderText(value: unknown): string | undefined {
 		return undefined;
 	}
 	return normalized;
+}
+
+function providerMessageFingerprint(value: string): {
+	providerErrorMessageLength: number;
+	providerErrorMessageSha256: string;
+} {
+	return {
+		providerErrorMessageLength: value.length,
+		providerErrorMessageSha256: createHash("sha256")
+			.update(value)
+			.digest("hex")
+			.slice(0, 16),
+	};
 }
 
 /**
@@ -184,7 +199,9 @@ export function providerFailureMetadata(
 		...(providerRequestOutcome ? { providerRequestOutcome } : {}),
 		...(providerFailureReason ? { providerFailureReason } : {}),
 		...(providerErrorCode ? { providerErrorCode } : {}),
-		...(providerErrorMessage ? { providerErrorMessage } : {}),
+		...(providerErrorMessage
+			? providerMessageFingerprint(providerErrorMessage)
+			: {}),
 		...(providerTransportErrorCode ? { providerTransportErrorCode } : {}),
 	};
 }

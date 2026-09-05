@@ -6,6 +6,7 @@ import type {
 	ExternalTrace,
 	MedicalInsuranceAmounts,
 	MedicalInsuranceAuthorizationContext,
+	MedicalInsuranceCancellationEvidence,
 	MedicalInsuranceAuthorizationRepository,
 	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceGateway,
@@ -40,6 +41,8 @@ const DEFAULT_TRADE_TYPE_CODE = "10";
 const DEFAULT_REGISTER_SOURCE = 15;
 const DEFAULT_SETTLE_WAY = 6;
 const DEFAULT_PRE_ORDER_AUTO_SETTLE = 3;
+// 众阳 2.6.65.4 文档示例使用 2；2.6.65.11 仍沿用挂号旧端实际使用的 3。
+const DEFAULT_PAY_QUERY_AUTO_SETTLE = 2;
 const DEFAULT_MEDICAL_PAY_TYPE_ID = 2;
 const DEFAULT_MEDICAL_PAY_MODEL = "H5";
 
@@ -152,6 +155,7 @@ function responseError(
 	details?: {
 		providerErrorCode?: string | undefined;
 		providerErrorMessage?: string | undefined;
+		reason?: "medical-insurance-payment-in-progress" | undefined;
 	},
 ): ProviderRequestError {
 	const diagnosticMessage = (details?.providerErrorMessage ?? message).slice(
@@ -170,6 +174,7 @@ function responseError(
 			? { providerErrorCode: details.providerErrorCode.slice(0, 64) }
 			: {}),
 		...(diagnosticMessage ? { providerErrorMessage: diagnosticMessage } : {}),
+		...(details?.reason ? { reason: details.reason } : {}),
 	});
 }
 
@@ -813,6 +818,110 @@ function findRecordDeep(
 	return undefined;
 }
 
+function providerRecordKeys(value: unknown): string[] {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return [];
+	}
+	return Object.keys(value as ProviderRecord)
+		.sort()
+		.slice(0, 80);
+}
+
+function hasProviderField(
+	record: ProviderRecord | undefined,
+	keys: readonly string[],
+): boolean {
+	if (!record) return false;
+	return keys.some((key) => {
+		const value = record[key];
+		return value !== undefined && value !== null && String(value).trim() !== "";
+	});
+}
+
+function providerPayloadShape(value: unknown): Record<string, unknown> {
+	if (Array.isArray(value)) {
+		return {
+			kind: "array",
+			count: value.length,
+			firstItemKeys: providerRecordKeys(value[0]),
+		};
+	}
+	if (typeof value === "object" && value !== null) {
+		const record = value as ProviderRecord;
+		const arrayFields = Object.entries(record)
+			.filter(([, item]) => Array.isArray(item))
+			.slice(0, 20)
+			.map(([key, item]) => ({
+				key,
+				count: (item as unknown[]).length,
+				firstItemKeys: providerRecordKeys((item as unknown[])[0]),
+			}));
+		return {
+			kind: "object",
+			keys: providerRecordKeys(record),
+			arrayFields,
+		};
+	}
+	return { kind: value === null ? "null" : typeof value };
+}
+
+function settlementDetailShape(
+	details: readonly ProviderRecord[],
+	children: readonly ProviderRecord[],
+): Record<string, unknown> {
+	const summaries = details.slice(0, 20).map((detail, index) => {
+		const detailOutTradeOrderId = [
+			"outTradeOrderId",
+			"out_trade_order_id",
+		].find((key) => hasProviderField(detail, [key]));
+		const detailChargeId = hasProviderField(detail, ["chargeId"]);
+		const childIndex = children.findIndex((child) => {
+			const childOutTradeOrderId = [
+				"outTradeOrderId",
+				"out_trade_order_id",
+			].find((key) => hasProviderField(child, [key]));
+			const sameOrder =
+				detailOutTradeOrderId !== undefined &&
+				childOutTradeOrderId !== undefined &&
+				String(detail[detailOutTradeOrderId]).trim() ===
+					String(child[childOutTradeOrderId]).trim();
+			const sameCharge =
+				detailChargeId &&
+				hasProviderField(child, ["chargeId"]) &&
+				String(detail.chargeId).trim() === String(child.chargeId).trim();
+			return sameOrder || sameCharge;
+		});
+		const child = childIndex >= 0 ? children[childIndex] : undefined;
+		return {
+			index,
+			detailKeys: providerRecordKeys(detail),
+			childIndex: childIndex >= 0 ? childIndex : undefined,
+			matchedBy:
+				childIndex < 0
+					? "none"
+					: detailChargeId &&
+							hasProviderField(child, ["chargeId"]) &&
+							String(detail.chargeId).trim() === String(child?.chargeId).trim()
+						? "chargeId"
+						: "outTradeOrderId",
+			detailHasOrderId: hasProviderField(detail, ["orderId"]),
+			detailHasOutDocOrderId: hasProviderField(detail, ["outDocOrderId"]),
+			detailHasOutTradeOrderId: detailOutTradeOrderId !== undefined,
+			detailHasChargeId: detailChargeId,
+			childKeys: providerRecordKeys(child),
+			childHasOrderId: hasProviderField(child, ["orderId"]),
+			childHasOutDocOrderId: hasProviderField(child, ["outDocOrderId"]),
+		};
+	});
+	return {
+		detailCount: details.length,
+		childCount: children.length,
+		unmatchedDetailCount: summaries.filter((item) => item.matchedBy === "none")
+			.length,
+		firstDetails: summaries,
+	};
+}
+
 function providerField(
 	primary: ProviderRecord,
 	secondary: ProviderRecord | undefined,
@@ -847,7 +956,10 @@ function requiredProviderField(
 	return value;
 }
 
-/** 2.27.2.32 的 upDetailList 必须来自 HIS 明细和 2.6.33 子项目事实。 */
+/**
+ * 2.27.2.32 的 upDetailList 只能在 6202/6301 之后使用真实 HIS 明细构造。
+ * 2.6.33 只用于确认待支付子项目和匹配事实，不能提前决定后置回写字段。
+ */
 function mapSettlementDetails(
 	details: readonly ProviderRecord[],
 	children: readonly ProviderRecord[],
@@ -1026,6 +1138,91 @@ function providerDeepValue(
 	return undefined;
 }
 
+type MedicalInsurancePaymentState =
+	| "not_created"
+	| "processing"
+	| "closed"
+	| "paid"
+	| "unknown";
+
+function paymentQueryCode(value: unknown): number | string | undefined {
+	const payload = providerDeepValue(value, ["data"]);
+	const raw =
+		payload && typeof payload === "object"
+			? providerDeepValue(payload, ["code"])
+			: undefined;
+	if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+	if (typeof raw === "string" && /^\d+$/.test(raw.trim())) return raw.trim();
+	return undefined;
+}
+
+function providerCancelStatus(value: unknown): string | undefined {
+	const payload = providerDeepValue(value, ["data"]);
+	if (typeof payload !== "object" || payload === null) return undefined;
+	const raw = providerDeepValue(payload, ["cancelStatus"]);
+	return typeof raw === "string" || typeof raw === "number"
+		? String(raw).trim()
+		: undefined;
+}
+
+function providerRevokeStatus(value: unknown): string | undefined {
+	const payload = providerDeepValue(value, ["data"]);
+	if (typeof payload !== "object" || payload === null) return undefined;
+	const records = (payload as ProviderRecord).revokePayRecords;
+	if (!Array.isArray(records)) return undefined;
+	for (const record of records) {
+		if (typeof record !== "object" || record === null) continue;
+		const raw = (record as ProviderRecord).status;
+		if (typeof raw === "string" || typeof raw === "number") {
+			return String(raw).trim();
+		}
+	}
+	return undefined;
+}
+
+/**
+ * 众阳 2.6.65.4 的真实文档把支付状态定义在响应 data.code：
+ * 3=支付成功、5=支付失败、其他值=支付中；外层 code=0000 只是接口调用结果，
+ * 不能拿来判断支付状态。这里优先读取 data 载荷中的数字 code，再兼容已经
+ * 出现过的文字状态字段。未知值继续保持 unknown，避免把不确定订单自动关单。
+ */
+function classifyPaymentQueryState(
+	value: unknown,
+): MedicalInsurancePaymentState {
+	const paymentCode = paymentQueryCode(value);
+	if (paymentCode !== undefined) {
+		switch (String(paymentCode)) {
+			case "3":
+				return "paid";
+			case "5":
+				// 文档明确说明 5 为支付失败，可取消结算后重新支付；
+				// 对当前取消分支而言它已经没有可继续收款的支付流水。
+				return "closed";
+			default:
+				return "processing";
+		}
+	}
+	const raw = providerDeepValue(value, [
+		"payStatus",
+		"payState",
+		"paymentStatus",
+		"transStatus",
+		"settleStatus",
+	]);
+	if (typeof raw !== "string") return "unknown";
+	const state = raw.trim().toLowerCase();
+	if (/paid|success|succeed|completed|settled/.test(state)) return "paid";
+	if (/closed|cancel|refun|failed|fail/.test(state)) return "closed";
+	if (/pending|process|collect|paying|wait/.test(state)) return "processing";
+	return "unknown";
+}
+
+function providerResultLabel(value: unknown): string {
+	if (providerSuccessFlag(value) === false) return "success=false";
+	if (providerSuccessFlag(value) === true) return "success=true";
+	return "success=unknown";
+}
+
 function accountFlag(
 	records: readonly ProviderRecord[],
 	insuplcAdmdvs: string,
@@ -1114,6 +1311,15 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				providerRequestId: response.requestId,
 				providerStatusCode: response.statusCode,
 				queryKeys: Object.keys(query).sort(),
+				queryPresence: Object.fromEntries(
+					Object.entries(query).map(([key, value]) => [
+						key,
+						Array.isArray(value)
+							? { kind: "array", count: value.length }
+							: { kind: "text", present: Boolean(value), length: value.length },
+					]),
+				),
+				responseShape: providerPayloadShape(response.data),
 			},
 			"Zhongyang response received",
 		);
@@ -1146,6 +1352,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					providerRequestId: response.requestId,
 					providerStatusCode: response.statusCode,
 					bodyKeys: Object.keys(body).sort(),
+					responseShape: providerPayloadShape(response.data),
 				},
 				"Zhongyang response received",
 			);
@@ -1214,6 +1421,16 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				["outSettleDetailList", "out_settle_detail_list"],
 				"medical-insurance.2.27.2.27",
 				detailResponse.requestId,
+			);
+			options.logger?.info(
+				{
+					event: "medical-insurance.settlement-details.shape",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					detailProviderRequestId: detailResponse.requestId,
+					...settlementDetailShape(details, []),
+				},
+				"Medical insurance stored settlement detail inputs inspected",
 			);
 			const outNetworkSettleMain =
 				findRecordDeep(settleInfo, [
@@ -1833,6 +2050,41 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					preOrderResponse.requestId,
 				);
 			}
+			// 2.6.65.2 已经创建支付流水后，后续 2.27.2.27/2.6.33/6201
+			// 任一步失败都必须仍然具备 2.6.65.11/2.6.65.6 的取消上下文。
+			// 先落一个只含关单所需事实的密文上下文，后面成功拿到真实医保
+			// 明细后再用完整上下文覆盖；这样“正在收款中”不会变成孤儿流水。
+			await options.orders.saveSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+				{
+					businessId,
+					businessCode,
+					hospitalId,
+					patientId: appointment.providerPatientId,
+					networkRegister: {},
+					outNetworkSettleMain: {},
+					nationalUpDetailList: [],
+					upDetailList: [],
+					tradeOrderIds,
+					payingId,
+					tradingId,
+				},
+			);
+			options.logger?.info(
+				{
+					event: "medical-insurance.settlement-context.pre-6201-saved",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					settleApplyProviderRequestId: settleApply.requestId,
+					preOrderProviderRequestId: preOrderResponse.requestId,
+					hasBusinessId: Boolean(businessId),
+					tradeOrderCount: tradeOrderIds.length,
+					hasPayingId: Boolean(payingId),
+					hasTradingId: Boolean(tradingId),
+				},
+				"Medical insurance cancellation context saved before 6201",
+			);
 			const detailResponse = await zhongyangGet(
 				"medical-insurance.2.27.2.27",
 				"/msun-yb-app-miop/v1/out-insur-settle-infos",
@@ -2055,7 +2307,102 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"medical-insurance.2.6.33",
 				childPaymentResponse.requestId,
 			);
+			// 6201 只能使用 2.6.33 返回的“待支付”子项目。
+			// 查询参数是 tradeStatus=1 不是充分条件，Provider 回包仍必须复核；
+			// tradeStatus=2 或 disableSettleFlag=1 都表示不能再次发起结算。
+			const nonPayableChildCount = childRecords.filter((record) => {
+				const tradeStatus = optionalText(
+					record,
+					["tradeStatus"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				const disableSettleFlag = optionalText(
+					record,
+					["disableSettleFlag"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				return tradeStatus !== "1" || disableSettleFlag === "1";
+			}).length;
+			const paymentInProgressCount = childRecords.filter((record) => {
+				const tradeStatus = optionalText(
+					record,
+					["tradeStatus"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				const disableSettleFlag = optionalText(
+					record,
+					["disableSettleFlag"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				const reason = optionalText(
+					record,
+					["disableSettleReason"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				return (
+					tradeStatus === "2" ||
+					(disableSettleFlag === "1" &&
+						(reason === undefined || /收款|缴费|支付/.test(reason)))
+				);
+			}).length;
+			if (nonPayableChildCount > 0) {
+				options.logger?.warn(
+					{
+						event: "medical-insurance.2.6.33.result.rejected",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						providerRequestId: childPaymentResponse.requestId,
+						resultCount: childRecords.length,
+						nonPayableChildCount,
+						paymentInProgressCount,
+						expectedTradeStatus: "1",
+						reason: "trade_status_or_disable_settle_flag_not_payable",
+					},
+					"Medical insurance child payment result is not payable",
+				);
+				throw responseError(
+					"medical-insurance.2.6.33",
+					"待支付费用返回为不可再次结算状态",
+					childPaymentResponse.requestId,
+					paymentInProgressCount > 0
+						? { reason: "medical-insurance-payment-in-progress" }
+						: undefined,
+				);
+			}
+			options.logger?.info(
+				{
+					event: "medical-insurance.settlement-details.shape",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					detailProviderRequestId: detailResponse.requestId,
+					childProviderRequestId: childPaymentResponse.requestId,
+					...settlementDetailShape(details, childRecords),
+				},
+				"Medical insurance settlement detail mapping inputs inspected",
+			);
 			const acctUsedFlag = accountFlag(childRecords, auth.insuplcAdmdvs);
+			// 6201 只负责上传费用，不能在这里提前构造 2.27.2.32 的
+			// upDetailList。该列表依赖医保结算完成后的真实 HIS 订单字段；
+			// 提前校验会把“后置回写字段缺失”错误地变成 6201 失败。
+			// 6202/6301 之后由 finalizeStoredSettlement 重新读取 2.27.2.27
+			// 并构造 upDetailList，保持与 Provider 规定的调用顺序一致。
+			options.logger?.info(
+				{
+					event: "medical-insurance.settlement-details.deferred",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					detailProviderRequestId: detailResponse.requestId,
+					childProviderRequestId: childPaymentResponse.requestId,
+					targetOperation: "medical-insurance.2.27.2.32",
+					reason: "requires_post_6202_his_order_facts",
+				},
+				"Medical insurance settlement detail mapping deferred until settlement result",
+			);
 			const outNetworkSettleMain =
 				findRecordDeep(settleInfo, [
 					"outNetworkSettleMain",
@@ -2065,12 +2412,6 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"outSettlePat",
 				"out_settle_pat",
 			]);
-			const upDetailList = mapSettlementDetails(
-				details,
-				childRecords,
-				"medical-insurance.2.27.2.32",
-				detailResponse.requestId,
-			);
 			const networkRegister: Record<string, unknown> = {
 				cantonCode: auth.insuplcAdmdvs,
 				cardNo: auth.payAuthNo,
@@ -2242,7 +2583,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
 						? (settleInfo.nationalUpDetailList as ProviderRecord[])
 						: [],
-					upDetailList,
+					// 这里留空是有意的：后置回写阶段会重新获取并严格映射真实明细。
+					upDetailList: [],
 					tradeOrderIds,
 					payingId,
 					tradingId,
@@ -2367,6 +2709,239 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				trace: result.trace,
 				source: "6202",
 				providerStatus: result.settlement.ordStas,
+			};
+		},
+
+		async cancel(
+			input,
+			context,
+		): Promise<MedicalInsuranceCancellationEvidence> {
+			const order = await options.orders.findByMedicalOrderId(input.orderId);
+			if (!order || order.ownerUserId !== input.ownerUserId)
+				throw responseError(
+					"medical-insurance.2.6.65.6",
+					"order context is unavailable",
+				);
+			const settlementContext = await options.orders.getSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+			);
+			if (!settlementContext) {
+				options.logger?.error(
+					{
+						event: "medical-insurance.cancellation.context-missing",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						reason: input.reason,
+					},
+					"Medical insurance cancellation context is missing",
+				);
+				throw responseError(
+					"medical-insurance.2.6.65.6",
+					"支付关单上下文不存在，不能安全取消",
+				);
+			}
+
+			const tradeTypeCode = order.businessType === "outpatient" ? "2" : "10";
+			const requestIds: string[] = [];
+			let paymentState: MedicalInsurancePaymentState =
+				settlementContext.payingId ? "unknown" : "not_created";
+			options.logger?.info(
+				{
+					event: "medical-insurance.cancellation.requested",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					businessType: order.businessType ?? "registration",
+					tradeTypeCode,
+					reason: input.reason,
+					hasSettlementContext: true,
+					hasBusinessId: Boolean(settlementContext.businessId),
+					hasPayingId: Boolean(settlementContext.payingId),
+				},
+				"Medical insurance cancellation requested",
+			);
+
+			if (settlementContext.payingId) {
+				const queryResponse = await zhongyangPost(
+					"medical-insurance.2.6.65.4",
+					"/msun-middle-open-settlepay/api/v2/open/payment/pay-query",
+					context,
+					{
+						authSysCode: DEFAULT_AUTH_SYS_CODE,
+						autoSettle: DEFAULT_PAY_QUERY_AUTO_SETTLE,
+						businessId: settlementContext.businessId,
+						hospitalId: settlementContext.hospitalId,
+						payingId: settlementContext.payingId,
+						tradeTypeCode,
+						workStationId: "",
+					},
+				);
+				requestIds.push(queryResponse.requestId);
+				paymentState = classifyPaymentQueryState(queryResponse.data);
+				options.logger?.info(
+					{
+						event: "medical-insurance.cancellation.2.6.65.4.completed",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						providerRequestId: queryResponse.requestId,
+						providerStatus: providerResultLabel(queryResponse.data),
+						paymentStatusCode: paymentQueryCode(queryResponse.data),
+						paymentState,
+						responseShape: providerPayloadShape(queryResponse.data),
+					},
+					"Medical insurance payment status queried before cancellation",
+				);
+				if (providerSuccessFlag(queryResponse.data) === false) {
+					return {
+						state: "manual_review",
+						paymentState: "unknown",
+						settlementState: "unknown",
+						providerStatus: "2.6.65.4_success=false",
+						trace: trace(
+							"medical-insurance.cancellation",
+							context,
+							requestIds,
+							settlementContext.businessId,
+						),
+					};
+				}
+				if (paymentState === "paid") {
+					options.logger?.warn(
+						{
+							event: "medical-insurance.cancellation.blocked-paid",
+							traceId: context.traceId,
+							orderId: input.orderId,
+							providerRequestId: queryResponse.requestId,
+							paymentState,
+						},
+						"Medical insurance cancellation blocked because payment is paid",
+					);
+					return {
+						state: "manual_review",
+						paymentState: "paid",
+						settlementState: "unknown",
+						providerStatus: "payment_paid_requires_refund_review",
+						trace: trace(
+							"medical-insurance.cancellation",
+							context,
+							requestIds,
+							settlementContext.businessId,
+						),
+					};
+				}
+			}
+
+			if (
+				settlementContext.payingId &&
+				paymentState !== "closed" &&
+				paymentState !== "not_created"
+			) {
+				// 2.6.33 已经确认“正在收款中”，所以 pay-query 未返回可识别
+				// 的文字状态时，只在本专用 payment_in_progress 分支允许关单；
+				// 关单本身必须拿到 success=true 才能继续取消结算。
+				const closeResponse = await zhongyangPost(
+					"medical-insurance.2.6.65.11",
+					"/msun-middle-open-settlepay/api/v2/open/payment/pay-close",
+					context,
+					{
+						authSysCode: DEFAULT_AUTH_SYS_CODE,
+						autoSettle: DEFAULT_PRE_ORDER_AUTO_SETTLE,
+						businessId: settlementContext.businessId,
+						payingId: settlementContext.payingId,
+						tradeTypeCode,
+						workStationId: "",
+					},
+				);
+				requestIds.push(closeResponse.requestId);
+				const revokeStatus = providerRevokeStatus(closeResponse.data);
+				options.logger?.info(
+					{
+						event: "medical-insurance.cancellation.2.6.65.11.completed",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						providerRequestId: closeResponse.requestId,
+						providerStatus: providerResultLabel(closeResponse.data),
+						revokeStatus,
+						responseShape: providerPayloadShape(closeResponse.data),
+					},
+					"Medical insurance payment close completed",
+				);
+				if (
+					providerSuccessFlag(closeResponse.data) !== true ||
+					revokeStatus !== "3"
+				) {
+					return {
+						state: "manual_review",
+						paymentState: "unknown",
+						settlementState: "unknown",
+						providerStatus: "2.6.65.11_revoke_status_not_confirmed",
+						trace: trace(
+							"medical-insurance.cancellation",
+							context,
+							requestIds,
+							settlementContext.businessId,
+						),
+					};
+				}
+				paymentState = "closed";
+			}
+
+			const cancelResponse = await zhongyangPost(
+				"medical-insurance.2.6.65.6",
+				"/msun-middle-open-settlepay/api/v2/open/settle/cancel-settle",
+				context,
+				{
+					authSysCode: DEFAULT_AUTH_SYS_CODE,
+					businessId: settlementContext.businessId,
+					tradeTypeCode,
+					workStationId: "",
+				},
+			);
+			requestIds.push(cancelResponse.requestId);
+			const cancelStatus = providerCancelStatus(cancelResponse.data);
+			options.logger?.info(
+				{
+					event: "medical-insurance.cancellation.2.6.65.6.completed",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					providerRequestId: cancelResponse.requestId,
+					providerStatus: providerResultLabel(cancelResponse.data),
+					cancelStatus,
+					responseShape: providerPayloadShape(cancelResponse.data),
+				},
+				"Medical insurance settlement cancellation completed",
+			);
+			if (
+				providerSuccessFlag(cancelResponse.data) !== true ||
+				(cancelStatus !== "1" && cancelStatus !== "0")
+			) {
+				return {
+					state: "manual_review",
+					paymentState,
+					settlementState: "unknown",
+					providerStatus: "2.6.65.6_cancel_status_not_confirmed",
+					trace: trace(
+						"medical-insurance.cancellation",
+						context,
+						requestIds,
+						settlementContext.businessId,
+					),
+				};
+			}
+			return {
+				state: "cancelled",
+				paymentState,
+				settlementState: "cancelled",
+				providerStatus:
+					cancelStatus === "0"
+						? "payment_closed_settlement_already_cancelled"
+						: "payment_closed_and_settlement_cancelled",
+				trace: trace(
+					"medical-insurance.cancellation",
+					context,
+					requestIds,
+					settlementContext.businessId,
+				),
 			};
 		},
 

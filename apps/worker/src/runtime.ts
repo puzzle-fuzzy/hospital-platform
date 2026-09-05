@@ -1,4 +1,5 @@
 import {
+	configureProviderRequestLogger,
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
 	createSmCryptoLegacyFsiCrypto,
@@ -124,6 +125,9 @@ export function createWorkerRuntime(
 		return createNotConfiguredRuntime(missingConfiguration);
 
 	const logger = options.logger ?? createNoopLogger();
+	// Worker 也会执行医保查单、微信查单和补偿请求；与 API 使用相同的
+	// provider HTTP 审计边界，避免后台请求没有请求/响应证据。
+	configureProviderRequestLogger(logger);
 	const persistence =
 		options.persistence ??
 		createPersistenceRuntime({

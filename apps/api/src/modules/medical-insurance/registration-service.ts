@@ -259,6 +259,12 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance idempotency key conflicts with appointment",
 			);
+		// 支付小程序完成 2.6.65.11/2.6.65.6 后，原医保订单保留为
+		// cancelled；同一预约可以用原授权上下文创建一笔新的平台医保订单，
+		// 不要求用户重复跳转医保小程序。授权上下文仍由仓储按有效期校验。
+		const reusableAuthorizationId =
+			order?.status === "cancelled" ? order.authorizationId : null;
+		if (order?.status === "cancelled") order = undefined;
 		if (!order) {
 			const now = this.now().toISOString();
 			const medicalOrderId = this.createId();
@@ -270,7 +276,7 @@ export class MedicalInsuranceRegistrationService {
 				orderType: REGISTRATION_ORDER_TYPE,
 				businessId: appointmentId,
 				appointmentId,
-				authorizationId: null,
+				authorizationId: reusableAuthorizationId ?? null,
 				feeUploadId: null,
 				idempotencyKey: context.idempotencyKey,
 				medOrgOrd: medicalOrderId,
@@ -469,6 +475,17 @@ export class MedicalInsuranceRegistrationService {
 		cashPaymentConfirmed?: boolean;
 	}): Promise<MedicalInsuranceOrderPayload["data"]> {
 		return this.core.query(input);
+	}
+
+	async cancel(input: {
+		ownerUserId: string;
+		orderId: string;
+		reason: "payment_in_progress";
+		context: unknown;
+	}): Promise<
+		import("@hospital/contracts").MedicalInsuranceCancellationPayload["data"]
+	> {
+		return this.core.cancel(input);
 	}
 
 	async confirmWechatCashPayment(input: {

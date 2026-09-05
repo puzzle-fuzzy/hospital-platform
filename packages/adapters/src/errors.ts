@@ -39,7 +39,9 @@ export type ProviderRequestOutcome = "not_sent" | "rejected" | "unknown";
 export type ProviderFailureReason =
 	| "appointment-source-unavailable"
 	/** 微信查单明确返回订单不存在，可安全把本地尝试置为 failed 后重试。 */
-	| "payment-order-not-found";
+	| "payment-order-not-found"
+	/** 众阳 2.6.33 明确返回已有支付流水，支付小程序可进入关单重开分支。 */
+	| "medical-insurance-payment-in-progress";
 
 export class ProviderRequestError extends Error {
 	readonly provider: AdapterName;

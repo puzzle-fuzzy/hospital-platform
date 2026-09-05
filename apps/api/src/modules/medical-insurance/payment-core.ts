@@ -1,4 +1,7 @@
-import type { MedicalInsuranceOrderPayload } from "@hospital/contracts";
+import type {
+	MedicalInsuranceCancellationPayload,
+	MedicalInsuranceOrderPayload,
+} from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
@@ -49,6 +52,23 @@ function output(
 					},
 				}
 			: {}),
+	};
+}
+
+function cancellationOutput(
+	orderId: string,
+	result: {
+		state: "cancelled" | "awaiting_confirmation" | "manual_review";
+		paymentState: "not_created" | "processing" | "closed" | "paid" | "unknown";
+		settlementState: "not_created" | "cancelled" | "unknown";
+	},
+): MedicalInsuranceCancellationPayload["data"] {
+	return {
+		orderId,
+		status: result.state,
+		paymentState: result.paymentState,
+		settlementState: result.settlementState,
+		restartAllowed: result.state === "cancelled",
 	};
 }
 
@@ -276,6 +296,93 @@ export class MedicalInsurancePaymentCore {
 			"Medical insurance settlement queried",
 		);
 		return output(updated);
+	}
+
+	/**
+	 * 支付小程序专用的“支付中订单关闭并重开”分支。新门诊小程序不调用
+	 * 此命令，只接收 2.6.33 的 payment-in-progress 错误并提示用户处理。
+	 */
+	async cancel(input: {
+		ownerUserId: string;
+		orderId: string;
+		reason: "payment_in_progress";
+		context: unknown;
+	}): Promise<MedicalInsuranceCancellationPayload["data"]> {
+		const context = contextOf(input.context);
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const orderId = opaque(input.orderId, "orderId");
+		const order = await this.order(ownerUserId, orderId);
+		if (order.status === "cancelled") {
+			this.logger.info(
+				{
+					event: "medical-insurance.cancellation.already-completed",
+					traceId: context.traceId,
+					ownerUserId,
+					orderId,
+					...logBusiness(order),
+				},
+				"Medical insurance cancellation already completed",
+			);
+			return cancellationOutput(orderId, {
+				state: "cancelled",
+				paymentState: "unknown",
+				settlementState: "cancelled",
+			});
+		}
+		if (
+			order.status === "insurance_settled" ||
+			(order.status === "cash_pending" &&
+				order.wechatPaymentState === "cash_paid")
+		)
+			throw new MedicalInsuranceRegistrationInputError(
+				"已完成的医保支付不能走支付中关单分支",
+			);
+		this.logger.info(
+			{
+				event: "medical-insurance.cancellation.requested",
+				traceId: context.traceId,
+				ownerUserId,
+				orderId,
+				...logBusiness(order),
+				reason: input.reason,
+			},
+			"Medical insurance cancellation requested",
+		);
+		const result = await this.dependencies.medicalInsurance.cancel(
+			{ orderId, ownerUserId, reason: input.reason },
+			context,
+		);
+		const updated = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				status: result.state,
+				ordStas: result.providerStatus,
+				amounts: order.amounts,
+				setlType: order.setlType,
+				revsTokenHash: order.revsTokenHash,
+				revsTokenExpiresAt: order.revsTokenExpiresAt,
+				...businessPatch(order),
+			},
+		);
+		if (!updated)
+			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		this.logger.info(
+			{
+				event: "medical-insurance.cancellation.completed",
+				traceId: context.traceId,
+				ownerUserId,
+				orderId,
+				...logBusiness(order),
+				state: result.state,
+				paymentState: result.paymentState,
+				settlementState: result.settlementState,
+				providerStatus: result.providerStatus,
+				providerRequestId: result.trace.requestId,
+			},
+			"Medical insurance cancellation completed",
+		);
+		return cancellationOutput(orderId, result);
 	}
 
 	/**

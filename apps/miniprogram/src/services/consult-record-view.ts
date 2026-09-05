@@ -25,9 +25,10 @@ export type ConsultRecordWindow<T extends AppointmentRecord> = {
  * 按医院业务日历把预约摘要分为今日、未来和历史。
  *
  * `workDate` 是服务端已经校验过的自然日，不是带时区的瞬时点；调用方
- * 必须传入同一中国标准时间自然日，不能用设备本地日期直接比较。当天
- * 记录只作为预约摘要进入 `today`，不改变服务端返回的预约状态，也不
- * 生成任何实时叫号或排队结论。
+ * 必须传入同一中国标准时间自然日，不能用设备本地日期直接比较。今日和
+ * 未来只展示仍存在的预约事实，明确取消的记录不再占用当前就诊窗口；历史
+ * 保留取消记录，避免把已发生的预约事实抹掉。这里仍不生成实时叫号或排队
+ * 结论。
  */
 export function filterConsultRecords<T extends AppointmentRecord>(
 	records: readonly T[],
@@ -37,6 +38,12 @@ export function filterConsultRecords<T extends AppointmentRecord>(
 	if (tab !== "today" && tab !== "upcoming" && tab !== "history") return [];
 
 	return records.filter((record) => {
+		if (
+			record.status === "cancelled" &&
+			(tab === "today" || tab === "upcoming")
+		) {
+			return false;
+		}
 		if (tab === "today") return record.workDate === today;
 		if (record.workDate === today) return false;
 		return tab === "upcoming"

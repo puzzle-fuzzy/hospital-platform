@@ -9,6 +9,7 @@ import {
 	type AppointmentProviderSchedule,
 	type AppointmentRecord,
 	type AppointmentRecordDirectoryGateway,
+	type AppointmentRecordProviderReference,
 	type AppointmentRecordQuery,
 	type AppointmentRecordScope,
 	type AppointmentSchedule,
@@ -595,9 +596,10 @@ function recordStatus(value: unknown): AppointmentRecord["status"] {
 }
 
 /**
- * 同一预约历史响应中如果带有重复 `appointmentInfoId`，必须拒绝整批结果。
+ * 同一预约历史响应中如果带有重复 `appointmentInfoId`，必须拒绝整批结果；
+ * 通过校验的 ID 以记录下标关联到服务端内部控制数据。
  *
- * 这个 ID 只用于 adapter 内部判断，不进入公共读模型；但如果忽略重复值，
+ * 这个 ID 只进入 adapter 到 service 的内部关联，不进入公共读模型；但如果忽略重复值，
  * 原生页面虽然可以用数组下标渲染两行，后续详情、取消或状态刷新却无法
  * 判断它们是否是同一条预约。Provider 没有返回预约号时不人为生成 ID，
  * 继续保持只读摘要，避免把标题、日期和流水号拼成伪业务主键。
@@ -606,9 +608,10 @@ function ensureUniqueAppointmentIds(
 	items: readonly ProviderObject[],
 	operation: string,
 	requestId: string,
-): void {
+): AppointmentRecordProviderReference[] {
 	const seen = new Set<string>();
-	for (const item of items) {
+	const references: AppointmentRecordProviderReference[] = [];
+	for (const [recordIndex, item] of items.entries()) {
 		const appointmentId = optionalText(
 			item.appointmentInfoId,
 			"appointmentInfoId",
@@ -625,7 +628,9 @@ function ensureUniqueAppointmentIds(
 			);
 		}
 		seen.add(appointmentId);
+		references.push({ recordIndex, providerAppointmentId: appointmentId });
 	}
+	return references;
 }
 
 /**
@@ -1291,12 +1296,19 @@ export class ZhongyangAppointmentApiGateway
 			response.requestId,
 			MAX_APPOINTMENT_RECORD_ITEMS,
 		);
-		ensureUniqueAppointmentIds(records, operation, response.requestId);
+		const providerRecordReferences = ensureUniqueAppointmentIds(
+			records,
+			operation,
+			response.requestId,
+		);
 		const mappedRecords = records.map((item) =>
 			mapRecord(item, operation, response.requestId),
 		);
 		return {
 			records: mappedRecords,
+			// Provider 预约号只留在服务端组合层，用于关联平台控制数据；
+			// 不把它并入公共 AppointmentRecord，避免出现在小程序响应中。
+			providerRecordReferences,
 			trace: trace(operation, response.requestId),
 		};
 	}

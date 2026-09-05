@@ -129,6 +129,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-appointment-not-found": 30510,
 	"medical-insurance-order-not-found": 30520,
 	"medical-insurance-appointment-stale": 30530,
+	"medical-insurance-payment-in-progress": 30540,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -308,6 +309,13 @@ export function errorHandlerPlugin() {
 					return errorPayload(
 						"appointment-source-unavailable",
 						"指定号源刚刚发生变化，请刷新后重试",
+					);
+				}
+				if (error.reason === "medical-insurance-payment-in-progress") {
+					set.status = 409;
+					return errorPayload(
+						"medical-insurance-payment-in-progress",
+						"当前已有一笔支付在进行中，请完成或关闭后再试",
 					);
 				}
 				set.status = error.retryable ? 503 : 502;

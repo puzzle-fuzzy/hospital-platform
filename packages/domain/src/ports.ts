@@ -180,6 +180,18 @@ export type MedicalInsuranceSettlementEvidence = {
 	authoritative: boolean;
 };
 
+/**
+ * 取消支付中的医保结算时，服务端只返回可编排的状态，不把众阳原始回包
+ * 或支付流水凭证交给小程序。`unknown` 必须停在待确认，不能被当成已关闭。
+ */
+export type MedicalInsuranceCancellationEvidence = {
+	state: "cancelled" | "awaiting_confirmation" | "manual_review";
+	paymentState: "not_created" | "processing" | "closed" | "paid" | "unknown";
+	settlementState: "not_created" | "cancelled" | "unknown";
+	trace: ExternalTrace;
+	providerStatus: string;
+};
+
 /** 支付订单的内部快照，金额统一使用整数分。 */
 export type PaymentOrderSnapshot = {
 	orderId: string;
@@ -277,6 +289,15 @@ export interface MedicalInsuranceGateway {
 		},
 		context: AdapterCallContext,
 	): Promise<MedicalInsuranceSettlementEvidence>;
+	cancel(
+		input: {
+			orderId: string;
+			ownerUserId: string;
+			/** 只有在 2.6.33 已确认“正在收款中”后才允许走此专用分支。 */
+			reason: "payment_in_progress";
+		},
+		context: AdapterCallContext,
+	): Promise<MedicalInsuranceCancellationEvidence>;
 }
 
 /** 微信医保混合订单的 provider 状态，只在 adapter 内部映射后进入编排层。 */

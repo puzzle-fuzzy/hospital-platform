@@ -155,6 +155,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"medical-insurance-order-not-found": "未找到对应的医保订单",
 		"medical-insurance-appointment-stale":
 			"当前预约已失效，请重新获取号源并预约",
+		"medical-insurance-payment-in-progress":
+			"当前已有一笔医保支付在进行中，请完成后再试",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
 		"report-query-invalid": "暂时无法查询检查报告，请稍后再试",
 		"report-patient-not-found": "未查询到检查报告",

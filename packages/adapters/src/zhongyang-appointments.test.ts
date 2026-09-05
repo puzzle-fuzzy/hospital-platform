@@ -666,7 +666,10 @@ test("众阳预约记录只固定微信查询参数并移除患者和支付字�
 			status: "scheduled",
 		},
 	]);
-	expect(JSON.stringify(result)).not.toContain("provider-record-001");
+	expect(result.providerRecordReferences).toEqual([
+		{ recordIndex: 0, providerAppointmentId: "provider-record-001" },
+	]);
+	expect(JSON.stringify(result.records)).not.toContain("provider-record-001");
 	expect(JSON.stringify(result)).not.toContain("provider-patient-001");
 	expect(JSON.stringify(result)).not.toContain("13800000000");
 	expect(JSON.stringify(result)).not.toContain("registFree");

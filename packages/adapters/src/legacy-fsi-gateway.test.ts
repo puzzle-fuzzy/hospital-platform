@@ -79,6 +79,7 @@ test("legacy FSI gateway uses fixed encrypted relay routes", async () => {
 				data: {
 					payOrdId: "provider-order-001",
 					payToken: "provider-token-001",
+					extData: { mdtrtId: "provider-visit-001" },
 				},
 			}),
 			{ status: 200, headers: { "x-request-id": "relay-request-001" } },
@@ -91,6 +92,7 @@ test("legacy FSI gateway uses fixed encrypted relay routes", async () => {
 			payOrdId: "provider-order-001",
 			payToken: "provider-token-001",
 		},
+		mdtrtId: "provider-visit-001",
 		totalFen: 1200,
 		trace: { provider: "legacy-fsi", requestId: "relay-request-001" },
 	});

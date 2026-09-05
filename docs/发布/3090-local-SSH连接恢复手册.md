@@ -43,6 +43,28 @@ ssh -J meiyi.pro -o BatchMode=yes -o ConnectTimeout=8 \
 命令和目标的情况下，不要直接删除 socket 或自行启动未知代理。项目发布和日志排障可直接使用
 上面的 PEM 兜底命令，不受 `3090-local` 残留 socket 影响。
 
+### 0.2 2026-09-05 隧道服务根因与已验证恢复方式
+
+本次进一步核查确认，`ps` 上的 `hospital-3090-tunnel.service` 由
+`hospital-3090-tunnel.service` 维护远端 Unix socket，服务表面上可能仍是 `active`，但
+autossh 子进程会持续记录：
+
+```text
+remote port forwarding failed for listen path /tmp/hospital-3090-ssh.sock
+```
+
+此时 3090 上只能看到一个没有监听进程的残留 socket；本机重新建立 `22023` 转发不会修复它。
+正确的恢复顺序是：
+
+1. 在 3090 上确认该路径确实是 socket 且 `ss -xlpn` 没有 `LISTEN` 进程后，只删除这个明确的残留 socket；
+2. 在 `ps` 上重启 `hospital-3090-tunnel.service`（没有免密 sudo 时由维护人员输入 sudo 密码）；
+3. 确认 3090 上该路径重新出现 `LISTEN` 后，再在 macOS 建立本地 `22023` 转发；
+4. 最后执行 `ssh 3090-local` 验证目标主机、用户和当前 release。
+
+本次验证结果：远端 socket 已重新 `LISTEN`，本机后台 `-fN` 转发正常，
+`ssh 3090-local` 已成功进入 `ps`。若以后仅本机端口异常，可直接复用第 2 节命令；若出现
+握手重置且远端 socket 没有 `LISTEN`，必须先恢复远端 tunnel service，或使用第 0 节 PEM 直连。
+
 ## 1. 先检查 `3090-local`
 
 ```bash

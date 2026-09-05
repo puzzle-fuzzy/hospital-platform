@@ -7,6 +7,7 @@ import {
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
 	MAX_APPOINTMENT_SNAPSHOT_TTL_MS,
 	normalizeAppointmentDepartmentGroupResults,
+	normalizeAppointmentRecordProviderReferences,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
 	validateAppointmentScheduleSnapshot,
@@ -98,6 +99,39 @@ test("预约历史读模型超过资源上限时整批拒绝", () => {
 	expect(() => normalizeAppointmentRecordResults(records)).toThrow(
 		new AppointmentRecordResultValidationError("records-too-many"),
 	);
+});
+
+test("预约历史内部关联只接受唯一且落在记录范围内的 Provider ID", () => {
+	expect(
+		normalizeAppointmentRecordProviderReferences(
+			[
+				{ recordIndex: 0, providerAppointmentId: "provider-appointment-001" },
+				{ recordIndex: 1, providerAppointmentId: "provider-appointment-002" },
+			],
+			2,
+		),
+	).toEqual([
+		{ recordIndex: 0, providerAppointmentId: "provider-appointment-001" },
+		{ recordIndex: 1, providerAppointmentId: "provider-appointment-002" },
+	]);
+
+	for (const references of [
+		[{ recordIndex: 2, providerAppointmentId: "provider-appointment-001" }],
+		[
+			{ recordIndex: 0, providerAppointmentId: "provider-appointment-001" },
+			{ recordIndex: 0, providerAppointmentId: "provider-appointment-002" },
+		],
+		[
+			{ recordIndex: 0, providerAppointmentId: "provider-appointment-001" },
+			{ recordIndex: 1, providerAppointmentId: "provider-appointment-001" },
+		],
+	]) {
+		expect(() =>
+			normalizeAppointmentRecordProviderReferences(references, 2),
+		).toThrow(
+			new AppointmentRecordResultValidationError("provider-reference-invalid"),
+		);
+	}
 });
 
 test("预约历史只接受合法时间点或不倒序的时间段", () => {

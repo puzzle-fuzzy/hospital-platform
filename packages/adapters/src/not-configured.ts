@@ -56,6 +56,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		uploadFees: async (_input, _context) => unavailable("medical-insurance"),
 		settle: async (_input, _context) => unavailable("medical-insurance"),
 		query: async (_input, _context) => unavailable("medical-insurance"),
+		cancel: async (_input, _context) => unavailable("medical-insurance"),
 	};
 	const patientDirectory: PatientDirectoryGateway = {
 		listByIdentity: async (_input, _context) => unavailable("zhongyang"),

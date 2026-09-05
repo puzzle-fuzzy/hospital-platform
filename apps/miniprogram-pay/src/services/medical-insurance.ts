@@ -1,6 +1,6 @@
 import { PAY_CONFIG, STORAGE_KEYS } from "../config";
 import type { CreatedAppointment } from "./appointment";
-import { newIdempotencyKey, request } from "./request";
+import { ApiError, newIdempotencyKey, request } from "./request";
 
 export type PaymentProgress =
 	| "authorizing"
@@ -277,6 +277,14 @@ type MedicalOrder = {
 	amounts?: { totalFen: number; insuranceFen: number; cashFen: number };
 };
 
+type MedicalCancellation = {
+	orderId: string;
+	status: "cancelled" | "awaiting_confirmation" | "manual_review";
+	paymentState: "not_created" | "processing" | "closed" | "paid" | "unknown";
+	settlementState: "not_created" | "cancelled" | "unknown";
+	restartAllowed: boolean;
+};
+
 type WechatMedicalInsurancePayParams = {
 	timeStamp: string;
 	nonceStr: string;
@@ -323,6 +331,18 @@ async function orderCommand(
 	idempotencyKey: string,
 ): Promise<MedicalOrder> {
 	return request<MedicalOrder>({ path, method: "POST", idempotencyKey });
+}
+
+/** 只由 miniprogram-pay 在 2.6.33 返回“支付中”后调用，门诊查询小程序不调用。 */
+async function cancelPaymentInProgress(
+	orderId: string,
+): Promise<MedicalCancellation> {
+	return request<MedicalCancellation>({
+		path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/cancel`,
+		method: "POST",
+		idempotencyKey: newIdempotencyKey("medical-cancel-in-progress"),
+		data: { reason: "payment_in_progress" },
+	});
 }
 
 function requestWechatPayment(
@@ -629,6 +649,7 @@ export async function continueMedicalPayment(
 	authCode: string,
 	pending: PendingPayment,
 	onProgress: Progress,
+	restartAttempted = false,
 ): Promise<void> {
 	if (!authCode.trim()) throw new Error("医保授权结果为空");
 	const authorize = await request<{ orderId: string; status: "authorized" }>({
@@ -641,10 +662,40 @@ export async function continueMedicalPayment(
 	pending.orderId = orderId;
 	savePending(pending);
 	onProgress("insuring", "医保授权成功，正在上传挂号费用");
-	await orderCommand(
-		`/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/fees`,
-		pending.feesIdempotencyKey,
-	);
+	try {
+		await orderCommand(
+			`/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/fees`,
+			pending.feesIdempotencyKey,
+		);
+	} catch (error) {
+		if (
+			!restartAttempted &&
+			error instanceof ApiError &&
+			error.code === "medical-insurance-payment-in-progress"
+		) {
+			onProgress("settling", "检测到已有支付进行中，正在关闭旧支付订单");
+			const cancellation = await cancelPaymentInProgress(orderId);
+			if (cancellation.status !== "cancelled" || !cancellation.restartAllowed) {
+				throw new Error("当前支付订单未能安全关闭，请稍后重试");
+			}
+			const replacement = { ...pending };
+			delete replacement.orderId;
+			replacement.authorizeIdempotencyKey = newIdempotencyKey(
+				"medical-authorize-restart",
+			);
+			replacement.feesIdempotencyKey = newIdempotencyKey(
+				"medical-fees-restart",
+			);
+			replacement.settleIdempotencyKey = newIdempotencyKey(
+				"medical-settle-restart",
+			);
+			replacement.phase = "authorization";
+			savePending(replacement);
+			onProgress("insuring", "旧支付已关闭，正在重新发起医保订单");
+			return continueMedicalPayment(authCode, replacement, onProgress, true);
+		}
+		throw error;
+	}
 	onProgress("settling", "正在进行医保结算");
 	let order = await orderCommand(
 		`/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/settle`,

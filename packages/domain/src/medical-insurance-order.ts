@@ -29,7 +29,9 @@ export type MedicalInsuranceOrderStatus =
 	/** 查单重试耗尽、6203 EXP 或对账不一致；人工接管。 */
 	| "manual_review"
 	/** 明确失败（ordStas 14/15/16 或撤销完成）。 */
-	| "failed";
+	| "failed"
+	/** 已按 2.6.65.11/2.6.65.6 完成支付关单和结算取消。 */
+	| "cancelled";
 
 const STATUS_VALUES: readonly MedicalInsuranceOrderStatus[] = [
 	"created",
@@ -40,6 +42,7 @@ const STATUS_VALUES: readonly MedicalInsuranceOrderStatus[] = [
 	"awaiting_confirmation",
 	"manual_review",
 	"failed",
+	"cancelled",
 ];
 
 export function isMedicalInsuranceOrderStatus(
@@ -59,7 +62,13 @@ const ALLOWED_TRANSITIONS: Record<
 	MedicalInsuranceOrderStatus,
 	readonly MedicalInsuranceOrderStatus[]
 > = {
-	created: ["fee_uploaded", "failed", "manual_review"],
+	created: [
+		"fee_uploaded",
+		"awaiting_confirmation",
+		"failed",
+		"manual_review",
+		"cancelled",
+	],
 	fee_uploaded: [
 		"order_placed",
 		// 6202 may return a final candidate in the same command; the adapter
@@ -69,6 +78,7 @@ const ALLOWED_TRANSITIONS: Record<
 		"awaiting_confirmation",
 		"failed",
 		"manual_review",
+		"cancelled",
 	],
 	order_placed: [
 		"insurance_settled",
@@ -76,17 +86,25 @@ const ALLOWED_TRANSITIONS: Record<
 		"awaiting_confirmation",
 		"failed",
 		"manual_review",
+		"cancelled",
 	],
 	insurance_settled: ["manual_review"],
-	cash_pending: ["insurance_settled", "awaiting_confirmation", "manual_review"],
+	cash_pending: [
+		"insurance_settled",
+		"awaiting_confirmation",
+		"manual_review",
+		"cancelled",
+	],
 	awaiting_confirmation: [
 		"insurance_settled",
 		"cash_pending",
 		"failed",
 		"manual_review",
+		"cancelled",
 	],
 	manual_review: [],
 	failed: ["manual_review"],
+	cancelled: [],
 };
 
 export class MedicalInsuranceOrderTransitionError extends Error {

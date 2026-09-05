@@ -1708,23 +1708,27 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			return orders.get(medicalOrderId);
 		},
 		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {
-			return (
-				[...orders.values()].find(
+			return [...orders.values()]
+				.filter(
 					(order) =>
 						order.ownerUserId === ownerUserId &&
 						order.appointmentId === appointmentId,
-				) ?? undefined
-			);
+				)
+				.sort((left, right) =>
+					right.updatedAt.localeCompare(left.updatedAt),
+				)[0];
 		},
 		async findByOwnerAndBusinessKey(ownerUserId, businessType, businessId) {
-			return (
-				[...orders.values()].find(
+			return [...orders.values()]
+				.filter(
 					(order) =>
 						order.ownerUserId === ownerUserId &&
 						(order.businessType ?? "registration") === businessType &&
 						(order.businessId ?? order.appointmentId) === businessId,
-				) ?? undefined
-			);
+				)
+				.sort((left, right) =>
+					right.updatedAt.localeCompare(left.updatedAt),
+				)[0];
 		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			return (
@@ -1741,10 +1745,6 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				throw new Error(
 					"Medical insurance settlement context order is unavailable",
 				);
-			}
-			const existing = settlementContexts.get(medicalOrderId);
-			if (existing && JSON.stringify(existing) !== JSON.stringify(context)) {
-				throw new Error("Medical insurance settlement context changed");
 			}
 			settlementContexts.set(medicalOrderId, {
 				...context,

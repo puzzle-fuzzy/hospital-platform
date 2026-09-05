@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { AdapterContext, AdapterName } from "./context";
 import { ProviderRequestError, type ProviderRequestOutcome } from "./errors";
 
@@ -13,6 +14,173 @@ const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000;
  * 保留可检索性，同时不把未经校验的外部字符串当成业务事实。
  */
 const MAX_PROVIDER_REQUEST_ID_LENGTH = 128;
+
+/**
+ * Provider HTTP 边界的日志能力只依赖这三个方法，避免 adapters 反向依赖
+ * observability。生产组合根把 Pino 注入这里后，所有调用 requestJson 的
+ * adapter 都会自动得到同一套请求/响应审计事件。
+ */
+export type ProviderRequestLogger = {
+	info(bindings: object, message?: string): void;
+	warn(bindings: object, message?: string): void;
+	error(bindings: object, message?: string): void;
+};
+
+let defaultProviderRequestLogger: ProviderRequestLogger | undefined;
+
+/** 由 API 组合根调用一次；测试可以传入 silent logger。 */
+export function configureProviderRequestLogger(
+	logger: ProviderRequestLogger | undefined,
+): void {
+	defaultProviderRequestLogger = logger;
+}
+
+const SENSITIVE_FIELD_PARTS = [
+	"id",
+	"idno",
+	"openid",
+	"unionid",
+	"name",
+	"token",
+	"auth",
+	"secret",
+	"key",
+	"sign",
+	"cipher",
+	"encrypt",
+	"credential",
+	"password",
+	"phone",
+	"mobile",
+	"card",
+	"cert",
+	"session",
+	"ec",
+] as const;
+
+function isSensitiveField(field: string): boolean {
+	const normalized = field.replaceAll(/[^a-zA-Z0-9]/g, "").toLowerCase();
+	return SENSITIVE_FIELD_PARTS.some((part) => normalized.includes(part));
+}
+
+function shortSha256(value: string | Uint8Array): string {
+	return createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
+function safeStringShape(
+	value: string,
+	sensitive: boolean,
+): Record<string, unknown> {
+	return {
+		kind: "string",
+		length: value.length,
+		...(sensitive ? { sensitive: true } : { sha256: shortSha256(value) }),
+	};
+}
+
+/**
+ * 记录完整的 JSON 结构，但不记录任何原始值。
+ *
+ * 这里 deliberately 保留字段名、嵌套关系、数组数量、字符串长度和非敏感
+ * 字符串指纹，足以定位“字段缺失/包装层错误/数组为空/前后响应不一致”，
+ * 同时不会把身份证、姓名、医保 token、授权码或签名写进 journald。
+ */
+function safeValueShape(
+	value: unknown,
+	fieldName = "",
+	depth = 0,
+	seen = new WeakSet<object>(),
+): unknown {
+	if (depth > 6) return { kind: "truncated", reason: "max-depth" };
+	if (value === null) return { kind: "null" };
+	if (value === undefined) return { kind: "undefined" };
+	if (typeof value === "string") {
+		return safeStringShape(value, isSensitiveField(fieldName));
+	}
+	if (typeof value === "number") {
+		return { kind: "number", finite: Number.isFinite(value) };
+	}
+	if (typeof value === "boolean") return { kind: "boolean" };
+	if (typeof value === "bigint") return { kind: "bigint" };
+	if (typeof value === "function") return { kind: "function" };
+	if (typeof value !== "object") return { kind: typeof value };
+	if (seen.has(value)) return { kind: "circular" };
+	seen.add(value);
+
+	if (Array.isArray(value)) {
+		return {
+			kind: "array",
+			count: value.length,
+			items: value
+				.slice(0, 20)
+				.map((item) => safeValueShape(item, fieldName, depth + 1, seen)),
+			...(value.length > 20 ? { truncatedItems: value.length - 20 } : {}),
+		};
+	}
+
+	const record = value as Record<string, unknown>;
+	const keys = Object.keys(record).sort();
+	const fields = Object.fromEntries(
+		keys
+			.slice(0, 120)
+			.map((key) => [key, safeValueShape(record[key], key, depth + 1, seen)]),
+	);
+	return {
+		kind: "object",
+		keys: keys.slice(0, 120),
+		fields,
+		...(keys.length > 120 ? { truncatedFields: keys.length - 120 } : {}),
+	};
+}
+
+function safeUrlShape(rawUrl: string): Record<string, unknown> {
+	try {
+		const url = new URL(rawUrl);
+		return {
+			origin: url.origin,
+			pathnameLength: url.pathname.length,
+			pathnameSha256: shortSha256(url.pathname),
+			queryKeys: [...new Set(url.searchParams.keys())].sort(),
+		};
+	} catch {
+		return { kind: "invalid-url", length: rawUrl.length };
+	}
+}
+
+function safeHeaderShape(headers: Headers): Record<string, unknown> {
+	const names = [...headers.keys()].sort();
+	return {
+		names,
+		sensitiveNames: names.filter((name) => isSensitiveField(name)),
+	};
+}
+
+function safeRawBodyShape(raw: string): Record<string, unknown> {
+	if (!raw) return { kind: "empty", byteLength: 0 };
+	try {
+		return {
+			kind: "json",
+			byteLength: new TextEncoder().encode(raw).byteLength,
+			sha256: shortSha256(raw),
+			shape: safeValueShape(JSON.parse(raw)),
+		};
+	} catch {
+		return {
+			kind: "text",
+			byteLength: new TextEncoder().encode(raw).byteLength,
+			sha256: shortSha256(raw),
+		};
+	}
+}
+
+function emitProviderLog(
+	logger: ProviderRequestLogger | undefined,
+	level: "info" | "warn" | "error",
+	bindings: Record<string, unknown>,
+	message: string,
+): void {
+	logger?.[level](bindings, message);
+}
 
 /** 统一的 provider 请求输入，禁止让业务层自行拼接认证和幂等请求头。 */
 export type ProviderRequest = {
@@ -32,6 +200,8 @@ export type ProviderRequest = {
 		statusCode: number;
 		requestId: string;
 	}) => void | Promise<void>;
+	/** 单次调用覆盖；未传时使用组合根配置的统一 provider logger。 */
+	logger?: ProviderRequestLogger;
 };
 
 export type ProviderResponse<T> = {
@@ -119,7 +289,37 @@ export async function requestJson<T>(
 	input: ProviderRequest,
 	fetcher: ProviderFetcher = fetch,
 ): Promise<ProviderResponse<T>> {
+	const logger = input.logger ?? defaultProviderRequestLogger;
+	const headers = new Headers(input.headers);
+	headers.set("accept", "application/json");
+	headers.set("x-request-id", input.context.traceId);
+	headers.set("idempotency-key", input.context.idempotencyKey);
+	if (input.body !== undefined || input.bodyText !== undefined) {
+		headers.set("content-type", "application/json");
+	}
+	const auditBase = {
+		provider: input.provider,
+		operation: input.operation,
+		traceId: input.context.traceId,
+		requestId: input.context.traceId,
+		method: input.method,
+		url: safeUrlShape(input.url),
+		headers: safeHeaderShape(headers),
+		bodyShape: safeValueShape(
+			input.body !== undefined ? input.body : input.bodyText,
+		),
+	};
 	if (input.body !== undefined && input.bodyText !== undefined) {
+		emitProviderLog(
+			logger,
+			"error",
+			{
+				event: "provider.request.invalid",
+				...auditBase,
+				failureStage: "validation",
+			},
+			"Provider request rejected before dispatch",
+		);
 		throw new ProviderRequestError({
 			provider: input.provider,
 			operation: input.operation,
@@ -142,18 +342,12 @@ export async function requestJson<T>(
 		input.context.signal?.addEventListener("abort", onAbort, { once: true });
 	}
 
-	const headers = new Headers(input.headers);
-	headers.set("accept", "application/json");
-	headers.set("x-request-id", input.context.traceId);
-	headers.set("idempotency-key", input.context.idempotencyKey);
-
 	const init: RequestInit = {
 		method: input.method,
 		headers,
 		signal: controller.signal,
 	};
 	if (input.body !== undefined || input.bodyText !== undefined) {
-		headers.set("content-type", "application/json");
 		init.body = input.bodyText ?? JSON.stringify(input.body);
 	}
 
@@ -171,12 +365,32 @@ export async function requestJson<T>(
 			});
 		}
 
+		emitProviderLog(
+			logger,
+			"info",
+			{ event: "provider.request.dispatched", ...auditBase },
+			"Provider request dispatched",
+		);
+
 		const response = await fetcher(input.url, init);
 		const rawBody = new Uint8Array(await response.arrayBuffer());
 		const raw = new TextDecoder().decode(rawBody);
 		const requestId = responseRequestId(
 			response.headers,
 			input.context.traceId,
+		);
+		emitProviderLog(
+			logger,
+			"info",
+			{
+				event: "provider.response.received",
+				...auditBase,
+				providerRequestId: requestId,
+				providerStatusCode: response.status,
+				providerResponseHeaders: safeHeaderShape(response.headers),
+				responseShape: safeRawBodyShape(raw),
+			},
+			"Provider response received",
 		);
 
 		if (!response.ok) {
@@ -187,7 +401,7 @@ export async function requestJson<T>(
 				response.status !== 429
 					? "rejected"
 					: "unknown";
-			throw new ProviderRequestError({
+			const error = new ProviderRequestError({
 				provider: input.provider,
 				operation: input.operation,
 				message: `Provider request failed with status ${response.status}`,
@@ -197,10 +411,31 @@ export async function requestJson<T>(
 				failureStage: "http",
 				requestOutcome,
 				...(errorDetails.code ? { providerErrorCode: errorDetails.code } : {}),
-				...(errorDetails.message
+				// 微信 ORDER_NOT_EXIST 的现有重试分支需要保留其业务文案；众阳等
+				// 医疗接口不把 Provider 原文放入异常对象，避免身份证/姓名/凭证
+				// 等内容通过错误序列化泄漏。原始响应结构仍由服务端审计日志记录。
+				...(input.provider === "wechat-pay" && errorDetails.message
 					? { providerErrorMessage: errorDetails.message }
 					: {}),
 			});
+			emitProviderLog(
+				logger,
+				"warn",
+				{
+					event: "provider.request.failed",
+					...auditBase,
+					providerRequestId: requestId,
+					providerStatusCode: response.status,
+					failureStage: "http",
+					requestOutcome,
+					providerErrorCode: errorDetails.code,
+					providerErrorMessageShape: errorDetails.message
+						? safeStringShape(errorDetails.message, true)
+						: undefined,
+				},
+				"Provider request failed with an HTTP error",
+			);
+			throw error;
 		}
 
 		if (input.verifyResponse) {
@@ -213,6 +448,19 @@ export async function requestJson<T>(
 				});
 			} catch (cause) {
 				if (cause instanceof ProviderRequestError) throw cause;
+				emitProviderLog(
+					logger,
+					"error",
+					{
+						event: "provider.request.failed",
+						...auditBase,
+						providerRequestId: requestId,
+						providerStatusCode: response.status,
+						failureStage: "response",
+						errorName: cause instanceof Error ? cause.name : "UnknownError",
+					},
+					"Provider response verification failed",
+				);
 
 				throw new ProviderRequestError({
 					provider: input.provider,
@@ -238,6 +486,19 @@ export async function requestJson<T>(
 				requestId,
 			};
 		} catch (cause) {
+			emitProviderLog(
+				logger,
+				"error",
+				{
+					event: "provider.request.failed",
+					...auditBase,
+					providerRequestId: requestId,
+					providerStatusCode: response.status,
+					failureStage: "response",
+					errorName: cause instanceof Error ? cause.name : "UnknownError",
+				},
+				"Provider response was not valid JSON",
+			);
 			throw new ProviderRequestError({
 				provider: input.provider,
 				operation: input.operation,
@@ -250,7 +511,39 @@ export async function requestJson<T>(
 			});
 		}
 	} catch (cause) {
-		if (cause instanceof ProviderRequestError) throw cause;
+		if (cause instanceof ProviderRequestError) {
+			emitProviderLog(
+				logger,
+				cause.failureStage === "transport" ? "error" : "warn",
+				{
+					event: "provider.request.failed",
+					...auditBase,
+					providerRequestId: cause.requestId,
+					providerStatusCode: cause.statusCode,
+					failureStage: cause.failureStage,
+					requestOutcome: cause.requestOutcome,
+					errorName: cause.name,
+					providerErrorCode: cause.providerErrorCode,
+					providerErrorMessageShape: cause.providerErrorMessage
+						? safeStringShape(cause.providerErrorMessage, true)
+						: undefined,
+				},
+				"Provider request failed",
+			);
+			throw cause;
+		}
+		emitProviderLog(
+			logger,
+			"error",
+			{
+				event: "provider.request.failed",
+				...auditBase,
+				providerRequestId: input.context.traceId,
+				failureStage: "transport",
+				errorName: cause instanceof Error ? cause.name : "UnknownError",
+			},
+			"Provider request could not be completed",
+		);
 
 		throw new ProviderRequestError({
 			provider: input.provider,

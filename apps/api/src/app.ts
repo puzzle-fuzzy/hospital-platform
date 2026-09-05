@@ -1,5 +1,6 @@
 import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
+import { configureProviderRequestLogger } from "@hospital/adapters";
 import { DependencyNotConfiguredError } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import { Elysia } from "elysia";
@@ -81,6 +82,10 @@ function openApiPlugin() {
 }
 
 export function createApp(options: AppOptions = {}) {
+	const logger = options.logger ?? createNoopLogger();
+	// 所有 adapter 的 provider 请求都经过 requestJson；在组合根注册统一
+	// logger 后，预约、就诊人、门诊费用、医保和微信接口会共享同一套审计事件。
+	configureProviderRequestLogger(logger);
 	const readiness =
 		options.readiness ??
 		createReadinessService({
@@ -99,7 +104,6 @@ export function createApp(options: AppOptions = {}) {
 				},
 			},
 		});
-	const logger = options.logger ?? createNoopLogger();
 	const appointmentWrites =
 		services.appointmentWrites ??
 		({

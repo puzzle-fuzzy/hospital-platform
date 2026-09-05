@@ -96,6 +96,18 @@ export function createFixtureMedicalInsuranceGateway(): MedicalInsuranceGateway 
 				"fixture-pay-001",
 			),
 		}),
+		cancel: async (_input, context) => ({
+			state: "cancelled",
+			paymentState: "closed",
+			settlementState: "cancelled",
+			providerStatus: "fixture-cancelled",
+			trace: trace(
+				"fixture-medical-insurance",
+				"cancel",
+				context,
+				"fixture-pay-001",
+			),
+		}),
 	};
 }
 

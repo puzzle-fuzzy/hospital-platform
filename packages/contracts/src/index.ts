@@ -720,6 +720,14 @@ export const MedicalInsuranceOrderCommandRequest = Type.Object(
 	{ additionalProperties: false },
 );
 
+/** 只允许支付小程序在 2.6.33 明确返回“正在收款中”后发起关闭重开。 */
+export const MedicalInsuranceCancelRequest = Type.Object(
+	{
+		reason: Type.Literal("payment_in_progress"),
+	},
+	{ additionalProperties: false },
+);
+
 export const MedicalInsuranceOrderResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
@@ -733,6 +741,7 @@ export const MedicalInsuranceOrderResponse = Type.Object({
 			Type.Literal("awaiting_confirmation"),
 			Type.Literal("manual_review"),
 			Type.Literal("failed"),
+			Type.Literal("cancelled"),
 		]),
 		amounts: Type.Optional(
 			Type.Object({
@@ -741,6 +750,32 @@ export const MedicalInsuranceOrderResponse = Type.Object({
 				cashFen: Type.Integer({ minimum: 0 }),
 			}),
 		),
+	}),
+});
+
+export const MedicalInsuranceCancellationResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Union([
+			Type.Literal("cancelled"),
+			Type.Literal("awaiting_confirmation"),
+			Type.Literal("manual_review"),
+		]),
+		paymentState: Type.Union([
+			Type.Literal("not_created"),
+			Type.Literal("processing"),
+			Type.Literal("closed"),
+			Type.Literal("paid"),
+			Type.Literal("unknown"),
+		]),
+		settlementState: Type.Union([
+			Type.Literal("not_created"),
+			Type.Literal("cancelled"),
+			Type.Literal("unknown"),
+		]),
+		/** 取消完成后，挂号预约本身仍然存在，支付小程序可创建新医保订单。 */
+		restartAllowed: Type.Boolean(),
 	}),
 });
 
@@ -1054,8 +1089,14 @@ export type MedicalInsuranceAuthorizePayload = Static<
 export type MedicalInsuranceOrderCommandPayload = Static<
 	typeof MedicalInsuranceOrderCommandRequest
 >;
+export type MedicalInsuranceCancelPayload = Static<
+	typeof MedicalInsuranceCancelRequest
+>;
 export type MedicalInsuranceOrderPayload = Static<
 	typeof MedicalInsuranceOrderResponse
+>;
+export type MedicalInsuranceCancellationPayload = Static<
+	typeof MedicalInsuranceCancellationResponse
 >;
 export type MedicalInsuranceWechatPayPayload = Static<
 	typeof MedicalInsuranceWechatPayResponse

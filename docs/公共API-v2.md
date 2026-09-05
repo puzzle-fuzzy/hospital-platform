@@ -137,6 +137,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/payments/medical-insurance/authorize` | Bearer + 必填幂等键 | body 为 `{appointmentId, authCode}`；授权码只在服务端调用医保授权 adapter，成功后返回服务端 `orderId` |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/fees` | Bearer + 必填幂等键 | 从关联预约读取服务端金额和患者映射，独立执行医保费用上传 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/settle` | Bearer + 必填幂等键 | 使用已授权订单和费用上传引用，独立执行医保结算，不把中间状态当成功 |
+| `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/cancel` | Bearer + 必填幂等键 | 仅供支付小程序处理 2.6.33“已有支付进行中”：服务端依次查单、关单、取消结算；成功后允许复用有效授权并重开新医保订单；普通新小程序不调用 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer + 必填幂等键 | 读取已落库 6202 金额、6201 授权和参保上下文，创建官方微信医保混合订单并返回小程序调起参数 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer；幂等键可选 | 按 `mix_trade_no` 查微信医保混合订单；自费成功后继续确认医保结算，不把调起成功当作完成 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}` | Bearer；幂等键可选 | 查询医保订单最终状态和服务端金额快照；不返回 payToken、身份证或 provider 原始字段 |
@@ -460,6 +461,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | 30510 | `medical-insurance-appointment-not-found` | 关联预约不存在、已取消或不属于当前用户 |
 | 404 | 30520 | `medical-insurance-order-not-found` | 医保订单不存在或不属于当前用户 |
 | 409 | 30530 | `medical-insurance-appointment-stale` | 关联预约超过 15 分钟支付窗口，必须重新获取号源并预约 |
+| 409 | 30540 | `medical-insurance-payment-in-progress` | 当前已有支付在进行中；新小程序只提示，支付小程序可调用专用关单重开分支 |
 | 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | 50320 | `outpatient-payment-record-not-found` | 当前用户/就诊人范围内未找到对应门诊缴费记录 |
 | 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |

@@ -15,11 +15,12 @@ export {
 	createFixtureWechatPaymentGateway,
 } from "./fixtures/replay";
 export type {
+	ProviderRequestLogger,
 	ProviderFetcher,
 	ProviderRequest,
 	ProviderResponse,
 } from "./http";
-export { requestJson } from "./http";
+export { configureProviderRequestLogger, requestJson } from "./http";
 export {
 	classifyLegacyFsiOrderStatus,
 	LEGACY_FSI_ROUTES,

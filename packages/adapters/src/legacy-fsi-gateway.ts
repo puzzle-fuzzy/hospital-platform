@@ -164,6 +164,17 @@ function providerKeys(value: unknown): readonly string[] {
 		.slice(0, 48);
 }
 
+function optionalTextField(
+	value: unknown,
+	fieldName: string,
+): string | undefined {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return undefined;
+	}
+	const field = (value as Record<string, unknown>)[fieldName];
+	return typeof field === "string" && field.trim() ? field.trim() : undefined;
+}
+
 /**
  * 受控的旧医保 FSI 移动支付传输适配器。
  *
@@ -283,12 +294,12 @@ export function createLegacyFsiGateway(
 			const response = await call("6201", data, context);
 			const credential = validate6201Response(response.data);
 			const payload = unwrapLegacyFsiData(response.data, "6201");
+			const extData = payload.extData;
 			const mdtrtId =
-				typeof payload.mdtrtId === "string" && payload.mdtrtId.trim()
-					? payload.mdtrtId.trim()
-					: typeof payload.mdtrt_id === "string" && payload.mdtrt_id.trim()
-						? payload.mdtrt_id.trim()
-						: undefined;
+				optionalTextField(payload, "mdtrtId") ??
+				optionalTextField(payload, "mdtrt_id") ??
+				optionalTextField(extData, "mdtrtId") ??
+				optionalTextField(extData, "mdtrt_id");
 			return {
 				credential,
 				...(mdtrtId ? { mdtrtId } : {}),
