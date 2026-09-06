@@ -49,7 +49,6 @@ function defaultBoundaryResponse(url: string, method = "GET"): Response {
 		(method === "POST" &&
 			pathname === "/api/v1/payments/insurance/authorization") ||
 		(method === "POST" && pathname === "/api/v1/appointments") ||
-		(method === "POST" && pathname === "/api/v1/appointments/holds") ||
 		(method === "POST" &&
 			pathname === "/api/v1/appointments/closed-boundary-appointment/cancel") ||
 		(method === "POST" && pathname === "/api/v2/patients") ||
@@ -58,7 +57,6 @@ function defaultBoundaryResponse(url: string, method = "GET"): Response {
 		(method === "POST" &&
 			pathname === "/api/v2/payments/insurance/authorization") ||
 		(method === "POST" && pathname === "/api/v2/appointments") ||
-		(method === "POST" && pathname === "/api/v2/appointments/holds") ||
 		(method === "POST" &&
 			pathname === "/api/v2/appointments/closed-boundary-appointment/cancel")
 	) {
@@ -183,6 +181,18 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 			body: null,
 		},
 		{
+			url: "https://hospital.example.test/api/v1/appointments/holds",
+			method: "POST",
+			authorization: null,
+			body: "{}",
+		},
+		{
+			url: "https://hospital.example.test/api/v1/payments/appointments/runtime-smoke-appointment/payment-exit",
+			method: "POST",
+			authorization: null,
+			body: '{"mode":"self"}',
+		},
+		{
 			url: "https://hospital.example.test/api/v1/patients",
 			method: "POST",
 			authorization: null,
@@ -208,12 +218,6 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 		},
 		{
 			url: "https://hospital.example.test/api/v1/appointments",
-			method: "POST",
-			authorization: null,
-			body: "{}",
-		},
-		{
-			url: "https://hospital.example.test/api/v1/appointments/holds",
 			method: "POST",
 			authorization: null,
 			body: "{}",
@@ -306,6 +310,14 @@ test("runtime smoke uses the public v2 prefix when explicitly requested", async 
 			authorization: null,
 		},
 		{
+			url: "https://hospital.example.test/api/v2/appointments/holds",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/payments/appointments/runtime-smoke-appointment/payment-exit",
+			authorization: null,
+		},
+		{
 			url: "https://hospital.example.test/api/v2/patients",
 			authorization: null,
 		},
@@ -323,10 +335,6 @@ test("runtime smoke uses the public v2 prefix when explicitly requested", async 
 		},
 		{
 			url: "https://hospital.example.test/api/v2/appointments",
-			authorization: null,
-		},
-		{
-			url: "https://hospital.example.test/api/v2/appointments/holds",
 			authorization: null,
 		},
 		{

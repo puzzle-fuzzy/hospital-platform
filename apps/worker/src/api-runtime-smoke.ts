@@ -137,7 +137,7 @@ function responseErrorCode(body: unknown): unknown {
 type AuthBoundaryRoute = {
 	name: string;
 	path: string;
-	method?: "GET" | "PUT";
+	method?: "GET" | "POST" | "PUT";
 	body?: string;
 };
 
@@ -168,13 +168,25 @@ const AUTH_BOUNDARY_ROUTES: readonly AuthBoundaryRoute[] = [
 		name: "outpatient-payments",
 		path: "/payments/outpatient/records?patientId=runtime-smoke-patient&status=unpaid",
 	},
+	{
+		name: "appointment-hold",
+		path: "/appointments/holds",
+		method: "POST",
+		body: JSON.stringify({}),
+	},
+	{
+		name: "payment-exit",
+		path: "/payments/appointments/runtime-smoke-appointment/payment-exit",
+		method: "POST",
+		body: JSON.stringify({ mode: "self" }),
+	},
 ] as const;
 
 /**
  * 这些能力目前没有完成 Provider/HIS contract，因此必须保持“未注册”的 404。
  * smoke 只发送空 JSON 来确认 HTTP 方法和路径边界，不传患者、订单、医保或支付
  * 数据；如果将来有人注册了其中任一路由，门禁会立即失败，避免把“接口存在”误写
- * 成业务迁移完成。取消和预约写入也放在这里，是因为它们属于同一个待审核的命令面。
+ * 成业务迁移完成。当前已经注册的预约占位和支付退出路径由 auth-boundary 单独验证。
  */
 const CLOSED_BOUNDARY_ROUTES = [
 	{ name: "patient-create", method: "POST", path: "/patients" },
@@ -190,11 +202,6 @@ const CLOSED_BOUNDARY_ROUTES = [
 		path: "/payments/insurance/authorization",
 	},
 	{ name: "appointment-create", method: "POST", path: "/appointments" },
-	{
-		name: "appointment-hold",
-		method: "POST",
-		path: "/appointments/holds",
-	},
 	{
 		name: "appointment-cancel",
 		method: "POST",
