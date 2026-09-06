@@ -1,12 +1,12 @@
 import type { PaymentState } from "@hospital/contracts";
-import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
-import type { PaymentAmounts } from "./payment-order";
+import type { MedicalInsuranceAuthorizationContext } from "./medical-insurance-authorization";
+import type { MedicalInsuranceOrderType } from "./medical-insurance-business";
 import type {
 	MedicalInsuranceAmounts,
 	MedicalInsuranceSettlementContext,
 } from "./medical-insurance-order";
-import type { MedicalInsuranceAuthorizationContext } from "./medical-insurance-authorization";
-import type { MedicalInsuranceOrderType } from "./medical-insurance-business";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import type { PaymentAmounts } from "./payment-order";
 
 /** 每次 provider 调用都必须携带的链路和幂等上下文。 */
 export type AdapterCallContext = {
@@ -406,6 +406,13 @@ export interface WechatPaymentGateway {
 		totalFen: number;
 		trace: ExternalTrace;
 	}>;
+	/** 只允许在查单确认未支付后关闭普通微信预支付单。 */
+	close(
+		input: {
+			orderId: string;
+		},
+		context: AdapterCallContext,
+	): Promise<{ trace: ExternalTrace }>;
 }
 
 export interface HospitalSettlementGateway {

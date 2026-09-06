@@ -62,7 +62,7 @@ export class MedicalAuthNavigationCancelledError extends Error {
 	}
 }
 
-/** 微信收银台被用户主动取消也是正常业务分支，预约和医保订单都要保留。 */
+/** 微信收银台被用户主动取消也是正常业务分支；页面会随后作废订单并释放号源。 */
 export class WechatPaymentCancelledError extends Error {
 	constructor() {
 		super("用户取消了微信支付");
@@ -458,6 +458,9 @@ export async function continueMedicalCashPayment(
 			paymentWasCancelled = true;
 		}
 	}
+	// 退出收银台后立即把控制权交给服务端 payment-exit；由服务端查单
+	// 并决定是否关单/作废，不能在页面里再额外查一次造成重复请求。
+	if (paymentWasCancelled) throw new WechatPaymentCancelledError();
 	if (payment.paymentState === "failed") throw new Error("微信医保支付已失败");
 	for (
 		let index = 0;
@@ -481,7 +484,6 @@ export async function continueMedicalCashPayment(
 		}
 		if (result.paymentState === "failed")
 			throw new Error("微信医保支付已失败，请不要重复预约");
-		if (paymentWasCancelled) throw new WechatPaymentCancelledError();
 		await new Promise((resolve) =>
 			setTimeout(resolve, PAY_CONFIG.insurancePollDelaysMs[index] || 1500),
 		);
@@ -521,11 +523,8 @@ export async function startSelfPayment(
 		return await continueSelfPayment(pending, onProgress, true);
 	} catch (error) {
 		if (error instanceof WechatPaymentCancelledError) {
-			// continueSelfPayment 会先把服务端返回的 orderId 写回本地；
-			// 取消时必须保留这份最新上下文，之后用户仍可继续自费，
-			// 或切换到医保支付。
-			const current = readPendingPayment() ?? pending;
-			savePending({ ...current, phase: "self_payment_cancelled" });
+			// 页面捕获该明确取消事件后会调用 payment-exit；这里保留当前
+			// orderId，确保服务端可以先关闭微信订单再释放预约号源。
 		}
 		throw error;
 	}
@@ -568,6 +567,7 @@ async function continueSelfPayment(
 			paymentWasCancelled = true;
 		}
 	}
+	if (paymentWasCancelled) throw new WechatPaymentCancelledError();
 	for (
 		let index = 0;
 		index < PAY_CONFIG.insurancePollDelaysMs.length;
@@ -588,10 +588,8 @@ async function continueSelfPayment(
 			return current;
 		}
 		if (result.status === "failed") {
-			if (paymentWasCancelled) throw new WechatPaymentCancelledError();
 			throw new Error("微信自费支付已失败，请不要重复预约");
 		}
-		if (paymentWasCancelled) throw new WechatPaymentCancelledError();
 		await new Promise((resolve) =>
 			setTimeout(resolve, PAY_CONFIG.insurancePollDelaysMs[index] || 1500),
 		);
@@ -634,8 +632,7 @@ export async function continueSelfPaymentFromPending(
 		);
 	} catch (error) {
 		if (error instanceof WechatPaymentCancelledError) {
-			const current = readPendingPayment() ?? resumable;
-			savePending({ ...current, phase: "self_payment_cancelled" });
+			// 由页面统一调用 payment-exit，不能在这里仅清理本地 pending。
 		}
 		throw error;
 	}

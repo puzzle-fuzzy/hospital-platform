@@ -25,7 +25,7 @@
 | --- | --- | --- |
 | `apps/api` | Bun + Elysia API、会话、患者目录/同步/手动绑定入口、预约目录/排班、预约写入/取消/详情、挂号自费、医保支付、门诊费用只读、报告和结构化日志 | 生产可用性以运行时 gate、实际数据库/schema、Provider 合同、商户权限、回调和线上 release 证据为准；路由注册不代表业务已验收 |
 | `apps/miniprogram` | 43 个原生微信页面；微信登录、会话恢复、就诊人选择/同步、患者绑定表单、预约目录/排班、主小程序预约写入/取消/详情、挂号记录、门诊费用列表/详情等链路 | 患者 Provider 查档/建档/绑卡、临床 Provider、实时叫号、未确认内容和主项目内支付入口仍按各自 gate 处理；支付由独立测试小程序承载 |
-| `apps/miniprogram-pay` | 挂号支付测试端：固定“内科风湿 + 后天优先/大后天顺延 + 上午 + 可用号源”，支持医保支付、医保混合支付、自费支付三条分支 | 真实医保/微信支付是否可调用由服务端配置和 Provider 验收决定；用户取消支付时保留预约和待支付上下文，不重复挂号 |
+| `apps/miniprogram-pay` | 挂号支付测试端：固定“内科风湿 + 后天优先/大后天顺延 + 上午 + 可用号源”，支持医保支付、医保混合支付、自费支付三条分支 | 真实医保/微信支付是否可调用由服务端配置和 Provider 验收决定；用户明确取消支付时由服务端作废订单并取消预约、释放号源 |
 | `apps/miniprogram-outpatient-pay` | 门诊支付测试端：登录、选择就诊人、读取待缴/已缴费用列表和已核对的摘要详情 | 当前只读，不创建门诊支付订单，不调用医保结算；门诊支付写入需先冻结正式 contract |
 | `apps/worker` | 医保订单/微信通知 outbox 的查单与补偿执行骨架、生产日志和 schema 前置检查 | 是否在线运行、是否接管生产订单必须通过服务器上的 systemd 和日志证据确认 |
 
@@ -188,6 +188,7 @@ API 默认运行在 `http://localhost:3000`：
 - `POST /api/v1/appointments/holds`：校验号源、读取服务端挂号费并创建短期预约占位
 - `POST /api/v1/appointments/registrations`：检查重复预约并写入预约
 - `POST /api/v1/appointments/registrations/:appointmentId/cancel`：取消当前账号可操作的预约
+- `POST /api/v1/payments/appointments/:appointmentId/payment-exit`：用户明确退出医保、医保混合或自费支付；服务端确认未支付后作废关联订单并取消预约、释放号源
 - `GET /api/v1/appointments/registrations/:appointmentId`：读取当前账号和就诊人范围内的挂号详情
 - `GET /api/v1/appointments/records`：按内部 `patientId` 和最多 366 天范围读取脱敏预约历史摘要
 - `POST /api/v1/payments/appointments/:appointmentId/self-pay`：创建挂号普通微信自费支付

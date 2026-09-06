@@ -3,24 +3,24 @@ import type { PaymentState } from "@hospital/contracts";
 import type {
 	AppointmentHold,
 	AppointmentRegistration,
-	AppointmentWriteRepository,
 	AppointmentScheduleSnapshot,
 	AppointmentScheduleSnapshotRepository,
+	AppointmentWriteRepository,
 	HealthKnowledgeRepository,
 	IdentityUser,
 	ManualReviewRepository,
+	ManualReviewSnapshot,
+	MedicalInsuranceAuthorizationContext,
+	MedicalInsuranceAuthorizationRepository,
 	MedicalInsuranceCredentialContext,
 	MedicalInsuranceCredentialHandle,
 	MedicalInsuranceCredentialRepository,
-	MedicalInsuranceAuthorizationContext,
-	MedicalInsuranceAuthorizationRepository,
-	MedicalInsuranceProviderQueryIdentity,
-	ManualReviewSnapshot,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
-	MedicalInsuranceSettlementContext,
+	MedicalInsuranceProviderQueryIdentity,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceSettlementContext,
 	MyDoctor,
 	MyDoctorRepository,
 	OutboxEvent,
@@ -53,7 +53,9 @@ import type {
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
+	isValidMedicalInsuranceProviderQueryIdentity,
 	MyDoctorAlreadyExistsError,
+	normalizeMyDoctorReadModel,
 	normalizeUserProfileReadModel,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
@@ -63,10 +65,8 @@ import {
 	parseStrictIsoInstant,
 	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
-	validateReportReference,
-	isValidMedicalInsuranceProviderQueryIdentity,
-	normalizeMyDoctorReadModel,
 	validateMyDoctorCreateInput,
+	validateReportReference,
 } from "@hospital/domain";
 import type {
 	Pool,
@@ -2602,6 +2602,15 @@ export function createMySqlRepositories(
 	};
 
 	const paymentPrepayAttempts: PaymentPrepayAttemptRepository = {
+		async findByOwnerAndOrderId(ownerUserId, orderId) {
+			const cipher = requiredPrepayCipher();
+			const rows = await execute<PaymentPrepayAttemptRow[]>(
+				pool,
+				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, manual_review_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE owner_user_id = ? AND order_id = ? ORDER BY updated_at DESC, attempt_id DESC LIMIT 1",
+				[ownerUserId, orderId],
+			);
+			return rows[0] ? paymentPrepayAttempt(rows[0], cipher) : undefined;
+		},
 		async findByOwnerOrderAndIdempotencyKey(
 			ownerUserId,
 			orderId,
@@ -3460,6 +3469,22 @@ export function createMySqlRepositories(
 					"Medical insurance settlement context order is unavailable",
 				);
 			}
+		},
+		async saveSettlementContextIfMissing(ownerUserId, medicalOrderId, context) {
+			const cipher = requiredMedicalInsuranceCredentialCipher();
+			const result = await execute<ResultSetHeader>(
+				pool,
+				`UPDATE hp_medical_insurance_orders
+				 SET settlement_context_ciphertext = ?, updated_at = NOW(3)
+				 WHERE medical_order_id = ? AND owner_user_id = ?
+				 AND settlement_context_ciphertext IS NULL`,
+				[
+					cipher.seal(serializeMedicalInsuranceSettlementContext(context)),
+					medicalOrderId,
+					ownerUserId,
+				],
+			);
+			return result.affectedRows === 1;
 		},
 		async getSettlementContext(ownerUserId, medicalOrderId) {
 			const cipher = requiredMedicalInsuranceCredentialCipher();

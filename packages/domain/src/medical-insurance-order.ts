@@ -1,8 +1,8 @@
-import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type {
 	MedicalInsuranceBusinessType,
 	MedicalInsuranceOrderType,
 } from "./medical-insurance-business";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { WechatMedicalInsurancePayParams } from "./ports";
 
 /**
@@ -466,6 +466,12 @@ export interface MedicalInsuranceOrderRepository {
 		medicalOrderId: string,
 		context: MedicalInsuranceSettlementContext,
 	): Promise<void>;
+	/** 只在当前订单尚无上下文时写入；用于受控历史订单补录，必须原子防覆盖。 */
+	saveSettlementContextIfMissing(
+		ownerUserId: string,
+		medicalOrderId: string,
+		context: MedicalInsuranceSettlementContext,
+	): Promise<boolean>;
 	getSettlementContext(
 		ownerUserId: string,
 		medicalOrderId: string,

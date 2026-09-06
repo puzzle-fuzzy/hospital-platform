@@ -968,6 +968,18 @@ export const RegistrationSelfPayResponse = Type.Object({
 	}),
 });
 
+/** 用户明确退出挂号支付时，服务端按当前支付路线作废订单并取消预约。 */
+export const RegistrationPaymentExitRequest = Type.Object(
+	{
+		mode: Type.Union([
+			Type.Literal("medical"),
+			Type.Literal("mixed"),
+			Type.Literal("self"),
+		]),
+	},
+	{ additionalProperties: false },
+);
+
 /** 预支付接口只表示参数已生成，不表示微信支付成功或业务订单完成。 */
 export const WechatPrepayResponse = Type.Object({
 	success: Type.Literal(true),
@@ -1134,6 +1146,9 @@ export type WechatPrepayStatusPayload = Static<
 >;
 export type RegistrationSelfPayPayload = Static<
 	typeof RegistrationSelfPayResponse
+>;
+export type RegistrationPaymentExitRequestPayload = Static<
+	typeof RegistrationPaymentExitRequest
 >;
 
 export function success<const T>(data: T): { success: true; data: T } {

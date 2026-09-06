@@ -44,7 +44,9 @@ type ErrorMetadata = {
 	providerRequestOutcome?: "not_sent" | "rejected" | "unknown";
 	providerFailureReason?:
 		| "appointment-source-unavailable"
-		| "payment-order-not-found";
+		| "payment-order-not-found"
+		| "medical-insurance-payment-in-progress"
+		| "medical-insurance-cancellation-context-missing";
 	/** 只记录 observability 包登记过的 TLS/DNS/连接错误码。 */
 	providerTransportErrorCode?: ProviderTransportErrorCode;
 	/** 持久化内部操作分类，不包含 SQL、连接串或原始错误消息。 */
@@ -103,7 +105,7 @@ function errorMetadataFor(request: Request): ErrorMetadata | undefined {
  * 错误处理器随后仍会把它们映射成稳定的 HTTP 错误码。请求日志如果只保存
  * 生命周期的 code，线上就只能看到 `errorCode=UNKNOWN`，无法直接按
  * `unauthorized` 或 `provider-temporarily-unavailable` 检索。这里仅覆盖
- * 已有稳定映射的两类高频边界，不读取 message、请求体或 Provider 原文，
+ * 已有稳定映射的 Provider/医保边界，不读取 message、请求体或 Provider 原文，
  * 也不改变客户端收到的响应。
  */
 function publicErrorCode(error: unknown): string | undefined {
@@ -113,6 +115,8 @@ function publicErrorCode(error: unknown): string | undefined {
 			return "appointment-source-unavailable";
 		if (error.reason === "medical-insurance-payment-in-progress")
 			return "medical-insurance-payment-in-progress";
+		if (error.reason === "medical-insurance-cancellation-context-missing")
+			return "medical-insurance-cancellation-context-missing";
 		if (error.responseInvalid) return "provider-response-invalid";
 		return error.retryable
 			? "provider-temporarily-unavailable"

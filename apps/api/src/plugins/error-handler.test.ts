@@ -537,3 +537,29 @@ test("Provider adapter 标记响应非法时映射为 provider-response-invalid"
 		},
 	});
 });
+
+test("医保关单上下文缺失不再伪装成 Provider 502", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new ProviderRequestError({
+			provider: "medical-insurance",
+			operation: "medical-insurance.2.6.65.6",
+			message: "支付关单上下文不存在，不能安全取消",
+			retryable: false,
+			failureStage: "validation",
+			responseInvalid: false,
+			requestOutcome: "not_sent",
+			reason: "medical-insurance-cancellation-context-missing",
+		});
+	});
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(409);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "medical-insurance-cancellation-context-missing",
+			numericCode: 30550,
+			message: "当前医保订单需要人工处理，请联系工作人员",
+		},
+	});
+});

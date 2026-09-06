@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import type {
+	MedicalInsuranceOrder,
+	MedicalInsuranceQueryTask,
+	MedicalInsuranceSettlementContext,
 	OutboxEvent,
 	PaymentOrder,
 	PaymentPrepayAttempt,
-	MedicalInsuranceOrder,
-	MedicalInsuranceQueryTask,
 	WechatPaymentNotification,
 } from "@hospital/domain";
 import {
@@ -1320,6 +1321,49 @@ test("MySQL medical insurance order insert keeps columns and values aligned", as
 	expect(statement).toContain("updated_at");
 	expect(statement.match(/\?/g) ?? []).toHaveLength(values.length);
 	expect(values).toHaveLength(33);
+});
+
+test("MySQL 医保上下文修复使用加密且条件写入", async () => {
+	const key = Buffer.alloc(32, 8).toString("base64");
+	const { pool, state } = createFakePool([
+		{ affectedRows: 1 },
+		{ affectedRows: 0 },
+	]);
+	const repositories = createMySqlRepositories(pool, {
+		medicalInsuranceCredentialEncryptionKey: key,
+	});
+	const context: MedicalInsuranceSettlementContext = {
+		businessId: "provider-business-001",
+		hospitalId: "provider-hospital-001",
+		patientId: "provider-patient-001",
+		networkRegister: {},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: ["provider-trade-order-001"],
+		payingId: "260650000000001",
+		tradingId: "260650000000002",
+	};
+
+	await expect(
+		repositories.medicalInsuranceOrders.saveSettlementContextIfMissing(
+			"user-repair-001",
+			"medical-repair-001",
+			context,
+		),
+	).resolves.toBe(true);
+	await expect(
+		repositories.medicalInsuranceOrders.saveSettlementContextIfMissing(
+			"user-repair-001",
+			"medical-repair-001",
+			context,
+		),
+	).resolves.toBe(false);
+
+	expect(state.statements[0]).toContain(
+		"settlement_context_ciphertext IS NULL",
+	);
+	expect(state.values[0]?.[0]).not.toContain(context.businessId);
 });
 
 test("MySQL notification repository commits the safe fact and outbox together", async () => {

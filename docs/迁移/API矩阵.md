@@ -75,6 +75,7 @@
 | `POST /common/mbs-fsi/6201` | `MedicalInsuranceGateway.uploadFees` | 费用明细必须来自真实结算信息 | 服务端已实现；配置、schema 和 provider验收后才开放 |
 | `POST /common/mbs-fsi/6202` | `MedicalInsuranceGateway.settle` | 6202 返回的医保订单与金额必须落库 | 服务端已实现；配置、schema 和 provider验收后才开放 |
 | `POST /common/mbs-fsi/6301` | `MedicalInsuranceGateway.query` | 查单是补偿路径，不是前端猜状态 | 服务端已实现；配置、schema 和 provider验收后才开放 |
+| 新平台支付页明确退出医保/混合支付/自费 | `POST /api/v2/payments/appointments/{appointmentId}/payment-exit` | 服务端按 owner + appointment 解析关联订单；明确未支付后作废订单并取消预约释放号源，已支付或未知状态保持 fail-closed | 代码、API contract、小程序调用和回归测试已实现；真实 provider、公网和真机验收待完成 |
 | `POST /common/mbs-fsi/6203` | `MedicalInsuranceGateway.refund` | 退款必须绑定已落库支付订单和金额 | 待实现 |
 | `POST /common/mbs-fsi/6302` | `POST /api/v1/webhooks/medical-insurance/settlement` | 公开回调验签、去重、入事件表后异步处理 | 待实现 |
 | `POST /common/mbs-fsi/wechat-med-ins/*` | `WechatPaymentGateway` | 微信医保混合支付只暴露启动/查询结果视图 | 待实现 |

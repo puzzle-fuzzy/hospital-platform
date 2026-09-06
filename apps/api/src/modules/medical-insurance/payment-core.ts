@@ -3,11 +3,11 @@ import type {
 	MedicalInsuranceOrderPayload,
 } from "@hospital/contracts";
 import {
+	type AdapterCallContext,
+	assertValidMedicalInsuranceAmounts,
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
-	type AdapterCallContext,
-	assertValidMedicalInsuranceAmounts,
 	type MedicalInsuranceGateway,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
@@ -337,6 +337,35 @@ export class MedicalInsurancePaymentCore {
 			throw new MedicalInsuranceRegistrationInputError(
 				"已完成的医保支付不能走支付中关单分支",
 			);
+		// 授权回跳后用户还没有进入 6201 时，医保 Provider 没有支付流水，
+		// 不应为了“取消”伪造 2.6.65.6 请求；只有明确的 created/failed 状态
+		// 才能直接把平台医保订单置为失效，然后由上层取消预约释放号源。
+		if (
+			!order.feeUploadId &&
+			!order.payOrdId &&
+			(order.status === "created" || order.status === "failed")
+		) {
+			const updated = await this.dependencies.orders.applySettlement(
+				order.medicalOrderId,
+				order.version,
+				{
+					status: "cancelled",
+					ordStas: order.ordStas,
+					amounts: order.amounts,
+					setlType: order.setlType,
+					revsTokenHash: order.revsTokenHash,
+					revsTokenExpiresAt: order.revsTokenExpiresAt,
+					...businessPatch(order),
+				},
+			);
+			if (!updated)
+				throw new DependencyNotConfiguredError("medical-insurance-orders");
+			return cancellationOutput(orderId, {
+				state: "cancelled",
+				paymentState: "not_created",
+				settlementState: "not_created",
+			});
+		}
 		this.logger.info(
 			{
 				event: "medical-insurance.cancellation.requested",

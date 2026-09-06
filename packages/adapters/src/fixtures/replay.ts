@@ -140,6 +140,14 @@ export function createFixtureWechatPaymentGateway(): WechatPaymentGateway {
 				"fixture-pay-001",
 			),
 		}),
+		close: async (_input, context) => ({
+			trace: trace(
+				"fixture-wechat-pay",
+				"order-close",
+				context,
+				"fixture-pay-001",
+			),
+		}),
 	};
 }
 

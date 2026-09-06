@@ -101,6 +101,26 @@ test("请求日志优先保留医保支付进行中的稳定业务原因", () =>
 	);
 });
 
+test("请求日志区分医保关单上下文缺失且保留未发出边界", () => {
+	const error = new ProviderRequestError({
+		provider: "medical-insurance",
+		operation: "medical-insurance.2.6.65.6",
+		retryable: false,
+		failureStage: "validation",
+		responseInvalid: false,
+		requestOutcome: "not_sent",
+		reason: "medical-insurance-cancellation-context-missing",
+		message: "支付关单上下文不存在，不能安全取消",
+	});
+
+	expect(safeErrorMetadata(error, "UNKNOWN")).toMatchObject({
+		errorCode: "medical-insurance-cancellation-context-missing",
+		providerFailureStage: "validation",
+		providerRequestOutcome: "not_sent",
+		providerFailureReason: "medical-insurance-cancellation-context-missing",
+	});
+});
+
 test("请求日志优先采用 HttpError 的稳定业务错误码", () => {
 	const metadata = safeErrorMetadata(
 		new HttpError(401, "unauthorized", "请先登录"),

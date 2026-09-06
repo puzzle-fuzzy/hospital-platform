@@ -1,11 +1,12 @@
 import { PAY_CONFIG } from "../../config";
 import {
 	type AppointmentRecord,
+	abandonPayment,
+	appointmentCandidateDates,
 	type CreatedAppointment,
 	cancelAppointment,
 	createAppointment,
 	holdAppointment,
-	appointmentCandidateDates,
 	loadSources,
 	loadTargetSchedule,
 	type Schedule,
@@ -13,10 +14,10 @@ import {
 	selectSource,
 } from "../../services/appointment";
 import {
+	clearPendingPayment,
 	continueMedicalCashPayment,
 	continueMedicalPayment,
 	continueSelfPaymentFromPending,
-	clearPendingPayment,
 	MedicalAuthNavigationCancelledError,
 	MedicalCashRequiredError,
 	navigateToMedicalAuth,
@@ -26,7 +27,6 @@ import {
 	setPendingPaymentMode,
 	startMedicalPayment,
 	startSelfPayment,
-	switchCancelledSelfPaymentToMedical,
 	WechatPaymentCancelledError,
 } from "../../services/medical-insurance";
 import { loadPatients, mask, type Patient } from "../../services/patient";
@@ -92,20 +92,42 @@ function friendlyError(error: unknown): string {
 	return message.length > 80 ? `${message.slice(0, 80)}…` : message;
 }
 
-function showNavigationCancelled(page: PageInstance): void {
-	page.setData({
-		hasPendingPayment: Boolean(readPendingPayment()),
-		error: "",
-		message: "已取消跳转，预约已保留，请选择支付方式继续",
-	});
+async function releaseAfterPaymentExit(
+	page: PageInstance,
+	pending: ReturnType<typeof readPendingPayment>,
+	message: string,
+): Promise<void> {
+	if (!pending) {
+		page.setData({ hasPendingPayment: false, error: "", message });
+		return;
+	}
+	try {
+		await abandonPayment(pending.appointmentId, pending.mode ?? "mixed");
+		clearPendingPayment();
+		page.setData({ hasPendingPayment: false, error: "", message });
+	} catch (error: unknown) {
+		page.setData({
+			hasPendingPayment: true,
+			error: friendlyError(error),
+			message: "支付已取消，但订单或号源尚未释放，请点击原支付方式重试清理",
+		});
+	}
 }
 
-function showWechatPaymentCancelled(page: PageInstance): void {
-	page.setData({
-		hasPendingPayment: Boolean(readPendingPayment()),
-		error: "",
-		message: "已取消微信支付，预约已保留，请选择原支付方式继续",
-	});
+async function showNavigationCancelled(page: PageInstance): Promise<void> {
+	await releaseAfterPaymentExit(
+		page,
+		readPendingPayment(),
+		"已取消医保授权，订单已失效，号源已释放，请重新预约",
+	);
+}
+
+async function showWechatPaymentCancelled(page: PageInstance): Promise<void> {
+	await releaseAfterPaymentExit(
+		page,
+		readPendingPayment(),
+		"已取消支付，订单已失效，号源已释放，请重新预约",
+	);
 }
 
 function showStaleAppointment(page: PageInstance): void {
@@ -241,6 +263,18 @@ Page<
 		const app = getApp<{ globalData: { authCode: string } }>();
 		const authCode = String(app?.globalData?.authCode || "").trim();
 		const pending = readPendingPayment();
+		if (pending?.phase === "self_payment_cancelled") {
+			this.setData({
+				busy: true,
+				hasPendingPayment: true,
+				error: "",
+				message: "正在释放已取消的自费订单和号源",
+			});
+			void showWechatPaymentCancelled(this).finally(() =>
+				this.setData({ busy: false }),
+			);
+			return;
+		}
 		if (!authCode && pending) {
 			const pendingMode = pending.mode ?? "mixed";
 			this.setData({
@@ -249,8 +283,7 @@ Page<
 				stage:
 					pending.phase === "cash_payment"
 						? "cash-confirming"
-						: pending.phase === "self_payment" ||
-								pending.phase === "self_payment_cancelled"
+						: pending.phase === "self_payment"
 							? "self-confirming"
 							: pending.phase === "medical_cash_required"
 								? "settling"
@@ -258,11 +291,8 @@ Page<
 				message:
 					pending.phase === "cash_payment"
 						? "检测到未完成的微信医保支付，请点击主按钮继续支付"
-						: pending.phase === "self_payment" ||
-								pending.phase === "self_payment_cancelled"
-							? pending.phase === "self_payment_cancelled"
-								? "已取消自费支付，可选择医保支付或继续自费支付"
-								: "检测到未完成的微信自费支付，请选择自费支付继续"
+						: pending.phase === "self_payment"
+							? "检测到未完成的微信自费支付，请选择自费支付继续"
 							: pending.phase === "medical_cash_required"
 								? "当前医保订单包含自费金额，请选择医保混合支付"
 								: "检测到未完成的医保支付，请选择医保支付或医保混合支付继续授权",
@@ -273,20 +303,14 @@ Page<
 		if (!authCode || !pending || resumingPayment) return;
 		// 普通自费支付和医保订单进入现金待支付后，都不应消费一个
 		// 可能残留的医保授权 code；否则回到页面时会错误地重新发起医保链路。
-		if (
-			pending.phase === "self_payment" ||
-			pending.phase === "self_payment_cancelled"
-		) {
+		if (pending.phase === "self_payment") {
 			app.globalData.authCode = "";
 			this.setData({
 				hasPendingPayment: true,
 				selectedMode: "self",
 				stage: "self-confirming",
 				error: "",
-				message:
-					pending.phase === "self_payment_cancelled"
-						? "已取消自费支付，可选择医保支付或继续自费支付"
-						: "检测到未完成的微信自费支付，请选择自费支付继续",
+				message: "检测到未完成的微信自费支付，请选择自费支付继续",
 			});
 			return;
 		}
@@ -309,9 +333,9 @@ Page<
 			setProgress(this, stage, message),
 		)
 			.then(() => this.setData({ hasPendingPayment: false }))
-			.catch((error: unknown) => {
+			.catch(async (error: unknown) => {
 				if (error instanceof WechatPaymentCancelledError) {
-					showWechatPaymentCancelled(this);
+					await showWechatPaymentCancelled(this);
 					return;
 				}
 				if (error instanceof MedicalCashRequiredError) {
@@ -401,42 +425,12 @@ Page<
 		if (this.data.busy) return;
 		this.setData({ selectedMode: mode });
 		if (pending) {
-			if (
-				pending.phase === "self_payment" ||
-				pending.phase === "self_payment_cancelled"
-			) {
-				if (mode !== "self" && pending.phase !== "self_payment_cancelled") {
+			if (pending.phase === "self_payment") {
+				if (mode !== "self") {
 					this.setData({
 						message: "当前已有自费支付订单，请继续自费支付，不能改走医保流程",
 						error: "",
 					});
-					return;
-				}
-				if (mode !== "self") {
-					this.setData({ busy: true, error: "" });
-					const medicalPending = switchCancelledSelfPaymentToMedical(
-						pending,
-						mode,
-					);
-					setProgress(this, "authorizing", "请在医保小程序继续完成授权");
-					void navigateToMedicalAuth()
-						.catch((error: unknown) => {
-							if (error instanceof MedicalAuthNavigationCancelledError) {
-								// 跳转取消时保留已经转换的医保上下文，用户可以继续点医保按钮。
-								this.setData({
-									hasPendingPayment: true,
-									selectedMode: medicalPending.mode ?? mode,
-									error: "",
-									message: "已取消跳转，请选择医保支付继续",
-								});
-								return;
-							}
-							this.setData({
-								error: friendlyError(error),
-								message: "医保授权未完成",
-							});
-						})
-						.finally(() => this.setData({ busy: false }));
 					return;
 				}
 				this.setData({ busy: true, error: "" });
@@ -445,13 +439,9 @@ Page<
 					setProgress(this, stage, message),
 				)
 					.then(() => this.setData({ hasPendingPayment: false }))
-					.catch((error: unknown) => {
+					.catch(async (error: unknown) => {
 						if (error instanceof WechatPaymentCancelledError) {
-							this.setData({
-								hasPendingPayment: true,
-								error: "",
-								message: "已取消自费支付，可选择医保支付或继续自费支付",
-							});
+							await showWechatPaymentCancelled(this);
 							return;
 						}
 						this.setData({
@@ -484,9 +474,9 @@ Page<
 					setProgress(this, stage, message),
 				)
 					.then(() => this.setData({ hasPendingPayment: false }))
-					.catch((error: unknown) => {
+					.catch(async (error: unknown) => {
 						if (error instanceof WechatPaymentCancelledError) {
-							showWechatPaymentCancelled(this);
+							await showWechatPaymentCancelled(this);
 							return;
 						}
 						this.setData({
@@ -509,9 +499,9 @@ Page<
 			setPendingPaymentMode(pending, mode);
 			setProgress(this, "authorizing", "请在医保小程序继续完成授权");
 			void navigateToMedicalAuth()
-				.catch((error: unknown) => {
+				.catch(async (error: unknown) => {
 					if (error instanceof MedicalAuthNavigationCancelledError) {
-						showNavigationCancelled(this);
+						await showNavigationCancelled(this);
 						return;
 					}
 					this.setData({
@@ -550,21 +540,13 @@ Page<
 					mode,
 				);
 			})
-			.catch((error: unknown) => {
+			.catch(async (error: unknown) => {
 				if (error instanceof MedicalAuthNavigationCancelledError) {
-					showNavigationCancelled(this);
+					await showNavigationCancelled(this);
 					return;
 				}
 				if (error instanceof WechatPaymentCancelledError) {
-					if (mode === "self") {
-						this.setData({
-							hasPendingPayment: true,
-							error: "",
-							message: "已取消自费支付，可选择医保支付或继续自费支付",
-						});
-					} else {
-						showWechatPaymentCancelled(this);
-					}
+					await showWechatPaymentCancelled(this);
 					return;
 				}
 				if (error instanceof MedicalCashRequiredError) {
@@ -634,9 +616,9 @@ Page<
 							mode,
 						);
 					})
-					.catch((error: unknown) => {
+					.catch(async (error: unknown) => {
 						if (error instanceof MedicalAuthNavigationCancelledError) {
-							showNavigationCancelled(this);
+							await showNavigationCancelled(this);
 							return;
 						}
 						this.setData({

@@ -181,6 +181,22 @@ export async function cancelAppointment(appointmentId: string): Promise<void> {
 	});
 }
 
+/**
+ * 支付页明确退出时使用服务端统一编排：先作废支付订单，再取消预约释放号源。
+ * 不能由小程序先后调用两个独立接口，否则第二步失败会留下占号预约。
+ */
+export async function abandonPayment(
+	appointmentId: string,
+	mode: "medical" | "mixed" | "self",
+): Promise<void> {
+	await request({
+		path: `/payments/appointments/${encodeURIComponent(appointmentId)}/payment-exit`,
+		method: "POST",
+		idempotencyKey: newIdempotencyKey("appointment-payment-exit"),
+		data: { mode },
+	});
+}
+
 export function withFee(schedule: Schedule, totalFen: number): Schedule {
 	return { ...schedule, totalFen };
 }

@@ -95,6 +95,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const wechatPayment: WechatPaymentGateway = {
 		createJsapiOrder: async (_input, _context) => unavailable("wechat-pay"),
 		query: async (_input, _context) => unavailable("wechat-pay"),
+		close: async (_input, _context) => unavailable("wechat-pay"),
 	};
 	const hospitalSettlement: HospitalSettlementGateway = {
 		writeBack: async (_input, _context) => unavailable("yunhealth"),

@@ -50,6 +50,7 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-order-not-found": 30520,
 	"medical-insurance-appointment-stale": 30530,
 	"medical-insurance-payment-in-progress": 30540,
+	"medical-insurance-cancellation-context-missing": 30550,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,

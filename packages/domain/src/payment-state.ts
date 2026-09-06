@@ -12,7 +12,9 @@ const transitions: Record<PaymentState, readonly PaymentState[]> = {
 	pre_settled: ["insurance_submitted", "cash_pending", "cancelled"],
 	insurance_submitted: ["insurance_settled", "awaiting_confirmation", "failed"],
 	insurance_settled: ["cash_pending", "his_written_back", "failed"],
-	cash_pending: ["cash_paid", "awaiting_confirmation", "failed"],
+	// 用户明确退出收银台后，服务端先查单/关单，再允许本地订单作废；
+	// 这样不会把仍可支付的订单继续绑定在预约号源上。
+	cash_pending: ["cash_paid", "awaiting_confirmation", "failed", "cancelled"],
 	cash_paid: ["his_written_back", "failed"],
 	his_written_back: ["completed", "awaiting_confirmation", "failed"],
 	awaiting_confirmation: [

@@ -45,6 +45,7 @@ import {
 	type WechatPaymentNotificationDecoder,
 	WechatPaymentNotificationService,
 } from "./modules/payments/notification-service";
+import { RegistrationPaymentExitService } from "./modules/payments/registration-payment-exit-service";
 import { RegistrationSelfPayService } from "./modules/payments/registration-self-pay-service";
 import { UserProfileService } from "./modules/profile";
 import { ReportService } from "./modules/reports";
@@ -67,6 +68,7 @@ export type ApplicationServices = {
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
 	registrationSelfPay?: RegistrationSelfPayService;
+	registrationPaymentExit?: RegistrationPaymentExitService;
 	wechatPaymentNotifications: WechatPaymentNotificationService;
 	/** 普通资料模块在默认组合根启用；自定义测试组合根可省略以保持 fail-closed。 */
 	profile?: UserProfileService;
@@ -209,6 +211,15 @@ export function createDefaultApplicationServices(
 		wechatPrepay,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const registrationPaymentExit = new RegistrationPaymentExitService({
+		appointments: appointmentWrites,
+		medicalInsurance,
+		medicalInsuranceWechatPayment,
+		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
+		paymentOrders,
+		wechatPrepay,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
 	const patients = new PatientService(repositories.patients, {
 		identityUsers: repositories.identityUsers,
 		directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
@@ -268,6 +279,7 @@ export function createDefaultApplicationServices(
 		paymentOrders,
 		wechatPrepay,
 		registrationSelfPay,
+		registrationPaymentExit,
 		wechatPaymentNotifications: new WechatPaymentNotificationService({
 			notifications: repositories.wechatPaymentNotifications,
 			decoder:

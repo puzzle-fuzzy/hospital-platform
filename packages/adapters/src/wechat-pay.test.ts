@@ -1,10 +1,10 @@
+import { expect, test } from "bun:test";
 import {
 	createCipheriv,
 	createSign,
-	generateKeyPairSync,
 	createVerify,
+	generateKeyPairSync,
 } from "node:crypto";
-import { expect, test } from "bun:test";
 import {
 	createWechatPaymentNotificationDecoder,
 	mapWechatPaymentNotification,
@@ -178,6 +178,36 @@ test("微信 JSAPI 下单使用 APIv3 签名并返回服务端调起参数", asy
 			providerOrderId: "wx-prepay-001",
 		},
 	});
+});
+
+test("微信未支付订单可以由服务端查单后关闭", async () => {
+	let requestBody = "";
+	const gateway = createGateway(
+		async (_input, init) => {
+			requestBody = typeof init?.body === "string" ? init.body : "";
+			verifyRequestAuthorization(
+				init,
+				"POST",
+				"/v3/pay/transactions/out-trade-no/order-close-001/close",
+				requestBody,
+			);
+			return new Response(null, {
+				status: 204,
+				headers: providerResponseHeaders(""),
+			});
+		},
+		["close-nonce-001"],
+	);
+
+	await expect(
+		gateway.close({ orderId: "order-close-001" }, context),
+	).resolves.toMatchObject({
+		trace: {
+			operation: "order-close",
+			providerOrderId: "order-close-001",
+		},
+	});
+	expect(requestBody).toBe(JSON.stringify({ mchid: "mch-001" }));
 });
 
 test("微信支付响应证书序列号或签名不匹配时 fail closed", async () => {

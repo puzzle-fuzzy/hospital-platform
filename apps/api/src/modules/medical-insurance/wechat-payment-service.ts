@@ -6,12 +6,12 @@ import {
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
 	isMedicalInsuranceOrderType,
-	medicalInsuranceOrderTypeForBusiness,
 	type MedicalInsuranceAuthorizationContext,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceSettlementContext,
 	type MedicalInsuranceWechatPaymentGateway,
+	medicalInsuranceOrderTypeForBusiness,
 	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -174,6 +174,7 @@ export class MedicalInsuranceWechatPaymentService {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		let order = await this.order(ownerUserId, orderId);
+		if (order.status === "cancelled") return output(order, false);
 		const { businessType, orderType } = orderBusiness(order);
 		if (order.wechatPaymentState === "prepay_ready" && order.wechatPayParams)
 			return output(order);
@@ -254,6 +255,7 @@ export class MedicalInsuranceWechatPaymentService {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		let order = await this.order(ownerUserId, orderId);
+		if (order.status === "cancelled") return output(order, false);
 		const { businessType, orderType } = orderBusiness(order);
 		if (!order.wechatMixTradeNo || !order.amounts) return output(order, false);
 		const result = await this.dependencies.wechatPayment.queryMixedOrder(

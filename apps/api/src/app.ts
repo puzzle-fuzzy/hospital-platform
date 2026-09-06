@@ -26,6 +26,7 @@ import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { PatientBindingService, patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
+import type { RegistrationPaymentExitService } from "./modules/payments/registration-payment-exit-service";
 import type { RegistrationSelfPayService } from "./modules/payments/registration-self-pay-service";
 import { profileModule } from "./modules/profile";
 import { reportsModule } from "./modules/reports";
@@ -160,6 +161,13 @@ export function createApp(options: AppOptions = {}) {
 				throw new DependencyNotConfiguredError("registration-self-pay");
 			},
 		} as unknown as RegistrationSelfPayService);
+	const registrationPaymentExit =
+		services.registrationPaymentExit ??
+		({
+			abandon: async () => {
+				throw new DependencyNotConfiguredError("registration-payment-exit");
+			},
+		} as unknown as RegistrationPaymentExitService);
 
 	// 患者端公共 contract 采用 fail-closed 输入语义：未知字段不能被 Elysia
 	// 默认 normalize 静默清洗，否则旧端的身份/支付字段可能被误认为已保存。
@@ -226,6 +234,7 @@ export function createApp(options: AppOptions = {}) {
 						services.sessions,
 						options.wechatPaymentEnabled === true,
 						registrationSelfPay,
+						registrationPaymentExit,
 					),
 				)
 				.use(

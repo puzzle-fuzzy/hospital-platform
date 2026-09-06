@@ -722,6 +722,8 @@ export class AppointmentWriteService {
 			);
 		if (
 			medicalOrder &&
+			medicalOrder.status !== "cancelled" &&
+			medicalOrder.status !== "failed" &&
 			(medicalOrder.status !== "created" ||
 				Boolean(medicalOrder.feeUploadId || medicalOrder.payOrdId))
 		) {

@@ -11,7 +11,9 @@ import { MedicalInsuranceRegistrationService } from "./registration-service";
 
 const now = new Date("2026-09-03T00:00:00.000Z");
 
-function order(): MedicalInsuranceOrder {
+function order(
+	overrides: Partial<MedicalInsuranceOrder> = {},
+): MedicalInsuranceOrder {
 	return {
 		medicalOrderId: "medical-service-001",
 		ownerUserId: "user-service-001",
@@ -36,6 +38,7 @@ function order(): MedicalInsuranceOrder {
 		version: 1,
 		createdAt: now.toISOString(),
 		updatedAt: now.toISOString(),
+		...overrides,
 	};
 }
 
@@ -215,4 +218,42 @@ test("medical authorization resolves the directory reference instead of the HIS 
 		unionId: "union-auth-001",
 		providerPatientId: "directory-patient-001",
 	});
+});
+
+test("医保授权后尚未产生 6201 支付流水时可以直接作废订单", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-cancel-before-fees",
+			status: "created",
+			feeUploadId: null,
+			payOrdId: null,
+		}),
+	);
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		appointments: {} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {} as never,
+	});
+
+	await expect(
+		service.cancel({
+			ownerUserId: "user-service-001",
+			orderId: "medical-cancel-before-fees",
+			reason: "payment_in_progress",
+			context: {
+				traceId: "medical-cancel-before-fees-trace",
+				idempotencyKey: "medical-cancel-before-fees-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({
+		orderId: "medical-cancel-before-fees",
+		status: "cancelled",
+	});
+	await expect(
+		orders.findByMedicalOrderId("medical-cancel-before-fees"),
+	).resolves.toMatchObject({ status: "cancelled" });
 });

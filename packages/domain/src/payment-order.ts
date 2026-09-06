@@ -420,6 +420,10 @@ export type PaymentPrepayAttempt = {
 
 /** 预支付尝试的持久化端口；生产实现必须以 owner/order/idempotency 建唯一键。 */
 export interface PaymentPrepayAttemptRepository {
+	findByOwnerAndOrderId(
+		ownerUserId: string,
+		orderId: string,
+	): Promise<PaymentPrepayAttempt | undefined>;
 	findByOwnerOrderAndIdempotencyKey(
 		ownerUserId: string,
 		orderId: string,
@@ -1019,6 +1023,49 @@ export class PaymentOrderService {
 			expectedOrderId: updated.orderId,
 			expectedOwnerUserId: updated.ownerUserId,
 			expectedState: updated.state,
+			expectedVersion: updated.version,
+		});
+	}
+
+	/**
+	 * 作废尚未确认收款的订单。取消是幂等命令：已取消/已明确失败直接返回，
+	 * 已支付或已完成订单拒绝作废，避免微信通知晚到时把真实收款覆盖掉。
+	 */
+	async cancel(ownerUserId: string, orderId: string): Promise<PaymentOrder> {
+		const result = await this.dependencies.orders.findByOwnerAndId(
+			ownerUserId,
+			orderId,
+		);
+		if (!result) throw new PaymentOrderNotFoundError();
+		const current = normalizePaymentOrderReadModel(result, {
+			expectedOwnerUserId: ownerUserId,
+			expectedOrderId: orderId,
+		});
+		if (current.state === "cancelled" || current.state === "failed")
+			return current;
+		if (
+			current.state === "cash_paid" ||
+			current.state === "his_written_back" ||
+			current.state === "completed"
+		)
+			throw new PaymentOrderInputError(
+				"A paid payment order cannot be cancelled",
+			);
+		const updated: PaymentOrder = {
+			...current,
+			state: transitionPayment(current.state, "cancelled"),
+			version: current.version + 1,
+			updatedAt: this.now().toISOString(),
+		};
+		const stored = await this.dependencies.orders.update(
+			updated,
+			current.version,
+			createPaymentOrderEvent("payment-order.state-changed", updated),
+		);
+		return normalizePaymentOrderReadModel(stored, {
+			expectedOrderId: updated.orderId,
+			expectedOwnerUserId: updated.ownerUserId,
+			expectedState: "cancelled",
 			expectedVersion: updated.version,
 		});
 	}

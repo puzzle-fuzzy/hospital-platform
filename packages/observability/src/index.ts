@@ -32,10 +32,12 @@ export type ProviderFailureMetadata = {
 	providerFailureStage?: "validation" | "transport" | "http" | "response";
 	/** 请求是否越过 Provider 边界；用于区分可安全重试和必须查单的失败。 */
 	providerRequestOutcome?: "not_sent" | "rejected" | "unknown";
-	/** 已确认的 Provider 业务竞争原因，不记录 Provider 原始响应。 */
+	/** 已确认的 Provider/医保流程边界原因，不记录 Provider 原始响应。 */
 	providerFailureReason?:
 		| "appointment-source-unavailable"
-		| "payment-order-not-found";
+		| "payment-order-not-found"
+		| "medical-insurance-payment-in-progress"
+		| "medical-insurance-cancellation-context-missing";
 	/** Provider 错误响应的有限检索字段，不记录原始响应 body 或错误正文。 */
 	providerErrorCode?: string;
 	providerErrorMessageLength?: number;
@@ -171,7 +173,9 @@ export function providerFailureMetadata(
 			: undefined;
 	const providerFailureReason =
 		candidate.reason === "appointment-source-unavailable" ||
-		candidate.reason === "payment-order-not-found"
+		candidate.reason === "payment-order-not-found" ||
+		candidate.reason === "medical-insurance-payment-in-progress" ||
+		candidate.reason === "medical-insurance-cancellation-context-missing"
 			? candidate.reason
 			: undefined;
 	const providerErrorCode = safeProviderText(candidate.providerErrorCode);

@@ -1,7 +1,9 @@
 import type { PaymentOrderPayload } from "@hospital/contracts";
 import {
+	AppointmentCancellationResponse,
 	PaymentOrderCreateRequest,
 	PaymentOrderResponse,
+	RegistrationPaymentExitRequest,
 	RegistrationSelfPayResponse,
 	success,
 	WechatPrepayResponse,
@@ -14,6 +16,7 @@ import { createRequestPrincipalResolver } from "../../plugins/request-authentica
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
 import type { WechatPaymentNotificationService } from "./notification-service";
+import type { RegistrationPaymentExitService } from "./registration-payment-exit-service";
 import type { RegistrationSelfPayService } from "./registration-self-pay-service";
 import type { WechatPrepayService } from "./service";
 
@@ -78,6 +81,7 @@ export function paymentsModule(
 	sessions: SessionTokenService,
 	wechatPaymentEnabled: boolean,
 	registrationSelfPay: RegistrationSelfPayService,
+	registrationPaymentExit: RegistrationPaymentExitService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions, [
 		"/payments/wechat/notifications",
@@ -124,6 +128,29 @@ export function paymentsModule(
 					appointmentId: t.String({ minLength: 1, maxLength: 64 }),
 				}),
 				response: { 200: RegistrationSelfPayResponse },
+				tags: ["payments"],
+			},
+		)
+		.post(
+			"/payments/appointments/:appointmentId/payment-exit",
+			async ({ headers, params, body, request }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await registrationPaymentExit.abandon({
+						ownerUserId: principal.userId,
+						appointmentId: params.appointmentId,
+						mode: body.mode,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: CreateWechatPrepayHeaders,
+				params: t.Object({
+					appointmentId: t.String({ minLength: 1, maxLength: 64 }),
+				}),
+				body: RegistrationPaymentExitRequest,
+				response: { 200: AppointmentCancellationResponse },
 				tags: ["payments"],
 			},
 		)

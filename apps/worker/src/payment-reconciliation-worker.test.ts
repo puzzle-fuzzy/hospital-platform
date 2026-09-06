@@ -67,6 +67,9 @@ function createAttemptRepository(seed: PaymentPrepayAttempt): {
 } {
 	let current = seed;
 	const repository: PaymentPrepayAttemptRepository = {
+		async findByOwnerAndOrderId() {
+			return current;
+		},
 		async findByOwnerOrderAndIdempotencyKey() {
 			return current;
 		},
@@ -115,6 +118,13 @@ function gatewayFor(
 			throw new Error("prepay is not used by reconciliation tests");
 		},
 		query,
+		close: async (_input, context) => ({
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-close",
+				requestId: context.traceId,
+			},
+		}),
 	};
 }
 

@@ -11,11 +11,11 @@ import type {
 	AdapterCallContext,
 	ExternalTrace,
 	MedicalInsuranceWechatPaymentGateway,
-	WechatPaymentNotification as WechatPaymentNotificationRecord,
+	WechatMedicalInsurancePayParams,
 	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
+	WechatPaymentNotification as WechatPaymentNotificationRecord,
 	WechatPaymentQueryState,
-	WechatMedicalInsurancePayParams,
 } from "@hospital/domain";
 import {
 	assertValidMedicalInsuranceAmounts,
@@ -23,14 +23,15 @@ import {
 } from "@hospital/domain";
 import {
 	AdapterNotConfiguredError,
-	ProviderRequestError,
 	type ProviderFailureStage,
+	ProviderRequestError,
 	type ProviderRequestOutcome,
 } from "./errors";
-import { requestJson, type ProviderFetcher } from "./http";
+import { type ProviderFetcher, requestJson } from "./http";
 
 const DEFAULT_WECHAT_PAY_BASE_URL = "https://api.mch.weixin.qq.com";
 const JSAPI_ORDER_PATH = "/v3/pay/transactions/jsapi";
+const JSAPI_CLOSE_PATH_PREFIX = "/v3/pay/transactions/out-trade-no";
 const MEDICAL_MIX_ORDER_PATH = "/v3/med-ins/orders";
 const PLATFORM_SIGNATURE_MAX_SKEW_SECONDS = 300;
 const AES_GCM_TAG_BYTES = 16;
@@ -888,6 +889,51 @@ export class WechatPaymentApiGateway
 			state,
 			totalFen,
 			trace: paymentTrace("order-query", response.requestId, providerOrderId),
+		};
+	}
+
+	async close(
+		input: { orderId: string },
+		context: AdapterCallContext,
+	): Promise<{ trace: ExternalTrace }> {
+		const orderId = requiredInput(input.orderId, "orderId", 32);
+		const path = `${JSAPI_CLOSE_PATH_PREFIX}/${encodeURIComponent(orderId)}/close`;
+		const body = JSON.stringify({ mchid: this.mchId });
+		const nonce = this.nonce();
+		const timestamp = unixSeconds(this.now);
+		const response = await requestJson<Record<string, unknown>>(
+			{
+				provider: "wechat-pay",
+				operation: "order-close",
+				url: new URL(path, this.baseUrl).toString(),
+				method: "POST",
+				context,
+				bodyText: body,
+				headers: {
+					Authorization: apiV3Authorization({
+						method: "POST",
+						path,
+						timestamp,
+						nonce,
+						body,
+						mchId: this.mchId,
+						merchantCertificateSerial: this.merchantCertificateSerial,
+						merchantPrivateKey: this.merchantPrivateKey,
+					}),
+				},
+				verifyResponse: (verification) =>
+					verifyPlatformSignature({
+						...verification,
+						platformCertificateSerial: this.platformCertificateSerial,
+						platformPublicKey: this.platformPublicKey,
+						now: this.now,
+						operation: "order-close",
+					}),
+			},
+			this.fetcher,
+		);
+		return {
+			trace: paymentTrace("order-close", response.requestId, orderId),
 		};
 	}
 

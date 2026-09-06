@@ -536,6 +536,70 @@ export class WechatPrepayService {
 		};
 	}
 
+	/**
+	 * 用户明确退出普通微信收银台时，先查单再关单，最后才作废平台订单。
+	 * 任何已支付或 provider 状态未知的结果都不作废，预约由上层保持占用并
+	 * 交给后续查单/人工处理，避免“用户看到取消但钱已扣”的错配。
+	 */
+	async cancel(input: {
+		ownerUserId: string;
+		orderId: string;
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<{ orderId: string; status: "cancelled" | "paid" }> {
+		const order = await this.dependencies.orders.get(
+			input.ownerUserId,
+			input.orderId,
+		);
+		if (order.state === "cancelled" || order.state === "failed") {
+			return { orderId: order.orderId, status: "cancelled" };
+		}
+		if (
+			order.state === "cash_paid" ||
+			order.state === "his_written_back" ||
+			order.state === "completed"
+		) {
+			return { orderId: order.orderId, status: "paid" };
+		}
+
+		const attempt = await this.dependencies.attempts.findByOwnerAndOrderId(
+			input.ownerUserId,
+			order.orderId,
+		);
+		if (!attempt && order.state !== "cash_pending") {
+			throw new PaymentOrderInputError(
+				"Payment cancellation requires provider confirmation",
+			);
+		}
+		if (attempt && attempt.status !== "failed") {
+			const result = await this.dependencies.wechatPayment.query(
+				{ orderId: order.orderId },
+				input.context,
+			);
+			if (result.state === "cash_paid") {
+				return { orderId: order.orderId, status: "paid" };
+			}
+			if (result.state === "cash_pending") {
+				await this.dependencies.wechatPayment.close(
+					{ orderId: order.orderId },
+					input.context,
+				);
+			}
+		}
+		const cancelled = await this.dependencies.orders.cancel(
+			input.ownerUserId,
+			order.orderId,
+		);
+		return {
+			orderId: cancelled.orderId,
+			status:
+				cancelled.state === "cash_paid" ||
+				cancelled.state === "completed" ||
+				cancelled.state === "his_written_back"
+					? "paid"
+					: "cancelled",
+		};
+	}
+
 	private replayAttempt(
 		attempt: PaymentPrepayAttempt,
 		state: WechatPrepayPayload["data"]["state"],

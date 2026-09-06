@@ -162,6 +162,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 			"当前预约已失效，请重新获取号源并预约",
 		"medical-insurance-payment-in-progress":
 			"当前已有一笔医保支付在进行中，请完成后再试",
+		"medical-insurance-cancellation-context-missing":
+			"当前医保订单需要人工处理，请联系工作人员",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
 		"report-query-invalid": "暂时无法查询检查报告，请稍后再试",
 		"report-patient-not-found": "未查询到检查报告",

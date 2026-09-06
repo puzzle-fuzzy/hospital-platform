@@ -1,22 +1,22 @@
 import type {
 	AppointmentHold,
 	AppointmentRegistration,
-	AppointmentWriteRepository,
 	AppointmentScheduleSnapshot,
 	AppointmentScheduleSnapshotRepository,
+	AppointmentWriteRepository,
 	IdentityUser,
 	ManualReviewRepository,
+	MedicalInsuranceAuthorizationContext,
+	MedicalInsuranceAuthorizationRepository,
 	MedicalInsuranceCredentialContext,
 	MedicalInsuranceCredentialHandle,
 	MedicalInsuranceCredentialRepository,
-	MedicalInsuranceAuthorizationContext,
-	MedicalInsuranceAuthorizationRepository,
-	MedicalInsuranceProviderQueryIdentity,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
-	MedicalInsuranceSettlementContext,
+	MedicalInsuranceProviderQueryIdentity,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceSettlementContext,
 	MyDoctor,
 	MyDoctorRepository,
 	PatientDirectorySnapshotInput,
@@ -43,18 +43,18 @@ import type {
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
+	isValidMedicalInsuranceProviderQueryIdentity,
 	MyDoctorAlreadyExistsError,
+	normalizeMyDoctorReadModel,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
-	normalizeMyDoctorReadModel,
-	validateMyDoctorCreateInput,
 	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
+	validateMyDoctorCreateInput,
 	validateReportReference,
-	isValidMedicalInsuranceProviderQueryIdentity,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
 import { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
@@ -746,6 +746,16 @@ export function createInMemoryPaymentPrepayAttemptRepository(
 	const attempts = new Map(seed.map((attempt) => [attempt.attemptId, attempt]));
 
 	return {
+		async findByOwnerAndOrderId(ownerUserId, orderId) {
+			return [...attempts.values()]
+				.filter(
+					(attempt) =>
+						attempt.ownerUserId === ownerUserId && attempt.orderId === orderId,
+				)
+				.sort((left, right) =>
+					right.updatedAt.localeCompare(left.updatedAt),
+				)[0];
+		},
 		async findByOwnerOrderAndIdempotencyKey(
 			ownerUserId,
 			orderId,
@@ -1158,6 +1168,9 @@ export function createNotConfiguredRepositories(): {
 			saveSettlementContext: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
+			saveSettlementContextIfMissing: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
 			getSettlementContext: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
@@ -1244,6 +1257,9 @@ export function createNotConfiguredRepositories(): {
 			},
 		},
 		paymentPrepayAttempts: {
+			findByOwnerAndOrderId: async () => {
+				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
+			},
 			findByOwnerOrderAndIdempotencyKey: async () => {
 				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
 			},
@@ -1756,6 +1772,26 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				upDetailList: context.upDetailList.map((item) => ({ ...item })),
 				tradeOrderIds: [...context.tradeOrderIds],
 			});
+		},
+		async saveSettlementContextIfMissing(ownerUserId, medicalOrderId, context) {
+			const order = orders.get(medicalOrderId);
+			if (!order || order.ownerUserId !== ownerUserId) {
+				throw new Error(
+					"Medical insurance settlement context order is unavailable",
+				);
+			}
+			if (settlementContexts.has(medicalOrderId)) return false;
+			settlementContexts.set(medicalOrderId, {
+				...context,
+				networkRegister: { ...context.networkRegister },
+				outNetworkSettleMain: { ...context.outNetworkSettleMain },
+				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({
+					...item,
+				})),
+				upDetailList: context.upDetailList.map((item) => ({ ...item })),
+				tradeOrderIds: [...context.tradeOrderIds],
+			});
+			return true;
 		},
 		async getSettlementContext(ownerUserId, medicalOrderId) {
 			const order = orders.get(medicalOrderId);

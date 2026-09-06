@@ -11,9 +11,15 @@ import {
 import { createLogger } from "@hospital/observability";
 import {
 	createInMemoryIdentityUserRepository,
+	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 } from "@hospital/persistence";
+import {
+	RegistrationPaymentExitInputError,
+	RegistrationPaymentExitService,
+} from "./registration-payment-exit-service";
+import { registrationSelfPayOrderKey } from "./registration-self-pay-service";
 import { PaymentIdentityNotFoundError, WechatPrepayService } from "./service";
 
 const order = {
@@ -308,4 +314,234 @@ test("wechat prepay logs contain no provider subject or pay credential", async (
 	expect(output).toContain("payment.wechat_prepay.created");
 	expect(output).not.toContain("fixture-openid-001");
 	expect(output).not.toContain("fixture-prepay-001");
+});
+
+test("用户取消自费支付会先关闭微信单，再作废平台订单", async () => {
+	const orders = createInMemoryPaymentOrderRepository([order]);
+	const attempts = createInMemoryPaymentPrepayAttemptRepository([
+		{
+			attemptId: "attempt-exit-001",
+			ownerUserId: order.ownerUserId,
+			orderId: order.orderId,
+			provider: "wechat-pay",
+			idempotencyKey: "prepay-exit-001",
+			status: "succeeded",
+			version: 2,
+			queryAttempts: 0,
+			prepayId: "fixture-prepay-001",
+			createdAt: order.createdAt,
+			updatedAt: order.updatedAt,
+		},
+	]);
+	const fixture = createFixtureWechatPaymentGateway();
+	let closeCalls = 0;
+	const paymentOrders = new PaymentOrderService({ orders });
+	const prepay = new WechatPrepayService({
+		orders: paymentOrders,
+		identityUsers: createInMemoryIdentityUserRepository(),
+		attempts,
+		wechatPayment: {
+			...fixture,
+			query: async (_input, context) => ({
+				state: "cash_pending",
+				totalFen: order.amounts.cashFen,
+				trace: {
+					provider: "fixture-wechat-pay",
+					operation: "order-query",
+					requestId: context.traceId,
+				},
+			}),
+			close: async (_input, context) => {
+				closeCalls += 1;
+				return {
+					trace: {
+						provider: "fixture-wechat-pay",
+						operation: "order-close",
+						requestId: context.traceId,
+					},
+				};
+			},
+		},
+	});
+
+	const result = await prepay.cancel({
+		ownerUserId: order.ownerUserId,
+		orderId: order.orderId,
+		context: { traceId: "trace-exit-001", idempotencyKey: "exit-001" },
+	});
+
+	expect(result).toEqual({ orderId: order.orderId, status: "cancelled" });
+	expect(closeCalls).toBe(1);
+	await expect(
+		paymentOrders.get(order.ownerUserId, order.orderId),
+	).resolves.toMatchObject({
+		state: "cancelled",
+	});
+});
+
+test("支付退出不会把已确认收款的自费订单误作废", async () => {
+	let appointmentCancelCalls = 0;
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository([
+			{
+				...order,
+				idempotencyKey: registrationSelfPayOrderKey("appointment-exit-001"),
+				state: "cash_paid",
+			},
+		]),
+	});
+	const prepay = new WechatPrepayService({
+		orders: paymentOrders,
+		identityUsers: createInMemoryIdentityUserRepository(),
+		attempts: createInMemoryPaymentPrepayAttemptRepository(),
+		wechatPayment: createFixtureWechatPaymentGateway(),
+	});
+	const service = new RegistrationPaymentExitService({
+		appointments: {
+			cancel: async () => {
+				appointmentCancelCalls += 1;
+				return { appointmentId: "appointment-exit-001", status: "cancelled" };
+			},
+		} as never,
+		medicalInsurance: { cancel: async () => undefined } as never,
+		medicalInsuranceWechatPayment: { query: async () => undefined } as never,
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		paymentOrders,
+		wechatPrepay: prepay,
+	});
+
+	await expect(
+		service.abandon({
+			ownerUserId: order.ownerUserId,
+			appointmentId: "appointment-exit-001",
+			mode: "self",
+			context: { traceId: "trace-exit-paid", idempotencyKey: "exit-paid" },
+		}),
+	).rejects.toBeInstanceOf(RegistrationPaymentExitInputError);
+	expect(appointmentCancelCalls).toBe(0);
+});
+
+test("支付退出会在自费订单失效后取消预约并释放号源", async () => {
+	let appointmentCancelCalls = 0;
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository([
+			{
+				...order,
+				idempotencyKey: registrationSelfPayOrderKey("appointment-exit-002"),
+			},
+		]),
+	});
+	const service = new RegistrationPaymentExitService({
+		appointments: {
+			cancel: async () => {
+				appointmentCancelCalls += 1;
+				return { appointmentId: "appointment-exit-002", status: "cancelled" };
+			},
+		} as never,
+		medicalInsurance: { cancel: async () => undefined } as never,
+		medicalInsuranceWechatPayment: { query: async () => undefined } as never,
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		paymentOrders,
+		wechatPrepay: new WechatPrepayService({
+			orders: paymentOrders,
+			identityUsers: createInMemoryIdentityUserRepository(),
+			attempts: createInMemoryPaymentPrepayAttemptRepository(),
+			wechatPayment: createFixtureWechatPaymentGateway(),
+		}),
+	});
+
+	await expect(
+		service.abandon({
+			ownerUserId: order.ownerUserId,
+			appointmentId: "appointment-exit-002",
+			mode: "self",
+			context: { traceId: "trace-exit-002", idempotencyKey: "exit-002" },
+		}),
+	).resolves.toEqual({
+		appointmentId: "appointment-exit-002",
+		status: "cancelled",
+	});
+	expect(appointmentCancelCalls).toBe(1);
+	await expect(
+		paymentOrders.get(order.ownerUserId, order.orderId),
+	).resolves.toMatchObject({ state: "cancelled" });
+});
+
+test("医保混合支付退出会先确认未支付，再作废医保订单并释放号源", async () => {
+	let mixedQueryCalls = 0;
+	let medicalCancelCalls = 0;
+	let appointmentCancelCalls = 0;
+	const medicalOrders = createInMemoryMedicalInsuranceOrderRepository();
+	await medicalOrders.insert({
+		medicalOrderId: "medical-exit-001",
+		ownerUserId: order.ownerUserId,
+		patientId: order.patientId,
+		appointmentId: "appointment-exit-003",
+		authorizationId: "authorization-exit-001",
+		feeUploadId: "fee-exit-001",
+		idempotencyKey: "medical-exit-idempotency",
+		medOrgOrd: "medical-org-exit-001",
+		chrgBchno: "charge-exit-001",
+		payOrdId: "pay-exit-001",
+		payTokenHash: null,
+		mdtrtId: "mdtrt-exit-001",
+		acctUsedFlag: "1",
+		status: "cash_pending",
+		ordStas: null,
+		amounts: {
+			totalFen: 1000,
+			personalAccountFen: 700,
+			fundFen: 0,
+			cashFen: 300,
+		},
+		setlType: "ALL",
+		revsTokenHash: null,
+		revsTokenExpiresAt: null,
+		lastError: null,
+		wechatMixTradeNo: "mix-exit-001",
+		wechatPaymentState: "prepay_ready",
+		version: 1,
+		createdAt: order.createdAt,
+		updatedAt: order.updatedAt,
+	});
+	const service = new RegistrationPaymentExitService({
+		appointments: {
+			cancel: async () => {
+				appointmentCancelCalls += 1;
+				return { appointmentId: "appointment-exit-003", status: "cancelled" };
+			},
+		} as never,
+		medicalInsurance: {
+			cancel: async () => {
+				medicalCancelCalls += 1;
+				return { status: "cancelled" };
+			},
+		} as never,
+		medicalInsuranceWechatPayment: {
+			query: async () => {
+				mixedQueryCalls += 1;
+				return { paymentState: "prepay_ready", status: "cash_pending" };
+			},
+		} as never,
+		medicalInsuranceOrders: medicalOrders,
+		paymentOrders: new PaymentOrderService({
+			orders: createInMemoryPaymentOrderRepository(),
+		}),
+		wechatPrepay: {} as never,
+	});
+
+	await expect(
+		service.abandon({
+			ownerUserId: order.ownerUserId,
+			appointmentId: "appointment-exit-003",
+			mode: "mixed",
+			context: { traceId: "trace-exit-003", idempotencyKey: "exit-003" },
+		}),
+	).resolves.toEqual({
+		appointmentId: "appointment-exit-003",
+		status: "cancelled",
+	});
+	expect(mixedQueryCalls).toBe(1);
+	expect(medicalCancelCalls).toBe(1);
+	expect(appointmentCancelCalls).toBe(1);
 });

@@ -35,13 +35,15 @@ export type ProviderFailureStage =
  */
 export type ProviderRequestOutcome = "not_sent" | "rejected" | "unknown";
 
-/** 已确认的 Provider 业务竞争原因；只用于稳定映射和低敏日志。 */
+/** 已确认的 Provider/医保流程边界原因；只用于稳定映射和低敏日志。 */
 export type ProviderFailureReason =
 	| "appointment-source-unavailable"
 	/** 微信查单明确返回订单不存在，可安全把本地尝试置为 failed 后重试。 */
 	| "payment-order-not-found"
 	/** 众阳 2.6.33 明确返回已有支付流水，支付小程序可进入关单重开分支。 */
-	| "medical-insurance-payment-in-progress";
+	| "medical-insurance-payment-in-progress"
+	/** 新服务没有保存完整关单上下文时，禁止把本地前置校验伪装成 Provider 502。 */
+	| "medical-insurance-cancellation-context-missing";
 
 export class ProviderRequestError extends Error {
 	readonly provider: AdapterName;

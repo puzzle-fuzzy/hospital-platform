@@ -79,6 +79,7 @@ import {
 import { PatientBindingInputError } from "../modules/patients/binding-service";
 import { PatientServiceInputError } from "../modules/patients/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
+import { RegistrationPaymentExitInputError } from "../modules/payments/registration-payment-exit-service";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 import {
 	ReportNotFoundError,
@@ -132,6 +133,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-order-not-found": 30520,
 	"medical-insurance-appointment-stale": 30530,
 	"medical-insurance-payment-in-progress": 30540,
+	"medical-insurance-cancellation-context-missing": 30550,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -318,6 +320,13 @@ export function errorHandlerPlugin() {
 					return errorPayload(
 						"medical-insurance-payment-in-progress",
 						"当前已有一笔支付在进行中，请完成或关闭后再试",
+					);
+				}
+				if (error.reason === "medical-insurance-cancellation-context-missing") {
+					set.status = 409;
+					return errorPayload(
+						"medical-insurance-cancellation-context-missing",
+						"当前医保订单需要人工处理，请联系工作人员",
 					);
 				}
 				set.status = error.retryable ? 503 : 502;
@@ -569,6 +578,14 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"appointment-payment-active",
 					"该预约已有自费支付流水，不能直接取消，请先完成或继续支付",
+				);
+			}
+
+			if (error instanceof RegistrationPaymentExitInputError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-payment-active",
+					"支付结果未确认完成，暂不能释放当前预约号源",
 				);
 			}
 
