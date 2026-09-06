@@ -23,18 +23,6 @@ const repositoryRoot = resolve(import.meta.dir, "..");
  */
 export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 	{
-		featureKey: "admission-preconsultation",
-		target: "pages/admission-preconsultation/admission-preconsultation",
-		mode: "surface-factory",
-		source:
-			"apps/miniprogram/src/pages/admission-preconsultation/admission-preconsultation.ts",
-		registration:
-			'registerClinicalContentSurfacePage("admission-preconsultation")',
-		sharedSources: [
-			"apps/miniprogram/src/services/clinical-content-surface.ts",
-		],
-	},
-	{
 		featureKey: "discharge-followup",
 		target: "pages/discharge-followup/discharge-followup",
 		mode: "surface-factory",

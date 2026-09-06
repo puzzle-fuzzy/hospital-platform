@@ -107,8 +107,8 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.readOnly.semanticStateCount).toBe(35);
 		expect(report.readOnly.semanticFailures).toEqual([]);
 		expect(report.readOnly.passed).toBe(true);
-		expect(report.providerIntake.documentCount).toBe(6);
-		expect(report.providerIntake.documentIdCount).toBe(35);
+		expect(report.providerIntake.documentCount).toBe(7);
+		expect(report.providerIntake.documentIdCount).toBe(36);
 		expect(report.providerIntake.confirmedDocumentCount).toBe(0);
 		expect(report.providerIntake.businessReady).toBe(false);
 		expect(report.clinicalContract.domainCount).toBe(3);

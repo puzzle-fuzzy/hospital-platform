@@ -45,10 +45,10 @@ describe("迁移事实文档审计", () => {
 			const currentPrefix = original.slice(0, currentBoundary);
 			const historicalSuffix = original.slice(currentBoundary);
 			const stalePrefix = currentPrefix
-				.replace("38 个原生页面", "40 个原生页面")
-				.replace("surface-only=23", "surface-only=25")
+				.replace("43 个原生页面", "40 个原生页面")
+				.replace("surface-only=18", "surface-only=25")
 				.replace(
-					"当前小程序源码与 live 运行输入为 `ce1c2179b57fe2783066b51f8621220224982928`",
+					"当前小程序源码与 live 运行输入为 `f3f2bc665cb0ed5d727936e7918b1dacbd2eccfc`",
 					"当前小程序源码与 live 运行输入为 `02dbf10`",
 				);
 			await Bun.write(coveragePath, `${stalePrefix}${historicalSuffix}`);

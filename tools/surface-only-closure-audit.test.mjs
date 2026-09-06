@@ -11,11 +11,11 @@ describe("未开放页面关闭态审计", () => {
 
 		expect(report).toMatchObject({
 			passed: true,
-			catalogTargetCount: 10,
-			declaredTargetCount: 10,
-			factoryPageCount: 9,
+			catalogTargetCount: 8,
+			declaredTargetCount: 8,
+			factoryPageCount: 7,
 			localSubsetPageCount: 1,
-			sharedSourceCount: 4,
+			sharedSourceCount: 3,
 			failures: [],
 		});
 		expect(report.checked.every((page) => page.passed)).toBe(true);
