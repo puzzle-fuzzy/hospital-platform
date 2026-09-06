@@ -4,7 +4,7 @@
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"build": "tsc --noEmit false --declaration --emitDeclarationOnly --outDir dist",
+		"build": "tsc --noEmit false --declaration --emitDeclarationOnly --outDir dist && mkdir -p dist/java-sdk/classes dist/java-sdk/lib && javac -source 8 -target 8 -encoding UTF-8 -cp 'java-sdk/lib/*' -d dist/java-sdk/classes java-sdk/src/OfficialFsiSdkCli.java && cp java-sdk/lib/*.jar dist/java-sdk/lib/",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},

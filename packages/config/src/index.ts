@@ -54,6 +54,8 @@ export type RuntimeConfig = {
 	medicalInsuranceSm2OwnPublicKeyB64: string | undefined;
 	medicalInsuranceSm2PlatformPublicKeyB64: string | undefined;
 	medicalInsuranceSm2UserId: string;
+	/** 官方医保 Java SDK 的构建产物目录；未配置时使用当前 release 的默认目录。 */
+	medicalInsuranceJavaSdkDirectory: string | undefined;
 	medicalInsuranceEncryptionEnabled: boolean;
 	/** 当前医保测试环境暂按兼容模式运行；拿到严格回包验签证据后再显式打开。 */
 	medicalInsuranceVerifyStrict: boolean;
@@ -873,6 +875,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		medicalInsuranceSm2UserId:
 			optional(env.MBS_SM2_USER_ID) ?? "1234567812345678",
+		medicalInsuranceJavaSdkDirectory: optional(env.MBS_JAVA_SDK_DIR),
 		medicalInsuranceEncryptionEnabled: boolean(env.MBS_ENCRYPT_ENABLE, true),
 		// 当前测试环境回包业务成功但签名不通过，先按非严格模式兼容；
 		// 取得平台回包验签证据后，由部署环境显式设为 true。

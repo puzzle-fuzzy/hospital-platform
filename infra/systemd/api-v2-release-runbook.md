@@ -66,6 +66,11 @@ test -f "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js"
 test -f "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js"
 test -f "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js"
 test -f "releases/${new_sha}/apps/worker/dist/redis-session-ttl-audit.js"
+test -f "releases/${new_sha}/packages/adapters/dist/java-sdk/classes/com/hospital/platform/medicalinsurance/OfficialFsiSdkCli.class"
+test -f "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/med-request-data-sdk-2.1.4.jar"
+test -f "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/fastjson-1.2.83.jar"
+test -f "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/bcprov-jdk15on-1.68.jar"
+test -f "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/commons-logging-1.2.jar"
 test -f shared/api.env
 test "$(stat -c '%a' shared/api.env)" = 600
 # release 中的 dist 和脱敏日志聚合 artifact 必须来自已通过本地门禁的构建产物；先在本地保存 checksum，上传后再复核。
@@ -77,7 +82,12 @@ sha256sum \
     "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js" \
     "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js" \
     "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js" \
-    "releases/${new_sha}/apps/worker/dist/redis-session-ttl-audit.js"
+    "releases/${new_sha}/apps/worker/dist/redis-session-ttl-audit.js" \
+    "releases/${new_sha}/packages/adapters/dist/java-sdk/classes/com/hospital/platform/medicalinsurance/OfficialFsiSdkCli.class" \
+    "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/med-request-data-sdk-2.1.4.jar" \
+    "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/fastjson-1.2.83.jar" \
+    "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/bcprov-jdk15on-1.68.jar" \
+    "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/commons-logging-1.2.jar"
 ```
 
 切换前必须保存以下证据：

@@ -2,7 +2,7 @@ import {
 	configureProviderRequestLogger,
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
-	createSmCryptoLegacyFsiCrypto,
+	createOfficialJavaLegacyFsiCrypto,
 	createWechatPaymentGateway,
 } from "@hospital/adapters";
 import {
@@ -18,6 +18,10 @@ import {
 	createPersistenceRuntime,
 	type PersistenceRuntime,
 } from "@hospital/persistence";
+import {
+	MedicalInsuranceOrderReconciliationWorker,
+	type MedicalInsuranceOrderReconciliationWorkerResult,
+} from "./medical-insurance-order-reconciliation-worker";
 import { OutboxWorker, type OutboxWorkerResult } from "./outbox-worker";
 import { createPaymentOrderAuditEventHandler } from "./payment-order-audit-handler";
 import {
@@ -25,10 +29,6 @@ import {
 	type PaymentReconciliationWorkerResult,
 } from "./payment-reconciliation-worker";
 import { createWechatPaymentNotificationHandler } from "./wechat-payment-notification-handler";
-import {
-	MedicalInsuranceOrderReconciliationWorker,
-	type MedicalInsuranceOrderReconciliationWorkerResult,
-} from "./medical-insurance-order-reconciliation-worker";
 
 export type WorkerRuntimeStatus = "not_configured" | "not_ready" | "ready";
 
@@ -198,14 +198,19 @@ export function createWorkerRuntime(
 						directBaseUrl: runtimeConfig.medicalInsuranceDirectBaseUrl ?? "",
 						relayAuthorizationToken:
 							runtimeConfig.medicalInsuranceRelayAuthorizationToken ?? "",
-						crypto: createSmCryptoLegacyFsiCrypto({
+						crypto: createOfficialJavaLegacyFsiCrypto({
 							appId: runtimeConfig.medicalInsuranceAppId ?? "",
 							appSecret: runtimeConfig.medicalInsuranceAppSecret ?? "",
 							channelPrivateKeyB64:
 								runtimeConfig.medicalInsuranceSm2PrivateKeyB64 ?? "",
 							platformPublicKeyB64:
 								runtimeConfig.medicalInsuranceSm2PlatformPublicKeyB64 ?? "",
-							sm2UserId: runtimeConfig.medicalInsuranceSm2UserId,
+							...(runtimeConfig.medicalInsuranceJavaSdkDirectory
+								? {
+										sdkDirectory:
+											runtimeConfig.medicalInsuranceJavaSdkDirectory,
+									}
+								: {}),
 							verifyResponseStrict: runtimeConfig.medicalInsuranceVerifyStrict,
 						}),
 						logger,

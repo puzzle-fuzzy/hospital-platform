@@ -16,7 +16,8 @@ export type LegacyFsiSealedEnvelope = {
 	encType: "SM4";
 	signType: "SM2";
 	version: string;
-	timestamp: string;
+	/** 旧实现为 yyyyMMddHHmmss 字符串，官方 SDK 为 13 位毫秒数。 */
+	timestamp: string | number;
 	encData: string;
 	signData: string;
 };
@@ -82,11 +83,22 @@ export function validateLegacyFsiSealedEnvelope(
 			"crypto envelope must use the agreed SM4/SM2 algorithms",
 		);
 	}
-	const timestamp = requiredString(payload, "timestamp", infno);
-	if (!/^\d{14}$/.test(timestamp)) {
+	const rawTimestamp = payload.timestamp;
+	const timestamp =
+		typeof rawTimestamp === "number" &&
+		Number.isSafeInteger(rawTimestamp) &&
+		rawTimestamp > 0
+			? rawTimestamp
+			: requiredString(payload, "timestamp", infno);
+	if (
+		(typeof timestamp === "string" &&
+			!/^\d{14}$/.test(timestamp) &&
+			!/^\d{13}$/.test(timestamp)) ||
+		(typeof timestamp === "number" && String(timestamp).length !== 13)
+	) {
 		throw new LegacyFsiContractError(
 			infno,
-			"crypto envelope timestamp must use yyyyMMddHHmmss",
+			"crypto envelope timestamp must use yyyyMMddHHmmss or 13-digit milliseconds",
 		);
 	}
 	return {

@@ -15,9 +15,9 @@ export {
 	createFixtureWechatPaymentGateway,
 } from "./fixtures/replay";
 export type {
-	ProviderRequestLogger,
 	ProviderFetcher,
 	ProviderRequest,
+	ProviderRequestLogger,
 	ProviderResponse,
 } from "./http";
 export { configureProviderRequestLogger, requestJson } from "./http";
@@ -93,6 +93,10 @@ export {
 	type NotConfiguredGateways,
 } from "./not-configured";
 export {
+	createOfficialJavaLegacyFsiCrypto,
+	type OfficialJavaLegacyFsiConfig,
+} from "./official-java-legacy-fsi-crypto";
+export {
 	createWechatIdentityGateway,
 	WechatIdentityApiGateway,
 	type WechatIdentityGatewayOptions,
@@ -102,8 +106,8 @@ export {
 	createWechatPaymentNotificationDecoder,
 	mapWechatPaymentNotification,
 	verifyAndDecryptWechatPaymentNotification,
-	WechatPaymentApiGateway,
 	type WechatMedicalInsuranceOptions,
+	WechatPaymentApiGateway,
 	type WechatPaymentGatewayOptions,
 	type WechatPaymentNotification,
 	type WechatPaymentNotificationDecoderInput,

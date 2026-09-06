@@ -1,7 +1,7 @@
 import {
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
-	createSmCryptoLegacyFsiCrypto,
+	createOfficialJavaLegacyFsiCrypto,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
@@ -284,19 +284,21 @@ const medicalInsuranceCryptoConfig = medicalInsuranceReady
 			channelPrivateKeyB64: config.medicalInsuranceSm2PrivateKeyB64 ?? "",
 			platformPublicKeyB64:
 				config.medicalInsuranceSm2PlatformPublicKeyB64 ?? "",
-			sm2UserId: config.medicalInsuranceSm2UserId,
+			...(config.medicalInsuranceJavaSdkDirectory
+				? { sdkDirectory: config.medicalInsuranceJavaSdkDirectory }
+				: {}),
 		}
 	: undefined;
 // 6201/6202 目前按测试环境的兼容模式接收“已解密但验签未通过”的响应；
 // 医保异步通知仍单独使用严格实例，避免把非严格边界扩大到回调入账。
 const medicalInsuranceCrypto = medicalInsuranceCryptoConfig
-	? createSmCryptoLegacyFsiCrypto({
+	? createOfficialJavaLegacyFsiCrypto({
 			...medicalInsuranceCryptoConfig,
 			verifyResponseStrict: config.medicalInsuranceVerifyStrict,
 		})
 	: undefined;
 const medicalInsuranceNotificationCrypto = medicalInsuranceCryptoConfig
-	? createSmCryptoLegacyFsiCrypto({
+	? createOfficialJavaLegacyFsiCrypto({
 			...medicalInsuranceCryptoConfig,
 			verifyResponseStrict: true,
 		})

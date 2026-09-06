@@ -142,6 +142,69 @@ function providerResponseError(
 	});
 }
 
+function providerRejectedError(
+	infno: LegacyFsiInfno,
+	response: { requestId: string },
+	body: Record<string, unknown>,
+): ProviderRequestError | undefined {
+	const rawCode = body.code ?? body.respCode ?? body.responseCode;
+	const code =
+		typeof rawCode === "number" && Number.isFinite(rawCode)
+			? String(rawCode)
+			: typeof rawCode === "string" && rawCode.trim()
+				? rawCode.trim()
+				: undefined;
+	const codeIsZero =
+		code !== undefined && Number.isFinite(Number(code)) && Number(code) === 0;
+	const rejected =
+		body.success === false ||
+		body.success === "false" ||
+		(code !== undefined && !codeIsZero);
+	if (!rejected) return undefined;
+	const providerMessage =
+		optionalTextField(body, "message") ??
+		optionalTextField(body, "msg") ??
+		optionalTextField(body, "errorMsg") ??
+		optionalTextField(body, "respMessage");
+	return new ProviderRequestError({
+		provider: "legacy-fsi",
+		operation: `legacy-fsi.${infno}`,
+		message: "Legacy FSI provider rejected the request",
+		requestId: response.requestId,
+		retryable: false,
+		failureStage: "response",
+		responseInvalid: false,
+		...(code ? { providerErrorCode: code } : {}),
+		...(providerMessage ? { providerErrorMessage: providerMessage } : {}),
+		requestOutcome: "rejected",
+	});
+}
+
+function providerResponseCode(
+	body: Record<string, unknown>,
+): string | undefined {
+	const rawCode = body.code ?? body.respCode ?? body.responseCode;
+	if (typeof rawCode === "number" && Number.isFinite(rawCode)) {
+		return String(rawCode);
+	}
+	if (typeof rawCode === "string" && rawCode.trim()) return rawCode.trim();
+	return undefined;
+}
+
+function providerResponseSummary(body: Record<string, unknown>) {
+	return {
+		responseKeys: providerKeys(body),
+		providerResponseSuccess:
+			typeof body.success === "boolean" ? body.success : undefined,
+		providerResponseSuccessType: typeof body.success,
+		providerResponseCode: providerResponseCode(body),
+		encDataPresent: typeof body.encData === "string" && body.encData.length > 0,
+		signDataPresent:
+			typeof body.signData === "string" && body.signData.length > 0,
+		dataPresent: body.data !== undefined && body.data !== null,
+	};
+}
+
 function asRecord(
 	value: unknown,
 	infno: LegacyFsiInfno,
@@ -253,8 +316,23 @@ export function createLegacyFsiGateway(
 		);
 
 		try {
+			const responseBody = asRecord(response.data, infno);
+			options.logger?.info(
+				{
+					event: "medical-insurance.legacy-fsi.response.received",
+					traceId: context.traceId,
+					operation: `legacy-fsi.${infno}`,
+					infno,
+					providerRequestId: response.requestId,
+					providerStatusCode: response.statusCode,
+					...providerResponseSummary(responseBody),
+				},
+				"Legacy FSI response received with safe envelope summary",
+			);
+			const rejected = providerRejectedError(infno, response, responseBody);
+			if (rejected) throw rejected;
 			const opened = await options.crypto.open(
-				{ infno, response: asRecord(response.data, infno) },
+				{ infno, response: responseBody },
 				context,
 			);
 			const validated = validateLegacyFsiOpenedPayload(opened, infno, {
