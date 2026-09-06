@@ -285,7 +285,9 @@ test("reconciliation worker marks an absent WeChat order failed and retryable", 
 	const output = lines.join("\n");
 	expect(output).toContain("worker.payment.wechat_query.order_not_found");
 	expect(output).toContain("ORDER_NOT_EXIST");
-	expect(output).toContain("订单不存在");
+	expect(output).toContain('"providerErrorMessageLength":5');
+	expect(output).toContain('"providerErrorMessageSha256":"6898ca86445689d2"');
+	expect(output).not.toContain("订单不存在");
 });
 
 test("reconciliation worker stops provider failures at the manual review boundary", async () => {

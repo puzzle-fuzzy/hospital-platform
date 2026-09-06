@@ -27,8 +27,10 @@ test("runtime preflight fails closed without configuration and does not need inf
 		details: [
 			"wechat-identity:disabled",
 			"wechat-payment:disabled",
+			"wechat-medical-insurance:disabled",
 			"medical-insurance:disabled",
 			"zhongyang-patient-directory:disabled",
+			"zhongyang-patient-binding:disabled",
 			"zhongyang-appointment-directory:disabled",
 			"zhongyang-appointment-records:disabled",
 			"zhongyang-appointment-writes:disabled",
@@ -79,8 +81,10 @@ test("runtime preflight fails an explicitly opened but incomplete provider gate"
 		details: [
 			"wechat-identity:disabled",
 			"wechat-payment:disabled",
+			"wechat-medical-insurance:disabled",
 			"medical-insurance:disabled",
 			"zhongyang-patient-directory:disabled",
+			"zhongyang-patient-binding:disabled",
 			"zhongyang-appointment-directory:disabled",
 			"zhongyang-appointment-records:disabled",
 			"zhongyang-appointment-writes:disabled",
