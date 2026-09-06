@@ -65,15 +65,20 @@ test("6201 requires fee detail totals to match the medical fee total", () => {
 		userName: "masked-name-001",
 		idType: "01",
 		insuCode: "insu-001",
+		insuplcAdmdvs: "140581",
 		iptOtpNo: "visit-001",
 		deptName: "internal-medicine",
 		deptCode: "dept-001",
 		caty: "11",
+		diseCodg: "",
+		diseName: "",
 		medType: "21",
 		feeType: "01",
+		mdtrtCertType: "01",
 		psnSetlway: "01",
 		chrgBchno: "batch-001",
 		pubHospRfomFlag: "0",
+		uldLatlnt: "112.928537,35.787393",
 	};
 	expect(
 		validate6201FeeUpload({

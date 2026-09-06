@@ -234,15 +234,18 @@ export function validate6201FeeUpload(payload: Record<string, unknown>): {
 		"userName",
 		"idType",
 		"insuCode",
+		"insuplcAdmdvs",
 		"iptOtpNo",
 		"deptName",
 		"deptCode",
 		"caty",
 		"medType",
 		"feeType",
+		"mdtrtCertType",
 		"psnSetlway",
 		"chrgBchno",
 		"pubHospRfomFlag",
+		"uldLatlnt",
 	]) {
 		requiredText(payload, fieldName, infno);
 	}

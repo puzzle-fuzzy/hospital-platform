@@ -51,6 +51,10 @@ const DEFAULT_PRE_ORDER_AUTO_SETTLE = 3;
 const DEFAULT_PAY_QUERY_AUTO_SETTLE = 2;
 const DEFAULT_MEDICAL_PAY_TYPE_ID = 2;
 const DEFAULT_MEDICAL_PAY_MODEL = "H5";
+// 6201 的就医凭证类型沿用当前 1101 授权请求使用的居民身份证类型。
+const DEFAULT_MDTRT_CERT_TYPE = "01";
+// 当前院方提供的可用医保测试参数中的医院坐标；可由调用方按院区覆盖。
+const DEFAULT_ULD_LATLNT = "112.928537,35.787393";
 
 type ProviderRecord = Record<string, unknown>;
 
@@ -73,6 +77,8 @@ export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	hospitalId?: string;
 	insutype?: string;
 	insuCode?: string;
+	/** 6201 uldLatlnt；没有分院区配置时使用院方确认的默认坐标。 */
+	uldLatlnt?: string;
 	/** 只写入阶段、字段来源和数量，不写入医保凭证或患者原文。 */
 	logger?: ProviderDiagnosticLogger;
 	fetcher?: ProviderFetcher;
@@ -694,21 +700,14 @@ function mapFeeDetails(
 				optionalText(detail, ["billDeptName"], operation, requestId) ??
 				deptName,
 			bilgDrCodg:
-				optionalText(detail, ["billDocCode"], operation, requestId) ??
+				// 6201 的开单医生编码必须是 2.1.13 返回的医保医师编码；
+				// detail.billDocCode 只是众阳/HIS userCode，不能直接出网。
 				doctorCode,
 			bilgDrName:
 				optionalText(detail, ["billDocName"], operation, requestId) ??
 				doctorName,
-			...(optionalText(detail, ["hospApprFlag"], operation, requestId)
-				? {
-						hospApprFlag: optionalText(
-							detail,
-							["hospApprFlag"],
-							operation,
-							requestId,
-						),
-					}
-				: {}),
+			hospApprFlag:
+				optionalText(detail, ["hospApprFlag"], operation, requestId) ?? "1",
 			medType: optionalText(detail, ["medType"], operation, requestId) ?? "11",
 			medListName,
 			medListSpc:
@@ -725,12 +724,8 @@ function mapFeeDetails(
 			acordDeptName:
 				optionalText(detail, ["exeDeptName"], operation, requestId) ?? deptName,
 			ordersDrCode:
-				optionalText(
-					detail,
-					["exeDocCode", "exeInsurDocCode"],
-					operation,
-					requestId,
-				) ?? doctorCode,
+				// 与 bilgDrCodg 保持同一个 2.1.13 medicalInsuranceCode。
+				doctorCode,
 			ordersDrName:
 				optionalText(detail, ["exeDocName"], operation, requestId) ??
 				doctorName,
@@ -1352,6 +1347,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 	const hospitalId = options.hospitalId?.trim() || "10389001";
 	const insutype = options.insutype?.trim() || "310";
 	const insuCode = options.insuCode?.trim() || "140581";
+	const uldLatlnt = options.uldLatlnt?.trim() || DEFAULT_ULD_LATLNT;
 	const authorizationToken =
 		options.zhongyangAuthorizationToken?.trim() || undefined;
 	const fetcher = options.fetcher ?? fetch;
@@ -2518,6 +2514,13 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					caty,
 					medType: "11",
 					feeType: "01",
+					mdtrtCertType: DEFAULT_MDTRT_CERT_TYPE,
+					uldLatlnt,
+					hasInsuplcAdmdvs: Boolean(auth.insuplcAdmdvs),
+					topLevelDiagnosisFields: "empty-by-contract",
+					feeDetailHasHospApprFlag: feedetailList.every((detail) =>
+						Boolean(detail.hospApprFlag),
+					),
 					hasPsnNo: Boolean(auth.psnNo),
 					hasPayAuthNo: Boolean(auth.payAuthNo),
 					hasEcToken: Boolean(auth.ecToken),
@@ -2546,6 +2549,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					userName: auth.patient.userName,
 					idType: auth.patient.idType,
 					insuCode: auth.insuCode,
+					insuplcAdmdvs: auth.insuplcAdmdvs,
 					iptOtpNo: chargeBatch,
 					deptName,
 					deptCode,
@@ -2553,9 +2557,13 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					medType: "11",
 					feeType: "01",
 					psnSetlway: "01",
+					mdtrtCertType: DEFAULT_MDTRT_CERT_TYPE,
 					chrgBchno: chargeBatch,
 					pubHospRfomFlag: "1",
+					uldLatlnt,
 					medfeeSumamt: fenToYuan(totalFen),
+					diseCodg: "",
+					diseName: "",
 					diseinfoList: diagnoseList,
 					feedetailList,
 				},
