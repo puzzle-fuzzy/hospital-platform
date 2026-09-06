@@ -1,9 +1,14 @@
 import type { AdapterCallContext, ExternalTrace } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
-import { type ProviderFetcher, requestJson } from "./http";
 import {
-	LEGACY_FSI_ROUTES,
+	type ProviderFetcher,
+	providerRawLoggingEnabled,
+	rawBodyText,
+	requestJson,
+} from "./http";
+import {
 	classifyLegacyFsiOrderStatus,
+	LEGACY_FSI_ROUTES,
 	type LegacyFsiAmountBreakdown,
 	LegacyFsiContractError,
 	type LegacyFsiFeeUploadCredential,
@@ -11,6 +16,7 @@ import {
 	type LegacyFsiRefundAmounts,
 	type LegacyFsiSettlement,
 	type LegacyFsiSettlementQuery,
+	unwrapLegacyFsiData,
 	validate6201FeeUpload,
 	validate6201Response,
 	validate6202Request,
@@ -21,7 +27,6 @@ import {
 	validate6301Request,
 	validate6401Request,
 	validate6401Response,
-	unwrapLegacyFsiData,
 } from "./legacy-fsi-contract";
 import {
 	type LegacyFsiCryptoGateway,
@@ -38,7 +43,7 @@ export type LegacyFsiGatewayOptions = {
 	relayAuthorizationToken: string;
 	/** 真实 SM2/SM4 实现通过该边界注入，未配置时必须失败。 */
 	crypto: LegacyFsiCryptoGateway;
-	/** 只记录阶段、请求号和字段形状，不记录请求体、凭证或患者原文。 */
+	/** 默认只记录阶段、请求号和字段形状；受控联调开关开启时记录完整原文。 */
 	logger?: ProviderDiagnosticLogger;
 	fetcher?: ProviderFetcher;
 	/** 测试环境兼容模式允许业务成功但回包未验签；生产必须保持 false。 */
@@ -197,6 +202,24 @@ export function createLegacyFsiGateway(
 		data: Record<string, unknown>,
 		context: AdapterCallContext,
 	): Promise<{ data: Record<string, unknown>; requestId: string }> => {
+		if (providerRawLoggingEnabled()) {
+			options.logger?.info(
+				{
+					event: "provider.request.logical.raw",
+					provider: "legacy-fsi",
+					operation: `legacy-fsi.${infno}`,
+					traceId: context.traceId,
+					providerRequestId: context.traceId,
+					method: "POST",
+					providerRequestUrl: new URL(
+						LEGACY_FSI_ROUTES[infno].path,
+						directBaseUrl,
+					).toString(),
+					providerRequestBodyText: rawBodyText(data),
+				},
+				"Legacy FSI logical request captured for test diagnostics",
+			);
+		}
 		options.logger?.info(
 			{
 				event: "medical-insurance.legacy-fsi.requested",
@@ -247,6 +270,21 @@ export function createLegacyFsiGateway(
 						providerRequestId: response.requestId,
 					},
 					"Legacy FSI response accepted in non-strict verification mode",
+				);
+			}
+			if (providerRawLoggingEnabled()) {
+				options.logger?.info(
+					{
+						event: "provider.response.logical.raw",
+						provider: "legacy-fsi",
+						operation: `legacy-fsi.${infno}`,
+						traceId: context.traceId,
+						providerRequestId: response.requestId,
+						providerStatusCode: response.statusCode,
+						providerResponseBodyText: rawBodyText(validated.data),
+						providerResponseSignVerified: validated.signVerified,
+					},
+					"Legacy FSI logical response captured for test diagnostics",
 				);
 			}
 			options.logger?.info(

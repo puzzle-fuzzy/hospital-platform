@@ -6,13 +6,13 @@ import type {
 	ExternalTrace,
 	MedicalInsuranceAmounts,
 	MedicalInsuranceAuthorizationContext,
-	MedicalInsuranceCancellationEvidence,
 	MedicalInsuranceAuthorizationRepository,
+	MedicalInsuranceCancellationEvidence,
 	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceGateway,
 	MedicalInsuranceOrderRepository,
-	MedicalInsuranceSettlementEvidence,
 	MedicalInsuranceSettlementContext,
+	MedicalInsuranceSettlementEvidence,
 	PaymentAmounts,
 } from "@hospital/domain";
 import {
@@ -20,6 +20,7 @@ import {
 	assertValidPaymentAmounts,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
+import { type ProviderFetcher, requestJson } from "./http";
 import {
 	type classifyLegacyFsiOrderStatus,
 	yuanToFen,
@@ -29,7 +30,6 @@ import type {
 	LegacyFsiSettlementQueryResult,
 	ProviderDiagnosticLogger,
 } from "./legacy-fsi-gateway";
-import { type ProviderFetcher, requestJson } from "./http";
 
 const DEFAULT_USER_QUERY_BASE_URL = "https://test-receiver.wecity.qq.com";
 const DEFAULT_USER_QUERY_PATH = "/api/mipuserquery/userQuery/50010828";
@@ -156,6 +156,7 @@ function responseError(
 		providerErrorCode?: string | undefined;
 		providerErrorMessage?: string | undefined;
 		reason?: "medical-insurance-payment-in-progress" | undefined;
+		responseInvalid?: boolean | undefined;
 	},
 ): ProviderRequestError {
 	const diagnosticMessage = (details?.providerErrorMessage ?? message).slice(
@@ -168,7 +169,7 @@ function responseError(
 		message,
 		retryable: false,
 		failureStage: "response",
-		responseInvalid: true,
+		responseInvalid: details?.responseInvalid ?? true,
 		...(requestId ? { requestId } : {}),
 		...(details?.providerErrorCode
 			? { providerErrorCode: details.providerErrorCode.slice(0, 64) }
@@ -1115,6 +1116,25 @@ function providerSuccessFlag(value: unknown): boolean | undefined {
 	return undefined;
 }
 
+/** 只提取 Provider 业务拒绝的 code/message，供服务端原始联调日志关联。 */
+function providerDiagnosticText(
+	value: unknown,
+	keys: readonly string[],
+): string | undefined {
+	const raw = providerDeepValue(value, keys);
+	if (typeof raw !== "string" && typeof raw !== "number") return undefined;
+	const text = String(raw).trim();
+	if (!text || text.length > 256) return undefined;
+	if (
+		Array.from(text).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	)
+		return undefined;
+	return text;
+}
+
 function providerDeepValue(
 	value: unknown,
 	keys: readonly string[],
@@ -1984,6 +2004,109 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					settleApply.requestId,
 				);
 			}
+			// 必须在 2.6.65.2 创建本次支付流水之前检查既有支付。
+			// 如果放在 2.6.65.2 之后，众阳会把刚刚创建的当前流水返回为
+			// “正在收款中”，从而被误判成用户已有另一笔支付。
+			const childPaymentResponse = await zhongyangGet(
+				"medical-insurance.2.6.33",
+				"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records",
+				context,
+				{
+					patId: appointment.providerPatientId,
+					startTime: dateTime(
+						new Date(currentDate.getTime() - 24 * 60 * 60 * 1000),
+					),
+					endTime: dateTime(currentDate),
+					tradeStatus: "1",
+					authSysCode: DEFAULT_AUTH_SYS_CODE,
+					outTradeOrderIdList: tradeOrderIds,
+				},
+			);
+			const childRecords = arrayPayload(
+				childPaymentResponse.data,
+				[],
+				"medical-insurance.2.6.33",
+				childPaymentResponse.requestId,
+			);
+			// 2.6.33 查询参数中的 tradeStatus=1 不是充分条件，仍需复核
+			// Provider 返回的每条记录。此时尚未创建 2.6.65.2 当前流水，
+			// 因此命中的“正在收款中”只能是此前遗留的支付流水。
+			const nonPayableChildCount = childRecords.filter((record) => {
+				const tradeStatus = optionalText(
+					record,
+					["tradeStatus"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				const disableSettleFlag = optionalText(
+					record,
+					["disableSettleFlag"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				return tradeStatus !== "1" || disableSettleFlag === "1";
+			}).length;
+			const paymentInProgressCount = childRecords.filter((record) => {
+				const tradeStatus = optionalText(
+					record,
+					["tradeStatus"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				const disableSettleFlag = optionalText(
+					record,
+					["disableSettleFlag"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				const reason = optionalText(
+					record,
+					["disableSettleReason"],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				return (
+					tradeStatus === "2" ||
+					(disableSettleFlag === "1" &&
+						(reason === undefined || /收款|缴费|支付/.test(reason)))
+				);
+			}).length;
+			if (nonPayableChildCount > 0) {
+				options.logger?.warn(
+					{
+						event: "medical-insurance.2.6.33.result.rejected",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						providerRequestId: childPaymentResponse.requestId,
+						resultCount: childRecords.length,
+						nonPayableChildCount,
+						paymentInProgressCount,
+						expectedTradeStatus: "1",
+						reason: "trade_status_or_disable_settle_flag_not_payable",
+					},
+					"Medical insurance child payment result is not payable",
+				);
+				throw responseError(
+					"medical-insurance.2.6.33",
+					"待支付费用返回为不可再次结算状态",
+					childPaymentResponse.requestId,
+					paymentInProgressCount > 0
+						? { reason: "medical-insurance-payment-in-progress" }
+						: undefined,
+				);
+			}
+			options.logger?.info(
+				{
+					event: "medical-insurance.2.6.33.precheck.passed",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					providerRequestId: childPaymentResponse.requestId,
+					resultCount: childRecords.length,
+					tradeOrderCount: tradeOrderIds.length,
+					paymentInProgressCount,
+				},
+				"Medical insurance existing payment precheck passed before pre-order",
+			);
 			const preOrderResponse = await zhongyangPost(
 				"medical-insurance.2.6.65.2",
 				"/msun-middle-open-settlepay/api/v2/open/payment/pre-order",
@@ -2024,6 +2147,16 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.2.6.65.2",
 					"医保支付流水创建失败",
 					preOrderResponse.requestId,
+					{
+						responseInvalid: false,
+						providerErrorCode: providerDiagnosticText(preOrderResponse.data, [
+							"code",
+						]),
+						providerErrorMessage: providerDiagnosticText(
+							preOrderResponse.data,
+							["message"],
+						),
+					},
 				);
 			}
 			const payingId = findTextDeep(
@@ -2050,7 +2183,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					preOrderResponse.requestId,
 				);
 			}
-			// 2.6.65.2 已经创建支付流水后，后续 2.27.2.27/2.6.33/6201
+			// 2.6.65.2 已经创建支付流水后，后续 2.27.2.27/6201
 			// 任一步失败都必须仍然具备 2.6.65.11/2.6.65.6 的取消上下文。
 			// 先落一个只含关单所需事实的密文上下文，后面成功拿到真实医保
 			// 明细后再用完整上下文覆盖；这样“正在收款中”不会变成孤儿流水。
@@ -2286,94 +2419,6 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"真实费用明细合计与预约应付金额不一致",
 					detailResponse.requestId,
 				);
-			const childPaymentResponse = await zhongyangGet(
-				"medical-insurance.2.6.33",
-				"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records",
-				context,
-				{
-					patId: appointment.providerPatientId,
-					startTime: dateTime(
-						new Date(currentDate.getTime() - 24 * 60 * 60 * 1000),
-					),
-					endTime: dateTime(currentDate),
-					tradeStatus: "1",
-					authSysCode: DEFAULT_AUTH_SYS_CODE,
-					outTradeOrderIdList: tradeOrderIds,
-				},
-			);
-			const childRecords = arrayPayload(
-				childPaymentResponse.data,
-				[],
-				"medical-insurance.2.6.33",
-				childPaymentResponse.requestId,
-			);
-			// 6201 只能使用 2.6.33 返回的“待支付”子项目。
-			// 查询参数是 tradeStatus=1 不是充分条件，Provider 回包仍必须复核；
-			// tradeStatus=2 或 disableSettleFlag=1 都表示不能再次发起结算。
-			const nonPayableChildCount = childRecords.filter((record) => {
-				const tradeStatus = optionalText(
-					record,
-					["tradeStatus"],
-					"medical-insurance.2.6.33",
-					childPaymentResponse.requestId,
-				);
-				const disableSettleFlag = optionalText(
-					record,
-					["disableSettleFlag"],
-					"medical-insurance.2.6.33",
-					childPaymentResponse.requestId,
-				);
-				return tradeStatus !== "1" || disableSettleFlag === "1";
-			}).length;
-			const paymentInProgressCount = childRecords.filter((record) => {
-				const tradeStatus = optionalText(
-					record,
-					["tradeStatus"],
-					"medical-insurance.2.6.33",
-					childPaymentResponse.requestId,
-				);
-				const disableSettleFlag = optionalText(
-					record,
-					["disableSettleFlag"],
-					"medical-insurance.2.6.33",
-					childPaymentResponse.requestId,
-				);
-				const reason = optionalText(
-					record,
-					["disableSettleReason"],
-					"medical-insurance.2.6.33",
-					childPaymentResponse.requestId,
-				);
-				return (
-					tradeStatus === "2" ||
-					(disableSettleFlag === "1" &&
-						(reason === undefined || /收款|缴费|支付/.test(reason)))
-				);
-			}).length;
-			if (nonPayableChildCount > 0) {
-				options.logger?.warn(
-					{
-						event: "medical-insurance.2.6.33.result.rejected",
-						traceId: context.traceId,
-						orderId: input.orderId,
-						providerRequestId: childPaymentResponse.requestId,
-						resultCount: childRecords.length,
-						nonPayableChildCount,
-						paymentInProgressCount,
-						expectedTradeStatus: "1",
-						reason: "trade_status_or_disable_settle_flag_not_payable",
-					},
-					"Medical insurance child payment result is not payable",
-				);
-				throw responseError(
-					"medical-insurance.2.6.33",
-					"待支付费用返回为不可再次结算状态",
-					childPaymentResponse.requestId,
-					paymentInProgressCount > 0
-						? { reason: "medical-insurance-payment-in-progress" }
-						: undefined,
-				);
-			}
 			options.logger?.info(
 				{
 					event: "medical-insurance.settlement-details.shape",

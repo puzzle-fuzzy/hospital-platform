@@ -111,6 +111,8 @@ function publicErrorCode(error: unknown): string | undefined {
 	if (error instanceof ProviderRequestError) {
 		if (error.reason === "appointment-source-unavailable")
 			return "appointment-source-unavailable";
+		if (error.reason === "medical-insurance-payment-in-progress")
+			return "medical-insurance-payment-in-progress";
 		if (error.responseInvalid) return "provider-response-invalid";
 		return error.retryable
 			? "provider-temporarily-unavailable"

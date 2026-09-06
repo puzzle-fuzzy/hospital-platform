@@ -35,6 +35,29 @@ export function configureProviderRequestLogger(
 	defaultProviderRequestLogger = logger;
 }
 
+/**
+ * 受控联调开关：打开后 requestJson 会记录 Provider 的完整请求/响应原文。
+ * 默认关闭，联调结束后必须移除环境变量并重启服务。
+ */
+export function providerRawLoggingEnabled(): boolean {
+	const value = Bun.env.PROVIDER_RAW_LOGGING?.trim().toLowerCase();
+	return value === "1" || value === "true" || value === "yes";
+}
+
+export function rawBodyText(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value === "string") return value;
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return "[unserializable-provider-body]";
+	}
+}
+
+function rawHeadersText(headers: Headers): string {
+	return JSON.stringify(Object.fromEntries(headers.entries()));
+}
+
 const SENSITIVE_FIELD_PARTS = [
 	"id",
 	"idno",
@@ -365,6 +388,25 @@ export async function requestJson<T>(
 			});
 		}
 
+		if (providerRawLoggingEnabled()) {
+			emitProviderLog(
+				logger,
+				"info",
+				{
+					event: "provider.request.raw",
+					provider: input.provider,
+					operation: input.operation,
+					traceId: input.context.traceId,
+					providerRequestId: input.context.traceId,
+					method: input.method,
+					providerRequestUrl: input.url,
+					providerRequestHeadersText: rawHeadersText(headers),
+					providerRequestBodyText: rawBodyText(input.bodyText ?? input.body),
+				},
+				"Provider raw request captured for test diagnostics",
+			);
+		}
+
 		emitProviderLog(
 			logger,
 			"info",
@@ -379,6 +421,23 @@ export async function requestJson<T>(
 			response.headers,
 			input.context.traceId,
 		);
+		if (providerRawLoggingEnabled()) {
+			emitProviderLog(
+				logger,
+				"info",
+				{
+					event: "provider.response.raw",
+					provider: input.provider,
+					operation: input.operation,
+					traceId: input.context.traceId,
+					providerRequestId: requestId,
+					providerStatusCode: response.status,
+					providerResponseHeadersText: rawHeadersText(response.headers),
+					providerResponseBodyText: raw,
+				},
+				"Provider raw response captured for test diagnostics",
+			);
+		}
 		emitProviderLog(
 			logger,
 			"info",

@@ -85,6 +85,22 @@ test("请求日志区分 Provider 响应非法和主动拒绝", () => {
 	);
 });
 
+test("请求日志优先保留医保支付进行中的稳定业务原因", () => {
+	const error = new ProviderRequestError({
+		provider: "medical-insurance",
+		operation: "medical-insurance.2.6.33",
+		requestId: "payment-in-progress-request",
+		retryable: false,
+		responseInvalid: true,
+		reason: "medical-insurance-payment-in-progress",
+		message: "待支付费用返回为不可再次结算状态",
+	});
+
+	expect(safeErrorMetadata(error, "UNKNOWN").errorCode).toBe(
+		"medical-insurance-payment-in-progress",
+	);
+});
+
 test("请求日志优先采用 HttpError 的稳定业务错误码", () => {
 	const metadata = safeErrorMetadata(
 		new HttpError(401, "unauthorized", "请先登录"),

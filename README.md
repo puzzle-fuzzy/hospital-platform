@@ -11,18 +11,20 @@
 - 原生微信小程序：WXML、WXSS、TypeScript 源码（构建后生成微信运行所需的 JavaScript）
 - MySQL、Redis 和医保/HIS/微信支付适配层保持独立边界
 
-## 当前状态（2026-09-05）
+## 当前状态（2026-09-06）
 
-> 当前代码已经合并并推送到 `main`；本次 README 同步只修改仓库文档，不执行服务器部署、服务重启、数据库迁移或真实 Provider 请求。线上 `test-hp.meiyi.pro` 的实际版本必须通过 `3090-local` 上的 release、systemd 和公网 readiness 证据单独确认，不能由 Git 状态推断。
+> 当前状态以本地 checkout 为准：分支为 `main`，HEAD 为 `da087be0c4d42a7ac5b62eec33f10f9692153333`，本地比 `origin/main` 超前 5 个提交；本次同步前工作区已有 6 个已跟踪文件存在未提交改动。本 README 更新不会替这些改动执行 commit，也不代表代码已经 push 完成。
+>
+> 本次只同步文档，不执行服务器部署、服务重启、数据库迁移或真实 Provider/医保/微信请求。线上 `test-hp.meiyi.pro` 的实际版本必须通过 `3090-local` 上的 release、systemd、公网 readiness 和业务日志证据单独确认，不能由 Git 状态推断。
 
-当前仓库已经从“只读骨架”进入“统一支付核心 + 受控业务入口”阶段：预约写入、取消、挂号自费、医保授权/费用/结算、医保混合支付和门诊费用只读接口均已在新版 API 中注册；真实调用仍受运行配置、schema、Provider 合同、商户权限和人工验收门禁控制，缺少证据时保持 fail-closed。
+当前仓库已经从“只读骨架”进入“统一支付核心 + 受控业务入口”阶段。最新代码已落地主小程序的预约写入、取消、详情和患者手动添加/绑定入口；新版 API 也注册了挂号自费、医保授权/费用/结算、医保混合支付和门诊费用只读接口。这里的“已落地/已注册”只表示代码和契约存在，不等于 Provider、数据库 schema、商户权限、线上 release 或真机业务已经验收；缺少证据时继续 fail-closed。
 
 ### 当前可用代码边界
 
 | 模块 | 当前实现 | 当前限制 |
 | --- | --- | --- |
-| `apps/api` | Bun + Elysia API、会话、患者目录、预约目录/排班、预约写入/取消/详情、挂号自费、医保支付、门诊费用只读、报告和结构化日志 | 生产可用性以运行时 gate、数据库/schema、Provider 和支付回调证据为准 |
-| `apps/miniprogram` | 43 个原生微信页面；微信登录、会话恢复、就诊人选择、预约目录/排班、挂号记录/详情、门诊费用列表/详情等主项目链路 | 患者绑定、临床 Provider、实时叫号、未确认内容和主项目内支付入口继续保持对应关闭态；支付由独立测试小程序承载 |
+| `apps/api` | Bun + Elysia API、会话、患者目录/同步/手动绑定入口、预约目录/排班、预约写入/取消/详情、挂号自费、医保支付、门诊费用只读、报告和结构化日志 | 生产可用性以运行时 gate、实际数据库/schema、Provider 合同、商户权限、回调和线上 release 证据为准；路由注册不代表业务已验收 |
+| `apps/miniprogram` | 43 个原生微信页面；微信登录、会话恢复、就诊人选择/同步、患者绑定表单、预约目录/排班、主小程序预约写入/取消/详情、挂号记录、门诊费用列表/详情等链路 | 患者 Provider 查档/建档/绑卡、临床 Provider、实时叫号、未确认内容和主项目内支付入口仍按各自 gate 处理；支付由独立测试小程序承载 |
 | `apps/miniprogram-pay` | 挂号支付测试端：固定“内科风湿 + 后天优先/大后天顺延 + 上午 + 可用号源”，支持医保支付、医保混合支付、自费支付三条分支 | 真实医保/微信支付是否可调用由服务端配置和 Provider 验收决定；用户取消支付时保留预约和待支付上下文，不重复挂号 |
 | `apps/miniprogram-outpatient-pay` | 门诊支付测试端：登录、选择就诊人、读取待缴/已缴费用列表和已核对的摘要详情 | 当前只读，不创建门诊支付订单，不调用医保结算；门诊支付写入需先冻结正式 contract |
 | `apps/worker` | 医保订单/微信通知 outbox 的查单与补偿执行骨架、生产日志和 schema 前置检查 | 是否在线运行、是否接管生产订单必须通过服务器上的 systemd 和日志证据确认 |
@@ -175,6 +177,9 @@ API 默认运行在 `http://localhost:3000`：
 - `GET /health/ready`：依赖与 schema gate 就绪检查（`not_configured` 或 `unavailable` 不会伪装成 ready）
 - `GET /api/v1/system/ping`：API 版本检查
 - `GET /api/v1/me`：验证当前平台会话，只返回内部用户 ID
+- `POST /api/v1/patients/bind`：提交当前账号的就诊人手动添加/绑定命令；查档、建档、绑卡和最终关系确认受独立 Provider gate 控制
+- `POST /api/v1/patients/sync`：同步当前账号已存在的就诊人目录
+- `GET /api/v1/patients`：读取当前账号 owner-scoped 的脱敏就诊人目录
 - `POST /api/v1/payments/orders/:orderId/wechat-prepay`：仅在订单为 `cash_pending` 且微信支付闸门打开时返回服务端签名参数
 - `GET /api/v1/payments/orders/:orderId/wechat-prepay`：读取 `not_started/pending/ready/unknown` 预支付尝试状态
 - `POST /api/v1/payments/wechat/notifications`：接收已验签的微信支付成功通知并返回 provider ack
