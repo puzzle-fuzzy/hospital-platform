@@ -5,6 +5,7 @@ import type {
 	HospitalSettlementGateway,
 	PaymentOrderSnapshot,
 	RegistrationSelfPaySettlementContext,
+	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import {
@@ -38,7 +39,7 @@ export type YunhealthRegistrationSettlementGatewayOptions = {
 	/** 旧服务已确认的插件 payTypeId，必须是正整数文本。 */
 	pluginPayTypeId: string;
 	pluginPayType: YunhealthRegistrationPluginPayType;
-	/** 2.6.65.5 必须带真实工作站 ID，不能使用旧服务的空值。 */
+	/** HIS 已确认插件版收款的工作站号；当前合同允许为空字符串。 */
 	workStationId: string;
 	paymentSource?: string;
 	authSysCode?: string;
@@ -96,7 +97,11 @@ function providerError(
 	});
 }
 
-function requiredText(value: unknown, label: string, maxLength = 256): string {
+function textAllowEmpty(
+	value: unknown,
+	label: string,
+	maxLength = 256,
+): string {
 	if (typeof value !== "string") {
 		throw providerError(THIRD_PART_OPERATION, `${label} is invalid`, {
 			failureStage: "validation",
@@ -105,13 +110,23 @@ function requiredText(value: unknown, label: string, maxLength = 256): string {
 	}
 	const normalized = value.trim();
 	if (
-		!normalized ||
 		normalized.length > maxLength ||
 		Array.from(normalized).some((character) => {
 			const code = character.charCodeAt(0);
 			return code < 0x20 || code === 0x7f;
 		})
 	) {
+		throw providerError(THIRD_PART_OPERATION, `${label} is invalid`, {
+			failureStage: "validation",
+			requestOutcome: "not_sent",
+		});
+	}
+	return normalized;
+}
+
+function requiredText(value: unknown, label: string, maxLength = 256): string {
+	const normalized = textAllowEmpty(value, label, maxLength);
+	if (!normalized) {
 		throw providerError(THIRD_PART_OPERATION, `${label} is invalid`, {
 			failureStage: "validation",
 			requestOutcome: "not_sent",
@@ -371,7 +386,7 @@ export function createYunhealthRegistrationSettlementGateway(
 	) as YunhealthRegistrationPluginPayType;
 	if (!ALLOWED_PAY_TYPES.has(pluginPayType))
 		throw new AdapterNotConfiguredError("yunhealth");
-	const workStationId = requiredText(options.workStationId, "workStationId");
+	const workStationId = textAllowEmpty(options.workStationId, "workStationId");
 	const paymentSource = requiredText(
 		options.paymentSource ?? "1",
 		"paymentSource",
@@ -404,13 +419,64 @@ export function createYunhealthRegistrationSettlementGateway(
 				);
 			}
 			const payFee = validatePureCashSettlement(input.settlement);
-			const recordCode = stableRecordCode(orderId);
+			const registrationContext = input.registrationContext;
+			const outTradeNo = registrationContext?.outTradeNo
+				? requiredText(registrationContext.outTradeNo, "outTradeNo", 64)
+				: orderId;
+			const recordCode = registrationContext?.recordCode
+				? requiredText(registrationContext.recordCode, "recordCode", 32)
+				: stableRecordCode(outTradeNo);
+			if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
+				throw providerError(THIRD_PART_OPERATION, "recordCode is invalid", {
+					failureStage: "validation",
+					requestOutcome: "not_sent",
+				});
+			}
+			const requestPayTypeId = registrationContext?.payTypeId
+				? positiveInteger(registrationContext.payTypeId, "payTypeId")
+				: pluginPayTypeId;
+			const requestPayType = registrationContext?.payType
+				? requiredText(registrationContext.payType, "payType")
+				: pluginPayType;
+			if (!ALLOWED_PAY_TYPES.has(requestPayType))
+				throw providerError(THIRD_PART_OPERATION, "payType is invalid", {
+					failureStage: "validation",
+					requestOutcome: "not_sent",
+				});
+			const requestWorkStationId =
+				registrationContext?.workStationId !== undefined
+					? textAllowEmpty(registrationContext.workStationId, "workStationId")
+					: workStationId;
+			if (
+				requestPayTypeId !== pluginPayTypeId ||
+				requestPayType !== pluginPayType
+			) {
+				throw providerError(
+					THIRD_PART_OPERATION,
+					"stored plugin payment configuration does not match server configuration",
+					{
+						failureStage: "validation",
+						requestOutcome: "not_sent",
+					},
+				);
+			}
+			if (requestWorkStationId !== workStationId) {
+				throw providerError(
+					THIRD_PART_OPERATION,
+					"stored plugin workStationId does not match server configuration",
+					{
+						failureStage: "validation",
+						requestOutcome: "not_sent",
+					},
+				);
+			}
 			const requestIds: string[] = [];
 			const request = async <T>(
 				step: string,
 				operation: string,
 				path: string,
 				body: unknown,
+				captureRawBody = false,
 			) => {
 				const response = await requestJson<T>(
 					{
@@ -420,10 +486,11 @@ export function createYunhealthRegistrationSettlementGateway(
 						method: "POST",
 						context: {
 							...context,
-							idempotencyKey: stableStepIdempotencyKey(step, orderId),
+							idempotencyKey: stableStepIdempotencyKey(step, outTradeNo),
 						},
 						headers: { Authorization: authorization },
 						body,
+						...(captureRawBody ? { captureRawBody: true } : {}),
 						...(options.logger ? { logger: options.logger } : {}),
 					},
 					fetcher,
@@ -432,41 +499,67 @@ export function createYunhealthRegistrationSettlementGateway(
 				return response;
 			};
 
-			const thirdPart = await request<unknown>(
-				"2.27.2.29",
-				THIRD_PART_OPERATION,
-				THIRD_PART_PAY_START_PATH,
-				{
-					agreementNo: orderId,
-					bankCode: "-",
-					certNo: normalizedContext.certNo,
-					commercialInsuranceId: 0,
-					creditUserId: "",
-					patId: normalizedContext.patientId,
-					patInHosId: normalizedContext.patInHosId,
-					payFee,
-					payType: pluginPayType,
-					payTypeId: pluginPayTypeId,
-					payingId: normalizedContext.payingId,
-					psnCertType: normalizedContext.psnCertType,
-					psnName: normalizedContext.psnName,
-					psnNo: normalizedContext.psnNo,
-					sceneCode: "OUT",
-					settleId: normalizedContext.businessId,
-					tradingId: normalizedContext.tradingId,
-					transStatus: "0",
-				},
-			);
-			requireProviderSuccess(
-				thirdPart.data,
-				THIRD_PART_OPERATION,
-				thirdPart.requestId,
-			);
-			const thirdPartRecordId = nestedValue(thirdPart.data, [
-				"thirdPartPayRecordId",
-				"third_part_pay_record_id",
-			]);
-			positiveInteger(thirdPartRecordId, "thirdPartPayRecordId");
+			const thirdPartRecordId = registrationContext?.thirdPartPayRecordId
+				? positiveInteger(
+						registrationContext.thirdPartPayRecordId,
+						"thirdPartPayRecordId",
+					)
+				: undefined;
+			if (thirdPartRecordId === undefined) {
+				const thirdPart = await request<unknown>(
+					"2.27.2.29",
+					THIRD_PART_OPERATION,
+					THIRD_PART_PAY_START_PATH,
+					{
+						agreementNo: outTradeNo,
+						bankCode: "-",
+						certNo: normalizedContext.certNo,
+						commercialInsuranceId: 0,
+						creditUserId: "",
+						patId: normalizedContext.patientId,
+						patInHosId: normalizedContext.patInHosId,
+						payFee,
+						payType: requestPayType,
+						payTypeId: requestPayTypeId,
+						payingId: normalizedContext.payingId,
+						psnCertType: normalizedContext.psnCertType,
+						psnName: normalizedContext.psnName,
+						psnNo: normalizedContext.psnNo,
+						sceneCode: "OUT",
+						settleId: normalizedContext.businessId,
+						tradingId: normalizedContext.tradingId,
+						transStatus: "0",
+					},
+					true,
+				);
+				requireProviderSuccess(
+					thirdPart.data,
+					THIRD_PART_OPERATION,
+					thirdPart.requestId,
+				);
+				const thirdPartPayRecordId = positiveInteger(
+					nestedValue(thirdPart.data, [
+						"thirdPartPayRecordId",
+						"third_part_pay_record_id",
+					]),
+					"thirdPartPayRecordId",
+				).toString();
+				if (typeof thirdPart.rawBodyText !== "string") {
+					throw providerError(
+						THIRD_PART_OPERATION,
+						"2.27.2.29 raw response was not captured",
+						{
+							requestId: thirdPart.requestId,
+							failureStage: "response",
+							requestOutcome: "unknown",
+						},
+					);
+				}
+				await input.onThirdPartPayResponse?.({
+					rawResponse: thirdPart.rawBodyText,
+					thirdPartPayRecordId,
+				});
+			}
 
 			const paymentNotify = await request<unknown>(
 				"2.6.65.15",
@@ -484,7 +577,7 @@ export function createYunhealthRegistrationSettlementGateway(
 							recordList: [
 								{
 									payingId: normalizedContext.payingId,
-									payTypeId: pluginPayTypeId,
+									payTypeId: requestPayTypeId,
 									receiveAmount: payFee,
 									recordCode,
 									status: "3",
@@ -496,7 +589,7 @@ export function createYunhealthRegistrationSettlementGateway(
 						0,
 					),
 					tradeTypeCode,
-					workStationId,
+					workStationId: requestWorkStationId,
 				},
 			);
 			requireProviderSuccess(
@@ -516,7 +609,7 @@ export function createYunhealthRegistrationSettlementGateway(
 					hospitalId: normalizedContext.hospitalId,
 					thirdFlag: 1,
 					tradeTypeCode,
-					workStationId,
+					workStationId: requestWorkStationId,
 				},
 			);
 			requireProviderSuccess(
@@ -543,6 +636,156 @@ export function createYunhealthRegistrationSettlementGateway(
 				requestId: complete.requestId,
 				requestIds,
 				providerOrderId: normalizedContext.businessId,
+			};
+		},
+	};
+}
+
+/**
+ * 旧挂号医保混合支付的第二次 2.6.65.2 预下单。
+ *
+ * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的
+ * payingId/tradingId 连同 recordCode/outTradeNo 写入医保订单密文上下文，
+ * 再调用普通微信 JSAPI 预下单。这样 Provider 两条支付流水不会被混用。
+ */
+export function createYunhealthRegistrationPluginPaymentGateway(
+	options: YunhealthRegistrationSettlementGatewayOptions,
+): YunhealthRegistrationPluginPaymentGateway {
+	const baseUrl = requiredText(options.baseUrl, "baseUrl");
+	const providerBaseUrl = providerUrl(baseUrl, "");
+	const authorization = normalizedAuthorization(options.authorizationToken);
+	const pluginPayTypeId = positiveInteger(
+		options.pluginPayTypeId,
+		"pluginPayTypeId",
+	);
+	const pluginPayType = requiredText(
+		options.pluginPayType,
+		"pluginPayType",
+	) as YunhealthRegistrationPluginPayType;
+	if (!ALLOWED_PAY_TYPES.has(pluginPayType))
+		throw new AdapterNotConfiguredError("yunhealth");
+	const workStationId = textAllowEmpty(options.workStationId, "workStationId");
+	const authSysCode = requiredText(
+		options.authSysCode ?? "thirdSelfMachine",
+		"authSysCode",
+	);
+	const tradeTypeCode = requiredText(
+		options.tradeTypeCode ?? "10",
+		"tradeTypeCode",
+	);
+	const fetcher = options.fetcher ?? fetch;
+
+	return {
+		async createPreOrder(input, context) {
+			const orderId = requiredText(input.orderId, "orderId", 128);
+			const businessId = requiredText(input.businessId, "businessId");
+			const tradeCode = requiredText(input.tradeCode, "tradeCode");
+			const hospitalId = positiveInteger(input.hospitalId, "hospitalId");
+			const patientId = positiveInteger(input.patientId, "patientId");
+			const totalFen = positiveInteger(input.totalFen, "totalFen");
+			const recordCode = requiredText(input.recordCode, "recordCode", 32);
+			if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
+				throw providerError(
+					"registration-self-pay.2.6.65.2.plugin",
+					"recordCode is invalid",
+					{
+						failureStage: "validation",
+						requestOutcome: "not_sent",
+					},
+				);
+			}
+			if (input.payTypeId !== String(pluginPayTypeId)) {
+				throw providerError(
+					"registration-self-pay.2.6.65.2.plugin",
+					"plugin payTypeId does not match server configuration",
+					{
+						failureStage: "validation",
+						requestOutcome: "not_sent",
+					},
+				);
+			}
+			if (
+				input.payType !== pluginPayType ||
+				input.workStationId !== workStationId
+			) {
+				throw providerError(
+					"registration-self-pay.2.6.65.2.plugin",
+					"plugin payment configuration does not match server configuration",
+					{
+						failureStage: "validation",
+						requestOutcome: "not_sent",
+					},
+				);
+			}
+			const operation = "registration-self-pay.2.6.65.2.plugin";
+			const response = await requestJson<unknown>(
+				{
+					provider: "yunhealth",
+					operation,
+					url: `${providerBaseUrl}/msun-middle-open-settlepay/api/v2/open/payment/pre-order`,
+					method: "POST",
+					context: {
+						...context,
+						idempotencyKey: stableStepIdempotencyKey(
+							"2.6.65.2-plugin",
+							orderId,
+						),
+					},
+					headers: { Authorization: authorization },
+					body: {
+						appCode: "WeChatSmallProg",
+						authSysCode,
+						autoSettle: 3,
+						body: "预约挂号医保自费插件支付",
+						businessId,
+						expire: 20,
+						hospitalId,
+						notifyUrl: "",
+						payModel: "H5",
+						payTypeId: pluginPayTypeId,
+						payTypeParams: [
+							{
+								payTypeId: pluginPayTypeId,
+								amount: Number((totalFen / 100).toFixed(2)),
+								paymentSystemUserId: "",
+								spbillCreateIp: "",
+							},
+						],
+						paymentSystemUserId: "",
+						recordCode,
+						requestId: recordCode,
+						sceneCode: "WeChatSmallProgram",
+						spbillCreateIp: "",
+						total: Number((totalFen / 100).toFixed(2)),
+						tradeCode,
+						tradeTypeCode,
+						workStationId,
+					},
+				},
+				fetcher,
+			);
+			requireProviderSuccess(response.data, operation, response.requestId);
+			const payingId = positiveInteger(
+				nestedValue(response.data, ["payingId", "paying_id"]),
+				"plugin payingId",
+			).toString();
+			const tradingId = positiveInteger(
+				nestedValue(response.data, ["tradingId", "trading_id"]),
+				"plugin tradingId",
+			).toString();
+			return {
+				payingId,
+				tradingId,
+				payTypeId: String(pluginPayTypeId),
+				payType: pluginPayType,
+				workStationId,
+				tradeTypeCode,
+				trace: {
+					provider: "yunhealth",
+					operation,
+					requestId: response.requestId,
+					providerOrderId: payingId,
+				},
 			};
 		},
 	};

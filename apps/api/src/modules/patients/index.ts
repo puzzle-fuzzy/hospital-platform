@@ -77,6 +77,10 @@ export function patientsModule(
 			"/patients",
 			async ({ request, headers }) => {
 				const principal = await authentication.get(request);
+				// 患者目录的事实来源是众阳。GET 也必须重新查询并更新 owner
+				// 快照，不能只读上一次同步留下的本地目录；否则新增绑卡后
+				// 页面即使刷新，仍可能看到旧列表。上下文中的幂等键由服务端
+				// 请求关联号生成，不接受小程序伪造 Provider 身份。
 				return success(
 					await patientService.listLive(
 						principal.userId,

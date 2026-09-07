@@ -220,6 +220,23 @@ export type RegistrationSelfPaySettlementContext = {
 	psnName?: string;
 	psnNo?: string;
 	patInHosId?: string;
+	/** 插件订单与 .29 agreementNo 共用的微信 out_trade_no。 */
+	outTradeNo?: string;
+	/** 订单创建时固化的 32 位 recordCode；重试不得重新生成。 */
+	recordCode?: string;
+	payTypeId?: string;
+	payType?: "CREDIT" | "POS" | "CROWD_FUNDING";
+	workStationId?: string;
+	thirdPartPayRecordId?: string;
+};
+
+/**
+ * .29 成功后可选的内部留存回调。rawResponse 只允许进入服务端加密上下文，
+ * 不得进入 ExternalTrace、日志、API response 或任何业务判断。
+ */
+export type HospitalSettlementThirdPartPayResponse = {
+	rawResponse: string;
+	thirdPartPayRecordId: string;
 };
 
 /**
@@ -377,6 +394,34 @@ export interface MedicalInsuranceWechatPaymentGateway {
 	}>;
 }
 
+/** 云健康旧插件混合支付的第二次 2.6.65.2 预下单。 */
+export interface YunhealthRegistrationPluginPaymentGateway {
+	createPreOrder(
+		input: {
+			orderId: string;
+			businessId: string;
+			tradeCode: string;
+			totalFen: number;
+			hospitalId: string;
+			patientId: string;
+			payTypeId: string;
+			payType: "CREDIT" | "POS" | "CROWD_FUNDING";
+			workStationId: string;
+			recordCode: string;
+			tradeTypeCode: string;
+		},
+		context: AdapterCallContext,
+	): Promise<{
+		payingId: string;
+		tradingId: string;
+		payTypeId: string;
+		payType: "CREDIT" | "POS" | "CROWD_FUNDING";
+		workStationId: string;
+		tradeTypeCode: string;
+		trace: ExternalTrace;
+	}>;
+}
+
 /** 预约写入已经取得的实名资料；只在服务端医保 adapter 调用帧中出现。 */
 export type AppointmentMedicalInsurancePatient = {
 	providerPatientId: string;
@@ -442,6 +487,10 @@ export interface HospitalSettlementGateway {
 			settlement: PaymentOrderSnapshot;
 			/** 服务端从同一预约的医保结算上下文解析出的 Provider 关联键。 */
 			registrationContext?: RegistrationSelfPaySettlementContext;
+			/** .29 成功后只保存完整 raw 响应，不参与后续业务处理。 */
+			onThirdPartPayResponse?: (
+				response: HospitalSettlementThirdPartPayResponse,
+			) => void | Promise<void>;
 		},
 		context: AdapterCallContext,
 	): Promise<ExternalTrace>;

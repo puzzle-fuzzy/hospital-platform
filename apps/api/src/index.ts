@@ -2,11 +2,13 @@ import {
 	configureProviderRequestLogger,
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
+	createLegacyHospitalPatientAuthGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
 	createYunhealthRegistrationSettlementGateway,
+	createYunhealthRegistrationPluginPaymentGateway,
 	createZhongyangAppointmentGateway,
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
@@ -188,6 +190,11 @@ const patientBindingGateway =
 					: {}),
 			})
 		: undefined;
+const patientProviderAuthorizationGateway = config.legacyPatientAuthBaseUrl
+	? createLegacyHospitalPatientAuthGateway({
+			baseUrl: config.legacyPatientAuthBaseUrl,
+		})
+	: undefined;
 const appointmentGateway =
 	(appointmentDirectoryStatus === "configured" ||
 		appointmentRecordsStatus === "configured") &&
@@ -256,6 +263,24 @@ const reportDetailGateway =
 const hospitalSettlementGateway =
 	yunhealthRegistrationSettlementStatus === "configured"
 		? createYunhealthRegistrationSettlementGateway({
+				baseUrl: config.yunhealthBaseUrl ?? "",
+				authorizationToken: config.yunhealthAuthorizationToken ?? "",
+				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
+				pluginPayTypeId: config.yunhealthRegistrationPluginPayTypeId ?? "",
+				pluginPayType: (config.yunhealthRegistrationPluginPayType ?? "") as
+					| "CREDIT"
+					| "POS"
+					| "CROWD_FUNDING",
+				workStationId: config.yunhealthRegistrationWorkStationId ?? "",
+				paymentSource: config.yunhealthRegistrationPaymentSource,
+				authSysCode: config.yunhealthRegistrationAuthSysCode,
+				tradeTypeCode: config.yunhealthRegistrationTradeTypeCode,
+				logger,
+			})
+		: undefined;
+const yunhealthRegistrationPluginPaymentGateway =
+	yunhealthRegistrationSettlementStatus === "configured"
+		? createYunhealthRegistrationPluginPaymentGateway({
 				baseUrl: config.yunhealthBaseUrl ?? "",
 				authorizationToken: config.yunhealthAuthorizationToken ?? "",
 				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
@@ -414,6 +439,9 @@ const app = createApp({
 			: {}),
 		...(patientDirectoryGateway ? { patientDirectoryGateway } : {}),
 		...(patientBindingGateway ? { patientBindingGateway } : {}),
+		...(patientProviderAuthorizationGateway
+			? { patientProviderAuthorizationGateway }
+			: {}),
 		...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
 		...(appointmentDepartmentTreeGateway
 			? { appointmentDepartmentTreeGateway }
@@ -435,6 +463,22 @@ const app = createApp({
 		...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
 		...(medicalInsuranceGateway ? { medicalInsuranceGateway } : {}),
 		...(hospitalSettlementGateway ? { hospitalSettlementGateway } : {}),
+		...(yunhealthRegistrationPluginPaymentGateway
+			? {
+					yunhealthRegistrationPluginPaymentGateway,
+					yunhealthRegistrationPluginPayTypeId:
+						config.yunhealthRegistrationPluginPayTypeId ?? "",
+					yunhealthRegistrationPluginPayType:
+						(config.yunhealthRegistrationPluginPayType ?? "CREDIT") as
+							| "CREDIT"
+							| "POS"
+							| "CROWD_FUNDING",
+					yunhealthRegistrationWorkStationId:
+						config.yunhealthRegistrationWorkStationId ?? "",
+					yunhealthRegistrationTradeTypeCode:
+						config.yunhealthRegistrationTradeTypeCode ?? "10",
+				}
+			: {}),
 	}),
 	wechatPaymentEnabled,
 	readiness: createReadinessService({

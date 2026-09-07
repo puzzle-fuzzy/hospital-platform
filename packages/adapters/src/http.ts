@@ -223,6 +223,8 @@ export type ProviderRequest = {
 		statusCode: number;
 		requestId: string;
 	}) => void | Promise<void>;
+	/** 仅供明确的内部审计存储场景保留 JSON 响应原文。 */
+	captureRawBody?: boolean;
 	/** 单次调用覆盖；未传时使用组合根配置的统一 provider logger。 */
 	logger?: ProviderRequestLogger;
 };
@@ -231,6 +233,8 @@ export type ProviderResponse<T> = {
 	data: T;
 	statusCode: number;
 	requestId: string;
+	/** JSON HTTP body原文；仅在请求显式开启 captureRawBody 时存在。 */
+	rawBodyText?: string;
 };
 
 export type ProviderFetcher = (
@@ -535,7 +539,12 @@ export async function requestJson<T>(
 		}
 
 		if (!raw) {
-			return { data: undefined as T, statusCode: response.status, requestId };
+			return {
+				data: undefined as T,
+				statusCode: response.status,
+				requestId,
+				...(input.captureRawBody ? { rawBodyText: raw } : {}),
+			};
 		}
 
 		try {
@@ -543,6 +552,7 @@ export async function requestJson<T>(
 				data: JSON.parse(raw) as T,
 				statusCode: response.status,
 				requestId,
+				...(input.captureRawBody ? { rawBodyText: raw } : {}),
 			};
 		} catch (cause) {
 			emitProviderLog(

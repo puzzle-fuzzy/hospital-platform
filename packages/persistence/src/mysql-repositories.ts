@@ -462,6 +462,18 @@ function deserializeMedicalInsuranceSettlementContext(
 			cause: error,
 		});
 	}
+	const plugin =
+		typeof parsed === "object" &&
+		parsed !== null &&
+		!Array.isArray(parsed) &&
+		typeof (parsed as { plugin?: unknown }).plugin === "object" &&
+		(parsed as { plugin?: unknown }).plugin !== null &&
+		!Array.isArray((parsed as { plugin?: unknown }).plugin)
+			? ((parsed as { plugin: Record<string, unknown> }).plugin as Record<
+					string,
+					unknown
+				>)
+			: undefined;
 	if (
 		typeof parsed !== "object" ||
 		parsed === null ||
@@ -483,7 +495,41 @@ function deserializeMedicalInsuranceSettlementContext(
 			(parsed as { nationalUpDetailList?: unknown }).nationalUpDetailList,
 		) ||
 		!Array.isArray((parsed as { upDetailList?: unknown }).upDetailList) ||
-		!Array.isArray((parsed as { tradeOrderIds?: unknown }).tradeOrderIds)
+		!Array.isArray((parsed as { tradeOrderIds?: unknown }).tradeOrderIds) ||
+		(plugin !== undefined &&
+			[
+				"paymentOrderId",
+				"payingId",
+				"tradingId",
+				"payTypeId",
+				"payType",
+				"tradeCode",
+				"tradeTypeCode",
+				"outTradeNo",
+				"recordCode",
+				"state",
+			].some(
+				(field) =>
+					typeof plugin[field] !== "string" ||
+					!(plugin[field] as string).trim(),
+			)) ||
+		(plugin !== undefined && typeof plugin.workStationId !== "string") ||
+		(plugin !== undefined &&
+			!new Set(["CREDIT", "POS", "CROWD_FUNDING"]).has(
+				String(plugin.payType),
+			)) ||
+		(plugin !== undefined &&
+			plugin.thirdPartPayRawResponse !== undefined &&
+			typeof plugin.thirdPartPayRawResponse !== "string") ||
+		(plugin !== undefined &&
+			!new Set([
+				"preorder_created",
+				"prepay_ready",
+				"cash_paid",
+				"29_succeeded",
+				"15_succeeded",
+				"settled",
+			]).has(String(plugin.state)))
 	) {
 		throw new Error("Medical insurance settlement context is invalid");
 	}

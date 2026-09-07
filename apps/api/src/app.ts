@@ -20,6 +20,7 @@ import { healthModule } from "./modules/health";
 import { healthKnowledgeModule } from "./modules/knowledge";
 import type { MedicalInsuranceRegistrationService } from "./modules/medical-insurance";
 import { medicalInsuranceModule } from "./modules/medical-insurance";
+import type { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { myDoctorsModule } from "./modules/my-doctors";
@@ -151,6 +152,20 @@ export function createApp(options: AppOptions = {}) {
 				);
 			},
 		} as unknown as MedicalInsuranceWechatPaymentService);
+	const medicalInsurancePluginPayment =
+		services.medicalInsurancePluginPayment ??
+		({
+			create: async () => {
+				throw new DependencyNotConfiguredError(
+					"medical-insurance-plugin-payment",
+				);
+			},
+			query: async () => {
+				throw new DependencyNotConfiguredError(
+					"medical-insurance-plugin-payment",
+				);
+			},
+		} as unknown as MedicalInsurancePluginPaymentService);
 	const registrationSelfPay =
 		services.registrationSelfPay ??
 		({
@@ -242,6 +257,7 @@ export function createApp(options: AppOptions = {}) {
 						medicalInsurance,
 						services.sessions,
 						medicalInsuranceWechatPayment,
+						medicalInsurancePluginPayment,
 						options.medicalInsuranceNotification,
 					),
 				),

@@ -4,6 +4,7 @@ import {
 	createLegacyFsiMedicalInsuranceGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatPaymentGateway,
+	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSettlementGateway,
 } from "@hospital/adapters";
 import {
@@ -17,6 +18,7 @@ import type { DependencyState } from "@hospital/contracts";
 import {
 	type HospitalSettlementGateway,
 	PaymentOrderService,
+	type PaymentOrder,
 	type RegistrationSelfPaySettlementContext,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -87,13 +89,22 @@ function resolveRegistrationSelfPayContext(
 
 	return async (input: {
 		ownerUserId: string;
-		appointmentId: string;
+		appointmentId?: string;
+		medicalOrderId?: string;
 	}): Promise<RegistrationSelfPaySettlementContext | undefined> => {
-		const medicalOrder =
-			await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
-				input.ownerUserId,
-				input.appointmentId,
-			);
+		const medicalOrder = input.medicalOrderId
+			? await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+					input.medicalOrderId,
+				)
+			: input.appointmentId
+				? await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
+						input.ownerUserId,
+						input.appointmentId,
+					)
+				: undefined;
+		if (!medicalOrder || medicalOrder.ownerUserId !== input.ownerUserId) {
+			return undefined;
+		}
 		if (!medicalOrder?.payOrdId) return undefined;
 		const settlement =
 			await repositories.medicalInsuranceOrders.getSettlementContext(
@@ -101,10 +112,11 @@ function resolveRegistrationSelfPayContext(
 				medicalOrder.medicalOrderId,
 			);
 		if (!settlement) return undefined;
+		const providerContext = settlement.plugin ?? settlement;
 		if (
 			!settlement.businessId.trim() ||
-			!/^[0-9]+$/.test(settlement.payingId) ||
-			!/^[0-9]+$/.test(settlement.tradingId)
+			!/^[0-9]+$/.test(providerContext.payingId) ||
+			!/^[0-9]+$/.test(providerContext.tradingId)
 		) {
 			return undefined;
 		}
@@ -134,8 +146,8 @@ function resolveRegistrationSelfPayContext(
 		}
 		return {
 			businessId: settlement.businessId,
-			payingId: settlement.payingId,
-			tradingId: settlement.tradingId,
+			payingId: providerContext.payingId,
+			tradingId: providerContext.tradingId,
 			hospitalId,
 			patientId,
 			certNo,
@@ -150,6 +162,20 @@ function resolveRegistrationSelfPayContext(
 			psnNo,
 			patInHosId:
 				contextText(networkRegister, ["patInHosId", "pat_in_hos_id"]) ?? "0",
+			...(settlement.plugin
+				? {
+						outTradeNo: settlement.plugin.outTradeNo,
+						recordCode: settlement.plugin.recordCode,
+						payTypeId: settlement.plugin.payTypeId,
+						payType: settlement.plugin.payType,
+						workStationId: settlement.plugin.workStationId,
+						...(settlement.plugin.thirdPartPayRecordId
+							? {
+									thirdPartPayRecordId: settlement.plugin.thirdPartPayRecordId,
+								}
+							: {}),
+					}
+				: {}),
 		};
 	};
 }
@@ -290,6 +316,25 @@ export function createWorkerRuntime(
 					logger,
 				})
 			: undefined;
+	const yunhealthRegistrationPluginPaymentGateway =
+		runtimeConfig.yunhealthRegistrationSettlementReady &&
+		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig)
+			.length === 0
+			? createYunhealthRegistrationPluginPaymentGateway({
+					baseUrl: runtimeConfig.yunhealthBaseUrl ?? "",
+					authorizationToken: runtimeConfig.yunhealthAuthorizationToken ?? "",
+					paymentOrgId: runtimeConfig.yunhealthPaymentOrgId ?? "",
+					pluginPayTypeId:
+						runtimeConfig.yunhealthRegistrationPluginPayTypeId ?? "",
+					pluginPayType: (runtimeConfig.yunhealthRegistrationPluginPayType ??
+						"") as "CREDIT" | "POS" | "CROWD_FUNDING",
+					workStationId: runtimeConfig.yunhealthRegistrationWorkStationId ?? "",
+					paymentSource: runtimeConfig.yunhealthRegistrationPaymentSource,
+					authSysCode: runtimeConfig.yunhealthRegistrationAuthSysCode,
+					tradeTypeCode: runtimeConfig.yunhealthRegistrationTradeTypeCode,
+					logger,
+				})
+			: undefined;
 	const outbox = new OutboxWorker(
 		repositories.outbox,
 		{
@@ -304,6 +349,111 @@ export function createWorkerRuntime(
 	);
 	const settlementGateway =
 		options.hospitalSettlementGateway ?? hospitalSettlementGateway;
+	const markMedicalInsurancePluginSettled = async (input: {
+		paymentOrder: PaymentOrder;
+	}) => {
+		const prefix = "registration-medical-plugin-self-pay:";
+		if (!input.paymentOrder.idempotencyKey.startsWith(prefix)) return;
+		const medicalOrderId = input.paymentOrder.idempotencyKey.slice(
+			prefix.length,
+		);
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+				medicalOrderId,
+			);
+		if (
+			!medicalOrder ||
+			medicalOrder.ownerUserId !== input.paymentOrder.ownerUserId
+		)
+			throw new Error("Medical insurance plugin order owner mismatch");
+		if (medicalOrder.status === "insurance_settled") return;
+		if (medicalOrder.status !== "cash_pending")
+			throw new Error(
+				"Medical insurance order is not waiting for plugin payment",
+			);
+		const currentContext =
+			await repositories.medicalInsuranceOrders.getSettlementContext(
+				medicalOrder.ownerUserId,
+				medicalOrder.medicalOrderId,
+			);
+		if (!currentContext?.plugin) {
+			throw new Error("Medical insurance plugin context is missing");
+		}
+		await repositories.medicalInsuranceOrders.saveSettlementContext(
+			medicalOrder.ownerUserId,
+			medicalOrder.medicalOrderId,
+			{
+				...currentContext,
+				plugin: { ...currentContext.plugin, state: "settled" },
+			},
+		);
+		const updated = await repositories.medicalInsuranceOrders.applySettlement(
+			medicalOrder.medicalOrderId,
+			medicalOrder.version,
+			{
+				status: "insurance_settled",
+				ordStas: medicalOrder.ordStas,
+				amounts: medicalOrder.amounts,
+				setlType: medicalOrder.setlType,
+				revsTokenHash: medicalOrder.revsTokenHash,
+				revsTokenExpiresAt: medicalOrder.revsTokenExpiresAt,
+				wechatOutTradeNo: input.paymentOrder.orderId,
+				wechatPaymentState: "cash_paid",
+			},
+		);
+		if (!updated) {
+			const current =
+				await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+					medicalOrder.medicalOrderId,
+				);
+			if (current?.status !== "insurance_settled") {
+				throw new Error("Medical insurance plugin settlement CAS failed");
+			}
+		}
+	};
+	const saveMedicalInsurancePluginRawResponse = async (input: {
+		paymentOrder: PaymentOrder;
+		rawResponse: string;
+		thirdPartPayRecordId: string;
+	}) => {
+		const prefix = "registration-medical-plugin-self-pay:";
+		if (!input.paymentOrder.idempotencyKey.startsWith(prefix)) return;
+		const medicalOrderId = input.paymentOrder.idempotencyKey.slice(
+			prefix.length,
+		);
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+				medicalOrderId,
+			);
+		if (
+			!medicalOrder ||
+			medicalOrder.ownerUserId !== input.paymentOrder.ownerUserId
+		)
+			throw new Error("Medical insurance plugin order owner mismatch");
+		const currentContext =
+			await repositories.medicalInsuranceOrders.getSettlementContext(
+				medicalOrder.ownerUserId,
+				medicalOrder.medicalOrderId,
+			);
+		if (
+			!currentContext?.plugin ||
+			currentContext.plugin.paymentOrderId !== input.paymentOrder.orderId
+		)
+			throw new Error("Medical insurance plugin context is missing");
+		await repositories.medicalInsuranceOrders.saveSettlementContext(
+			medicalOrder.ownerUserId,
+			medicalOrder.medicalOrderId,
+			{
+				...currentContext,
+				plugin: {
+					...currentContext.plugin,
+					thirdPartPayRecordId: input.thirdPartPayRecordId,
+					thirdPartPayRawResponse: input.rawResponse,
+					state: "29_succeeded",
+				},
+			},
+		);
+	};
 	const reconciliation = wechatPayment
 		? new PaymentReconciliationWorker({
 				attempts: repositories.paymentPrepayAttempts,
@@ -312,6 +462,8 @@ export function createWorkerRuntime(
 				...(settlementGateway ? { hospitalSettlement: settlementGateway } : {}),
 				resolveRegistrationContext:
 					resolveRegistrationSelfPayContext(repositories),
+				onHospitalSettlementCompleted: markMedicalInsurancePluginSettled,
+				onThirdPartPayResponse: saveMedicalInsurancePluginRawResponse,
 				logger,
 			})
 		: undefined;

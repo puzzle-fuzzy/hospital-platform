@@ -97,6 +97,8 @@ export type RuntimeConfig = {
 	zhongyangBaseUrl: string | undefined;
 	/** 可选的众阳服务端 token；不能下发小程序或写入日志。 */
 	zhongyangAuthorizationToken: string | undefined;
+	/** 旧服务微信登录接口地址；只用于服务端换取众阳绑卡用户 JWT。 */
+	legacyPatientAuthBaseUrl: string | undefined;
 	/** 旧服务自费插件 HIS 回写独立闸门；配置齐全也不等于真实联调通过。 */
 	yunhealthRegistrationSettlementReady: boolean;
 	/** 云健康插件 .29/.15/.5 地址；缺失时不安装真实回写 adapter。 */
@@ -447,10 +449,6 @@ export function yunhealthRegistrationSettlementConfigurationMissingFields(
 		{
 			name: "YUNHEALTH_PLUGIN_PAY_TYPE",
 			value: runtimeConfig.yunhealthRegistrationPluginPayType,
-		},
-		{
-			name: "YUNHEALTH_PLUGIN_WORK_STATION_ID",
-			value: runtimeConfig.yunhealthRegistrationWorkStationId,
 		},
 		{
 			name: "YUNHEALTH_PLUGIN_PAYMENT_SOURCE",
@@ -1049,6 +1047,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.ZHONGYANG_AUTHORIZATION_TOKEN ??
 				env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,
 		),
+		legacyPatientAuthBaseUrl: optional(env.LEGACY_PATIENT_AUTH_BASE_URL),
 		yunhealthRegistrationSettlementReady: boolean(
 			env.YUNHEALTH_REGISTRATION_SETTLEMENT_READY,
 			false,

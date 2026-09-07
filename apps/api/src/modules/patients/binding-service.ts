@@ -135,7 +135,11 @@ export type PatientBindingServiceDependencies = {
 	patients: PatientService;
 	gateway: PatientBindingGateway;
 	logger?: AppLogger;
+	/** Provider 绑卡后目录可能短暂滞后；生产默认使用短暂确认窗口。 */
+	directoryRetryDelaysMs?: readonly number[];
 };
+
+const DEFAULT_DIRECTORY_RETRY_DELAYS_MS = [750, 1500] as const;
 
 /**
  * 同一进程内按 owner 与幂等键合并重复点击；跨进程和重启后的安全性仍由
@@ -148,22 +152,58 @@ const inFlightBindings = new Map<
 
 function syncContextForBinding(
 	context: AdapterCallContext,
+	attempt = 0,
 ): AdapterCallContext {
 	// 患者同步拥有独立的 durable operation ledger；不能把绑定命令的幂等键
 	// 直接复用，否则一次旧的 sync replay 可能跳过建档后的新目录读取。
+	const suffix = attempt > 0 ? `-retry-${attempt}` : "";
+	const prefix = `binding-sync-${context.idempotencyKey}`;
 	return {
 		...context,
-		idempotencyKey: `binding-sync-${context.idempotencyKey}`.slice(0, 128),
+		// 每次确认必须使用新的同步 operation；如果沿用第一次 key，
+		// durable ledger 会直接 replay 旧快照，根本不会再次访问众阳目录。
+		idempotencyKey: `${prefix.slice(0, 128 - suffix.length)}${suffix}`,
 	};
+}
+
+async function syncDirectoryAfterBinding(
+	patients: PatientService,
+	owner: string,
+	context: AdapterCallContext,
+	delays: readonly number[],
+): Promise<Awaited<ReturnType<PatientService["sync"]>>> {
+	let directory = await patients.sync(
+		owner,
+		syncContextForBinding(context),
+	);
+	for (const [index, delayMs] of delays.entries()) {
+		if (!Number.isSafeInteger(delayMs) || delayMs < 0) continue;
+		await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+		try {
+			directory = await patients.sync(
+				owner,
+				syncContextForBinding(context, index + 1),
+			);
+		} catch {
+			// 绑卡已经收到 Provider 成功响应；确认窗口内某次目录读取
+			// 失败不能把已成立的绑定重新报告成失败。页面返回后仍会
+			// 触发一次显式 owner-scoped 同步，继续取得最新目录。
+			break;
+		}
+	}
+	return directory;
 }
 
 export class PatientBindingService {
 	private readonly logger: AppLogger;
+	private readonly directoryRetryDelaysMs: readonly number[];
 
 	constructor(
 		private readonly dependencies: PatientBindingServiceDependencies,
 	) {
 		this.logger = dependencies.logger ?? createNoopLogger();
+		this.directoryRetryDelaysMs =
+			dependencies.directoryRetryDelaysMs ?? DEFAULT_DIRECTORY_RETRY_DELAYS_MS;
 	}
 
 	async bind(
@@ -190,9 +230,11 @@ export class PatientBindingService {
 					request,
 					traceContext,
 				);
-				const directory = await this.dependencies.patients.sync(
+				const directory = await syncDirectoryAfterBinding(
+					this.dependencies.patients,
 					owner,
-					syncContextForBinding(traceContext),
+					traceContext,
+					this.directoryRetryDelaysMs,
 				);
 				this.logger.info(
 					{

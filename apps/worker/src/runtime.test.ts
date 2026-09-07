@@ -49,7 +49,6 @@ test("worker requires complete Yunhealth .29/.15/.5 configuration when the gate 
 			"YUNHEALTH_PAYMENT_ORG_ID",
 			"YUNHEALTH_PLUGIN_PAY_TYPE_ID",
 			"YUNHEALTH_PLUGIN_PAY_TYPE",
-			"YUNHEALTH_PLUGIN_WORK_STATION_ID",
 		]),
 	);
 	expect(workerConfigurationStatus(runtimeConfig)).toBe("not_configured");

@@ -244,6 +244,48 @@ export type MedicalInsuranceSettlementContext = {
 	tradeOrderIds: readonly string[];
 	payingId: string;
 	tradingId: string;
+	/**
+	 * 6202 ownPayAmt>0 后的云健康插件自费上下文。
+	 *
+	 * 这里必须和医保主结算上下文一起加密保存，但不能复用主医保
+	 * payingId/tradingId；两次 2.6.65.2 是两条不同的 Provider 流水。
+	 */
+	plugin?: MedicalInsurancePluginPaymentContext;
+};
+
+export type MedicalInsurancePluginPaymentState =
+	| "preorder_created"
+	| "prepay_ready"
+	| "cash_paid"
+	| "29_succeeded"
+	| "15_succeeded"
+	| "settled";
+
+/** 旧服务插件混合支付的完整服务端事实，禁止进入患者端响应。 */
+export type MedicalInsurancePluginPaymentContext = {
+	/** 对应平台 hp_payment_orders 的内部订单号。 */
+	paymentOrderId: string;
+	/** 第二次 2.6.65.2 返回的插件支付流水，不是第一次医保流水。 */
+	payingId: string;
+	tradingId: string;
+	payTypeId: string;
+	payType: "CREDIT" | "POS" | "CROWD_FUNDING";
+	workStationId: string;
+	tradeCode: string;
+	tradeTypeCode: string;
+	/** 微信 JSAPI 与 .29 agreementNo 共用的 out_trade_no。 */
+	outTradeNo: string;
+	/** 传给 2.6.65.15 的稳定 32 位三方支付单号。 */
+	recordCode: string;
+	/**
+	 * 2.27.2.29 的完整原始响应，仅用于服务端加密留存和后续审计查看；
+	 * 业务流程不得从该字段推导状态或金额。
+	 */
+	thirdPartPayRawResponse?: string;
+	prepayId?: string;
+	thirdPartPayRecordId?: string;
+	wechatTransactionId?: string;
+	state: MedicalInsurancePluginPaymentState;
 };
 
 /** 6302 结算结果通知的已解密事实（open 之后进入 domain 的形状）。 */

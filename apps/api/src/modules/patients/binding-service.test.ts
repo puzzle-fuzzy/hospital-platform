@@ -33,7 +33,11 @@ test("患者绑定服务派生身份证事实并用独立同步幂等键刷新�
 			return { items: [], total: 0 };
 		},
 	} as unknown as PatientService;
-	const service = new PatientBindingService({ patients, gateway });
+	const service = new PatientBindingService({
+		patients,
+		gateway,
+		directoryRetryDelaysMs: [],
+	});
 
 	await expect(
 		service.bind(

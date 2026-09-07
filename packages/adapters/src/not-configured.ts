@@ -13,6 +13,7 @@ import type {
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
+	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import type { AdapterName } from "./context";
 import { AdapterNotConfiguredError } from "./errors";
@@ -45,6 +46,7 @@ export type NotConfiguredGateways = {
 	wechatPayment: WechatPaymentGateway;
 	medicalInsuranceWechatPayment: MedicalInsuranceWechatPaymentGateway;
 	hospitalSettlement: HospitalSettlementGateway;
+	yunhealthRegistrationPluginPayment: YunhealthRegistrationPluginPaymentGateway;
 };
 
 export function createNotConfiguredGateways(): NotConfiguredGateways {
@@ -100,6 +102,10 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const hospitalSettlement: HospitalSettlementGateway = {
 		writeBack: async (_input, _context) => unavailable("yunhealth"),
 	};
+	const yunhealthRegistrationPluginPayment: YunhealthRegistrationPluginPaymentGateway =
+		{
+			createPreOrder: async (_input, _context) => unavailable("yunhealth"),
+		};
 	const medicalInsuranceWechatPayment: MedicalInsuranceWechatPaymentGateway = {
 		createMixedOrder: async (_input, _context) => unavailable("wechat-pay"),
 		queryMixedOrder: async (_input, _context) => unavailable("wechat-pay"),
@@ -120,5 +126,6 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		wechatPayment,
 		medicalInsuranceWechatPayment,
 		hospitalSettlement,
+		yunhealthRegistrationPluginPayment,
 	};
 }

@@ -10,11 +10,13 @@ import type {
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
+	PatientProviderAuthorizationGateway,
 	RegistrationSelfPaySettlementContext,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
+	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
@@ -36,6 +38,7 @@ import {
 } from "./modules/auth";
 import { HealthKnowledgeService } from "./modules/knowledge";
 import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment-core";
+import { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
 import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { MyDoctorService } from "./modules/my-doctors";
@@ -62,6 +65,8 @@ export type ApplicationServices = {
 	/** 挂号与门诊共享的 6202/6301/CAS 支付核心。 */
 	medicalInsuranceCore?: MedicalInsurancePaymentCore;
 	medicalInsuranceWechatPayment?: MedicalInsuranceWechatPaymentService;
+	/** 6202 自费差额使用旧云健康插件混合支付链路。 */
+	medicalInsurancePluginPayment?: import("./modules/medical-insurance/plugin-payment-service").MedicalInsurancePluginPaymentService;
 	myDoctors?: MyDoctorService;
 	outpatientPayments?: OutpatientPaymentService;
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
@@ -94,6 +99,8 @@ export type ApplicationServiceOptions = {
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 新增或绑定就诊人必须使用独立的查档/建档/绑卡 adapter。 */
 	patientBindingGateway?: PatientBindingGateway;
+	/** 旧服务端微信登录，用于取得众阳 patCards 的用户级 JWT。 */
+	patientProviderAuthorizationGateway?: PatientProviderAuthorizationGateway;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
 	/** 挂号页一级/二级树及受控三级科室读取，独立于既有扁平目录契约。 */
@@ -116,6 +123,12 @@ export type ApplicationServiceOptions = {
 	medicalInsuranceGateway?: import("@hospital/domain").MedicalInsuranceGateway;
 	/** 官方微信医保混合支付 adapter；未配置时保持 fail-closed。 */
 	medicalInsuranceWechatPaymentGateway?: import("@hospital/domain").MedicalInsuranceWechatPaymentGateway;
+	/** 旧服务第二次云健康 .2 插件预下单；未配置时保持 fail-closed。 */
+	yunhealthRegistrationPluginPaymentGateway?: YunhealthRegistrationPluginPaymentGateway;
+	yunhealthRegistrationPluginPayTypeId?: string;
+	yunhealthRegistrationPluginPayType?: "CREDIT" | "POS" | "CROWD_FUNDING";
+	yunhealthRegistrationWorkStationId?: string;
+	yunhealthRegistrationTradeTypeCode?: string;
 };
 
 /**
@@ -152,13 +165,22 @@ function resolveRegistrationSelfPayContext(
 
 	return async (input: {
 		ownerUserId: string;
-		appointmentId: string;
+		appointmentId?: string;
+		medicalOrderId?: string;
 	}): Promise<RegistrationSelfPaySettlementContext | undefined> => {
-		const medicalOrder =
-			await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
-				input.ownerUserId,
-				input.appointmentId,
-			);
+		const medicalOrder = input.medicalOrderId
+			? await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+					input.medicalOrderId,
+				)
+			: input.appointmentId
+				? await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
+						input.ownerUserId,
+						input.appointmentId,
+					)
+				: undefined;
+		if (!medicalOrder || medicalOrder.ownerUserId !== input.ownerUserId) {
+			return undefined;
+		}
 		if (!medicalOrder?.payOrdId) return undefined;
 		const settlement =
 			await repositories.medicalInsuranceOrders.getSettlementContext(
@@ -166,10 +188,11 @@ function resolveRegistrationSelfPayContext(
 				medicalOrder.medicalOrderId,
 			);
 		if (!settlement) return undefined;
+		const providerContext = settlement.plugin ?? settlement;
 		if (
 			!settlement.businessId.trim() ||
-			!/^[0-9]+$/.test(settlement.payingId) ||
-			!/^[0-9]+$/.test(settlement.tradingId)
+			!/^[0-9]+$/.test(providerContext.payingId) ||
+			!/^[0-9]+$/.test(providerContext.tradingId)
 		) {
 			return undefined;
 		}
@@ -199,8 +222,8 @@ function resolveRegistrationSelfPayContext(
 		}
 		return {
 			businessId: settlement.businessId,
-			payingId: settlement.payingId,
-			tradingId: settlement.tradingId,
+			payingId: providerContext.payingId,
+			tradingId: providerContext.tradingId,
 			hospitalId,
 			patientId,
 			certNo,
@@ -217,6 +240,20 @@ function resolveRegistrationSelfPayContext(
 			psnNo,
 			patInHosId:
 				contextText(networkRegister, ["patInHosId", "pat_in_hos_id"]) ?? "0",
+			...(settlement.plugin
+				? {
+						outTradeNo: settlement.plugin.outTradeNo,
+						recordCode: settlement.plugin.recordCode,
+						payTypeId: settlement.plugin.payTypeId,
+						payType: settlement.plugin.payType,
+						workStationId: settlement.plugin.workStationId,
+						...(settlement.plugin.thirdPartPayRecordId
+							? {
+									thirdPartPayRecordId: settlement.plugin.thirdPartPayRecordId,
+								}
+							: {}),
+					}
+				: {}),
 		};
 	};
 }
@@ -301,6 +338,24 @@ export function createDefaultApplicationServices(
 		wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const medicalInsurancePluginPayment =
+		new MedicalInsurancePluginPaymentService({
+			orders: repositories.medicalInsuranceOrders,
+			authorizations: repositories.medicalInsuranceAuthorizations,
+			identityUsers: repositories.identityUsers,
+			paymentOrders,
+			wechatPrepay,
+			pluginPayment:
+				options.yunhealthRegistrationPluginPaymentGateway ??
+				gateways.yunhealthRegistrationPluginPayment,
+			hospitalSettlement:
+				options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
+			pluginPayTypeId: options.yunhealthRegistrationPluginPayTypeId ?? "",
+			pluginPayType: options.yunhealthRegistrationPluginPayType ?? "CREDIT",
+			pluginWorkStationId: options.yunhealthRegistrationWorkStationId ?? "",
+			pluginTradeTypeCode: options.yunhealthRegistrationTradeTypeCode ?? "10",
+			...(options.logger ? { logger: options.logger } : {}),
+		});
 	const registrationSelfPay = new RegistrationSelfPayService({
 		appointments: appointmentWrites,
 		paymentOrders,
@@ -342,6 +397,13 @@ export function createDefaultApplicationServices(
 						throw new DependencyNotConfiguredError("patient-binding");
 					},
 				} satisfies PatientBindingGateway),
+			identityUsers: repositories.identityUsers,
+			...(options.patientProviderAuthorizationGateway
+				? {
+						providerAuthorizationGateway:
+							options.patientProviderAuthorizationGateway,
+					}
+				: {}),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		appointments,
@@ -349,6 +411,7 @@ export function createDefaultApplicationServices(
 		medicalInsurance,
 		medicalInsuranceCore,
 		medicalInsuranceWechatPayment,
+		medicalInsurancePluginPayment,
 		myDoctors: new MyDoctorService({
 			repository: repositories.myDoctors,
 			appointments,

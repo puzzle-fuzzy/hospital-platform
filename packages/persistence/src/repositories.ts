@@ -1775,6 +1775,7 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			}
 			settlementContexts.set(medicalOrderId, {
 				...context,
+				...(context.plugin ? { plugin: { ...context.plugin } } : {}),
 				networkRegister: { ...context.networkRegister },
 				outNetworkSettleMain: { ...context.outNetworkSettleMain },
 				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({
@@ -1794,6 +1795,7 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			if (settlementContexts.has(medicalOrderId)) return false;
 			settlementContexts.set(medicalOrderId, {
 				...context,
+				...(context.plugin ? { plugin: { ...context.plugin } } : {}),
 				networkRegister: { ...context.networkRegister },
 				outNetworkSettleMain: { ...context.outNetworkSettleMain },
 				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({
@@ -1811,6 +1813,7 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				return undefined;
 			return {
 				...context,
+				...(context.plugin ? { plugin: { ...context.plugin } } : {}),
 				networkRegister: { ...context.networkRegister },
 				outNetworkSettleMain: { ...context.outNetworkSettleMain },
 				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({

@@ -69,6 +69,12 @@ export {
 	type LegacyFsiMedicalInsuranceGatewayOptions,
 } from "./legacy-fsi-medical-insurance";
 export {
+	createYunhealthRegistrationPluginPaymentGateway,
+	createYunhealthRegistrationSettlementGateway,
+	type YunhealthRegistrationPluginPayType,
+	type YunhealthRegistrationSettlementGatewayOptions,
+} from "./yunhealth-registration-settlement";
+export {
 	createLegacyFsiMedicalInsuranceQueryGateway,
 	LegacyFsiMedicalInsuranceQueryContextUnavailableError,
 	type LegacyFsiMedicalInsuranceQueryGateway,
@@ -114,16 +120,16 @@ export {
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
 export {
-	createYunhealthRegistrationSettlementGateway,
-	type YunhealthRegistrationPluginPayType,
-	type YunhealthRegistrationSettlementGatewayOptions,
-} from "./yunhealth-registration-settlement";
-export {
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
 	ZhongyangAppointmentPatientProfileGateway,
 	ZhongyangAppointmentWriteApiGateway,
 } from "./zhongyang-appointment-writes";
+export {
+	createLegacyHospitalPatientAuthGateway,
+	LegacyHospitalPatientAuthApiGateway,
+	type LegacyHospitalPatientAuthGatewayOptions,
+} from "./legacy-hospital-auth";
 export {
 	createZhongyangAppointmentGateway,
 	ZhongyangAppointmentApiGateway,

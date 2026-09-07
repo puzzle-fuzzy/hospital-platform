@@ -40,7 +40,7 @@ POST /appointments/holds
   → POST /payments/medical-insurance/authorize
   → POST /payments/medical-insurance/orders/{orderId}/fees
   → POST /payments/medical-insurance/orders/{orderId}/settle
-  → 需要自费时 POST /payments/medical-insurance/orders/{orderId}/wechat-pay
+  → 需要自费时 POST /payments/medical-insurance/orders/{orderId}/plugin-pay
   → 纯自费时 POST /payments/appointments/{appointmentId}/self-pay
   → 服务端查单确认最终状态
 ```
@@ -196,8 +196,8 @@ API 默认运行在 `http://localhost:3000`：
 - `POST /api/v1/payments/medical-insurance/authorize`：接收授权码并创建医保订单
 - `POST /api/v1/payments/medical-insurance/orders/:orderId/fees`：上传服务端核对的医保费用
 - `POST /api/v1/payments/medical-insurance/orders/:orderId/settle`：发起医保结算
-- `POST /api/v1/payments/medical-insurance/orders/:orderId/wechat-pay`：创建医保混合支付调起参数
-- `GET /api/v1/payments/medical-insurance/orders/:orderId/wechat-pay`：查询医保混合支付结果
+- `POST /api/v1/payments/medical-insurance/orders/:orderId/plugin-pay`：按 HIS 插件版收款创建普通微信 JSAPI 调起参数
+- `GET /api/v1/payments/medical-insurance/orders/:orderId/plugin-pay`：查单并按 `.29 → .15 → .5` 回写 HIS
 - `GET /api/v1/payments/medical-insurance/orders/:orderId`：查询医保订单最终状态
 - `GET /api/v1/payments/outpatient/records`：按内部 `patientId` 读取门诊待缴/已缴费用摘要；当前只读，不启动支付或医保结算
 - `GET /api/v1/payments/outpatient/records/:recordId`：读取已核对的门诊费用摘要详情；当前只读
