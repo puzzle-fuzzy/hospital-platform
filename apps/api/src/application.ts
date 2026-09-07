@@ -6,6 +6,7 @@ import type {
 	AppointmentPatientProfileGateway,
 	AppointmentRecordDirectoryGateway,
 	AppointmentWriteGateway,
+	HospitalSettlementGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
@@ -86,6 +87,8 @@ export type ApplicationServiceOptions = {
 	identityGateway?: WechatIdentityGateway;
 	/** 只有完成微信支付商户配置和回调验收后才打开。 */
 	wechatPaymentGateway?: WechatPaymentGateway;
+	/** 微信自费支付成功后，必须由该网关完成 HIS 回写；未配置时保持 pending。 */
+	hospitalSettlementGateway?: HospitalSettlementGateway;
 	/** 只有完成众阳/HIS 合同和真实环境验收后才打开。 */
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 新增或绑定就诊人必须使用独立的查档/建档/绑卡 adapter。 */
@@ -209,6 +212,8 @@ export function createDefaultApplicationServices(
 		appointments: appointmentWrites,
 		paymentOrders,
 		wechatPrepay,
+		hospitalSettlement:
+			options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const registrationPaymentExit = new RegistrationPaymentExitService({

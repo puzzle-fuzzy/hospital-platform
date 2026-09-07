@@ -12,7 +12,10 @@ import {
 	wechatPaymentConfigurationMissingFields,
 } from "@hospital/config";
 import type { DependencyState } from "@hospital/contracts";
-import { PaymentOrderService } from "@hospital/domain";
+import {
+	type HospitalSettlementGateway,
+	PaymentOrderService,
+} from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import {
 	createPersistenceRuntime,
@@ -115,6 +118,8 @@ export function createWorkerRuntime(
 	options: {
 		runtimeConfig?: RuntimeConfig;
 		logger?: AppLogger;
+		/** 生产只有完成 HIS contract/验收后才注入真实回写 adapter。 */
+		hospitalSettlementGateway?: HospitalSettlementGateway;
 		/** 测试可注入探针和 repository；生产始终由组合根创建真实 runtime。 */
 		persistence?: PersistenceRuntime;
 	} = {},
@@ -185,6 +190,9 @@ export function createWorkerRuntime(
 				attempts: repositories.paymentPrepayAttempts,
 				orders,
 				wechatPayment,
+				...(options.hospitalSettlementGateway
+					? { hospitalSettlement: options.hospitalSettlementGateway }
+					: {}),
 				logger,
 			})
 		: undefined;
