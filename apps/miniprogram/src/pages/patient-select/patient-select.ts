@@ -372,7 +372,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		patientNavigationTimers.set(this, navigationTimer);
 	},
 
-	/** 患者绑定 contract 未完成时进入统一状态页，避免在不可用服务中采集实名资料。 */
+	/** 患者绑定已接入服务端，进入真实的实名资料表单。 */
 	onAddPatient(): void {
 		patientBindingReturnPending.add(this);
 		navigateToFeatureEntry("patient-binding");

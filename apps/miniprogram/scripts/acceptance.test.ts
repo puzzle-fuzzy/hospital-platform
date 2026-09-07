@@ -811,7 +811,7 @@ test("patient selection never silently switches a stale patient to another patie
 	});
 });
 
-test("native patient selection keeps patient binding behind its contract gate", async () => {
+test("native patient selection routes to the live patient binding page", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const template = await source("pages/patient-select/patient-select.wxml");
 	const featureNavigation = await source("services/feature-navigation.ts");
@@ -823,15 +823,13 @@ test("native patient selection keeps patient binding behind its contract gate", 
 		join(import.meta.dir, "../../../docs/迁移/患者绑定契约草案.md"),
 	).text();
 
-	// 患者绑定 contract 未完成时，正常入口必须先停在安全状态页，不能先收集
-	// 实名资料再等提交接口返回 dependency-not-configured；表单页面保留给后续
-	// contract 和服务端准入完成后的真实链路。
+	// 患者绑定服务端准入已完成，正常入口直接进入真实表单；旧服务 JWT 由 API
+	// 服务端换取并注入众阳请求上下文，小程序不接触旧 JWT 或众阳地址。
 	expect(selection).toContain("onAddPatient");
 	expect(selection).toContain("navigateToFeatureEntry");
 	expect(selection).toContain('"patient-binding"');
-	expect(featureNavigation).toContain('readiness: "待患者绑定 contract"');
-	expect(featureNavigation).toContain("navigateToFeatureStatus(feature)");
-	expect(featureNavigation).not.toContain(
+	expect(featureNavigation).toContain('readiness: "读写已实现"');
+	expect(featureNavigation).toContain(
 		'"patient-binding": "/pages/patient-binding/patient-binding"',
 	);
 	expect(selection).not.toContain("getArchivesInfoApi");

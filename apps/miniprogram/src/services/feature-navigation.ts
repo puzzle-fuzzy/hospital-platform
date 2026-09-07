@@ -382,11 +382,11 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"patient-binding": {
 		title: "添加就诊人",
-		readiness: "待患者绑定 contract",
+		readiness: "读写已实现",
 		description:
-			"姓名、手机号和身份证号表单已接入；提交后由服务端按患者绑定 contract 处理，真实建档和绑卡仍受服务端配置控制。",
+			"姓名、手机号和身份证号表单已接入，提交后由服务端直查众阳并完成患者档案关联。",
 		contractHint:
-			"等待查档、建档、绑卡、幂等、重复绑定、撤回和完成后目录同步规则确认。",
+			"服务端负责旧服务授权、众阳查档、建档、绑卡、幂等和完成后的患者目录同步。",
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"pre-visit": {
@@ -514,9 +514,9 @@ export const FEATURE_SURFACE_TARGETS: Readonly<
 	doctor: "/pages/my-doctor/my-doctor",
 	"electronic-consultation":
 		"/pages/electronic-consultation/electronic-consultation",
-	// 患者绑定 contract 尚未完成时，不能把实名表单作为普通入口；否则会先
-	// 采集手机号和身份证号，再在提交阶段才暴露 dependency-not-configured。
-	// contract 和服务端准入完成后，再将该 key 加回真实页面映射。
+	// 患者绑定已完成服务端准入，入口直接进入实名表单；旧服务 JWT 由 API
+	// 服务端换取并注入众阳请求上下文，小程序不会接触旧 JWT 或众阳地址。
+	"patient-binding": "/pages/patient-binding/patient-binding",
 	// 协议原文是已迁移的静态只读页面；查看协议不会写入同意状态，
 	// 也不会把“看过协议”误判为实名绑定或授权完成。
 	"patient-agreement": "/pages/patient-agreement/patient-agreement",
