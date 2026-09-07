@@ -2,9 +2,13 @@ import type { PatientBindingPayload } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
 	adapterContextTraceId,
+	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
 	normalizeAdapterCallContext,
+	normalizeIdentityUserReadModel,
 	type PatientBindingGateway,
+	type PatientProviderAuthorizationGateway,
+	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import type { PatientService } from "./service";
@@ -14,6 +18,7 @@ type PatientBindingInput = {
 	mobile: string;
 	identityNumber: string;
 	consent: true;
+	legacyLoginCode?: string;
 };
 
 export class PatientBindingInputError extends Error {
@@ -95,12 +100,15 @@ function normalizeInput(value: unknown): PatientBindingInput & {
 				key !== "displayName" &&
 				key !== "mobile" &&
 				key !== "identityNumber" &&
-				key !== "consent",
+				key !== "consent" &&
+				key !== "legacyLoginCode",
 		) ||
 		!isSafeText(input.displayName, 128) ||
 		!isSafeText(input.mobile, 11) ||
 		!/^1[3-9]\d{9}$/u.test(input.mobile) ||
 		!isSafeText(input.identityNumber, 18) ||
+		(input.legacyLoginCode !== undefined &&
+			!isSafeText(input.legacyLoginCode, 256)) ||
 		input.consent !== true
 	) {
 		throw new PatientBindingInputError();
@@ -117,6 +125,9 @@ function requestFields(input: Record<string, unknown>): PatientBindingInput {
 		mobile: input.mobile as string,
 		identityNumber: (input.identityNumber as string).toUpperCase(),
 		consent: true,
+		...(input.legacyLoginCode !== undefined
+			? { legacyLoginCode: input.legacyLoginCode as string }
+			: {}),
 	};
 }
 
@@ -134,6 +145,9 @@ function requireContext(value: unknown): AdapterCallContext {
 export type PatientBindingServiceDependencies = {
 	patients: PatientService;
 	gateway: PatientBindingGateway;
+	identityUsers?: UserIdentityRepository;
+	/** 旧服务端微信登录，用于取得众阳绑卡所需的用户级 JWT。 */
+	providerAuthorizationGateway?: PatientProviderAuthorizationGateway;
 	logger?: AppLogger;
 	/** Provider 绑卡后目录可能短暂滞后；生产默认使用短暂确认窗口。 */
 	directoryRetryDelaysMs?: readonly number[];
@@ -172,10 +186,7 @@ async function syncDirectoryAfterBinding(
 	context: AdapterCallContext,
 	delays: readonly number[],
 ): Promise<Awaited<ReturnType<PatientService["sync"]>>> {
-	let directory = await patients.sync(
-		owner,
-		syncContextForBinding(context),
-	);
+	let directory = await patients.sync(owner, syncContextForBinding(context));
 	for (const [index, delayMs] of delays.entries()) {
 		if (!Number.isSafeInteger(delayMs) || delayMs < 0) continue;
 		await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
@@ -226,9 +237,41 @@ export class PatientBindingService {
 
 		const operation = (async () => {
 			try {
+				const { legacyLoginCode, ...providerInput } = request;
+				let providerContext: { authorizationToken: string } | undefined;
+				const providerAuthorization =
+					this.dependencies.providerAuthorizationGateway;
+				if (providerAuthorization) {
+					if (!legacyLoginCode) {
+						throw new DependencyNotConfiguredError("patient-provider-auth");
+					}
+					const identityUsers = this.dependencies.identityUsers;
+					if (!identityUsers) {
+						throw new DependencyNotConfiguredError("patient-provider-auth");
+					}
+					const currentIdentity = normalizeIdentityUserReadModel(
+						await identityUsers.findByUserId(owner),
+						{ expectedUserId: owner },
+					);
+					const legacyIdentity = await providerAuthorization.exchangeWechatCode(
+						{ code: legacyLoginCode },
+						traceContext,
+					);
+					if (
+						!currentIdentity.unionId ||
+						!legacyIdentity.unionId ||
+						currentIdentity.unionId !== legacyIdentity.unionId
+					) {
+						throw new PatientBindingInputError();
+					}
+					providerContext = {
+						authorizationToken: legacyIdentity.authorizationToken,
+					};
+				}
 				const result = await this.dependencies.gateway.bind(
-					request,
+					providerInput,
 					traceContext,
+					providerContext,
 				);
 				const directory = await syncDirectoryAfterBinding(
 					this.dependencies.patients,

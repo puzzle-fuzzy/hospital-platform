@@ -77,6 +77,21 @@ function submitErrorMessage(error: unknown): string {
 	return errorMessageWithCode(error, "添加就诊人失败，请稍后重试");
 }
 
+function getWechatLoginCode(): Promise<string> {
+	return new Promise((resolve, reject) => {
+		wx.login({
+			success: (result) => {
+				if (typeof result.code === "string" && result.code.trim()) {
+					resolve(result.code);
+					return;
+				}
+				reject(new Error("wechat-login-code-missing"));
+			},
+			fail: reject,
+		});
+	});
+}
+
 Page<PatientBindingPageData, PatientBindingPageMethods>({
 	data: {
 		displayName: "",
@@ -126,11 +141,16 @@ Page<PatientBindingPageData, PatientBindingPageMethods>({
 
 		this.setData({ submitting: true, error: "" });
 		try {
+			// 旧服务端的 JWT 是众阳 patCards 归属当前 unionId 的必要上下文。
+			// 每次提交重新取得一次性 code，由平台 API 服务端换取并消费，
+			// 不把旧 JWT 或众阳地址下发到小程序。
+			const legacyLoginCode = await getWechatLoginCode();
 			const result = await bindPatientToHospital({
 				displayName: this.data.displayName,
 				mobile: this.data.mobile,
 				identityNumber: this.data.identityNumber,
 				consent: true,
+				legacyLoginCode,
 			});
 			this.setData({ submitting: false });
 			wx.showToast({

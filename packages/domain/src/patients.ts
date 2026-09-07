@@ -804,6 +804,28 @@ export interface PatientDirectoryGateway {
 	}>;
 }
 
+/**
+ * 旧服务端微信登录兼容边界。
+ *
+ * 旧众阳绑卡接口通过旧服务端签发的用户 JWT 识别当前 unionId；该凭证
+ * 只能在服务端短暂传给众阳，不能进入小程序响应、通用调用上下文或日志。
+ */
+export interface PatientProviderAuthorizationGateway {
+	exchangeWechatCode(
+		input: { code: string },
+		context: AdapterCallContext,
+	): Promise<{
+		authorizationToken: string;
+		unionId?: string;
+		trace: ExternalTrace;
+	}>;
+}
+
+/** 绑卡请求专用的服务端授权上下文，不允许由 HTTP body 直接构造。 */
+export type PatientBindingProviderContext = {
+	authorizationToken: string;
+};
+
 /** 实名查档、建档与绑卡必须由服务端完成，绝不接受客户端患者号或 Provider 地址。 */
 export interface PatientBindingGateway {
 	bind(
@@ -815,6 +837,7 @@ export interface PatientBindingGateway {
 			sex: "1" | "2";
 		},
 		context: AdapterCallContext,
+		providerContext?: PatientBindingProviderContext,
 	): Promise<{ created: boolean; trace: ExternalTrace }>;
 }
 
