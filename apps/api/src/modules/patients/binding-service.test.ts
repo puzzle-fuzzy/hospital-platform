@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import type { PatientBindingGateway } from "@hospital/domain";
-import type { PatientService } from "./service";
 import {
 	PatientBindingInputError,
 	PatientBindingService,
 } from "./binding-service";
+import type { PatientService } from "./service";
 
 const context = {
 	traceId: "binding-service-trace-001",
@@ -101,4 +101,75 @@ test("患者绑定服务拒绝未同意或非法身份证且不调用下游", as
 		),
 	).rejects.toBeInstanceOf(PatientBindingInputError);
 	expect(gatewayCalls).toBe(0);
+});
+
+test("患者绑定服务迁移旧服务授权并把 JWT 只注入众阳上下文", async () => {
+	let receivedInput: Record<string, unknown> | undefined;
+	let receivedProviderContext: unknown;
+	const service = new PatientBindingService({
+		patients: {
+			async sync() {
+				return { items: [], total: 0 };
+			},
+		} as unknown as PatientService,
+		identityUsers: {
+			async findOrCreateByWechat() {
+				throw new Error("not used");
+			},
+			async findByUserId() {
+				return {
+					userId: "fixture-owner-binding-003",
+					providerSubject: "openid-003",
+					unionId: "union-003",
+				};
+			},
+		},
+		providerAuthorizationGateway: {
+			async exchangeWechatCode(input) {
+				expect(input).toEqual({ code: "wx-code-003" });
+				return {
+					authorizationToken: "legacy-jwt-003",
+					unionId: "union-003",
+					trace: {
+						provider: "hospital-his",
+						operation: "legacy-wechat-login",
+						requestId: "legacy-auth-003",
+					},
+				};
+			},
+		},
+		gateway: {
+			async bind(input, _context, providerContext) {
+				receivedInput = input;
+				receivedProviderContext = providerContext;
+				return {
+					created: false,
+					trace: {
+						provider: "zhongyang",
+						operation: "patient-binding",
+						requestId: "provider-binding-003",
+					},
+				};
+			},
+		},
+		directoryRetryDelaysMs: [],
+	});
+
+	await expect(
+		service.bind(
+			"fixture-owner-binding-003",
+			{
+				displayName: "张三",
+				mobile: "13812345678",
+				identityNumber: "11010519900101007X",
+				consent: true,
+				legacyLoginCode: "wx-code-003",
+			},
+			{ ...context, idempotencyKey: "binding-service-key-003" },
+		),
+	).resolves.toMatchObject({ created: false, total: 0 });
+	expect(receivedInput).not.toHaveProperty("legacyLoginCode");
+	expect(receivedProviderContext).toEqual({
+		authorizationToken: "legacy-jwt-003",
+	});
 });

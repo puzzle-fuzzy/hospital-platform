@@ -2,6 +2,7 @@ import type {
 	AdapterCallContext,
 	ExternalTrace,
 	PatientBindingGateway,
+	PatientBindingProviderContext,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
@@ -184,6 +185,7 @@ export class ZhongyangPatientBindingApiGateway
 			sex: "1" | "2";
 		},
 		context: AdapterCallContext,
+		providerContext?: PatientBindingProviderContext,
 	): Promise<{ created: boolean; trace: ExternalTrace }> {
 		const displayName = requiredText(input.displayName, "displayName", 128);
 		const mobile = requiredText(input.mobile, "mobile", 32);
@@ -192,10 +194,12 @@ export class ZhongyangPatientBindingApiGateway
 			"identityNumber",
 			32,
 		);
+		const authorizationToken =
+			providerContext?.authorizationToken?.trim() || this.authorizationToken;
 		const headers = {
 			"org-id": String(this.orgId),
-			...(this.authorizationToken
-				? { Authorization: `Bearer ${this.authorizationToken}` }
+			...(authorizationToken
+				? { Authorization: `Bearer ${authorizationToken}` }
 				: {}),
 		};
 		const archiveUrl = new URL(PATIENT_ARCHIVE_PATH, this.baseUrl);
