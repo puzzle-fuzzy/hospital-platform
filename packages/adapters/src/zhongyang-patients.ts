@@ -529,7 +529,15 @@ function optionalArchiveText(
 	field: string,
 	requestId: string,
 ): string | undefined {
-	if (value === undefined || value === null) return undefined;
+	// 众阳档案的可选字段经常以空字符串返回（例如卡片 idcardNo）；
+	// 空字符串和省略字段语义相同，不能因为它没有业务值就拒绝整批目录。
+	if (
+		value === undefined ||
+		value === null ||
+		(typeof value === "string" && value.trim().length === 0)
+	) {
+		return undefined;
+	}
 	return requiredText(value, field, 128, "patient-archive", requestId, true);
 }
 
@@ -539,7 +547,13 @@ function optionalArchiveStringText(
 	field: string,
 	requestId: string,
 ): string | undefined {
-	if (value === undefined || value === null) return undefined;
+	if (
+		value === undefined ||
+		value === null ||
+		(typeof value === "string" && value.trim().length === 0)
+	) {
+		return undefined;
+	}
 	return requiredStringText(
 		value,
 		field,
@@ -556,7 +570,13 @@ function optionalArchiveCardText(
 	field: string,
 	requestId: string,
 ): string | undefined {
-	if (value === undefined || value === null) return undefined;
+	if (
+		value === undefined ||
+		value === null ||
+		(typeof value === "string" && value.trim().length === 0)
+	) {
+		return undefined;
+	}
 	return requiredCardText(value, field, "patient-archive", requestId, true);
 }
 
