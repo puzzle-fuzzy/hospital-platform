@@ -22,8 +22,7 @@ const COMPLETE_SETTLE_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle";
 const APPLY_SETTLE_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/settle/apply-pay-settle";
-const SETTLE_INFO_NOTIFY_PATH =
-	"/msun-yb-app-miop/outSettle/v2/settle-info/notify";
+const SETTLE_DETAILS_PATH = "/msun-yb-app-miop/v1/out-insur-settle-infos";
 const THIRD_PART_OPERATION = "registration-self-pay.2.27.2.29";
 const PAYMENT_NOTIFY_OPERATION = "registration-self-pay.2.6.65.15";
 const COMPLETE_SETTLE_OPERATION = "registration-self-pay.2.6.65.5";
@@ -41,7 +40,7 @@ export type YunhealthRegistrationSettlementGatewayOptions = {
 	authorizationToken?: string;
 	/** 2.6.65.15 orgId，必须是正整数文本。 */
 	paymentOrgId: string;
-	/** 2.6.65.1 / 2.27.2.32 使用的医院 ID。 */
+	/** 2.6.65.1 / 2.27.2.27 使用的医院 ID。 */
 	hospitalId?: string;
 	/** 旧服务已确认的插件 payTypeId，必须是正整数文本。 */
 	pluginPayTypeId: string;
@@ -712,9 +711,9 @@ function stableNumericRequestId(value: string): number {
 /**
  * 普通挂号自费的众阳前置流程。
  *
- * `.32` 按用户确认的独立模式放在第二次 `.2` 之前。此时尚无 `.2` 流水，
- * 因而只复用 `.1` 若已返回的支付流水；未返回时按接口示例传 0。`.32`
- * 未确认成功会立即停止，绝不会继续创建云健康 `.2` 或微信 APIv3 订单。
+ * 旧服务在第二次 `.2` 前调用只读的 `.27` 获取门诊结算信息；`.27`
+ * 未确认成功或没有真实费用明细时立即停止，绝不会创建云健康 `.2`
+ * 或微信 APIv3 订单。`.32` 只保留给医保结算结果回写链路。
  */
 export function createYunhealthRegistrationSelfPayPreparationGateway(
 	options: YunhealthRegistrationSettlementGatewayOptions,
@@ -750,26 +749,32 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 		step: string;
 		operation: string;
 		path: string;
-		body: unknown;
+		method?: "GET" | "POST";
+		query?: Record<string, string | number>;
+		body?: unknown;
 		orderId: string;
 		context: AdapterCallContext;
-	}) =>
-		requestJson<T>(
+	}) => {
+		const url = new URL(`${providerBaseUrl}${input.path}`);
+		for (const [key, value] of Object.entries(input.query ?? {}))
+			url.searchParams.set(key, String(value));
+		return requestJson<T>(
 			{
 				provider: "yunhealth",
 				operation: input.operation,
-				url: `${providerBaseUrl}${input.path}`,
-				method: "POST",
+				url: url.toString(),
+				method: input.method ?? "POST",
 				context: {
 					...input.context,
 					idempotencyKey: stableStepIdempotencyKey(input.step, input.orderId),
 				},
 				...(authorization ? { headers: { Authorization: authorization } } : {}),
-				body: input.body,
+				...(input.body !== undefined ? { body: input.body } : {}),
 				...(options.logger ? { logger: options.logger } : {}),
 			},
 			fetcher,
 		);
+	};
 
 	return {
 		async prepare(input, context) {
@@ -843,213 +848,57 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 					},
 				);
 			}
-			const outSettle = providerRecord(applyData.outSettle);
-			if (!outSettle) {
-				throw providerError(applyOperation, "2.6.65.1 outSettle is missing", {
-					requestId: apply.requestId,
-					failureStage: "response",
-					responseInvalid: true,
-					requestOutcome: "unknown",
-				});
-			}
-			const rawDetails = Array.isArray(outSettle.outSettleDetailList)
-				? outSettle.outSettleDetailList
-				: [];
-			const sourceNetworkRegister =
-				providerRecord(outSettle.outSettlePat) ?? {};
-			const sourceNetworkSettleMain =
-				providerRecord(outSettle.outNetworkSettleMain) ??
-				providerRecord(applyData.outNetworkSettleMain) ??
-				{};
-			const createTime = requiredText(
-				providerText(outSettle, ["hisCreateTime", "createTime"]),
-				"2.6.65.1 outSettle.hisCreateTime",
-			);
-			const upDetailList = rawDetails.map((value, index) => {
-				const detail = providerRecord(value);
-				if (!detail) {
-					throw providerError(
-						"registration-self-pay.2.27.2.32",
-						`2.6.65.1 outSettleDetailList[${index}] is invalid`,
-						{
-							requestId: apply.requestId,
-							failureStage: "response",
-							responseInvalid: true,
-							requestOutcome: "not_sent",
-						},
-					);
-				}
-				const chargeId = requiredText(
-					providerText(detail, ["chargeId"]),
-					`outSettleDetailList[${index}].chargeId`,
-				);
-				const chargeName = requiredText(
-					providerText(detail, ["itemName", "chargeName"]),
-					`outSettleDetailList[${index}].chargeName`,
-				);
-				const outBillId = requiredText(
-					providerText(detail, ["outSettleDetailSubId", "outSettleDetailId"]),
-					`outSettleDetailList[${index}].outBillId`,
-				);
-				const orderReference = requiredText(
-					providerText(detail, ["orderId", "outDocOrderId", "outTradeOrderId"]),
-					`outSettleDetailList[${index}].orderId`,
-				);
-				const amount = providerAmount(detail, ["amount", "getAmount"]);
-				const price = providerAmount(detail, ["price"]);
-				const quantity = providerAmount(detail, ["quantity"]);
-				const selfBurdenRatio = providerAmount(detail, ["selfBurdenRatio"]);
-				if (
-					amount === undefined ||
-					price === undefined ||
-					quantity === undefined ||
-					selfBurdenRatio === undefined
-				) {
-					throw providerError(
-						"registration-self-pay.2.27.2.32",
-						`2.6.65.1 outSettleDetailList[${index}] amount is invalid`,
-						{
-							requestId: apply.requestId,
-							failureStage: "response",
-							responseInvalid: true,
-							requestOutcome: "not_sent",
-						},
-					);
-				}
-				return {
-					...detail,
-					amount,
-					chargeCode: providerText(detail, ["chargeCode"]) ?? chargeId,
-					chargeId,
-					chargeName,
-					createTime:
-						providerText(detail, ["createTime", "hisCreateTime"]) ?? createTime,
-					networkItemCode:
-						providerText(detail, ["networkItemCode"]) ?? chargeId,
-					networkItemName:
-						providerText(detail, ["networkItemName"]) ?? chargeName,
-					orderId: orderReference,
-					outBillId,
-					outSettleDetailId: outBillId,
-					price,
-					quantity,
-					selfBurdenRatio,
-					...(providerText(detail, ["spec"])
-						? { spec: providerText(detail, ["spec"]) }
-						: {}),
-					...(providerText(detail, ["unit", "unitName"])
-						? { unit: providerText(detail, ["unit", "unitName"]) }
-						: {}),
-				};
-			});
-			if (
-				upDetailList.length === 0 ||
-				Math.round(
-					upDetailList.reduce((sum, detail) => sum + detail.amount, 0) * 100,
-				) !== totalFen
-			) {
-				throw providerError(
-					"registration-self-pay.2.27.2.32",
-					"2.6.65.1 detail amount does not match the appointment",
-					{
-						requestId: apply.requestId,
-						failureStage: "response",
-						responseInvalid: true,
-						requestOutcome: "not_sent",
-					},
-				);
-			}
-
-			const applyingPayingId = nestedValue(applyData, [
-				"payingId",
-				"preAuthPayingId",
-			]);
-			const applyingTradingId = nestedValue(applyData, ["tradingId"]);
-			const notifyPayingId =
-				(typeof applyingPayingId === "string" ||
-					typeof applyingPayingId === "number") &&
-				/^\d+$/u.test(String(applyingPayingId).trim())
-					? String(applyingPayingId).trim()
-					: "0";
-			const notifyTradingId =
-				(typeof applyingTradingId === "string" ||
-					typeof applyingTradingId === "number") &&
-				/^\d+$/u.test(String(applyingTradingId).trim())
-					? String(applyingTradingId).trim()
-					: "0";
-			const notifyOperation = "registration-self-pay.2.27.2.32";
-			const notify = await request<unknown>({
-				step: "2.27.2.32",
-				operation: notifyOperation,
-				path: SETTLE_INFO_NOTIFY_PATH,
+			const settleDetailsOperation = "registration-self-pay.2.27.2.27";
+			const settleDetails = await request<unknown>({
+				step: "2.27.2.27",
+				operation: settleDetailsOperation,
+				path: SETTLE_DETAILS_PATH,
+				method: "GET",
+				query: {
+					patId: providerPatientId,
+					outSettleMainId: businessId,
+				},
 				orderId,
 				context,
-				body: {
-					hmfundList: [],
-					hospitalId,
-					nationalUpDetailList: [],
-					networkRegister: {
-						...sourceNetworkRegister,
-						cardNo: patientCardNo,
-						hospitalId,
-						idNo: patientIdNo,
-						netPatName: patientName,
-						netRegSerial:
-							providerText(sourceNetworkRegister, ["netRegSerial"]) ?? "",
-						outPatId: providerPatientId,
-						regFlag: "1",
-					},
-					outNetworkSettleMain: {
-						...sourceNetworkSettleMain,
-						amount: providerTotal,
-						amountPos: providerTotal,
-						certNo: patientIdNo,
-						fulamtOwnpayAmt: providerTotal,
-						getAmount: providerTotal,
-						hospitalId,
-						invalidFlag: "0",
-						joinMedInsurance: "0",
-						medAmountTotal: 0,
-						medAmountTc: 0,
-						medAmountZhzf: 0,
-						netPatName: patientName,
-						psnCertType: "01",
-						psnName: patientName,
-						psnNo: patientCardNo,
-						psnPartAmt: providerTotal,
-						setlId: businessId,
-						setlTime: createTime,
-						settleNo: businessCode,
-						settleSource: 3002,
-						settleType: "1",
-						transId: notifyPayingId,
-					},
-					outSettleMainId: businessId,
-					patId: providerPatientId,
-					rawResList: [],
-					settleSecond: [],
-					memo: "微信小程序挂号自费",
-					tradingId: notifyTradingId,
-					upDetailList,
-				},
 			});
-			requestIds.push(notify.requestId);
-			requireProviderSuccess(notify.data, notifyOperation, notify.requestId);
-			const notifyData = responseData(notify.data);
-			for (const field of ["insur", "settle"] as const) {
-				const result = providerText(notifyData, [field]);
-				if (result && result.toUpperCase() !== "SUCCESS") {
-					throw providerError(
-						notifyOperation,
-						`2.27.2.32 ${field} was not confirmed`,
-						{
-							requestId: notify.requestId,
-							failureStage: "response",
-							requestOutcome: "rejected",
-						},
-					);
-				}
+			requestIds.push(settleDetails.requestId);
+			requireProviderSuccess(
+				settleDetails.data,
+				settleDetailsOperation,
+				settleDetails.requestId,
+			);
+			const settleDetailsData = responseData(settleDetails.data);
+			const settleMain = providerRecord(settleDetailsData.outNetworkSettleMain);
+			const settleDetailList = Array.isArray(
+				settleDetailsData.outSettleDetailList,
+			)
+				? settleDetailsData.outSettleDetailList
+				: [];
+			if (!settleMain || settleDetailList.length === 0) {
+				throw providerError(
+					settleDetailsOperation,
+					"2.27.2.27 did not return a settlement main record and fee details",
+					{
+						requestId: settleDetails.requestId,
+						failureStage: "response",
+						responseInvalid: true,
+						requestOutcome: "unknown",
+					},
+				);
 			}
+			options.logger?.info(
+				{
+					event: "registration-self-pay.settlement-details.fetched",
+					traceId: context.traceId,
+					orderId,
+					providerRequestId: settleDetails.requestId,
+					businessId,
+					patId: providerPatientId,
+					detailCount: settleDetailList.length,
+					hasOutNetworkSettleMain: true,
+				},
+				"Registration self-pay settlement details fetched",
+			);
 
 			const recordCode = stableRecordCode(`registration-self-pay:${orderId}`);
 			const plugin = await pluginGateway.createPreOrder(

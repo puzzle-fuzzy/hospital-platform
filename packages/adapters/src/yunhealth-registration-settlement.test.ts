@@ -288,8 +288,13 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 	});
 });
 
-test("普通挂号自费在微信前严格执行 .1 -> .32 -> .2 并保留大整数流水", async () => {
-	const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整数流水", async () => {
+	const requests: Array<{
+		path: string;
+		method: string;
+		url: string;
+		body?: Record<string, unknown>;
+	}> = [];
 	const responses = [
 		{
 			success: true,
@@ -314,7 +319,13 @@ test("普通挂号自费在微信前严格执行 .1 -> .32 -> .2 并保留大整
 				},
 			},
 		},
-		{ success: true, data: { insur: "SUCCESS", settle: "SUCCESS" } },
+		{
+			success: true,
+			data: {
+				outNetworkSettleMain: { amount: 10, medAmountBz: 0 },
+				outSettleDetailList: [{ amount: 10 }],
+			},
+		},
 		{
 			success: true,
 			data: {
@@ -336,9 +347,14 @@ test("普通挂号自费在微信前严格执行 .1 -> .32 -> .2 并保留大整
 		workStationId: "",
 		tradeTypeCode: "10",
 		fetcher: async (request, init) => {
+			const bodyText = String(init?.body ?? "");
 			requests.push({
 				path: new URL(String(request)).pathname,
-				body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+				method: String(init?.method ?? "GET"),
+				url: String(request),
+				...(bodyText
+					? { body: JSON.parse(bodyText) as Record<string, unknown> }
+					: {}),
 			});
 			const body = responses[call];
 			call += 1;
@@ -366,7 +382,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .32 -> .2 并保留大整
 
 	expect(requests.map((request) => request.path)).toEqual([
 		"/msun-middle-open-settlepay/api/v2/open/settle/apply-pay-settle",
-		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-yb-app-miop/v1/out-insur-settle-infos",
 		"/msun-middle-open-settlepay/api/v2/open/payment/pre-order",
 	]);
 	expect(requests[0]?.body).toMatchObject({
@@ -377,17 +393,11 @@ test("普通挂号自费在微信前严格执行 .1 -> .32 -> .2 并保留大整
 			settleWay: 6,
 		},
 	});
-	expect(requests[1]?.body).toMatchObject({
-		networkRegister: {
-			netRegSerial: "",
-		},
-		outSettleMainId: "1952638941030000001",
-		patId: "1952638941030000200",
-		tradingId: "0",
-		outNetworkSettleMain: {
-			transId: "0",
-		},
-	});
+	expect(requests[1]?.method).toBe("GET");
+	expect(requests[1]?.url).toBe(
+		"https://yunhealth.example.test/msun-yb-app-miop/v1/out-insur-settle-infos?patId=1952638941030000200&outSettleMainId=1952638941030000001",
+	);
+	expect(requests[1]?.body).toBeUndefined();
 	expect(result.registrationContext).toMatchObject({
 		businessId: "1952638941030000001",
 		businessCode: "REG-20260907-001",
