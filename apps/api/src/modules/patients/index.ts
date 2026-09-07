@@ -78,7 +78,7 @@ export function patientsModule(
 			async ({ request, headers }) => {
 				const principal = await authentication.get(request);
 				return success(
-					await patientService.list(
+					await patientService.listLive(
 						principal.userId,
 						adapterContextFromHeaders(headers),
 					),

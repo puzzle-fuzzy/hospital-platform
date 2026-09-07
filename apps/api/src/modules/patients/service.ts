@@ -106,6 +106,10 @@ export class PatientService {
 	private readonly createPatientId: () => string;
 	private readonly now: () => Date;
 	private readonly syncLeaseMs: number;
+	private readonly liveReads = new Map<
+		string,
+		Promise<PatientListPayload["data"]>
+	>();
 
 	constructor(
 		private readonly repository: PatientRepository,
@@ -191,6 +195,87 @@ export class PatientService {
 				"Patient directory read failed",
 			);
 			throw error;
+		}
+	}
+
+	/**
+	 * 患者列表的实时读取入口。
+	 *
+	 * 只要生产组合根注入了身份和众阳目录 gateway，GET /patients 就必须先
+	 * 读取众阳，再把本次完整结果落成内部快照，以便后续预约/支付继续使用
+	 * 稳定的内部 patientId。快照是交易关联和审计镜像，不再是患者目录的
+	 * 业务来源。没有注入 Provider 依赖的最小测试组合根仍复用本地读模型，
+	 * 不影响既有 fail-closed 测试夹具。
+	 */
+	async listLive(
+		ownerUserId: string,
+		context: AdapterCallContext,
+	): Promise<PatientListPayload["data"]> {
+		if (!this.dependencies.identityUsers || !this.dependencies.directory) {
+			return this.list(ownerUserId, context);
+		}
+
+		const normalized = normalizePatientServiceCall(ownerUserId, context);
+		const inFlight = this.liveReads.get(normalized.ownerUserId);
+		if (inFlight) {
+			this.logger.info(
+				{
+					event: "patient.directory.live.coalesced",
+					traceId: normalized.context.traceId,
+					provider: "zhongyang",
+				},
+				"Live patient directory read joined an in-flight request",
+			);
+			return inFlight;
+		}
+
+		const liveContext: AdapterCallContext = {
+			...normalized.context,
+			// GET 不复用客户端幂等键；每次请求都必须重新读取众阳，不能因为
+			// 上一次同步成功而 replay 本地快照。
+			idempotencyKey: randomUUID(),
+		};
+		this.logger.info(
+			{
+				event: "patient.directory.live.requested",
+				traceId: liveContext.traceId,
+				provider: "zhongyang",
+			},
+			"Live patient directory read requested",
+		);
+		const liveRead = (async () => {
+			try {
+				const payload = await this.sync(ownerUserId, liveContext);
+				this.logger.info(
+					{
+						event: "patient.directory.live.loaded",
+						traceId: liveContext.traceId,
+						provider: "zhongyang",
+						itemCount: payload.total,
+					},
+					"Live patient directory read loaded",
+				);
+				return payload;
+			} catch (error) {
+				this.logger.error(
+					{
+						event: "patient.directory.live.failed",
+						traceId: liveContext.traceId,
+						provider: "zhongyang",
+						errorType: error instanceof Error ? error.name : "unknown",
+					},
+					"Live patient directory read failed",
+				);
+				throw error;
+			}
+		})();
+		this.liveReads.set(normalized.ownerUserId, liveRead);
+		try {
+			return await liveRead;
+		} finally {
+			if (this.liveReads.get(normalized.ownerUserId) === liveRead) {
+				this.liveReads.delete(normalized.ownerUserId);
+			}
 		}
 	}
 

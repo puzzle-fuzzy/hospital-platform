@@ -209,13 +209,13 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	/**
-	 * 进入页面先读取平台目录；已有经过临床映射确认的目录时直接允许用户
-	 * 选择，Provider 同步只作为用户点击“刷新就诊人”时的显式更新动作。
+	 * 进入页面读取当前众阳目录；服务端 GET /patients 会实时请求 Provider，
+	 * 并返回本次已经完成临床映射的最小读模型。用户点击“刷新就诊人”时仍可
+	 * 显式发起 POST 同步，但页面不再依赖旧的本地目录判断当前患者是否存在。
 	 *
-	 * 这样做是故障隔离而不是降级造假：`/patients` 返回的是服务端按 owner
-	 * 隔离、已完成映射的读模型，预约/报告等业务仍会在服务端再次校验患者
-	 * 引用。若当前没有可用目录，页面会明确提示用户点击“刷新就诊人”，
-	 * 不会在进入页面时自动同步 Provider。
+	 * `/patients` 返回的是服务端按 owner 隔离、已完成映射的实时读模型，
+	 * 预约/报告等业务仍会在服务端再次校验患者引用。若众阳当前不可用，
+	 * 页面显示加载失败，不把本地旧数据伪装成实时结果。
 	 */
 	loadPatientList(): Promise<void> {
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
@@ -241,9 +241,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 					this.setData({ selectionReady: true });
 					return;
 				}
-				// 目录读取不是同步命令：进入选择页不能因为 Provider 暂时不可用
-				// 自动发起 POST /patients/sync。用户仍可看到真实目录状态，并通过
-				// 页面底部“刷新就诊人”明确重试；没有 ready 映射时继续禁止业务选择。
+				// 实时目录已经在服务端完成 Provider 临床映射；没有 ready 映射时
+				// 继续禁止业务选择，并让用户通过页面底部“刷新就诊人”明确重试。
 				this.setData({
 					error: patients.length
 						? "当前就诊人尚未完成医院侧映射，请点击刷新就诊人"
@@ -267,9 +266,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	/**
-	 * 错误态重试只重新读取当前 owner 的目录；“刷新就诊人”按钮才是
-	 * 临床映射同步命令。不能只清除 error 或无条件复用上一轮 patients，
-	 * 但也不能因 Provider 短暂不可用抹掉已经确认的目录。
+	 * 错误态重试重新读取当前 owner 的实时目录；“刷新就诊人”按钮仍可作为
+	 * 显式临床映射同步命令。不能只清除 error 或无条件复用上一轮 patients，
+	 * 也不能因 Provider 短暂不可用把旧目录伪装成当前结果。
 	 */
 	onRetry(): void {
 		void this.loadPatientList();
