@@ -378,6 +378,9 @@ test("普通挂号自费在微信前严格执行 .1 -> .32 -> .2 并保留大整
 		},
 	});
 	expect(requests[1]?.body).toMatchObject({
+		networkRegister: {
+			netRegSerial: "",
+		},
 		outSettleMainId: "1952638941030000001",
 		patId: "1952638941030000200",
 		tradingId: "0",

@@ -994,6 +994,8 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 						hospitalId,
 						idNo: patientIdNo,
 						netPatName: patientName,
+						netRegSerial:
+							providerText(sourceNetworkRegister, ["netRegSerial"]) ?? "",
 						outPatId: providerPatientId,
 						regFlag: "1",
 					},
