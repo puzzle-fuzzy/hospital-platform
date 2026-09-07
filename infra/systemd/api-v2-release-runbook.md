@@ -50,9 +50,50 @@ sudoers、仓库、聊天记录或日志。若 `visudo` 校验失败，必须删
 
 ## 2. 切换前检查
 
-以下命令由 `ps` 执行。`<sha>` 必须是已经通过本地 `pnpm check:candidate` 和独立生产 env smoke 的候选 commit；
-`pnpm release:baseline:audit` 是切换完成后的线上一致性门禁，不能在候选尚未发布时作为候选质量门禁使用。
+以下命令由 `ps` 执行。`<sha>` 必须是已经通过适用的本地代码门禁和独立生产 env smoke 的候选 commit；完整
+`pnpm check:candidate` 可作为全量候选门禁，但本机没有 Java 时按 2.0 的 API/TypeScript-only 规则执行，不得
+把本机 Java SDK 编译失败误判为 API 候选失败。`pnpm release:baseline:audit` 是切换完成后的线上一致性门禁，
+不能在候选尚未发布时作为候选质量门禁使用。
 `<old-sha>` 必须从切换前的 `readlink -f current` 读取，不能手写猜测。
+
+### 2.0 本机没有 Java 时的发布规则
+
+本机没有 Java Runtime/JDK 不是 API 发布阻塞条件。仓库的完整 `pnpm build` 会顺带执行
+`packages/adapters` 的 Java SDK 编译；如果本轮只修改了 API/TypeScript 代码，不要因为这一步在本机失败而
+停止发布，应改用定向构建：
+
+```bash
+# API/TypeScript-only candidate
+pnpm --filter @hospital/api build
+bun test packages/adapters/src/zhongyang-patient-binding.test.ts
+```
+
+这类候选继续复用已经存在并经过校验的
+`packages/adapters/dist/java-sdk/classes/` 和 `packages/adapters/dist/java-sdk/lib/`，但必须先确认本轮没有
+修改 `packages/adapters/java-sdk/`，并把这些文件纳入 release checksum。API bundle 仍必须在本机生成；禁止因为
+服务器有 Java 就在服务器执行 `bun build`、`bun install` 或重新构建 TypeScript。
+
+如果本轮确实修改了 `packages/adapters/java-sdk/`，才使用 3090 服务器上的 JDK 在独立候选目录中编译该 Java
+类，编译后记录服务器产物 checksum，再继续本手册的 release 校验；服务器仅编译 Java SDK，不承担 API bundle 构建：
+
+```bash
+cd /home/ps/code/hospital-platform
+new_sha="<sha>"
+candidate="releases/${new_sha}"
+java -version
+javac -version
+test -f "${candidate}/packages/adapters/java-sdk/src/OfficialFsiSdkCli.java"
+mkdir -p "${candidate}/packages/adapters/dist/java-sdk/classes"
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "${candidate}/packages/adapters/dist/java-sdk/lib/*" \
+  -d "${candidate}/packages/adapters/dist/java-sdk/classes" \
+  "${candidate}/packages/adapters/java-sdk/src/OfficialFsiSdkCli.java"
+sha256sum \
+  "${candidate}/packages/adapters/dist/java-sdk/classes/com/hospital/platform/medicalinsurance/OfficialFsiSdkCli.class"
+```
+
+不要把 `shared/api.env` 传给 `javac`，不要把凭据放入候选 release；服务器 Java SDK 编译也不需要 root 或
+systemd 重启权限。
 
 ```bash
 cd /home/ps/code/hospital-platform
@@ -200,9 +241,12 @@ ss -ltnp | grep -E ':18081|:8001'
 # restart 后给 Bun 进程留出有限的启动窗口；失败只在 15 次轮询后判定。
 ready=0
 for attempt in $(seq 1 15); do
-    if curl -fsS --max-time 2 http://10.0.0.3:18081/health/ready \
-        | grep -q '"database":"ok".*"redis":"ok".*"schema":"ok"' \
-        && ss -ltn | grep -Eq '10\.0\.0\.3:18081|:18081'; then
+    if set -o pipefail && \
+        curl -fsS --max-time 2 http://10.0.0.3:18081/health/ready \
+        | jq -e '.success == true and .data.status == "ready" and .data.dependencies.database == "ok" and .data.dependencies.redis == "ok" and .data.dependencies.schema == "ok"' \
+        >/dev/null \
+        && ss -ltn | grep -Eq '10\.0\.0\.3:18081|:18081' \
+        && ss -ltn | grep -Eq ':8001'; then
         ready=1
         break
     fi
