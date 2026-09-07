@@ -288,6 +288,106 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 	});
 });
 
+test("云健康 .29 已完成但未返回主键时从 .27 恢复并继续 .15 -> .5", async () => {
+	const requests: Array<{
+		path: string;
+		method: string;
+		url: string;
+		body?: Record<string, unknown>;
+	}> = [];
+	let call = 0;
+	let savedThirdPartResponse:
+		| { rawResponse: string; thirdPartPayRecordId: string }
+		| undefined;
+	const responses = [
+		{
+			success: false,
+			code: "BusinessExceptionErrorCode@third-part-pay@0004",
+			message: "当前支付记录已完成，请勿重复操作",
+			data: null,
+		},
+		{
+			success: true,
+			data: {
+				thirdPartPayRecordList: [
+					{
+						agreementNo: "payment-order-recover-001",
+						payingId: registrationContext.payingId,
+						tradingId: registrationContext.tradingId,
+						thirdPartPayRecordId: "9007199254740993",
+						transStatus: "0",
+					},
+				],
+			},
+		},
+		{ success: true, data: { accepted: true } },
+		{ success: true, data: { isSettle: 1 } },
+	];
+	const gatewayInstance = gateway(async (input, init) => {
+		const url = String(input);
+		const bodyText = String(init?.body ?? "");
+		requests.push({
+			path: new URL(url).pathname,
+			method: String(init?.method ?? "GET"),
+			url,
+			...(bodyText
+				? { body: JSON.parse(bodyText) as Record<string, unknown> }
+				: {}),
+		});
+		const body = responses[call];
+		call += 1;
+		return new Response(JSON.stringify(body), {
+			status: 200,
+			headers: { "x-request-id": `yunhealth-recover-${call}` },
+		});
+	});
+
+	const trace = await gatewayInstance.writeBack(
+		{
+			orderId: "payment-order-recover-001",
+			settlement: {
+				orderId: "payment-order-recover-001",
+				state: "cash_paid",
+				totalFen: 1000,
+				insuranceFen: 0,
+				cashFen: 1000,
+				trace: [],
+			},
+			registrationContext,
+			onThirdPartPayResponse: async (response) => {
+				savedThirdPartResponse = response;
+			},
+		},
+		context,
+	);
+
+	expect(requests.map((request) => request.path)).toEqual([
+		"/msun-yb-app-miop/thirdPartPay/start",
+		"/msun-yb-app-miop/v1/out-insur-settle-infos",
+		"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	]);
+	expect(requests.map((request) => request.method)).toEqual([
+		"POST",
+		"GET",
+		"POST",
+		"POST",
+	]);
+	expect(requests[1]?.url).toBe(
+		"https://yunhealth.example.test/msun-yb-app-miop/v1/out-insur-settle-infos?patId=100001&outSettleMainId=settlement-business-001",
+	);
+	expect(savedThirdPartResponse).toEqual({
+		rawResponse: JSON.stringify(responses[0]),
+		thirdPartPayRecordId: "9007199254740993",
+	});
+	expect(trace.requestIds).toEqual([
+		"yunhealth-recover-1",
+		"yunhealth-recover-2",
+		"yunhealth-recover-3",
+		"yunhealth-recover-4",
+	]);
+});
+
 test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整数流水", async () => {
 	const requests: Array<{
 		path: string;

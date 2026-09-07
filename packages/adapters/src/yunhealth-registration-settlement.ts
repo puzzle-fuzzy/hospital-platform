@@ -24,8 +24,12 @@ const APPLY_SETTLE_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/settle/apply-pay-settle";
 const SETTLE_DETAILS_PATH = "/msun-yb-app-miop/v1/out-insur-settle-infos";
 const THIRD_PART_OPERATION = "registration-self-pay.2.27.2.29";
+const THIRD_PART_RECOVERY_OPERATION =
+	"registration-self-pay.2.27.2.27.recovery";
 const PAYMENT_NOTIFY_OPERATION = "registration-self-pay.2.6.65.15";
 const COMPLETE_SETTLE_OPERATION = "registration-self-pay.2.6.65.5";
+const THIRD_PART_ALREADY_COMPLETED_CODE =
+	"BusinessExceptionErrorCode@third-part-pay@0004";
 const ALLOWED_PAY_TYPES = new Set(["CREDIT", "POS", "CROWD_FUNDING"]);
 
 export type YunhealthRegistrationPluginPayType =
@@ -300,6 +304,90 @@ function nestedValue(
 	return undefined;
 }
 
+function providerArrayByKey(
+	value: unknown,
+	key: string,
+	depth = 0,
+): unknown[] | undefined {
+	if (depth > 8 || typeof value !== "object" || value === null) {
+		return undefined;
+	}
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const found = providerArrayByKey(item, key, depth + 1);
+			if (found) return found;
+		}
+		return undefined;
+	}
+	const record = value as Record<string, unknown>;
+	if (Array.isArray(record[key])) return record[key];
+	for (const child of Object.values(record)) {
+		const found = providerArrayByKey(child, key, depth + 1);
+		if (found) return found;
+	}
+	return undefined;
+}
+
+function providerErrorCode(value: unknown): string | undefined {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return undefined;
+	}
+	const root = value as ProviderEnvelope;
+	const data = responseData(value);
+	for (const candidate of [root, data]) {
+		if (typeof candidate.code === "string" && candidate.code.trim()) {
+			return candidate.code.trim();
+		}
+	}
+	return undefined;
+}
+
+function isThirdPartAlreadyCompleted(value: unknown): boolean {
+	return providerErrorCode(value) === THIRD_PART_ALREADY_COMPLETED_CODE;
+}
+
+function recoverThirdPartPayRecordId(
+	value: unknown,
+	expected: {
+		agreementNo: string;
+		payingId: string;
+		tradingId: string;
+	},
+): string {
+	const records = providerArrayByKey(value, "thirdPartPayRecordList") ?? [];
+	const matches = records.filter((item) => {
+		const record = providerRecord(item);
+		if (!record) return false;
+		return (
+			providerText(record, ["agreementNo", "agreement_no"]) ===
+				expected.agreementNo &&
+			providerText(record, ["payingId", "paying_id", "transId", "trans_id"]) ===
+				expected.payingId &&
+			providerText(record, ["tradingId", "trading_id"]) === expected.tradingId
+		);
+	});
+	if (matches.length !== 1) {
+		throw providerError(
+			THIRD_PART_RECOVERY_OPERATION,
+			matches.length === 0
+				? "2.27.2.27 did not return the completed third-party payment record"
+				: "2.27.2.27 returned multiple matching third-party payment records",
+			{
+				failureStage: "response",
+				responseInvalid: true,
+				requestOutcome: "unknown",
+			},
+		);
+	}
+	return positiveIntegerText(
+		providerText(matches[0] as Record<string, unknown>, [
+			"thirdPartPayRecordId",
+			"third_part_pay_record_id",
+		]),
+		"thirdPartPayRecordId",
+	);
+}
+
 function requireProviderSuccess(
 	value: unknown,
 	operation: string,
@@ -528,9 +616,39 @@ export function createYunhealthRegistrationSettlementGateway(
 				requestIds.push(response.requestId);
 				return response;
 			};
+			const requestGet = async <T>(
+				step: string,
+				operation: string,
+				path: string,
+				query: Record<string, string | number>,
+			) => {
+				const url = new URL(`${providerBaseUrl}${path}`);
+				for (const [key, value] of Object.entries(query)) {
+					url.searchParams.set(key, String(value));
+				}
+				const response = await requestJson<T>(
+					{
+						provider: "yunhealth",
+						operation,
+						url: url.toString(),
+						method: "GET",
+						context: {
+							...context,
+							idempotencyKey: stableStepIdempotencyKey(step, outTradeNo),
+						},
+						...(authorization
+							? { headers: { Authorization: authorization } }
+							: {}),
+						...(options.logger ? { logger: options.logger } : {}),
+					},
+					fetcher,
+				);
+				requestIds.push(response.requestId);
+				return response;
+			};
 
-			const thirdPartRecordId = registrationContext?.thirdPartPayRecordId
-				? positiveInteger(
+			let thirdPartRecordId = registrationContext?.thirdPartPayRecordId
+				? positiveIntegerText(
 						registrationContext.thirdPartPayRecordId,
 						"thirdPartPayRecordId",
 					)
@@ -562,18 +680,52 @@ export function createYunhealthRegistrationSettlementGateway(
 					},
 					true,
 				);
-				requireProviderSuccess(
-					thirdPart.data,
-					THIRD_PART_OPERATION,
-					thirdPart.requestId,
-				);
-				const thirdPartPayRecordId = positiveInteger(
-					nestedValue(thirdPart.data, [
+				try {
+					requireProviderSuccess(
+						thirdPart.data,
+						THIRD_PART_OPERATION,
+						thirdPart.requestId,
+					);
+					thirdPartRecordId = positiveIntegerText(
+						nestedValue(thirdPart.data, [
+							"thirdPartPayRecordId",
+							"third_part_pay_record_id",
+						]),
 						"thirdPartPayRecordId",
-						"third_part_pay_record_id",
-					]),
-					"thirdPartPayRecordId",
-				).toString();
+					);
+				} catch (error) {
+					if (!isThirdPartAlreadyCompleted(thirdPart.data)) throw error;
+					const settleDetails = await requestGet<unknown>(
+						"2.27.2.27-recovery",
+						THIRD_PART_RECOVERY_OPERATION,
+						SETTLE_DETAILS_PATH,
+						{
+							patId: normalizedContext.patientId,
+							outSettleMainId: normalizedContext.businessId,
+						},
+					);
+					requireProviderSuccess(
+						settleDetails.data,
+						THIRD_PART_RECOVERY_OPERATION,
+						settleDetails.requestId,
+					);
+					thirdPartRecordId = recoverThirdPartPayRecordId(settleDetails.data, {
+						agreementNo: outTradeNo,
+						payingId: normalizedContext.payingId,
+						tradingId: normalizedContext.tradingId,
+					});
+					options.logger?.info(
+						{
+							event: "registration-self-pay.third-part-record.recovered",
+							traceId: context.traceId,
+							orderId,
+							thirdPartRequestId: thirdPart.requestId,
+							recoveryRequestId: settleDetails.requestId,
+							thirdPartPayRecordId: thirdPartRecordId,
+						},
+						"Registration self-pay third-party payment record recovered",
+					);
+				}
 				if (typeof thirdPart.rawBodyText !== "string") {
 					throw providerError(
 						THIRD_PART_OPERATION,
@@ -585,9 +737,21 @@ export function createYunhealthRegistrationSettlementGateway(
 						},
 					);
 				}
+				if (!thirdPartRecordId) {
+					throw providerError(
+						THIRD_PART_OPERATION,
+						"thirdPartPayRecordId was not resolved",
+						{
+							requestId: thirdPart.requestId,
+							failureStage: "response",
+							responseInvalid: true,
+							requestOutcome: "unknown",
+						},
+					);
+				}
 				await input.onThirdPartPayResponse?.({
 					rawResponse: thirdPart.rawBodyText,
-					thirdPartPayRecordId,
+					thirdPartPayRecordId: thirdPartRecordId,
 				});
 			}
 
