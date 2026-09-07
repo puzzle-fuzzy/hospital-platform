@@ -206,6 +206,7 @@ export class PatientService {
 	): Promise<PatientListPayload["data"]> {
 		let operationId: string | undefined;
 		let operationAttemptCount: number | undefined;
+		let syncOperationStarted = false;
 		// 一旦 replay 或快照事务成功，后续 list 失败只能归类为读模型失败，
 		// 不能再追加 `patient.directory.failed` 覆盖已经成立的同步事实。
 		let syncOutcomeCommitted = false;
@@ -289,6 +290,7 @@ export class PatientService {
 				);
 				throw new PatientDirectorySyncInProgressError();
 			}
+			syncOperationStarted = true;
 
 			this.logger.info(
 				{
@@ -475,6 +477,35 @@ export class PatientService {
 					},
 					"Patient directory snapshot was rejected because a newer snapshot won",
 				);
+			}
+			if (
+				syncOperationStarted &&
+				!syncOutcomeCommitted &&
+				operationId &&
+				operationAttemptCount !== undefined &&
+				this.repository.releaseDirectorySync
+			) {
+				try {
+					await this.repository.releaseDirectorySync({
+						ownerUserId,
+						provider: "zhongyang",
+						operationId,
+						operationAttemptCount,
+					});
+				} catch (releaseError) {
+					this.logger.warn(
+						{
+							event: "patient.directory.operation.release_failed",
+							traceId: adapterContextTraceId(context),
+							operationId,
+							errorType:
+								releaseError instanceof Error
+									? releaseError.name
+									: "unknown",
+						},
+						"Failed to release patient directory synchronization lease",
+					);
+				}
 			}
 			throw error;
 		}

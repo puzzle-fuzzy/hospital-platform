@@ -759,6 +759,16 @@ export interface PatientRepository {
 	beginDirectorySync?(
 		input: PatientDirectorySyncStartInput,
 	): Promise<PatientDirectorySyncStart>;
+	/**
+	 * 释放失败同步留下的 in_progress 租约。实现必须按 operation、owner、
+	 * provider 和 attemptCount 做条件删除，避免旧请求清理掉已被接管的新代次。
+	 */
+	releaseDirectorySync?(input: {
+		ownerUserId: string;
+		provider: "zhongyang";
+		operationId: string;
+		operationAttemptCount: number;
+	}): Promise<void>;
 	upsertFromDirectory(
 		input: PatientDirectoryUpsertInput,
 	): Promise<PatientRecord>;

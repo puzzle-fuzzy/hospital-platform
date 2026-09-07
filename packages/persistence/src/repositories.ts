@@ -466,6 +466,17 @@ export function createInMemoryPatientRepository(
 				attemptCount: existing.attemptCount,
 			};
 		},
+		async releaseDirectorySync(input) {
+			const entry = [...syncOperations.entries()].find(
+				([, operation]) =>
+					operation.ownerUserId === input.ownerUserId &&
+					operation.provider === input.provider &&
+					operation.operationId === input.operationId &&
+					operation.status === "in_progress" &&
+					operation.attemptCount === input.operationAttemptCount,
+			);
+			if (entry) syncOperations.delete(entry[0]);
+		},
 		async upsertFromDirectory(input) {
 			return upsertDirectoryAt(input, new Date().toISOString());
 		},

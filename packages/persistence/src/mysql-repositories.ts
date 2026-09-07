@@ -2297,6 +2297,18 @@ export function createMySqlRepositories(
 				return readExistingOperation(row);
 			});
 		},
+		async releaseDirectorySync(input) {
+			await execute<ResultSetHeader>(
+				pool,
+				"DELETE FROM hp_patient_directory_sync_operations WHERE operation_id = ? AND owner_user_id = ? AND provider_name = ? AND attempt_count = ? AND status = 'in_progress'",
+				[
+					input.operationId,
+					input.ownerUserId,
+					input.provider,
+					input.operationAttemptCount,
+				],
+			);
+		},
 		async upsertFromDirectory(input) {
 			// 单条 upsert 也必须具备原子性：患者主表更新和临床 patId
 			// 映射写入不能一成功一失败，否则会留下“资料已更新但临床身份未
