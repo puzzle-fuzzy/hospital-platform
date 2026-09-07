@@ -180,7 +180,11 @@ test("reconciliation worker confirms a matching cash payment and clears its sche
 });
 
 test("reconciliation worker continues a paid order through HIS writeback", async () => {
-	const orders = createOrderRepository({ ...order, state: "cash_paid" });
+	const orders = createOrderRepository({
+		...order,
+		idempotencyKey: "registration-self-pay:appointment-worker-001",
+		state: "cash_paid",
+	});
 	const attempts = createAttemptRepository(attempt());
 	let writeBackCalls = 0;
 	const fixture = createFixtureHospitalSettlementGateway();
@@ -199,8 +203,22 @@ test("reconciliation worker continues a paid order through HIS writeback", async
 		hospitalSettlement: {
 			writeBack: async (input, context) => {
 				writeBackCalls += 1;
+				expect(input.registrationContext).toEqual({
+					businessId: "settlement-business-worker-001",
+					payingId: "260650000000011",
+					tradingId: "260650000000012",
+				});
 				return fixture.writeBack(input, context);
 			},
+		},
+		resolveRegistrationContext: async ({ ownerUserId, appointmentId }) => {
+			expect(ownerUserId).toBe(order.ownerUserId);
+			expect(appointmentId).toBe("appointment-worker-001");
+			return {
+				businessId: "settlement-business-worker-001",
+				payingId: "260650000000011",
+				tradingId: "260650000000012",
+			};
 		},
 	});
 

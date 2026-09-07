@@ -48,8 +48,21 @@ test("自费微信已支付后必须先回写 HIS，再进入 completed", async 
 				expect(context.idempotencyKey).toBe(
 					`registration-self-pay-settlement:${order.orderId}`,
 				);
+				expect(input.registrationContext).toEqual({
+					businessId: "settlement-business-001",
+					payingId: "260650000000001",
+					tradingId: "260650000000002",
+				});
 				return fixture.writeBack(input, context);
 			},
+		},
+		resolveRegistrationContext: async (input) => {
+			expect(input).toEqual({ ownerUserId, appointmentId });
+			return {
+				businessId: "settlement-business-001",
+				payingId: "260650000000001",
+				tradingId: "260650000000002",
+			};
 		},
 	});
 

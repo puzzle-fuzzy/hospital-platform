@@ -5,6 +5,7 @@ import {
 	type PaymentOrder,
 	PaymentOrderInputError,
 	type PaymentOrderService,
+	type RegistrationSelfPaySettlementContext,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import type { AppointmentWriteService } from "../appointments/write-service";
@@ -16,6 +17,11 @@ export type RegistrationSelfPayServiceDependencies = {
 	wechatPrepay: WechatPrepayService;
 	/** 微信已确认收款后，必须经过 HIS 回写才能进入 completed。 */
 	hospitalSettlement: HospitalSettlementGateway;
+	/** 从同一预约的已落库医保结算上下文解析 Provider 关联键。 */
+	resolveRegistrationContext?: (input: {
+		ownerUserId: string;
+		appointmentId: string;
+	}) => Promise<RegistrationSelfPaySettlementContext | undefined>;
 	logger?: AppLogger;
 };
 
@@ -96,6 +102,7 @@ export class RegistrationSelfPayService {
 	 */
 	private async completeHis(
 		ownerUserId: string,
+		appointmentId: string,
 		order: PaymentOrder,
 		context: Context,
 	): Promise<PaymentOrder> {
@@ -110,6 +117,27 @@ export class RegistrationSelfPayService {
 		if (order.state !== "cash_paid") return order;
 
 		try {
+			const registrationContext = this.dependencies.resolveRegistrationContext
+				? await this.dependencies.resolveRegistrationContext({
+						ownerUserId,
+						appointmentId,
+					})
+				: undefined;
+			if (
+				this.dependencies.resolveRegistrationContext &&
+				!registrationContext
+			) {
+				this.logger.warn(
+					{
+						event: "appointment.self-payment.his-context-pending",
+						ownerUserId,
+						appointmentId,
+						orderId: order.orderId,
+					},
+					"Registration self-pay HIS context is pending",
+				);
+				return order;
+			}
 			const trace = await this.dependencies.hospitalSettlement.writeBack(
 				{
 					orderId: order.orderId,
@@ -121,6 +149,7 @@ export class RegistrationSelfPayService {
 						cashFen: order.amounts.cashFen,
 						trace: [],
 					},
+					...(registrationContext ? { registrationContext } : {}),
 				},
 				{
 					...context,
@@ -168,10 +197,11 @@ export class RegistrationSelfPayService {
 
 	private async finalize(
 		ownerUserId: string,
+		appointmentId: string,
 		order: PaymentOrder,
 		context: Context,
 	): Promise<PaymentOrder> {
-		return this.completeHis(ownerUserId, order, context);
+		return this.completeHis(ownerUserId, appointmentId, order, context);
 	}
 
 	async create(input: {
@@ -196,7 +226,12 @@ export class RegistrationSelfPayService {
 			},
 		});
 		if (order.state === "cash_paid") {
-			const finalized = await this.finalize(ownerUserId, order, context);
+			const finalized = await this.finalize(
+				ownerUserId,
+				appointment.appointmentId,
+				order,
+				context,
+			);
 			return output(
 				appointment.appointmentId,
 				finalized,
@@ -204,7 +239,12 @@ export class RegistrationSelfPayService {
 			);
 		}
 		if (order.state === "completed" || order.state === "his_written_back") {
-			const finalized = await this.finalize(ownerUserId, order, context);
+			const finalized = await this.finalize(
+				ownerUserId,
+				appointment.appointmentId,
+				order,
+				context,
+			);
 			return output(appointment.appointmentId, finalized, "cash_paid");
 		}
 		if (order.state === "failed")
@@ -267,6 +307,7 @@ export class RegistrationSelfPayService {
 			reconciled.state === "completed"
 				? await this.finalize(
 						ownerUserId,
+						appointment.appointmentId,
 						{ ...order, state: reconciled.state },
 						context,
 					)

@@ -15,6 +15,7 @@ import type { DependencyState } from "@hospital/contracts";
 import {
 	type HospitalSettlementGateway,
 	PaymentOrderService,
+	type RegistrationSelfPaySettlementContext,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import {
@@ -60,6 +61,44 @@ type ReadyRuntimeConfig = RuntimeConfig & {
 	databaseUrl: string;
 	paymentDataEncryptionKey?: string;
 };
+
+/**
+ * worker 与 API 使用同一条 owner + appointment 关联规则读取医保结算上下文。
+ * 三个 Provider 关联键只从加密仓储解封后的事实中投影，绝不从平台订单号补造。
+ */
+function resolveRegistrationSelfPayContext(
+	repositories: NonNullable<PersistenceRuntime["repositories"]>,
+) {
+	return async (input: {
+		ownerUserId: string;
+		appointmentId: string;
+	}): Promise<RegistrationSelfPaySettlementContext | undefined> => {
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
+				input.ownerUserId,
+				input.appointmentId,
+			);
+		if (!medicalOrder?.payOrdId) return undefined;
+		const settlement =
+			await repositories.medicalInsuranceOrders.getSettlementContext(
+				input.ownerUserId,
+				medicalOrder.medicalOrderId,
+			);
+		if (!settlement) return undefined;
+		if (
+			!settlement.businessId.trim() ||
+			!/^[0-9]+$/.test(settlement.payingId) ||
+			!/^[0-9]+$/.test(settlement.tradingId)
+		) {
+			return undefined;
+		}
+		return {
+			businessId: settlement.businessId,
+			payingId: settlement.payingId,
+			tradingId: settlement.tradingId,
+		};
+	};
+}
 
 /**
  * Worker 的持久化基础设施必须就绪，并至少打开一个完整的 provider 子 Worker。
@@ -193,6 +232,8 @@ export function createWorkerRuntime(
 				...(options.hospitalSettlementGateway
 					? { hospitalSettlement: options.hospitalSettlementGateway }
 					: {}),
+				resolveRegistrationContext:
+					resolveRegistrationSelfPayContext(repositories),
 				logger,
 			})
 		: undefined;

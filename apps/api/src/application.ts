@@ -10,6 +10,7 @@ import type {
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
+	RegistrationSelfPaySettlementContext,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
@@ -128,6 +129,44 @@ export function selectReadyRepositories(
 	return schemaProbe === "ok" ? repositories : undefined;
 }
 
+/**
+ * 从同一用户、同一预约的医保订单中取出自费回写所需的最小 Provider 关联事实。
+ * 结算上下文由医保 adapter 加密落库；这里不接受客户端字段，也不从平台订单号推导。
+ */
+function resolveRegistrationSelfPayContext(
+	repositories: Pick<MySqlRepositories, "medicalInsuranceOrders">,
+) {
+	return async (input: {
+		ownerUserId: string;
+		appointmentId: string;
+	}): Promise<RegistrationSelfPaySettlementContext | undefined> => {
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
+				input.ownerUserId,
+				input.appointmentId,
+			);
+		if (!medicalOrder?.payOrdId) return undefined;
+		const settlement =
+			await repositories.medicalInsuranceOrders.getSettlementContext(
+				input.ownerUserId,
+				medicalOrder.medicalOrderId,
+			);
+		if (!settlement) return undefined;
+		if (
+			!settlement.businessId.trim() ||
+			!/^[0-9]+$/.test(settlement.payingId) ||
+			!/^[0-9]+$/.test(settlement.tradingId)
+		) {
+			return undefined;
+		}
+		return {
+			businessId: settlement.businessId,
+			payingId: settlement.payingId,
+			tradingId: settlement.tradingId,
+		};
+	};
+}
+
 /** 默认组合根只安装 fail-closed 依赖，避免开发环境误连真实 provider。 */
 export function createDefaultApplicationServices(
 	options: ApplicationServiceOptions = {},
@@ -214,6 +253,7 @@ export function createDefaultApplicationServices(
 		wechatPrepay,
 		hospitalSettlement:
 			options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
+		resolveRegistrationContext: resolveRegistrationSelfPayContext(repositories),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const registrationPaymentExit = new RegistrationPaymentExitService({

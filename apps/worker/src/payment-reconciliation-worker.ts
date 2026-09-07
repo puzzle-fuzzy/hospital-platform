@@ -4,6 +4,7 @@ import type {
 	PaymentOrderService,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
+	RegistrationSelfPaySettlementContext,
 	WechatPaymentGateway,
 } from "@hospital/domain";
 import {
@@ -20,6 +21,8 @@ const MAX_QUERY_DELAY_MS = 15 * 60 * 1000;
 const QUERY_BATCH_SIZE = 1;
 /** provider 查询异常或进程崩溃后的 claim 接管窗口。 */
 const QUERY_CLAIM_LEASE_MS = 60_000;
+
+const REGISTRATION_SELF_PAY_ORDER_PREFIX = "registration-self-pay:";
 /**
  * 微信查单自动重试上限；达到上限后必须停在 manual_review，等待人工核对，
  * 不能继续制造没有边界的 provider 请求。
@@ -101,6 +104,11 @@ export class PaymentReconciliationWorker {
 			wechatPayment: WechatPaymentGateway;
 			/** 微信查单确认收款后，继续执行旧服务的 HIS 回写边界。 */
 			hospitalSettlement?: HospitalSettlementGateway;
+			/** 从同一预约的已落库医保结算上下文解析 Provider 关联键。 */
+			resolveRegistrationContext?: (input: {
+				ownerUserId: string;
+				appointmentId: string;
+			}) => Promise<RegistrationSelfPaySettlementContext | undefined>;
 			logger?: AppLogger;
 		},
 	) {
@@ -135,6 +143,11 @@ export class PaymentReconciliationWorker {
 		if (order.state !== "cash_paid") {
 			return { order, retry: false };
 		}
+		const appointmentId = order.idempotencyKey.startsWith(
+			REGISTRATION_SELF_PAY_ORDER_PREFIX,
+		)
+			? order.idempotencyKey.slice(REGISTRATION_SELF_PAY_ORDER_PREFIX.length)
+			: undefined;
 		if (!gateway) {
 			this.logger.warn(
 				{
@@ -147,6 +160,27 @@ export class PaymentReconciliationWorker {
 			return { order, retry: true };
 		}
 		try {
+			const registrationContext =
+				this.dependencies.resolveRegistrationContext && appointmentId
+					? await this.dependencies.resolveRegistrationContext({
+							ownerUserId: order.ownerUserId,
+							appointmentId,
+						})
+					: undefined;
+			if (
+				this.dependencies.resolveRegistrationContext &&
+				!registrationContext
+			) {
+				this.logger.warn(
+					{
+						event: "worker.payment.his_context.retry_scheduled",
+						orderId: order.orderId,
+						reason: "registration-context-missing",
+					},
+					"Payment order HIS context is not available yet",
+				);
+				return { order, retry: true };
+			}
 			const trace = await gateway.writeBack(
 				{
 					orderId: order.orderId,
@@ -158,6 +192,7 @@ export class PaymentReconciliationWorker {
 						cashFen: order.amounts.cashFen,
 						trace: [],
 					},
+					...(registrationContext ? { registrationContext } : {}),
 				},
 				{
 					...context,

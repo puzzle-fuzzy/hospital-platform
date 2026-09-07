@@ -1,4 +1,16 @@
 export type {
+	AppointmentHold,
+	AppointmentHoldStatus,
+	AppointmentPatientProfileGateway,
+	AppointmentProviderRecord,
+	AppointmentRegistration,
+	AppointmentRegistrationPatient,
+	AppointmentRegistrationStatus,
+	AppointmentRegistrationTarget,
+	AppointmentWriteGateway,
+	AppointmentWriteRepository,
+} from "./appointment-write";
+export type {
 	AppointmentClinicDepartmentQuery,
 	AppointmentDepartment,
 	AppointmentDepartmentGroup,
@@ -42,18 +54,6 @@ export {
 	normalizeAppointmentScheduleSourceResults,
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
-export type {
-	AppointmentHold,
-	AppointmentHoldStatus,
-	AppointmentPatientProfileGateway,
-	AppointmentProviderRecord,
-	AppointmentRegistration,
-	AppointmentRegistrationPatient,
-	AppointmentRegistrationStatus,
-	AppointmentRegistrationTarget,
-	AppointmentWriteGateway,
-	AppointmentWriteRepository,
-} from "./appointment-write";
 export type {
 	ClinicalReadErrorCode,
 	ClinicalReadFeature,
@@ -164,20 +164,6 @@ export type {
 } from "./manual-review";
 export { MANUAL_REVIEW_REASON_CODES } from "./manual-review";
 export type {
-	MyDoctor,
-	MyDoctorCreateInput,
-	MyDoctorReadModelViolation,
-	MyDoctorRepository,
-} from "./my-doctors";
-export {
-	MyDoctorAlreadyExistsError,
-	MyDoctorInputError,
-	MyDoctorNotFoundError,
-	MyDoctorReadModelValidationError,
-	normalizeMyDoctorReadModel,
-	validateMyDoctorCreateInput,
-} from "./my-doctors";
-export type {
 	MedicalInsuranceAuthorizationContext,
 	MedicalInsuranceAuthorizationRepository,
 } from "./medical-insurance-authorization";
@@ -186,22 +172,11 @@ export type {
 	MedicalInsuranceOrderType,
 } from "./medical-insurance-business";
 export {
-	MEDICAL_INSURANCE_ORDER_TYPES,
 	isMedicalInsuranceBusinessType,
 	isMedicalInsuranceOrderType,
+	MEDICAL_INSURANCE_ORDER_TYPES,
 	medicalInsuranceOrderTypeForBusiness,
 } from "./medical-insurance-business";
-export type {
-	MedicalInsuranceAmounts,
-	MedicalInsuranceOrder,
-	MedicalInsuranceOrderRepository,
-	MedicalInsuranceOrderStatus,
-	MedicalInsuranceQueryTask,
-	MedicalInsuranceQueryTaskRepository,
-	MedicalInsuranceQueryTaskStatus,
-	MedicalInsuranceSettlementNotification,
-	MedicalInsuranceSettlementContext,
-} from "./medical-insurance-order";
 export type {
 	MedicalInsuranceCredentialContext,
 	MedicalInsuranceCredentialHandle,
@@ -210,6 +185,17 @@ export type {
 	MedicalInsuranceProviderQueryIdentity,
 } from "./medical-insurance-credential";
 export { isValidMedicalInsuranceProviderQueryIdentity } from "./medical-insurance-credential";
+export type {
+	MedicalInsuranceAmounts,
+	MedicalInsuranceOrder,
+	MedicalInsuranceOrderRepository,
+	MedicalInsuranceOrderStatus,
+	MedicalInsuranceQueryTask,
+	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceQueryTaskStatus,
+	MedicalInsuranceSettlementContext,
+	MedicalInsuranceSettlementNotification,
+} from "./medical-insurance-order";
 export {
 	assertMedicalInsuranceOrderTransition,
 	assertValidMedicalInsuranceAmounts,
@@ -232,6 +218,20 @@ export {
 	OutpatientMedicalRecordResultValidationError,
 	validateMedicalRecordProviderReference,
 } from "./medical-records";
+export type {
+	MyDoctor,
+	MyDoctorCreateInput,
+	MyDoctorReadModelViolation,
+	MyDoctorRepository,
+} from "./my-doctors";
+export {
+	MyDoctorAlreadyExistsError,
+	MyDoctorInputError,
+	MyDoctorNotFoundError,
+	MyDoctorReadModelValidationError,
+	normalizeMyDoctorReadModel,
+	validateMyDoctorCreateInput,
+} from "./my-doctors";
 export {
 	isBoundedOpaqueIdentifier,
 	MAX_OPAQUE_IDENTIFIER_LENGTH,
@@ -282,8 +282,8 @@ export {
 export type {
 	IdentityUser,
 	IdentityUserReadModelViolation,
-	PatientClinicalAccess,
 	PatientBindingGateway,
+	PatientClinicalAccess,
 	PatientDirectoryGateway,
 	PatientDirectoryGeneratedIdViolation,
 	PatientDirectoryProfile,
@@ -376,22 +376,23 @@ export {
 } from "./payment-state";
 export type {
 	AdapterCallContext,
-	ExternalTrace,
-	HospitalSettlementGateway,
-	MedicalInsuranceGateway,
-	MedicalInsuranceWechatPaymentGateway,
-	MedicalInsuranceWechatPaymentState,
-	MedicalInsuranceWechatProviderState,
 	AppointmentMedicalInsuranceContext,
 	AppointmentMedicalInsurancePatient,
-	MedicalInsuranceSettlementEvidence,
+	ExternalTrace,
+	HospitalSettlementGateway,
 	MedicalInsuranceCancellationEvidence,
+	MedicalInsuranceGateway,
+	MedicalInsuranceSettlementEvidence,
 	MedicalInsuranceSettlementEvidenceFinality,
 	MedicalInsuranceSettlementEvidenceSource,
 	MedicalInsuranceSettlementState,
+	MedicalInsuranceWechatPaymentGateway,
+	MedicalInsuranceWechatPaymentState,
+	MedicalInsuranceWechatProviderState,
 	PaymentOrderSnapshot,
-	WechatMiniProgramPayParams,
+	RegistrationSelfPaySettlementContext,
 	WechatMedicalInsurancePayParams,
+	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
 	WechatPaymentQueryState,
 } from "./ports";
