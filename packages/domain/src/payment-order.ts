@@ -8,7 +8,7 @@ import type {
 	MedicalInsuranceSettlementEvidenceFinality,
 	MedicalInsuranceSettlementEvidenceSource,
 	MedicalInsuranceSettlementState,
-	WechatMiniProgramPayParams,
+	WechatPaymentLaunchParams,
 } from "./ports";
 
 /** 幂等键长度上限，防止客户端把无限长字符串写入订单索引。 */
@@ -411,7 +411,7 @@ export type PaymentPrepayAttempt = {
 	/** 进入人工复核的时间；仅 manual_review 终态设置，便于后续运维审计。 */
 	manualReviewAt?: string;
 	prepayId?: string;
-	payParams?: WechatMiniProgramPayParams;
+	payParams?: WechatPaymentLaunchParams;
 	providerRequestId?: string;
 	lastErrorCode?: string;
 	createdAt: string;

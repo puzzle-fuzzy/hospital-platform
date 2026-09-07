@@ -1,8 +1,8 @@
 import {
 	MedicalInsuranceAuthorizeRequest,
 	MedicalInsuranceAuthorizeResponse,
-	MedicalInsuranceCancelRequest,
 	MedicalInsuranceCancellationResponse,
+	MedicalInsuranceCancelRequest,
 	MedicalInsuranceOrderResponse,
 	MedicalInsurancePluginPayResponse,
 	MedicalInsuranceWechatPayResponse,
@@ -12,10 +12,16 @@ import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
-import type { MedicalInsuranceRegistrationService } from "./registration-service";
-import type { MedicalInsuranceWechatPaymentService } from "./wechat-payment-service";
 import type { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
+import type { MedicalInsuranceRegistrationService } from "./registration-service";
 import type { MedicalInsuranceNotificationService } from "./service";
+import type { MedicalInsuranceWechatPaymentService } from "./wechat-payment-service";
+
+type MedicalInsuranceWechatNotificationHandler = (input: {
+	rawBody: Uint8Array;
+	headers: Headers;
+	receivedAt: string;
+}) => Promise<void>;
 
 /** 医保业务入口只允许平台会话和服务端生成的关联/幂等信息。 */
 const MedicalInsuranceCommandHeaders = t.Object({
@@ -48,11 +54,14 @@ export function medicalInsuranceModule(
 	registrationService: MedicalInsuranceRegistrationService,
 	sessions: SessionTokenService,
 	wechatPaymentService: MedicalInsuranceWechatPaymentService,
+	/** 旧插件兼容入口；支付仍使用官方微信 APIv3，云健康只负责 .2/.29/.15/.5。 */
 	pluginPaymentService: MedicalInsurancePluginPaymentService,
 	notificationService?: MedicalInsuranceNotificationService,
+	wechatNotificationHandler?: MedicalInsuranceWechatNotificationHandler,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions, [
 		"/payments/medical-insurance/notifications",
+		"/payments/medical-insurance/wechat-notifications",
 	]);
 	const routes = new Elysia({ name: "medical-insurance-module" })
 		.onTransform({ as: "local" }, authentication.authenticate)
@@ -231,34 +240,59 @@ export function medicalInsuranceModule(
 			},
 		);
 
-	if (!notificationService) return routes;
-
-	const notificationRoute = new Elysia({
-		name: "medical-insurance-notification",
-	}).post(
-		"/payments/medical-insurance/notifications",
-		async ({ request, headers }) => {
-			const payload = (await request.json()) as Record<string, unknown>;
-			return notificationService.receive({
-				payload,
-				context: adapterContextFromHeaders(headers),
-			});
-		},
-		{
-			headers: t.Object({
-				"x-request-id": t.Optional(t.String({ maxLength: 128 })),
-			}),
-			response: {
-				200: t.Object({
-					success: t.Boolean(),
-					message: t.String(),
-				}),
+	const notificationRoutes = new Elysia({
+		name: "medical-insurance-notifications",
+	});
+	if (notificationService) {
+		notificationRoutes.post(
+			"/payments/medical-insurance/notifications",
+			async ({ request, headers }) => {
+				const payload = (await request.json()) as Record<string, unknown>;
+				return notificationService.receive({
+					payload,
+					context: adapterContextFromHeaders(headers),
+				});
 			},
-			tags: ["medical-insurance"],
-		},
-	);
+			{
+				headers: t.Object({
+					"x-request-id": t.Optional(t.String({ maxLength: 128 })),
+				}),
+				response: {
+					200: t.Object({
+						success: t.Boolean(),
+						message: t.String(),
+					}),
+				},
+				tags: ["medical-insurance"],
+			},
+		);
+	}
+	if (wechatNotificationHandler) {
+		notificationRoutes.post(
+			"/payments/medical-insurance/wechat-notifications",
+			async ({ request }) => {
+				await wechatNotificationHandler({
+					rawBody: new Uint8Array(await request.arrayBuffer()),
+					headers: request.headers,
+					receivedAt: new Date().toISOString(),
+				});
+				return { code: "SUCCESS" as const, message: "成功" as const };
+			},
+			{
+				response: {
+					200: t.Object({
+						code: t.Literal("SUCCESS"),
+						message: t.Literal("成功"),
+					}),
+				},
+				tags: ["medical-insurance"],
+			},
+		);
+	}
 
-	return routes.use(notificationRoute);
+	return notificationService || wechatNotificationHandler
+		? routes.use(notificationRoutes)
+		: routes;
 }
 
 export {

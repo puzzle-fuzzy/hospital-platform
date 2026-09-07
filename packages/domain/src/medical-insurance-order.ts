@@ -22,7 +22,7 @@ export type MedicalInsuranceOrderStatus =
 	| "order_placed"
 	/** 6302/6301 确认医保部分完成且无自费差额。 */
 	| "insurance_settled"
-	/** 6202 显示 ownPayAmt>0，等待插件自费支付。 */
+	/** 6202 显示 ownPayAmt>0，等待微信 APIv3 医保混合自费支付。 */
 	| "cash_pending"
 	/** 状态未知/处理中（ordStas 0-2、17-25 或 6203 EXP）；只能查单或人工。 */
 	| "awaiting_confirmation"
@@ -388,7 +388,8 @@ export function normalizeMedicalInsuranceSettlementNotification(
 }
 
 /**
- * 依据 6302 通知推导订单目标状态：现金为 0 即医保全结，否则等待插件自费。
+ * 依据 6302 通知推导订单目标状态：现金为 0 即医保全结，否则等待微信医保
+ * APIv3 混合支付完成自费部分。
  * 通知金额与订单已落库 6202 金额不一致时进入 awaiting_confirmation，
  * 不允许直接覆盖（权威差异必须人工对账）。
  */
@@ -486,6 +487,10 @@ export interface MedicalInsuranceOrderRepository {
 		medicalOrderId: string,
 	): Promise<MedicalInsuranceOrder | undefined>;
 	findByPayOrdId(payOrdId: string): Promise<MedicalInsuranceOrder | undefined>;
+	/** 微信医保混合回调只携带 mix_trade_no，必须用服务端订单关联查询。 */
+	findByWechatMixTradeNo(
+		mixTradeNo: string,
+	): Promise<MedicalInsuranceOrder | undefined>;
 	findByOwnerAndAppointmentId(
 		ownerUserId: string,
 		appointmentId: string,

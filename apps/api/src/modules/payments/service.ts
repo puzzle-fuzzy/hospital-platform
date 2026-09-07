@@ -46,6 +46,10 @@ type WechatPrepayCreateInput = {
 	ownerUserId: string;
 	orderId: string;
 	context: { traceId: string; idempotencyKey: string };
+	paymentContext?: {
+		orderType?: "RegPay" | "DiagPay";
+		serialNo?: string;
+	};
 };
 
 type WechatPrepayReadInput = {
@@ -144,6 +148,38 @@ function normalizeWechatPrepayCreateInput(
 	) {
 		throw new PaymentOrderInputError("Wechat prepay context is invalid");
 	}
+	const paymentContextValue = record.paymentContext;
+	let paymentContext: WechatPrepayCreateInput["paymentContext"] | undefined;
+	if (paymentContextValue !== undefined) {
+		if (
+			typeof paymentContextValue !== "object" ||
+			paymentContextValue === null ||
+			Array.isArray(paymentContextValue)
+		) {
+			throw new PaymentOrderInputError(
+				"Wechat prepay payment context is invalid",
+			);
+		}
+		const paymentContextRecord = paymentContextValue as Record<string, unknown>;
+		const orderType = paymentContextRecord.orderType;
+		const serialNo = paymentContextRecord.serialNo;
+		if (
+			orderType !== undefined &&
+			orderType !== "RegPay" &&
+			orderType !== "DiagPay"
+		) {
+			throw new PaymentOrderInputError("Wechat prepay order type is invalid");
+		}
+		if (serialNo !== undefined && !isBoundedOpaqueIdentifier(serialNo)) {
+			throw new PaymentOrderInputError(
+				"Wechat prepay serial number is invalid",
+			);
+		}
+		paymentContext = {
+			...(orderType !== undefined ? { orderType } : {}),
+			...(serialNo !== undefined ? { serialNo } : {}),
+		};
+	}
 	return {
 		ownerUserId: record.ownerUserId,
 		orderId: record.orderId,
@@ -151,6 +187,7 @@ function normalizeWechatPrepayCreateInput(
 			traceId: contextRecord.traceId,
 			idempotencyKey: contextRecord.idempotencyKey,
 		},
+		...(paymentContext ? { paymentContext } : {}),
 	};
 }
 
@@ -369,6 +406,7 @@ export class WechatPrepayService {
 					orderId: order.orderId,
 					openid: identity.providerSubject,
 					totalFen: order.amounts.cashFen,
+					...(request.paymentContext ?? {}),
 				},
 				request.context,
 			);
@@ -508,9 +546,16 @@ export class WechatPrepayService {
 				status: order.state === "cash_paid" ? "paid" : "failed",
 			};
 		}
+		const attempt = await this.dependencies.attempts.findByOwnerAndOrderId(
+			input.ownerUserId,
+			order.orderId,
+		);
+		const queryContext = attempt?.idempotencyKey
+			? { ...input.context, idempotencyKey: attempt.idempotencyKey }
+			: input.context;
 		const result = await this.dependencies.wechatPayment.query(
 			{ orderId: order.orderId },
-			input.context,
+			queryContext,
 		);
 		const reconciled = await this.dependencies.orders.reconcileWechatPayment({
 			orderId: order.orderId,
@@ -571,9 +616,13 @@ export class WechatPrepayService {
 			);
 		}
 		if (attempt && attempt.status !== "failed") {
+			const queryContext = {
+				...input.context,
+				idempotencyKey: attempt.idempotencyKey,
+			};
 			const result = await this.dependencies.wechatPayment.query(
 				{ orderId: order.orderId },
-				input.context,
+				queryContext,
 			);
 			if (result.state === "cash_paid") {
 				return { orderId: order.orderId, status: "paid" };
@@ -581,7 +630,7 @@ export class WechatPrepayService {
 			if (result.state === "cash_pending") {
 				await this.dependencies.wechatPayment.close(
 					{ orderId: order.orderId },
-					input.context,
+					queryContext,
 				);
 			}
 		}

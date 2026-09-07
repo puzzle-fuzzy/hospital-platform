@@ -5,10 +5,11 @@ import {
 	createLegacyHospitalPatientAuthGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatIdentityGateway,
+	createWechatMedicalInsuranceNotificationDecoder,
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
-	createYunhealthRegistrationSettlementGateway,
 	createYunhealthRegistrationPluginPaymentGateway,
+	createYunhealthRegistrationSettlementGateway,
 	createZhongyangAppointmentGateway,
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
@@ -426,61 +427,117 @@ const authRuntimeStatus =
 	startupRedisProbe === "ok"
 		? "ready"
 		: "fail_closed";
+const services = createDefaultApplicationServices({
+	logger,
+	...(readyRepositories ? { repositories: readyRepositories } : {}),
+	...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
+	...(identityGateway ? { identityGateway } : {}),
+	...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
+	...(medicalInsuranceWechatPaymentGateway
+		? { medicalInsuranceWechatPaymentGateway }
+		: {}),
+	...(patientDirectoryGateway ? { patientDirectoryGateway } : {}),
+	...(patientBindingGateway ? { patientBindingGateway } : {}),
+	...(patientProviderAuthorizationGateway
+		? { patientProviderAuthorizationGateway }
+		: {}),
+	...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
+	...(appointmentDepartmentTreeGateway
+		? { appointmentDepartmentTreeGateway }
+		: {}),
+	...(appointmentRecordDirectoryGateway
+		? { appointmentRecordDirectoryGateway }
+		: {}),
+	...(appointmentPatientProfileGateway
+		? { appointmentPatientProfileGateway }
+		: {}),
+	...(appointmentWriteGateway ? { appointmentWriteGateway } : {}),
+	...(outpatientPaymentGateway ? { outpatientPaymentGateway } : {}),
+	outpatientPaymentAuthSysCode: config.outpatientPaymentAuthSysCode,
+	...(reportDirectoryGateway ? { reportDirectoryGateway } : {}),
+	...(reportDetailGateway ? { reportDetailGateway } : {}),
+	...(wechatPaymentNotificationDecoder
+		? { wechatPaymentNotificationDecoder }
+		: {}),
+	...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
+	...(medicalInsuranceGateway ? { medicalInsuranceGateway } : {}),
+	...(hospitalSettlementGateway ? { hospitalSettlementGateway } : {}),
+	...(yunhealthRegistrationPluginPaymentGateway
+		? {
+				yunhealthRegistrationPluginPaymentGateway,
+				yunhealthRegistrationPluginPayTypeId:
+					config.yunhealthRegistrationPluginPayTypeId ?? "",
+				yunhealthRegistrationPluginPayType:
+					(config.yunhealthRegistrationPluginPayType ?? "CREDIT") as
+						| "CREDIT"
+						| "POS"
+						| "CROWD_FUNDING",
+				yunhealthRegistrationWorkStationId:
+					config.yunhealthRegistrationWorkStationId ?? "",
+				yunhealthRegistrationTradeTypeCode:
+					config.yunhealthRegistrationTradeTypeCode ?? "10",
+			}
+		: {}),
+});
+
+/**
+ * 官方微信 APIv3 医保混合支付回调：先在 adapter 中验签/解密/白名单映射，
+ * 再由医保支付服务按 mix_trade_no、金额和支付状态完成 HIS 收敛。
+ * 旧移动医疗平台 XML/MD5 回调不再安装路由，相关代码保留待确认。
+ */
+const wechatMedicalInsuranceNotificationDecoder =
+	config.wechatPaymentReady &&
+	wechatPaymentStatus === "configured" &&
+	wechatMedicalInsuranceStatus === "configured" &&
+	config.wechatPayApiV3Key &&
+	config.wechatPayPlatformCertificateSerial &&
+	config.wechatPayPlatformPublicKey
+		? createWechatMedicalInsuranceNotificationDecoder({
+				platformCertificateSerial: config.wechatPayPlatformCertificateSerial,
+				platformPublicKey: config.wechatPayPlatformPublicKey,
+				apiV3Key: config.wechatPayApiV3Key,
+				...(config.wechatMedicalInsuranceAppId
+					? { expectedAppId: config.wechatMedicalInsuranceAppId }
+					: config.wechatPayAppId
+						? { expectedAppId: config.wechatPayAppId }
+						: {}),
+				...(config.wechatPayMchId
+					? { expectedMchId: config.wechatPayMchId }
+					: {}),
+			})
+		: undefined;
+
+const wechatMedicalInsurancePaymentNotification =
+	wechatMedicalInsuranceNotificationDecoder &&
+	services.medicalInsuranceWechatPayment
+		? async (input: {
+				rawBody: Uint8Array;
+				headers: Headers;
+				receivedAt: string;
+			}) => {
+				const notification = wechatMedicalInsuranceNotificationDecoder({
+					rawBody: input.rawBody,
+					headers: input.headers,
+					receivedAt: input.receivedAt,
+				});
+				await services.medicalInsuranceWechatPayment?.receiveNotification({
+					notification,
+					context: {
+						traceId: notification.notificationId,
+						idempotencyKey: `wechat-medical-insurance-notification:${notification.notificationId}`,
+					},
+				});
+			}
+		: undefined;
+
 const app = createApp({
 	logger,
-	services: createDefaultApplicationServices({
-		logger,
-		...(readyRepositories ? { repositories: readyRepositories } : {}),
-		...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
-		...(identityGateway ? { identityGateway } : {}),
-		...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
-		...(medicalInsuranceWechatPaymentGateway
-			? { medicalInsuranceWechatPaymentGateway }
-			: {}),
-		...(patientDirectoryGateway ? { patientDirectoryGateway } : {}),
-		...(patientBindingGateway ? { patientBindingGateway } : {}),
-		...(patientProviderAuthorizationGateway
-			? { patientProviderAuthorizationGateway }
-			: {}),
-		...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
-		...(appointmentDepartmentTreeGateway
-			? { appointmentDepartmentTreeGateway }
-			: {}),
-		...(appointmentRecordDirectoryGateway
-			? { appointmentRecordDirectoryGateway }
-			: {}),
-		...(appointmentPatientProfileGateway
-			? { appointmentPatientProfileGateway }
-			: {}),
-		...(appointmentWriteGateway ? { appointmentWriteGateway } : {}),
-		...(outpatientPaymentGateway ? { outpatientPaymentGateway } : {}),
-		outpatientPaymentAuthSysCode: config.outpatientPaymentAuthSysCode,
-		...(reportDirectoryGateway ? { reportDirectoryGateway } : {}),
-		...(reportDetailGateway ? { reportDetailGateway } : {}),
-		...(wechatPaymentNotificationDecoder
-			? { wechatPaymentNotificationDecoder }
-			: {}),
-		...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
-		...(medicalInsuranceGateway ? { medicalInsuranceGateway } : {}),
-		...(hospitalSettlementGateway ? { hospitalSettlementGateway } : {}),
-		...(yunhealthRegistrationPluginPaymentGateway
-			? {
-					yunhealthRegistrationPluginPaymentGateway,
-					yunhealthRegistrationPluginPayTypeId:
-						config.yunhealthRegistrationPluginPayTypeId ?? "",
-					yunhealthRegistrationPluginPayType:
-						(config.yunhealthRegistrationPluginPayType ?? "CREDIT") as
-							| "CREDIT"
-							| "POS"
-							| "CROWD_FUNDING",
-					yunhealthRegistrationWorkStationId:
-						config.yunhealthRegistrationWorkStationId ?? "",
-					yunhealthRegistrationTradeTypeCode:
-						config.yunhealthRegistrationTradeTypeCode ?? "10",
-				}
-			: {}),
-	}),
+	services,
 	wechatPaymentEnabled,
+	registrationSelfPayEnabled: wechatPaymentEnabled,
+	...(wechatMedicalInsurancePaymentNotification
+		? { wechatMedicalInsurancePaymentNotification }
+		: {}),
 	readiness: createReadinessService({
 		databaseConfigured: Boolean(config.databaseUrl),
 		redisConfigured: Boolean(config.redisUrl),
@@ -550,6 +607,9 @@ logger.info(
 		wechatPaymentConfiguration: wechatPaymentStatus,
 		wechatMedicalInsuranceConfiguration: wechatMedicalInsuranceStatus,
 		wechatPaymentRuntime: wechatPaymentEnabled ? "enabled" : "fail_closed",
+		registrationSelfPayRuntime: wechatPaymentEnabled
+			? "enabled"
+			: "fail_closed",
 		medicalInsuranceConfiguration: medicalInsuranceConfigurationStatus(config),
 		medicalInsuranceRuntime: medicalInsuranceGateway
 			? "enabled"
@@ -559,6 +619,8 @@ logger.info(
 		yunhealthRegistrationSettlementRuntime: hospitalSettlementGateway
 			? "enabled"
 			: "fail_closed",
+		yunhealthRegistrationPluginPaymentRuntime:
+			yunhealthRegistrationPluginPaymentGateway ? "enabled" : "fail_closed",
 		medicalInsuranceResponseVerification: config.medicalInsuranceVerifyStrict
 			? "strict"
 			: "non_strict_compatibility",

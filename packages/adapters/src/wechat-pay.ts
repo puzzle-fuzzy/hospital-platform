@@ -115,6 +115,19 @@ export type WechatPaymentNotification = {
 	resource: Record<string, unknown>;
 };
 
+/** 官方微信医保混合收款成功通知的安全内部事实。 */
+export type WechatMedicalInsuranceNotification = {
+	notificationId: string;
+	eventType: "MEDICAL_INSURANCE.SUCCESS";
+	mixTradeNo: string;
+	outTradeNo: string;
+	totalFen: number;
+	cashFen: number;
+	selfPayStatus: "SELF_PAY_SUCCESS";
+	medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS";
+	receivedAt: string;
+};
+
 export type WechatPaymentNotificationDecoderInput = {
 	rawBody: Uint8Array;
 	headers: Headers;
@@ -412,25 +425,13 @@ function encryptMedicalSensitive(
 
 function medicalIdDigest(value: string): string {
 	const normalized = value.replaceAll(/\s/g, "").toUpperCase();
-	const idNo = /^\d{15}$/.test(normalized)
-		? medicalId18From15(normalized)
-		: normalized;
-	return createHash("md5").update(idNo, "utf8").digest("hex");
+	return createHash("md5").update(normalized, "utf8").digest("hex");
 }
 
-function medicalId18From15(value: string): string {
-	const base = `${value.slice(0, 6)}19${value.slice(6)}`;
-	const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
-	const checks = ["1", "0", "X", "9", "8", "7", "6", "5", "4", "3", "2"];
-	const sum = Array.from(base).reduce((total, digit, index) => {
-		const weight = weights[index];
-		if (weight === undefined)
-			throw new Error("Invalid 15-digit identity number");
-		return total + Number(digit) * weight;
-	}, 0);
-	const check = checks[sum % 11];
-	if (!check) throw new Error("Invalid identity number checksum");
-	return `${base}${check}`;
+function medicalProviderOrderType(
+	value: "RegPay" | "DiagPay",
+): "REG_PAY" | "DIAG_PAY" {
+	return value === "RegPay" ? "REG_PAY" : "DIAG_PAY";
 }
 
 function findProviderText(
@@ -953,7 +954,7 @@ export class WechatPaymentApiGateway
 		const outTradeNo = requiredInput(input.outTradeNo, "outTradeNo", 32);
 		const openid = requiredInput(input.openid, "openid");
 		const payOrdId = requiredInput(input.payOrdId, "payOrdId", 64);
-		const medOrgOrd = requiredInput(input.medOrgOrd, "medOrgOrd", 64);
+		const medOrgOrd = requiredInput(input.medOrgOrd, "medOrgOrd", 40);
 		// `order_type` 是统一下单协议中的业务事实，不是部署级默认值。
 		// 这样同一个微信医保商户才能安全承载 RegPay 和 DiagPay 两条入口。
 		if (!isMedicalInsuranceOrderType(input.orderType)) {
@@ -985,6 +986,11 @@ export class WechatPaymentApiGateway
 			"patientIdNo",
 			32,
 		);
+		const payAuthNo = requiredInput(
+			input.authorization.payAuthNo,
+			"payAuthNo",
+			40,
+		);
 
 		const prepay = await this.createJsapiOrder(
 			{ orderId: outTradeNo, openid, totalFen: amounts.cashFen },
@@ -992,7 +998,7 @@ export class WechatPaymentApiGateway
 		);
 		const body = JSON.stringify({
 			mix_pay_type: "CASH_AND_INSURANCE",
-			order_type: input.orderType,
+			order_type: medicalProviderOrderType(input.orderType),
 			out_trade_no: outTradeNo,
 			serial_no: medOrgOrd,
 			med_inst_name: medical.medicalInstitutionName,
@@ -1010,14 +1016,15 @@ export class WechatPaymentApiGateway
 			},
 			city_id: medical.cityId,
 			pay_order_id: payOrdId,
-			pay_auth_no: input.authorization.payAuthNo,
+			pay_auth_no: payAuthNo,
 			geo_location: medical.geoLocation,
 			med_ins_gov_fee: amounts.fundFen,
 			med_ins_self_fee: amounts.personalAccountFen,
 			med_ins_other_fee: 0,
 			med_ins_cash_fee: amounts.cashFen,
 			wechat_pay_cash_fee: amounts.cashFen,
-			med_ins_order_create_time: this.now().toISOString(),
+			med_ins_order_create_time:
+				input.medicalOrderCreateTime ?? this.now().toISOString(),
 			callback_url: medical.callbackUrl,
 			prepay_id: prepay.prepayId,
 			...(medical.channelNo ? { channel_no: medical.channelNo } : {}),
@@ -1034,6 +1041,8 @@ export class WechatPaymentApiGateway
 				context,
 				bodyText: body,
 				headers: {
+					// 医保下单的 payer 敏感字段使用平台公钥加密，必须声明对应的
+					// 微信支付公钥 ID/平台证书序列号；Authorization.serial_no 仍是商户证书序列号。
 					"Wechatpay-Serial": this.platformCertificateSerial,
 					Authorization: apiV3Authorization({
 						method: "POST",
@@ -1068,9 +1077,10 @@ export class WechatPaymentApiGateway
 				requestId: response.requestId,
 			});
 		}
+		const { appId: _appId, ...medicalPayParamsWithoutAppId } = prepay.payParams;
 		const medicalPayParams: WechatMedicalInsurancePayParams = {
-			...prepay.payParams,
-			mixTradeNo: requiredInput(mixTradeNo, "mixTradeNo", 64),
+			...medicalPayParamsWithoutAppId,
+			mixTradeNo: requiredInput(mixTradeNo, "mixTradeNo", 32),
 		};
 		return {
 			mixTradeNo: medicalPayParams.mixTradeNo,
@@ -1095,7 +1105,7 @@ export class WechatPaymentApiGateway
 	): ReturnType<MedicalInsuranceWechatPaymentGateway["queryMixedOrder"]> {
 		const medical = this.medicalInsurance;
 		if (!medical) throw new AdapterNotConfiguredError("wechat-pay");
-		const mixTradeNo = requiredInput(input.mixTradeNo, "mixTradeNo", 64);
+		const mixTradeNo = requiredInput(input.mixTradeNo, "mixTradeNo", 32);
 		const expectedTotalFen = requiredNonNegativeFen(
 			input.expectedTotalFen,
 			"totalFen",
@@ -1149,14 +1159,21 @@ export class WechatPaymentApiGateway
 			});
 		}
 		const dataRecord = data as Record<string, unknown>;
-		const totalFen =
-			providerFen(dataRecord.total_fee ?? dataRecord.totalFee, "total_fee") ??
-			expectedTotalFen;
-		const cashFen =
-			providerFen(
-				dataRecord.wechat_pay_cash_fee ?? dataRecord.wechatPayCashFee,
-				"wechat_pay_cash_fee",
-			) ?? expectedCashFen;
+		const totalFen = providerFen(
+			dataRecord.total_fee ?? dataRecord.totalFee,
+			"total_fee",
+		);
+		const cashFen = providerFen(
+			dataRecord.wechat_pay_cash_fee ?? dataRecord.wechatPayCashFee,
+			"wechat_pay_cash_fee",
+		);
+		if (totalFen === undefined || cashFen === undefined) {
+			throw providerError({
+				operation: "medical-mix-query",
+				message: "Wechat medical query did not contain amount fields",
+				requestId: response.requestId,
+			});
+		}
 		if (totalFen !== expectedTotalFen || cashFen !== expectedCashFen) {
 			throw providerError({
 				operation: "medical-mix-query",
@@ -1334,6 +1351,121 @@ export function createWechatPaymentNotificationDecoder(
 				? {}
 				: { expectedMchId: options.expectedMchId }),
 		});
+	};
+}
+
+function medicalNotificationFen(
+	value: unknown,
+	field: string,
+	allowZero = false,
+): number {
+	const parsed =
+		typeof value === "number"
+			? value
+			: typeof value === "string" && /^\d+$/.test(value.trim())
+				? Number(value.trim())
+				: Number.NaN;
+	if (
+		!Number.isSafeInteger(parsed) ||
+		parsed < 0 ||
+		(!allowZero && parsed === 0)
+	) {
+		throw providerError({
+			operation: "medical-notification-map",
+			message: `Wechat medical notification amount ${field} is invalid`,
+		});
+	}
+	return parsed;
+}
+
+/**
+ * 官方医保混合成功通知 decoder：复用 APIv3 原文验签/AES-GCM 解密，
+ * 再只提取 mix_trade_no、订单号和金额。未知事件或非成功状态拒绝入账。
+ */
+export function createWechatMedicalInsuranceNotificationDecoder(
+	options: WechatPaymentNotificationVerifierOptions,
+): (
+	input: WechatPaymentNotificationDecoderInput,
+) => WechatMedicalInsuranceNotification {
+	return ({ rawBody, headers, receivedAt }) => {
+		const notification = verifyAndDecryptWechatPaymentNotification({
+			rawBody,
+			headers,
+			options,
+		});
+		if (notification.eventType !== "MEDICAL_INSURANCE.SUCCESS") {
+			throw providerError({
+				operation: "medical-notification-map",
+				message:
+					"Wechat notification event type is not medical insurance success",
+			});
+		}
+		const resource = notification.resource;
+		if (
+			options.expectedAppId !== undefined &&
+			mappedNotificationText(resource.appid, "appid") !== options.expectedAppId
+		) {
+			throw providerError({
+				operation: "medical-notification-map",
+				message: "Wechat medical notification appid did not match",
+			});
+		}
+		if (
+			options.expectedMchId !== undefined &&
+			mappedNotificationText(resource.mchid, "mchid") !== options.expectedMchId
+		) {
+			throw providerError({
+				operation: "medical-notification-map",
+				message: "Wechat medical notification mchid did not match",
+			});
+		}
+		const mixTradeNo = mappedNotificationText(
+			resource.mix_trade_no,
+			"mix_trade_no",
+			32,
+		);
+		const outTradeNo = mappedNotificationText(
+			resource.out_trade_no,
+			"out_trade_no",
+			64,
+		);
+		if (resource.mix_pay_status !== "MIX_PAY_SUCCESS") {
+			throw providerError({
+				operation: "medical-notification-map",
+				message: "Wechat medical notification mix payment was not successful",
+			});
+		}
+		if (resource.self_pay_status !== "SELF_PAY_SUCCESS") {
+			throw providerError({
+				operation: "medical-notification-map",
+				message: "Wechat medical notification self payment was not successful",
+			});
+		}
+		if (resource.med_ins_pay_status !== "MED_INS_PAY_SUCCESS") {
+			throw providerError({
+				operation: "medical-notification-map",
+				message:
+					"Wechat medical notification insurance payment was not successful",
+			});
+		}
+		return {
+			notificationId: mappedNotificationText(
+				notification.notificationId,
+				"notificationId",
+				64,
+			),
+			eventType: "MEDICAL_INSURANCE.SUCCESS",
+			mixTradeNo,
+			outTradeNo,
+			totalFen: medicalNotificationFen(resource.total_fee, "total_fee"),
+			cashFen: medicalNotificationFen(
+				resource.wechat_pay_cash_fee,
+				"wechat_pay_cash_fee",
+			),
+			selfPayStatus: "SELF_PAY_SUCCESS",
+			medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS",
+			receivedAt,
+		};
 	};
 }
 

@@ -48,7 +48,7 @@ import type {
 	UserProfileRepository,
 	UserProfileUpdate,
 	WechatMedicalInsurancePayParams,
-	WechatMiniProgramPayParams,
+	WechatPaymentLaunchParams,
 	WechatPaymentNotification,
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
@@ -1675,23 +1675,30 @@ function paymentPrepayAttemptStatus(
 function payParams(
 	value: PaymentPrepayAttemptRow["pay_params_ciphertext"],
 	cipher: SecretValueCipher,
-): WechatMiniProgramPayParams | undefined {
+): WechatPaymentLaunchParams | undefined {
 	if (value === null) return undefined;
 	const parsed = JSON.parse(cipher.open(value)) as unknown;
-	if (
-		typeof parsed !== "object" ||
-		parsed === null ||
-		Array.isArray(parsed) ||
-		typeof (parsed as { appId?: unknown }).appId !== "string" ||
-		typeof (parsed as { timeStamp?: unknown }).timeStamp !== "string" ||
-		typeof (parsed as { nonceStr?: unknown }).nonceStr !== "string" ||
-		typeof (parsed as { package?: unknown }).package !== "string" ||
-		(parsed as { signType?: unknown }).signType !== "RSA" ||
-		typeof (parsed as { paySign?: unknown }).paySign !== "string"
-	) {
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
 		throw new Error("Persistence returned invalid Wechat pay params");
 	}
-	return parsed as WechatMiniProgramPayParams;
+	const valueRecord = parsed as Record<string, unknown>;
+	if (typeof valueRecord.appId !== "string" || !valueRecord.appId) {
+		throw new Error("Persistence returned invalid Wechat pay params");
+	}
+	if (
+		typeof valueRecord.timeStamp === "string" &&
+		typeof valueRecord.nonceStr === "string" &&
+		typeof valueRecord.package === "string" &&
+		valueRecord.signType === "RSA" &&
+		typeof valueRecord.paySign === "string" &&
+		valueRecord.timeStamp.length > 0 &&
+		valueRecord.nonceStr.length > 0 &&
+		valueRecord.package.length > 0 &&
+		valueRecord.paySign.length > 0
+	) {
+		return parsed as WechatPaymentLaunchParams;
+	}
+	throw new Error("Persistence returned invalid Wechat pay params");
 }
 
 function medicalWechatPayParams(
@@ -1700,16 +1707,33 @@ function medicalWechatPayParams(
 ): WechatMedicalInsurancePayParams | undefined {
 	if (value === null) return undefined;
 	const parsed = JSON.parse(cipher.open(value)) as unknown;
+	const record = parsed as Record<string, unknown>;
+	const expectedFields = [
+		"timeStamp",
+		"nonceStr",
+		"package",
+		"signType",
+		"paySign",
+		"mixTradeNo",
+	];
 	if (
 		typeof parsed !== "object" ||
 		parsed === null ||
 		Array.isArray(parsed) ||
-		typeof (parsed as { timeStamp?: unknown }).timeStamp !== "string" ||
-		typeof (parsed as { nonceStr?: unknown }).nonceStr !== "string" ||
-		typeof (parsed as { package?: unknown }).package !== "string" ||
-		(parsed as { signType?: unknown }).signType !== "RSA" ||
-		typeof (parsed as { paySign?: unknown }).paySign !== "string" ||
-		typeof (parsed as { mixTradeNo?: unknown }).mixTradeNo !== "string"
+		Object.keys(record).some((key) => !expectedFields.includes(key)) ||
+		expectedFields.some((key) => !(key in record)) ||
+		typeof record.timeStamp !== "string" ||
+		typeof record.nonceStr !== "string" ||
+		typeof record.package !== "string" ||
+		record.signType !== "RSA" ||
+		typeof record.paySign !== "string" ||
+		typeof record.mixTradeNo !== "string" ||
+		!record.timeStamp ||
+		!record.nonceStr ||
+		!record.package ||
+		!record.paySign ||
+		!record.mixTradeNo ||
+		String(record.mixTradeNo).length > 32
 	) {
 		throw new Error("Persistence returned invalid medical Wechat pay params");
 	}
@@ -3474,6 +3498,14 @@ export function createMySqlRepositories(
 				pool,
 				`${MI_SELECT} WHERE pay_ord_id = ? LIMIT 1`,
 				[payOrdId],
+			);
+			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
+		},
+		async findByWechatMixTradeNo(mixTradeNo) {
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_SELECT} WHERE wechat_mix_trade_no = ? LIMIT 1`,
+				[mixTradeNo],
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},

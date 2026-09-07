@@ -49,11 +49,19 @@ export type AppOptions = {
 	 * 但所有支付入口在仓储/provider 之前返回 503，避免误删公共契约或产生副作用。
 	 */
 	wechatPaymentEnabled?: boolean;
+	/** 挂号自费与普通自费共用官方微信支付 APIv3。 */
+	registrationSelfPayEnabled?: boolean;
 	/**
 	 * 医保结算通知模块；未传入 service 时不注册路由（组合根级 fail-closed）。
 	 * 生产组合根只有在 MEDICAL_INSURANCE_READY 与完整密钥配置下才构造。
 	 */
 	medicalInsuranceNotification?: MedicalInsuranceNotificationService;
+	/** 官方微信 APIv3 医保混合支付回调；验签、解密和 HIS 收敛由服务端完成。 */
+	wechatMedicalInsurancePaymentNotification?: (input: {
+		rawBody: Uint8Array;
+		headers: Headers;
+		receivedAt: string;
+	}) => Promise<void>;
 };
 
 function openApiPlugin() {
@@ -248,6 +256,8 @@ export function createApp(options: AppOptions = {}) {
 						services.wechatPaymentNotifications,
 						services.sessions,
 						options.wechatPaymentEnabled === true,
+						options.registrationSelfPayEnabled ??
+							options.wechatPaymentEnabled === true,
 						registrationSelfPay,
 						registrationPaymentExit,
 					),
@@ -259,6 +269,7 @@ export function createApp(options: AppOptions = {}) {
 						medicalInsuranceWechatPayment,
 						medicalInsurancePluginPayment,
 						options.medicalInsuranceNotification,
+						options.wechatMedicalInsurancePaymentNotification,
 					),
 				),
 		);

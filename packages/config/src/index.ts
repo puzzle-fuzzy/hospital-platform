@@ -850,12 +850,23 @@ function environment(value: string | undefined): RuntimeConfig["environment"] {
 
 function boolean(value: string | undefined, fallback: boolean): boolean {
 	if (!value) return fallback;
-	return value === "true" || value === "1";
+	const normalized = value.trim().toLowerCase();
+	return normalized === "true" || normalized === "1";
 }
 
 function optional(value: string | undefined): string | undefined {
 	const normalized = value?.trim();
 	return normalized ? normalized : undefined;
+}
+
+function firstConfigured(
+	...values: readonly (string | undefined)[]
+): string | undefined {
+	for (const value of values) {
+		const normalized = optional(value);
+		if (normalized) return normalized;
+	}
+	return undefined;
 }
 
 /**
@@ -902,6 +913,15 @@ function logLevel(
  */
 export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 	const runtimeEnvironment = environment(env.NODE_ENV);
+	const legacyWechatAppId = firstConfigured(env.WECHAT_APPID);
+	const legacyWechatAppSecret = firstConfigured(
+		env.WECHAT_APP_SECRET,
+		env.WECHAT_APPSECRET,
+	);
+	const legacyWechatMchId = firstConfigured(
+		env.WECHAT_PAY_MCH_ID,
+		env.WECHAT_MCH_ID,
+	);
 	return {
 		environment: runtimeEnvironment,
 		host: host(env.HOST, runtimeEnvironment),
@@ -914,15 +934,15 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		databaseUrl: optional(env.DATABASE_URL),
 		redisUrl: optional(env.REDIS_URL),
 		wechatIdentityReady: boolean(env.WECHAT_IDENTITY_READY, false),
-		wechatAppId: optional(env.WECHAT_APPID),
-		wechatAppSecret: optional(env.WECHAT_APP_SECRET),
+		wechatAppId: legacyWechatAppId,
+		wechatAppSecret: legacyWechatAppSecret,
 		wechatIdentityBaseUrl: providerBaseUrl(
 			env.WECHAT_IDENTITY_BASE_URL,
 			DEFAULT_WECHAT_IDENTITY_BASE_URL,
 		),
 		wechatPaymentReady: boolean(env.WECHAT_PAYMENT_READY, false),
-		wechatPayAppId: optional(env.WECHAT_PAY_APP_ID),
-		wechatPayMchId: optional(env.WECHAT_PAY_MCH_ID),
+		wechatPayAppId: firstConfigured(env.WECHAT_PAY_APP_ID, legacyWechatAppId),
+		wechatPayMchId: legacyWechatMchId,
 		wechatPayMerchantCertificateSerial: optional(
 			env.WECHAT_PAY_MERCHANT_CERTIFICATE_SERIAL,
 		),
@@ -941,27 +961,40 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.WECHAT_MEDICAL_INSURANCE_READY,
 			false,
 		),
-		wechatMedicalInsuranceAppId: optional(env.WECHAT_MEDICAL_INSURANCE_APP_ID),
-		wechatMedicalInsuranceCityId: optional(
+		wechatMedicalInsuranceAppId: firstConfigured(
+			env.WECHAT_MEDICAL_INSURANCE_APP_ID,
+			env.WECHAT_MED_INS_APPID,
+			legacyWechatAppId,
+		),
+		wechatMedicalInsuranceCityId: firstConfigured(
 			env.WECHAT_MEDICAL_INSURANCE_CITY_ID,
+			env.WECHAT_MED_INS_CITY_ID,
 		),
-		wechatMedicalInsuranceInstitutionName: optional(
-			env.WECHAT_MEDICAL_INSURANCE_INSTITUTION_NAME,
-		),
-		wechatMedicalInsuranceInstitutionNo: optional(
-			env.WECHAT_MEDICAL_INSURANCE_INSTITUTION_NO,
-		),
-		wechatMedicalInsuranceCallbackUrl: optional(
+		wechatMedicalInsuranceInstitutionName:
+			firstConfigured(
+				env.WECHAT_MEDICAL_INSURANCE_INSTITUTION_NAME,
+				env.WECHAT_MED_INS_NAME,
+			) ?? "高平市人民医院",
+		wechatMedicalInsuranceInstitutionNo:
+			firstConfigured(
+				env.WECHAT_MEDICAL_INSURANCE_INSTITUTION_NO,
+				env.WECHAT_MED_INS_NO,
+			) ?? "H14058101270",
+		wechatMedicalInsuranceCallbackUrl: firstConfigured(
 			env.WECHAT_MEDICAL_INSURANCE_CALLBACK_URL,
 		),
 		wechatMedicalInsuranceGeoLocation: optional(
 			env.WECHAT_MEDICAL_INSURANCE_GEO_LOCATION,
 		),
-		wechatMedicalInsuranceChannelNo: optional(
+		wechatMedicalInsuranceChannelNo: firstConfigured(
 			env.WECHAT_MEDICAL_INSURANCE_CHANNEL_NO,
+			env.WECHAT_MED_INS_CHANNEL_NO,
 		),
 		wechatMedicalInsuranceTestEnvironment: boolean(
-			env.WECHAT_MEDICAL_INSURANCE_TEST_ENVIRONMENT,
+			firstConfigured(
+				env.WECHAT_MEDICAL_INSURANCE_TEST_ENVIRONMENT,
+				env.WECHAT_MED_INS_TEST_ENV,
+			),
 			false,
 		),
 		medicalInsuranceReady: boolean(env.MEDICAL_INSURANCE_READY, false),

@@ -258,6 +258,9 @@ export class AppointmentWriteService {
 		appointmentId: string;
 		patientId: string;
 		totalFen: number;
+		sourceSerialNumber: string;
+		providerRegisterId?: string;
+		providerHisRegisterId?: string;
 	}> {
 		const owner = id(ownerUserId, "ownerUserId");
 		const appointment = id(appointmentId, "appointmentId");
@@ -278,6 +281,13 @@ export class AppointmentWriteService {
 			appointmentId: registration.appointmentId,
 			patientId: registration.patientId,
 			totalFen: registration.totalFen,
+			sourceSerialNumber: registration.sourceSerialNumber,
+			...(registration.providerRegisterId
+				? { providerRegisterId: registration.providerRegisterId }
+				: {}),
+			...(registration.providerHisRegisterId
+				? { providerHisRegisterId: registration.providerHisRegisterId }
+				: {}),
 		};
 	}
 

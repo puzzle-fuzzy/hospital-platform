@@ -2,7 +2,7 @@ import {
 	ApiError,
 	queryAppointmentSelfPay,
 	requestAppointmentSelfPay,
-	toWechatPaymentParams,
+	toWechatPaymentLaunch,
 } from "./api-client";
 
 export type RegistrationSelfPayProgress = "creating" | "paying" | "confirming";
@@ -68,8 +68,8 @@ export async function startRegistrationSelfPay(
 	}
 	if (payment.data.status === "failed") throw paymentFailed();
 
-	const paymentParams = toWechatPaymentParams(payment);
-	if (!paymentParams) {
+	const launch = toWechatPaymentLaunch(payment);
+	if (!launch) {
 		const settled = await queryUntilSettled(appointmentId, onProgress);
 		if (settled.status === "cash_paid") return settled;
 		throw new RegistrationSelfPayPendingError();
@@ -79,7 +79,7 @@ export async function startRegistrationSelfPay(
 	let cancelled = false;
 	await new Promise<void>((resolve, reject) => {
 		wx.requestPayment({
-			...paymentParams,
+			...launch.params,
 			success: () => resolve(),
 			fail: (error) => {
 				const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";

@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import type { MedicalInsurancePluginPayPayload } from "@hospital/contracts";
+import type {
+	MedicalInsuranceOrderPayload,
+	MedicalInsurancePluginPayPayload,
+} from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
@@ -10,14 +13,14 @@ import {
 	type MedicalInsuranceSettlementContext,
 	type PaymentOrder,
 	PaymentOrderInputError,
-	PaymentOrderService,
+	type PaymentOrderService,
 	type RegistrationSelfPaySettlementContext,
 	type UserIdentityRepository,
 	type YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
-import { MedicalInsuranceRegistrationInputError } from "./errors";
 import type { WechatPrepayService } from "../payments/service";
+import { MedicalInsuranceRegistrationInputError } from "./errors";
 
 const PLUGIN_ORDER_PREFIX = "registration-medical-plugin-self-pay:";
 const PLUGIN_PREPAY_PREFIX = "registration-medical-plugin-prepay:";
@@ -76,10 +79,37 @@ function output(
 	};
 }
 
+function medicalOrderOutput(
+	medicalOrder: MedicalInsuranceOrder,
+): MedicalInsuranceOrderPayload["data"] {
+	return {
+		orderId: medicalOrder.medicalOrderId,
+		status: medicalOrder.status,
+		...(medicalOrder.amounts
+			? {
+					amounts: {
+						totalFen: medicalOrder.amounts.totalFen,
+						insuranceFen:
+							medicalOrder.amounts.personalAccountFen +
+							medicalOrder.amounts.fundFen,
+						cashFen: medicalOrder.amounts.cashFen,
+					},
+				}
+			: {}),
+	};
+}
+
 function samePluginContext(
 	context: MedicalInsurancePluginPaymentContext,
 ): MedicalInsurancePluginPaymentContext {
 	return { ...context };
+}
+
+function prepayIdFromPackage(packageValue: string): string | undefined {
+	const prefix = "prepay_id=";
+	return packageValue.startsWith(prefix)
+		? packageValue.slice(prefix.length).trim() || undefined
+		: undefined;
 }
 
 export type MedicalInsurancePluginPaymentServiceDependencies = {
@@ -99,7 +129,8 @@ export type MedicalInsurancePluginPaymentServiceDependencies = {
 };
 
 /**
- * 旧服务的插件版医保混合支付编排：
+ * 云健康插件版医保混合支付编排。官方微信 APIv3 医保混合支付是当前主入口；
+ * 本 service 负责把旧服务要求的云健康插件流水接回同一支付成功边界：
  *
  * 6202 cash_pending → 第二次云健康 .2 → 同一 out_trade_no 的微信 JSAPI
  * → 微信查单成功 → .29 → .15 → .5。所有插件流水都挂在医保订单密文
@@ -255,12 +286,18 @@ export class MedicalInsurancePluginPaymentService {
 		settlement: MedicalInsuranceSettlementContext,
 		paymentOrder: PaymentOrder,
 		context: { traceId: string; idempotencyKey: string },
+		options: { outTradeNo?: string } = {},
 	): Promise<MedicalInsuranceSettlementContext> {
 		const existing = settlement.plugin;
 		if (existing) {
 			if (existing.paymentOrderId !== paymentOrder.orderId) {
 				throw new PaymentOrderInputError(
 					"Medical insurance plugin payment order does not match the saved context",
+				);
+			}
+			if (options.outTradeNo && existing.outTradeNo !== options.outTradeNo) {
+				throw new PaymentOrderInputError(
+					"Medical insurance plugin outTradeNo does not match the saved context",
 				);
 			}
 			return settlement;
@@ -295,7 +332,7 @@ export class MedicalInsurancePluginPaymentService {
 			workStationId: result.workStationId,
 			tradeCode: input.tradeCode,
 			tradeTypeCode: input.tradeTypeCode,
-			outTradeNo: paymentOrder.orderId,
+			outTradeNo: options.outTradeNo ?? paymentOrder.orderId,
 			recordCode,
 			state: "preorder_created",
 		};
@@ -316,6 +353,130 @@ export class MedicalInsurancePluginPaymentService {
 			"Medical insurance Yunhealth plugin pre-order created",
 		);
 		return next;
+	}
+
+	/** 保存官方微信 v3 混合预支付证据；不把 paySign 等调起字段写入插件上下文。 */
+	async markOfficialWechatPrepayReady(input: {
+		ownerUserId: string;
+		orderId: string;
+		outTradeNo: string;
+		prepayId: string;
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<void> {
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const orderId = opaque(input.orderId, "orderId");
+		const outTradeNo = opaque(input.outTradeNo, "outTradeNo");
+		const prepayId = opaque(input.prepayId, "prepayId");
+		const settlement = await this.dependencies.orders.getSettlementContext(
+			ownerUserId,
+			orderId,
+		);
+		const plugin = settlement?.plugin;
+		if (!plugin || plugin.outTradeNo !== outTradeNo) {
+			throw new DependencyNotConfiguredError(
+				"medical-insurance-plugin-payment",
+			);
+		}
+		const state = [
+			"cash_paid",
+			"29_succeeded",
+			"15_succeeded",
+			"settled",
+		].includes(plugin.state)
+			? plugin.state
+			: "prepay_ready";
+		await this.dependencies.orders.saveSettlementContext(ownerUserId, orderId, {
+			...settlement,
+			plugin: { ...plugin, prepayId, state },
+		});
+		this.logger.info(
+			{
+				event: "medical-insurance.plugin-prepay.persisted",
+				traceId: input.context.traceId,
+				orderId,
+				outTradeNo,
+				payingId: plugin.payingId,
+				tradingId: plugin.tradingId,
+				prepayId,
+				pluginState: state,
+			},
+			"Medical insurance WeChat mixed prepay evidence persisted",
+		);
+	}
+
+	/**
+	 * 官方微信医保混合支付下单前先创建云健康第二次 .2 流水。
+	 * 这里故意不创建普通微信订单，避免把 APIv3 混合单和旧插件支付单混成两笔
+	 * 收款；只把后续 .29 所需的 payingId/tradingId/recordCode/outTradeNo 加密落库。
+	 */
+	async prepareForOfficialWechatPayment(input: {
+		ownerUserId: string;
+		orderId: string;
+		outTradeNo: string;
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<void> {
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const orderId = opaque(input.orderId, "orderId");
+		const requestedOutTradeNo = opaque(input.outTradeNo, "outTradeNo");
+		const medicalOrder = await this.order(ownerUserId, orderId);
+		if (
+			!medicalOrder.amounts?.cashFen ||
+			medicalOrder.status !== "cash_pending"
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance plugin payment is not allowed for the current order",
+			);
+		}
+		const { settlement } = await this.contexts(ownerUserId, medicalOrder);
+		const existingPaymentOrder =
+			await this.dependencies.paymentOrders.findByOwnerAndIdempotencyKey(
+				ownerUserId,
+				pluginOrderKey(orderId),
+			);
+		if (settlement.plugin && !existingPaymentOrder) {
+			throw new DependencyNotConfiguredError(
+				"medical-insurance-plugin-payment",
+			);
+		}
+		const paymentOrder =
+			existingPaymentOrder ??
+			(await this.dependencies.paymentOrders.createCashPending({
+				ownerUserId,
+				patientId: medicalOrder.patientId,
+				idempotencyKey: pluginOrderKey(orderId),
+				amounts: {
+					totalFen: medicalOrder.amounts.cashFen,
+					insuranceFen: 0,
+					cashFen: medicalOrder.amounts.cashFen,
+				},
+			}));
+		if (paymentOrder.state === "failed" || paymentOrder.state === "cancelled") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance plugin payment order must be reconciled before retry",
+			);
+		}
+		const withPlugin = await this.ensurePluginOrder(
+			ownerUserId,
+			medicalOrder,
+			settlement,
+			paymentOrder,
+			input.context,
+			{ outTradeNo: requestedOutTradeNo },
+		);
+		this.logger.info(
+			{
+				event: "medical-insurance.plugin-preorder.ready-for-wechat-mix",
+				traceId: input.context.traceId,
+				orderId,
+				paymentOrderId: paymentOrder.orderId,
+				outTradeNo: withPlugin.plugin?.outTradeNo,
+				payingId: withPlugin.plugin?.payingId,
+				tradingId: withPlugin.plugin?.tradingId,
+				recordCode: withPlugin.plugin?.recordCode,
+				pluginState: withPlugin.plugin?.state,
+			},
+			"Medical insurance Yunhealth plugin context is ready for WeChat mixed payment",
+		);
 	}
 
 	private registrationContext(
@@ -418,6 +579,23 @@ export class MedicalInsurancePluginPaymentService {
 							},
 						},
 					);
+					this.logger.info(
+						{
+							event: "medical-insurance.plugin.2.27.2.29.persisted",
+							traceId: context.traceId,
+							orderId: medicalOrder.medicalOrderId,
+							paymentOrderId: paymentOrder.orderId,
+							payingId: currentPlugin.payingId,
+							tradingId: currentPlugin.tradingId,
+							thirdPartPayRecordId,
+							rawResponseBytes: new TextEncoder().encode(rawResponse)
+								.byteLength,
+							rawResponseSha256: createHash("sha256")
+								.update(rawResponse)
+								.digest("hex"),
+						},
+						"Medical insurance Yunhealth 2.27.2.29 raw response persisted",
+					);
 				},
 			},
 			{
@@ -468,6 +646,8 @@ export class MedicalInsurancePluginPaymentService {
 				orderId: medicalOrder.medicalOrderId,
 				paymentOrderId: paymentOrder.orderId,
 				providerRequestId: trace.requestId,
+				providerRequestIds: trace.requestIds,
+				pluginState: "settled",
 			},
 			"Medical insurance Yunhealth plugin settlement completed",
 		);
@@ -481,6 +661,85 @@ export class MedicalInsurancePluginPaymentService {
 			writtenBack.orderId,
 			"completed",
 		);
+	}
+
+	/**
+	 * 官方微信 APIv3 混合查单确认后，推进内部插件支付单并执行 .29 → .15 → .5。
+	 * 只有这三个 Provider 步骤全部成功，医保订单才会进入 insurance_settled。
+	 */
+	async completeOfficialWechatPayment(input: {
+		ownerUserId: string;
+		orderId: string;
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<MedicalInsuranceOrderPayload["data"]> {
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const orderId = opaque(input.orderId, "orderId");
+		let medicalOrder = await this.order(ownerUserId, orderId);
+		let settlement = await this.dependencies.orders.getSettlementContext(
+			ownerUserId,
+			orderId,
+		);
+		if (!settlement?.plugin) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance plugin payment context is not available",
+			);
+		}
+		let paymentOrder = await this.dependencies.paymentOrders.get(
+			ownerUserId,
+			settlement.plugin.paymentOrderId,
+		);
+		if (paymentOrder.state === "cash_pending") {
+			paymentOrder = await this.dependencies.paymentOrders.transition(
+				ownerUserId,
+				paymentOrder.orderId,
+				"cash_paid",
+			);
+			const currentPlugin = settlement.plugin;
+			if (
+				currentPlugin.state === "preorder_created" ||
+				currentPlugin.state === "prepay_ready"
+			) {
+				settlement = {
+					...settlement,
+					plugin: { ...currentPlugin, state: "cash_paid" },
+				};
+				await this.dependencies.orders.saveSettlementContext(
+					ownerUserId,
+					orderId,
+					settlement,
+				);
+			}
+		}
+		if (
+			paymentOrder.state !== "cash_paid" &&
+			paymentOrder.state !== "his_written_back" &&
+			paymentOrder.state !== "completed"
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance plugin payment has not been confirmed by WeChat",
+			);
+		}
+		medicalOrder = await this.order(ownerUserId, orderId);
+		paymentOrder = await this.complete(
+			ownerUserId,
+			medicalOrder,
+			paymentOrder,
+			settlement,
+			input.context,
+		);
+		const current = await this.order(ownerUserId, orderId);
+		this.logger.info(
+			{
+				event: "medical-insurance.plugin-settlement.completed-for-wechat-mix",
+				traceId: input.context.traceId,
+				orderId,
+				paymentOrderId: paymentOrder.orderId,
+				paymentState: paymentOrder.state,
+				medicalOrderStatus: current.status,
+			},
+			"Medical insurance WeChat mixed payment Yunhealth settlement completed",
+		);
+		return medicalOrderOutput(current);
 	}
 
 	async create(input: {
@@ -518,7 +777,7 @@ export class MedicalInsurancePluginPaymentService {
 				"medical-insurance-plugin-payment",
 			);
 		}
-		let paymentOrder =
+		const paymentOrder =
 			existingPaymentOrder ??
 			(await this.dependencies.paymentOrders.createCashPending({
 				ownerUserId,
@@ -576,10 +835,27 @@ export class MedicalInsurancePluginPaymentService {
 				},
 			);
 		}
+		if (plugin) {
+			const prepayId = prepayIdFromPackage(prepay.payParams.package);
+			if (prepayId) {
+				await this.markOfficialWechatPrepayReady({
+					ownerUserId,
+					orderId,
+					outTradeNo: paymentOrder.orderId,
+					prepayId,
+					context: input.context,
+				});
+			}
+		}
 		medicalOrder = await this.saveMedicalPaymentState(medicalOrder, {
 			wechatOutTradeNo: paymentOrder.orderId,
 			wechatPaymentState: "prepay_ready",
 		});
+		if ("mode" in prepay.payParams) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance plugin requires native Wechat payment parameters",
+			);
+		}
 		return output(medicalOrder, paymentOrder, prepay.payParams);
 	}
 
@@ -590,7 +866,7 @@ export class MedicalInsurancePluginPaymentService {
 	}): Promise<MedicalInsurancePluginPayPayload["data"]> {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
-		const medicalOrder = await this.order(ownerUserId, orderId);
+		await this.order(ownerUserId, orderId);
 		const settlement = await this.dependencies.orders.getSettlementContext(
 			ownerUserId,
 			orderId,

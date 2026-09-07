@@ -1,10 +1,10 @@
+import { createHash } from "node:crypto";
 import {
 	configureProviderRequestLogger,
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatPaymentGateway,
-	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSettlementGateway,
 } from "@hospital/adapters";
 import {
@@ -17,8 +17,8 @@ import {
 import type { DependencyState } from "@hospital/contracts";
 import {
 	type HospitalSettlementGateway,
-	PaymentOrderService,
 	type PaymentOrder,
+	PaymentOrderService,
 	type RegistrationSelfPaySettlementContext,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -65,6 +65,10 @@ type ReadyRuntimeConfig = RuntimeConfig & {
 	databaseUrl: string;
 	paymentDataEncryptionKey?: string;
 };
+
+const REGISTRATION_SELF_PAY_ORDER_PREFIX = "registration-self-pay:";
+const REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX =
+	"registration-medical-plugin-self-pay:";
 
 /**
  * worker 与 API 使用同一条 owner + appointment 关联规则读取医保结算上下文。
@@ -180,6 +184,91 @@ function resolveRegistrationSelfPayContext(
 	};
 }
 
+/** Worker 先于 API 完成 .29 时，也把原始响应放回医保密文上下文。 */
+function persistThirdPartPayResponse(
+	repositories: NonNullable<PersistenceRuntime["repositories"]>,
+	logger: AppLogger,
+) {
+	return async (input: {
+		paymentOrder: PaymentOrder;
+		registrationContext?: RegistrationSelfPaySettlementContext;
+		rawResponse: string;
+		thirdPartPayRecordId: string;
+	}): Promise<void> => {
+		const appointmentId = input.paymentOrder.idempotencyKey.startsWith(
+			REGISTRATION_SELF_PAY_ORDER_PREFIX,
+		)
+			? input.paymentOrder.idempotencyKey.slice(
+					REGISTRATION_SELF_PAY_ORDER_PREFIX.length,
+				)
+			: undefined;
+		const medicalOrderId = input.paymentOrder.idempotencyKey.startsWith(
+			REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX,
+		)
+			? input.paymentOrder.idempotencyKey.slice(
+					REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX.length,
+				)
+			: undefined;
+		if (!appointmentId && !medicalOrderId) return;
+		const medicalOrder = medicalOrderId
+			? await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+					medicalOrderId,
+				)
+			: await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
+					input.paymentOrder.ownerUserId,
+					appointmentId as string,
+				);
+		const settlement = medicalOrder
+			? await repositories.medicalInsuranceOrders.getSettlementContext(
+					input.paymentOrder.ownerUserId,
+					medicalOrder.medicalOrderId,
+				)
+			: undefined;
+		const plugin = settlement?.plugin;
+		if (
+			!medicalOrder ||
+			!plugin ||
+			plugin.paymentOrderId !== input.paymentOrder.orderId
+		) {
+			logger.warn(
+				{
+					event: "worker.payment.2.27.2.29.storage-skipped",
+					orderId: input.paymentOrder.orderId,
+					reason: "plugin-context-missing-or-mismatched",
+				},
+				"Worker could not persist medical insurance Yunhealth 2.27.2.29 response",
+			);
+			return;
+		}
+		await repositories.medicalInsuranceOrders.saveSettlementContext(
+			input.paymentOrder.ownerUserId,
+			medicalOrder.medicalOrderId,
+			{
+				...settlement,
+				plugin: {
+					...plugin,
+					thirdPartPayRecordId: input.thirdPartPayRecordId,
+					thirdPartPayRawResponse: input.rawResponse,
+					state: "29_succeeded",
+				},
+			},
+		);
+		logger.info(
+			{
+				event: "worker.payment.2.27.2.29.persisted",
+				orderId: input.paymentOrder.orderId,
+				thirdPartPayRecordId: input.thirdPartPayRecordId,
+				rawResponseBytes: new TextEncoder().encode(input.rawResponse)
+					.byteLength,
+				rawResponseSha256: createHash("sha256")
+					.update(input.rawResponse)
+					.digest("hex"),
+			},
+			"Worker persisted medical insurance Yunhealth 2.27.2.29 raw response",
+		);
+	};
+}
+
 /**
  * Worker 的持久化基础设施必须就绪，并至少打开一个完整的 provider 子 Worker。
  * 微信支付、医保查单和云健康自费回写各自 fail-closed，医保不能因为微信支付
@@ -198,10 +287,12 @@ export function workerConfigurationMissingFields(runtimeConfig: RuntimeConfig) {
 		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig);
 	if (runtimeConfig.yunhealthRegistrationSettlementReady)
 		missing.push(...yunhealthRegistrationSettlementMissing);
-	if (runtimeConfig.wechatPaymentReady) {
+	const anyWechatPaymentReady = runtimeConfig.wechatPaymentReady;
+	if (anyWechatPaymentReady) {
 		if (!runtimeConfig.paymentDataEncryptionKey)
 			missing.push("PAYMENT_DATA_ENCRYPTION_KEY");
-		missing.push(...wechatPaymentConfigurationMissingFields(runtimeConfig));
+		if (runtimeConfig.wechatPaymentReady)
+			missing.push(...wechatPaymentConfigurationMissingFields(runtimeConfig));
 	} else if (!runtimeConfig.medicalInsuranceReady) {
 		missing.push("WECHAT_PAYMENT_READY");
 	}
@@ -294,6 +385,8 @@ export function createWorkerRuntime(
 				baseUrl: runtimeConfig.wechatPayBaseUrl,
 			})
 		: undefined;
+	// worker 不创建旧 v2 微信订单；对已由 APIv3 收款的订单，仍允许云健康
+	// .29/.15/.5 作为 HIS 回写补偿链路执行。
 	const orders = new PaymentOrderService({
 		orders: repositories.paymentOrders,
 	});
@@ -302,25 +395,6 @@ export function createWorkerRuntime(
 		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig)
 			.length === 0
 			? createYunhealthRegistrationSettlementGateway({
-					baseUrl: runtimeConfig.yunhealthBaseUrl ?? "",
-					authorizationToken: runtimeConfig.yunhealthAuthorizationToken ?? "",
-					paymentOrgId: runtimeConfig.yunhealthPaymentOrgId ?? "",
-					pluginPayTypeId:
-						runtimeConfig.yunhealthRegistrationPluginPayTypeId ?? "",
-					pluginPayType: (runtimeConfig.yunhealthRegistrationPluginPayType ??
-						"") as "CREDIT" | "POS" | "CROWD_FUNDING",
-					workStationId: runtimeConfig.yunhealthRegistrationWorkStationId ?? "",
-					paymentSource: runtimeConfig.yunhealthRegistrationPaymentSource,
-					authSysCode: runtimeConfig.yunhealthRegistrationAuthSysCode,
-					tradeTypeCode: runtimeConfig.yunhealthRegistrationTradeTypeCode,
-					logger,
-				})
-			: undefined;
-	const yunhealthRegistrationPluginPaymentGateway =
-		runtimeConfig.yunhealthRegistrationSettlementReady &&
-		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig)
-			.length === 0
-			? createYunhealthRegistrationPluginPaymentGateway({
 					baseUrl: runtimeConfig.yunhealthBaseUrl ?? "",
 					authorizationToken: runtimeConfig.yunhealthAuthorizationToken ?? "",
 					paymentOrgId: runtimeConfig.yunhealthPaymentOrgId ?? "",
@@ -349,111 +423,6 @@ export function createWorkerRuntime(
 	);
 	const settlementGateway =
 		options.hospitalSettlementGateway ?? hospitalSettlementGateway;
-	const markMedicalInsurancePluginSettled = async (input: {
-		paymentOrder: PaymentOrder;
-	}) => {
-		const prefix = "registration-medical-plugin-self-pay:";
-		if (!input.paymentOrder.idempotencyKey.startsWith(prefix)) return;
-		const medicalOrderId = input.paymentOrder.idempotencyKey.slice(
-			prefix.length,
-		);
-		const medicalOrder =
-			await repositories.medicalInsuranceOrders.findByMedicalOrderId(
-				medicalOrderId,
-			);
-		if (
-			!medicalOrder ||
-			medicalOrder.ownerUserId !== input.paymentOrder.ownerUserId
-		)
-			throw new Error("Medical insurance plugin order owner mismatch");
-		if (medicalOrder.status === "insurance_settled") return;
-		if (medicalOrder.status !== "cash_pending")
-			throw new Error(
-				"Medical insurance order is not waiting for plugin payment",
-			);
-		const currentContext =
-			await repositories.medicalInsuranceOrders.getSettlementContext(
-				medicalOrder.ownerUserId,
-				medicalOrder.medicalOrderId,
-			);
-		if (!currentContext?.plugin) {
-			throw new Error("Medical insurance plugin context is missing");
-		}
-		await repositories.medicalInsuranceOrders.saveSettlementContext(
-			medicalOrder.ownerUserId,
-			medicalOrder.medicalOrderId,
-			{
-				...currentContext,
-				plugin: { ...currentContext.plugin, state: "settled" },
-			},
-		);
-		const updated = await repositories.medicalInsuranceOrders.applySettlement(
-			medicalOrder.medicalOrderId,
-			medicalOrder.version,
-			{
-				status: "insurance_settled",
-				ordStas: medicalOrder.ordStas,
-				amounts: medicalOrder.amounts,
-				setlType: medicalOrder.setlType,
-				revsTokenHash: medicalOrder.revsTokenHash,
-				revsTokenExpiresAt: medicalOrder.revsTokenExpiresAt,
-				wechatOutTradeNo: input.paymentOrder.orderId,
-				wechatPaymentState: "cash_paid",
-			},
-		);
-		if (!updated) {
-			const current =
-				await repositories.medicalInsuranceOrders.findByMedicalOrderId(
-					medicalOrder.medicalOrderId,
-				);
-			if (current?.status !== "insurance_settled") {
-				throw new Error("Medical insurance plugin settlement CAS failed");
-			}
-		}
-	};
-	const saveMedicalInsurancePluginRawResponse = async (input: {
-		paymentOrder: PaymentOrder;
-		rawResponse: string;
-		thirdPartPayRecordId: string;
-	}) => {
-		const prefix = "registration-medical-plugin-self-pay:";
-		if (!input.paymentOrder.idempotencyKey.startsWith(prefix)) return;
-		const medicalOrderId = input.paymentOrder.idempotencyKey.slice(
-			prefix.length,
-		);
-		const medicalOrder =
-			await repositories.medicalInsuranceOrders.findByMedicalOrderId(
-				medicalOrderId,
-			);
-		if (
-			!medicalOrder ||
-			medicalOrder.ownerUserId !== input.paymentOrder.ownerUserId
-		)
-			throw new Error("Medical insurance plugin order owner mismatch");
-		const currentContext =
-			await repositories.medicalInsuranceOrders.getSettlementContext(
-				medicalOrder.ownerUserId,
-				medicalOrder.medicalOrderId,
-			);
-		if (
-			!currentContext?.plugin ||
-			currentContext.plugin.paymentOrderId !== input.paymentOrder.orderId
-		)
-			throw new Error("Medical insurance plugin context is missing");
-		await repositories.medicalInsuranceOrders.saveSettlementContext(
-			medicalOrder.ownerUserId,
-			medicalOrder.medicalOrderId,
-			{
-				...currentContext,
-				plugin: {
-					...currentContext.plugin,
-					thirdPartPayRecordId: input.thirdPartPayRecordId,
-					thirdPartPayRawResponse: input.rawResponse,
-					state: "29_succeeded",
-				},
-			},
-		);
-	};
 	const reconciliation = wechatPayment
 		? new PaymentReconciliationWorker({
 				attempts: repositories.paymentPrepayAttempts,
@@ -462,8 +431,10 @@ export function createWorkerRuntime(
 				...(settlementGateway ? { hospitalSettlement: settlementGateway } : {}),
 				resolveRegistrationContext:
 					resolveRegistrationSelfPayContext(repositories),
-				onHospitalSettlementCompleted: markMedicalInsurancePluginSettled,
-				onThirdPartPayResponse: saveMedicalInsurancePluginRawResponse,
+				onThirdPartPayResponse: persistThirdPartPayResponse(
+					repositories,
+					logger,
+				),
 				logger,
 			})
 		: undefined;

@@ -80,6 +80,7 @@ export function paymentsModule(
 	wechatPaymentNotifications: WechatPaymentNotificationService,
 	sessions: SessionTokenService,
 	wechatPaymentEnabled: boolean,
+	registrationSelfPayEnabled: boolean,
 	registrationSelfPay: RegistrationSelfPayService,
 	registrationPaymentExit: RegistrationPaymentExitService,
 ) {
@@ -113,7 +114,7 @@ export function paymentsModule(
 			"/payments/appointments/:appointmentId/self-pay",
 			async ({ headers, params, request }) => {
 				const principal = await authentication.get(request);
-				ensureWechatPaymentEnabled(wechatPaymentEnabled);
+				ensureWechatPaymentEnabled(registrationSelfPayEnabled);
 				return success(
 					await registrationSelfPay.create({
 						ownerUserId: principal.userId,
@@ -158,7 +159,7 @@ export function paymentsModule(
 			"/payments/appointments/:appointmentId/self-pay",
 			async ({ headers, params, request }) => {
 				const principal = await authentication.get(request);
-				ensureWechatPaymentEnabled(wechatPaymentEnabled);
+				ensureWechatPaymentEnabled(registrationSelfPayEnabled);
 				return success(
 					await registrationSelfPay.query({
 						ownerUserId: principal.userId,
