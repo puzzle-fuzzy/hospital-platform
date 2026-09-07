@@ -35,7 +35,7 @@ test("众阳患者绑定已存在档案时只查档并绑卡", async () => {
 			});
 			return calls.length === 1
 				? response(
-						{ success: true, data: { patId: 1001, cardNo: "VISIT-001" } },
+						{ success: true, data: { patId: "1001", cardNo: "VISIT-001" } },
 						"archive-001",
 					)
 				: response({ success: true, data: {} }, "bind-001");

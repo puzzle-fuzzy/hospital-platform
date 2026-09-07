@@ -92,6 +92,23 @@ function successfulEnvelope(
 
 type PatientReference = { patId: number; cardNo: string };
 
+function positivePatientId(value: unknown): number | undefined {
+	const normalized =
+		typeof value === "number"
+			? value
+			: typeof value === "string" && /^\d+$/u.test(value.trim())
+				? Number(value.trim())
+				: undefined;
+	if (
+		normalized === undefined ||
+		!Number.isSafeInteger(normalized) ||
+		normalized <= 0
+	) {
+		return undefined;
+	}
+	return normalized;
+}
+
 function patientReference(
 	value: unknown,
 	requestId: string,
@@ -105,15 +122,8 @@ function patientReference(
 		);
 	}
 	const record = value as Record<string, unknown>;
-	const patientId = record.patId;
-	if (typeof patientId !== "number" || !Number.isSafeInteger(patientId)) {
-		throw providerError(
-			"Zhongyang patient archive patId is invalid",
-			requestId,
-			true,
-		);
-	}
-	if (patientId <= 0) {
+	const patientId = positivePatientId(record.patId);
+	if (patientId === undefined) {
 		throw providerError(
 			"Zhongyang patient archive patId is invalid",
 			requestId,
