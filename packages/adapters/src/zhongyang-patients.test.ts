@@ -21,7 +21,16 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 				return new Response(
 					JSON.stringify({
 						success: true,
-						data: { patId: 10001 },
+						data: {
+							patId: 10001,
+							patCardVOList: [
+								{
+									patId: 10001,
+									patCardNo: "1234567890",
+									idcardNo: "",
+								},
+							],
+						},
 					}),
 					{ status: 200, headers: { "x-request-id": "archive-request-001" } },
 				);
