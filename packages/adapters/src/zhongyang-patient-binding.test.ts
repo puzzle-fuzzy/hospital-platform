@@ -68,7 +68,7 @@ test("众阳患者绑定已存在档案时只查档并绑卡", async () => {
 	expect(calls[0]?.headers?.get("authorization")).toBe("Bearer server-token");
 	expect(calls[1]?.body).toEqual({
 		patId: 1001,
-		cardNo: "11010519491231002X",
+		cardNo: "VISIT-001",
 	});
 });
 

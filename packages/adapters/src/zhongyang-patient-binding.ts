@@ -232,7 +232,6 @@ export class ZhongyangPatientBindingApiGateway
 		let patient = patientReference(archive.data, archiveResponse.requestId);
 		let created = false;
 		let createRequestId: string | undefined;
-		let cardNo = identityNumber;
 		if (!patient) {
 			const createResponse = await requestJson<unknown>(
 				{
@@ -261,7 +260,6 @@ export class ZhongyangPatientBindingApiGateway
 				successfulEnvelope(createResponse.data, createResponse.requestId).data,
 				createResponse.requestId,
 			);
-			cardNo = patient.cardNo;
 			created = true;
 		}
 		const bindResponse = await requestJson<unknown>(
@@ -272,7 +270,11 @@ export class ZhongyangPatientBindingApiGateway
 				method: "POST",
 				context,
 				...(headers ? { headers } : {}),
-				body: { patId: patient.patId, cardNo },
+				// 2.1.52 的 cardNo 必须使用查档/建档返回的真实就诊卡号。
+				// 身份证号只是 2.1.53 的查询条件，不能在已有档案分支
+				// 被当成就诊卡号发送；否则 Provider 可能返回成功但不建立
+				// 当前 unionId 的患者关系。
+				body: { patId: patient.patId, cardNo: patient.cardNo },
 			},
 			this.fetcher,
 		);
