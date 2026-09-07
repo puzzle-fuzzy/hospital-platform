@@ -6,9 +6,11 @@ import type {
 	AppointmentPatientProfileGateway,
 	AppointmentRecordDirectoryGateway,
 	AppointmentWriteGateway,
+	HospitalSettlementGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
+	RegistrationSelfPaySettlementContext,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
@@ -86,6 +88,8 @@ export type ApplicationServiceOptions = {
 	identityGateway?: WechatIdentityGateway;
 	/** 只有完成微信支付商户配置和回调验收后才打开。 */
 	wechatPaymentGateway?: WechatPaymentGateway;
+	/** 微信自费支付成功后，必须由该网关完成 HIS 回写；未配置时保持 pending。 */
+	hospitalSettlementGateway?: HospitalSettlementGateway;
 	/** 只有完成众阳/HIS 合同和真实环境验收后才打开。 */
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 新增或绑定就诊人必须使用独立的查档/建档/绑卡 adapter。 */
@@ -123,6 +127,98 @@ export function selectReadyRepositories(
 	schemaProbe: DependencyState,
 ): MySqlRepositories | undefined {
 	return schemaProbe === "ok" ? repositories : undefined;
+}
+
+/**
+ * 从同一用户、同一预约的医保订单中取出自费回写所需的最小 Provider 关联事实。
+ * 结算上下文由医保 adapter 加密落库；这里不接受客户端字段，也不从平台订单号推导。
+ */
+function resolveRegistrationSelfPayContext(
+	repositories: Pick<MySqlRepositories, "medicalInsuranceOrders">,
+) {
+	const contextText = (
+		value: Record<string, unknown>,
+		keys: readonly string[],
+	): string | undefined => {
+		for (const key of keys) {
+			const candidate = value[key];
+			if (typeof candidate !== "string" && typeof candidate !== "number")
+				continue;
+			const normalized = String(candidate).trim();
+			if (normalized) return normalized;
+		}
+		return undefined;
+	};
+
+	return async (input: {
+		ownerUserId: string;
+		appointmentId: string;
+	}): Promise<RegistrationSelfPaySettlementContext | undefined> => {
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
+				input.ownerUserId,
+				input.appointmentId,
+			);
+		if (!medicalOrder?.payOrdId) return undefined;
+		const settlement =
+			await repositories.medicalInsuranceOrders.getSettlementContext(
+				input.ownerUserId,
+				medicalOrder.medicalOrderId,
+			);
+		if (!settlement) return undefined;
+		if (
+			!settlement.businessId.trim() ||
+			!/^[0-9]+$/.test(settlement.payingId) ||
+			!/^[0-9]+$/.test(settlement.tradingId)
+		) {
+			return undefined;
+		}
+		const networkRegister = settlement.networkRegister;
+		const hospitalId = settlement.hospitalId.trim();
+		const patientId = settlement.patientId.trim();
+		const certNo = contextText(networkRegister, [
+			"idNo",
+			"id_no",
+			"certNo",
+			"cert_no",
+		]);
+		const psnName = contextText(networkRegister, [
+			"netPatName",
+			"net_pat_name",
+			"psnName",
+			"psn_name",
+		]);
+		const psnNo = contextText(networkRegister, [
+			"memberNo",
+			"member_no",
+			"psnNo",
+			"psn_no",
+		]);
+		if (!hospitalId || !patientId || !certNo || !psnName || !psnNo) {
+			return undefined;
+		}
+		return {
+			businessId: settlement.businessId,
+			payingId: settlement.payingId,
+			tradingId: settlement.tradingId,
+			hospitalId,
+			patientId,
+			certNo,
+			// 1101 当前使用居民身份证类型 01；若将来 Provider 合同支持
+			// 其他证件类型，应随结算上下文持久化，而不是从客户端读取。
+			psnCertType:
+				contextText(networkRegister, [
+					"psnCertType",
+					"psn_cert_type",
+					"idType",
+					"id_type",
+				]) ?? "01",
+			psnName,
+			psnNo,
+			patInHosId:
+				contextText(networkRegister, ["patInHosId", "pat_in_hos_id"]) ?? "0",
+		};
+	};
 }
 
 /** 默认组合根只安装 fail-closed 依赖，避免开发环境误连真实 provider。 */
@@ -209,6 +305,9 @@ export function createDefaultApplicationServices(
 		appointments: appointmentWrites,
 		paymentOrders,
 		wechatPrepay,
+		hospitalSettlement:
+			options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
+		resolveRegistrationContext: resolveRegistrationSelfPayContext(repositories),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const registrationPaymentExit = new RegistrationPaymentExitService({

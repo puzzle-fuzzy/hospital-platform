@@ -203,6 +203,26 @@ export type PaymentOrderSnapshot = {
 };
 
 /**
+ * 挂号自费回写所需的最小 Provider 关联事实。
+ *
+ * 三个值必须来自同一笔已落库的医保结算上下文；它们是 Provider 流水关联键，
+ * 不能由 appointmentId、平台支付订单号或小程序请求拼接、推导或覆盖。
+ */
+export type RegistrationSelfPaySettlementContext = {
+	businessId: string;
+	payingId: string;
+	tradingId: string;
+	/** 旧云健康插件 .29/.15/.5 所需的服务端结算上下文。 */
+	hospitalId?: string;
+	patientId?: string;
+	certNo?: string;
+	psnCertType?: string;
+	psnName?: string;
+	psnNo?: string;
+	patInHosId?: string;
+};
+
+/**
  * 微信小程序调起支付所需的服务端签名结果。
  *
  * 这些字段只允许从后端 adapter 返回给受控的 API response；小程序不应
@@ -420,6 +440,8 @@ export interface HospitalSettlementGateway {
 		input: {
 			orderId: string;
 			settlement: PaymentOrderSnapshot;
+			/** 服务端从同一预约的医保结算上下文解析出的 Provider 关联键。 */
+			registrationContext?: RegistrationSelfPaySettlementContext;
 		},
 		context: AdapterCallContext,
 	): Promise<ExternalTrace>;

@@ -97,6 +97,19 @@ export type RuntimeConfig = {
 	zhongyangBaseUrl: string | undefined;
 	/** 可选的众阳服务端 token；不能下发小程序或写入日志。 */
 	zhongyangAuthorizationToken: string | undefined;
+	/** 旧服务自费插件 HIS 回写独立闸门；配置齐全也不等于真实联调通过。 */
+	yunhealthRegistrationSettlementReady: boolean;
+	/** 云健康插件 .29/.15/.5 地址；缺失时不安装真实回写 adapter。 */
+	yunhealthBaseUrl: string | undefined;
+	/** 云健康服务端授权；只留在 API/worker 内存中。 */
+	yunhealthAuthorizationToken: string | undefined;
+	yunhealthPaymentOrgId: string | undefined;
+	yunhealthRegistrationPluginPayTypeId: string | undefined;
+	yunhealthRegistrationPluginPayType: string | undefined;
+	yunhealthRegistrationWorkStationId: string | undefined;
+	yunhealthRegistrationPaymentSource: string;
+	yunhealthRegistrationAuthSysCode: string;
+	yunhealthRegistrationTradeTypeCode: string;
 	/** 仅保护数据库中的短期支付调起参数，不是 APIv3 key。 */
 	paymentDataEncryptionKey: string | undefined;
 	/** worker 轮询持久化 outbox/查单计划的间隔，避免在进程内维护业务队列。 */
@@ -132,7 +145,8 @@ export type ProviderConfigurationDiagnostic = {
 		| "zhongyang-outpatient-payments"
 		| "zhongyang-medical-records"
 		| "zhongyang-report-directory"
-		| "zhongyang-report-detail";
+		| "zhongyang-report-detail"
+		| "yunhealth-registration-settlement";
 	status: ProviderConfigurationStatus;
 	missingFields: readonly string[];
 };
@@ -403,6 +417,91 @@ export function medicalInsuranceConfigurationStatus(
 ): ProviderConfigurationStatus {
 	if (!runtimeConfig.medicalInsuranceReady) return "disabled";
 	return medicalInsuranceConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
+/**
+ * 旧服务挂号自费回写必须独立于医保 6201/6202 gate；它只在显式打开时
+ * 要求云健康 .29/.15/.5 的完整配置。任何半配置都不安装 adapter，避免
+ * 微信已收款后把不完整报文发到 HIS。
+ */
+export function yunhealthRegistrationSettlementConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	if (!runtimeConfig.yunhealthRegistrationSettlementReady) return [];
+	const missing = missingRuntimeFields([
+		{ name: "YUNHEALTH_BASE_URL", value: runtimeConfig.yunhealthBaseUrl },
+		{
+			name: "YUNHEALTH_AUTH_TOKEN",
+			value: runtimeConfig.yunhealthAuthorizationToken,
+		},
+		{
+			name: "YUNHEALTH_PAYMENT_ORG_ID",
+			value: runtimeConfig.yunhealthPaymentOrgId,
+		},
+		{
+			name: "YUNHEALTH_PLUGIN_PAY_TYPE_ID",
+			value: runtimeConfig.yunhealthRegistrationPluginPayTypeId,
+		},
+		{
+			name: "YUNHEALTH_PLUGIN_PAY_TYPE",
+			value: runtimeConfig.yunhealthRegistrationPluginPayType,
+		},
+		{
+			name: "YUNHEALTH_PLUGIN_WORK_STATION_ID",
+			value: runtimeConfig.yunhealthRegistrationWorkStationId,
+		},
+		{
+			name: "YUNHEALTH_PLUGIN_PAYMENT_SOURCE",
+			value: runtimeConfig.yunhealthRegistrationPaymentSource,
+		},
+		{
+			name: "YUNHEALTH_AUTH_SYS_CODE",
+			value: runtimeConfig.yunhealthRegistrationAuthSysCode,
+		},
+		{
+			name: "YUNHEALTH_PLUGIN_TRADE_TYPE_CODE",
+			value: runtimeConfig.yunhealthRegistrationTradeTypeCode,
+		},
+	]);
+	if (
+		runtimeConfig.yunhealthBaseUrl &&
+		!isHttpsUrl(runtimeConfig.yunhealthBaseUrl) &&
+		!missing.includes("YUNHEALTH_BASE_URL(https)")
+	) {
+		missing.push("YUNHEALTH_BASE_URL(https)");
+	}
+	for (const [name, value] of [
+		["YUNHEALTH_PAYMENT_ORG_ID", runtimeConfig.yunhealthPaymentOrgId],
+		[
+			"YUNHEALTH_PLUGIN_PAY_TYPE_ID",
+			runtimeConfig.yunhealthRegistrationPluginPayTypeId,
+		],
+	] as const) {
+		if (value && !/^\d+$/u.test(value))
+			missing.push(`${name}(positive-integer)`);
+		else if (value && Number(value) <= 0)
+			missing.push(`${name}(positive-integer)`);
+	}
+	if (
+		runtimeConfig.yunhealthRegistrationPluginPayType &&
+		!["CREDIT", "POS", "CROWD_FUNDING"].includes(
+			runtimeConfig.yunhealthRegistrationPluginPayType,
+		)
+	) {
+		missing.push("YUNHEALTH_PLUGIN_PAY_TYPE(allowed-value)");
+	}
+	return missing;
+}
+
+export function yunhealthRegistrationSettlementConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.yunhealthRegistrationSettlementReady) return "disabled";
+	return yunhealthRegistrationSettlementConfigurationMissingFields(
+		runtimeConfig,
+	).length === 0
 		? "configured"
 		: "incomplete";
 }
@@ -699,6 +798,14 @@ export function providerConfigurationDiagnostics(
 			status: reportDetailConfigurationStatus(runtimeConfig),
 			missingFields: reportDetailConfigurationMissingFields(runtimeConfig),
 		},
+		{
+			name: "yunhealth-registration-settlement" as const,
+			status: yunhealthRegistrationSettlementConfigurationStatus(runtimeConfig),
+			missingFields:
+				yunhealthRegistrationSettlementConfigurationMissingFields(
+					runtimeConfig,
+				),
+		},
 	] satisfies readonly ProviderConfigurationDiagnostic[];
 	return entries;
 }
@@ -942,6 +1049,35 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.ZHONGYANG_AUTHORIZATION_TOKEN ??
 				env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,
 		),
+		yunhealthRegistrationSettlementReady: boolean(
+			env.YUNHEALTH_REGISTRATION_SETTLEMENT_READY,
+			false,
+		),
+		yunhealthBaseUrl:
+			optional(env.YUNHEALTH_BASE_URL) ??
+			optional(
+				env.ZHONGYANG_BASE_URL ?? env.ZHONGYANG_PATIENT_DIRECTORY_BASE_URL,
+			),
+		yunhealthAuthorizationToken:
+			optional(env.YUNHEALTH_AUTH_TOKEN) ??
+			optional(
+				env.ZHONGYANG_AUTHORIZATION_TOKEN ??
+					env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,
+			),
+		yunhealthPaymentOrgId: optional(env.YUNHEALTH_PAYMENT_ORG_ID),
+		yunhealthRegistrationPluginPayTypeId: optional(
+			env.YUNHEALTH_PLUGIN_PAY_TYPE_ID,
+		),
+		yunhealthRegistrationPluginPayType: optional(env.YUNHEALTH_PLUGIN_PAY_TYPE),
+		yunhealthRegistrationWorkStationId: optional(
+			env.YUNHEALTH_PLUGIN_WORK_STATION_ID,
+		),
+		yunhealthRegistrationPaymentSource:
+			optional(env.YUNHEALTH_PLUGIN_PAYMENT_SOURCE) ?? "1",
+		yunhealthRegistrationAuthSysCode:
+			optional(env.YUNHEALTH_AUTH_SYS_CODE) ?? "thirdSelfMachine",
+		yunhealthRegistrationTradeTypeCode:
+			optional(env.YUNHEALTH_PLUGIN_TRADE_TYPE_CODE) ?? "10",
 		paymentDataEncryptionKey: optional(env.PAYMENT_DATA_ENCRYPTION_KEY),
 		workerPollIntervalMs: positiveWorkerInterval(env.WORKER_POLL_INTERVAL_MS),
 	};

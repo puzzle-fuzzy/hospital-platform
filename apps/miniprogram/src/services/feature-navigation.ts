@@ -514,7 +514,9 @@ export const FEATURE_SURFACE_TARGETS: Readonly<
 	doctor: "/pages/my-doctor/my-doctor",
 	"electronic-consultation":
 		"/pages/electronic-consultation/electronic-consultation",
-	"patient-binding": "/pages/patient-binding/patient-binding",
+	// 患者绑定 contract 尚未完成时，不能把实名表单作为普通入口；否则会先
+	// 采集手机号和身份证号，再在提交阶段才暴露 dependency-not-configured。
+	// contract 和服务端准入完成后，再将该 key 加回真实页面映射。
 	// 协议原文是已迁移的静态只读页面；查看协议不会写入同意状态，
 	// 也不会把“看过协议”误判为实名绑定或授权完成。
 	"patient-agreement": "/pages/patient-agreement/patient-agreement",

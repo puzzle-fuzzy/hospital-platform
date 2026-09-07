@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { ProviderRequestError } from "@hospital/adapters";
+import {
+	createFixtureHospitalSettlementGateway,
+	ProviderRequestError,
+} from "@hospital/adapters";
 import type {
 	PaymentOrder,
 	PaymentOrderRepository,
@@ -171,7 +174,109 @@ test("reconciliation worker confirms a matching cash payment and clears its sche
 	expect(attempts.read()).toMatchObject({
 		queryAttempts: 1,
 		lastQueriedAt: now.toISOString(),
+		lastErrorCode: "his-writeback-pending",
 	});
+	expect(attempts.read().nextQueryAt).toBe("2026-08-15T00:00:15.000Z");
+});
+
+test("reconciliation worker continues a paid order through HIS writeback", async () => {
+	const orders = createOrderRepository({
+		...order,
+		idempotencyKey: "registration-self-pay:appointment-worker-001",
+		state: "cash_paid",
+	});
+	const attempts = createAttemptRepository(attempt());
+	let writeBackCalls = 0;
+	const fixture = createFixtureHospitalSettlementGateway();
+	const worker = new PaymentReconciliationWorker({
+		attempts: attempts.repository,
+		orders: new PaymentOrderService({ orders: orders.repository }),
+		wechatPayment: gatewayFor(async () => ({
+			state: "cash_paid",
+			totalFen: 300,
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-query",
+				requestId: "provider-query-his-001",
+			},
+		})),
+		hospitalSettlement: {
+			writeBack: async (input, context) => {
+				writeBackCalls += 1;
+				expect(input.registrationContext).toEqual({
+					businessId: "settlement-business-worker-001",
+					payingId: "260650000000011",
+					tradingId: "260650000000012",
+				});
+				return fixture.writeBack(input, context);
+			},
+		},
+		resolveRegistrationContext: async ({ ownerUserId, appointmentId }) => {
+			expect(ownerUserId).toBe(order.ownerUserId);
+			expect(appointmentId).toBe("appointment-worker-001");
+			return {
+				businessId: "settlement-business-worker-001",
+				payingId: "260650000000011",
+				tradingId: "260650000000012",
+			};
+		},
+	});
+
+	await expect(worker.runOnce(now)).resolves.toBe("reconciled");
+	expect(writeBackCalls).toBe(1);
+	expect(orders.read()).toMatchObject({ state: "completed", version: 6 });
+	expect(attempts.read().nextQueryAt).toBeUndefined();
+});
+
+test("reconciliation worker retries when HIS writeback is unavailable", async () => {
+	const orders = createOrderRepository(order);
+	const attempts = createAttemptRepository(attempt());
+	const worker = new PaymentReconciliationWorker({
+		attempts: attempts.repository,
+		orders: new PaymentOrderService({ orders: orders.repository }),
+		wechatPayment: gatewayFor(async () => ({
+			state: "cash_paid",
+			totalFen: 300,
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-query",
+				requestId: "provider-query-his-003",
+			},
+		})),
+		hospitalSettlement: {
+			writeBack: async () => {
+				throw new Error("HIS unavailable");
+			},
+		},
+	});
+
+	await expect(worker.runOnce(now)).resolves.toBe("reconciled");
+	expect(orders.read()).toMatchObject({ state: "cash_paid", version: 5 });
+	expect(attempts.read()).toMatchObject({
+		lastErrorCode: "his-writeback-pending",
+		nextQueryAt: "2026-08-15T00:00:15.000Z",
+	});
+});
+
+test("reconciliation worker finishes a persisted HIS writeback after a restart", async () => {
+	const orders = createOrderRepository({ ...order, state: "his_written_back" });
+	const attempts = createAttemptRepository(attempt());
+	const worker = new PaymentReconciliationWorker({
+		attempts: attempts.repository,
+		orders: new PaymentOrderService({ orders: orders.repository }),
+		wechatPayment: gatewayFor(async () => ({
+			state: "cash_paid",
+			totalFen: 300,
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-query",
+				requestId: "provider-query-his-002",
+			},
+		})),
+	});
+
+	await expect(worker.runOnce(now)).resolves.toBe("reconciled");
+	expect(orders.read()).toMatchObject({ state: "completed", version: 5 });
 	expect(attempts.read().nextQueryAt).toBeUndefined();
 });
 

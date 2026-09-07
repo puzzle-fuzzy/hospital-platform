@@ -1,10 +1,12 @@
 import {
+	configureProviderRequestLogger,
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
+	createYunhealthRegistrationSettlementGateway,
 	createZhongyangAppointmentGateway,
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
@@ -38,6 +40,8 @@ import {
 	wechatMedicalInsuranceConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
+	yunhealthRegistrationSettlementConfigurationMissingFields,
+	yunhealthRegistrationSettlementConfigurationStatus,
 } from "@hospital/config";
 import { createLogger } from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
@@ -62,6 +66,7 @@ const logger = createLogger({
 	environment: config.environment,
 	level: config.logLevel,
 });
+configureProviderRequestLogger(logger);
 const wechatIdentityStatus = wechatIdentityConfigurationStatus(config);
 const wechatPaymentStatus = wechatPaymentConfigurationStatus(config);
 const wechatIdentityMissing = wechatIdentityConfigurationMissingFields(config);
@@ -93,6 +98,10 @@ const reportDirectoryMissing =
 	reportDirectoryConfigurationMissingFields(config);
 const reportDetailStatus = reportDetailConfigurationStatus(config);
 const reportDetailMissing = reportDetailConfigurationMissingFields(config);
+const yunhealthRegistrationSettlementStatus =
+	yunhealthRegistrationSettlementConfigurationStatus(config);
+const yunhealthRegistrationSettlementMissing =
+	yunhealthRegistrationSettlementConfigurationMissingFields(config);
 const persistence = createPersistenceRuntime({
 	databaseUrl: config.databaseUrl,
 	redisUrl: config.redisUrl,
@@ -244,6 +253,24 @@ const reportDirectoryGateway =
 	reportDirectoryStatus === "configured" ? reportGateway : undefined;
 const reportDetailGateway =
 	reportDetailStatus === "configured" ? reportGateway : undefined;
+const hospitalSettlementGateway =
+	yunhealthRegistrationSettlementStatus === "configured"
+		? createYunhealthRegistrationSettlementGateway({
+				baseUrl: config.yunhealthBaseUrl ?? "",
+				authorizationToken: config.yunhealthAuthorizationToken ?? "",
+				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
+				pluginPayTypeId: config.yunhealthRegistrationPluginPayTypeId ?? "",
+				pluginPayType: (config.yunhealthRegistrationPluginPayType ?? "") as
+					| "CREDIT"
+					| "POS"
+					| "CROWD_FUNDING",
+				workStationId: config.yunhealthRegistrationWorkStationId ?? "",
+				paymentSource: config.yunhealthRegistrationPaymentSource,
+				authSysCode: config.yunhealthRegistrationAuthSysCode,
+				tradeTypeCode: config.yunhealthRegistrationTradeTypeCode,
+				logger,
+			})
+		: undefined;
 const apiV3Key = config.wechatPayApiV3Key;
 const platformCertificateSerial = config.wechatPayPlatformCertificateSerial;
 const platformPublicKey = config.wechatPayPlatformPublicKey;
@@ -407,6 +434,7 @@ const app = createApp({
 			: {}),
 		...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
 		...(medicalInsuranceGateway ? { medicalInsuranceGateway } : {}),
+		...(hospitalSettlementGateway ? { hospitalSettlementGateway } : {}),
 	}),
 	wechatPaymentEnabled,
 	readiness: createReadinessService({
@@ -482,6 +510,11 @@ logger.info(
 		medicalInsuranceRuntime: medicalInsuranceGateway
 			? "enabled"
 			: "fail_closed",
+		yunhealthRegistrationSettlementConfiguration:
+			yunhealthRegistrationSettlementStatus,
+		yunhealthRegistrationSettlementRuntime: hospitalSettlementGateway
+			? "enabled"
+			: "fail_closed",
 		medicalInsuranceResponseVerification: config.medicalInsuranceVerifyStrict
 			? "strict"
 			: "non_strict_compatibility",
@@ -515,6 +548,9 @@ logger.info(
 			: {}),
 		...(reportDirectoryMissing.length > 0 ? { reportDirectoryMissing } : {}),
 		...(reportDetailMissing.length > 0 ? { reportDetailMissing } : {}),
+		...(yunhealthRegistrationSettlementMissing.length > 0
+			? { yunhealthRegistrationSettlementMissing }
+			: {}),
 	},
 	`Hospital API listening in ${config.environment} mode`,
 );

@@ -7,7 +7,7 @@
 		<view class="page-description">请选择要进行预约、查询报告或查看挂号记录的就诊人</view>
 	</view>
 
-	<!-- 旧端新增就诊人入口：进入原生实名资料表单，提交仍由服务端统一处理。 -->
+	<!-- 旧端新增就诊人入口：患者绑定 contract 未完成时进入统一状态页。 -->
 	<view class="add-patient-bar" bindtap="onAddPatient">
 		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
 		<text>添加就诊人</text>
@@ -33,7 +33,7 @@
 		<block wx:else>
 			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 			<text>当前微信账号暂无已绑定的就诊人</text>
-			<text class="state-hint">可先点击上方“添加就诊人”填写姓名、手机号和身份证号</text>
+			<text class="state-hint">就诊人服务正在完善中，暂时无法新增就诊人</text>
 		</block>
 	</view>
 
@@ -67,7 +67,7 @@
 		<button class="refresh-button" loading="{{syncing}}" disabled="{{loading || syncing || navigationPending}}" bindtap="onSyncPatients">
 			{{syncing ? "正在刷新" : "刷新就诊人"}}
 		</button>
-		<text class="action-hint">提交实名资料后由医院服务端核验并同步目录</text>
+		<text class="action-hint">就诊人目录由医院服务端核验并同步，新增服务开放后可在此办理</text>
 	</view>
 </view>
 </scroll-view>

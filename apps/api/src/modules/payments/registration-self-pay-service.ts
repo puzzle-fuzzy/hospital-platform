@@ -1,8 +1,11 @@
 import type { RegistrationSelfPayPayload } from "@hospital/contracts";
 import {
+	type AdapterCallContext,
+	type HospitalSettlementGateway,
 	type PaymentOrder,
 	PaymentOrderInputError,
 	type PaymentOrderService,
+	type RegistrationSelfPaySettlementContext,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import type { AppointmentWriteService } from "../appointments/write-service";
@@ -12,10 +15,17 @@ export type RegistrationSelfPayServiceDependencies = {
 	appointments: AppointmentWriteService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
+	/** 微信已确认收款后，必须经过 HIS 回写才能进入 completed。 */
+	hospitalSettlement: HospitalSettlementGateway;
+	/** 从同一预约的已落库医保结算上下文解析 Provider 关联键。 */
+	resolveRegistrationContext?: (input: {
+		ownerUserId: string;
+		appointmentId: string;
+	}) => Promise<RegistrationSelfPaySettlementContext | undefined>;
 	logger?: AppLogger;
 };
 
-type Context = { traceId: string; idempotencyKey: string };
+type Context = AdapterCallContext;
 
 function opaque(value: unknown, label: string): string {
 	if (
@@ -50,6 +60,10 @@ function prepayKey(appointmentId: string): string {
 	return `registration-self-pay-prepay:${appointmentId}`;
 }
 
+function settlementKey(orderId: string): string {
+	return `registration-self-pay-settlement:${orderId}`;
+}
+
 function output(
 	appointmentId: string,
 	order: PaymentOrder,
@@ -80,6 +94,116 @@ export class RegistrationSelfPayService {
 		this.logger = dependencies.logger ?? createNoopLogger();
 	}
 
+	/**
+	 * 旧服务的支付后边界：微信 SUCCESS 只能证明现金已收，不能直接视为
+	 * 挂号完成。HIS 回写成功后再按状态机推进 his_written_back -> completed。
+	 * Provider 调用本身必须由 adapter 保证幂等；如果请求结果不确定，订单
+	 * 留在 cash_paid，下一次查询/补偿仍会重试，不会丢失“已收款未入 HIS”。
+	 */
+	private async completeHis(
+		ownerUserId: string,
+		appointmentId: string,
+		order: PaymentOrder,
+		context: Context,
+	): Promise<PaymentOrder> {
+		if (order.state === "completed") return order;
+		if (order.state === "his_written_back") {
+			return this.dependencies.paymentOrders.transition(
+				ownerUserId,
+				order.orderId,
+				"completed",
+			);
+		}
+		if (order.state !== "cash_paid") return order;
+
+		try {
+			const registrationContext = this.dependencies.resolveRegistrationContext
+				? await this.dependencies.resolveRegistrationContext({
+						ownerUserId,
+						appointmentId,
+					})
+				: undefined;
+			if (
+				this.dependencies.resolveRegistrationContext &&
+				!registrationContext
+			) {
+				this.logger.warn(
+					{
+						event: "appointment.self-payment.his-context-pending",
+						ownerUserId,
+						appointmentId,
+						orderId: order.orderId,
+					},
+					"Registration self-pay HIS context is pending",
+				);
+				return order;
+			}
+			const trace = await this.dependencies.hospitalSettlement.writeBack(
+				{
+					orderId: order.orderId,
+					settlement: {
+						orderId: order.orderId,
+						state: order.state,
+						totalFen: order.amounts.totalFen,
+						insuranceFen: order.amounts.insuranceFen,
+						cashFen: order.amounts.cashFen,
+						trace: [],
+					},
+					...(registrationContext ? { registrationContext } : {}),
+				},
+				{
+					...context,
+					idempotencyKey: settlementKey(order.orderId),
+				},
+			);
+			this.logger.info(
+				{
+					event: "appointment.self-payment.his-writeback-succeeded",
+					ownerUserId,
+					appointmentId: order.idempotencyKey.replace(
+						"registration-self-pay:",
+						"",
+					),
+					orderId: order.orderId,
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
+				},
+				"Registration self-pay HIS writeback succeeded",
+			);
+		} catch (error) {
+			this.logger.warn(
+				{
+					event: "appointment.self-payment.his-writeback-pending",
+					ownerUserId,
+					orderId: order.orderId,
+					errorName: error instanceof Error ? error.name : "UnknownError",
+				},
+				"Registration self-pay is paid but HIS writeback is pending",
+			);
+			return order;
+		}
+
+		const writtenBack = await this.dependencies.paymentOrders.transition(
+			ownerUserId,
+			order.orderId,
+			"his_written_back",
+		);
+		return this.dependencies.paymentOrders.transition(
+			ownerUserId,
+			writtenBack.orderId,
+			"completed",
+		);
+	}
+
+	private async finalize(
+		ownerUserId: string,
+		appointmentId: string,
+		order: PaymentOrder,
+		context: Context,
+	): Promise<PaymentOrder> {
+		return this.completeHis(ownerUserId, appointmentId, order, context);
+	}
+
 	async create(input: {
 		ownerUserId: string;
 		appointmentId: string;
@@ -101,8 +225,28 @@ export class RegistrationSelfPayService {
 				cashFen: appointment.totalFen,
 			},
 		});
-		if (order.state === "cash_paid")
-			return output(appointment.appointmentId, order, "cash_paid");
+		if (order.state === "cash_paid") {
+			const finalized = await this.finalize(
+				ownerUserId,
+				appointment.appointmentId,
+				order,
+				context,
+			);
+			return output(
+				appointment.appointmentId,
+				finalized,
+				finalized.state === "completed" ? "cash_paid" : "awaiting_confirmation",
+			);
+		}
+		if (order.state === "completed" || order.state === "his_written_back") {
+			const finalized = await this.finalize(
+				ownerUserId,
+				appointment.appointmentId,
+				order,
+				context,
+			);
+			return output(appointment.appointmentId, finalized, "cash_paid");
+		}
 		if (order.state === "failed")
 			return output(appointment.appointmentId, order, "failed");
 		const prepay = await this.dependencies.wechatPrepay.create({
@@ -157,16 +301,23 @@ export class RegistrationSelfPayService {
 			orderId: order.orderId,
 			context,
 		});
+		const finalized =
+			reconciled.state === "cash_paid" ||
+			reconciled.state === "his_written_back" ||
+			reconciled.state === "completed"
+				? await this.finalize(
+						ownerUserId,
+						appointment.appointmentId,
+						{ ...order, state: reconciled.state },
+						context,
+					)
+				: { ...order, state: reconciled.state };
 		const status: RegistrationSelfPayPayload["data"]["status"] =
-			reconciled.status === "paid"
+			finalized.state === "completed"
 				? "cash_paid"
 				: reconciled.status === "failed"
 					? "failed"
 					: "awaiting_confirmation";
-		return output(
-			appointment.appointmentId,
-			{ ...order, state: reconciled.state },
-			status,
-		);
+		return output(appointment.appointmentId, finalized, status);
 	}
 }

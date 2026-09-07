@@ -1,13 +1,16 @@
 import type {
+	HospitalSettlementGateway,
+	PaymentOrder,
 	PaymentOrderService,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
+	RegistrationSelfPaySettlementContext,
 	WechatPaymentGateway,
 } from "@hospital/domain";
 import {
+	type AppLogger,
 	createNoopLogger,
 	providerFailureMetadata,
-	type AppLogger,
 } from "@hospital/observability";
 
 /** 首次明确未支付后给 provider 的最小重试间隔。 */
@@ -18,6 +21,8 @@ const MAX_QUERY_DELAY_MS = 15 * 60 * 1000;
 const QUERY_BATCH_SIZE = 1;
 /** provider 查询异常或进程崩溃后的 claim 接管窗口。 */
 const QUERY_CLAIM_LEASE_MS = 60_000;
+
+const REGISTRATION_SELF_PAY_ORDER_PREFIX = "registration-self-pay:";
 /**
  * 微信查单自动重试上限；达到上限后必须停在 manual_review，等待人工核对，
  * 不能继续制造没有边界的 provider 请求。
@@ -97,10 +102,137 @@ export class PaymentReconciliationWorker {
 			attempts: PaymentPrepayAttemptRepository;
 			orders: PaymentOrderService;
 			wechatPayment: WechatPaymentGateway;
+			/** 微信查单确认收款后，继续执行旧服务的 HIS 回写边界。 */
+			hospitalSettlement?: HospitalSettlementGateway;
+			/** 从同一预约的已落库医保结算上下文解析 Provider 关联键。 */
+			resolveRegistrationContext?: (input: {
+				ownerUserId: string;
+				appointmentId: string;
+			}) => Promise<RegistrationSelfPaySettlementContext | undefined>;
 			logger?: AppLogger;
 		},
 	) {
 		this.logger = dependencies.logger ?? createNoopLogger();
+	}
+
+	private async completeHis(
+		order: PaymentOrder,
+		context: { traceId: string; idempotencyKey: string },
+	): Promise<{ order: PaymentOrder; retry: boolean }> {
+		const gateway = this.dependencies.hospitalSettlement;
+		if (order.state === "his_written_back") {
+			try {
+				const completed = await this.dependencies.orders.transition(
+					order.ownerUserId,
+					order.orderId,
+					"completed",
+				);
+				return { order: completed, retry: false };
+			} catch (error) {
+				this.logger.warn(
+					{
+						event: "worker.payment.his_writeback.retry_scheduled",
+						orderId: order.orderId,
+						errorName: error instanceof Error ? error.name : "UnknownError",
+					},
+					"Payment order completion will be retried",
+				);
+				return { order, retry: true };
+			}
+		}
+		if (order.state !== "cash_paid") {
+			return { order, retry: false };
+		}
+		const appointmentId = order.idempotencyKey.startsWith(
+			REGISTRATION_SELF_PAY_ORDER_PREFIX,
+		)
+			? order.idempotencyKey.slice(REGISTRATION_SELF_PAY_ORDER_PREFIX.length)
+			: undefined;
+		if (!gateway) {
+			this.logger.warn(
+				{
+					event: "worker.payment.his_writeback.retry_scheduled",
+					orderId: order.orderId,
+					reason: "hospital-settlement-not-configured",
+				},
+				"Payment order is paid but HIS writeback is not configured",
+			);
+			return { order, retry: true };
+		}
+		try {
+			const registrationContext =
+				this.dependencies.resolveRegistrationContext && appointmentId
+					? await this.dependencies.resolveRegistrationContext({
+							ownerUserId: order.ownerUserId,
+							appointmentId,
+						})
+					: undefined;
+			if (
+				this.dependencies.resolveRegistrationContext &&
+				!registrationContext
+			) {
+				this.logger.warn(
+					{
+						event: "worker.payment.his_context.retry_scheduled",
+						orderId: order.orderId,
+						reason: "registration-context-missing",
+					},
+					"Payment order HIS context is not available yet",
+				);
+				return { order, retry: true };
+			}
+			const trace = await gateway.writeBack(
+				{
+					orderId: order.orderId,
+					settlement: {
+						orderId: order.orderId,
+						state: order.state,
+						totalFen: order.amounts.totalFen,
+						insuranceFen: order.amounts.insuranceFen,
+						cashFen: order.amounts.cashFen,
+						trace: [],
+					},
+					...(registrationContext ? { registrationContext } : {}),
+				},
+				{
+					...context,
+					idempotencyKey: `registration-self-pay-settlement:${order.orderId}`,
+				},
+			);
+			const writtenBack = await this.dependencies.orders.transition(
+				order.ownerUserId,
+				order.orderId,
+				"his_written_back",
+			);
+			const completed = await this.dependencies.orders.transition(
+				order.ownerUserId,
+				order.orderId,
+				"completed",
+			);
+			this.logger.info(
+				{
+					event: "worker.payment.his_writeback.completed",
+					orderId: completed.orderId,
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
+					previousVersion: order.version,
+					writtenBackVersion: writtenBack.version,
+					completedVersion: completed.version,
+				},
+				"Payment order HIS writeback completed",
+			);
+			return { order: completed, retry: false };
+		} catch (error) {
+			this.logger.warn(
+				{
+					event: "worker.payment.his_writeback.retry_scheduled",
+					orderId: order.orderId,
+					errorName: error instanceof Error ? error.name : "UnknownError",
+				},
+				"Payment order HIS writeback will be retried",
+			);
+			return { order, retry: true };
+		}
 	}
 
 	async runOnce(now = new Date()): Promise<PaymentReconciliationWorkerResult> {
@@ -130,14 +262,22 @@ export class PaymentReconciliationWorker {
 					totalFen: query.totalFen,
 					trace: query.trace,
 				});
+			const his = await this.completeHis(reconciliation.order, context);
 			const shouldContinue =
-				reconciliation.outcome === "unchanged" &&
-				query.state === "cash_pending" &&
-				(reconciliation.order.state === "cash_pending" ||
-					reconciliation.order.state === "awaiting_confirmation");
+				his.retry ||
+				(reconciliation.outcome === "unchanged" &&
+					query.state === "cash_pending" &&
+					(his.order.state === "cash_pending" ||
+						his.order.state === "awaiting_confirmation"));
 			const updatedAttempt = updateAttemptSchedule(attempt, now, {
 				shouldContinue,
-				...(shouldContinue ? { lastErrorCode: "provider-pending" } : {}),
+				...(shouldContinue
+					? {
+							lastErrorCode: his.retry
+								? "his-writeback-pending"
+								: "provider-pending",
+						}
+					: {}),
 			});
 			await this.dependencies.attempts.update(updatedAttempt, attempt.version);
 			if (updatedAttempt.status === "manual_review") {
@@ -149,7 +289,8 @@ export class PaymentReconciliationWorker {
 						queryAttempts: updatedAttempt.queryAttempts,
 						maxAttempts: MAX_PAYMENT_QUERY_ATTEMPTS,
 						providerState: query.state,
-						reason: "provider-pending",
+						orderState: his.order.state,
+						reason: his.retry ? "his-writeback-pending" : "provider-pending",
 					},
 					"Wechat payment query requires manual review",
 				);
