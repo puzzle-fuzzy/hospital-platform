@@ -4,12 +4,14 @@ import {
 	createLegacyFsiMedicalInsuranceGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatPaymentGateway,
+	createYunhealthRegistrationSettlementGateway,
 } from "@hospital/adapters";
 import {
 	config as defaultConfig,
 	medicalInsuranceConfigurationMissingFields,
 	type RuntimeConfig,
 	wechatPaymentConfigurationMissingFields,
+	yunhealthRegistrationSettlementConfigurationMissingFields,
 } from "@hospital/config";
 import type { DependencyState } from "@hospital/contracts";
 import {
@@ -69,6 +71,20 @@ type ReadyRuntimeConfig = RuntimeConfig & {
 function resolveRegistrationSelfPayContext(
 	repositories: NonNullable<PersistenceRuntime["repositories"]>,
 ) {
+	const contextText = (
+		value: Record<string, unknown>,
+		keys: readonly string[],
+	): string | undefined => {
+		for (const key of keys) {
+			const candidate = value[key];
+			if (typeof candidate !== "string" && typeof candidate !== "number")
+				continue;
+			const normalized = String(candidate).trim();
+			if (normalized) return normalized;
+		}
+		return undefined;
+	};
+
 	return async (input: {
 		ownerUserId: string;
 		appointmentId: string;
@@ -92,17 +108,56 @@ function resolveRegistrationSelfPayContext(
 		) {
 			return undefined;
 		}
+		const networkRegister = settlement.networkRegister;
+		const hospitalId = settlement.hospitalId.trim();
+		const patientId = settlement.patientId.trim();
+		const certNo = contextText(networkRegister, [
+			"idNo",
+			"id_no",
+			"certNo",
+			"cert_no",
+		]);
+		const psnName = contextText(networkRegister, [
+			"netPatName",
+			"net_pat_name",
+			"psnName",
+			"psn_name",
+		]);
+		const psnNo = contextText(networkRegister, [
+			"memberNo",
+			"member_no",
+			"psnNo",
+			"psn_no",
+		]);
+		if (!hospitalId || !patientId || !certNo || !psnName || !psnNo) {
+			return undefined;
+		}
 		return {
 			businessId: settlement.businessId,
 			payingId: settlement.payingId,
 			tradingId: settlement.tradingId,
+			hospitalId,
+			patientId,
+			certNo,
+			psnCertType:
+				contextText(networkRegister, [
+					"psnCertType",
+					"psn_cert_type",
+					"idType",
+					"id_type",
+				]) ?? "01",
+			psnName,
+			psnNo,
+			patInHosId:
+				contextText(networkRegister, ["patInHosId", "pat_in_hos_id"]) ?? "0",
 		};
 	};
 }
 
 /**
  * Worker 的持久化基础设施必须就绪，并至少打开一个完整的 provider 子 Worker。
- * 微信支付和医保查单各自 fail-closed，医保不能因为微信支付尚未打开而无法补偿。
+ * 微信支付、医保查单和云健康自费回写各自 fail-closed，医保不能因为微信支付
+ * 尚未打开而无法补偿；云健康 gate 不完整时也不能启动支付补偿循环。
  */
 export function workerConfigurationMissingFields(runtimeConfig: RuntimeConfig) {
 	const missing: string[] = [];
@@ -113,6 +168,10 @@ export function workerConfigurationMissingFields(runtimeConfig: RuntimeConfig) {
 		medicalInsuranceConfigurationMissingFields(runtimeConfig);
 	if (runtimeConfig.medicalInsuranceReady)
 		missing.push(...medicalInsuranceMissing);
+	const yunhealthRegistrationSettlementMissing =
+		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig);
+	if (runtimeConfig.yunhealthRegistrationSettlementReady)
+		missing.push(...yunhealthRegistrationSettlementMissing);
 	if (runtimeConfig.wechatPaymentReady) {
 		if (!runtimeConfig.paymentDataEncryptionKey)
 			missing.push("PAYMENT_DATA_ENCRYPTION_KEY");
@@ -212,6 +271,25 @@ export function createWorkerRuntime(
 	const orders = new PaymentOrderService({
 		orders: repositories.paymentOrders,
 	});
+	const hospitalSettlementGateway =
+		runtimeConfig.yunhealthRegistrationSettlementReady &&
+		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig)
+			.length === 0
+			? createYunhealthRegistrationSettlementGateway({
+					baseUrl: runtimeConfig.yunhealthBaseUrl ?? "",
+					authorizationToken: runtimeConfig.yunhealthAuthorizationToken ?? "",
+					paymentOrgId: runtimeConfig.yunhealthPaymentOrgId ?? "",
+					pluginPayTypeId:
+						runtimeConfig.yunhealthRegistrationPluginPayTypeId ?? "",
+					pluginPayType: (runtimeConfig.yunhealthRegistrationPluginPayType ??
+						"") as "CREDIT" | "POS" | "CROWD_FUNDING",
+					workStationId: runtimeConfig.yunhealthRegistrationWorkStationId ?? "",
+					paymentSource: runtimeConfig.yunhealthRegistrationPaymentSource,
+					authSysCode: runtimeConfig.yunhealthRegistrationAuthSysCode,
+					tradeTypeCode: runtimeConfig.yunhealthRegistrationTradeTypeCode,
+					logger,
+				})
+			: undefined;
 	const outbox = new OutboxWorker(
 		repositories.outbox,
 		{
@@ -224,14 +302,14 @@ export function createWorkerRuntime(
 		},
 		logger,
 	);
+	const settlementGateway =
+		options.hospitalSettlementGateway ?? hospitalSettlementGateway;
 	const reconciliation = wechatPayment
 		? new PaymentReconciliationWorker({
 				attempts: repositories.paymentPrepayAttempts,
 				orders,
 				wechatPayment,
-				...(options.hospitalSettlementGateway
-					? { hospitalSettlement: options.hospitalSettlementGateway }
-					: {}),
+				...(settlementGateway ? { hospitalSettlement: settlementGateway } : {}),
 				resolveRegistrationContext:
 					resolveRegistrationSelfPayContext(repositories),
 				logger,

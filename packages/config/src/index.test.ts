@@ -21,6 +21,8 @@ import {
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
+	yunhealthRegistrationSettlementConfigurationMissingFields,
+	yunhealthRegistrationSettlementConfigurationStatus,
 } from "./index";
 
 test("runtime config defaults to safe development gates", () => {
@@ -34,8 +36,46 @@ test("runtime config defaults to safe development gates", () => {
 		wechatIdentityReady: false,
 		wechatPaymentReady: false,
 		medicalInsuranceReady: false,
+		yunhealthRegistrationSettlementReady: false,
+		yunhealthRegistrationPaymentSource: "1",
+		yunhealthRegistrationAuthSysCode: "thirdSelfMachine",
+		yunhealthRegistrationTradeTypeCode: "10",
 		workerPollIntervalMs: 1000,
 	});
+});
+
+test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", () => {
+	const incomplete = loadRuntimeConfig({
+		YUNHEALTH_REGISTRATION_SETTLEMENT_READY: "true",
+		YUNHEALTH_BASE_URL: "https://yunhealth.example.test",
+		YUNHEALTH_AUTH_TOKEN: "server-token",
+	});
+	expect(yunhealthRegistrationSettlementConfigurationStatus(incomplete)).toBe(
+		"incomplete",
+	);
+	expect(
+		yunhealthRegistrationSettlementConfigurationMissingFields(incomplete),
+	).toEqual(
+		expect.arrayContaining([
+			"YUNHEALTH_PAYMENT_ORG_ID",
+			"YUNHEALTH_PLUGIN_PAY_TYPE_ID",
+			"YUNHEALTH_PLUGIN_PAY_TYPE",
+			"YUNHEALTH_PLUGIN_WORK_STATION_ID",
+		]),
+	);
+
+	const configured = loadRuntimeConfig({
+		YUNHEALTH_REGISTRATION_SETTLEMENT_READY: "true",
+		YUNHEALTH_BASE_URL: "https://yunhealth.example.test",
+		YUNHEALTH_AUTH_TOKEN: "server-token",
+		YUNHEALTH_PAYMENT_ORG_ID: "10756",
+		YUNHEALTH_PLUGIN_PAY_TYPE_ID: "50",
+		YUNHEALTH_PLUGIN_PAY_TYPE: "CREDIT",
+		YUNHEALTH_PLUGIN_WORK_STATION_ID: "registration-machine-01",
+	});
+	expect(yunhealthRegistrationSettlementConfigurationStatus(configured)).toBe(
+		"configured",
+	);
 });
 
 test("production runtime listens on container interfaces by default", () => {

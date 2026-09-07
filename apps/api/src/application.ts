@@ -136,6 +136,20 @@ export function selectReadyRepositories(
 function resolveRegistrationSelfPayContext(
 	repositories: Pick<MySqlRepositories, "medicalInsuranceOrders">,
 ) {
+	const contextText = (
+		value: Record<string, unknown>,
+		keys: readonly string[],
+	): string | undefined => {
+		for (const key of keys) {
+			const candidate = value[key];
+			if (typeof candidate !== "string" && typeof candidate !== "number")
+				continue;
+			const normalized = String(candidate).trim();
+			if (normalized) return normalized;
+		}
+		return undefined;
+	};
+
 	return async (input: {
 		ownerUserId: string;
 		appointmentId: string;
@@ -159,10 +173,50 @@ function resolveRegistrationSelfPayContext(
 		) {
 			return undefined;
 		}
+		const networkRegister = settlement.networkRegister;
+		const hospitalId = settlement.hospitalId.trim();
+		const patientId = settlement.patientId.trim();
+		const certNo = contextText(networkRegister, [
+			"idNo",
+			"id_no",
+			"certNo",
+			"cert_no",
+		]);
+		const psnName = contextText(networkRegister, [
+			"netPatName",
+			"net_pat_name",
+			"psnName",
+			"psn_name",
+		]);
+		const psnNo = contextText(networkRegister, [
+			"memberNo",
+			"member_no",
+			"psnNo",
+			"psn_no",
+		]);
+		if (!hospitalId || !patientId || !certNo || !psnName || !psnNo) {
+			return undefined;
+		}
 		return {
 			businessId: settlement.businessId,
 			payingId: settlement.payingId,
 			tradingId: settlement.tradingId,
+			hospitalId,
+			patientId,
+			certNo,
+			// 1101 当前使用居民身份证类型 01；若将来 Provider 合同支持
+			// 其他证件类型，应随结算上下文持久化，而不是从客户端读取。
+			psnCertType:
+				contextText(networkRegister, [
+					"psnCertType",
+					"psn_cert_type",
+					"idType",
+					"id_type",
+				]) ?? "01",
+			psnName,
+			psnNo,
+			patInHosId:
+				contextText(networkRegister, ["patInHosId", "pat_in_hos_id"]) ?? "0",
 		};
 	};
 }

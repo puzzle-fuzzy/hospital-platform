@@ -114,6 +114,11 @@ export {
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
 export {
+	createYunhealthRegistrationSettlementGateway,
+	type YunhealthRegistrationPluginPayType,
+	type YunhealthRegistrationSettlementGatewayOptions,
+} from "./yunhealth-registration-settlement";
+export {
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
 	ZhongyangAppointmentPatientProfileGateway,

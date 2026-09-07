@@ -35,6 +35,26 @@ test("worker runtime remains fail-closed without complete persistence/provider c
 	await runtime.close();
 });
 
+test("worker requires complete Yunhealth .29/.15/.5 configuration when the gate opens", () => {
+	const runtimeConfig = loadRuntimeConfig({
+		PERSISTENCE_SCHEMA_READY: "true",
+		DATABASE_URL: "mysql://hospital:test@127.0.0.1:3307/hospital_platform",
+		YUNHEALTH_REGISTRATION_SETTLEMENT_READY: "true",
+	});
+
+	expect(workerConfigurationMissingFields(runtimeConfig)).toEqual(
+		expect.arrayContaining([
+			"YUNHEALTH_BASE_URL",
+			"YUNHEALTH_AUTH_TOKEN",
+			"YUNHEALTH_PAYMENT_ORG_ID",
+			"YUNHEALTH_PLUGIN_PAY_TYPE_ID",
+			"YUNHEALTH_PLUGIN_PAY_TYPE",
+			"YUNHEALTH_PLUGIN_WORK_STATION_ID",
+		]),
+	);
+	expect(workerConfigurationStatus(runtimeConfig)).toBe("not_configured");
+});
+
 test("medical insurance worker can be configured without the WeChat payment gate", () => {
 	const runtimeConfig = loadRuntimeConfig({
 		PERSISTENCE_SCHEMA_READY: "true",

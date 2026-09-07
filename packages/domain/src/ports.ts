@@ -212,6 +212,14 @@ export type RegistrationSelfPaySettlementContext = {
 	businessId: string;
 	payingId: string;
 	tradingId: string;
+	/** 旧云健康插件 .29/.15/.5 所需的服务端结算上下文。 */
+	hospitalId?: string;
+	patientId?: string;
+	certNo?: string;
+	psnCertType?: string;
+	psnName?: string;
+	psnNo?: string;
+	patInHosId?: string;
 };
 
 /**
