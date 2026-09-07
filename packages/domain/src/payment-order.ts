@@ -8,6 +8,7 @@ import type {
 	MedicalInsuranceSettlementEvidenceFinality,
 	MedicalInsuranceSettlementEvidenceSource,
 	MedicalInsuranceSettlementState,
+	RegistrationSelfPaySettlementContext,
 	WechatPaymentLaunchParams,
 } from "./ports";
 
@@ -470,6 +471,16 @@ export interface PaymentOrderRepository {
 		expectedVersion: number,
 		event: OutboxEvent,
 	): Promise<PaymentOrder>;
+	/** 普通挂号自费 Provider 上下文只允许以服务端密文保存。 */
+	saveRegistrationSelfPayContext?(
+		ownerUserId: string,
+		orderId: string,
+		context: RegistrationSelfPaySettlementContext,
+	): Promise<void>;
+	getRegistrationSelfPayContext?(
+		ownerUserId: string,
+		orderId: string,
+	): Promise<RegistrationSelfPaySettlementContext | undefined>;
 }
 
 export class PaymentOrderInputError extends Error {

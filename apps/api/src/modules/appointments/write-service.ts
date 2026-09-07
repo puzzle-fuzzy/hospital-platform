@@ -292,6 +292,50 @@ export class AppointmentWriteService {
 	}
 
 	/**
+	 * 众阳自费结算准备只从当前用户的已落库预约和实名档案取参数。
+	 * providerRegisterId、providerPatientId 与患者证件资料均不接受小程序覆盖。
+	 */
+	async getProviderPaymentContext(
+		ownerUserId: string,
+		appointmentId: string,
+		contextValue: unknown,
+	): Promise<{
+		providerRegisterId: string;
+		providerPatientId: string;
+		patient: { name: string; cardNo: string; idNo: string };
+	}> {
+		const context = contextOf(contextValue);
+		const owner = id(ownerUserId, "ownerUserId");
+		const appointment = id(appointmentId, "appointmentId");
+		const registration = await this.dependencies.repository.findRegistration(
+			owner,
+			appointment,
+		);
+		if (registration?.status !== "booked" || !registration.providerRegisterId) {
+			throw new AppointmentRegistrationNotFoundError();
+		}
+		const { profile } = await this.patientContext(
+			owner,
+			registration.patientId,
+			context,
+		);
+		if (profile.providerPatientId !== registration.providerPatientId) {
+			throw new AppointmentWriteInputError(
+				"Appointment patient reference does not match the provider registration",
+			);
+		}
+		return {
+			providerRegisterId: registration.providerRegisterId,
+			providerPatientId: registration.providerPatientId,
+			patient: {
+				name: profile.name,
+				cardNo: profile.cardNo,
+				idNo: profile.idNo,
+			},
+		};
+	}
+
+	/**
 	 * 读取旧端 registration_detail.vue 所需的安全详情。
 	 *
 	 * 详情必须从 owner-scoped 本地预约记录读取，不能让小程序提交科室、医生、

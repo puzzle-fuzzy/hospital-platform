@@ -33,6 +33,7 @@ import type {
 	PaymentPrepayAttemptRepository,
 	PaymentQuote,
 	PaymentQuoteRepository,
+	RegistrationSelfPaySettlementContext,
 	ReportReference,
 	ReportReferenceRepository,
 	UserIdentityRepository,
@@ -49,6 +50,7 @@ import {
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
+	PaymentOrderNotFoundError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
 	UserProfileVersionConflictError,
@@ -697,6 +699,10 @@ export function createInMemoryPaymentOrderRepository(
 	seed: readonly PaymentOrder[] = [],
 ): PaymentOrderRepository {
 	const orders = new Map(seed.map((order) => [order.orderId, order]));
+	const registrationSelfPayContexts = new Map<
+		string,
+		RegistrationSelfPaySettlementContext
+	>();
 
 	return {
 		async findById(orderId) {
@@ -732,6 +738,19 @@ export function createInMemoryPaymentOrderRepository(
 			}
 			orders.set(order.orderId, order);
 			return order;
+		},
+		async saveRegistrationSelfPayContext(ownerUserId, orderId, context) {
+			const order = orders.get(orderId);
+			if (!order || order.ownerUserId !== ownerUserId) {
+				throw new PaymentOrderNotFoundError();
+			}
+			registrationSelfPayContexts.set(orderId, { ...context });
+		},
+		async getRegistrationSelfPayContext(ownerUserId, orderId) {
+			const order = orders.get(orderId);
+			if (!order || order.ownerUserId !== ownerUserId) return undefined;
+			const context = registrationSelfPayContexts.get(orderId);
+			return context ? { ...context } : undefined;
 		},
 	};
 }
@@ -1262,6 +1281,12 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError("payment-orders");
 			},
 			update: async () => {
+				throw new PersistenceNotConfiguredError("payment-orders");
+			},
+			saveRegistrationSelfPayContext: async () => {
+				throw new PersistenceNotConfiguredError("payment-orders");
+			},
+			getRegistrationSelfPayContext: async () => {
 				throw new PersistenceNotConfiguredError("payment-orders");
 			},
 		},

@@ -195,6 +195,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0034_medical_insurance_business_key.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0035_registration_self_pay_context",
+		file: "../migrations/0035_registration_self_pay_context.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -325,6 +330,7 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"cash_fen",
 			"state",
 			"version",
+			"registration_self_pay_context_ciphertext",
 		],
 	},
 	{

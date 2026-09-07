@@ -205,11 +205,13 @@ export type PaymentOrderSnapshot = {
 /**
  * 挂号自费回写所需的最小 Provider 关联事实。
  *
- * 三个值必须来自同一笔已落库的医保结算上下文；它们是 Provider 流水关联键，
+ * 三个值必须来自同一笔已加密落库的 Provider 结算上下文；它们是流水关联键，
  * 不能由 appointmentId、平台支付订单号或小程序请求拼接、推导或覆盖。
  */
 export type RegistrationSelfPaySettlementContext = {
 	businessId: string;
+	/** 2.6.65.1 返回的结算单编码；只在服务端创建 .2 时使用。 */
+	businessCode?: string;
 	payingId: string;
 	tradingId: string;
 	/** 旧云健康插件 .29/.15/.5 所需的服务端结算上下文。 */
@@ -228,6 +230,8 @@ export type RegistrationSelfPaySettlementContext = {
 	payType?: "CREDIT" | "POS" | "CROWD_FUNDING";
 	workStationId?: string;
 	thirdPartPayRecordId?: string;
+	/** 仅允许保存在服务端 AES-GCM 密文中，不得写入日志或 API 响应。 */
+	thirdPartPayRawResponse?: string;
 };
 
 /**
@@ -423,6 +427,33 @@ export interface YunhealthRegistrationPluginPaymentGateway {
 		payType: "CREDIT" | "POS" | "CROWD_FUNDING";
 		workStationId: string;
 		tradeTypeCode: string;
+		trace: ExternalTrace;
+	}>;
+}
+
+/**
+ * 普通挂号自费进入微信 APIv3 前的众阳结算准备边界。
+ *
+ * Provider 调用顺序固定为 2.6.65.1 -> 2.27.2.32 -> 2.6.65.2；
+ * 任何一步未确认成功都不得创建微信订单。返回的流水上下文必须先加密落库，
+ * 后续微信查单成功后才能用于 .29/.15/.5 回写。
+ */
+export interface RegistrationSelfPayPreparationGateway {
+	prepare(
+		input: {
+			orderId: string;
+			totalFen: number;
+			providerRegisterId: string;
+			providerPatientId: string;
+			patient: {
+				name: string;
+				cardNo: string;
+				idNo: string;
+			};
+		},
+		context: AdapterCallContext,
+	): Promise<{
+		registrationContext: RegistrationSelfPaySettlementContext;
 		trace: ExternalTrace;
 	}>;
 }

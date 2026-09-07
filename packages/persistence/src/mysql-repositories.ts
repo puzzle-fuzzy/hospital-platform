@@ -41,6 +41,7 @@ import type {
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
 	PaymentQuoteRepository,
+	RegistrationSelfPaySettlementContext,
 	ReportReference,
 	ReportReferenceRepository,
 	UserIdentityRepository,
@@ -60,6 +61,7 @@ import {
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
+	PaymentOrderNotFoundError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
 	parseStrictIsoInstant,
@@ -534,6 +536,89 @@ function deserializeMedicalInsuranceSettlementContext(
 		throw new Error("Medical insurance settlement context is invalid");
 	}
 	return parsed as MedicalInsuranceSettlementContext;
+}
+
+const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
+	"businessId",
+	"businessCode",
+	"payingId",
+	"tradingId",
+	"hospitalId",
+	"patientId",
+	"certNo",
+	"psnCertType",
+	"psnName",
+	"psnNo",
+	"patInHosId",
+	"outTradeNo",
+	"recordCode",
+	"payTypeId",
+	"payType",
+	"workStationId",
+	"thirdPartPayRecordId",
+	"thirdPartPayRawResponse",
+]);
+
+function deserializeRegistrationSelfPayContext(
+	value: string,
+): RegistrationSelfPaySettlementContext {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(value);
+	} catch (error) {
+		throw new Error("Registration self-pay context is invalid", {
+			cause: error,
+		});
+	}
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+		throw new Error("Registration self-pay context is invalid");
+	}
+	const record = parsed as Record<string, unknown>;
+	const requiredTextFields = [
+		"businessId",
+		"payingId",
+		"tradingId",
+		"hospitalId",
+		"patientId",
+		"certNo",
+		"psnCertType",
+		"psnName",
+		"psnNo",
+		"patInHosId",
+		"outTradeNo",
+		"recordCode",
+		"payTypeId",
+		"payType",
+	] as const;
+	if (
+		Object.keys(record).some(
+			(field) => !REGISTRATION_SELF_PAY_CONTEXT_FIELDS.has(field),
+		) ||
+		requiredTextFields.some(
+			(field) => typeof record[field] !== "string" || !record[field].trim(),
+		) ||
+		typeof record.workStationId !== "string" ||
+		(record.businessCode !== undefined &&
+			(typeof record.businessCode !== "string" ||
+				!record.businessCode.trim())) ||
+		!new Set(["CREDIT", "POS", "CROWD_FUNDING"]).has(String(record.payType)) ||
+		(record.thirdPartPayRecordId !== undefined &&
+			(typeof record.thirdPartPayRecordId !== "string" ||
+				!record.thirdPartPayRecordId.trim())) ||
+		(record.thirdPartPayRawResponse !== undefined &&
+			typeof record.thirdPartPayRawResponse !== "string")
+	) {
+		throw new Error("Registration self-pay context is invalid");
+	}
+	return parsed as RegistrationSelfPaySettlementContext;
+}
+
+function serializeRegistrationSelfPayContext(
+	input: RegistrationSelfPaySettlementContext,
+): string {
+	return JSON.stringify(
+		deserializeRegistrationSelfPayContext(JSON.stringify(input)),
+	);
 }
 
 type MedicalInsuranceAuthorizationRow = RowDataPacket & {
@@ -2680,6 +2765,41 @@ export function createMySqlRepositories(
 				await execute<ResultSetHeader>(connection, outbox.sql, outbox.values);
 				return order;
 			});
+		},
+		async saveRegistrationSelfPayContext(ownerUserId, orderId, context) {
+			const result = await execute<ResultSetHeader>(
+				pool,
+				`UPDATE hp_payment_orders
+				 SET registration_self_pay_context_ciphertext = ?, updated_at = NOW(3)
+				 WHERE owner_user_id = ? AND order_id = ?`,
+				[
+					requiredPrepayCipher().seal(
+						serializeRegistrationSelfPayContext(context),
+					),
+					ownerUserId,
+					orderId,
+				],
+			);
+			if (result.affectedRows !== 1) throw new PaymentOrderNotFoundError();
+		},
+		async getRegistrationSelfPayContext(ownerUserId, orderId) {
+			const rows = await execute<
+				(RowDataPacket & {
+					registration_self_pay_context_ciphertext: string | null;
+				})[]
+			>(
+				pool,
+				`SELECT registration_self_pay_context_ciphertext
+				 FROM hp_payment_orders
+				 WHERE owner_user_id = ? AND order_id = ? LIMIT 1`,
+				[ownerUserId, orderId],
+			);
+			const ciphertext = rows[0]?.registration_self_pay_context_ciphertext;
+			return ciphertext
+				? deserializeRegistrationSelfPayContext(
+						requiredPrepayCipher().open(ciphertext),
+					)
+				: undefined;
 		},
 	};
 

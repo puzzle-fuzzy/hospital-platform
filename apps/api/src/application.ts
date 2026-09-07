@@ -13,6 +13,7 @@ import type {
 	PatientDirectoryGateway,
 	PatientProviderAuthorizationGateway,
 	PaymentOrder,
+	RegistrationSelfPayPreparationGateway,
 	RegistrationSelfPaySettlementContext,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
@@ -99,6 +100,8 @@ export type ApplicationServiceOptions = {
 	wechatPaymentGateway?: WechatPaymentGateway;
 	/** 微信自费支付成功后，必须由该网关完成 HIS 回写；未配置时保持 pending。 */
 	hospitalSettlementGateway?: HospitalSettlementGateway;
+	/** 普通挂号自费在微信下单前固定执行 .1 -> .32 -> .2。 */
+	registrationSelfPayPreparationGateway?: RegistrationSelfPayPreparationGateway;
 	/** 只有完成众阳/HIS 合同和真实环境验收后才打开。 */
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 新增或绑定就诊人必须使用独立的查档/建档/绑卡 adapter。 */
@@ -147,11 +150,14 @@ export function selectReadyRepositories(
 }
 
 /**
- * 从同一用户、同一预约的医保订单中取出自费回写所需的最小 Provider 关联事实。
- * 结算上下文由医保 adapter 加密落库；这里不接受客户端字段，也不从平台订单号推导。
+ * 优先从普通自费支付订单密文读取 Provider 关联事实；历史订单才回退到同预约
+ * 医保结算密文。这里不接受客户端字段，也不从平台订单号推导。
  */
 function resolveRegistrationSelfPayContext(
-	repositories: Pick<MySqlRepositories, "medicalInsuranceOrders">,
+	repositories: Pick<
+		MySqlRepositories,
+		"medicalInsuranceOrders" | "paymentOrders"
+	>,
 ) {
 	const contextText = (
 		value: Record<string, unknown>,
@@ -169,9 +175,21 @@ function resolveRegistrationSelfPayContext(
 
 	return async (input: {
 		ownerUserId: string;
+		orderId?: string;
 		appointmentId?: string;
 		medicalOrderId?: string;
 	}): Promise<RegistrationSelfPaySettlementContext | undefined> => {
+		if (
+			input.orderId &&
+			repositories.paymentOrders.getRegistrationSelfPayContext
+		) {
+			const selfPayContext =
+				await repositories.paymentOrders.getRegistrationSelfPayContext(
+					input.ownerUserId,
+					input.orderId,
+				);
+			if (selfPayContext) return selfPayContext;
+		}
 		const medicalOrder = input.medicalOrderId
 			? await repositories.medicalInsuranceOrders.findByMedicalOrderId(
 					input.medicalOrderId,
@@ -267,7 +285,10 @@ function resolveRegistrationSelfPayContext(
  * settlement context。日志只记录长度和哈希，便于排查而不暴露 Provider 报文。
  */
 function persistThirdPartPayResponse(
-	repositories: Pick<MySqlRepositories, "medicalInsuranceOrders">,
+	repositories: Pick<
+		MySqlRepositories,
+		"medicalInsuranceOrders" | "paymentOrders"
+	>,
 	logger?: AppLogger,
 ) {
 	const auditLogger = logger ?? createNoopLogger();
@@ -279,6 +300,37 @@ function persistThirdPartPayResponse(
 		rawResponse: string;
 		thirdPartPayRecordId: string;
 	}): Promise<void> => {
+		let selfPayContextPersisted = false;
+		if (
+			input.registrationContext &&
+			repositories.paymentOrders.saveRegistrationSelfPayContext
+		) {
+			await repositories.paymentOrders.saveRegistrationSelfPayContext(
+				input.ownerUserId,
+				input.paymentOrder.orderId,
+				{
+					...input.registrationContext,
+					thirdPartPayRecordId: input.thirdPartPayRecordId,
+					thirdPartPayRawResponse: input.rawResponse,
+				},
+			);
+			auditLogger.info(
+				{
+					event: "appointment.self-payment.2.27.2.29.persisted",
+					ownerUserId: input.ownerUserId,
+					appointmentId: input.appointmentId,
+					paymentOrderId: input.paymentOrder.orderId,
+					thirdPartPayRecordId: input.thirdPartPayRecordId,
+					rawResponseBytes: new TextEncoder().encode(input.rawResponse)
+						.byteLength,
+					rawResponseSha256: createHash("sha256")
+						.update(input.rawResponse)
+						.digest("hex"),
+				},
+				"Registration self-pay Yunhealth 2.27.2.29 raw response persisted",
+			);
+			selfPayContextPersisted = true;
+		}
 		const medicalOrder =
 			await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
 				input.ownerUserId,
@@ -296,16 +348,18 @@ function persistThirdPartPayResponse(
 			!plugin ||
 			plugin.paymentOrderId !== input.paymentOrder.orderId
 		) {
-			auditLogger.warn(
-				{
-					event: "medical-insurance.plugin.2.27.2.29.storage-skipped",
-					ownerUserId: input.ownerUserId,
-					appointmentId: input.appointmentId,
-					paymentOrderId: input.paymentOrder.orderId,
-					reason: "plugin-context-missing-or-mismatched",
-				},
-				"Medical insurance Yunhealth 2.27.2.29 response was not persisted",
-			);
+			if (!selfPayContextPersisted) {
+				auditLogger.warn(
+					{
+						event: "medical-insurance.plugin.2.27.2.29.storage-skipped",
+						ownerUserId: input.ownerUserId,
+						appointmentId: input.appointmentId,
+						paymentOrderId: input.paymentOrder.orderId,
+						reason: "plugin-context-missing-or-mismatched",
+					},
+					"Medical insurance Yunhealth 2.27.2.29 response was not persisted",
+				);
+			}
 			return;
 		}
 		await repositories.medicalInsuranceOrders.saveSettlementContext(
@@ -451,7 +505,20 @@ export function createDefaultApplicationServices(
 		wechatPrepay: registrationWechatPrepay,
 		hospitalSettlement:
 			options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
+		preparation:
+			options.registrationSelfPayPreparationGateway ??
+			gateways.registrationSelfPayPreparation,
 		resolveRegistrationContext: resolveRegistrationSelfPayContext(repositories),
+		saveRegistrationContext: async (input) => {
+			if (!repositories.paymentOrders.saveRegistrationSelfPayContext) {
+				throw new DependencyNotConfiguredError("payment-orders");
+			}
+			await repositories.paymentOrders.saveRegistrationSelfPayContext(
+				input.ownerUserId,
+				input.orderId,
+				input.registrationContext,
+			);
+		},
 		onThirdPartPayResponse: persistThirdPartPayResponse(
 			repositories,
 			options.logger,

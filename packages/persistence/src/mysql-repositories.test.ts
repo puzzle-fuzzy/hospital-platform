@@ -249,6 +249,51 @@ test("MySQL order insert commits order and outbox in one transaction", async () 
 	expect(state.values[1]?.[5]).toBe("2026-08-15 00:00:00.000");
 });
 
+test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回", async () => {
+	const { pool, state } = createFakePool([{ affectedRows: 1 }]);
+	const repositories = createMySqlRepositories(pool, {
+		prepayCipher: createAesGcmSecretValueCipher(
+			Buffer.alloc(32, 7).toString("base64"),
+		),
+	});
+	const context = {
+		businessId: "1952638941030000001",
+		businessCode: "REG-20260907-001",
+		payingId: "1952638941030000002",
+		tradingId: "1952638941030000003",
+		hospitalId: "10389001",
+		patientId: "1952638941030000200",
+		certNo: "11010519900101007X",
+		psnCertType: "01",
+		psnName: "测试患者",
+		psnNo: "P000001",
+		patInHosId: "0",
+		outTradeNo: "payment-order-new-001",
+		recordCode: "0123456789abcdef0123456789abcdef",
+		payTypeId: "50",
+		payType: "CREDIT" as const,
+		workStationId: "",
+	};
+	const save = repositories.paymentOrders.saveRegistrationSelfPayContext;
+	const read = repositories.paymentOrders.getRegistrationSelfPayContext;
+	if (!save || !read)
+		throw new Error("self-pay context repository unavailable");
+
+	await save("user-001", "payment-order-new-001", context);
+	const ciphertext = String(state.values[0]?.[0]);
+	expect(ciphertext).not.toContain(context.certNo);
+	expect(state.statements[0]).toContain(
+		"registration_self_pay_context_ciphertext",
+	);
+	state.responses.push([
+		{ registration_self_pay_context_ciphertext: ciphertext },
+	]);
+	await expect(read("user-001", "payment-order-new-001")).resolves.toEqual(
+		context,
+	);
+	expect(state.values[1]).toEqual(["user-001", "payment-order-new-001"]);
+});
+
 test("MySQL patient directory upsert stores provider mapping but returns internal id", async () => {
 	const { pool, state } = createFakePool([[], { affectedRows: 1 }]);
 	const repositories = createMySqlRepositories(pool);

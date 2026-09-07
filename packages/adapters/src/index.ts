@@ -69,12 +69,6 @@ export {
 	type LegacyFsiMedicalInsuranceGatewayOptions,
 } from "./legacy-fsi-medical-insurance";
 export {
-	createYunhealthRegistrationPluginPaymentGateway,
-	createYunhealthRegistrationSettlementGateway,
-	type YunhealthRegistrationPluginPayType,
-	type YunhealthRegistrationSettlementGatewayOptions,
-} from "./yunhealth-registration-settlement";
-export {
 	createLegacyFsiMedicalInsuranceQueryGateway,
 	LegacyFsiMedicalInsuranceQueryContextUnavailableError,
 	type LegacyFsiMedicalInsuranceQueryGateway,
@@ -95,6 +89,11 @@ export {
 	type SmCryptoLegacyFsiConfig,
 } from "./legacy-fsi-sm-crypto";
 export {
+	createLegacyHospitalPatientAuthGateway,
+	LegacyHospitalPatientAuthApiGateway,
+	type LegacyHospitalPatientAuthGatewayOptions,
+} from "./legacy-hospital-auth";
+export {
 	createNotConfiguredGateways,
 	type NotConfiguredGateways,
 } from "./not-configured";
@@ -108,13 +107,13 @@ export {
 	type WechatIdentityGatewayOptions,
 } from "./wechat-identity";
 export {
-	createWechatPaymentGateway,
 	createWechatMedicalInsuranceNotificationDecoder,
+	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
 	mapWechatPaymentNotification,
 	verifyAndDecryptWechatPaymentNotification,
-	type WechatMedicalInsuranceOptions,
 	type WechatMedicalInsuranceNotification,
+	type WechatMedicalInsuranceOptions,
 	WechatPaymentApiGateway,
 	type WechatPaymentGatewayOptions,
 	type WechatPaymentNotification,
@@ -122,16 +121,18 @@ export {
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
 export {
+	createYunhealthRegistrationPluginPaymentGateway,
+	createYunhealthRegistrationSelfPayPreparationGateway,
+	createYunhealthRegistrationSettlementGateway,
+	type YunhealthRegistrationPluginPayType,
+	type YunhealthRegistrationSettlementGatewayOptions,
+} from "./yunhealth-registration-settlement";
+export {
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
 	ZhongyangAppointmentPatientProfileGateway,
 	ZhongyangAppointmentWriteApiGateway,
 } from "./zhongyang-appointment-writes";
-export {
-	createLegacyHospitalPatientAuthGateway,
-	LegacyHospitalPatientAuthApiGateway,
-	type LegacyHospitalPatientAuthGatewayOptions,
-} from "./legacy-hospital-auth";
 export {
 	createZhongyangAppointmentGateway,
 	ZhongyangAppointmentApiGateway,

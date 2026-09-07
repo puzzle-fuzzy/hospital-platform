@@ -9,6 +9,7 @@ import {
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
 	createYunhealthRegistrationPluginPaymentGateway,
+	createYunhealthRegistrationSelfPayPreparationGateway,
 	createYunhealthRegistrationSettlementGateway,
 	createZhongyangAppointmentGateway,
 	createZhongyangAppointmentPatientProfileGateway,
@@ -279,6 +280,25 @@ const hospitalSettlementGateway =
 				logger,
 			})
 		: undefined;
+const registrationSelfPayPreparationGateway =
+	yunhealthRegistrationSettlementStatus === "configured"
+		? createYunhealthRegistrationSelfPayPreparationGateway({
+				baseUrl: config.yunhealthBaseUrl ?? "",
+				authorizationToken: config.yunhealthAuthorizationToken ?? "",
+				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
+				hospitalId: config.medicalInsuranceHospitalId,
+				pluginPayTypeId: config.yunhealthRegistrationPluginPayTypeId ?? "",
+				pluginPayType: (config.yunhealthRegistrationPluginPayType ?? "") as
+					| "CREDIT"
+					| "POS"
+					| "CROWD_FUNDING",
+				workStationId: config.yunhealthRegistrationWorkStationId ?? "",
+				paymentSource: config.yunhealthRegistrationPaymentSource,
+				authSysCode: config.yunhealthRegistrationAuthSysCode,
+				tradeTypeCode: config.yunhealthRegistrationTradeTypeCode,
+				logger,
+			})
+		: undefined;
 const yunhealthRegistrationPluginPaymentGateway =
 	yunhealthRegistrationSettlementStatus === "configured"
 		? createYunhealthRegistrationPluginPaymentGateway({
@@ -462,6 +482,9 @@ const services = createDefaultApplicationServices({
 	...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
 	...(medicalInsuranceGateway ? { medicalInsuranceGateway } : {}),
 	...(hospitalSettlementGateway ? { hospitalSettlementGateway } : {}),
+	...(registrationSelfPayPreparationGateway
+		? { registrationSelfPayPreparationGateway }
+		: {}),
 	...(yunhealthRegistrationPluginPaymentGateway
 		? {
 				yunhealthRegistrationPluginPaymentGateway,
@@ -617,6 +640,9 @@ logger.info(
 		yunhealthRegistrationSettlementConfiguration:
 			yunhealthRegistrationSettlementStatus,
 		yunhealthRegistrationSettlementRuntime: hospitalSettlementGateway
+			? "enabled"
+			: "fail_closed",
+		registrationSelfPayPreparationRuntime: registrationSelfPayPreparationGateway
 			? "enabled"
 			: "fail_closed",
 		yunhealthRegistrationPluginPaymentRuntime:

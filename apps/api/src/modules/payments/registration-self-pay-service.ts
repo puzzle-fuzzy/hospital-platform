@@ -5,6 +5,7 @@ import {
 	type PaymentOrder,
 	PaymentOrderInputError,
 	type PaymentOrderService,
+	type RegistrationSelfPayPreparationGateway,
 	type RegistrationSelfPaySettlementContext,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -17,11 +18,20 @@ export type RegistrationSelfPayServiceDependencies = {
 	wechatPrepay: WechatPrepayService;
 	/** 微信已确认收款后，必须经过 HIS 回写才能进入 completed。 */
 	hospitalSettlement: HospitalSettlementGateway;
-	/** 从同一预约的已落库医保结算上下文解析 Provider 关联键。 */
+	/** 微信下单前固定完成众阳 .1 -> .32 -> .2，并返回同一笔流水上下文。 */
+	preparation: RegistrationSelfPayPreparationGateway;
+	/** 优先读取普通自费密文上下文；仅为历史订单兼容同预约医保上下文。 */
 	resolveRegistrationContext?: (input: {
 		ownerUserId: string;
 		appointmentId: string;
+		orderId: string;
 	}) => Promise<RegistrationSelfPaySettlementContext | undefined>;
+	/** Provider 前置成功后必须先加密落库，随后才允许创建微信订单。 */
+	saveRegistrationContext: (input: {
+		ownerUserId: string;
+		orderId: string;
+		registrationContext: RegistrationSelfPaySettlementContext;
+	}) => Promise<void>;
 	/** .29 成功后的完整响应交给医保密文上下文保存，不参与支付状态判断。 */
 	onThirdPartPayResponse?: (input: {
 		ownerUserId: string;
@@ -67,6 +77,10 @@ export function registrationSelfPayOrderKey(appointmentId: string): string {
 
 function prepayKey(appointmentId: string): string {
 	return `registration-self-pay-prepay:${appointmentId}`;
+}
+
+function preparationKey(orderId: string): string {
+	return `registration-self-pay-provider-prepare:${orderId}`;
 }
 
 function settlementKey(orderId: string): string {
@@ -130,6 +144,7 @@ export class RegistrationSelfPayService {
 				? await this.dependencies.resolveRegistrationContext({
 						ownerUserId,
 						appointmentId,
+						orderId: order.orderId,
 					})
 				: undefined;
 			if (
@@ -274,6 +289,54 @@ export class RegistrationSelfPayService {
 		}
 		if (order.state === "failed")
 			return output(appointment.appointmentId, order, "failed");
+
+		let registrationContext = this.dependencies.resolveRegistrationContext
+			? await this.dependencies.resolveRegistrationContext({
+					ownerUserId,
+					appointmentId: appointment.appointmentId,
+					orderId: order.orderId,
+				})
+			: undefined;
+		if (!registrationContext) {
+			const provider =
+				await this.dependencies.appointments.getProviderPaymentContext(
+					ownerUserId,
+					appointment.appointmentId,
+					context,
+				);
+			const prepared = await this.dependencies.preparation.prepare(
+				{
+					orderId: order.orderId,
+					totalFen: order.amounts.totalFen,
+					providerRegisterId: provider.providerRegisterId,
+					providerPatientId: provider.providerPatientId,
+					patient: provider.patient,
+				},
+				{
+					...context,
+					idempotencyKey: preparationKey(order.orderId),
+				},
+			);
+			registrationContext = prepared.registrationContext;
+			await this.dependencies.saveRegistrationContext({
+				ownerUserId,
+				orderId: order.orderId,
+				registrationContext,
+			});
+			this.logger.info(
+				{
+					event: "appointment.self-payment.provider-preparation-succeeded",
+					ownerUserId,
+					appointmentId: appointment.appointmentId,
+					orderId: order.orderId,
+					provider: prepared.trace.provider,
+					providerRequestIds: prepared.trace.requestIds ?? [
+						prepared.trace.requestId,
+					],
+				},
+				"Registration self-pay provider preparation succeeded",
+			);
+		}
 		const prepay = await this.dependencies.wechatPrepay.create({
 			ownerUserId,
 			orderId: order.orderId,

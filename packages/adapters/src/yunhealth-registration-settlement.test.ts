@@ -3,6 +3,7 @@ import { ProviderRequestError } from "./errors";
 import type { ProviderFetcher } from "./http";
 import {
 	createYunhealthRegistrationPluginPaymentGateway,
+	createYunhealthRegistrationSelfPayPreparationGateway,
 	createYunhealthRegistrationSettlementGateway,
 } from "./yunhealth-registration-settlement";
 
@@ -231,14 +232,14 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 	).toBeTrue();
 	expect(requests[0]?.body).toMatchObject({
 		agreementNo: "payment-order-001",
-		patId: 100001,
+		patId: "100001",
 		patInHosId: 0,
 		payFee: 12.34,
 		payType: "CREDIT",
 		payTypeId: 50,
-		payingId: 260650000000001,
+		payingId: "260650000000001",
 		settleId: "settlement-business-001",
-		tradingId: 260650000000002,
+		tradingId: "260650000000002",
 	});
 	const notifyBody = requests[1]?.body;
 	const requestParam = JSON.parse(String(notifyBody?.requestParam)) as {
@@ -249,7 +250,7 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 		payingType: "1",
 		recordList: [
 			{
-				payingId: 260650000000001,
+				payingId: "260650000000001",
 				payTypeId: 50,
 				receiveAmount: 12.34,
 				recordCode: expect.stringMatching(/^[a-f0-9]{32}$/u),
@@ -285,6 +286,118 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 		],
 		providerOrderId: "settlement-business-001",
 	});
+});
+
+test("普通挂号自费在微信前严格执行 .1 -> .32 -> .2 并保留大整数流水", async () => {
+	const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+	const responses = [
+		{
+			success: true,
+			data: {
+				businessId: "1952638941030000001",
+				businessCode: "REG-20260907-001",
+				getAmount: 10,
+				outSettle: {
+					hisCreateTime: "2026-09-07 20:23:00",
+					outSettleDetailList: [
+						{
+							amount: 10,
+							chargeId: "101",
+							itemName: "挂号费",
+							outSettleDetailSubId: "201",
+							outTradeOrderId: "301",
+							price: 10,
+							quantity: 1,
+							selfBurdenRatio: 1,
+						},
+					],
+				},
+			},
+		},
+		{ success: true, data: { insur: "SUCCESS", settle: "SUCCESS" } },
+		{
+			success: true,
+			data: {
+				payRecord: {
+					payingId: "1952638941030000002",
+					tradingId: "1952638941030000003",
+				},
+			},
+		},
+	];
+	let call = 0;
+	const preparation = createYunhealthRegistrationSelfPayPreparationGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "",
+		paymentOrgId: "10756",
+		hospitalId: "10389001",
+		pluginPayTypeId: "50",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		tradeTypeCode: "10",
+		fetcher: async (request, init) => {
+			requests.push({
+				path: new URL(String(request)).pathname,
+				body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+			});
+			const body = responses[call];
+			call += 1;
+			return new Response(JSON.stringify(body), {
+				status: 200,
+				headers: { "x-request-id": `prepare-${call}` },
+			});
+		},
+	});
+
+	const result = await preparation.prepare(
+		{
+			orderId: "payment-order-prepare-001",
+			totalFen: 1000,
+			providerRegisterId: "1952638941030000100",
+			providerPatientId: "1952638941030000200",
+			patient: {
+				name: "测试患者",
+				cardNo: "P000001",
+				idNo: "11010519900101007X",
+			},
+		},
+		context,
+	);
+
+	expect(requests.map((request) => request.path)).toEqual([
+		"/msun-middle-open-settlepay/api/v2/open/settle/apply-pay-settle",
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/pre-order",
+	]);
+	expect(requests[0]?.body).toMatchObject({
+		patId: "1952638941030000200",
+		requestParam: {
+			registerId: "1952638941030000100",
+			registerSource: 15,
+			settleWay: 6,
+		},
+	});
+	expect(requests[1]?.body).toMatchObject({
+		outSettleMainId: "1952638941030000001",
+		patId: "1952638941030000200",
+		tradingId: "0",
+		outNetworkSettleMain: {
+			transId: "0",
+		},
+	});
+	expect(result.registrationContext).toMatchObject({
+		businessId: "1952638941030000001",
+		businessCode: "REG-20260907-001",
+		payingId: "1952638941030000002",
+		tradingId: "1952638941030000003",
+		patientId: "1952638941030000200",
+		outTradeNo: "payment-order-prepare-001",
+	});
+	expect(result.trace.requestIds).toEqual([
+		"prepare-1",
+		"prepare-2",
+		"prepare-3",
+	]);
 });
 
 test("云健康 .29 缺少 thirdPartPayRecordId 时停止后续 HIS 回写", async () => {

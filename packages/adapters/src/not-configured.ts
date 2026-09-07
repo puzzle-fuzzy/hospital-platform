@@ -1,8 +1,8 @@
 import type {
 	AppointmentDepartmentTreeGateway,
 	AppointmentDirectoryGateway,
-	AppointmentRecordDirectoryGateway,
 	AppointmentPatientProfileGateway,
+	AppointmentRecordDirectoryGateway,
 	AppointmentWriteGateway,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
@@ -10,6 +10,7 @@ import type {
 	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	PatientDirectoryGateway,
+	RegistrationSelfPayPreparationGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
@@ -46,6 +47,7 @@ export type NotConfiguredGateways = {
 	wechatPayment: WechatPaymentGateway;
 	medicalInsuranceWechatPayment: MedicalInsuranceWechatPaymentGateway;
 	hospitalSettlement: HospitalSettlementGateway;
+	registrationSelfPayPreparation: RegistrationSelfPayPreparationGateway;
 	yunhealthRegistrationPluginPayment: YunhealthRegistrationPluginPaymentGateway;
 };
 
@@ -102,6 +104,10 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const hospitalSettlement: HospitalSettlementGateway = {
 		writeBack: async (_input, _context) => unavailable("yunhealth"),
 	};
+	const registrationSelfPayPreparation: RegistrationSelfPayPreparationGateway =
+		{
+			prepare: async (_input, _context) => unavailable("yunhealth"),
+		};
 	const yunhealthRegistrationPluginPayment: YunhealthRegistrationPluginPaymentGateway =
 		{
 			createPreOrder: async (_input, _context) => unavailable("yunhealth"),
@@ -126,6 +132,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		wechatPayment,
 		medicalInsuranceWechatPayment,
 		hospitalSettlement,
+		registrationSelfPayPreparation,
 		yunhealthRegistrationPluginPayment,
 	};
 }
