@@ -361,7 +361,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		patientNavigationTimers.set(this, navigationTimer);
 	},
 
-	/** 进入原生实名资料表单；提交结果仍由服务端 gate 和 Provider 合同决定。 */
+	/** 患者绑定 contract 未完成时进入统一状态页，避免在不可用服务中采集实名资料。 */
 	onAddPatient(): void {
 		navigateToFeatureEntry("patient-binding");
 	},
