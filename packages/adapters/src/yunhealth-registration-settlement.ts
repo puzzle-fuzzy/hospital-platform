@@ -32,8 +32,8 @@ export type YunhealthRegistrationPluginPayType =
 export type YunhealthRegistrationSettlementGatewayOptions = {
 	/** 云健康/众阳共享上游地址，必须是 HTTPS 且只来自服务端配置。 */
 	baseUrl: string;
-	/** 不得从小程序请求传入；支持原始 token 或完整 Bearer 值。 */
-	authorizationToken: string;
+	/** 不得从小程序请求传入；支持原始 token 或完整 Bearer 值。旧服务允许为空。 */
+	authorizationToken?: string;
 	/** 2.6.65.15 orgId，必须是正整数文本。 */
 	paymentOrgId: string;
 	/** 旧服务已确认的插件 payTypeId，必须是正整数文本。 */
@@ -185,8 +185,11 @@ function nonNegativeInteger(value: unknown, label: string): number {
 	return parsed;
 }
 
-function normalizedAuthorization(value: string): string {
-	const token = requiredText(value, "authorizationToken");
+function normalizedAuthorization(
+	value: string | undefined,
+): string | undefined {
+	const token = value?.trim();
+	if (!token) return undefined;
 	return token.toLowerCase().startsWith("bearer ") ? token : `Bearer ${token}`;
 }
 
@@ -488,7 +491,9 @@ export function createYunhealthRegistrationSettlementGateway(
 							...context,
 							idempotencyKey: stableStepIdempotencyKey(step, outTradeNo),
 						},
-						headers: { Authorization: authorization },
+						...(authorization
+							? { headers: { Authorization: authorization } }
+							: {}),
 						body,
 						...(captureRawBody ? { captureRawBody: true } : {}),
 						...(options.logger ? { logger: options.logger } : {}),
@@ -681,7 +686,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			const businessId = requiredText(input.businessId, "businessId");
 			const tradeCode = requiredText(input.tradeCode, "tradeCode");
 			const hospitalId = positiveInteger(input.hospitalId, "hospitalId");
-			const patientId = positiveInteger(input.patientId, "patientId");
+			positiveInteger(input.patientId, "patientId");
 			const totalFen = positiveInteger(input.totalFen, "totalFen");
 			const recordCode = requiredText(input.recordCode, "recordCode", 32);
 			if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
@@ -731,7 +736,9 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 							orderId,
 						),
 					},
-					headers: { Authorization: authorization },
+					...(authorization
+						? { headers: { Authorization: authorization } }
+						: {}),
 					body: {
 						appCode: "WeChatSmallProg",
 						authSysCode,

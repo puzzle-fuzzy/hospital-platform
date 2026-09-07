@@ -126,6 +126,50 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 	});
 });
 
+test("旧服务允许 Token 为空时云健康请求不发送授权头", async () => {
+	let headers: Headers | undefined;
+	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "",
+		paymentOrgId: "10756",
+		pluginPayTypeId: "50",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		fetcher: async (_input, init) => {
+			headers = new Headers(init?.headers);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: { payingId: 500001, tradingId: 500002 },
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "yunhealth-plugin-no-auth" },
+				},
+			);
+		},
+	});
+
+	await gatewayInstance.createPreOrder(
+		{
+			orderId: "medical-order-no-auth",
+			businessId: "settlement-business-001",
+			tradeCode: "REGISTRATION-001",
+			totalFen: 1234,
+			hospitalId: "10389001",
+			patientId: "100001",
+			payTypeId: "50",
+			payType: "CREDIT",
+			workStationId: "",
+			recordCode: "0123456789abcdef0123456789abcdef",
+			tradeTypeCode: "10",
+		},
+		context,
+	);
+
+	expect(headers?.get("authorization")).toBeNull();
+});
+
 test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算确认", async () => {
 	const requests: Array<{
 		path: string;

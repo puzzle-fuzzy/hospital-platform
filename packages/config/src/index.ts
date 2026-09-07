@@ -425,8 +425,8 @@ export function medicalInsuranceConfigurationStatus(
 
 /**
  * 旧服务挂号自费回写必须独立于医保 6201/6202 gate；它只在显式打开时
- * 要求云健康 .29/.15/.5 的完整配置。任何半配置都不安装 adapter，避免
- * 微信已收款后把不完整报文发到 HIS。
+ * 要求云健康 .29/.15/.5 的完整业务配置；授权 Token 沿用旧服务，可为空。
+ * 任何半配置都不安装 adapter，避免微信已收款后把不完整报文发到 HIS。
  */
 export function yunhealthRegistrationSettlementConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
@@ -434,10 +434,6 @@ export function yunhealthRegistrationSettlementConfigurationMissingFields(
 	if (!runtimeConfig.yunhealthRegistrationSettlementReady) return [];
 	const missing = missingRuntimeFields([
 		{ name: "YUNHEALTH_BASE_URL", value: runtimeConfig.yunhealthBaseUrl },
-		{
-			name: "YUNHEALTH_AUTH_TOKEN",
-			value: runtimeConfig.yunhealthAuthorizationToken,
-		},
 		{
 			name: "YUNHEALTH_PAYMENT_ORG_ID",
 			value: runtimeConfig.yunhealthPaymentOrgId,
