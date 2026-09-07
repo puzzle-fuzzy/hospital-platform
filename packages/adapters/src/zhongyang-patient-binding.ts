@@ -228,6 +228,7 @@ export class ZhongyangPatientBindingApiGateway
 		let patient = patientReference(archive.data, archiveResponse.requestId);
 		let created = false;
 		let createRequestId: string | undefined;
+		let cardNo = identityNumber;
 		if (!patient) {
 			const createResponse = await requestJson<unknown>(
 				{
@@ -256,6 +257,7 @@ export class ZhongyangPatientBindingApiGateway
 				successfulEnvelope(createResponse.data, createResponse.requestId).data,
 				createResponse.requestId,
 			);
+			cardNo = patient.cardNo;
 			created = true;
 		}
 		const bindResponse = await requestJson<unknown>(
@@ -266,7 +268,7 @@ export class ZhongyangPatientBindingApiGateway
 				method: "POST",
 				context,
 				...(headers ? { headers } : {}),
-				body: { patId: patient.patId, cardNo: patient.cardNo },
+				body: { patId: patient.patId, cardNo },
 			},
 			this.fetcher,
 		);
