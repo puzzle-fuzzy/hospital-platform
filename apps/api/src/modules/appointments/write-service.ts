@@ -311,9 +311,14 @@ export class AppointmentWriteService {
 			owner,
 			appointment,
 		);
-		if (registration?.status !== "booked" || !registration.providerRegisterId) {
+		if (registration?.status !== "booked") {
 			throw new AppointmentRegistrationNotFoundError();
 		}
+		// 高平众阳的预约创建响应可能只返回 hisRegisterId，不返回 registerId；
+		// 旧服务同样按 registerId || hisRegisterId 传给 2.6.65.1。
+		const providerRegisterId =
+			registration.providerRegisterId ?? registration.providerHisRegisterId;
+		if (!providerRegisterId) throw new AppointmentRegistrationNotFoundError();
 		const { profile } = await this.patientContext(
 			owner,
 			registration.patientId,
@@ -325,7 +330,7 @@ export class AppointmentWriteService {
 			);
 		}
 		return {
-			providerRegisterId: registration.providerRegisterId,
+			providerRegisterId,
 			providerPatientId: registration.providerPatientId,
 			patient: {
 				name: profile.name,
