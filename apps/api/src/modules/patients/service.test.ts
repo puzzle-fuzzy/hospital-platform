@@ -1127,7 +1127,7 @@ test("患者目录旧租约晚返回时记录过期事件且不能覆盖新快�
 	).toBe(false);
 });
 
-test("患者目录 provider 失败后只在租约到期才允许同 key 接管重试", async () => {
+test("患者目录 provider 失败后立即释放租约并允许同 key 重试", async () => {
 	const identityUsers = createInMemoryIdentityUserRepository();
 	await identityUsers.findOrCreateByWechat({
 		providerSubject: "fixture-openid-patient-retry",
@@ -1165,10 +1165,6 @@ test("患者目录 provider 失败后只在租约到期才允许同 key 接管�
 	await expect(service.sync("fixture-user-0001", context)).rejects.toThrow(
 		"fixture provider timeout",
 	);
-	await expect(
-		service.sync("fixture-user-0001", context),
-	).rejects.toBeInstanceOf(PatientDirectorySyncInProgressError);
-	now = new Date("2026-08-16T00:00:01.001Z");
 	await expect(
 		service.sync("fixture-user-0001", context),
 	).resolves.toMatchObject({

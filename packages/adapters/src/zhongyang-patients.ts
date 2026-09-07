@@ -561,18 +561,17 @@ function optionalArchiveCardText(
 }
 
 /**
- * 档案主键 `patId` 必须严格保持 Provider contract 的字符串形态。
- *
- * 目录接口的 `thirdPatientId` 在旧端类型中可能是安全整数，因此目录层可以
- * 对安全整数做无损字符串化；但 `patInfosFind.data.patId` 是预约、报告和
- * 门诊费用共用的临床档案引用，当前已确认的返回类型是字符串。这里不能
- * 复用允许数字的 `requiredText`，也不能把错误的 JSON number 当成“兼容成功”，
- * 否则后续业务会把 Provider schema 漂移隐藏在有效的 `his-patient` 映射中。
+ * 档案主键 `patId` 在众阳实际响应中可能是 JSON integer，旧服务也会
+ * `String(archives.patId)` 后继续使用。先限制为安全整数或非空字符串，再
+ * 统一成字符串，避免把 JSON number 的精度问题带入 HIS 患者引用。
  */
 function requiredArchivePatientId(value: unknown, requestId: string): string {
-	if (typeof value !== "string") {
+	if (
+		typeof value !== "string" &&
+		!(typeof value === "number" && Number.isSafeInteger(value))
+	) {
 		throw providerError(
-			"Zhongyang patient archive patId must be a string",
+			"Zhongyang patient archive patId is invalid",
 			requestId,
 			"patient-archive",
 			true,

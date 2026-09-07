@@ -21,7 +21,7 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 				return new Response(
 					JSON.stringify({
 						success: true,
-						data: { patId: "his-patient-001" },
+						data: { patId: 10001 },
 					}),
 					{ status: 200, headers: { "x-request-id": "archive-request-001" } },
 				);
@@ -65,7 +65,7 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 				displayName: "张三",
 				relationship: "self",
 				cardNumberMasked: "12345*7890",
-				providerReferences: { "his-patient": "his-patient-001" },
+				providerReferences: { "his-patient": "10001" },
 			},
 		],
 		trace: {
@@ -860,7 +860,7 @@ test("众阳档案卡片的患者引用与顶层 patId 不一致时拒绝绑定"
 	});
 });
 
-test("众阳档案响应拒绝数字 patId，避免放宽临床引用 contract", async () => {
+test("众阳档案响应将安全整数 patId 规范化为临床引用字符串", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",
 		fetcher: async (input) => {
@@ -869,8 +869,6 @@ test("众阳档案响应拒绝数字 patId，避免放宽临床引用 contract",
 				return new Response(
 					JSON.stringify({
 						success: true,
-						// 即使数字没有超出安全整数，也不能把错误的 Provider
-						// schema 转换成有效的临床档案引用。
 						data: { patId: 12345678 },
 					}),
 					{ status: 200, headers: { "x-request-id": "archive-unsafe-001" } },
@@ -894,11 +892,8 @@ test("众阳档案响应拒绝数字 patId，避免放宽临床引用 contract",
 
 	await expect(
 		gateway.listByIdentity({ unionId: "union-unsafe-001" }, context),
-	).rejects.toMatchObject({
-		name: "ProviderRequestError",
-		operation: "patient-archive",
-		requestId: "archive-unsafe-001",
-		responseInvalid: true,
+	).resolves.toMatchObject({
+		patients: [{ providerReferences: { "his-patient": "12345678" } }],
 	});
 });
 
