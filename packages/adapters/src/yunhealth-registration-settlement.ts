@@ -874,10 +874,10 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 			)
 				? settleDetailsData.outSettleDetailList
 				: [];
-			if (!settleMain || settleDetailList.length === 0) {
+			if (settleDetailList.length === 0) {
 				throw providerError(
 					settleDetailsOperation,
-					"2.27.2.27 did not return a settlement main record and fee details",
+					"2.27.2.27 did not return fee details",
 					{
 						requestId: settleDetails.requestId,
 						failureStage: "response",
@@ -895,7 +895,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 					businessId,
 					patId: providerPatientId,
 					detailCount: settleDetailList.length,
-					hasOutNetworkSettleMain: true,
+					hasOutNetworkSettleMain: Boolean(settleMain),
 				},
 				"Registration self-pay settlement details fetched",
 			);

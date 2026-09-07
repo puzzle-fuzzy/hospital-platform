@@ -322,7 +322,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		{
 			success: true,
 			data: {
-				outNetworkSettleMain: { amount: 10, medAmountBz: 0 },
+				outNetworkSettleMain: null,
 				outSettleDetailList: [{ amount: 10 }],
 			},
 		},
