@@ -63,6 +63,9 @@ const patientNavigationTimers = new WeakMap<
 	ReturnType<typeof setTimeout>
 >();
 
+/** 从新增就诊人页返回时，下一轮 onShow 必须重新访问医院目录。 */
+const patientBindingReturnPending = new WeakSet<object>();
+
 /**
  * 选择页当前列表所属的会话代际。
  *
@@ -202,9 +205,17 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			return;
 		}
 
+		const shouldSyncAfterBinding = patientBindingReturnPending.delete(this);
 		// loadPatientList 会把 loading 置为 true，使旧列表在请求期间不再
 		// 进入 WXML；这里提前清空，避免 setData 尚未完成时出现旧卡片闪现。
 		this.clearDisplayedPatientDirectory();
+		if (shouldSyncAfterBinding) {
+			// 新增页返回是一次明确的写入后刷新，不是普通的页面曝光；
+			// 这里必须走 Provider 同步，不能只读刚才可能尚未更新的本地快照。
+			this.setData({ loading: false });
+			void this.onSyncPatients();
+			return;
+		}
 		void this.loadPatientList();
 	},
 
@@ -363,6 +374,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 患者绑定 contract 未完成时进入统一状态页，避免在不可用服务中采集实名资料。 */
 	onAddPatient(): void {
+		patientBindingReturnPending.add(this);
 		navigateToFeatureEntry("patient-binding");
 	},
 
@@ -480,6 +492,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		const navigationTimer = patientNavigationTimers.get(this);
 		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
 		patientNavigationTimers.delete(this);
+		patientBindingReturnPending.delete(this);
 		patientSelectionSessionGenerations.delete(this);
 		disposePageSessionResetListener(this);
 		disposePageInstance(this);
