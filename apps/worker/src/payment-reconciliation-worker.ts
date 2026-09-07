@@ -294,7 +294,9 @@ export class PaymentReconciliationWorker {
 		const context = {
 			traceId: `wechat-query:${attempt.attemptId}:${attempt.queryAttempts + 1}`,
 			// 查单幂等键跨 worker 重启保持不变；GET 查询也需要可关联的调用上下文。
-			idempotencyKey: `wechat-query:${attempt.attemptId}`,
+			// 同时保留下单时的业务前缀，便于独立模式移动医疗支付和 APIv3
+			// 在同一个补偿 worker 中按订单路线查单。
+			idempotencyKey: attempt.idempotencyKey,
 		};
 
 		try {

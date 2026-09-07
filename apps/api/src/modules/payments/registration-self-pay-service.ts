@@ -22,6 +22,15 @@ export type RegistrationSelfPayServiceDependencies = {
 		ownerUserId: string;
 		appointmentId: string;
 	}) => Promise<RegistrationSelfPaySettlementContext | undefined>;
+	/** .29 成功后的完整响应交给医保密文上下文保存，不参与支付状态判断。 */
+	onThirdPartPayResponse?: (input: {
+		ownerUserId: string;
+		appointmentId: string;
+		paymentOrder: PaymentOrder;
+		registrationContext?: RegistrationSelfPaySettlementContext;
+		rawResponse: string;
+		thirdPartPayRecordId: string;
+	}) => Promise<void>;
 	logger?: AppLogger;
 };
 
@@ -150,6 +159,22 @@ export class RegistrationSelfPayService {
 						trace: [],
 					},
 					...(registrationContext ? { registrationContext } : {}),
+					...(this.dependencies.onThirdPartPayResponse
+						? {
+								onThirdPartPayResponse: (response: {
+									rawResponse: string;
+									thirdPartPayRecordId: string;
+								}) =>
+									this.dependencies.onThirdPartPayResponse?.({
+										ownerUserId,
+										appointmentId,
+										paymentOrder: order,
+										...(registrationContext ? { registrationContext } : {}),
+										rawResponse: response.rawResponse,
+										thirdPartPayRecordId: response.thirdPartPayRecordId,
+									}),
+							}
+						: {}),
 				},
 				{
 					...context,
@@ -252,6 +277,15 @@ export class RegistrationSelfPayService {
 		const prepay = await this.dependencies.wechatPrepay.create({
 			ownerUserId,
 			orderId: order.orderId,
+			paymentContext: {
+				orderType: "RegPay",
+				// v4.0 的 serial_no 是 HIS 订单号；优先使用众阳返回的
+				// HIS 挂号流水，其次使用挂号流水，不能把排班号当 HIS 订单号。
+				serialNo:
+					appointment.providerHisRegisterId ??
+					appointment.providerRegisterId ??
+					order.orderId,
+			},
 			context: {
 				traceId: context.traceId,
 				idempotencyKey: prepayKey(appointment.appointmentId),

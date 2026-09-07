@@ -109,10 +109,12 @@ export {
 } from "./wechat-identity";
 export {
 	createWechatPaymentGateway,
+	createWechatMedicalInsuranceNotificationDecoder,
 	createWechatPaymentNotificationDecoder,
 	mapWechatPaymentNotification,
 	verifyAndDecryptWechatPaymentNotification,
 	type WechatMedicalInsuranceOptions,
+	type WechatMedicalInsuranceNotification,
 	WechatPaymentApiGateway,
 	type WechatPaymentGatewayOptions,
 	type WechatPaymentNotification,

@@ -135,6 +135,33 @@ test("runtime config reads legacy Zhongyang variable names during migration", ()
 	expect(config.zhongyangAuthorizationToken).toBe("legacy-token");
 });
 
+test("旧服务微信配置可复用到 APIv3 医保混合支付", () => {
+	const config = loadRuntimeConfig({
+		WECHAT_MEDICAL_INSURANCE_READY: "true",
+		WECHAT_APPID: "wx-legacy-app",
+		WECHAT_APPSECRET: "legacy-app-secret",
+		WECHAT_MCH_ID: "legacy-mch-id",
+		WECHAT_MED_INS_CITY_ID: "140500",
+		WECHAT_MED_INS_CHANNEL_NO: "legacy-channel",
+		WECHAT_MEDICAL_INSURANCE_CALLBACK_URL:
+			"https://new.example.test/api/v1/payments/medical-insurance/wechat-notifications",
+	});
+
+	expect(config).toMatchObject({
+		wechatAppId: "wx-legacy-app",
+		wechatAppSecret: "legacy-app-secret",
+		wechatPayAppId: "wx-legacy-app",
+		wechatPayMchId: "legacy-mch-id",
+		wechatMedicalInsuranceAppId: "wx-legacy-app",
+		wechatMedicalInsuranceCityId: "140500",
+		wechatMedicalInsuranceInstitutionName: "高平市人民医院",
+		wechatMedicalInsuranceInstitutionNo: "H14058101270",
+		wechatMedicalInsuranceChannelNo: "legacy-channel",
+		wechatMedicalInsuranceCallbackUrl:
+			"https://new.example.test/api/v1/payments/medical-insurance/wechat-notifications",
+	});
+});
+
 test("provider base URL overrides must remain HTTPS when a gate is open", () => {
 	const runtimeConfig = loadRuntimeConfig({
 		WECHAT_IDENTITY_READY: "true",

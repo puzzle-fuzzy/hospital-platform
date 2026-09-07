@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createNotConfiguredGateways } from "@hospital/adapters";
 import type { DependencyState } from "@hospital/contracts";
 import type {
@@ -11,6 +12,7 @@ import type {
 	PatientBindingGateway,
 	PatientDirectoryGateway,
 	PatientProviderAuthorizationGateway,
+	PaymentOrder,
 	RegistrationSelfPaySettlementContext,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
@@ -22,7 +24,7 @@ import {
 	DependencyNotConfiguredError,
 	PaymentOrderService,
 } from "@hospital/domain";
-import type { AppLogger } from "@hospital/observability";
+import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import type {
 	MySqlRepositories,
 	RedisSessionStore,
@@ -65,7 +67,7 @@ export type ApplicationServices = {
 	/** 挂号与门诊共享的 6202/6301/CAS 支付核心。 */
 	medicalInsuranceCore?: MedicalInsurancePaymentCore;
 	medicalInsuranceWechatPayment?: MedicalInsuranceWechatPaymentService;
-	/** 6202 自费差额使用旧云健康插件混合支付链路。 */
+	/** 云健康插件链路按配置闸门启用，负责 .2/.29/.15/.5 后置回写。 */
 	medicalInsurancePluginPayment?: import("./modules/medical-insurance/plugin-payment-service").MedicalInsurancePluginPaymentService;
 	myDoctors?: MyDoctorService;
 	outpatientPayments?: OutpatientPaymentService;
@@ -74,6 +76,8 @@ export type ApplicationServices = {
 	reports: ReportService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
+	/** 挂号自费与其他普通自费共用官方微信 APIv3 收银台。 */
+	registrationWechatPrepay?: WechatPrepayService;
 	registrationSelfPay?: RegistrationSelfPayService;
 	registrationPaymentExit?: RegistrationPaymentExitService;
 	wechatPaymentNotifications: WechatPaymentNotificationService;
@@ -258,6 +262,83 @@ function resolveRegistrationSelfPayContext(
 	};
 }
 
+/**
+ * 普通挂号自费若复用云健康插件上下文，也必须把 .29 原文保存到同一份密文
+ * settlement context。日志只记录长度和哈希，便于排查而不暴露 Provider 报文。
+ */
+function persistThirdPartPayResponse(
+	repositories: Pick<MySqlRepositories, "medicalInsuranceOrders">,
+	logger?: AppLogger,
+) {
+	const auditLogger = logger ?? createNoopLogger();
+	return async (input: {
+		ownerUserId: string;
+		appointmentId: string;
+		paymentOrder: PaymentOrder;
+		registrationContext?: RegistrationSelfPaySettlementContext;
+		rawResponse: string;
+		thirdPartPayRecordId: string;
+	}): Promise<void> => {
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByOwnerAndAppointmentId(
+				input.ownerUserId,
+				input.appointmentId,
+			);
+		const settlement = medicalOrder
+			? await repositories.medicalInsuranceOrders.getSettlementContext(
+					input.ownerUserId,
+					medicalOrder.medicalOrderId,
+				)
+			: undefined;
+		const plugin = settlement?.plugin;
+		if (
+			!medicalOrder ||
+			!plugin ||
+			plugin.paymentOrderId !== input.paymentOrder.orderId
+		) {
+			auditLogger.warn(
+				{
+					event: "medical-insurance.plugin.2.27.2.29.storage-skipped",
+					ownerUserId: input.ownerUserId,
+					appointmentId: input.appointmentId,
+					paymentOrderId: input.paymentOrder.orderId,
+					reason: "plugin-context-missing-or-mismatched",
+				},
+				"Medical insurance Yunhealth 2.27.2.29 response was not persisted",
+			);
+			return;
+		}
+		await repositories.medicalInsuranceOrders.saveSettlementContext(
+			input.ownerUserId,
+			medicalOrder.medicalOrderId,
+			{
+				...settlement,
+				plugin: {
+					...plugin,
+					thirdPartPayRecordId: input.thirdPartPayRecordId,
+					thirdPartPayRawResponse: input.rawResponse,
+					state: "29_succeeded",
+				},
+			},
+		);
+		auditLogger.info(
+			{
+				event: "medical-insurance.plugin.2.27.2.29.persisted",
+				ownerUserId: input.ownerUserId,
+				appointmentId: input.appointmentId,
+				paymentOrderId: input.paymentOrder.orderId,
+				thirdPartPayRecordId: input.thirdPartPayRecordId,
+				rawResponseBytes: new TextEncoder().encode(input.rawResponse)
+					.byteLength,
+				rawResponseSha256: createHash("sha256")
+					.update(input.rawResponse)
+					.digest("hex"),
+			},
+			"Medical insurance Yunhealth 2.27.2.29 raw response persisted",
+		);
+	};
+}
+
 /** 默认组合根只安装 fail-closed 依赖，避免开发环境误连真实 provider。 */
 export function createDefaultApplicationServices(
 	options: ApplicationServiceOptions = {},
@@ -319,18 +400,6 @@ export function createDefaultApplicationServices(
 		core: medicalInsuranceCore,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
-	const medicalInsuranceWechatPayment =
-		new MedicalInsuranceWechatPaymentService({
-			orders: repositories.medicalInsuranceOrders,
-			authorizations: repositories.medicalInsuranceAuthorizations,
-			identityUsers: repositories.identityUsers,
-			wechatPayment:
-				options.medicalInsuranceWechatPaymentGateway ??
-				gateways.medicalInsuranceWechatPayment,
-			confirmCashPayment: (input) =>
-				medicalInsuranceCore.confirmWechatCashPayment(input),
-			...(options.logger ? { logger: options.logger } : {}),
-		});
 	const wechatPrepay = new WechatPrepayService({
 		orders: paymentOrders,
 		identityUsers: repositories.identityUsers,
@@ -338,6 +407,9 @@ export function createDefaultApplicationServices(
 		wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	// 挂号自费和历史插件版医保支付共用官方 APIv3 WechatPrepayService；
+	// 旧链路的云健康 .2 只负责建立 HIS 关联流水，不再创建 v2 微信订单。
+	const registrationWechatPrepay = wechatPrepay;
 	const medicalInsurancePluginPayment =
 		new MedicalInsurancePluginPaymentService({
 			orders: repositories.medicalInsuranceOrders,
@@ -356,13 +428,34 @@ export function createDefaultApplicationServices(
 			pluginTradeTypeCode: options.yunhealthRegistrationTradeTypeCode ?? "10",
 			...(options.logger ? { logger: options.logger } : {}),
 		});
+	const medicalInsuranceWechatPayment =
+		new MedicalInsuranceWechatPaymentService({
+			orders: repositories.medicalInsuranceOrders,
+			authorizations: repositories.medicalInsuranceAuthorizations,
+			identityUsers: repositories.identityUsers,
+			wechatPayment:
+				options.medicalInsuranceWechatPaymentGateway ??
+				gateways.medicalInsuranceWechatPayment,
+			confirmCashPayment: (input) =>
+				medicalInsuranceCore.confirmWechatCashPayment(input),
+			...(options.medicalInsuranceWechatPaymentGateway &&
+			options.yunhealthRegistrationPluginPaymentGateway &&
+			options.hospitalSettlementGateway
+				? { pluginPaymentBridge: medicalInsurancePluginPayment }
+				: {}),
+			...(options.logger ? { logger: options.logger } : {}),
+		});
 	const registrationSelfPay = new RegistrationSelfPayService({
 		appointments: appointmentWrites,
 		paymentOrders,
-		wechatPrepay,
+		wechatPrepay: registrationWechatPrepay,
 		hospitalSettlement:
 			options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
 		resolveRegistrationContext: resolveRegistrationSelfPayContext(repositories),
+		onThirdPartPayResponse: persistThirdPartPayResponse(
+			repositories,
+			options.logger,
+		),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const registrationPaymentExit = new RegistrationPaymentExitService({
@@ -371,7 +464,7 @@ export function createDefaultApplicationServices(
 		medicalInsuranceWechatPayment,
 		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
 		paymentOrders,
-		wechatPrepay,
+		wechatPrepay: registrationWechatPrepay,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const patients = new PatientService(repositories.patients, {
@@ -440,6 +533,7 @@ export function createDefaultApplicationServices(
 		}),
 		paymentOrders,
 		wechatPrepay,
+		registrationWechatPrepay,
 		registrationSelfPay,
 		registrationPaymentExit,
 		wechatPaymentNotifications: new WechatPaymentNotificationService({

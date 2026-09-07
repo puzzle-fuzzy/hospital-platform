@@ -29,6 +29,7 @@ import {
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
+	toWechatPaymentLaunch,
 } from "./api-client";
 import {
 	clearApiRequestObservations,
@@ -54,6 +55,45 @@ test("预约记录请求显式编码 online 范围和日期窗口", () => {
 	).toBe(
 		"patientId=patient%2F001&scope=online&startDate=2026-08-01&endDate=2026-08-31",
 	);
+});
+
+test("自费支付响应只接受 APIv3 微信原生调起参数", () => {
+	expect(
+		toWechatPaymentLaunch({
+			data: {
+				payParams: {
+					appId: "wx-app",
+					timeStamp: "1710000000",
+					nonceStr: "nonce-001",
+					package: "prepay_id=wx-prepay",
+					signType: "RSA",
+					paySign: "signature",
+				},
+			},
+		}),
+	).toEqual({
+		kind: "native",
+		params: {
+			appId: "wx-app",
+			timeStamp: "1710000000",
+			nonceStr: "nonce-001",
+			package: "prepay_id=wx-prepay",
+			signType: "RSA",
+			paySign: "signature",
+		},
+	});
+	expect(
+		toWechatPaymentLaunch({
+			data: {
+				payParams: {
+					mode: "medical-platform",
+					appId: "wx-medical-platform",
+					path: "pages/pay/index?med_trans_id=med-001",
+				},
+			},
+		}),
+	).toBeNull();
+	expect(toWechatPaymentLaunch({ data: { payParams: {} } })).toBeNull();
 });
 
 test("预约记录请求的 all 范围不携带在线日期窗口", () => {

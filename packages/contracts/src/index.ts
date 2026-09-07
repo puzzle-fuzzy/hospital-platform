@@ -919,15 +919,21 @@ export const WechatMiniProgramPayParamsSchema = Type.Object({
 	paySign: Type.String({ minLength: 1 }),
 });
 
+/** 所有普通微信自费入口统一使用 APIv3 JSAPI 小程序调起参数。 */
+export const WechatPaymentLaunchParamsSchema = WechatMiniProgramPayParamsSchema;
+
 /** 微信医保混合支付专用调起参数，直接对应 wx.requestMedicalInsurancePay。 */
-export const WechatMedicalInsurancePayParamsSchema = Type.Object({
-	timeStamp: Type.String({ minLength: 1 }),
-	nonceStr: Type.String({ minLength: 1 }),
-	package: Type.String({ minLength: 1 }),
-	signType: Type.Literal("RSA"),
-	paySign: Type.String({ minLength: 1 }),
-	mixTradeNo: Type.String({ minLength: 1, maxLength: 256 }),
-});
+export const WechatMedicalInsurancePayParamsSchema = Type.Object(
+	{
+		timeStamp: Type.String({ minLength: 1 }),
+		nonceStr: Type.String({ minLength: 1 }),
+		package: Type.String({ minLength: 1 }),
+		signType: Type.Literal("RSA"),
+		paySign: Type.String({ minLength: 1 }),
+		mixTradeNo: Type.String({ minLength: 1, maxLength: 32 }),
+	},
+	{ additionalProperties: false },
+);
 
 /** 微信医保混合支付只返回服务端生成的调起参数，不返回 payAuthNo 或费用明细。 */
 export const MedicalInsuranceWechatPayResponse = Type.Object({
@@ -949,14 +955,14 @@ export const MedicalInsuranceWechatPayResponse = Type.Object({
 			Type.Literal("unknown"),
 		]),
 		cashFen: Type.Integer({ minimum: 0 }),
-		mixTradeNo: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+		mixTradeNo: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
 		payParams: Type.Optional(WechatMedicalInsurancePayParamsSchema),
 	}),
 });
 
 /**
- * 云健康插件版医保混合支付：医保 6202 留下自费金额后，服务端完成第二次
- * .2 和普通微信 JSAPI 预下单；患者端只拿到微信调起参数。
+ * 云健康插件版医保混合支付兼容响应。微信收款统一使用官方 APIv3；该入口
+ * 仅用于需要云健康 .2/.29/.15/.5 后置回写的订单。
  */
 export const MedicalInsurancePluginPayResponse = Type.Object({
 	success: Type.Literal(true),
@@ -990,7 +996,7 @@ export const RegistrationSelfPayResponse = Type.Object({
 		]),
 		paymentState: PaymentStateSchema,
 		totalFen: Type.Integer({ minimum: 1 }),
-		payParams: Type.Optional(WechatMiniProgramPayParamsSchema),
+		payParams: Type.Optional(WechatPaymentLaunchParamsSchema),
 	}),
 });
 
@@ -1012,7 +1018,7 @@ export const WechatPrepayResponse = Type.Object({
 	data: Type.Object({
 		orderId: Type.String({ minLength: 1 }),
 		state: PaymentStateSchema,
-		payParams: WechatMiniProgramPayParamsSchema,
+		payParams: WechatPaymentLaunchParamsSchema,
 	}),
 });
 
@@ -1029,7 +1035,7 @@ export const WechatPrepayStatusResponse = Type.Object({
 			Type.Literal("failed"),
 			Type.Literal("unknown"),
 		]),
-		payParams: Type.Optional(WechatMiniProgramPayParamsSchema),
+		payParams: Type.Optional(WechatPaymentLaunchParamsSchema),
 	}),
 });
 

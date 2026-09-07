@@ -254,6 +254,9 @@ export type WechatMiniProgramPayParams = {
 	paySign: string;
 };
 
+/** 所有普通微信自费入口统一使用 APIv3 JSAPI 小程序调起参数。 */
+export type WechatPaymentLaunchParams = WechatMiniProgramPayParams;
+
 /** 微信小程序医保混合支付专用调起参数；字段名和 wx API 保持一致。 */
 export type WechatMedicalInsurancePayParams = {
 	timeStamp: string;
@@ -365,6 +368,8 @@ export interface MedicalInsuranceWechatPaymentGateway {
 			/** 按业务订单事实传入 RegPay/DiagPay，不能读取全局部署默认值。 */
 			orderType: MedicalInsuranceOrderType;
 			amounts: MedicalInsuranceAmounts;
+			/** 6202 订单创建时间；必须使用本地订单事实，不能用支付请求时间覆盖。 */
+			medicalOrderCreateTime?: string;
 			authorization: MedicalInsuranceAuthorizationContext;
 			settlement: MedicalInsuranceSettlementContext;
 		},
@@ -454,11 +459,13 @@ export interface WechatPaymentGateway {
 			orderId: string;
 			openid: string;
 			totalFen: number;
+			orderType?: "RegPay" | "DiagPay";
+			serialNo?: string;
 		},
 		context: AdapterCallContext,
 	): Promise<{
 		prepayId: string;
-		payParams: WechatMiniProgramPayParams;
+		payParams: WechatPaymentLaunchParams;
 		trace: ExternalTrace;
 	}>;
 	query(

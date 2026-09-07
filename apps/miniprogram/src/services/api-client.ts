@@ -100,7 +100,12 @@ type ApiConfig = {
 	accessToken: string;
 };
 
-type PaymentParams = WechatPrepayData["payParams"];
+type PaymentParams = Extract<
+	WechatPrepayData["payParams"],
+	{ timeStamp: string }
+>;
+
+export type WechatPaymentLaunch = { kind: "native"; params: PaymentParams };
 
 /**
  * 服务端错误码是稳定 contract，用户文案不能依赖 provider 或旧服务返回的英文 message。
@@ -705,7 +710,7 @@ function registrationSelfPayResponse(
 	const payParams =
 		data.payParams === undefined
 			? undefined
-			: parseWechatPaymentParamsValue(data.payParams);
+			: parseWechatPaymentLaunchParamsValue(data.payParams);
 	if (data.payParams !== undefined && !payParams) {
 		throw new ApiError("服务端支付参数不可用", {
 			code: "wechat-pay-params-missing",
@@ -2787,6 +2792,23 @@ export function requestWechatPrepay(
 export function toWechatPaymentParams(payload: unknown): PaymentParams | null {
 	if (!isRecord(payload) || !isRecord(payload.data)) return null;
 	return parseWechatPaymentParamsValue(payload.data.payParams);
+}
+
+/** APIv3 返回的是服务端签名后的微信原生调起参数。 */
+export function toWechatPaymentLaunch(
+	payload: unknown,
+): WechatPaymentLaunch | null {
+	if (!isRecord(payload) || !isRecord(payload.data)) return null;
+	const params = payload.data.payParams;
+	const launchParams = parseWechatPaymentLaunchParamsValue(params);
+	if (!launchParams) return null;
+	return { kind: "native", params: launchParams };
+}
+
+function parseWechatPaymentLaunchParamsValue(
+	value: unknown,
+): PaymentParams | null {
+	return parseWechatPaymentParamsValue(value);
 }
 
 function parseWechatPaymentParamsValue(value: unknown): PaymentParams | null {

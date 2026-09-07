@@ -5,13 +5,14 @@ import {
 	createVerify,
 	generateKeyPairSync,
 } from "node:crypto";
+import { ProviderRequestError } from "./errors";
 import {
+	createWechatMedicalInsuranceNotificationDecoder,
 	createWechatPaymentNotificationDecoder,
 	mapWechatPaymentNotification,
-	ProviderRequestError,
 	verifyAndDecryptWechatPaymentNotification,
 	WechatPaymentApiGateway,
-} from "./index";
+} from "./wechat-pay";
 
 const context = {
 	traceId: "test-wechat-pay-trace-001",
@@ -103,6 +104,35 @@ function createGateway(
 	});
 }
 
+function createMedicalGateway(
+	fetcher: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+	nonces: string[] = ["medical-jsapi-nonce", "medical-mix-nonce"],
+): WechatPaymentApiGateway {
+	return new WechatPaymentApiGateway({
+		appId: "wx-app-001",
+		mchId: "mch-001",
+		merchantCertificateSerial: "merchant-serial-001",
+		merchantPrivateKey,
+		platformCertificateSerial: "platform-serial-001",
+		platformPublicKey,
+		apiV3Key: "0123456789abcdef0123456789abcdef",
+		notifyUrl: "https://hospital.example.test/api/v1/payments/wechat/notify",
+		baseUrl: "https://pay.example.test",
+		now: () => fixedNow,
+		nonce: () => nonces.shift() ?? "fallback-nonce",
+		fetcher,
+		medicalInsurance: {
+			appId: "wx-app-001",
+			cityId: "140500",
+			medicalInstitutionName: "高平市人民医院",
+			medicalInstitutionNo: "H14058101270",
+			callbackUrl:
+				"https://hospital.example.test/api/v1/payments/medical-insurance/wechat-notifications",
+			geoLocation: "112.9236,35.7981",
+		},
+	});
+}
+
 test("systemd 转义的 PEM 换行可以用于 APIv3 查单签名", async () => {
 	const body = JSON.stringify({
 		trade_state: "NOTPAY",
@@ -178,6 +208,103 @@ test("微信 JSAPI 下单使用 APIv3 签名并返回服务端调起参数", asy
 			providerOrderId: "wx-prepay-001",
 		},
 	});
+});
+
+test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单", async () => {
+	const requests: Array<{ path: string; body: string }> = [];
+	const responses = [
+		JSON.stringify({ prepay_id: "wx-medical-prepay-001" }),
+		JSON.stringify({ mix_trade_no: "mix-trade-001" }),
+	];
+	const gateway = createMedicalGateway(async (_input, init) => {
+		const url = String(_input);
+		const path = new URL(url).pathname;
+		const body = typeof init?.body === "string" ? init.body : "";
+		requests.push({ path, body });
+		verifyRequestAuthorization(init, "POST", path, body);
+		if (path === "/v3/med-ins/orders") {
+			expect(new Headers(init?.headers).get("Wechatpay-Serial")).toBe(
+				"platform-serial-001",
+			);
+		}
+		const responseBody = responses.shift();
+		if (!responseBody) throw new Error("unexpected provider request");
+		return new Response(responseBody, {
+			status: 200,
+			headers: providerResponseHeaders(responseBody),
+		});
+	});
+
+	const result = await gateway.createMixedOrder(
+		{
+			orderId: "medical-order-001",
+			outTradeNo: "medical-out-001",
+			openid: "openid-001",
+			payOrdId: "pay-ord-001",
+			medOrgOrd: "med-org-001",
+			orderType: "RegPay",
+			amounts: {
+				totalFen: 1000,
+				cashFen: 200,
+				personalAccountFen: 300,
+				fundFen: 500,
+			},
+			authorization: {
+				patient: { idNo: "140581199001010011", userName: "测试患者" },
+				payAuthNo: "pay-auth-001",
+			} as never,
+			settlement: {} as never,
+			medicalOrderCreateTime: "2026-08-14T12:00:00.000Z",
+		},
+		context,
+	);
+
+	const mixedBody = JSON.parse(requests[1]?.body ?? "{}") as Record<
+		string,
+		unknown
+	>;
+	expect(requests.map((request) => request.path)).toEqual([
+		"/v3/pay/transactions/jsapi",
+		"/v3/med-ins/orders",
+	]);
+	expect(mixedBody).toMatchObject({
+		mix_pay_type: "CASH_AND_INSURANCE",
+		order_type: "REG_PAY",
+		out_trade_no: "medical-out-001",
+		serial_no: "med-org-001",
+		med_inst_name: "高平市人民医院",
+		med_inst_no: "H14058101270",
+		total_fee: 1000,
+		appid: "wx-app-001",
+		openid: "openid-001",
+		city_id: "140500",
+		pay_order_id: "pay-ord-001",
+		pay_auth_no: "pay-auth-001",
+		med_ins_gov_fee: 500,
+		med_ins_self_fee: 300,
+		med_ins_other_fee: 0,
+		med_ins_cash_fee: 200,
+		wechat_pay_cash_fee: 200,
+		med_ins_order_create_time: "2026-08-14T12:00:00.000Z",
+		callback_url:
+			"https://hospital.example.test/api/v1/payments/medical-insurance/wechat-notifications",
+		prepay_id: "wx-medical-prepay-001",
+	});
+	const payer = mixedBody.payer as Record<string, unknown>;
+	expect(payer.name).not.toBe("测试患者");
+	expect(payer.id_digest).not.toBe("140581199001010011");
+	expect(result).toMatchObject({
+		mixTradeNo: "mix-trade-001",
+		prepayId: "wx-medical-prepay-001",
+		cashFen: 200,
+		payParams: {
+			timeStamp: "1786752000",
+			package: "prepay_id=wx-medical-prepay-001",
+			signType: "RSA",
+			mixTradeNo: "mix-trade-001",
+		},
+	});
+	expect(result.payParams).not.toHaveProperty("appId");
 });
 
 test("微信未支付订单可以由服务端查单后关闭", async () => {
@@ -464,6 +591,74 @@ test("微信支付通知 decoder 固定执行验签、解密和白名单映射",
 		receivedAt: "2026-08-15T00:00:01.000Z",
 	});
 	expect(JSON.stringify(mapped)).not.toContain("must-not-leave-adapter");
+});
+
+test("微信医保混合成功通知使用 APIv3 验签解密并提取安全事实", () => {
+	const apiV3Key = "0123456789abcdef0123456789abcdef";
+	const resourceNonce = "123456789012";
+	const associatedData = "medical-insurance";
+	const plaintext = JSON.stringify({
+		appid: "wx-app-001",
+		mchid: "mch-001",
+		mix_trade_no: "mix-trade-notification-001",
+		out_trade_no: "medical-out-notification-001",
+		mix_pay_status: "MIX_PAY_SUCCESS",
+		self_pay_status: "SELF_PAY_SUCCESS",
+		med_ins_pay_status: "MED_INS_PAY_SUCCESS",
+		total_fee: 1000,
+		wechat_pay_cash_fee: 200,
+		payer: { name: "must-not-cross-adapter-boundary" },
+	});
+	const cipher = createCipheriv(
+		"aes-256-gcm",
+		Buffer.from(apiV3Key, "utf8"),
+		Buffer.from(resourceNonce, "utf8"),
+	);
+	cipher.setAAD(Buffer.from(associatedData, "utf8"));
+	const encrypted = Buffer.concat([
+		cipher.update(plaintext, "utf8"),
+		cipher.final(),
+		cipher.getAuthTag(),
+	]).toString("base64");
+	const body = JSON.stringify({
+		id: "medical-notification-001",
+		event_type: "MEDICAL_INSURANCE.SUCCESS",
+		resource: {
+			algorithm: "AEAD_AES_256_GCM",
+			ciphertext: encrypted,
+			nonce: resourceNonce,
+			associated_data: associatedData,
+		},
+	});
+	const decoder = createWechatMedicalInsuranceNotificationDecoder({
+		platformCertificateSerial: "platform-serial-001",
+		platformPublicKey,
+		apiV3Key,
+		now: () => fixedNow,
+		expectedAppId: "wx-app-001",
+		expectedMchId: "mch-001",
+	});
+
+	const mapped = decoder({
+		rawBody: new TextEncoder().encode(body),
+		headers: providerResponseHeaders(body),
+		receivedAt: "2026-08-15T00:00:01.000Z",
+	});
+
+	expect(mapped).toEqual({
+		notificationId: "medical-notification-001",
+		eventType: "MEDICAL_INSURANCE.SUCCESS",
+		mixTradeNo: "mix-trade-notification-001",
+		outTradeNo: "medical-out-notification-001",
+		totalFen: 1000,
+		cashFen: 200,
+		selfPayStatus: "SELF_PAY_SUCCESS",
+		medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS",
+		receivedAt: "2026-08-15T00:00:01.000Z",
+	});
+	expect(JSON.stringify(mapped)).not.toContain(
+		"must-not-cross-adapter-boundary",
+	);
 });
 
 test("微信支付通知签名被篡改时不进入解密流程", () => {

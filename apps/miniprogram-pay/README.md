@@ -18,14 +18,16 @@
   → POST /payments/medical-insurance/authorize
   → POST /payments/medical-insurance/orders/{orderId}/fees
   → POST /payments/medical-insurance/orders/{orderId}/settle
-  → 需要自费时 POST /payments/medical-insurance/orders/{orderId}/plugin-pay
-  → wx.requestPayment（插件版自费）
-  → GET /payments/medical-insurance/orders/{orderId}/plugin-pay
+  → 需要自费时 POST /payments/medical-insurance/orders/{orderId}/wechat-pay
+  → wx.requestMedicalInsurancePay（官方医保自费混合支付）
+  → GET /payments/medical-insurance/orders/{orderId}/wechat-pay
   → GET /payments/medical-insurance/orders/{orderId}（处理中时查单）
 ```
 
-医保结算出现自费差额时，HIS 指定走云健康插件版收款：第二次 `.2` 创建插件流水，
-微信支付成功后由服务端依次执行 `.29 → .15 → .5`，确认 HIS 完成后页面才显示成功。
+医保结算出现自费差额时，服务端通过微信支付 APIv3 医保混合收款接口创建订单，
+小程序使用 `wx.requestMedicalInsurancePay` 调起医保自费收银台；支付通知/查单确认
+微信自费和医保两段均成功后，才进入服务端医保核心并回写 HIS。旧云健康插件版
+`.2 → .29 → .15 → .5` 暂时保留历史代码，但不在当前运行链路中启用，待业务确认。
 
 如果费用上传阶段收到众阳 2.6.33 明确的“正在收款中，不允许再次缴费”（服务端错误码
 `medical-insurance-payment-in-progress`），本端才进入专用恢复分支：

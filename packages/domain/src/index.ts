@@ -400,6 +400,7 @@ export type {
 	WechatMedicalInsurancePayParams,
 	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
+	WechatPaymentLaunchParams,
 	WechatPaymentQueryState,
 } from "./ports";
 export {

@@ -1170,6 +1170,9 @@ export function createNotConfiguredRepositories(): {
 			findByPayOrdId: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
+			findByWechatMixTradeNo: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
 			findByOwnerAndAppointmentId: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
@@ -1729,6 +1732,13 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			return (
 				[...orders.values()].find((order) => order.payOrdId === payOrdId) ??
 				undefined
+			);
+		},
+		async findByWechatMixTradeNo(mixTradeNo) {
+			return (
+				[...orders.values()].find(
+					(order) => order.wechatMixTradeNo === mixTradeNo,
+				) ?? undefined
 			);
 		},
 		async findByMedicalOrderId(medicalOrderId) {
