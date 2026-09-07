@@ -60,7 +60,6 @@ test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", (
 			"YUNHEALTH_PAYMENT_ORG_ID",
 			"YUNHEALTH_PLUGIN_PAY_TYPE_ID",
 			"YUNHEALTH_PLUGIN_PAY_TYPE",
-			"YUNHEALTH_PLUGIN_WORK_STATION_ID",
 		]),
 	);
 
@@ -71,7 +70,7 @@ test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", (
 		YUNHEALTH_PAYMENT_ORG_ID: "10756",
 		YUNHEALTH_PLUGIN_PAY_TYPE_ID: "50",
 		YUNHEALTH_PLUGIN_PAY_TYPE: "CREDIT",
-		YUNHEALTH_PLUGIN_WORK_STATION_ID: "registration-machine-01",
+		YUNHEALTH_PLUGIN_WORK_STATION_ID: "",
 	});
 	expect(yunhealthRegistrationSettlementConfigurationStatus(configured)).toBe(
 		"configured",

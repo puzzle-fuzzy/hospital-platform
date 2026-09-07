@@ -23,6 +23,8 @@ const QUERY_BATCH_SIZE = 1;
 const QUERY_CLAIM_LEASE_MS = 60_000;
 
 const REGISTRATION_SELF_PAY_ORDER_PREFIX = "registration-self-pay:";
+const REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX =
+	"registration-medical-plugin-self-pay:";
 /**
  * 微信查单自动重试上限；达到上限后必须停在 manual_review，等待人工核对，
  * 不能继续制造没有边界的 provider 请求。
@@ -107,8 +109,21 @@ export class PaymentReconciliationWorker {
 			/** 从同一预约的已落库医保结算上下文解析 Provider 关联键。 */
 			resolveRegistrationContext?: (input: {
 				ownerUserId: string;
-				appointmentId: string;
+				appointmentId?: string;
+				medicalOrderId?: string;
 			}) => Promise<RegistrationSelfPaySettlementContext | undefined>;
+			/** 云健康/HIS 成功后同步推进关联医保订单；失败时保留支付单重试。 */
+			onHospitalSettlementCompleted?: (input: {
+				paymentOrder: PaymentOrder;
+				registrationContext?: RegistrationSelfPaySettlementContext;
+			}) => Promise<void>;
+			/** .29 成功后保存完整 raw 响应；不得用于业务判断。 */
+			onThirdPartPayResponse?: (input: {
+				paymentOrder: PaymentOrder;
+				registrationContext?: RegistrationSelfPaySettlementContext;
+				rawResponse: string;
+				thirdPartPayRecordId: string;
+			}) => Promise<void>;
 			logger?: AppLogger;
 		},
 	) {
@@ -148,6 +163,13 @@ export class PaymentReconciliationWorker {
 		)
 			? order.idempotencyKey.slice(REGISTRATION_SELF_PAY_ORDER_PREFIX.length)
 			: undefined;
+		const medicalOrderId = order.idempotencyKey.startsWith(
+			REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX,
+		)
+			? order.idempotencyKey.slice(
+					REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX.length,
+				)
+			: undefined;
 		if (!gateway) {
 			this.logger.warn(
 				{
@@ -161,14 +183,17 @@ export class PaymentReconciliationWorker {
 		}
 		try {
 			const registrationContext =
-				this.dependencies.resolveRegistrationContext && appointmentId
+				this.dependencies.resolveRegistrationContext &&
+				(appointmentId || medicalOrderId)
 					? await this.dependencies.resolveRegistrationContext({
 							ownerUserId: order.ownerUserId,
-							appointmentId,
+							...(appointmentId ? { appointmentId } : {}),
+							...(medicalOrderId ? { medicalOrderId } : {}),
 						})
 					: undefined;
 			if (
 				this.dependencies.resolveRegistrationContext &&
+				(appointmentId || medicalOrderId) &&
 				!registrationContext
 			) {
 				this.logger.warn(
@@ -193,12 +218,34 @@ export class PaymentReconciliationWorker {
 						trace: [],
 					},
 					...(registrationContext ? { registrationContext } : {}),
+					...(this.dependencies.onThirdPartPayResponse
+						? {
+								onThirdPartPayResponse: (response: {
+									rawResponse: string;
+									thirdPartPayRecordId: string;
+								}) =>
+									this.dependencies.onThirdPartPayResponse?.({
+										paymentOrder: order,
+										...(registrationContext ? { registrationContext } : {}),
+										rawResponse: response.rawResponse,
+										thirdPartPayRecordId: response.thirdPartPayRecordId,
+									}),
+							}
+						: {}),
 				},
 				{
 					...context,
-					idempotencyKey: `registration-self-pay-settlement:${order.orderId}`,
+					idempotencyKey: medicalOrderId
+						? `registration-medical-plugin-settlement:${order.orderId}`
+						: `registration-self-pay-settlement:${order.orderId}`,
 				},
 			);
+			if (this.dependencies.onHospitalSettlementCompleted) {
+				await this.dependencies.onHospitalSettlementCompleted({
+					paymentOrder: order,
+					...(registrationContext ? { registrationContext } : {}),
+				});
+			}
 			const writtenBack = await this.dependencies.orders.transition(
 				order.ownerUserId,
 				order.orderId,

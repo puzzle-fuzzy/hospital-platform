@@ -4,6 +4,7 @@ import {
 	MedicalInsuranceCancelRequest,
 	MedicalInsuranceCancellationResponse,
 	MedicalInsuranceOrderResponse,
+	MedicalInsurancePluginPayResponse,
 	MedicalInsuranceWechatPayResponse,
 	success,
 } from "@hospital/contracts";
@@ -13,6 +14,7 @@ import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
 import type { MedicalInsuranceRegistrationService } from "./registration-service";
 import type { MedicalInsuranceWechatPaymentService } from "./wechat-payment-service";
+import type { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 import type { MedicalInsuranceNotificationService } from "./service";
 
 /** 医保业务入口只允许平台会话和服务端生成的关联/幂等信息。 */
@@ -46,6 +48,7 @@ export function medicalInsuranceModule(
 	registrationService: MedicalInsuranceRegistrationService,
 	sessions: SessionTokenService,
 	wechatPaymentService: MedicalInsuranceWechatPaymentService,
+	pluginPaymentService: MedicalInsurancePluginPaymentService,
 	notificationService?: MedicalInsuranceNotificationService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions, [
@@ -167,6 +170,44 @@ export function medicalInsuranceModule(
 				headers: MedicalInsuranceQueryHeaders,
 				params: MedicalInsuranceOrderParams,
 				response: { 200: MedicalInsuranceWechatPayResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.post(
+			"/payments/medical-insurance/orders/:orderId/plugin-pay",
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await pluginPaymentService.create({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceCommandHeaders,
+				params: MedicalInsuranceOrderParams,
+				response: { 200: MedicalInsurancePluginPayResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.get(
+			"/payments/medical-insurance/orders/:orderId/plugin-pay",
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await pluginPaymentService.query({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceQueryHeaders,
+				params: MedicalInsuranceOrderParams,
+				response: { 200: MedicalInsurancePluginPayResponse },
 				tags: ["medical-insurance"],
 			},
 		)

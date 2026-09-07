@@ -82,13 +82,13 @@ https://test-hp.meiyi.pro/api/v2
 
 | 顺序 | 调用 | 作用 |
 | --- | --- | --- |
-| 1 | `POST /payments/medical-insurance/orders/{orderId}/wechat-pay` | 服务端根据 6202 返回的真实自费金额创建医保混合支付单，返回微信医保支付参数 |
-| 2 | `wx.requestMedicalInsurancePay(...)` | 调起微信医保混合支付收银台 |
-| 3 | `GET /payments/medical-insurance/orders/{orderId}/wechat-pay` | 服务端查混合支付结果，校验现金支付和医保支付状态 |
-| 4 | 服务端医保后置查询 | 两部分都明确成功后，再调用医保 6301/后置结算处理，确认最终医保订单状态 |
+| 1 | `POST /payments/medical-insurance/orders/{orderId}/plugin-pay` | 服务端读取 6202 的真实自费金额，按旧服务第二次 `.2` 创建云健康插件流水，再创建普通微信 JSAPI 订单 |
+| 2 | `wx.requestPayment(...)` | 调起插件版普通微信自费收银台 |
+| 3 | `GET /payments/medical-insurance/orders/{orderId}/plugin-pay` | 服务端查普通微信订单；确认支付后依次执行 `.29 → .15 → .5` 回写 HIS |
+| 4 | 服务端最终结算 | `.5` 返回确认后，医保订单进入 `insurance_settled`，平台支付单进入 `completed` |
 
 只有服务端确认医保和现金两部分都完成，页面才显示“挂号和医保支付成功”。
-`wx.requestMedicalInsurancePay` 的成功回调本身不代表业务完成。
+`wx.requestPayment` 的成功回调本身不代表业务完成，必须等待服务端完成 HIS 回写。
 
 ## 4. 自费支付
 
@@ -128,7 +128,7 @@ POST /payments/appointments/{appointmentId}/payment-exit
 | --- | --- | --- |
 | 医保授权中 | 无 | 退出成功后订单失效、预约取消；失败则保留 pending 重试 |
 | 医保结算产生自费金额 | 无 | 退出成功后医保订单失效、预约取消；失败则保留 pending 重试 |
-| 微信医保混合支付中 | 无 | 先查单；明确未支付才取消结算、作废订单并释放号源 |
+| 医保插件自费支付中 | 无 | 先查单；明确未支付才取消结算、作废订单并释放号源 |
 | 微信自费支付中 | 无 | 先查单；明确未支付才关单、作废订单并释放号源 |
 
 如果查到已支付或 provider 状态未知，服务端拒绝作废和释放号源，页面保留原支付上下文；

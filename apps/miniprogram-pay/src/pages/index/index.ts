@@ -70,7 +70,7 @@ const progressText: Record<RegistrationProgress, string> = {
 	settling: "正在进行医保结算",
 	polling: "正在确认医保结算结果",
 	"cash-paying": "正在打开微信支付收银台",
-	"cash-confirming": "正在确认微信医保混合支付结果",
+	"cash-confirming": "正在确认医保插件自费回写结果",
 	"self-paying": "正在打开微信自费支付收银台",
 	"self-confirming": "正在确认微信自费支付结果",
 	success: "挂号和医保支付成功",
@@ -290,7 +290,7 @@ Page<
 								: "authorizing",
 				message:
 					pending.phase === "cash_payment"
-						? "检测到未完成的微信医保支付，请点击主按钮继续支付"
+						? "检测到未完成的医保插件自费，请点击主按钮继续支付"
 						: pending.phase === "self_payment"
 							? "检测到未完成的微信自费支付，请选择自费支付继续"
 							: pending.phase === "medical_cash_required"
@@ -469,7 +469,7 @@ Page<
 					mode: "mixed" as const,
 					phase: "cash_payment" as const,
 				};
-				setProgress(this, "cash-confirming", "请继续完成微信医保混合支付");
+				setProgress(this, "cash-confirming", "请继续完成医保插件自费支付");
 				void continueMedicalCashPayment(mixedPending, (stage, message) =>
 					setProgress(this, stage, message),
 				)
@@ -481,7 +481,7 @@ Page<
 						}
 						this.setData({
 							error: friendlyError(error),
-							message: "微信医保混合支付未完成，请不要重复预约",
+							message: "医保插件自费未完成，请不要重复预约",
 						});
 					})
 					.finally(() => this.setData({ busy: false }));

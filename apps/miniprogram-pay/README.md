@@ -18,8 +18,14 @@
   → POST /payments/medical-insurance/authorize
   → POST /payments/medical-insurance/orders/{orderId}/fees
   → POST /payments/medical-insurance/orders/{orderId}/settle
+  → 需要自费时 POST /payments/medical-insurance/orders/{orderId}/plugin-pay
+  → wx.requestPayment（插件版自费）
+  → GET /payments/medical-insurance/orders/{orderId}/plugin-pay
   → GET /payments/medical-insurance/orders/{orderId}（处理中时查单）
 ```
+
+医保结算出现自费差额时，HIS 指定走云健康插件版收款：第二次 `.2` 创建插件流水，
+微信支付成功后由服务端依次执行 `.29 → .15 → .5`，确认 HIS 完成后页面才显示成功。
 
 如果费用上传阶段收到众阳 2.6.33 明确的“正在收款中，不允许再次缴费”（服务端错误码
 `medical-insurance-payment-in-progress`），本端才进入专用恢复分支：

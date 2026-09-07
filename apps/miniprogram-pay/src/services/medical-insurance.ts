@@ -285,27 +285,27 @@ type MedicalCancellation = {
 	restartAllowed: boolean;
 };
 
-type WechatMedicalInsurancePayParams = {
+type WechatMiniProgramPayParams = {
+	appId: string;
 	timeStamp: string;
 	nonceStr: string;
 	package: string;
 	signType: "RSA";
 	paySign: string;
-	mixTradeNo: string;
 };
 
-type MedicalWechatPayment = {
+type MedicalPluginPayment = {
 	orderId: string;
-	status: string;
-	paymentState:
-		| "not_started"
-		| "prepay_ready"
-		| "cash_paid"
-		| "failed"
-		| "unknown";
+	paymentOrderId: string;
+	status:
+		| "cash_pending"
+		| "insurance_settled"
+		| "awaiting_confirmation"
+		| "manual_review"
+		| "failed";
+	paymentState: string;
 	cashFen: number;
-	mixTradeNo?: string;
-	payParams?: WechatMedicalInsurancePayParams;
+	payParams?: WechatMiniProgramPayParams;
 };
 
 type SelfPayParams = {
@@ -345,39 +345,6 @@ async function cancelPaymentInProgress(
 	});
 }
 
-function requestWechatPayment(
-	params: WechatMedicalInsurancePayParams,
-): Promise<void> {
-	type RequestMedicalInsurancePayOption = WechatMedicalInsurancePayParams & {
-		success?: (result: unknown) => void;
-		fail?: (error: { errMsg?: string }) => void;
-	};
-	const medicalWechat = wx as typeof wx & {
-		requestMedicalInsurancePay?: (
-			option: RequestMedicalInsurancePayOption,
-		) => void;
-	};
-	if (typeof medicalWechat.requestMedicalInsurancePay !== "function") {
-		return Promise.reject(
-			new Error("当前微信版本不支持医保混合支付，请升级微信后重试"),
-		);
-	}
-	return new Promise((resolve, reject) => {
-		medicalWechat.requestMedicalInsurancePay?.({
-			...params,
-			success: () => resolve(),
-			fail: (error) => {
-				const message = String(error?.errMsg || "");
-				reject(
-					/取消|cancel/i.test(message)
-						? new WechatPaymentCancelledError()
-						: error,
-				);
-			},
-		});
-	});
-}
-
 function requestWechatSelfPayment(params: {
 	appId: string;
 	timeStamp: string;
@@ -411,10 +378,10 @@ function saveCashPaymentPhase(pending: PendingPayment): CashPaymentPending {
 		phase: "cash_payment" as const,
 		wechatPayIdempotencyKey:
 			pending.wechatPayIdempotencyKey ??
-			newIdempotencyKey("medical-wechat-pay"),
+			newIdempotencyKey("medical-plugin-pay"),
 		wechatQueryIdempotencyKey:
 			pending.wechatQueryIdempotencyKey ??
-			newIdempotencyKey("medical-wechat-query"),
+			newIdempotencyKey("medical-plugin-query"),
 	};
 	savePending(next);
 	return next;
@@ -435,7 +402,10 @@ function finishMedicalPayment(
 	onProgress("success", message);
 }
 
-/** 微信调起成功后仍需服务端查混合订单，再回到医保后置完成结算。 */
+/**
+ * HIS 侧指定的插件版收款：微信只调起普通 JSAPI，支付确认后由服务端
+ * 串行执行 2.27.2.29 -> 2.6.65.15 -> 2.6.65.5 回写云健康 HIS。
+ */
 export async function continueMedicalCashPayment(
 	pending: PendingPayment,
 	onProgress: Progress,
@@ -443,16 +413,16 @@ export async function continueMedicalCashPayment(
 	const orderId = pending.orderId?.trim();
 	if (!orderId) throw new Error("医保订单引用为空，无法继续微信支付");
 	const current = saveCashPaymentPhase(pending);
-	const payment = await request<MedicalWechatPayment>({
-		path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/wechat-pay`,
+	const payment = await request<MedicalPluginPayment>({
+		path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/plugin-pay`,
 		method: "POST",
 		idempotencyKey: current.wechatPayIdempotencyKey,
 	});
 	let paymentWasCancelled = false;
 	if (payment.payParams) {
-		onProgress("cash-paying", "正在打开微信支付收银台");
+		onProgress("cash-paying", "正在打开医保插件自费收银台");
 		try {
-			await requestWechatPayment(payment.payParams);
+			await requestWechatSelfPayment(payment.payParams);
 		} catch (error) {
 			if (!(error instanceof WechatPaymentCancelledError)) throw error;
 			paymentWasCancelled = true;
@@ -461,29 +431,32 @@ export async function continueMedicalCashPayment(
 	// 退出收银台后立即把控制权交给服务端 payment-exit；由服务端查单
 	// 并决定是否关单/作废，不能在页面里再额外查一次造成重复请求。
 	if (paymentWasCancelled) throw new WechatPaymentCancelledError();
-	if (payment.paymentState === "failed") throw new Error("微信医保支付已失败");
+	if (payment.status === "failed" || payment.paymentState === "failed")
+		throw new Error("医保插件自费支付已失败");
 	for (
 		let index = 0;
 		index < PAY_CONFIG.insurancePollDelaysMs.length;
 		index += 1
 	) {
-		onProgress("cash-confirming", "正在确认微信医保混合支付结果");
-		const result = await request<MedicalWechatPayment>({
-			path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/wechat-pay`,
+		onProgress("cash-confirming", "正在确认医保插件自费并回写 HIS");
+		const result = await request<MedicalPluginPayment>({
+			path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/plugin-pay`,
 			idempotencyKey: current.wechatQueryIdempotencyKey,
 		});
 		if (
 			result.status === "insurance_settled" &&
-			result.paymentState === "cash_paid"
+			["cash_paid", "his_written_back", "completed"].includes(
+				result.paymentState,
+			)
 		) {
 			finishMedicalPayment(current, orderId, onProgress);
 			return;
 		}
 		if (result.status === "failed" || result.status === "manual_review") {
-			throw new Error("医保后置结算未成功，请查看后台订单日志");
+			throw new Error("医保插件自费回写未成功，请查看后台订单日志");
 		}
 		if (result.paymentState === "failed")
-			throw new Error("微信医保支付已失败，请不要重复预约");
+			throw new Error("医保插件自费支付已失败，请不要重复预约");
 		await new Promise((resolve) =>
 			setTimeout(resolve, PAY_CONFIG.insurancePollDelaysMs[index] || 1500),
 		);

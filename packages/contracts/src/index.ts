@@ -192,6 +192,10 @@ export const PatientBindingRequest = Type.Object(
 			pattern: "^(?:\\d{15}|\\d{17}[0-9Xx])$",
 		}),
 		consent: Type.Literal(true),
+		/** 旧服务端登录兼容凭证，只发给平台 API，不进入众阳请求 body。 */
+		legacyLoginCode: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 256 }),
+		),
 	},
 	{ additionalProperties: false },
 );
@@ -950,6 +954,28 @@ export const MedicalInsuranceWechatPayResponse = Type.Object({
 	}),
 });
 
+/**
+ * 云健康插件版医保混合支付：医保 6202 留下自费金额后，服务端完成第二次
+ * .2 和普通微信 JSAPI 预下单；患者端只拿到微信调起参数。
+ */
+export const MedicalInsurancePluginPayResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		paymentOrderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Union([
+			Type.Literal("cash_pending"),
+			Type.Literal("insurance_settled"),
+			Type.Literal("awaiting_confirmation"),
+			Type.Literal("manual_review"),
+			Type.Literal("failed"),
+		]),
+		paymentState: PaymentStateSchema,
+		cashFen: Type.Integer({ minimum: 0 }),
+		payParams: Type.Optional(WechatMiniProgramPayParamsSchema),
+	}),
+});
+
 /** 纯自费挂号支付响应；支付金额仍来自服务端已写入的预约金额。 */
 export const RegistrationSelfPayResponse = Type.Object({
 	success: Type.Literal(true),
@@ -1125,6 +1151,9 @@ export type MedicalInsuranceCancellationPayload = Static<
 >;
 export type MedicalInsuranceWechatPayPayload = Static<
 	typeof MedicalInsuranceWechatPayResponse
+>;
+export type MedicalInsurancePluginPayPayload = Static<
+	typeof MedicalInsurancePluginPayResponse
 >;
 export type OutpatientPaymentStatusPayload = Static<
 	typeof OutpatientPaymentStatusSchema
