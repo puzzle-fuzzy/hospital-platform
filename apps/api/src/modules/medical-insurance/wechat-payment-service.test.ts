@@ -1,11 +1,19 @@
 import { expect, test } from "bun:test";
 import type {
 	MedicalInsuranceOrder,
+	MedicalInsuranceQueryTask,
 	MedicalInsuranceWechatPaymentGateway,
 } from "@hospital/domain";
 import { createLogger, type AppLogger } from "@hospital/observability";
-import { createInMemoryMedicalInsuranceOrderRepository } from "@hospital/persistence";
-import { MedicalInsuranceWechatPaymentService } from "./wechat-payment-service";
+import {
+	createInMemoryMedicalInsuranceOrderRepository,
+	createInMemoryMedicalInsuranceQueryTaskRepository,
+	createInMemoryPatientRepository,
+} from "@hospital/persistence";
+import {
+	MedicalInsuranceWechatPaymentNotAllowedError,
+	MedicalInsuranceWechatPaymentService,
+} from "./wechat-payment-service";
 
 const now = "2026-09-08T08:00:00.000Z";
 
@@ -62,8 +70,10 @@ function makeService(
 	} as unknown as MedicalInsuranceWechatPaymentGateway;
 	return new MedicalInsuranceWechatPaymentService({
 		orders,
+		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
 		authorizations: {} as never,
 		identityUsers: {} as never,
+		patients: {} as never,
 		wechatPayment,
 		confirmCashPayment: async () => {
 			throw new Error("should not complete a failed query");
@@ -155,4 +165,224 @@ test("自费失败不会产生医保失败原因字段", async () => {
 	expect(await orders.findByMedicalOrderId("wechat-query-001")).toMatchObject({
 		medInsFailReason: null,
 	});
+});
+
+test("医保混合回调只唤醒持久化查单任务，不在回调内访问 Provider", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(order());
+	const completedTask: MedicalInsuranceQueryTask = {
+		taskId: "wechat-query-001",
+		medicalOrderId: "wechat-query-001",
+		status: "completed",
+		version: 2,
+		attempts: 1,
+		maxAttempts: 12,
+		nextAttemptAt: now,
+		claimedUntil: null,
+		terminalOrdStas: null,
+		lastErrorCode: "order-already-cash_pending",
+		createdAt: now,
+		updatedAt: now,
+	};
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([
+		completedTask,
+	]);
+	let providerCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: tasks,
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: {} as never,
+		wechatPayment: {
+			queryMixedOrder: async () => {
+				providerCalls += 1;
+				throw new Error("callback must not query Provider");
+			},
+		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		confirmCashPayment: async () => {
+			throw new Error("callback must not complete HIS");
+		},
+		now: () => new Date(now),
+	});
+
+	await service.receiveNotification({
+		notification: {
+			notificationId: "medical-notification-001",
+			eventType: "MEDICAL_INSURANCE.SUCCESS",
+			mixTradeNo: "mix-query-001",
+			outTradeNo: "out-query-001",
+			totalFen: 1000,
+			cashFen: 200,
+			selfPayStatus: "SELF_PAY_SUCCESS",
+			medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS",
+			receivedAt: now,
+		},
+		context: {
+			traceId: "medical-notification-001",
+			idempotencyKey: "medical-notification-001",
+		},
+	});
+
+	expect(providerCalls).toBe(0);
+	expect(await tasks.claimDueForQuery(new Date(now), 1, 60_000)).toHaveLength(
+		1,
+	);
+});
+
+test("新建亲属或儿童混合支付在任何 Provider 请求前被拒绝", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			wechatMixTradeNo: null,
+			wechatOutTradeNo: null,
+			wechatPaymentState: "not_started",
+		}),
+	);
+	let providerCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: createInMemoryPatientRepository([
+			{
+				id: "patient-wechat-query-001",
+				ownerUserId: "user-wechat-query-001",
+				displayName: "测试儿童",
+				relationship: "child",
+				cardNumberMasked: "******0001",
+				source: "hospital-his",
+				clinicalAccess: "ready",
+			},
+		]),
+		wechatPayment: {
+			createMixedOrder: async () => {
+				providerCalls += 1;
+				throw new Error("child payment must not reach WeChat");
+			},
+		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		confirmCashPayment: async () => {
+			throw new Error("child payment must not complete");
+		},
+	});
+
+	await expect(
+		service.create({
+			ownerUserId: "user-wechat-query-001",
+			orderId: "wechat-query-001",
+			context: {
+				traceId: "child-payment-trace-001",
+				idempotencyKey: "child-payment-request-001",
+			},
+		}),
+	).rejects.toBeInstanceOf(MedicalInsuranceWechatPaymentNotAllowedError);
+	expect(providerCalls).toBe(0);
+});
+
+test("混合查单两段成功后只唤醒 Worker，不在 API 内并发回写 HIS", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(order());
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([
+		{
+			taskId: "wechat-query-001",
+			medicalOrderId: "wechat-query-001",
+			status: "completed",
+			version: 2,
+			attempts: 1,
+			maxAttempts: 12,
+			nextAttemptAt: now,
+			claimedUntil: null,
+			terminalOrdStas: null,
+			lastErrorCode: null,
+			createdAt: now,
+			updatedAt: now,
+		},
+	]);
+	let synchronousCompletionCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: tasks,
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: {} as never,
+		wechatPayment: {
+			queryMixedOrder: async () => ({
+				cashState: "paid",
+				insuranceState: "paid",
+				medInsPayStatus: "MED_INS_PAY_SUCCESS",
+				cashFen: 200,
+				totalFen: 1000,
+				providerStatus: "MIX_PAY_SUCCESS/SELF_PAY_SUCCESS/MED_INS_PAY_SUCCESS",
+				trace: {
+					provider: "wechat-pay",
+					operation: "medical-mix-query",
+					requestId: "wechat-query-provider-003",
+				},
+			}),
+		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		confirmCashPayment: async () => {
+			synchronousCompletionCalls += 1;
+			throw new Error("API must not complete HIS");
+		},
+		pluginPaymentBridge: {} as never,
+		now: () => new Date(now),
+	});
+
+	await expect(
+		service.query({
+			ownerUserId: "user-wechat-query-001",
+			orderId: "wechat-query-001",
+			context: {
+				traceId: "wechat-query-trace-003",
+				idempotencyKey: "wechat-query-request-003",
+			},
+		}),
+	).resolves.toMatchObject({
+		status: "cash_pending",
+		paymentState: "cash_paid",
+	});
+	expect(synchronousCompletionCalls).toBe(0);
+	expect(await tasks.claimDueForQuery(new Date(now), 1, 60_000)).toHaveLength(
+		1,
+	);
+});
+
+test("已完成医院回写的混合订单不会被后续 Provider 查单降级", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({ status: "insurance_settled", wechatPaymentState: "cash_paid" }),
+	);
+	let providerCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: {} as never,
+		wechatPayment: {
+			queryMixedOrder: async () => {
+				providerCalls += 1;
+				throw new Error("terminal order must not be queried");
+			},
+		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		confirmCashPayment: async () => {
+			throw new Error("terminal order must not be completed again");
+		},
+	});
+
+	await expect(
+		service.query({
+			ownerUserId: "user-wechat-query-001",
+			orderId: "wechat-query-001",
+			context: {
+				traceId: "wechat-query-terminal-001",
+				idempotencyKey: "wechat-query-terminal-request-001",
+			},
+		}),
+	).resolves.toMatchObject({
+		status: "insurance_settled",
+		paymentState: "cash_paid",
+	});
+	expect(providerCalls).toBe(0);
 });

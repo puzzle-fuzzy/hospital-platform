@@ -228,26 +228,6 @@ export class MedicalInsuranceRegistrationService {
 		const appointment = await this.appointment(ownerUserId, appointmentId);
 		const appointmentCreatedAt = Date.parse(appointment.createdAt);
 		const appointmentAge = this.now().getTime() - appointmentCreatedAt;
-		if (
-			!Number.isFinite(appointmentCreatedAt) ||
-			appointmentAge < 0 ||
-			appointmentAge > MEDICAL_PAYMENT_CONTEXT_MAX_AGE_MS
-		) {
-			this.logger.warn(
-				{
-					event: "medical-insurance.authorization.stale-appointment",
-					traceId: context.traceId,
-					ownerUserId,
-					appointmentId,
-					appointmentAgeMs: Number.isFinite(appointmentAge)
-						? appointmentAge
-						: undefined,
-					maxAgeMs: MEDICAL_PAYMENT_CONTEXT_MAX_AGE_MS,
-				},
-				"Medical insurance authorization rejected stale appointment",
-			);
-			throw new MedicalInsuranceAppointmentStaleError();
-		}
 		let order = await this.dependencies.orders.findByOwnerAndIdempotencyKey(
 			ownerUserId,
 			context.idempotencyKey,
@@ -280,6 +260,29 @@ export class MedicalInsuranceRegistrationService {
 		const reusableAuthorizationId =
 			order?.status === "cancelled" ? order.authorizationId : null;
 		if (order?.status === "cancelled") order = undefined;
+		// 15 分钟只限制“首次创建医保订单”。已有订单必须继续按原单恢复和
+		// 查单，否则客户端本地上下文过期会让已扣款订单永久失联。
+		if (
+			!order &&
+			(!Number.isFinite(appointmentCreatedAt) ||
+				appointmentAge < 0 ||
+				appointmentAge > MEDICAL_PAYMENT_CONTEXT_MAX_AGE_MS)
+		) {
+			this.logger.warn(
+				{
+					event: "medical-insurance.authorization.stale-appointment",
+					traceId: context.traceId,
+					ownerUserId,
+					appointmentId,
+					appointmentAgeMs: Number.isFinite(appointmentAge)
+						? appointmentAge
+						: undefined,
+					maxAgeMs: MEDICAL_PAYMENT_CONTEXT_MAX_AGE_MS,
+				},
+				"Medical insurance authorization rejected stale new appointment",
+			);
+			throw new MedicalInsuranceAppointmentStaleError();
+		}
 		if (!order) {
 			const now = this.now().toISOString();
 			const medicalOrderId = this.createId();

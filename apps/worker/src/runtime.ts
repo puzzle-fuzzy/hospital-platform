@@ -12,6 +12,7 @@ import {
 	medicalInsuranceConfigurationMissingFields,
 	type RuntimeConfig,
 	wechatPaymentConfigurationMissingFields,
+	wechatMedicalInsuranceConfigurationMissingFields,
 	yunhealthRegistrationSettlementConfigurationMissingFields,
 } from "@hospital/config";
 import type { DependencyState } from "@hospital/contracts";
@@ -283,6 +284,12 @@ export function workerConfigurationMissingFields(runtimeConfig: RuntimeConfig) {
 		medicalInsuranceConfigurationMissingFields(runtimeConfig);
 	if (runtimeConfig.medicalInsuranceReady)
 		missing.push(...medicalInsuranceMissing);
+	if (runtimeConfig.wechatMedicalInsuranceReady) {
+		if (!runtimeConfig.wechatPaymentReady) missing.push("WECHAT_PAYMENT_READY");
+		missing.push(
+			...wechatMedicalInsuranceConfigurationMissingFields(runtimeConfig),
+		);
+	}
 	const yunhealthRegistrationSettlementMissing =
 		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig);
 	if (runtimeConfig.yunhealthRegistrationSettlementReady)
@@ -293,7 +300,10 @@ export function workerConfigurationMissingFields(runtimeConfig: RuntimeConfig) {
 			missing.push("PAYMENT_DATA_ENCRYPTION_KEY");
 		if (runtimeConfig.wechatPaymentReady)
 			missing.push(...wechatPaymentConfigurationMissingFields(runtimeConfig));
-	} else if (!runtimeConfig.medicalInsuranceReady) {
+	} else if (
+		!runtimeConfig.medicalInsuranceReady &&
+		!runtimeConfig.wechatMedicalInsuranceReady
+	) {
 		missing.push("WECHAT_PAYMENT_READY");
 	}
 	return missing;
@@ -370,6 +380,11 @@ export function createWorkerRuntime(
 		return createNotConfiguredRuntime(["PERSISTENCE_REPOSITORIES"]);
 	}
 
+	const medicalWechatPaymentReady =
+		runtimeConfig.wechatPaymentReady &&
+		runtimeConfig.wechatMedicalInsuranceReady &&
+		wechatMedicalInsuranceConfigurationMissingFields(runtimeConfig).length ===
+			0;
 	const wechatPayment = runtimeConfig.wechatPaymentReady
 		? createWechatPaymentGateway({
 				appId: runtimeConfig.wechatPayAppId ?? "",
@@ -383,6 +398,29 @@ export function createWorkerRuntime(
 				apiV3Key: runtimeConfig.wechatPayApiV3Key ?? "",
 				notifyUrl: runtimeConfig.wechatPayNotifyUrl ?? "",
 				baseUrl: runtimeConfig.wechatPayBaseUrl,
+				...(medicalWechatPaymentReady
+					? {
+							medicalInsurance: {
+								appId: runtimeConfig.wechatMedicalInsuranceAppId ?? "",
+								cityId: runtimeConfig.wechatMedicalInsuranceCityId ?? "",
+								medicalInstitutionName:
+									runtimeConfig.wechatMedicalInsuranceInstitutionName ?? "",
+								medicalInstitutionNo:
+									runtimeConfig.wechatMedicalInsuranceInstitutionNo ?? "",
+								callbackUrl:
+									runtimeConfig.wechatMedicalInsuranceCallbackUrl ?? "",
+								geoLocation:
+									runtimeConfig.wechatMedicalInsuranceGeoLocation ?? "",
+								...(runtimeConfig.wechatMedicalInsuranceChannelNo
+									? {
+											channelNo: runtimeConfig.wechatMedicalInsuranceChannelNo,
+										}
+									: {}),
+								testEnvironment:
+									runtimeConfig.wechatMedicalInsuranceTestEnvironment,
+							},
+						}
+					: {}),
 			})
 		: undefined;
 	// worker 不创建旧 v2 微信订单；对已由 APIv3 收款的订单，仍允许云健康
@@ -423,6 +461,106 @@ export function createWorkerRuntime(
 	);
 	const settlementGateway =
 		options.hospitalSettlementGateway ?? hospitalSettlementGateway;
+	const canCompleteMedicalMixedPayment = async (input: {
+		ownerUserId: string;
+		medicalOrderId: string;
+		paymentOrderId: string;
+	}): Promise<boolean> => {
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+				input.medicalOrderId,
+			);
+		if (
+			!medicalOrder ||
+			medicalOrder.ownerUserId !== input.ownerUserId ||
+			medicalOrder.wechatPaymentState !== "cash_paid"
+		) {
+			return false;
+		}
+		const context =
+			await repositories.medicalInsuranceOrders.getSettlementContext(
+				input.ownerUserId,
+				input.medicalOrderId,
+			);
+		return context?.plugin?.paymentOrderId === input.paymentOrderId;
+	};
+	const markMedicalPluginSettlementCompleted = async (input: {
+		paymentOrder: PaymentOrder;
+	}): Promise<void> => {
+		if (
+			!input.paymentOrder.idempotencyKey.startsWith(
+				REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX,
+			)
+		) {
+			return;
+		}
+		const medicalOrderId = input.paymentOrder.idempotencyKey.slice(
+			REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX.length,
+		);
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+				medicalOrderId,
+			);
+		const context = medicalOrder
+			? await repositories.medicalInsuranceOrders.getSettlementContext(
+					input.paymentOrder.ownerUserId,
+					medicalOrderId,
+				)
+			: undefined;
+		if (
+			!medicalOrder ||
+			medicalOrder.ownerUserId !== input.paymentOrder.ownerUserId ||
+			!context?.plugin ||
+			context.plugin.paymentOrderId !== input.paymentOrder.orderId ||
+			medicalOrder.wechatPaymentState !== "cash_paid"
+		) {
+			throw new Error("medical mixed payment completion context is invalid");
+		}
+		if (context.plugin.state !== "settled") {
+			await repositories.medicalInsuranceOrders.saveSettlementContext(
+				medicalOrder.ownerUserId,
+				medicalOrder.medicalOrderId,
+				{
+					...context,
+					plugin: { ...context.plugin, state: "settled" },
+				},
+			);
+		}
+		if (medicalOrder.status === "insurance_settled") return;
+		if (medicalOrder.status !== "cash_pending") {
+			throw new Error("medical mixed payment order is not cash pending");
+		}
+		const settled = await repositories.medicalInsuranceOrders.applySettlement(
+			medicalOrder.medicalOrderId,
+			medicalOrder.version,
+			{
+				status: "insurance_settled",
+				ordStas: medicalOrder.ordStas,
+				amounts: medicalOrder.amounts,
+				setlType: medicalOrder.setlType,
+				revsTokenHash: medicalOrder.revsTokenHash,
+				revsTokenExpiresAt: medicalOrder.revsTokenExpiresAt,
+				wechatPaymentState: "cash_paid",
+			},
+		);
+		if (!settled) {
+			const current =
+				await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+					medicalOrder.medicalOrderId,
+				);
+			if (current?.status !== "insurance_settled") {
+				throw new Error("medical mixed payment completion version conflict");
+			}
+		}
+		logger.info(
+			{
+				event: "worker.payment.medical_mix.his_writeback.completed",
+				orderId: input.paymentOrder.orderId,
+				medicalOrderId,
+			},
+			"Medical mixed payment HIS writeback completed",
+		);
+	};
 	const reconciliation = wechatPayment
 		? new PaymentReconciliationWorker({
 				attempts: repositories.paymentPrepayAttempts,
@@ -435,6 +573,8 @@ export function createWorkerRuntime(
 					repositories,
 					logger,
 				),
+				canCompleteMedicalMixedPayment,
+				onHospitalSettlementCompleted: markMedicalPluginSettlementCompleted,
 				logger,
 			})
 		: undefined;
@@ -496,6 +636,15 @@ export function createWorkerRuntime(
 				tasks: repositories.medicalInsuranceQueryTasks,
 				orders: repositories.medicalInsuranceOrders,
 				medicalInsurance: medicalInsuranceGateway,
+				...(medicalWechatPaymentReady && wechatPayment
+					? { wechatPayment }
+					: {}),
+				...(reconciliation
+					? {
+							completeWechatPayment: (input, context) =>
+								reconciliation.completeMedicalMixedPayment(input, context),
+						}
+					: {}),
 				logger,
 			})
 		: undefined;

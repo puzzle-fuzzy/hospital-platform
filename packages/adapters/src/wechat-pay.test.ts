@@ -311,6 +311,10 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 
 test("医保混合查单仅在医保失败时提取医保局失败原因", async () => {
 	const body = JSON.stringify({
+		mix_trade_no: "mix-query-001",
+		appid: "wx-app-001",
+		out_trade_no: "out-query-001",
+		pay_order_id: "pay-query-001",
 		mix_pay_status: "MIX_PAY_FAIL",
 		self_pay_status: "SELF_PAY_SUCCESS",
 		med_ins_pay_status: "MED_INS_PAY_FAIL",
@@ -335,6 +339,8 @@ test("医保混合查单仅在医保失败时提取医保局失败原因", async
 			{
 				orderId: "medical-query-001",
 				mixTradeNo: "mix-query-001",
+				expectedOutTradeNo: "out-query-001",
+				expectedPayOrdId: "pay-query-001",
 				expectedTotalFen: 1000,
 				expectedCashFen: 200,
 			},
@@ -350,6 +356,10 @@ test("医保混合查单仅在医保失败时提取医保局失败原因", async
 
 test("医保成功查单即使误带失败原因也不向业务层透传", async () => {
 	const body = JSON.stringify({
+		mix_trade_no: "mix-query-002",
+		appid: "wx-app-001",
+		out_trade_no: "out-query-002",
+		pay_order_id: "pay-query-002",
 		mix_pay_status: "MIX_PAY_SUCCESS",
 		self_pay_status: "SELF_PAY_SUCCESS",
 		med_ins_pay_status: "MED_INS_PAY_SUCCESS",
@@ -373,6 +383,8 @@ test("医保成功查单即使误带失败原因也不向业务层透传", async
 		{
 			orderId: "medical-query-002",
 			mixTradeNo: "mix-query-002",
+			expectedOutTradeNo: "out-query-002",
+			expectedPayOrdId: "pay-query-002",
 			expectedTotalFen: 1000,
 			expectedCashFen: 200,
 		},

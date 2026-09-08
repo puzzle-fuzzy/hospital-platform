@@ -62,6 +62,34 @@ test("wechat notification service records a safe event and deduplicates retries"
 	expect(JSON.stringify(events[0])).not.toContain("signed-body");
 });
 
+test("medical mixed cash callback is queued without writing the ordinary payment table", async () => {
+	let ordinaryRecordCalls = 0;
+	let queuedOrderId = "";
+	const service = new WechatPaymentNotificationService({
+		notifications: {
+			record: async () => {
+				ordinaryRecordCalls += 1;
+				throw new Error("ordinary notification repository must not be called");
+			},
+		},
+		decoder: ({ receivedAt }) => ({
+			...notification,
+			orderId: "MIP1234567890",
+			receivedAt,
+		}),
+		medicalInsuranceCashNotification: async ({ notification: value }) => {
+			queuedOrderId = value.orderId;
+			return true;
+		},
+	});
+
+	await expect(
+		service.receive({ rawBody: new Uint8Array(), headers: new Headers() }),
+	).resolves.toBe("inserted");
+	expect(queuedOrderId).toBe("MIP1234567890");
+	expect(ordinaryRecordCalls).toBe(0);
+});
+
 test("wechat notification service rejects decoder failures without exposing provider details", async () => {
 	const loggerLines: string[] = [];
 	const service = new WechatPaymentNotificationService({

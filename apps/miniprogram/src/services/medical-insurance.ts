@@ -118,11 +118,13 @@ type MedicalWechatPayment = {
 
 /** 仅服务端确认医保部分失败且返回医保局原因时展示，不与自费失败混用。 */
 export class MedicalInsurancePaymentFailureError extends Error {
+	readonly userMessage: string;
+
 	constructor(reason: string) {
-		super(
-			`医保扣款失败：${reason}\n医保资金将在 1-3个工作日内原路退回，自费资金将由医院发起退款，详情请联系医院确认。`,
-		);
+		const userMessage = `医保扣款失败：${reason}\n系统已停止继续结算。退款状态需由医院核实，请勿重复付款，并联系医院确认后续处理。`;
+		super(userMessage);
 		this.name = "MedicalInsurancePaymentFailureError";
+		this.userMessage = userMessage;
 	}
 }
 
@@ -407,7 +409,11 @@ export function readPendingPayment(): PendingPayment | null {
 	);
 	if (!readPending(value)) return null;
 	const age = Date.now() - value.createdAt;
-	if (age < 0 || age > MEDICAL_INSURANCE_CONFIG.pendingPaymentMaxAgeMs) {
+	const maxAge =
+		value.orderId || (value.phase && value.phase !== "authorization")
+			? MEDICAL_INSURANCE_CONFIG.pendingPaymentRecoveryMaxAgeMs
+			: MEDICAL_INSURANCE_CONFIG.pendingPaymentMaxAgeMs;
+	if (age < 0 || age > maxAge) {
 		clearPendingPayment();
 		return null;
 	}

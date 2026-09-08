@@ -45,7 +45,6 @@ test("worker requires complete Yunhealth .29/.15/.5 configuration when the gate 
 	expect(workerConfigurationMissingFields(runtimeConfig)).toEqual(
 		expect.arrayContaining([
 			"YUNHEALTH_BASE_URL",
-			"YUNHEALTH_AUTH_TOKEN",
 			"YUNHEALTH_PAYMENT_ORG_ID",
 			"YUNHEALTH_PLUGIN_PAY_TYPE_ID",
 			"YUNHEALTH_PLUGIN_PAY_TYPE",
@@ -74,6 +73,19 @@ test("medical insurance worker can be configured without the WeChat payment gate
 
 	expect(workerConfigurationMissingFields(runtimeConfig)).toEqual([]);
 	expect(workerConfigurationStatus(runtimeConfig)).toBe("ready");
+});
+
+test("medical mixed reconciliation requires the ordinary WeChat APIv3 gate", () => {
+	const runtimeConfig = loadRuntimeConfig({
+		PERSISTENCE_SCHEMA_READY: "true",
+		DATABASE_URL: "mysql://hospital:test@127.0.0.1:3307/hospital_platform",
+		WECHAT_MEDICAL_INSURANCE_READY: "true",
+	});
+
+	expect(workerConfigurationMissingFields(runtimeConfig)).toContain(
+		"WECHAT_PAYMENT_READY",
+	);
+	expect(workerConfigurationStatus(runtimeConfig)).toBe("not_configured");
 });
 
 test("worker startup failure emits structured persistence readiness logs", async () => {

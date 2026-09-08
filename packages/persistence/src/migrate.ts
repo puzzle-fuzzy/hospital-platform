@@ -210,6 +210,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0037_medical_insurance_v225_amounts.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0038_medical_insurance_wechat_reconciliation",
+		file: "../migrations/0038_medical_insurance_wechat_reconciliation.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -416,6 +421,7 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"wechat_out_trade_no",
 			"wechat_payment_state",
 			"wechat_pay_params_ciphertext",
+			"wechat_prepay_expires_at",
 			"version",
 			"created_at",
 			"updated_at",

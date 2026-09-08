@@ -228,6 +228,90 @@ test("reconciliation worker continues a paid order through HIS writeback", async
 	expect(attempts.read().nextQueryAt).toBeUndefined();
 });
 
+test("medical mixed cash payment cannot write HIS before the mixed order is fully confirmed", async () => {
+	const orders = createOrderRepository({
+		...order,
+		idempotencyKey:
+			"registration-medical-plugin-self-pay:medical-order-worker-001",
+		state: "cash_paid",
+	});
+	const attempts = createAttemptRepository(attempt());
+	let writeBackCalls = 0;
+	const worker = new PaymentReconciliationWorker({
+		attempts: attempts.repository,
+		orders: new PaymentOrderService({ orders: orders.repository }),
+		wechatPayment: gatewayFor(async () => ({
+			state: "cash_paid",
+			totalFen: 300,
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-query",
+				requestId: "provider-query-medical-gate-001",
+			},
+		})),
+		hospitalSettlement: {
+			writeBack: async () => {
+				writeBackCalls += 1;
+				throw new Error("must not write before medical confirmation");
+			},
+		},
+		canCompleteMedicalMixedPayment: async () => false,
+	});
+
+	await expect(worker.runOnce(now)).resolves.toBe("reconciled");
+	expect(writeBackCalls).toBe(0);
+	expect(orders.read().state).toBe("cash_paid");
+	expect(attempts.read()).toMatchObject({
+		lastErrorCode: "his-writeback-pending",
+		nextQueryAt: "2026-08-15T00:00:15.000Z",
+	});
+});
+
+test("confirmed medical mixed payment persists HIS writeback before completing the linked order", async () => {
+	const orders = createOrderRepository({
+		...order,
+		idempotencyKey:
+			"registration-medical-plugin-self-pay:medical-order-worker-001",
+		amounts: { totalFen: 300, insuranceFen: 0, cashFen: 300 },
+		state: "cash_pending",
+	});
+	const attempts = createAttemptRepository(attempt());
+	const observedStates: string[] = [];
+	const worker = new PaymentReconciliationWorker({
+		attempts: attempts.repository,
+		orders: new PaymentOrderService({ orders: orders.repository }),
+		wechatPayment: gatewayFor(async () => {
+			throw new Error("ordinary WeChat query is not used");
+		}),
+		hospitalSettlement: createFixtureHospitalSettlementGateway(),
+		resolveRegistrationContext: async () => ({
+			businessId: "settlement-business-worker-002",
+			payingId: "260650000000021",
+			tradingId: "260650000000022",
+		}),
+		canCompleteMedicalMixedPayment: async () => true,
+		onHospitalSettlementCompleted: async ({ paymentOrder }) => {
+			observedStates.push(paymentOrder.state);
+		},
+	});
+
+	await expect(
+		worker.completeMedicalMixedPayment(
+			{
+				ownerUserId: "user-worker-001",
+				medicalOrderId: "medical-order-worker-001",
+				paymentOrderId: "order-worker-001",
+			},
+			{
+				traceId: "medical-mix-complete-001",
+				idempotencyKey: "medical-mix-complete-001",
+			},
+		),
+	).resolves.toBe(true);
+	expect(observedStates).toEqual(["his_written_back"]);
+	expect(orders.read()).toMatchObject({ state: "completed", version: 7 });
+});
+
 test("reconciliation worker retries when HIS writeback is unavailable", async () => {
 	const orders = createOrderRepository(order);
 	const attempts = createAttemptRepository(attempt());

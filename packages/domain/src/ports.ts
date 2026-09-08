@@ -399,6 +399,8 @@ export interface MedicalInsuranceWechatPaymentGateway {
 		input: {
 			orderId: string;
 			mixTradeNo: string;
+			expectedOutTradeNo: string;
+			expectedPayOrdId: string;
 			expectedTotalFen: number;
 			expectedCashFen: number;
 		},

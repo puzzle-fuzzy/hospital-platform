@@ -1365,7 +1365,7 @@ test("MySQL medical insurance order insert keeps columns and values aligned", as
 	const values = state.values[0] ?? [];
 	expect(statement).toContain("updated_at");
 	expect(statement.match(/\?/g) ?? []).toHaveLength(values.length);
-	expect(values).toHaveLength(40);
+	expect(values).toHaveLength(41);
 });
 
 test("MySQL 医保上下文修复使用加密且条件写入", async () => {

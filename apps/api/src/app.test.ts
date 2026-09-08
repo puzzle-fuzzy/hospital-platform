@@ -1825,7 +1825,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 		error: {
 			code: "provider-request-rejected",
 			numericCode: 10800,
-			message: "外部服务拒绝了本次请求，请稍后重试",
+			message: "外部服务拒绝了本次请求，请联系工作人员核实后再试",
 		},
 	});
 });

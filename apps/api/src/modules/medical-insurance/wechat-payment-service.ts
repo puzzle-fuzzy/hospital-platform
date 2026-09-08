@@ -9,10 +9,13 @@ import {
 	type MedicalInsuranceAuthorizationContext,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
+	type MedicalInsuranceQueryTaskRepository,
 	type MedicalInsuranceSettlementContext,
 	type MedicalInsuranceWechatPaymentGateway,
 	medicalInsuranceOrderTypeForBusiness,
+	type PatientRepository,
 	type UserIdentityRepository,
+	type WechatPaymentNotification,
 } from "@hospital/domain";
 import {
 	createNoopLogger,
@@ -34,6 +37,13 @@ export class MedicalInsuranceWechatPaymentNotAllowedError extends Error {
 			"Medical insurance WeChat payment is not allowed for the current order",
 		);
 		this.name = "MedicalInsuranceWechatPaymentNotAllowedError";
+	}
+}
+
+export class MedicalInsuranceWechatPrepayExpiredError extends Error {
+	constructor() {
+		super("Medical insurance WeChat prepay parameters have expired");
+		this.name = "MedicalInsuranceWechatPrepayExpiredError";
 	}
 }
 
@@ -85,6 +95,21 @@ function outTradeNo(orderId: string): string {
 		.slice(-19)}`.slice(0, 32);
 }
 
+const WECHAT_PREPAY_VALIDITY_MS = 2 * 60 * 60 * 1000;
+
+function prepayExpiresAt(order: MedicalInsuranceOrder): number {
+	const explicit = order.wechatPrepayExpiresAt
+		? Date.parse(order.wechatPrepayExpiresAt)
+		: Number.NaN;
+	if (Number.isFinite(explicit)) return explicit;
+	// 0038 以前的订单没有到期字段；用最后一次写入时间做保守兼容，避免
+	// 发布窗口内把仍有效的参数立即判废，也绝不无限复用。
+	const updatedAt = Date.parse(order.updatedAt);
+	return Number.isFinite(updatedAt)
+		? updatedAt + WECHAT_PREPAY_VALIDITY_MS
+		: Number.NaN;
+}
+
 function settlementPatch(order: MedicalInsuranceOrder) {
 	return {
 		status: order.status,
@@ -119,8 +144,10 @@ function orderBusiness(order: MedicalInsuranceOrder): {
 
 export type MedicalInsuranceWechatPaymentServiceDependencies = {
 	orders: MedicalInsuranceOrderRepository;
+	queryTasks: MedicalInsuranceQueryTaskRepository;
 	authorizations: import("@hospital/domain").MedicalInsuranceAuthorizationRepository;
 	identityUsers: UserIdentityRepository;
+	patients: PatientRepository;
 	wechatPayment: MedicalInsuranceWechatPaymentGateway;
 	/** 微信现金支付确认后回到统一医保订单核心，而不是绑定挂号 service。 */
 	confirmCashPayment: (input: {
@@ -158,6 +185,22 @@ export class MedicalInsuranceWechatPaymentService {
 			);
 		}
 		return order;
+	}
+
+	private async requeue(orderId: string): Promise<void> {
+		await this.dependencies.queryTasks.requeue(orderId, this.now());
+	}
+
+	private async assertSelfPayment(order: MedicalInsuranceOrder): Promise<void> {
+		const patients = await this.dependencies.patients.listByOwner(
+			order.ownerUserId,
+		);
+		const patient = patients.find(
+			(candidate) => candidate.id === order.patientId,
+		);
+		if (patient?.relationship !== "self") {
+			throw new MedicalInsuranceWechatPaymentNotAllowedError();
+		}
 	}
 
 	private async contexts(
@@ -230,8 +273,23 @@ export class MedicalInsuranceWechatPaymentService {
 		const orderId = opaque(input.orderId, "orderId");
 		let order = await this.order(ownerUserId, orderId);
 		if (order.status === "cancelled") return output(order, false);
+		// 已完成医院回写的终态不能再被后续查单结果降级或改成待人工处理。
+		if (order.status === "insurance_settled") return output(order, false);
 		const { businessType, orderType } = orderBusiness(order);
 		if (order.wechatPaymentState === "prepay_ready" && order.wechatPayParams) {
+			const expiresAt = prepayExpiresAt(order);
+			if (!Number.isFinite(expiresAt) || expiresAt <= this.now().getTime()) {
+				const reconciled = await this.query(input);
+				if (
+					reconciled.status === "insurance_settled" ||
+					reconciled.status === "manual_review" ||
+					reconciled.status === "failed" ||
+					reconciled.paymentState === "failed"
+				) {
+					return reconciled;
+				}
+				throw new MedicalInsuranceWechatPrepayExpiredError();
+			}
 			if (this.dependencies.pluginPaymentBridge) {
 				await this.dependencies.pluginPaymentBridge.prepareForOfficialWechatPayment(
 					{
@@ -242,6 +300,7 @@ export class MedicalInsuranceWechatPaymentService {
 					},
 				);
 			}
+			await this.requeue(orderId);
 			this.logger.info(
 				{
 					event: "medical-insurance.wechat-mix.ready",
@@ -258,19 +317,14 @@ export class MedicalInsuranceWechatPaymentService {
 			return output(order);
 		}
 		if (order.wechatPaymentState === "cash_paid") {
-			if (this.dependencies.pluginPaymentBridge) {
-				await this.completeCashPayment({
-					ownerUserId,
-					orderId,
-					context: input.context,
-				});
-				order = await this.order(ownerUserId, orderId);
-			}
-			return output(order, false);
+			// 历史版本可能只凭普通 JSAPI 查单写入 cash_paid；任何续跑都先重新
+			// 查询官方混合订单，不能直接执行 .29/.15/.5。
+			return this.query(input);
 		}
 		if (order.status !== "cash_pending" || !order.amounts?.cashFen) {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
 		}
+		if (!order.wechatMixTradeNo) await this.assertSelfPayment(order);
 		const { authorization, settlement, openid } = await this.contexts(
 			order,
 			ownerUserId,
@@ -335,14 +389,25 @@ export class MedicalInsuranceWechatPaymentService {
 				wechatMixTradeNo: result.mixTradeNo,
 				wechatOutTradeNo: paymentOutTradeNo,
 				wechatPayParams: result.payParams,
+				wechatPrepayExpiresAt: new Date(
+					this.now().getTime() + WECHAT_PREPAY_VALIDITY_MS,
+				).toISOString(),
 				wechatPaymentState: "prepay_ready",
 			},
 		);
 		if (!updated) {
 			order = await this.order(ownerUserId, orderId);
-			if (order.wechatPayParams && order.wechatMixTradeNo) return output(order);
+			if (
+				order.wechatPayParams &&
+				order.wechatMixTradeNo &&
+				prepayExpiresAt(order) > this.now().getTime()
+			) {
+				await this.requeue(orderId);
+				return output(order);
+			}
 			throw new DependencyNotConfiguredError("medical-insurance-orders");
 		}
+		await this.requeue(orderId);
 		this.logger.info(
 			{
 				event: "medical-insurance.wechat-mix.ready",
@@ -367,8 +432,17 @@ export class MedicalInsuranceWechatPaymentService {
 		const orderId = opaque(input.orderId, "orderId");
 		let order = await this.order(ownerUserId, orderId);
 		if (order.status === "cancelled") return output(order, false);
+		// 已完成医院回写的终态不能再被后续查单结果降级或改成待人工处理。
+		if (order.status === "insurance_settled") return output(order, false);
 		const { businessType, orderType } = orderBusiness(order);
-		if (!order.wechatMixTradeNo || !order.amounts) return output(order, false);
+		if (
+			!order.wechatMixTradeNo ||
+			!order.wechatOutTradeNo ||
+			!order.payOrdId ||
+			!order.amounts
+		) {
+			return output(order, false);
+		}
 		let result: Awaited<
 			ReturnType<MedicalInsuranceWechatPaymentGateway["queryMixedOrder"]>
 		>;
@@ -377,6 +451,8 @@ export class MedicalInsuranceWechatPaymentService {
 				{
 					orderId,
 					mixTradeNo: order.wechatMixTradeNo,
+					expectedOutTradeNo: order.wechatOutTradeNo,
+					expectedPayOrdId: order.payOrdId,
 					expectedTotalFen: order.amounts.totalFen,
 					expectedCashFen: order.amounts.cashFen,
 				},
@@ -398,17 +474,24 @@ export class MedicalInsuranceWechatPaymentService {
 			);
 			throw error;
 		}
-		const paymentState =
-			result.cashState === "failed" || result.insuranceState === "failed"
+		const fullyPaid =
+			result.cashState === "paid" && result.insuranceState === "paid";
+		const providerFailed =
+			result.cashState === "failed" || result.insuranceState === "failed";
+		const paymentState = fullyPaid
+			? "cash_paid"
+			: providerFailed
 				? "failed"
 				: result.cashState === "paid"
-					? "cash_paid"
+					? "unknown"
 					: "prepay_ready";
+		const nextStatus = providerFailed ? "manual_review" : order.status;
 		const updated = await this.dependencies.orders.applySettlement(
 			order.medicalOrderId,
 			order.version,
 			{
 				...settlementPatch(order),
+				status: nextStatus,
 				wechatPaymentState: paymentState,
 				// 失败原因只属于本次查单返回的医保失败状态；其他状态清除
 				// 历史原因，避免退款/成功后继续展示过期文案。
@@ -419,6 +502,7 @@ export class MedicalInsuranceWechatPaymentService {
 			},
 		);
 		order = updated ?? (await this.order(ownerUserId, orderId));
+		if (!fullyPaid && !providerFailed) await this.requeue(orderId);
 		this.logger.info(
 			{
 				event: "medical-insurance.wechat-mix.queried",
@@ -439,9 +523,15 @@ export class MedicalInsuranceWechatPaymentService {
 			},
 			"Medical insurance WeChat mixed payment queried",
 		);
-		if (paymentState === "cash_paid" && result.insuranceState === "paid") {
+		if (fullyPaid) {
 			// wx.requestMedicalInsurancePay 的 success 只代表客户端调起成功；必须再走服务端
 			// 混合查单和医保后置完成，才能清除 pending 上下文。
+			if (this.dependencies.pluginPaymentBridge) {
+				// 云健康 .29/.15/.5 由持久化 Worker 串行执行，避免 API 查单与
+				// 后台补偿同时写同一 Provider 流水。页面继续轮询本订单即可。
+				await this.requeue(orderId);
+				return output(order, false);
+			}
 			const confirmed = await this.completeCashPayment({
 				ownerUserId,
 				orderId,
@@ -460,16 +550,53 @@ export class MedicalInsuranceWechatPaymentService {
 	}
 
 	/**
-	 * 处理官方医保混合成功回调。回调中的 mix_trade_no 只用于定位服务端订单，
-	 * 金额必须与本地 6202 事实一致；随后仍通过官方混合查单和统一医保核心
-	 * 完成 HIS 收敛，避免仅凭回调文本直接把订单标记完成。
+	 * 普通 JSAPI 回调承载混合订单的现金段。识别 MIP out_trade_no 后只唤醒
+	 * 医保混合查单，不写普通支付通知表，也不允许普通支付 Worker 单独据此
+	 * 完成医院回写。
+	 */
+	async receiveCashNotification(input: {
+		notification: WechatPaymentNotification;
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<boolean> {
+		const notification = input.notification;
+		if (!notification.orderId.startsWith("MIP")) return false;
+		const order = await this.dependencies.orders.findByWechatOutTradeNo(
+			notification.orderId,
+		);
+		if (!order?.amounts) {
+			throw new MedicalInsuranceWechatPaymentInputError(
+				"Medical insurance cash notification order was not found",
+			);
+		}
+		if (notification.totalFen !== order.amounts.cashFen) {
+			throw new MedicalInsuranceWechatPaymentInputError(
+				"Medical insurance cash notification amount does not match",
+			);
+		}
+		await this.requeue(order.medicalOrderId);
+		this.logger.info(
+			{
+				event: "medical-insurance.wechat-cash.notification.accepted",
+				traceId: input.context.traceId,
+				orderId: order.medicalOrderId,
+				notificationId: notification.notificationId,
+				providerTransactionId: notification.providerTransactionId,
+			},
+			"Medical insurance cash notification queued for mixed-order query",
+		);
+		return true;
+	}
+
+	/**
+	 * 处理官方医保混合成功回调。回调只做验签后的本地关联、金额校验与持久化
+	 * 查单任务唤醒，确保 5 秒内应答；Provider 查单和 HIS 回写由后台执行。
 	 */
 	async receiveNotification(input: {
 		notification: MedicalInsuranceWechatNotification;
 		context: { traceId: string; idempotencyKey: string };
 	}): Promise<void> {
 		const notification = input.notification;
-		let order = await this.dependencies.orders.findByWechatMixTradeNo(
+		const order = await this.dependencies.orders.findByWechatMixTradeNo(
 			notification.mixTradeNo,
 		);
 		if (!order) {
@@ -495,77 +622,15 @@ export class MedicalInsuranceWechatPaymentService {
 				"Medical insurance WeChat notification cash amount does not match",
 			);
 		}
-		// 回调是异步触发信号，不直接作为最终支付事实；再向微信 APIv3
-		// 混合订单查单，确认自费和医保两段都成功后才允许推进 HIS 收敛。
-		const confirmedPayment =
-			await this.dependencies.wechatPayment.queryMixedOrder(
-				{
-					orderId: order.medicalOrderId,
-					mixTradeNo: notification.mixTradeNo,
-					expectedTotalFen: order.amounts.totalFen,
-					expectedCashFen: order.amounts.cashFen,
-				},
-				input.context,
-			);
-		if (
-			confirmedPayment.cashState !== "paid" ||
-			confirmedPayment.insuranceState !== "paid"
-		) {
-			throw new MedicalInsuranceWechatPaymentInputError(
-				"Medical insurance WeChat notification payment is not fully confirmed",
-			);
-		}
-		if (
-			order.wechatPaymentState === "cash_paid" &&
-			order.status === "insurance_settled"
-		) {
-			this.logger.info(
-				{
-					event: "medical-insurance.wechat-mix.notification.duplicate",
-					traceId: input.context.traceId,
-					orderId: order.medicalOrderId,
-					notificationId: notification.notificationId,
-				},
-				"Medical insurance WeChat mixed notification already applied",
-			);
-			return;
-		}
-		const markedPaid =
-			order.wechatPaymentState === "cash_paid"
-				? order
-				: await this.dependencies.orders.applySettlement(
-						order.medicalOrderId,
-						order.version,
-						{
-							...settlementPatch(order),
-							wechatPaymentState: "cash_paid",
-						},
-					);
-		if (!markedPaid) {
-			order =
-				(await this.dependencies.orders.findByWechatMixTradeNo(
-					notification.mixTradeNo,
-				)) ?? order;
-		}
-		const current = markedPaid ?? order;
-		if (current.wechatPaymentState !== "cash_paid") {
-			throw new MedicalInsuranceWechatPaymentInputError(
-				"Medical insurance WeChat notification could not update the order",
-			);
-		}
-		await this.completeCashPayment({
-			ownerUserId: current.ownerUserId,
-			orderId: current.medicalOrderId,
-			context: input.context,
-		});
+		await this.requeue(order.medicalOrderId);
 		this.logger.info(
 			{
-				event: "medical-insurance.wechat-mix.notification.applied",
+				event: "medical-insurance.wechat-mix.notification.accepted",
 				traceId: input.context.traceId,
-				orderId: current.medicalOrderId,
+				orderId: order.medicalOrderId,
 				notificationId: notification.notificationId,
 			},
-			"Medical insurance WeChat mixed notification applied",
+			"Medical insurance WeChat mixed notification queued for query",
 		);
 	}
 }

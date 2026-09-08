@@ -485,8 +485,10 @@ export function createDefaultApplicationServices(
 	const medicalInsuranceWechatPayment =
 		new MedicalInsuranceWechatPaymentService({
 			orders: repositories.medicalInsuranceOrders,
+			queryTasks: repositories.medicalInsuranceQueryTasks,
 			authorizations: repositories.medicalInsuranceAuthorizations,
 			identityUsers: repositories.identityUsers,
+			patients: repositories.patients,
 			wechatPayment:
 				options.medicalInsuranceWechatPaymentGateway ??
 				gateways.medicalInsuranceWechatPayment,
@@ -612,6 +614,8 @@ export function createDefaultApplicationServices(
 						"wechat-payment-notifications",
 					);
 				}) as WechatPaymentNotificationDecoder),
+			medicalInsuranceCashNotification: (input) =>
+				medicalInsuranceWechatPayment.receiveCashNotification(input),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		profile: new UserProfileService(repositories.userProfiles, {

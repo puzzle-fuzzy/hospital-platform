@@ -46,6 +46,7 @@
 				<view class="section-title">选择支付方式</view>
 				<button class="payment-button medical-button" data-mode="medical" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'medical'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'medical' ? '继续医保支付' : '纯医保支付'}}</button>
 				<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'mixed' ? '继续医保混合支付' : '医保混合支付'}}</button>
+				<view wx:if="{{patientRelationship !== 'self'}}" class="footnote">医保混合支付当前仅支持本人，亲属和儿童暂不支持。</view>
 				<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'self' ? '继续确认自费支付' : '普通自费支付'}}</button>
 			</view>
 			<view wx:else class="completed-card">

@@ -72,6 +72,11 @@ import {
 	MedicalInsuranceRegistrationInputError,
 } from "../modules/medical-insurance/registration-service";
 import {
+	MedicalInsuranceWechatPaymentInputError,
+	MedicalInsuranceWechatPaymentNotAllowedError,
+	MedicalInsuranceWechatPrepayExpiredError,
+} from "../modules/medical-insurance/wechat-payment-service";
+import {
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
 	OutpatientPaymentRecordNotFoundError,
@@ -340,7 +345,7 @@ export function errorHandlerPlugin() {
 					? "外部服务返回数据异常，请稍后重试"
 					: error.retryable
 						? "外部服务暂时不可用，请稍后重试"
-						: "外部服务拒绝了本次请求，请稍后重试";
+						: "外部服务拒绝了本次请求，请联系工作人员核实后再试";
 				return errorPayload(providerCode, providerMessage);
 			}
 
@@ -618,6 +623,25 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"medical-insurance-order-not-found",
 					"未找到对应的医保订单",
+				);
+			}
+
+			if (error instanceof MedicalInsuranceWechatPrepayExpiredError) {
+				set.status = 409;
+				return errorPayload(
+					"payment-prepay-unknown",
+					"原支付参数已过期，系统正在核对原订单；请勿重复付款",
+				);
+			}
+
+			if (
+				error instanceof MedicalInsuranceWechatPaymentInputError ||
+				error instanceof MedicalInsuranceWechatPaymentNotAllowedError
+			) {
+				set.status = 409;
+				return errorPayload(
+					"medical-insurance-invalid",
+					"当前医保订单不能发起此支付，请确认本人就诊和订单状态",
 				);
 			}
 

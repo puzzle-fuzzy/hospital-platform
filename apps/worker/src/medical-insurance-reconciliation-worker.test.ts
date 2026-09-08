@@ -69,6 +69,7 @@ function createTaskRepository(seed: MedicalInsuranceQueryTask): {
 			}
 			return current;
 		},
+		async requeue() {},
 		async claimDueForQuery(queryNow, limit, leaseMs) {
 			if (
 				limit <= 0 ||

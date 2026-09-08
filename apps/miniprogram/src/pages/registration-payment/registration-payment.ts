@@ -36,6 +36,7 @@ type RegistrationPaymentPageData = {
 	appointmentId: string;
 	patientId: string;
 	patientName: string;
+	patientRelationship: string;
 	patientCardLabel: string;
 	hospitalName: string;
 	departmentName: string;
@@ -97,7 +98,7 @@ function paymentError(error: unknown): string {
 	if (error instanceof MedicalCashRequiredError)
 		return "当前医保结算包含自费金额，请选择医保混合支付";
 	if (error instanceof MedicalInsurancePaymentFailureError)
-		return error.message;
+		return error.userMessage;
 	return errorMessageWithCode(
 		error,
 		contextualApiErrorMessage(error, "支付流程未完成，请稍后重试"),
@@ -106,7 +107,7 @@ function paymentError(error: unknown): string {
 
 function paymentActionMessage(error: unknown): string {
 	if (error instanceof MedicalInsurancePaymentFailureError) {
-		return "医保扣款失败，资金将按原支付路径处理；请勿重复付款，详情请联系医院确认";
+		return "医保扣款失败，系统已停止继续结算；退款状态需医院核实，请勿重复付款，并联系医院确认";
 	}
 	if (error instanceof MedicalCashRequiredError) {
 		return "当前医保结算包含自费金额，请选择医保混合支付";
@@ -132,6 +133,9 @@ function paymentActionMessage(error: unknown): string {
 		}
 		if (error.code === "dependency-not-configured") {
 			return "支付服务暂时不可用，预约已保留，请稍后重试或联系工作人员";
+		}
+		if (error.code === "provider-request-rejected") {
+			return "医院端未接受本次支付请求，预约已保留；请勿重复提交，请联系工作人员核实后再试";
 		}
 	}
 	return "支付未完成，预约已保留，请按照当前支付方式继续确认；请勿重复预约或重复付款";
@@ -161,6 +165,7 @@ Page<
 		appointmentId: "",
 		patientId: "",
 		patientName: "",
+		patientRelationship: "",
 		patientCardLabel: "",
 		hospitalName: "高平市人民医院",
 		departmentName: "",
@@ -193,6 +198,7 @@ Page<
 				appointmentId: "",
 				patientId: "",
 				patientName: "",
+				patientRelationship: "",
 				patientCardLabel: "",
 				departmentName: "",
 				doctorName: "",
@@ -254,6 +260,7 @@ Page<
 				loading: false,
 				ready: true,
 				patientName: detail.data.patient.displayName,
+				patientRelationship: context.patient.relationship,
 				patientCardLabel:
 					detail.data.patient.cardNumberMasked === "未绑定"
 						? "就诊卡未绑定"
@@ -394,6 +401,20 @@ Page<
 			return;
 		}
 		const mode = value as PaymentMode;
+		const pending = readPendingPayment();
+		if (
+			mode === "mixed" &&
+			this.data.patientRelationship !== "self" &&
+			!pending?.orderId
+		) {
+			this.setData({
+				selectedMode: "mixed",
+				error: "",
+				message:
+					"医保混合支付当前仅支持本人就诊；亲属和儿童请暂时选择普通自费支付或联系医院",
+			});
+			return;
+		}
 		this.setData({ selectedMode: mode, error: "" });
 		void this.startOrResumePayment(mode);
 	},

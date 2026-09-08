@@ -185,3 +185,141 @@ test("new medical order worker does not query an order already in manual review"
 	);
 	expect(claimedAgain).toBeUndefined();
 });
+
+test("mixed worker marks cash paid only after both WeChat payment parts are paid", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			wechatMixTradeNo: "mix-worker-001",
+			wechatOutTradeNo: "out-worker-001",
+			wechatPaymentState: "prepay_ready",
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-worker-001",
+		"medical-order-worker-001",
+		{
+			businessId: "business-worker-001",
+			hospitalId: "hospital-worker-001",
+			patientId: "provider-patient-worker-001",
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: ["trade-worker-001"],
+			payingId: "260650000000001",
+			tradingId: "260650000000002",
+			plugin: {
+				paymentOrderId: "payment-worker-001",
+				payingId: "260650000000003",
+				tradingId: "260650000000004",
+				payTypeId: "5",
+				payType: "CREDIT",
+				workStationId: "",
+				tradeCode: "trade-code-worker-001",
+				tradeTypeCode: "10",
+				outTradeNo: "out-worker-001",
+				recordCode: "record-worker-001",
+				state: "prepay_ready",
+			},
+		},
+	);
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+	let legacyQueryCalls = 0;
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks,
+		orders,
+		medicalInsurance: {
+			query: async () => {
+				legacyQueryCalls += 1;
+				return evidence();
+			},
+		},
+		wechatPayment: {
+			createMixedOrder: async () => {
+				throw new Error("create is not used");
+			},
+			queryMixedOrder: async () => ({
+				cashState: "paid",
+				insuranceState: "paid",
+				medInsPayStatus: "MED_INS_PAY_SUCCESS",
+				cashFen: 20,
+				totalFen: 100,
+				providerStatus: "MIX_PAY_SUCCESS/SELF_PAY_SUCCESS/MED_INS_PAY_SUCCESS",
+				trace: {
+					provider: "wechat-pay",
+					operation: "medical-mix-query",
+					requestId: "medical-mix-worker-001",
+				},
+			}),
+		},
+		completeWechatPayment: async (input) => {
+			expect(input).toMatchObject({
+				medicalOrderId: "medical-order-worker-001",
+				paymentOrderId: "payment-worker-001",
+			});
+			return true;
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("reconciled");
+	expect(legacyQueryCalls).toBe(0);
+	expect(
+		await orders.findByMedicalOrderId("medical-order-worker-001"),
+	).toMatchObject({
+		status: "cash_pending",
+		wechatPaymentState: "cash_paid",
+	});
+});
+
+test("mixed worker does not write HIS when only the cash part is paid", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			wechatMixTradeNo: "mix-worker-pending-001",
+			wechatOutTradeNo: "out-worker-pending-001",
+			wechatPaymentState: "prepay_ready",
+		}),
+	);
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+	let completionCalls = 0;
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks,
+		orders,
+		medicalInsurance: { query: async () => evidence() },
+		wechatPayment: {
+			createMixedOrder: async () => {
+				throw new Error("create is not used");
+			},
+			queryMixedOrder: async () => ({
+				cashState: "paid",
+				insuranceState: "pending",
+				medInsPayStatus: "MED_INS_PAY_CREATED",
+				cashFen: 20,
+				totalFen: 100,
+				providerStatus:
+					"MIX_PAY_PROCESSING/SELF_PAY_SUCCESS/MED_INS_PAY_CREATED",
+				trace: {
+					provider: "wechat-pay",
+					operation: "medical-mix-query",
+					requestId: "medical-mix-worker-pending-001",
+				},
+			}),
+		},
+		completeWechatPayment: async () => {
+			completionCalls += 1;
+			return true;
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("retry_scheduled");
+	expect(completionCalls).toBe(0);
+	expect(
+		await orders.findByMedicalOrderId("medical-order-worker-001"),
+	).toMatchObject({
+		status: "cash_pending",
+		wechatPaymentState: "unknown",
+	});
+});

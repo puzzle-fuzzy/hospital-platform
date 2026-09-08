@@ -243,6 +243,8 @@ export type MedicalInsuranceOrder = {
 	wechatOutTradeNo?: string | null;
 	/** 微信调起参数的读模型；MySQL 实现必须以密文保存。 */
 	wechatPayParams?: WechatMedicalInsurancePayParams | null;
+	/** JSAPI prepay_id 最迟可调起时间；过期参数不得再次返回给小程序。 */
+	wechatPrepayExpiresAt?: string | null;
 	wechatPaymentState?:
 		| "not_started"
 		| "prepay_ready"
@@ -275,6 +277,14 @@ export type MedicalInsuranceSettlementContext = {
 	tradeOrderIds: readonly string[];
 	payingId: string;
 	tradingId: string;
+	/**
+	 * 6201 前置链路的持久化阶段。`pre_6201` 表示 .1/.2 已经产生真实
+	 * 结算流水，重试时必须复用，不能再次创建；`fee_uploaded` 表示 6201
+	 * 已完成。历史上下文没有该字段时按旧流程处理。
+	 */
+	feeUploadStage?: "pre_6201" | "fee_uploaded";
+	/** .1 已校验通过的真实结算金额，供 6201 安全续跑使用。 */
+	settlementAmountFen?: number;
 	/**
 	 * 6202 ownPayAmt>0 后的云健康插件自费上下文。
 	 *
@@ -560,6 +570,11 @@ export interface MedicalInsuranceQueryTaskRepository {
 	 * 和调度字段以数据库权威行返回，不能被重新入队覆盖。
 	 */
 	insert(task: MedicalInsuranceQueryTask): Promise<MedicalInsuranceQueryTask>;
+	/**
+	 * 微信混合预下单或任一支付回调到达后，重新唤醒同一医保订单的持久化
+	 * 查单任务。manual_review 不会被自动重开，避免回调重放绕过人工闸门。
+	 */
+	requeue(medicalOrderId: string, now: Date): Promise<void>;
 	claimDueForQuery(
 		now: Date,
 		limit: number,
@@ -597,6 +612,10 @@ export interface MedicalInsuranceOrderRepository {
 	/** 微信医保混合回调只携带 mix_trade_no，必须用服务端订单关联查询。 */
 	findByWechatMixTradeNo(
 		mixTradeNo: string,
+	): Promise<MedicalInsuranceOrder | undefined>;
+	/** 普通 JSAPI 成功回调携带 out_trade_no，用它识别医保混合单的现金段。 */
+	findByWechatOutTradeNo(
+		outTradeNo: string,
 	): Promise<MedicalInsuranceOrder | undefined>;
 	findByOwnerAndAppointmentId(
 		ownerUserId: string,
@@ -653,6 +672,7 @@ export interface MedicalInsuranceOrderRepository {
 			wechatMixTradeNo?: string | null;
 			wechatOutTradeNo?: string | null;
 			wechatPayParams?: WechatMedicalInsurancePayParams | null;
+			wechatPrepayExpiresAt?: string | null;
 			wechatPaymentState?: MedicalInsuranceOrder["wechatPaymentState"];
 			/** 传 null 清除旧原因；未提供则保持已有值。 */
 			medInsFailReason?: string | null;

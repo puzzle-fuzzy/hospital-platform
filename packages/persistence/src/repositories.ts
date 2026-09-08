@@ -1192,6 +1192,9 @@ export function createNotConfiguredRepositories(): {
 			findByWechatMixTradeNo: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
+			findByWechatOutTradeNo: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
 			findByOwnerAndAppointmentId: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
@@ -1213,6 +1216,11 @@ export function createNotConfiguredRepositories(): {
 		},
 		medicalInsuranceQueryTasks: {
 			insert: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-query-tasks",
+				);
+			},
+			requeue: async () => {
 				throw new PersistenceNotConfiguredError(
 					"medical-insurance-query-tasks",
 				);
@@ -1418,6 +1426,40 @@ export function createInMemoryMedicalInsuranceQueryTaskRepository(
 			}
 			tasks.set(task.taskId, { ...task });
 			return { ...task };
+		},
+		async requeue(medicalOrderId, now) {
+			const existing =
+				[...tasks.values()].find(
+					(candidate) => candidate.medicalOrderId === medicalOrderId,
+				) ?? tasks.get(medicalOrderId);
+			if (!existing) {
+				const timestamp = now.toISOString();
+				tasks.set(medicalOrderId, {
+					taskId: medicalOrderId,
+					medicalOrderId,
+					status: "pending",
+					version: 1,
+					attempts: 0,
+					maxAttempts: 12,
+					nextAttemptAt: timestamp,
+					claimedUntil: null,
+					terminalOrdStas: null,
+					lastErrorCode: null,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+				});
+				return;
+			}
+			if (existing.status === "manual_review") return;
+			tasks.set(existing.taskId, {
+				...existing,
+				status: "pending",
+				nextAttemptAt: now.toISOString(),
+				claimedUntil: null,
+				lastErrorCode: null,
+				version: existing.version + 1,
+				updatedAt: now.toISOString(),
+			});
 		},
 		async claimDueForQuery(now, limit, leaseMs) {
 			if (
@@ -1766,6 +1808,13 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				) ?? undefined
 			);
 		},
+		async findByWechatOutTradeNo(outTradeNo) {
+			return (
+				[...orders.values()].find(
+					(order) => order.wechatOutTradeNo === outTradeNo,
+				) ?? undefined
+			);
+		},
 		async findByMedicalOrderId(medicalOrderId) {
 			return orders.get(medicalOrderId);
 		},
@@ -1887,6 +1936,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 					: {}),
 				...(patch.wechatPayParams !== undefined
 					? { wechatPayParams: patch.wechatPayParams }
+					: {}),
+				...(patch.wechatPrepayExpiresAt !== undefined
+					? { wechatPrepayExpiresAt: patch.wechatPrepayExpiresAt }
 					: {}),
 				...(patch.wechatPaymentState !== undefined
 					? { wechatPaymentState: patch.wechatPaymentState }

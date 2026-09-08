@@ -55,6 +55,7 @@ import type {
 } from "@hospital/domain";
 import {
 	isValidMedicalInsuranceProviderQueryIdentity,
+	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	MyDoctorAlreadyExistsError,
 	normalizeMyDoctorReadModel,
 	normalizeUserProfileReadModel,
@@ -416,6 +417,7 @@ type MIRow = RowDataPacket & {
 	wechat_out_trade_no: string | null;
 	wechat_payment_state: string;
 	wechat_pay_params_ciphertext: string | null;
+	wechat_prepay_expires_at: string | null;
 	version: number;
 	// 同上：医保订单是授权前必读的幂等记录，时间字段必须在 persistence
 	// 边界统一从 MySQL UTC DATETIME 转成 ISO，而不是让领域层猜类型。
@@ -505,6 +507,18 @@ function deserializeMedicalInsuranceSettlementContext(
 		) ||
 		!Array.isArray((parsed as { upDetailList?: unknown }).upDetailList) ||
 		!Array.isArray((parsed as { tradeOrderIds?: unknown }).tradeOrderIds) ||
+		((parsed as { feeUploadStage?: unknown }).feeUploadStage !== undefined &&
+			!new Set(["pre_6201", "fee_uploaded"]).has(
+				String((parsed as { feeUploadStage?: unknown }).feeUploadStage),
+			)) ||
+		((parsed as { settlementAmountFen?: unknown }).settlementAmountFen !==
+			undefined &&
+			(!Number.isSafeInteger(
+				(parsed as { settlementAmountFen?: unknown }).settlementAmountFen,
+			) ||
+				Number(
+					(parsed as { settlementAmountFen?: unknown }).settlementAmountFen,
+				) <= 0)) ||
 		(plugin !== undefined &&
 			[
 				"paymentOrderId",
@@ -815,7 +829,7 @@ function medicalInsuranceCredentialHandle(
 }
 
 const MI_SELECT =
-	"SELECT medical_order_id, owner_user_id, patient_id, business_type, order_type, business_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, other_payment_fen, hospital_part_fen, personal_account_mutual_aid_fen, personal_account_self_fen, deposit_fen, delivery_fee_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, med_ins_fail_reason, wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext, version, created_at, updated_at FROM hp_medical_insurance_orders";
+	"SELECT medical_order_id, owner_user_id, patient_id, business_type, order_type, business_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, other_payment_fen, hospital_part_fen, personal_account_mutual_aid_fen, personal_account_self_fen, deposit_fen, delivery_fee_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, med_ins_fail_reason, wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext, wechat_prepay_expires_at, version, created_at, updated_at FROM hp_medical_insurance_orders";
 
 const MI_WECHAT_PAYMENT_STATES = [
 	"not_started",
@@ -916,6 +930,9 @@ function miOrder(
 		wechatMixTradeNo: row.wechat_mix_trade_no,
 		wechatOutTradeNo: row.wechat_out_trade_no,
 		wechatPayParams: storedPayParams,
+		wechatPrepayExpiresAt: row.wechat_prepay_expires_at
+			? mysqlUtcDateTimeToIso(row.wechat_prepay_expires_at)
+			: null,
 		wechatPaymentState: miWechatPaymentState(row.wechat_payment_state),
 		version: row.version,
 		createdAt: mysqlUtcDateTimeToIso(row.created_at),
@@ -990,6 +1007,7 @@ const MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS = [
 	"wechat_out_trade_no",
 	"wechat_payment_state",
 	"wechat_pay_params_ciphertext",
+	"wechat_prepay_expires_at",
 	"version",
 	"created_at",
 	"updated_at",
@@ -3637,6 +3655,9 @@ export function createMySqlRepositories(
 				order.wechatPayParams
 					? requiredPrepayCipher().seal(JSON.stringify(order.wechatPayParams))
 					: null,
+				order.wechatPrepayExpiresAt
+					? mysqlDateTime(order.wechatPrepayExpiresAt)
+					: null,
 				order.version,
 				mysqlDateTime(order.createdAt),
 				mysqlDateTime(order.updatedAt),
@@ -3667,6 +3688,14 @@ export function createMySqlRepositories(
 				pool,
 				`${MI_SELECT} WHERE wechat_mix_trade_no = ? LIMIT 1`,
 				[mixTradeNo],
+			);
+			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
+		},
+		async findByWechatOutTradeNo(outTradeNo) {
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_SELECT} WHERE wechat_out_trade_no = ? LIMIT 1`,
+				[outTradeNo],
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
@@ -3772,6 +3801,7 @@ export function createMySqlRepositories(
 					wechat_out_trade_no = COALESCE(?, wechat_out_trade_no),
 					wechat_payment_state = COALESCE(?, wechat_payment_state),
 					wechat_pay_params_ciphertext = COALESCE(?, wechat_pay_params_ciphertext),
+					wechat_prepay_expires_at = COALESCE(?, wechat_prepay_expires_at),
 					version = version + 1, updated_at = NOW(3)
 				WHERE medical_order_id = ? AND version = ?`,
 				[
@@ -3812,6 +3842,9 @@ export function createMySqlRepositories(
 							: requiredPrepayCipher().seal(
 									JSON.stringify(patch.wechatPayParams),
 								),
+					patch.wechatPrepayExpiresAt
+						? mysqlDateTime(patch.wechatPrepayExpiresAt)
+						: null,
 					medicalOrderId,
 					expectedVersion,
 				],
@@ -3879,6 +3912,32 @@ export function createMySqlRepositories(
 				);
 			}
 			return persisted;
+		},
+		async requeue(medicalOrderId, now) {
+			const timestamp = mysqlDateTime(now);
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_medical_insurance_query_tasks
+					(task_id, medical_order_id, status, attempts, max_attempts, version,
+					 next_attempt_at, claimed_until, terminal_ord_stas, last_error_code,
+					 created_at, updated_at)
+				 VALUES (?, ?, 'pending', 0, ?, 1, ?, NULL, NULL, NULL, ?, ?)
+				 ON DUPLICATE KEY UPDATE
+					status = CASE WHEN status = 'manual_review' THEN status ELSE 'pending' END,
+					next_attempt_at = CASE WHEN status = 'manual_review' THEN next_attempt_at ELSE VALUES(next_attempt_at) END,
+					claimed_until = CASE WHEN status = 'manual_review' THEN claimed_until ELSE NULL END,
+					last_error_code = CASE WHEN status = 'manual_review' THEN last_error_code ELSE NULL END,
+					version = CASE WHEN status = 'manual_review' THEN version ELSE version + 1 END,
+					updated_at = CASE WHEN status = 'manual_review' THEN updated_at ELSE VALUES(updated_at) END`,
+				[
+					medicalOrderId,
+					medicalOrderId,
+					MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+					timestamp,
+					timestamp,
+					timestamp,
+				],
+			);
 		},
 		async claimDueForQuery(now, limit, leaseMs) {
 			if (

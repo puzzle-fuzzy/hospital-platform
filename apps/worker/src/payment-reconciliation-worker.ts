@@ -112,6 +112,12 @@ export class PaymentReconciliationWorker {
 				appointmentId?: string;
 				medicalOrderId?: string;
 			}) => Promise<RegistrationSelfPaySettlementContext | undefined>;
+			/** 医保混合单只有在官方混合查单确认医保、自费均成功后才允许回写 HIS。 */
+			canCompleteMedicalMixedPayment?: (input: {
+				ownerUserId: string;
+				medicalOrderId: string;
+				paymentOrderId: string;
+			}) => Promise<boolean>;
 			/** 云健康/HIS 成功后同步推进关联医保订单；失败时保留支付单重试。 */
 			onHospitalSettlementCompleted?: (input: {
 				paymentOrder: PaymentOrder;
@@ -137,6 +143,11 @@ export class PaymentReconciliationWorker {
 		const gateway = this.dependencies.hospitalSettlement;
 		if (order.state === "his_written_back") {
 			try {
+				if (this.dependencies.onHospitalSettlementCompleted) {
+					await this.dependencies.onHospitalSettlementCompleted({
+						paymentOrder: order,
+					});
+				}
 				const completed = await this.dependencies.orders.transition(
 					order.ownerUserId,
 					order.orderId,
@@ -170,6 +181,25 @@ export class PaymentReconciliationWorker {
 					REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX.length,
 				)
 			: undefined;
+		if (
+			medicalOrderId &&
+			(!this.dependencies.canCompleteMedicalMixedPayment ||
+				!(await this.dependencies.canCompleteMedicalMixedPayment({
+					ownerUserId: order.ownerUserId,
+					medicalOrderId,
+					paymentOrderId: order.orderId,
+				})))
+		) {
+			this.logger.info(
+				{
+					event: "worker.payment.medical_mix.awaiting_full_confirmation",
+					orderId: order.orderId,
+					medicalOrderId,
+				},
+				"Medical mixed payment is waiting for both payment parts",
+			);
+			return { order, retry: true };
+		}
 		if (!gateway) {
 			this.logger.warn(
 				{
@@ -240,17 +270,19 @@ export class PaymentReconciliationWorker {
 						: `registration-self-pay-settlement:${order.orderId}`,
 				},
 			);
-			if (this.dependencies.onHospitalSettlementCompleted) {
-				await this.dependencies.onHospitalSettlementCompleted({
-					paymentOrder: order,
-					...(registrationContext ? { registrationContext } : {}),
-				});
-			}
 			const writtenBack = await this.dependencies.orders.transition(
 				order.ownerUserId,
 				order.orderId,
 				"his_written_back",
 			);
+			// 先持久化 HIS 已成功事实，再推进关联医保订单。若后者暂时失败，
+			// 下次从 his_written_back 续跑，不会重复调用医院外部写接口。
+			if (this.dependencies.onHospitalSettlementCompleted) {
+				await this.dependencies.onHospitalSettlementCompleted({
+					paymentOrder: writtenBack,
+					...(registrationContext ? { registrationContext } : {}),
+				});
+			}
 			const completed = await this.dependencies.orders.transition(
 				order.ownerUserId,
 				order.orderId,
@@ -280,6 +312,50 @@ export class PaymentReconciliationWorker {
 			);
 			return { order, retry: true };
 		}
+	}
+
+	/**
+	 * 医保混合查单 Worker 确认两段都成功后，从持久化插件支付单继续
+	 * `.29 → .15 → .5`。该入口复用普通补偿 Worker 的同一套幂等回写逻辑。
+	 */
+	async completeMedicalMixedPayment(
+		input: {
+			ownerUserId: string;
+			medicalOrderId: string;
+			paymentOrderId: string;
+		},
+		context: { traceId: string; idempotencyKey: string },
+	): Promise<boolean> {
+		let order = await this.dependencies.orders.get(
+			input.ownerUserId,
+			input.paymentOrderId,
+		);
+		if (
+			order.idempotencyKey !==
+			`${REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX}${input.medicalOrderId}`
+		) {
+			return false;
+		}
+		if (order.state === "cash_pending") {
+			order = await this.dependencies.orders.transition(
+				input.ownerUserId,
+				input.paymentOrderId,
+				"cash_paid",
+			);
+		}
+		if (order.state === "completed") {
+			if (this.dependencies.onHospitalSettlementCompleted) {
+				await this.dependencies.onHospitalSettlementCompleted({
+					paymentOrder: order,
+				});
+			}
+			return true;
+		}
+		if (order.state !== "cash_paid" && order.state !== "his_written_back") {
+			return false;
+		}
+		const completed = await this.completeHis(order, context);
+		return !completed.retry && completed.order.state === "completed";
 	}
 
 	async runOnce(now = new Date()): Promise<PaymentReconciliationWorkerResult> {

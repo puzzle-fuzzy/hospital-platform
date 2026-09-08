@@ -1125,6 +1125,16 @@ export class WechatPaymentApiGateway
 		const medical = this.medicalInsurance;
 		if (!medical) throw new AdapterNotConfiguredError("wechat-pay");
 		const mixTradeNo = requiredInput(input.mixTradeNo, "mixTradeNo", 32);
+		const expectedOutTradeNo = requiredInput(
+			input.expectedOutTradeNo,
+			"outTradeNo",
+			64,
+		);
+		const expectedPayOrdId = requiredInput(
+			input.expectedPayOrdId,
+			"payOrderId",
+			64,
+		);
 		const expectedTotalFen = requiredNonNegativeFen(
 			input.expectedTotalFen,
 			"totalFen",
@@ -1167,6 +1177,22 @@ export class WechatPaymentApiGateway
 			this.fetcher,
 		);
 		const data = response.data;
+		const responseMixTradeNo = findProviderText(data, ["mix_trade_no"]);
+		const responseAppId = findProviderText(data, ["appid"]);
+		const responseOutTradeNo = findProviderText(data, ["out_trade_no"]);
+		const responsePayOrdId = findProviderText(data, ["pay_order_id"]);
+		if (
+			responseMixTradeNo !== mixTradeNo ||
+			responseAppId !== medical.appId ||
+			responseOutTradeNo !== expectedOutTradeNo ||
+			responsePayOrdId !== expectedPayOrdId
+		) {
+			throw providerError({
+				operation: "medical-mix-query",
+				message: "Wechat medical query order identity did not match",
+				requestId: response.requestId,
+			});
+		}
 		const mixStatus = findProviderText(data, ["mix_pay_status"]);
 		const selfStatus = findProviderText(data, ["self_pay_status"]);
 		const medicalStatus = findProviderText(data, ["med_ins_pay_status"]);

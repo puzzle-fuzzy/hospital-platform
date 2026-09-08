@@ -48,6 +48,11 @@ export class WechatPaymentNotificationService {
 		private readonly dependencies: {
 			notifications: WechatPaymentNotificationRepository;
 			decoder: WechatPaymentNotificationDecoder;
+			/** 医保混合订单现金段使用同一 JSAPI 回调，但进入独立查单队列。 */
+			medicalInsuranceCashNotification?: (input: {
+				notification: WechatPaymentNotification;
+				context: { traceId: string; idempotencyKey: string };
+			}) => Promise<boolean>;
 			logger?: AppLogger;
 			now?: () => Date;
 		},
@@ -81,6 +86,17 @@ export class WechatPaymentNotificationService {
 				"Wechat payment notification rejected",
 			);
 			throw new WechatPaymentNotificationRejectedError();
+		}
+
+		if (this.dependencies.medicalInsuranceCashNotification) {
+			const handled = await this.dependencies.medicalInsuranceCashNotification({
+				notification,
+				context: {
+					traceId: input.traceId ?? notification.notificationId,
+					idempotencyKey: `wechat-medical-insurance-cash-notification:${notification.notificationId}`,
+				},
+			});
+			if (handled) return "inserted";
 		}
 
 		const event = createWechatPaymentNotificationEvent(notification);
