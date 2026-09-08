@@ -191,6 +191,18 @@ test("legacy FSI gateway captures rejected relay response body in the raw log wi
 				"provider rejection details",
 			),
 		});
+		const gatewayRawResponse = logs.find(
+			(entry) =>
+				entry.event === "medical-insurance.legacy-fsi.response.raw" &&
+				entry.operation === "legacy-fsi.6201",
+		);
+		expect(gatewayRawResponse).toMatchObject({
+			provider: "legacy-fsi",
+			providerStatusCode: 200,
+			providerResponseBodyText: expect.stringContaining(
+				"provider rejection details",
+			),
+		});
 	} finally {
 		if (previousRawLogging === undefined) {
 			delete Bun.env.PROVIDER_RAW_LOGGING;

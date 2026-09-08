@@ -313,10 +313,26 @@ export function createLegacyFsiGateway(
 				},
 				// FSI 的拒绝响应会在 crypto.open 前结束；显式传入 logger，
 				// 让受控 PROVIDER_RAW_LOGGING 窗口仍能记录 relay 返回原文。
+				// 同时保留已读取的响应原文，供网关层做专用兜底记录。
 				...(options.logger ? { logger: options.logger } : {}),
+				...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
 			},
 			fetcher,
 		);
+		if (providerRawLoggingEnabled() && response.rawBodyText !== undefined) {
+			options.logger?.info(
+				{
+					event: "medical-insurance.legacy-fsi.response.raw",
+					provider: "legacy-fsi",
+					traceId: context.traceId,
+					operation: `legacy-fsi.${infno}`,
+					providerRequestId: response.requestId,
+					providerStatusCode: response.statusCode,
+					providerResponseBodyText: response.rawBodyText,
+				},
+				"Legacy FSI relay response captured for test diagnostics",
+			);
+		}
 
 		try {
 			const responseBody = asRecord(response.data, infno);
