@@ -826,7 +826,10 @@ export async function continueMedicalPayment(
 		if (order.status === "insurance_settled") break;
 		if (order.status === "cash_pending") {
 			pending.orderId = orderId;
-			if (pending.mode === "medical" && pending.cashierUrl) {
+			const cashFen = order.amounts?.cashFen;
+			// 高平医院纯医保即使现金应付为 0，也必须打开 6201 返回的
+			// cashierUrl，让用户完成零元确认后才能继续最终结算。
+			if (pending.cashierUrl && (pending.mode === "medical" || cashFen === 0)) {
 				pending.phase = "medical_cashier";
 				pending.cashierConfirmIdempotencyKey ??= newIdempotencyKey(
 					"medical-cashier-confirm",
@@ -835,6 +838,9 @@ export async function continueMedicalPayment(
 				onProgress("cash-paying", "正在打开医保支付收银台");
 				await navigateToMedicalCashier();
 				return { kind: "cashier_opened" };
+			}
+			if (cashFen === 0) {
+				throw new Error("医保零元支付收银台地址为空，无法完成支付确认");
 			}
 			if (pending.mode === "medical") {
 				pending.phase = "medical_cash_required";

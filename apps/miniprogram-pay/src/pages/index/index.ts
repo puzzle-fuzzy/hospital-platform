@@ -281,7 +281,7 @@ Page<
 			if (authCode) app.globalData.authCode = "";
 			this.setData({
 				hasPendingPayment: true,
-				selectedMode: "medical",
+				selectedMode: pending.mode ?? "medical",
 				stage: "cash-confirming",
 				error: "",
 				message: "请完成医保收银台后，返回并点击医保支付确认",
@@ -492,9 +492,10 @@ Page<
 		this.setData({ selectedMode: mode });
 		if (pending) {
 			if (pending.phase === "medical_cashier") {
-				if (mode !== "medical") {
+				const cashierMode = pending.mode ?? "medical";
+				if (mode !== cashierMode) {
 					this.setData({
-						message: "当前是纯医保收银台订单，请选择医保支付继续确认",
+						message: "当前是医保收银台订单，请选择原支付方式继续确认",
 						error: "",
 					});
 					return;

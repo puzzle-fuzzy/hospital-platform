@@ -1613,13 +1613,19 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			};
 		}
 
-		if (input.amounts.cashFen > 0 && !input.cashPaymentConfirmed) {
+		// 高平医院的医保收银台要求纯医保零元订单也由用户完成一次确认。
+		// 因此 6202/6301 和 .32 成功仍不能直接执行 .5；无论 cashFen 是否
+		// 为 0，都必须先由 cashierUrl 回跳后的 cashier-confirm 明确放行。
+		if (!input.cashPaymentConfirmed) {
 			return {
 				state: "cash_pending",
 				amounts: input.amounts,
 				trace: notifyTrace,
 				source: "yunhealth",
-				providerStatus: "notify_success_cash_pending",
+				providerStatus:
+					input.amounts.cashFen === 0
+						? "notify_success_zero_cash_cashier_pending"
+						: "notify_success_cash_pending",
 				finality: "paid",
 				authoritative: true,
 			};
