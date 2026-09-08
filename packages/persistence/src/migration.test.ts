@@ -349,6 +349,26 @@ test("medical mixed-payment requeue uses the UTC persistence clock", async () =>
 	expect(normalizedSql).not.toContain("task.updated_at = NOW(3)");
 });
 
+test("legacy medical mixed-payment prepay expiry fails closed on impossible timestamps", async () => {
+	const sql = await Bun.file(
+		new URL(
+			"../migrations/0040_medical_insurance_legacy_prepay_expiry.sql",
+			import.meta.url,
+		),
+	).text();
+	const normalizedSql = sql.replace(/\s+/g, " ");
+
+	expect(normalizedSql).toContain(
+		"wechat_prepay_expires_at = UTC_TIMESTAMP(3)",
+	);
+	expect(normalizedSql).toContain("status = 'cash_pending'");
+	expect(normalizedSql).toContain("wechat_payment_state = 'prepay_ready'");
+	expect(normalizedSql).toContain(
+		"wechat_prepay_expires_at > DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 2 HOUR)",
+	);
+	expect(normalizedSql).not.toContain("NOW(3)");
+});
+
 test("persistence failure logs keep raw error objects out of Pino", async () => {
 	const sources = await Promise.all([
 		Bun.file(new URL("./migrate.ts", import.meta.url)).text(),

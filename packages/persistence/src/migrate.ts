@@ -220,6 +220,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0039_medical_insurance_query_utc_requeue.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0040_medical_insurance_legacy_prepay_expiry",
+		file: "../migrations/0040_medical_insurance_legacy_prepay_expiry.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
