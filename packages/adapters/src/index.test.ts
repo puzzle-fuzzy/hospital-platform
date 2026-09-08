@@ -4,6 +4,7 @@ import {
 	createFixtureMedicalInsuranceGateway,
 	createNotConfiguredGateways,
 	requestJson,
+	type ProviderRequestLogger,
 } from "./index";
 
 const context = {
@@ -102,6 +103,70 @@ test("provider HTTP boundary adds trace and idempotency headers", async () => {
 		statusCode: 200,
 		requestId: "provider-request-001",
 	});
+});
+
+test("provider HTTP boundary records exact business codes and raw responses", async () => {
+	const previousRawLogging = Bun.env.PROVIDER_RAW_LOGGING;
+	const logs: Array<Record<string, unknown>> = [];
+	const logger: ProviderRequestLogger = {
+		info(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+		warn(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+		error(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+	};
+	Bun.env.PROVIDER_RAW_LOGGING = "true";
+
+	try {
+		await requestJson(
+			{
+				provider: "yunhealth",
+				operation: "registration-self-pay.2.6.65.2.plugin",
+				url: "https://provider.invalid/pre-order",
+				method: "POST",
+				context,
+				body: { orderId: "order-001" },
+				captureRawBody: true,
+				logger,
+			},
+			async () =>
+				new Response(
+					JSON.stringify({
+						success: false,
+						code: "trade-payment@0008",
+						message: "操作失败，请勿重复提交或操作过于频繁！",
+						data: null,
+					}),
+					{ status: 200, headers: { "x-request-id": "provider-response-001" } },
+				),
+		);
+
+		const observed = logs.find(
+			(entry) => entry.event === "provider.response.observed",
+		);
+		expect(observed).toMatchObject({
+			providerResponseBusinessSuccess: false,
+			providerResponseCode: "trade-payment@0008",
+			providerResponseBodyByteLength: expect.any(Number),
+			providerResponseBodySha256: expect.any(String),
+		});
+		const raw = logs.find((entry) => entry.event === "provider.response.raw");
+		expect(raw).toMatchObject({
+			providerResponseBodyText: expect.stringContaining("trade-payment@0008"),
+			providerResponseBodyTextChunkIndex: 0,
+			providerResponseBodyTextChunkCount: 1,
+		});
+	} finally {
+		if (previousRawLogging === undefined) {
+			delete Bun.env.PROVIDER_RAW_LOGGING;
+		} else {
+			Bun.env.PROVIDER_RAW_LOGGING = previousRawLogging;
+		}
+	}
 });
 
 test("provider HTTP boundary classifies upstream failures as retryable", async () => {

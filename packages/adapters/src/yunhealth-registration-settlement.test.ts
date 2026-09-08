@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "./errors";
-import type { ProviderFetcher } from "./http";
+import type { ProviderFetcher, ProviderRequestLogger } from "./http";
 import {
 	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSelfPayPreparationGateway,
@@ -127,6 +127,91 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 			requestId: "yunhealth-plugin-2",
 		},
 	});
+});
+
+test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", async () => {
+	const previousRawLogging = Bun.env.PROVIDER_RAW_LOGGING;
+	const logs: Array<Record<string, unknown>> = [];
+	const logger: ProviderRequestLogger = {
+		info(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+		warn(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+		error(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+	};
+	Bun.env.PROVIDER_RAW_LOGGING = "true";
+
+	try {
+		const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+			baseUrl: "https://yunhealth.example.test",
+			authorizationToken: "server-token",
+			paymentOrgId: "10756",
+			pluginPayTypeId: "50",
+			pluginPayType: "CREDIT",
+			workStationId: "",
+			logger,
+			fetcher: async () =>
+				new Response(
+					JSON.stringify({
+						success: false,
+						code: "trade-payment@0008",
+						message: "操作失败，请勿重复提交或操作过于频繁！",
+						data: null,
+					}),
+					{ status: 200, headers: { "x-request-id": "yunhealth-reject-001" } },
+				),
+		});
+
+		await expect(
+			gatewayInstance.createPreOrder(
+				{
+					orderId: "medical-order-rejected",
+					businessId: "settlement-business-001",
+					tradeCode: "REGISTRATION-001",
+					totalFen: 1234,
+					hospitalId: "10389001",
+					patientId: "100001",
+					payTypeId: "50",
+					payType: "CREDIT",
+					workStationId: "",
+					recordCode: "0123456789abcdef0123456789abcdef",
+					tradeTypeCode: "10",
+				},
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			providerErrorCode: "trade-payment@0008",
+			failureStage: "response",
+			requestOutcome: "rejected",
+		});
+
+		const observed = logs.find(
+			(entry) => entry.event === "provider.response.observed",
+		);
+		expect(observed).toMatchObject({
+			operation: "registration-self-pay.2.6.65.2.plugin",
+			providerResponseBusinessSuccess: false,
+			providerResponseCode: "trade-payment@0008",
+		});
+		const rejected = logs.find(
+			(entry) => entry.event === "provider.response.business_rejected",
+		);
+		expect(rejected).toMatchObject({
+			providerErrorCode: "trade-payment@0008",
+			providerResponseBodyText: expect.stringContaining("trade-payment@0008"),
+		});
+	} finally {
+		if (previousRawLogging === undefined) {
+			delete Bun.env.PROVIDER_RAW_LOGGING;
+		} else {
+			Bun.env.PROVIDER_RAW_LOGGING = previousRawLogging;
+		}
+	}
 });
 
 test("云健康插件版第二次 .2 在 6202 有个人账户时允许 payTypeId=5", async () => {

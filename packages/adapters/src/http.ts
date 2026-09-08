@@ -6,6 +6,13 @@ import { ProviderRequestError, type ProviderRequestOutcome } from "./errors";
 const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000;
 
 /**
+ * journald/采集器对单条日志大小存在实现差异；原始报文按字符分块，避免
+ * 一条过大的 JSON 日志被采集器静默丢弃。块按 index/total/hash 关联，仍可
+ * 在日志平台按 traceId + event 重组为完整报文。
+ */
+const RAW_LOG_CHUNK_LENGTH = 8_000;
+
+/**
  * Provider 响应关联号的公共边界。
  *
  * 外部响应头不是 TypeScript 类型安全区：空白值、控制字符或超长文本如果
@@ -196,6 +203,105 @@ function safeRawBodyShape(raw: string): Record<string, unknown> {
 	}
 }
 
+type ProviderResponseDetails = {
+	code?: string;
+	message?: string;
+	success?: boolean;
+};
+
+function boundedProviderResponseText(
+	value: unknown,
+	maxLength: number,
+): string | undefined {
+	const candidate =
+		typeof value === "string"
+			? value
+			: typeof value === "number" && Number.isFinite(value)
+				? String(value)
+				: undefined;
+	if (candidate === undefined) return undefined;
+	if (
+		[...candidate].some((character) => {
+			const code = character.charCodeAt(0);
+			return code < 32 || code === 127;
+		})
+	) {
+		return undefined;
+	}
+	const normalized = candidate.trim();
+	return normalized && normalized.length <= maxLength ? normalized : undefined;
+}
+
+/** 提取顶层及有限 data 包装层中的业务结果，错误码允许数字形式。 */
+function providerResponseDetails(raw: string): ProviderResponseDetails {
+	if (!raw) return {};
+	let current: unknown;
+	try {
+		current = JSON.parse(raw);
+	} catch {
+		return {};
+	}
+
+	const result: ProviderResponseDetails = {};
+	for (let depth = 0; depth < 4; depth += 1) {
+		if (
+			typeof current !== "object" ||
+			current === null ||
+			Array.isArray(current)
+		) {
+			break;
+		}
+		const record = current as Record<string, unknown>;
+		if (result.success === undefined && typeof record.success === "boolean") {
+			result.success = record.success;
+		}
+		if (result.code === undefined) {
+			const code = boundedProviderResponseText(record.code, 128);
+			if (code !== undefined) result.code = code;
+		}
+		if (result.message === undefined) {
+			const message = boundedProviderResponseText(record.message, 512);
+			if (message !== undefined) result.message = message;
+		}
+		current = record.data;
+	}
+	return result;
+}
+
+function emitRawBodyLog(
+	logger: ProviderRequestLogger | undefined,
+	bindings: Record<string, unknown>,
+	bodyField: "providerRequestBodyText" | "providerResponseBodyText",
+	body: string,
+	message: string,
+): void {
+	const chunks: string[] = [];
+	if (body.length === 0) {
+		chunks.push("");
+	} else {
+		for (let offset = 0; offset < body.length; offset += RAW_LOG_CHUNK_LENGTH) {
+			chunks.push(body.slice(offset, offset + RAW_LOG_CHUNK_LENGTH));
+		}
+	}
+	const byteLength = new TextEncoder().encode(body).byteLength;
+	const bodySha256 = shortSha256(body);
+	for (const [index, chunk] of chunks.entries()) {
+		emitProviderLog(
+			logger,
+			"info",
+			{
+				...bindings,
+				[bodyField]: chunk,
+				[`${bodyField}ChunkIndex`]: index,
+				[`${bodyField}ChunkCount`]: chunks.length,
+				[`${bodyField}ByteLength`]: byteLength,
+				[`${bodyField}Sha256`]: bodySha256,
+			},
+			message,
+		);
+	}
+}
+
 function emitProviderLog(
 	logger: ProviderRequestLogger | undefined,
 	level: "info" | "warn" | "error",
@@ -274,42 +380,8 @@ function responseRequestId(headers: Headers, fallback: string): string {
  * 原始响应可能包含凭证、患者信息或超长文本，不能写入异常和日志；
  * 这里也不把错误 body 作为业务数据向上层传播，只保留 code/message。
  */
-function responseErrorDetails(raw: string): {
-	code?: string;
-	message?: string;
-} {
-	if (!raw) return {};
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(raw);
-	} catch {
-		return {};
-	}
-	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-		return {};
-	}
-	const record = parsed as Record<string, unknown>;
-	const bounded = (value: unknown, maxLength: number): string | undefined => {
-		if (typeof value !== "string") return undefined;
-		if (
-			[...value].some((character) => {
-				const code = character.charCodeAt(0);
-				return code < 32 || code === 127;
-			})
-		) {
-			return undefined;
-		}
-		const normalized = value.trim();
-		return normalized && normalized.length <= maxLength
-			? normalized
-			: undefined;
-	};
-	const code = bounded(record.code, 64);
-	const message = bounded(record.message, 256);
-	return {
-		...(code ? { code } : {}),
-		...(message ? { message } : {}),
-	};
+function responseErrorDetails(raw: string): ProviderResponseDetails {
+	return providerResponseDetails(raw);
 }
 
 export async function requestJson<T>(
@@ -393,9 +465,9 @@ export async function requestJson<T>(
 		}
 
 		if (providerRawLoggingEnabled()) {
-			emitProviderLog(
+			const requestBody = rawBodyText(input.bodyText ?? input.body) ?? "";
+			emitRawBodyLog(
 				logger,
-				"info",
 				{
 					event: "provider.request.raw",
 					provider: input.provider,
@@ -405,8 +477,9 @@ export async function requestJson<T>(
 					method: input.method,
 					providerRequestUrl: input.url,
 					providerRequestHeadersText: rawHeadersText(headers),
-					providerRequestBodyText: rawBodyText(input.bodyText ?? input.body),
 				},
+				"providerRequestBodyText",
+				requestBody,
 				"Provider raw request captured for test diagnostics",
 			);
 		}
@@ -425,10 +498,42 @@ export async function requestJson<T>(
 			response.headers,
 			input.context.traceId,
 		);
+		const responseDetails = responseErrorDetails(raw);
+		const responseLevel =
+			response.status >= 400 || responseDetails.success === false
+				? "warn"
+				: "info";
+		emitProviderLog(
+			logger,
+			responseLevel,
+			{
+				event: "provider.response.observed",
+				...auditBase,
+				providerRequestId: requestId,
+				providerStatusCode: response.status,
+				providerResponseBodyByteLength: new TextEncoder().encode(raw)
+					.byteLength,
+				providerResponseBodySha256: shortSha256(raw),
+				...(responseDetails.success !== undefined
+					? { providerResponseBusinessSuccess: responseDetails.success }
+					: {}),
+				...(responseDetails.code
+					? { providerResponseCode: responseDetails.code }
+					: {}),
+				...(responseDetails.message
+					? {
+							providerResponseMessageShape: safeStringShape(
+								responseDetails.message,
+								true,
+							),
+						}
+					: {}),
+			},
+			"Provider response observed",
+		);
 		if (providerRawLoggingEnabled()) {
-			emitProviderLog(
+			emitRawBodyLog(
 				logger,
-				"info",
 				{
 					event: "provider.response.raw",
 					provider: input.provider,
@@ -437,8 +542,9 @@ export async function requestJson<T>(
 					providerRequestId: requestId,
 					providerStatusCode: response.status,
 					providerResponseHeadersText: rawHeadersText(response.headers),
-					providerResponseBodyText: raw,
 				},
+				"providerResponseBodyText",
+				raw,
 				"Provider raw response captured for test diagnostics",
 			);
 		}
@@ -450,6 +556,20 @@ export async function requestJson<T>(
 				...auditBase,
 				providerRequestId: requestId,
 				providerStatusCode: response.status,
+				...(responseDetails.success !== undefined
+					? { providerResponseBusinessSuccess: responseDetails.success }
+					: {}),
+				...(responseDetails.code
+					? { providerResponseCode: responseDetails.code }
+					: {}),
+				...(responseDetails.message
+					? {
+							providerResponseMessageShape: safeStringShape(
+								responseDetails.message,
+								true,
+							),
+						}
+					: {}),
 				providerResponseHeaders: safeHeaderShape(response.headers),
 				responseShape: safeRawBodyShape(raw),
 			},

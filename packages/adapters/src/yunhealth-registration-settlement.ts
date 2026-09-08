@@ -12,6 +12,7 @@ import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import {
 	type ProviderFetcher,
 	type ProviderRequestLogger,
+	providerRawLoggingEnabled,
 	requestJson,
 } from "./http";
 
@@ -396,6 +397,12 @@ function requireProviderSuccess(
 	value: unknown,
 	operation: string,
 	requestId: string,
+	diagnostics: {
+		logger?: ProviderRequestLogger;
+		traceId?: string;
+		statusCode?: number;
+		rawBodyText?: string;
+	} = {},
 ): void {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		throw providerError(operation, "Yunhealth response is invalid", {
@@ -409,13 +416,39 @@ function requireProviderSuccess(
 	const data = responseData(value);
 	for (const candidate of [root, data]) {
 		if (candidate.success === false) {
+			const providerErrorCode = providerScalarText(candidate.code, 128);
+			diagnostics.logger?.warn(
+				{
+					event: "provider.response.business_rejected",
+					provider: "yunhealth",
+					operation,
+					...(diagnostics.traceId ? { traceId: diagnostics.traceId } : {}),
+					providerRequestId: requestId,
+					...(diagnostics.statusCode !== undefined
+						? { providerStatusCode: diagnostics.statusCode }
+						: {}),
+					providerResponseBusinessSuccess: false,
+					...(providerErrorCode ? { providerErrorCode } : {}),
+					...(diagnostics.rawBodyText !== undefined &&
+					providerRawLoggingEnabled()
+						? {
+								providerResponseBodyText: diagnostics.rawBodyText,
+								providerResponseBodyByteLength: new TextEncoder().encode(
+									diagnostics.rawBodyText,
+								).byteLength,
+								providerResponseBodySha256: createHash("sha256")
+									.update(diagnostics.rawBodyText)
+									.digest("hex"),
+							}
+						: {}),
+				},
+				"Yunhealth business response rejected",
+			);
 			throw providerError(operation, "Yunhealth rejected the request", {
 				requestId,
 				failureStage: "response",
 				requestOutcome: "rejected",
-				...(typeof candidate.code === "string"
-					? { providerErrorCode: candidate.code }
-					: {}),
+				...(providerErrorCode ? { providerErrorCode } : {}),
 			});
 		}
 	}
@@ -432,6 +465,50 @@ function requireProviderSuccess(
 		failureStage: "response",
 		responseInvalid: true,
 		requestOutcome: "unknown",
+	});
+}
+
+function providerScalarText(
+	value: unknown,
+	maxLength: number,
+): string | undefined {
+	const candidate =
+		typeof value === "string"
+			? value
+			: typeof value === "number" && Number.isFinite(value)
+				? String(value)
+				: undefined;
+	if (candidate === undefined) return undefined;
+	if (
+		[...candidate].some((character) => {
+			const code = character.charCodeAt(0);
+			return code < 32 || code === 127;
+		})
+	) {
+		return undefined;
+	}
+	const normalized = candidate.trim();
+	return normalized && normalized.length <= maxLength ? normalized : undefined;
+}
+
+function requireYunhealthSuccess(
+	response: {
+		data: unknown;
+		requestId: string;
+		statusCode: number;
+		rawBodyText?: string;
+	},
+	operation: string,
+	context: AdapterCallContext,
+	logger?: ProviderRequestLogger,
+): void {
+	requireProviderSuccess(response.data, operation, response.requestId, {
+		...(logger ? { logger } : {}),
+		traceId: context.traceId,
+		statusCode: response.statusCode,
+		...(response.rawBodyText !== undefined
+			? { rawBodyText: response.rawBodyText }
+			: {}),
 	});
 }
 
@@ -617,7 +694,9 @@ export function createYunhealthRegistrationSettlementGateway(
 							? { headers: { Authorization: authorization } }
 							: {}),
 						body,
-						...(captureRawBody ? { captureRawBody: true } : {}),
+						...(captureRawBody || providerRawLoggingEnabled()
+							? { captureRawBody: true }
+							: {}),
 						...(options.logger ? { logger: options.logger } : {}),
 					},
 					fetcher,
@@ -648,6 +727,7 @@ export function createYunhealthRegistrationSettlementGateway(
 						...(authorization
 							? { headers: { Authorization: authorization } }
 							: {}),
+						...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
 						...(options.logger ? { logger: options.logger } : {}),
 					},
 					fetcher,
@@ -690,10 +770,11 @@ export function createYunhealthRegistrationSettlementGateway(
 					true,
 				);
 				try {
-					requireProviderSuccess(
-						thirdPart.data,
+					requireYunhealthSuccess(
+						thirdPart,
 						THIRD_PART_OPERATION,
-						thirdPart.requestId,
+						context,
+						options.logger,
 					);
 					thirdPartRecordId = positiveIntegerText(
 						nestedValue(thirdPart.data, [
@@ -713,10 +794,11 @@ export function createYunhealthRegistrationSettlementGateway(
 							outSettleMainId: normalizedContext.businessId,
 						},
 					);
-					requireProviderSuccess(
-						settleDetails.data,
+					requireYunhealthSuccess(
+						settleDetails,
 						THIRD_PART_RECOVERY_OPERATION,
-						settleDetails.requestId,
+						context,
+						options.logger,
 					);
 					thirdPartRecordId = recoverThirdPartPayRecordId(settleDetails.data, {
 						agreementNo: outTradeNo,
@@ -795,10 +877,11 @@ export function createYunhealthRegistrationSettlementGateway(
 					workStationId: requestWorkStationId,
 				},
 			);
-			requireProviderSuccess(
-				paymentNotify.data,
+			requireYunhealthSuccess(
+				paymentNotify,
 				PAYMENT_NOTIFY_OPERATION,
-				paymentNotify.requestId,
+				context,
+				options.logger,
 			);
 
 			const complete = await request<unknown>(
@@ -815,10 +898,11 @@ export function createYunhealthRegistrationSettlementGateway(
 					workStationId: requestWorkStationId,
 				},
 			);
-			requireProviderSuccess(
-				complete.data,
+			requireYunhealthSuccess(
+				complete,
 				COMPLETE_SETTLE_OPERATION,
-				complete.requestId,
+				context,
+				options.logger,
 			);
 			if (!settleFlag(responseData(complete.data).isSettle)) {
 				throw providerError(
@@ -942,6 +1026,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 				},
 				...(authorization ? { headers: { Authorization: authorization } } : {}),
 				...(input.body !== undefined ? { body: input.body } : {}),
+				...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
 				...(options.logger ? { logger: options.logger } : {}),
 			},
 			fetcher,
@@ -995,7 +1080,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 				},
 			});
 			requestIds.push(apply.requestId);
-			requireProviderSuccess(apply.data, applyOperation, apply.requestId);
+			requireYunhealthSuccess(apply, applyOperation, context, options.logger);
 			const applyData = responseData(apply.data);
 			const businessId = requiredText(
 				providerText(applyData, ["businessId"]),
@@ -1034,10 +1119,11 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 				context,
 			});
 			requestIds.push(settleDetails.requestId);
-			requireProviderSuccess(
-				settleDetails.data,
+			requireYunhealthSuccess(
+				settleDetails,
 				settleDetailsOperation,
-				settleDetails.requestId,
+				context,
+				options.logger,
 			);
 			const settleDetailsData = responseData(settleDetails.data);
 			const settleMain = providerRecord(settleDetailsData.outNetworkSettleMain);
@@ -1249,10 +1335,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						tradeTypeCode,
 						workStationId,
 					},
+					...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
+					...(options.logger ? { logger: options.logger } : {}),
 				},
 				fetcher,
 			);
-			requireProviderSuccess(response.data, operation, response.requestId);
+			requireYunhealthSuccess(response, operation, context, options.logger);
 			const payingId = positiveIntegerText(
 				nestedValue(response.data, ["payingId", "paying_id"]),
 				"plugin payingId",
