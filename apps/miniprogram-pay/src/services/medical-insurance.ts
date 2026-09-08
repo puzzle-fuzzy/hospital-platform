@@ -322,9 +322,20 @@ type MedicalWechatPayment = {
 		| "failed"
 		| "unknown";
 	cashFen: number;
+	medInsFailReason?: string;
 	mixTradeNo?: string;
 	payParams?: MedicalWechatPayParams;
 };
+
+/** 仅服务端确认医保部分失败且返回医保局原因时展示，不与自费失败混用。 */
+export class MedicalInsurancePaymentFailureError extends Error {
+	constructor(reason: string) {
+		super(
+			`医保扣款失败：${reason}\n医保资金将在 1-3个工作日内原路退回，自费资金将由医院发起退款，详情请联系医院确认。`,
+		);
+		this.name = "MedicalInsurancePaymentFailureError";
+	}
+}
 
 type SelfPayParams = {
 	appId: string;
@@ -499,6 +510,9 @@ async function queryMedicalCashPayment(
 			path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/wechat-pay`,
 			idempotencyKey: current.wechatQueryIdempotencyKey,
 		});
+		if (result.medInsFailReason) {
+			throw new MedicalInsurancePaymentFailureError(result.medInsFailReason);
+		}
 		console.info("[微信医保支付] 服务端查单返回", {
 			orderId,
 			attempt: index + 1,
@@ -584,6 +598,9 @@ export async function continueMedicalCashPayment(
 		method: "POST",
 		idempotencyKey: current.wechatPayIdempotencyKey,
 	});
+	if (payment.medInsFailReason) {
+		throw new MedicalInsurancePaymentFailureError(payment.medInsFailReason);
+	}
 	let paymentWasCancelled = false;
 	if (payment.payParams) {
 		onProgress("cash-paying", "正在打开微信医保自费收银台");
@@ -763,7 +780,7 @@ export async function continueMedicalPayment(
 	pending: PendingPayment,
 	onProgress: Progress,
 	restartAttempted = false,
-): Promise<MedicalPaymentContinuationResult | void> {
+): Promise<MedicalPaymentContinuationResult | undefined> {
 	if (!authCode.trim()) throw new Error("医保授权结果为空");
 	const authorize = await request<{ orderId: string; status: "authorized" }>({
 		path: "/payments/medical-insurance/authorize",
@@ -847,7 +864,8 @@ export async function continueMedicalPayment(
 				savePending(pending);
 				throw new MedicalCashRequiredError();
 			}
-			return continueMedicalCashPayment(pending, onProgress);
+			await continueMedicalCashPayment(pending, onProgress);
+			return undefined;
 		}
 		if (order.status === "failed" || order.status === "manual_review")
 			throw new Error("医保结算未成功，请查看后台订单日志");

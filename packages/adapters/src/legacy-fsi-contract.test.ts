@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import {
-	LEGACY_FSI_ROUTES,
 	classifyLegacyFsiOrderStatus,
+	LEGACY_FSI_ROUTES,
 	LegacyFsiContractError,
 	validate6201FeeUpload,
 	validate6201Response,
@@ -70,10 +70,11 @@ test("6201 requires fee detail totals to match the medical fee total", () => {
 		deptName: "internal-medicine",
 		deptCode: "dept-001",
 		caty: "11",
-		diseCodg: "",
-		diseName: "",
+		diseCodg: "Z00.001",
+		diseName: "健康查体",
 		medType: "21",
 		feeType: "01",
+		acctUsedFlag: "0",
 		mdtrtCertType: "01",
 		psnSetlway: "01",
 		chrgBchno: "batch-001",
@@ -93,6 +94,14 @@ test("6201 requires fee detail totals to match the medical fee total", () => {
 			inscpScpAmt: "7.00",
 		}),
 	).toEqual({ totalFen: 1200 });
+	expect(() =>
+		validate6201FeeUpload({
+			...requiredFields,
+			diseCodg: "",
+			medfeeSumamt: "12.00",
+			feedetailList: [{ detItemFeeSumamt: "12.00" }],
+		}),
+	).toThrow(LegacyFsiContractError);
 	expect(() =>
 		validate6201FeeUpload({
 			...requiredFields,
@@ -119,6 +128,9 @@ test("6202 and 6301 make settlement decomposition authoritative", () => {
 			ownPayAmt: "20.00",
 			psnAcctPay: "30.00",
 			fundPay: "50.00",
+			othFeeAmt: "0.00",
+			acctMulaidPay: "0.00",
+			selfAcctPay: "30.00",
 		},
 	};
 	expect(validate6202Settlement(result, "pay-order-001")).toEqual({
@@ -128,7 +140,47 @@ test("6202 and 6301 make settlement decomposition authoritative", () => {
 		cashFen: 2000,
 		personalAccountFen: 3000,
 		fundFen: 5000,
+		otherPaymentFen: 0,
+		personalAccountMutualAidFen: 0,
+		personalAccountSelfFen: 3000,
 	});
+	expect(
+		validate6202Settlement(
+			{
+				data: {
+					...result.data,
+					feeSumamt: "110.00",
+					fundPay: "50.00",
+					othFeeAmt: "10.00",
+					acctMulaidPay: "5.00",
+					selfAcctPay: "25.00",
+					hospPartAmt: "10.00",
+					deposit: "2.00",
+					delvFee: "3.00",
+				},
+			},
+			"pay-order-001",
+		),
+	).toMatchObject({
+		totalFen: 11000,
+		otherPaymentFen: 1000,
+		hospitalPartFen: 1000,
+		personalAccountMutualAidFen: 500,
+		personalAccountSelfFen: 2500,
+		depositFen: 200,
+		deliveryFeeFen: 300,
+	});
+	expect(() =>
+		validate6202Settlement(
+			{
+				data: {
+					...result.data,
+					othFeeAmt: undefined,
+				},
+			},
+			"pay-order-001",
+		),
+	).toThrow(LegacyFsiContractError);
 	expect(() =>
 		validate6202Settlement(
 			{

@@ -356,6 +356,14 @@ export type MedicalInsuranceWechatPaymentState =
 
 export type MedicalInsuranceWechatProviderState = "pending" | "paid" | "failed";
 
+/** 微信医保混合查单返回的医保部分原始状态。 */
+export type MedicalInsuranceWechatProviderMedicalStatus =
+	| "MED_INS_PAY_CREATED"
+	| "MED_INS_PAY_SUCCESS"
+	| "MED_INS_PAY_REFUND"
+	| "MED_INS_PAY_FAIL"
+	| "NO_MED_INS_PAY";
+
 /**
  * 6202 留下自费金额后的官方微信医保混合支付边界。
  *
@@ -398,6 +406,9 @@ export interface MedicalInsuranceWechatPaymentGateway {
 	): Promise<{
 		cashState: MedicalInsuranceWechatProviderState;
 		insuranceState: MedicalInsuranceWechatProviderState;
+		medInsPayStatus: MedicalInsuranceWechatProviderMedicalStatus;
+		/** 仅当 medInsPayStatus 为 MED_INS_PAY_FAIL 时可能存在。 */
+		medInsFailReason?: string;
 		cashFen: number;
 		totalFen: number;
 		providerStatus: string;

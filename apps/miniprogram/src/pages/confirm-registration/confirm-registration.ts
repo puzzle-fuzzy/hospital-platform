@@ -1,6 +1,7 @@
 import {
 	contextualApiErrorMessage,
 	createIdempotencyKey,
+	requestAppointmentCancellation,
 	requestAppointmentHold,
 	requestAppointmentRegistration,
 } from "../../services/api-client";
@@ -15,6 +16,8 @@ type ConfirmRegistrationPageMethods = {
 	onToggleAgree(): void;
 	onOpenNotice(): void;
 	onConfirmTap(): void;
+	submitRegistration(): void;
+	onCancelAndRetry(): void;
 };
 
 /** 须知不复制旧端模板中的外院电话；取消/取号规则以医院现场公示为准。 */
@@ -52,6 +55,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		holdId: "",
 		holdIdempotencyKey: "",
 		registrationIdempotencyKey: "",
+		duplicate: null,
 		error: "",
 	},
 
@@ -102,6 +106,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 								holdId: "",
 								holdIdempotencyKey: "",
 								registrationIdempotencyKey: "",
+								duplicate: null,
 							}
 						: {}),
 				});
@@ -119,6 +124,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 					holdId: "",
 					holdIdempotencyKey: "",
 					registrationIdempotencyKey: "",
+					duplicate: null,
 				});
 			})
 			.finally(() => {
@@ -149,8 +155,8 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	 *
 	 * 两个幂等键和 holdId 只保留在当前页面实例：注册请求超时后再次点击会
 	 * 复用同一占位和同一注册幂等键，避免 Provider 已成功但客户端未收到响应
-	 * 时产生第二次挂号。支付仍由独立的 `miniprogram-pay` 测试项目承接，
-	 * 本页只负责把预约事实写入并进入详情。
+	 * 时产生第二次挂号。预约写入成功后进入正式小程序的挂号支付页；医保授权、
+	 * 纯医保/混合支付、普通自费支付和最终回写都由该页继续处理。
 	 */
 	onConfirmTap(): void {
 		if (this.data.submitting) return;
@@ -167,6 +173,15 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 			return;
 		}
 
+		this.setData({ duplicate: null });
+		this.submitRegistration();
+	},
+
+	/**
+	 * 预约写入的可重试主体。重复预约取消成功后复用同一入口，确保重新
+	 * 取号、锁号和支付上下文都从服务端重新开始。
+	 */
+	submitRegistration(): void {
 		const holdIdempotencyKey =
 			this.data.holdIdempotencyKey || createIdempotencyKey("appointment-hold");
 		const registrationIdempotencyKey =
@@ -197,15 +212,28 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 				{ patientId: this.data.patientId, holdId },
 				registrationIdempotencyKey,
 			);
+			if (registration.data.status === "duplicate") {
+				// 不能把 duplicate 当 booked 继续跳支付；保留原预约信息，
+				// 只有明确取消成功后才允许再次取号和写入。
+				this.setData({
+					submitting: false,
+					holdId: "",
+					holdIdempotencyKey: "",
+					registrationIdempotencyKey: "",
+					duplicate: registration.data,
+					error: "",
+				});
+				return;
+			}
 			this.setData({ submitting: false, holdId: "", error: "" });
 			const query =
 				`patientId=${encodeURIComponent(registration.data.patientId)}` +
 				`&appointmentId=${encodeURIComponent(registration.data.appointmentId)}`;
 			wx.redirectTo({
-				url: `/pages/appointment-detail/appointment-detail?${query}`,
+				url: `/pages/registration-payment/registration-payment?${query}`,
 				fail: () =>
 					wx.navigateTo({
-						url: `/pages/appointment-detail/appointment-detail?${query}`,
+						url: `/pages/registration-payment/registration-payment?${query}`,
 					}),
 			});
 		})().catch((error: unknown) => {
@@ -218,6 +246,45 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 				error: errorMessageWithCode(error, message),
 			});
 			logClientErrorTransformed("confirm-registration.submit", error);
+		});
+	},
+
+	onCancelAndRetry(): void {
+		const duplicate = this.data.duplicate;
+		if (!duplicate || this.data.submitting) return;
+		wx.showModal({
+			title: "确认取消并重新预约？",
+			content:
+				"将先取消当前已有预约。取消成功后，系统会重新核验号源、重新预约，再进入支付；取消失败时会保留原预约。",
+			confirmText: "确认继续",
+			success: (result) => {
+				if (!result.confirm) return;
+				this.setData({ submitting: true, error: "" });
+				void requestAppointmentCancellation(duplicate.appointmentId)
+					.then(() => {
+						this.setData({
+							duplicate: null,
+							holdId: "",
+							holdIdempotencyKey: "",
+							registrationIdempotencyKey: "",
+						});
+						this.submitRegistration();
+					})
+					.catch((error: unknown) => {
+						const message = contextualApiErrorMessage(
+							error,
+							"原预约取消失败，请勿重复预约；请稍后重试",
+						);
+						this.setData({
+							submitting: false,
+							error: errorMessageWithCode(error, message),
+						});
+						logClientErrorTransformed(
+							"confirm-registration.cancel-duplicate",
+							error,
+						);
+					});
+			},
 		});
 	},
 });

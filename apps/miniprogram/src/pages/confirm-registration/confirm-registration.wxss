@@ -124,3 +124,31 @@
 .confirm-error {
 	color: #c84b4b;
 }
+
+.confirm-duplicate-card {
+	border: 2rpx solid #f0c36b;
+	background: #fffaf0;
+}
+
+.confirm-duplicate-title {
+	color: #9a6415;
+}
+
+.confirm-duplicate-hint {
+	padding: 4rpx 24rpx 20rpx;
+	color: #9a6415;
+	font-size: 25rpx;
+	line-height: 38rpx;
+}
+
+.confirm-duplicate-action {
+	margin: 0 24rpx 24rpx;
+	height: 76rpx;
+	border-radius: 38rpx;
+	background: #d98a27;
+	color: #ffffff;
+	font-size: 28rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}

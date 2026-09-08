@@ -83,6 +83,7 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 export const CLIENT_ERROR_NUMERIC_CODES = Object.freeze({
 	"api-request-failed": 80000,
 	"network-failed": 80100,
+	"request-timeout": 80110,
 	"wechat-code-missing": 80200,
 	"wechat-login-failed": 80210,
 	"session-missing": 80300,

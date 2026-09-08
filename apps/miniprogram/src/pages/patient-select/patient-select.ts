@@ -186,7 +186,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	 * 收到 401。仅在点击患者时检查会话代际太晚：用户在此之前已经能看到
 	 * 上一轮姓名、关系和脱敏卡号。因此每次从其它页面返回都先清空当前
 	 * 派生目录，再以最新平台会话读取 owner 目录；Provider 同步必须由用户
-	 * 点击“刷新就诊人”明确触发，避免生命周期回调偷偷发起同步。
+	 * 点击“刷新就诊人”明确触发，避免生命周期回调偷偷发起同步；
+	 * 只有这个明确动作才会自动发起 POST /patients/sync。
 	 */
 	onShow(): void {
 		if (!this.data.hasShown) {

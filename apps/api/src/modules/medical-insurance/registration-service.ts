@@ -9,15 +9,15 @@ import {
 	type AppointmentWriteRepository,
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
-	medicalInsuranceOrderTypeForBusiness,
 	type MedicalInsuranceGateway,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceQueryTaskRepository,
-	type PatientRepository,
-	validatePatientProviderReference,
+	medicalInsuranceOrderTypeForBusiness,
 	normalizeAdapterCallContext,
+	type PatientRepository,
 	type UserIdentityRepository,
+	validatePatientProviderReference,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import {
@@ -100,7 +100,9 @@ function output(
 					amounts: {
 						totalFen: order.amounts.totalFen,
 						insuranceFen:
-							order.amounts.personalAccountFen + order.amounts.fundFen,
+							order.amounts.personalAccountFen +
+							order.amounts.fundFen +
+							(order.amounts.otherPaymentFen ?? 0),
 						cashFen: order.amounts.cashFen,
 					},
 				}

@@ -1,0 +1,59 @@
+<scroll-view class="payment-scroll" scroll-y="true" enhanced="true">
+	<view class="payment-page">
+		<view wx:if="{{loading}}" class="state-card">
+			<view class="loading-dot"></view>
+			<text>正在确认挂号信息...</text>
+		</view>
+
+		<view wx:elif="{{!ready}}" class="state-card error-card">
+			<text class="state-title">挂号支付暂不可用</text>
+			<text class="state-message">{{error}}</text>
+			<button class="secondary-button" bindtap="onBack">返回</button>
+		</view>
+
+		<block wx:else>
+			<view class="success-banner">
+				<view class="success-icon">✓</view>
+				<view>
+					<text class="success-title">预约已写入</text>
+					<text class="success-subtitle">请选择本次挂号的支付方式</text>
+				</view>
+			</view>
+
+			<view class="info-card">
+				<view class="card-title">预约信息</view>
+				<view class="info-row"><text>医院</text><text>{{hospitalName}}</text></view>
+				<view class="info-row"><text>科室</text><text>{{departmentName}}</text></view>
+				<view class="info-row"><text>医生</text><text>{{doctorName}}</text></view>
+				<view class="info-row"><text>就诊时间</text><text>{{workDate}} {{shiftName}} {{workTime}}</text></view>
+				<view class="info-row"><text>挂号序号</text><text>{{sourceSerialNumber}}号</text></view>
+				<view class="info-row amount-row"><text>挂号费用</text><text>{{totalLabel}}</text></view>
+			</view>
+
+			<view class="info-card">
+				<view class="card-title">就诊人</view>
+				<view class="info-row"><text>姓名</text><text>{{patientName}}</text></view>
+				<view class="info-row"><text>就诊卡</text><text>{{patientCardLabel}}</text></view>
+			</view>
+
+			<view wx:if="{{message}}" class="message-card">
+				<view class="message-dot {{stage === 'success' ? 'message-success' : ''}}"></view>
+				<text>{{message}}</text>
+			</view>
+			<view wx:if="{{error}}" class="error-text">{{error}}</view>
+
+			<view wx:if="{{!completed}}" class="payment-section">
+				<view class="section-title">选择支付方式</view>
+				<button class="payment-button medical-button" data-mode="medical" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'medical'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'medical' ? '继续医保支付' : '纯医保支付'}}</button>
+				<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'mixed' ? '继续医保混合支付' : '医保混合支付'}}</button>
+				<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'self' ? '继续确认自费支付' : '普通自费支付'}}</button>
+			</view>
+			<view wx:else class="completed-card">
+				<text>最终支付和医院结算已确认</text>
+				<button class="primary-button" bindtap="onOpenDetail">查看挂号详情</button>
+			</view>
+
+			<view class="footnote">支付调起成功不等于业务完成；请等待页面确认医保、微信自费和医院回写结果。若提示“支付确认中”，请点击“继续支付”查询原订单，不要重复付款或重新预约。</view>
+		</block>
+	</view>
+</scroll-view>

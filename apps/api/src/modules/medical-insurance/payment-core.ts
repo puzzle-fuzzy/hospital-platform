@@ -47,7 +47,9 @@ function output(
 					amounts: {
 						totalFen: order.amounts.totalFen,
 						insuranceFen:
-							order.amounts.personalAccountFen + order.amounts.fundFen,
+							order.amounts.personalAccountFen +
+							order.amounts.fundFen +
+							(order.amounts.otherPaymentFen ?? 0),
 						cashFen: order.amounts.cashFen,
 					},
 				}
@@ -265,6 +267,9 @@ export class MedicalInsurancePaymentCore {
 			personalAccountFen:
 				order.amounts?.personalAccountFen ?? result.amounts.insuranceFen,
 			fundFen: order.amounts?.fundFen ?? 0,
+			...(order.amounts?.otherPaymentFen === undefined
+				? {}
+				: { otherPaymentFen: order.amounts.otherPaymentFen }),
 		});
 		const updated = await this.dependencies.orders.applySettlement(
 			order.medicalOrderId,

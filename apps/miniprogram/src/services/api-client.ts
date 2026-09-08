@@ -57,6 +57,8 @@ export type SupportedApiPrefix = "/api/v1" | "/api/v2";
 const DEFAULT_API_PREFIX: SupportedApiPrefix = "/api/v1";
 const PRODUCTION_API_PREFIX: SupportedApiPrefix = "/api/v2";
 const SAFE_UNKNOWN_ERROR_MESSAGE = "当前信息暂时无法获取，请稍后重试";
+/** 网络请求必须有终点；支付命令超时后保留订单并由查单/继续支付收敛。 */
+const API_REQUEST_TIMEOUT_MS = 20_000;
 
 /**
  * 这些错误表示本次读取没有完成，但没有证明业务数据为空。
@@ -192,6 +194,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"api-prefix-invalid": "服务正在启动，请稍后再试",
 		"app-not-initialized": "服务正在启动，请稍后再试",
 		"network-failed": "网络连接不稳定，请稍后再试",
+		"request-timeout": "请求超时，请稍后重试",
 		"wechat-code-missing": "登录未完成，请再试一次",
 		"session-missing": "登录未完成，请再试一次",
 		"wechat-login-failed": "微信登录未完成，请再试一次",
@@ -1844,6 +1847,7 @@ function requestWithConfig<TResponse = unknown>(
 		wx.request<WechatMiniprogram.IAnyObject>({
 			url: requestUrl,
 			method,
+			timeout: API_REQUEST_TIMEOUT_MS,
 			...(data === undefined ? {} : { data }),
 			header: {
 				"content-type": "application/json",
@@ -1890,13 +1894,18 @@ function requestWithConfig<TResponse = unknown>(
 					}),
 				);
 			},
-			fail: () => {
-				observe(0, "network-error", "network-failed");
+			fail: (error) => {
+				const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";
+				const timedOut = /timeout|超时/iu.test(errMsg);
+				observe(0, "network-error", timedOut ? "request-timeout" : "network-failed");
 				reject(
-					new ApiError("网络请求失败，请检查网络或服务地址", {
-						code: "network-failed",
-						requestId,
-					}),
+					new ApiError(
+						timedOut ? "请求超时，请稍后重试" : "网络请求失败，请检查网络或服务地址",
+						{
+							code: timedOut ? "request-timeout" : "network-failed",
+							requestId,
+						},
+					),
 				);
 			},
 		});
@@ -2607,6 +2616,40 @@ export function requestAppointmentCancellation(
 		method: "POST",
 		data: {},
 		idempotencyKey: createIdempotencyKey("appointment-cancel"),
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentCancellationResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/**
+ * 支付页明确退出时由服务端统一关闭支付订单、作废医保上下文并释放预约。
+ * 小程序不能自行先后调用“关单”和“取消预约”，否则第二步失败会留下占号。
+ */
+export function requestAppointmentPaymentExit(
+	appointmentId: string,
+	mode: "medical" | "mixed" | "self",
+): Promise<AppointmentCancellationResponse> {
+	if (
+		typeof appointmentId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(appointmentId) ||
+		appointmentId.length > 64
+	) {
+		return Promise.reject(
+			new ApiError("预约引用无效", { code: "appointment-query-invalid" }),
+		);
+	}
+	if (mode !== "medical" && mode !== "mixed" && mode !== "self") {
+		return Promise.reject(
+			new ApiError("支付方式无效", { code: "payment-order-invalid" }),
+		);
+	}
+	return requestWithSession<unknown>({
+		url: `/payments/appointments/${encodeURIComponent(appointmentId)}/payment-exit`,
+		method: "POST",
+		data: { mode },
+		idempotencyKey: createIdempotencyKey("appointment-payment-exit"),
 	}).then((payload) =>
 		requireSuccessDataResponse<AppointmentCancellationResponse["data"]>(
 			payload,

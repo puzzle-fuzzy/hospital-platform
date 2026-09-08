@@ -500,6 +500,8 @@ export type ConfirmRegistrationPageData = {
 	holdId: string;
 	holdIdempotencyKey: string;
 	registrationIdempotencyKey: string;
+	/** 服务端判定已有同日预约时保留原预约，禁止直接进入支付。 */
+	duplicate: AppointmentRegistrationResponse["data"] | null;
 	error: string;
 };
 

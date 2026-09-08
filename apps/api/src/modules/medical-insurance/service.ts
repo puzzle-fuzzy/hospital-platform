@@ -102,6 +102,26 @@ export class MedicalInsuranceNotificationService {
 					cashFen: notification.ownPayAmt,
 					personalAccountFen: notification.psnAcctPay,
 					fundFen: notification.fundPay,
+					...(notification.othFeeAmt === undefined
+						? {}
+						: { otherPaymentFen: notification.othFeeAmt }),
+					...(notification.hospPartAmt === undefined
+						? {}
+						: { hospitalPartFen: notification.hospPartAmt }),
+					...(notification.acctMulaidPay === undefined
+						? {}
+						: {
+								personalAccountMutualAidFen: notification.acctMulaidPay,
+							}),
+					...(notification.selfAcctPay === undefined
+						? {}
+						: { personalAccountSelfFen: notification.selfAcctPay }),
+					...(notification.deposit === undefined
+						? {}
+						: { depositFen: notification.deposit }),
+					...(notification.delvFee === undefined
+						? {}
+						: { deliveryFeeFen: notification.delvFee }),
 				},
 				setlType: notification.setlType,
 				revsTokenHash: sha256Short(notification.revsToken),

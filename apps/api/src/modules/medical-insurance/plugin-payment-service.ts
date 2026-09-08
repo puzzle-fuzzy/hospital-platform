@@ -102,7 +102,8 @@ function medicalOrderOutput(
 						totalFen: medicalOrder.amounts.totalFen,
 						insuranceFen:
 							medicalOrder.amounts.personalAccountFen +
-							medicalOrder.amounts.fundFen,
+							medicalOrder.amounts.fundFen +
+							(medicalOrder.amounts.otherPaymentFen ?? 0),
 						cashFen: medicalOrder.amounts.cashFen,
 					},
 				}

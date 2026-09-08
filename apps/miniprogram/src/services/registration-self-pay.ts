@@ -24,6 +24,7 @@ export class RegistrationSelfPayPendingError extends Error {
 }
 
 const QUERY_DELAYS_MS = [0, 800, 1600] as const;
+const WECHAT_PAYMENT_RESPONSE_TIMEOUT_MS = 60_000;
 
 function wait(delayMs: number): Promise<void> {
 	if (delayMs <= 0) return Promise.resolve();
@@ -42,7 +43,7 @@ async function queryUntilSettled(
 ): Promise<{ status: "cash_paid"; orderId: string } | { status: "pending" }> {
 	for (const delayMs of QUERY_DELAYS_MS) {
 		await wait(delayMs);
-		onProgress("confirming", "正在确认微信自费支付结果");
+		onProgress("confirming", "正在确认微信自费支付结果，请勿重复付款");
 		const result = await queryAppointmentSelfPay(appointmentId);
 		if (result.data.status === "cash_paid") {
 			return { status: "cash_paid", orderId: result.data.orderId };
@@ -61,7 +62,7 @@ export async function startRegistrationSelfPay(
 	appointmentId: string,
 	onProgress: (stage: RegistrationSelfPayProgress, message: string) => void,
 ): Promise<{ status: "cash_paid"; orderId: string }> {
-	onProgress("creating", "正在创建自费支付订单");
+	onProgress("creating", "正在创建自费支付订单，请勿重复点击或重新预约");
 	const payment = await requestAppointmentSelfPay(appointmentId);
 	if (payment.data.status === "cash_paid") {
 		return { status: "cash_paid", orderId: payment.data.orderId };
@@ -75,26 +76,53 @@ export async function startRegistrationSelfPay(
 		throw new RegistrationSelfPayPendingError();
 	}
 
-	onProgress("paying", "正在打开微信自费支付收银台");
+	onProgress("paying", "正在打开微信自费支付收银台，请勿重复点击");
 	let cancelled = false;
 	await new Promise<void>((resolve, reject) => {
-		wx.requestPayment({
-			...launch.params,
-			success: () => resolve(),
-			fail: (error) => {
-				const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";
-				if (/cancel/i.test(errMsg)) {
-					cancelled = true;
-					resolve();
-					return;
-				}
+		let settled = false;
+		const timer = setTimeout(() => {
+			settled = true;
+			reject(
+				new ApiError(
+					"微信支付收银台响应超时，支付结果可能仍在确认，请稍后继续确认",
+					{ code: "payment-prepay-unknown" },
+				),
+			);
+		}, WECHAT_PAYMENT_RESPONSE_TIMEOUT_MS);
+		const finish = (callback: () => void): void => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			callback();
+		};
+		try {
+			wx.requestPayment({
+				...launch.params,
+				success: () => finish(resolve),
+				fail: (error) =>
+					finish(() => {
+						const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";
+						if (/cancel/i.test(errMsg)) {
+							cancelled = true;
+							resolve();
+							return;
+						}
+						reject(
+							new ApiError("微信支付调起失败", {
+								code: "wechat-payment-launch-failed",
+							}),
+						);
+					}),
+			});
+		} catch {
+			finish(() =>
 				reject(
 					new ApiError("微信支付调起失败", {
 						code: "wechat-payment-launch-failed",
 					}),
-				);
-			},
-		});
+				),
+			);
+		}
 	});
 
 	let settled: Awaited<ReturnType<typeof queryUntilSettled>>;

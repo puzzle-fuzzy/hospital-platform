@@ -117,6 +117,13 @@ function moneyLabel(totalFen: number): string {
 	return `${(totalFen / 100).toFixed(2)} 元`;
 }
 
+function selfPayIsDefinitivelyFailed(error: unknown): boolean {
+	return (
+		error instanceof ApiError &&
+		["payment-order-conflict", "wechat-pay-params-missing"].includes(error.code)
+	);
+}
+
 function detailDefaults(): AppointmentDetailPageState {
 	return {
 		loading: true,
@@ -466,7 +473,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		this.setData({
 			selfPayBusy: true,
 			selfPayStatus: "idle",
-			selfPayMessage: "正在创建自费支付订单",
+			selfPayMessage: "正在创建自费支付订单，请勿重复点击或重新预约",
 			selfPayError: "",
 		});
 		void startRegistrationSelfPay(this.data.appointmentId, (stage, message) => {
@@ -491,7 +498,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					this.setData({
 						selfPayBusy: false,
 						selfPayStatus: "awaiting_confirmation",
-						selfPayMessage: "已取消自费支付，预约已保留，可继续支付",
+						selfPayMessage:
+							"已退出微信收银台，预约已保留；支付结果可能仍在确认，请点击继续自费支付，勿重复付款",
 						selfPayError: "",
 					});
 					return;
@@ -501,16 +509,19 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						selfPayBusy: false,
 						selfPayStatus: "awaiting_confirmation",
 						selfPayMessage:
-							"支付结果仍在确认，预约已保留，请稍后点击继续自费支付",
+							"支付结果仍在确认，预约已保留，请稍后点击继续自费支付；请勿重复付款或重新预约",
 						selfPayError: "",
 					});
 					return;
 				}
 				const presented = presentClientError(error, "payment");
+				const definitivelyFailed = selfPayIsDefinitivelyFailed(error);
 				this.setData({
 					selfPayBusy: false,
-					selfPayStatus: "awaiting_confirmation",
-					selfPayMessage: "自费支付未完成，预约已保留",
+					selfPayStatus: definitivelyFailed ? "failed" : "awaiting_confirmation",
+					selfPayMessage: definitivelyFailed
+						? "自费支付未完成，预约已保留，请稍后重新发起支付；请勿重复预约"
+						: "支付结果暂时无法确认，预约已保留，请点击继续自费支付；请勿重复付款或重新预约",
 					selfPayError: presented.displayText,
 				});
 			});

@@ -21,6 +21,7 @@ import {
 	continueSelfPaymentFromPending,
 	MedicalAuthNavigationCancelledError,
 	MedicalCashRequiredError,
+	MedicalInsurancePaymentFailureError,
 	navigateToMedicalAuth,
 	type PaymentMode,
 	type PaymentProgress,
@@ -85,6 +86,8 @@ function friendlyError(error: unknown): string {
 		error instanceof MedicalCashRequiredError
 	)
 		return "";
+	if (error instanceof MedicalInsurancePaymentFailureError)
+		return error.message;
 	const message =
 		error instanceof Error
 			? error.message

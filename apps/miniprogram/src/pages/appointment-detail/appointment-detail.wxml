@@ -57,7 +57,7 @@
 				<view wx:if="{{localDetail && selfPayStatus !== 'idle'}}" class="detail-row detail-row-last">
 					<text class="detail-row-label">自费支付状态</text>
 					<text class="detail-row-value">
-						{{selfPayStatus === 'cash_paid' ? '已支付' : selfPayStatus === 'failed' ? '支付失败，可重试' : '支付确认中'}}
+						{{selfPayStatus === 'cash_paid' ? '已支付' : selfPayStatus === 'failed' ? '支付未完成，可重新发起' : '支付结果确认中，请勿重复付款'}}
 					</text>
 				</view>
 			</view>
@@ -97,7 +97,7 @@
 					class="detail-pay-button"
 					bindtap="onSelfPay"
 					disabled="{{selfPayBusy}}"
-				>{{selfPayBusy ? "正在确认自费支付..." : selfPayStatus === "awaiting_confirmation" ? "继续自费支付" : selfPayStatus === "failed" ? "重新自费支付" : "自费支付"}}</button>
+				>{{selfPayBusy ? "正在确认自费支付结果，请勿重复付款" : selfPayStatus === "awaiting_confirmation" ? "继续自费支付" : selfPayStatus === "failed" ? "重新自费支付" : "自费支付"}}</button>
 				<button wx:if="{{canCancel}}" class="detail-cancel-button" bindtap="onCancel">
 					{{canceling ? "取消中..." : "取消预约"}}
 				</button>

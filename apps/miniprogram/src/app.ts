@@ -17,6 +17,9 @@ type AppGlobalData = {
 	apiBaseUrl: string;
 	apiPrefix: "/api/v2" | "/api/v1";
 	accessToken: string;
+	/** 医保授权小程序回跳的一次性 opaque 授权结果，只在回跳后消费。 */
+	medicalInsuranceAuthCode: string;
+	medicalInsuranceAuthExtraData: Record<string, unknown> | null;
 	sessionStatus: "signed_out" | "signed_in";
 	/** 最近一次通过 `/me` 或微信登录响应确认的 owner；token 轮换不等于账号切换。 */
 	sessionOwnerId: string;
@@ -66,6 +69,8 @@ const APP_GLOBAL_DATA: AppGlobalData = {
 	apiBaseUrl: "https://test-hp.meiyi.pro",
 	apiPrefix: "/api/v2",
 	accessToken: "",
+	medicalInsuranceAuthCode: "",
+	medicalInsuranceAuthExtraData: null,
 	sessionStatus: "signed_out",
 	sessionOwnerId: "",
 	sessionGeneration: 0,
@@ -180,5 +185,16 @@ App<{ globalData: AppGlobalData }>({
 		// contract 校验；只有 `/me` 或微信 code 兑换成功后，才能写入全局状态。
 		// 这样全局 `signed_in` 不会先于服务端会话证明出现，页面也不会在恢复
 		// 期间把上一账号的患者上下文误当成当前账号事实。
+	},
+
+	onShow(options) {
+		const extraData = options?.referrerInfo?.extraData;
+		const authCode = String(
+			extraData?.authCode || extraData?.qrcode || "",
+		).trim();
+		if (authCode) {
+			this.globalData.medicalInsuranceAuthCode = authCode;
+			this.globalData.medicalInsuranceAuthExtraData = extraData || null;
+		}
 	},
 });

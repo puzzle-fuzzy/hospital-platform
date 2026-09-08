@@ -1891,6 +1891,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(patch.wechatPaymentState !== undefined
 					? { wechatPaymentState: patch.wechatPaymentState }
 					: {}),
+				...(patch.medInsFailReason !== undefined
+					? { medInsFailReason: patch.medInsFailReason }
+					: {}),
 				status: patch.status,
 				ordStas: patch.ordStas,
 				amounts: patch.amounts,

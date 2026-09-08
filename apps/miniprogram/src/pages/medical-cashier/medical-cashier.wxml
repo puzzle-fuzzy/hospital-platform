@@ -1,0 +1,8 @@
+<scroll-view class="secondary-page-scroll" scroll-y="true">
+	<view class="cashier-page">
+		<web-view wx:if="{{cashierUrl}}" src="{{cashierUrl}}" binderror="onWebViewError"></web-view>
+		<view wx:else class="cashier-error">
+			<text>{{error || '正在准备医保收银台'}}</text>
+		</view>
+	</view>
+</scroll-view>

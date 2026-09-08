@@ -398,6 +398,12 @@ type MIRow = RowDataPacket & {
 	cash_fen: number;
 	personal_account_fen: number;
 	fund_fen: number;
+	other_payment_fen: number;
+	hospital_part_fen: number;
+	personal_account_mutual_aid_fen: number;
+	personal_account_self_fen: number;
+	deposit_fen: number;
+	delivery_fee_fen: number;
 	setl_type: string | null;
 	revs_token_hash: string | null;
 	// 运行时 pool 开启了 `dateStrings: true`，DATETIME 不会被 mysql2
@@ -405,6 +411,7 @@ type MIRow = RowDataPacket & {
 	// 字符串调用 `.toISOString()`，在授权前直接抛出原生 TypeError。
 	revs_token_expires_at: string | null;
 	last_error: string | null;
+	med_ins_fail_reason: string | null;
 	wechat_mix_trade_no: string | null;
 	wechat_out_trade_no: string | null;
 	wechat_payment_state: string;
@@ -808,7 +815,7 @@ function medicalInsuranceCredentialHandle(
 }
 
 const MI_SELECT =
-	"SELECT medical_order_id, owner_user_id, patient_id, business_type, order_type, business_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext, version, created_at, updated_at FROM hp_medical_insurance_orders";
+	"SELECT medical_order_id, owner_user_id, patient_id, business_type, order_type, business_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, other_payment_fen, hospital_part_fen, personal_account_mutual_aid_fen, personal_account_self_fen, deposit_fen, delivery_fee_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, med_ins_fail_reason, wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext, version, created_at, updated_at FROM hp_medical_insurance_orders";
 
 const MI_WECHAT_PAYMENT_STATES = [
 	"not_started",
@@ -878,6 +885,25 @@ function miOrder(
 						cashFen: row.cash_fen,
 						personalAccountFen: row.personal_account_fen,
 						fundFen: row.fund_fen,
+						...(row.other_payment_fen > 0
+							? { otherPaymentFen: row.other_payment_fen }
+							: {}),
+						...(row.hospital_part_fen > 0
+							? { hospitalPartFen: row.hospital_part_fen }
+							: {}),
+						...(row.personal_account_mutual_aid_fen > 0
+							? {
+									personalAccountMutualAidFen:
+										row.personal_account_mutual_aid_fen,
+								}
+							: {}),
+						...(row.personal_account_self_fen > 0
+							? { personalAccountSelfFen: row.personal_account_self_fen }
+							: {}),
+						...(row.deposit_fen > 0 ? { depositFen: row.deposit_fen } : {}),
+						...(row.delivery_fee_fen > 0
+							? { deliveryFeeFen: row.delivery_fee_fen }
+							: {}),
 					}
 				: null,
 		setlType: (row.setl_type as "ALL" | "CASH" | "HI" | null) ?? null,
@@ -886,6 +912,7 @@ function miOrder(
 			? mysqlUtcDateTimeToIso(row.revs_token_expires_at)
 			: null,
 		lastError: row.last_error,
+		medInsFailReason: row.med_ins_fail_reason,
 		wechatMixTradeNo: row.wechat_mix_trade_no,
 		wechatOutTradeNo: row.wechat_out_trade_no,
 		wechatPayParams: storedPayParams,
@@ -922,8 +949,8 @@ export type MySqlRepositories = {
  * 医保订单 INSERT 的唯一字段清单。
  *
  * 挂号和门诊共用这张订单表；字段每次扩展时必须同时更新这里和下面的
- * 参数数组。占位符由参数数组自动生成，避免再次出现“列 33 个、值 33 个，
- * 但 SQL 只有 32 个 ?”这种只能在线上点击支付后才暴露的问题。
+ * 参数数组。占位符由参数数组自动生成，避免再次出现列和值数量漂移、
+ * 只能在线上点击支付后才暴露的问题。
  */
 const MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS = [
 	"medical_order_id",
@@ -948,10 +975,17 @@ const MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS = [
 	"cash_fen",
 	"personal_account_fen",
 	"fund_fen",
+	"other_payment_fen",
+	"hospital_part_fen",
+	"personal_account_mutual_aid_fen",
+	"personal_account_self_fen",
+	"deposit_fen",
+	"delivery_fee_fen",
 	"setl_type",
 	"revs_token_hash",
 	"revs_token_expires_at",
 	"last_error",
+	"med_ins_fail_reason",
 	"wechat_mix_trade_no",
 	"wechat_out_trade_no",
 	"wechat_payment_state",
@@ -3586,10 +3620,17 @@ export function createMySqlRepositories(
 				order.amounts?.cashFen ?? 0,
 				order.amounts?.personalAccountFen ?? 0,
 				order.amounts?.fundFen ?? 0,
+				order.amounts?.otherPaymentFen ?? 0,
+				order.amounts?.hospitalPartFen ?? 0,
+				order.amounts?.personalAccountMutualAidFen ?? 0,
+				order.amounts?.personalAccountSelfFen ?? 0,
+				order.amounts?.depositFen ?? 0,
+				order.amounts?.deliveryFeeFen ?? 0,
 				order.setlType,
 				order.revsTokenHash,
 				order.revsTokenExpiresAt,
 				order.lastError,
+				order.medInsFailReason ?? null,
 				order.wechatMixTradeNo ?? null,
 				order.wechatOutTradeNo ?? null,
 				order.wechatPaymentState ?? "not_started",
@@ -3717,10 +3758,12 @@ export function createMySqlRepositories(
 				pool,
 				`UPDATE hp_medical_insurance_orders SET
 					status = ?, ord_stas = ?, total_fen = ?, cash_fen = ?, personal_account_fen = ?, fund_fen = ?,
+					other_payment_fen = ?, hospital_part_fen = ?, personal_account_mutual_aid_fen = ?, personal_account_self_fen = ?, deposit_fen = ?, delivery_fee_fen = ?,
 					pay_ord_id = COALESCE(?, pay_ord_id), pay_token_hash = COALESCE(?, pay_token_hash),
 					mdtrt_id = COALESCE(?, mdtrt_id),
 					acct_used_flag = COALESCE(?, acct_used_flag),
 					setl_type = ?, revs_token_hash = ?, revs_token_expires_at = ?,
+					med_ins_fail_reason = CASE WHEN ? = 1 THEN ? ELSE med_ins_fail_reason END,
 					business_type = COALESCE(?, business_type), order_type = COALESCE(?, order_type),
 					business_id = COALESCE(?, business_id), appointment_id = COALESCE(?, appointment_id),
 					authorization_id = COALESCE(?, authorization_id),
@@ -3738,6 +3781,12 @@ export function createMySqlRepositories(
 					patch.amounts?.cashFen ?? 0,
 					patch.amounts?.personalAccountFen ?? 0,
 					patch.amounts?.fundFen ?? 0,
+					patch.amounts?.otherPaymentFen ?? 0,
+					patch.amounts?.hospitalPartFen ?? 0,
+					patch.amounts?.personalAccountMutualAidFen ?? 0,
+					patch.amounts?.personalAccountSelfFen ?? 0,
+					patch.amounts?.depositFen ?? 0,
+					patch.amounts?.deliveryFeeFen ?? 0,
 					patch.payOrdId ?? null,
 					patch.payTokenHash ?? null,
 					patch.mdtrtId ?? null,
@@ -3745,6 +3794,8 @@ export function createMySqlRepositories(
 					patch.setlType,
 					patch.revsTokenHash,
 					patch.revsTokenExpiresAt,
+					patch.medInsFailReason === undefined ? 0 : 1,
+					patch.medInsFailReason ?? null,
 					patch.businessType ?? null,
 					patch.orderType ?? null,
 					patch.businessId ?? null,

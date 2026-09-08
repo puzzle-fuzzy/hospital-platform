@@ -29,6 +29,35 @@ import {
 const root = join(import.meta.dir, "..");
 const repositoryRoot = join(root, "..", "..");
 const source = join(root, "src");
+const medicalCredentialPath = join(
+	root,
+	"../../.local/medical-insurance/test-environment-key-material.json",
+);
+const medicalCredentialPlaceholder =
+	"__MINIPROGRAM_MEDICAL_ORG_CHANNEL_CREDENTIAL__";
+
+async function loadMedicalOrgChannelCredential(): Promise<string> {
+	if (!(await Bun.file(medicalCredentialPath).exists())) return "";
+	const localConfig = JSON.parse(await Bun.file(medicalCredentialPath).text()) as {
+		identityVerificationFeedback?: { orgChannelAuthCode?: unknown };
+	};
+	return String(
+		localConfig.identityVerificationFeedback?.orgChannelAuthCode || "",
+	).trim();
+}
+
+async function injectMedicalCredential(runtime: string): Promise<void> {
+	const credential = await loadMedicalOrgChannelCredential();
+	const sourceLiteral = JSON.stringify(medicalCredentialPlaceholder);
+	const runtimeLiteral = JSON.stringify(credential);
+	for (const file of await listRuntimeFiles(runtime)) {
+		if (!file.endsWith(".js")) continue;
+		const path = join(runtime, file);
+		const contents = await Bun.file(path).text();
+		if (!contents.includes(sourceLiteral)) continue;
+		await Bun.write(path, contents.replaceAll(sourceLiteral, runtimeLiteral));
+	}
+}
 
 function resolveBuildMode(): MiniProgramRuntimeBuildMode {
 	const argumentsAfterScript = process.argv.slice(2);
@@ -119,9 +148,16 @@ const requiredStaticFiles = [
 	"pages/my/my.json",
 	"pages/my/my.wxml",
 	"pages/my/my.wxss",
+	"pages/registration-payment/registration-payment.json",
+	"pages/registration-payment/registration-payment.wxml",
+	"pages/registration-payment/registration-payment.wxss",
+	"pages/medical-cashier/medical-cashier.json",
+	"pages/medical-cashier/medical-cashier.wxml",
+	"pages/medical-cashier/medical-cashier.wxss",
 ];
 const requiredTypeScriptFiles = [
 	"app.ts",
+	"config.ts",
 	"data/department-location.ts",
 	"services/api-client.ts",
 	// App 启动容器是 globalData 时序修复的核心运行模块；它虽然没有直接
@@ -131,6 +167,7 @@ const requiredTypeScriptFiles = [
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
 	"services/patient-selection-service.ts",
+	"services/medical-insurance.ts",
 	// 页面实例的单飞依赖曾导致真机误请求 `single-flight.test.js`；
 	// 将生产实现列为显式运行模块，避免间接 import 被构建或开发者工具增量索引遗漏。
 	"services/single-flight.ts",
@@ -153,6 +190,8 @@ const requiredTypeScriptFiles = [
 	"pages/hospital-navigation/hospital-navigation.ts",
 	"pages/feature-status/feature-status.ts",
 	"pages/my/my.ts",
+	"pages/registration-payment/registration-payment.ts",
+	"pages/medical-cashier/medical-cashier.ts",
 ];
 const requiredAssetDirectories = ["assets"];
 
@@ -749,6 +788,7 @@ try {
 		);
 	}
 	await copyStaticFiles(source, stagingRuntime);
+	await injectMedicalCredential(stagingRuntime);
 
 	/**
 	 * 运行包必须可以作为一个“只包含运行内容”的独立微信工程打开。

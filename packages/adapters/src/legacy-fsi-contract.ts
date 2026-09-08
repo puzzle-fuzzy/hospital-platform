@@ -36,6 +36,12 @@ export type LegacyFsiAmountBreakdown = {
 	cashFen: number;
 	personalAccountFen: number;
 	fundFen: number;
+	otherPaymentFen?: number;
+	hospitalPartFen?: number;
+	personalAccountMutualAidFen?: number;
+	personalAccountSelfFen?: number;
+	depositFen?: number;
+	deliveryFeeFen?: number;
 };
 
 export type LegacyFsiFeeUploadCredential = {
@@ -184,17 +190,37 @@ function optionalAmount(
 		: yuanToFen(payload[fieldName], fieldName, infno);
 }
 
+function optionalAmountValue(
+	payload: Record<string, unknown>,
+	fieldName: string,
+	infno: LegacyFsiInfno,
+): number | undefined {
+	return payload[fieldName] === undefined || payload[fieldName] === null
+		? undefined
+		: yuanToFen(payload[fieldName], fieldName, infno);
+}
+
 function requireExactBreakdown(
 	infno: LegacyFsiInfno,
 	totalFen: number,
 	cashFen: number,
 	personalAccountFen: number,
 	fundFen: number,
+	otherPaymentFen = 0,
 ): LegacyFsiAmountBreakdown {
-	if (cashFen + personalAccountFen + fundFen !== totalFen) {
-		contractError(infno, "cash + personal account + fund must equal total");
+	if (cashFen + personalAccountFen + fundFen + otherPaymentFen !== totalFen) {
+		contractError(
+			infno,
+			"cash + personal account + fund + other payment must equal total",
+		);
 	}
-	return { totalFen, cashFen, personalAccountFen, fundFen };
+	return {
+		totalFen,
+		cashFen,
+		personalAccountFen,
+		fundFen,
+		...(otherPaymentFen > 0 ? { otherPaymentFen } : {}),
+	};
 }
 
 /** 旧转发服务可能多次包裹 data/output/body，最多只展开固定层数。 */
@@ -241,6 +267,8 @@ export function validate6201FeeUpload(payload: Record<string, unknown>): {
 		"caty",
 		"medType",
 		"feeType",
+		"diseCodg",
+		"diseName",
 		"mdtrtCertType",
 		"psnSetlway",
 		"chrgBchno",
@@ -250,6 +278,15 @@ export function validate6201FeeUpload(payload: Record<string, unknown>): {
 		requiredText(payload, fieldName, infno);
 	}
 	const totalFen = yuanToFen(payload.medfeeSumamt, "medfeeSumamt", infno);
+	const rawAcctUsedFlag = payload.acctUsedFlag;
+	if (
+		rawAcctUsedFlag !== undefined &&
+		rawAcctUsedFlag !== "" &&
+		rawAcctUsedFlag !== "0" &&
+		rawAcctUsedFlag !== "1"
+	) {
+		contractError(infno, "acctUsedFlag must be empty, 0 or 1");
+	}
 	const detailList = payload.feedetailList;
 	if (!Array.isArray(detailList) || detailList.length === 0) {
 		contractError(infno, "feedetailList must be a non-empty array");
@@ -301,6 +338,7 @@ function settlementFromPayload(
 	payload: Record<string, unknown>,
 	infno: "6202" | "6301",
 	expectedPayOrdId?: string,
+	options: { v225: boolean } = { v225: false },
 ): LegacyFsiSettlement {
 	const payOrdId = requiredText(payload, "payOrdId", infno);
 	if (expectedPayOrdId !== undefined && payOrdId !== expectedPayOrdId) {
@@ -310,14 +348,46 @@ function settlementFromPayload(
 	const cashFen = yuanToFen(payload.ownPayAmt, "ownPayAmt", infno);
 	const personalAccountFen = yuanToFen(payload.psnAcctPay, "psnAcctPay", infno);
 	const fundFen = yuanToFen(payload.fundPay, "fundPay", infno);
+	const otherPaymentFen =
+		options.v225 && infno === "6202"
+			? yuanToFen(payload.othFeeAmt, "othFeeAmt", infno)
+			: 0;
+	const breakdown = requireExactBreakdown(
+		infno,
+		totalFen,
+		cashFen,
+		personalAccountFen,
+		fundFen,
+		otherPaymentFen,
+	);
+	const personalAccountMutualAidFen = options.v225
+		? yuanToFen(payload.acctMulaidPay, "acctMulaidPay", infno)
+		: undefined;
+	const personalAccountSelfFen = options.v225
+		? yuanToFen(payload.selfAcctPay, "selfAcctPay", infno)
+		: undefined;
+	const hospitalPartFen = options.v225
+		? optionalAmountValue(payload, "hospPartAmt", infno)
+		: undefined;
+	const depositFen = options.v225
+		? optionalAmountValue(payload, "deposit", infno)
+		: undefined;
+	const deliveryFeeFen = options.v225
+		? optionalAmountValue(payload, "delvFee", infno)
+		: undefined;
+	const extraAmounts: Partial<LegacyFsiAmountBreakdown> = {
+		...(options.v225 && infno === "6202" ? { otherPaymentFen } : {}),
+		...(hospitalPartFen === undefined ? {} : { hospitalPartFen }),
+		...(personalAccountMutualAidFen === undefined
+			? {}
+			: { personalAccountMutualAidFen }),
+		...(personalAccountSelfFen === undefined ? {} : { personalAccountSelfFen }),
+		...(depositFen === undefined ? {} : { depositFen }),
+		...(deliveryFeeFen === undefined ? {} : { deliveryFeeFen }),
+	};
 	return {
-		...requireExactBreakdown(
-			infno,
-			totalFen,
-			cashFen,
-			personalAccountFen,
-			fundFen,
-		),
+		...breakdown,
+		...extraAmounts,
 		ordStas: requiredText(payload, "ordStas", infno),
 		payOrdId,
 	};
@@ -331,6 +401,7 @@ export function validate6202Settlement(
 		unwrapLegacyFsiData(result, "6202"),
 		"6202",
 		expectedPayOrdId,
+		{ v225: true },
 	);
 }
 
@@ -340,7 +411,9 @@ export function validate6301Settlement(
 ): LegacyFsiSettlement {
 	const infno = "6301" as const;
 	const payload = unwrapLegacyFsiData(result, infno);
-	const settlement = settlementFromPayload(payload, infno, expectedPayOrdId);
+	const settlement = settlementFromPayload(payload, infno, expectedPayOrdId, {
+		v225: true,
+	});
 	const settlementType = requiredText(payload, "setlType", infno);
 	if (
 		!(["ALL", "CASH", "HI"] as const).includes(
@@ -404,6 +477,24 @@ export function validate6301QueryResult(
 			cashFen: settlement.cashFen,
 			personalAccountFen: settlement.personalAccountFen,
 			fundFen: settlement.fundFen,
+			...(settlement.otherPaymentFen === undefined
+				? {}
+				: { otherPaymentFen: settlement.otherPaymentFen }),
+			...(settlement.hospitalPartFen === undefined
+				? {}
+				: { hospitalPartFen: settlement.hospitalPartFen }),
+			...(settlement.personalAccountMutualAidFen === undefined
+				? {}
+				: {
+						personalAccountMutualAidFen: settlement.personalAccountMutualAidFen,
+						personalAccountSelfFen: settlement.personalAccountSelfFen,
+					}),
+			...(settlement.depositFen === undefined
+				? {}
+				: { depositFen: settlement.depositFen }),
+			...(settlement.deliveryFeeFen === undefined
+				? {}
+				: { deliveryFeeFen: settlement.deliveryFeeFen }),
 		},
 		...(rawSetlType ? { setlType: rawSetlType as "ALL" | "CASH" | "HI" } : {}),
 	};

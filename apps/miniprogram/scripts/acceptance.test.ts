@@ -631,6 +631,57 @@ test("native client requests server-generated prepay parameters", async () => {
 	expect(client).not.toContain("paySign = sign");
 });
 
+test("native payment boundaries always end with a user-actionable result", async () => {
+	const client = await source("services/api-client.ts");
+	const insurance = await source("services/medical-insurance.ts");
+	const selfPay = await source("services/registration-self-pay.ts");
+	const paymentPage = await source("pages/registration-payment/registration-payment.ts");
+	const paymentTemplate = await source("pages/registration-payment/registration-payment.wxml");
+	const detailPage = await source("pages/appointment-detail/appointment-detail.ts");
+
+	// 网络请求和微信收银台都必须有终点；支付未知时保留订单并引导查单，
+	// 不能让页面永久 loading，也不能把未知结果误报成失败。
+	expect(client).toContain("timeout: API_REQUEST_TIMEOUT_MS");
+	expect(client).toContain('"request-timeout": "请求超时，请稍后重试"');
+	for (const paymentSource of [insurance, selfPay]) {
+		expect(paymentSource).toContain("WECHAT_PAYMENT_RESPONSE_TIMEOUT_MS");
+		expect(paymentSource).toContain('code: "payment-prepay-unknown"');
+		expect(paymentSource).toContain("请勿重复付款");
+	}
+	expect(paymentPage).toContain("paymentActionMessage");
+	expect(paymentPage).toContain("预约已保留");
+	expect(paymentPage).toContain("请勿重复预约或重复付款");
+	expect(paymentTemplate).toContain("不要重复付款或重新预约");
+	expect(detailPage).toContain('selfPayStatus: "awaiting_confirmation"');
+	expect(detailPage).toContain("请点击继续自费支付");
+});
+
+test("native registration migration preserves duplicate-appointment safety", async () => {
+	const page = await source("pages/confirm-registration/confirm-registration.ts");
+	const template = await source("pages/confirm-registration/confirm-registration.wxml");
+	const types = await source("types.ts");
+
+	expect(types).toContain('duplicate: AppointmentRegistrationResponse["data"] | null');
+	expect(page).toContain('registration.data.status === "duplicate"');
+	expect(page).toContain("requestAppointmentCancellation");
+	expect(page).toContain("onCancelAndRetry");
+	expect(template).toContain('wx:if="{{duplicate}}"');
+	expect(template).toContain("onCancelAndRetry");
+	expect(template).toContain("系统不会自动重复挂号");
+});
+
+test("native mixed payment resumes by querying the existing order", async () => {
+	const service = await source("services/medical-insurance.ts");
+	const page = await source("pages/registration-payment/registration-payment.ts");
+
+	expect(service).toContain("medicalCashConfirmation");
+	expect(service).toContain("resumeMedicalCashPaymentFromPending");
+	expect(service).toContain("paymentWasCancelled");
+	expect(page).toContain("resumeMedicalCashPaymentFromPending");
+	expect(page).toContain("正在确认微信医保支付并回写医院");
+	expect(page).toContain("请勿重复付款");
+});
+
 test("native client requests patient synchronization through the Hospital API", async () => {
 	const client = await source("services/api-client.ts");
 	const dashboard = await source("services/dashboard-service.ts");
@@ -1927,7 +1978,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(43);
+	expect(app.pages).toHaveLength(45);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -3646,6 +3697,9 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	expect(confirmRegistration).toContain("requestAppointmentHold(");
 	expect(confirmRegistration).toContain("requestAppointmentRegistration(");
 	expect(confirmRegistration).toContain(
+		"pages/registration-payment/registration-payment?",
+	);
+	expect(confirmRegistration).not.toContain(
 		"pages/appointment-detail/appointment-detail?",
 	);
 	expect(confirmRegistration).not.toContain(

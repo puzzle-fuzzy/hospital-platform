@@ -200,6 +200,16 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0035_registration_self_pay_context.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0036_medical_insurance_fail_reason",
+		file: "../migrations/0036_medical_insurance_fail_reason.sql",
+		executionMode: "non_transactional_ddl",
+	},
+	{
+		id: "0037_medical_insurance_v225_amounts",
+		file: "../migrations/0037_medical_insurance_v225_amounts.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -390,10 +400,17 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"cash_fen",
 			"personal_account_fen",
 			"fund_fen",
+			"other_payment_fen",
+			"hospital_part_fen",
+			"personal_account_mutual_aid_fen",
+			"personal_account_self_fen",
+			"deposit_fen",
+			"delivery_fee_fen",
 			"setl_type",
 			"revs_token_hash",
 			"revs_token_expires_at",
 			"last_error",
+			"med_ins_fail_reason",
 			"settlement_context_ciphertext",
 			"wechat_mix_trade_no",
 			"wechat_out_trade_no",

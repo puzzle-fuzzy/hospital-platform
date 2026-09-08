@@ -64,10 +64,11 @@ function feeUploadData(): Record<string, unknown> {
 		deptName: "internal-medicine",
 		deptCode: "dept-001",
 		caty: "11",
-		diseCodg: "",
-		diseName: "",
+		diseCodg: "Z00.001",
+		diseName: "健康查体",
 		medType: "21",
 		feeType: "01",
+		acctUsedFlag: "0",
 		mdtrtCertType: "01",
 		psnSetlway: "01",
 		chrgBchno: "batch-001",
@@ -175,7 +176,9 @@ test("legacy FSI gateway captures rejected relay response body in the raw log wi
 			logger,
 		);
 
-		await expect(api.uploadFees(feeUploadData(), context)).rejects.toMatchObject({
+		await expect(
+			api.uploadFees(feeUploadData(), context),
+		).rejects.toMatchObject({
 			providerErrorCode: "360053",
 			providerErrorMessage: "provider rejection details",
 			requestOutcome: "rejected",

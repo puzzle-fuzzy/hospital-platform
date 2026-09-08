@@ -42,7 +42,9 @@
 		"pages/electronic-consultation/electronic-consultation",
 		"pages/feature-status/feature-status",
 		"pages/timeslot-source/timeslot-source",
-		"pages/confirm-registration/confirm-registration"
+		"pages/confirm-registration/confirm-registration",
+		"pages/registration-payment/registration-payment",
+		"pages/medical-cashier/medical-cashier"
 	],
 	"window": {
 		"navigationBarTitleText": "高平医院",
@@ -84,7 +86,7 @@
 			}
 		]
 	},
-	"navigateToMiniProgramAppIdList": ["wx81ce904580cc0ff1"],
+	"navigateToMiniProgramAppIdList": ["wx81ce904580cc0ff1", "wxe183cd55df4b4369"],
 	"style": "v2",
 	"sitemapLocation": "sitemap.json"
 }

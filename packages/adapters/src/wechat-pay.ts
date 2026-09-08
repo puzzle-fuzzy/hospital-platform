@@ -11,6 +11,7 @@ import type {
 	AdapterCallContext,
 	ExternalTrace,
 	MedicalInsuranceWechatPaymentGateway,
+	MedicalInsuranceWechatProviderMedicalStatus,
 	WechatMedicalInsurancePayParams,
 	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
@@ -504,6 +505,24 @@ function medicalProviderState(
 	throw providerError({
 		operation: "medical-mix-query",
 		message: `Wechat medical response ${field} contained an unsupported state`,
+	});
+}
+
+function medicalProviderMedicalStatus(
+	value: unknown,
+	field: string,
+): MedicalInsuranceWechatProviderMedicalStatus {
+	if (
+		value === "MED_INS_PAY_CREATED" ||
+		value === "MED_INS_PAY_SUCCESS" ||
+		value === "MED_INS_PAY_REFUND" ||
+		value === "MED_INS_PAY_FAIL"
+	) {
+		return value;
+	}
+	throw providerError({
+		operation: "medical-mix-query",
+		message: `Wechat medical response ${field} contained an unsupported status`,
 	});
 }
 
@@ -1020,7 +1039,7 @@ export class WechatPaymentApiGateway
 			geo_location: medical.geoLocation,
 			med_ins_gov_fee: amounts.fundFen,
 			med_ins_self_fee: amounts.personalAccountFen,
-			med_ins_other_fee: 0,
+			med_ins_other_fee: amounts.otherPaymentFen ?? 0,
 			med_ins_cash_fee: amounts.cashFen,
 			wechat_pay_cash_fee: amounts.cashFen,
 			med_ins_order_create_time:
@@ -1158,6 +1177,21 @@ export class WechatPaymentApiGateway
 				requestId: response.requestId,
 			});
 		}
+		const medInsPayStatus = medicalProviderMedicalStatus(
+			medicalStatus,
+			"med_ins_pay_status",
+		);
+		const medInsFailReason =
+			medInsPayStatus === "MED_INS_PAY_FAIL"
+				? findProviderText(data, ["med_ins_fail_reason", "medInsFailReason"])
+				: undefined;
+		if (medInsFailReason && medInsFailReason.length > 2048) {
+			throw providerError({
+				operation: "medical-mix-query",
+				message: "Wechat medical failure reason exceeded 2048 characters",
+				requestId: response.requestId,
+			});
+		}
 		const dataRecord = data as Record<string, unknown>;
 		const totalFen = providerFen(
 			dataRecord.total_fee ?? dataRecord.totalFee,
@@ -1183,7 +1217,12 @@ export class WechatPaymentApiGateway
 		}
 		return {
 			cashState: medicalProviderState(selfStatus, "self_pay_status"),
-			insuranceState: medicalProviderState(medicalStatus, "med_ins_pay_status"),
+			insuranceState: medicalProviderState(
+				medInsPayStatus,
+				"med_ins_pay_status",
+			),
+			medInsPayStatus,
+			...(medInsFailReason ? { medInsFailReason } : {}),
 			cashFen,
 			totalFen,
 			providerStatus: [mixStatus, selfStatus, medicalStatus]

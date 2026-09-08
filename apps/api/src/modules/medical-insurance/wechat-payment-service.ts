@@ -14,7 +14,11 @@ import {
 	medicalInsuranceOrderTypeForBusiness,
 	type UserIdentityRepository,
 } from "@hospital/domain";
-import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import {
+	createNoopLogger,
+	providerFailureMetadata,
+	type AppLogger,
+} from "@hospital/observability";
 import type { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
 export class MedicalInsuranceWechatPaymentInputError extends Error {
@@ -61,6 +65,9 @@ function output(
 		status: order.status as MedicalInsuranceWechatPayPayload["data"]["status"],
 		paymentState,
 		cashFen: order.amounts?.cashFen ?? 0,
+		...(order.medInsFailReason
+			? { medInsFailReason: order.medInsFailReason }
+			: {}),
 		...(order.wechatMixTradeNo ? { mixTradeNo: order.wechatMixTradeNo } : {}),
 		...(includePayParams && order.wechatPayParams
 			? { payParams: order.wechatPayParams }
@@ -362,15 +369,35 @@ export class MedicalInsuranceWechatPaymentService {
 		if (order.status === "cancelled") return output(order, false);
 		const { businessType, orderType } = orderBusiness(order);
 		if (!order.wechatMixTradeNo || !order.amounts) return output(order, false);
-		const result = await this.dependencies.wechatPayment.queryMixedOrder(
-			{
-				orderId,
-				mixTradeNo: order.wechatMixTradeNo,
-				expectedTotalFen: order.amounts.totalFen,
-				expectedCashFen: order.amounts.cashFen,
-			},
-			input.context,
-		);
+		let result: Awaited<
+			ReturnType<MedicalInsuranceWechatPaymentGateway["queryMixedOrder"]>
+		>;
+		try {
+			result = await this.dependencies.wechatPayment.queryMixedOrder(
+				{
+					orderId,
+					mixTradeNo: order.wechatMixTradeNo,
+					expectedTotalFen: order.amounts.totalFen,
+					expectedCashFen: order.amounts.cashFen,
+				},
+				input.context,
+			);
+		} catch (error) {
+			this.logger.error(
+				{
+					event: "medical-insurance.wechat-mix.query.failed",
+					traceId: input.context.traceId,
+					ownerUserId,
+					orderId,
+					businessType,
+					orderType,
+					errorType: error instanceof Error ? error.name : "unknown",
+					...providerFailureMetadata(error),
+				},
+				"Medical insurance WeChat mixed payment query failed",
+			);
+			throw error;
+		}
 		const paymentState =
 			result.cashState === "failed" || result.insuranceState === "failed"
 				? "failed"
@@ -383,6 +410,12 @@ export class MedicalInsuranceWechatPaymentService {
 			{
 				...settlementPatch(order),
 				wechatPaymentState: paymentState,
+				// 失败原因只属于本次查单返回的医保失败状态；其他状态清除
+				// 历史原因，避免退款/成功后继续展示过期文案。
+				medInsFailReason:
+					result.medInsPayStatus === "MED_INS_PAY_FAIL"
+						? (result.medInsFailReason ?? null)
+						: null,
 			},
 		);
 		order = updated ?? (await this.order(ownerUserId, orderId));
@@ -397,6 +430,10 @@ export class MedicalInsuranceWechatPaymentService {
 				providerStatus: result.providerStatus,
 				cashState: result.cashState,
 				insuranceState: result.insuranceState,
+				medInsPayStatus: result.medInsPayStatus,
+				...(result.medInsFailReason
+					? { medInsFailReason: result.medInsFailReason }
+					: {}),
 				paymentState,
 				providerRequestId: result.trace.requestId,
 			},

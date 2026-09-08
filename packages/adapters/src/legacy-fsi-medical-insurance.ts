@@ -416,6 +416,30 @@ function dateTime(date: Date): string {
 	return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
 }
 
+function legacyFsiDateTime(
+	value: unknown,
+	operation: string,
+	requestId: string | undefined,
+	field: string,
+	fallback: Date,
+): string {
+	const text = typeof value === "string" ? value.trim() : "";
+	if (!text) return dateTime(fallback);
+	if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) return text;
+	if (/^\d{14}$/.test(text)) {
+		return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)} ${text.slice(8, 10)}:${text.slice(10, 12)}:${text.slice(12, 14)}`;
+	}
+	const parsed = new Date(text);
+	if (Number.isNaN(parsed.getTime())) {
+		throw responseError(
+			operation,
+			`${field} must be a valid date-time`,
+			requestId,
+		);
+	}
+	return dateTime(parsed);
+}
+
 function dateTimeCompact(date: Date): string {
 	return dateTime(date).replace(/[- :]/g, "");
 }
@@ -526,12 +550,36 @@ function mapMedicalAmounts(amounts: {
 	cashFen: number;
 	personalAccountFen: number;
 	fundFen: number;
+	otherPaymentFen?: number;
+	hospitalPartFen?: number;
+	personalAccountMutualAidFen?: number;
+	personalAccountSelfFen?: number;
+	depositFen?: number;
+	deliveryFeeFen?: number;
 }): MedicalInsuranceAmounts {
 	return assertValidMedicalInsuranceAmounts({
 		totalFen: amounts.totalFen,
 		cashFen: amounts.cashFen,
 		personalAccountFen: amounts.personalAccountFen,
 		fundFen: amounts.fundFen,
+		...(amounts.otherPaymentFen === undefined
+			? {}
+			: { otherPaymentFen: amounts.otherPaymentFen }),
+		...(amounts.hospitalPartFen === undefined
+			? {}
+			: { hospitalPartFen: amounts.hospitalPartFen }),
+		...(amounts.personalAccountMutualAidFen === undefined
+			? {}
+			: { personalAccountMutualAidFen: amounts.personalAccountMutualAidFen }),
+		...(amounts.personalAccountSelfFen === undefined
+			? {}
+			: { personalAccountSelfFen: amounts.personalAccountSelfFen }),
+		...(amounts.depositFen === undefined
+			? {}
+			: { depositFen: amounts.depositFen }),
+		...(amounts.deliveryFeeFen === undefined
+			? {}
+			: { deliveryFeeFen: amounts.deliveryFeeFen }),
 	});
 }
 
@@ -548,7 +596,10 @@ function paymentAmounts(
 	}
 	return assertValidPaymentAmounts({
 		totalFen: amounts.totalFen,
-		insuranceFen: amounts.personalAccountFen + amounts.fundFen,
+		insuranceFen:
+			amounts.personalAccountFen +
+			amounts.fundFen +
+			(amounts.otherPaymentFen ?? 0),
 		cashFen: amounts.cashFen,
 	});
 }
@@ -646,13 +697,13 @@ function mapFeeDetails(
 			operation,
 			requestId,
 		);
-		const occurredAt =
-			optionalText(
-				detail,
-				["createTime", "feeOcurTime"],
-				operation,
-				requestId,
-			) ?? dateTime(currentDate);
+		const occurredAt = legacyFsiDateTime(
+			optionalText(detail, ["createTime", "feeOcurTime"], operation, requestId),
+			operation,
+			requestId,
+			"feeOcurTime",
+			currentDate,
+		);
 		const rxno =
 			optionalText(
 				detail,
@@ -1304,26 +1355,9 @@ function providerResultLabel(value: unknown): string {
 	return "success=unknown";
 }
 
-function accountFlag(
-	records: readonly ProviderRecord[],
-	insuplcAdmdvs: string,
-): string {
-	const codes = new Set(
-		records
-			.map((record) =>
-				optionalText(
-					record,
-					["insurMedCode"],
-					"medical-insurance.2.6.33",
-					undefined,
-				),
-			)
-			.filter((value): value is string => Boolean(value)),
-	);
-	const special =
-		codes.has("011102020010000") &&
-		!(codes.has("011102020010001") && codes.has("011102020010002"));
-	return insuplcAdmdvs === "140581" && special ? "0" : "";
+export function accountFlag(insuplcAdmdvs: string): string {
+	// 高平本地参保人为 0，其他参保地均显式传 1，避免依赖 6202 默认值。
+	return insuplcAdmdvs.trim() === "140581" ? "0" : "1";
 }
 
 /**
@@ -2440,7 +2474,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				},
 				"Medical insurance settlement detail mapping inputs inspected",
 			);
-			const acctUsedFlag = accountFlag(childRecords, auth.insuplcAdmdvs);
+			const acctUsedFlag = accountFlag(auth.insuplcAdmdvs);
 			// 6201 只负责上传费用，不能在这里提前构造 2.27.2.32 的
 			// upDetailList。该列表依赖医保结算完成后的真实 HIS 订单字段；
 			// 提前校验会把“后置回写字段缺失”错误地变成 6201 失败。
@@ -2483,22 +2517,30 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				if (value === undefined || value === null || value === "")
 					delete networkRegister[key];
 			}
+			const primaryDiagnosis = {
+				diagCode: "Z00.001",
+				diagName: "健康查体",
+			};
 			const diagnoseList = [
 				{
 					diagType: "1",
 					diagSrtNo: 1,
-					diagCode: "Z00.001",
-					diagName: "健康查体",
+					...primaryDiagnosis,
 					diagDept: deptCode,
 					diseDorNo: doctorCode,
 					diseDorName: doctorName,
-					diagTime:
+					diagTime: legacyFsiDateTime(
 						optionalText(
 							firstDetail,
 							["createTime"],
 							"medical-insurance.2.27.2.27",
 							detailResponse.requestId,
-						) ?? dateTime(currentDate),
+						),
+						"medical-insurance.2.27.2.27",
+						detailResponse.requestId,
+						"diagTime",
+						currentDate,
+					),
 					valiFlag: "1",
 				},
 			];
@@ -2525,7 +2567,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					mdtrtCertType: DEFAULT_MDTRT_CERT_TYPE,
 					uldLatlnt,
 					hasInsuplcAdmdvs: Boolean(auth.insuplcAdmdvs),
-					topLevelDiagnosisFields: "empty-by-contract",
+					topLevelDiagnosisFields: "from-primary-diagnosis",
 					feeDetailHasHospApprFlag: feedetailList.every((detail) =>
 						Boolean(detail.hospApprFlag),
 					),
@@ -2546,13 +2588,18 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					psnNo: auth.psnNo,
 					insutype: auth.insutype,
 					medOrgOrd: input.orderId,
-					begntime:
+					begntime: legacyFsiDateTime(
 						optionalText(
 							firstDetail,
 							["createTime"],
 							"medical-insurance.2.27.2.27",
 							detailResponse.requestId,
-						) ?? dateTime(currentDate),
+						),
+						"medical-insurance.2.27.2.27",
+						detailResponse.requestId,
+						"begntime",
+						currentDate,
+					),
 					idNo: auth.patient.idNo,
 					userName: auth.patient.userName,
 					idType: auth.patient.idType,
@@ -2570,8 +2617,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					pubHospRfomFlag: "1",
 					uldLatlnt,
 					medfeeSumamt: fenToYuan(totalFen),
-					diseCodg: "",
-					diseName: "",
+					diseCodg: primaryDiagnosis.diagCode,
+					diseName: primaryDiagnosis.diagName,
 					diseinfoList: diagnoseList,
 					feedetailList,
 				},
@@ -2647,6 +2694,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					businessCode,
 					hospitalId,
 					patientId: appointment.providerPatientId,
+					chrgBchno: chargeBatch,
 					networkRegister,
 					outNetworkSettleMain,
 					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
@@ -2713,6 +2761,16 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.6202",
 					"payOrdId does not match the order",
 				);
+			const settlementContext = await options.orders.getSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+			);
+			const chrgBchno = settlementContext?.chrgBchno;
+			if (!chrgBchno)
+				throw responseError(
+					"medical-insurance.6202",
+					"6201 charge batch is unavailable",
+				);
 			const mdtrtId = input.mdtrtId || order.mdtrtId;
 			if (!mdtrtId)
 				throw responseError("medical-insurance.6202", "mdtrtId is unavailable");
@@ -2735,8 +2793,10 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					payOrdId: credential.payOrdId,
 					payToken: credential.payToken,
 					orgCodg: orgCode,
-					orgBizSer: order.medOrgOrd,
-					chrgBchno: order.chrgBchno,
+					// V2.2.5 要求 orgBizSer 每次 6202 请求唯一；不能把 6201
+					// 的 medOrgOrd 当成可重复使用的 6202 业务流水号。
+					orgBizSer: createId(),
+					chrgBchno,
 					feeType: "01",
 					mdtrtId,
 					acctUsedFlag: input.acctUsedFlag || order.acctUsedFlag || "",

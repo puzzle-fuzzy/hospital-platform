@@ -45,6 +45,25 @@
 		</view>
 	</view>
 
+	<view wx:if="{{duplicate}}" class="confirm-card confirm-duplicate-card">
+		<view class="confirm-card-title confirm-duplicate-title">
+			<text>该就诊人已有同日预约</text>
+			<text>未重复挂号</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">已有预约</text>
+			<text class="confirm-row-value">{{duplicate.departmentName}} · {{duplicate.doctorName}}</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">就诊日期</text>
+			<text class="confirm-row-value">{{duplicate.workDate}} {{duplicate.shiftName}}</text>
+		</view>
+		<view class="confirm-duplicate-hint">系统不会自动重复挂号。确认取消原预约后，才会重新核验号源并进入支付。</view>
+		<view class="confirm-duplicate-action" bindtap="onCancelAndRetry">
+			<text>{{submitting ? '正在取消并重新预约…' : '取消原预约并重新预约'}}</text>
+		</view>
+	</view>
+
 	<view class="confirm-agree" bindtap="onToggleAgree">
 		<view class="confirm-checkbox {{agreed ? 'confirm-checkbox-on' : ''}}">
 			<text wx:if="{{agreed}}" class="confirm-checkbox-mark">✓</text>
@@ -62,6 +81,6 @@
 	</view>
 
 	<view class="confirm-note">
-		<text>预约会先由服务端重新核验号源并写入；预约详情中的支付由独立的 miniprogram-pay 测试项目承接，本页不会自行拼接金额或医保信息。</text>
+		<text>预约会先由服务端重新核验号源并写入，成功后进入挂号支付页；金额、医保授权和微信调起参数均由服务端生成。</text>
 	</view>
 </scroll-view>

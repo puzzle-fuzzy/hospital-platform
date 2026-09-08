@@ -126,12 +126,30 @@ export function assertMedicalInsuranceOrderTransition(
 	}
 }
 
-/** 医保四项金额（分）；total = cash + personalAccount + fund，与 6202/6301 一致。 */
+/**
+ * 医保结算金额（分）。
+ *
+ * V2.2.5 的 6202 在原四项之外增加了 `othFeeAmt`、医院负担、共济个账、
+ * 本人个账、押金和配送费。扩展项保持可选，以兼容历史订单；若存在则必须
+ * 通过同一套非负整数和金额守恒校验。
+ */
 export type MedicalInsuranceAmounts = {
 	totalFen: number;
 	cashFen: number;
 	personalAccountFen: number;
 	fundFen: number;
+	/** 6202 othFeeAmt；属于总费用拆分，但不是患者现金支付。 */
+	otherPaymentFen?: number;
+	/** 6202 hospPartAmt；医院承担金额，不重复计入 othFeeAmt 守恒项。 */
+	hospitalPartFen?: number;
+	/** 6202 acctMulaidPay；个人账户共济支付。 */
+	personalAccountMutualAidFen?: number;
+	/** 6202 selfAcctPay；本人个账支出。 */
+	personalAccountSelfFen?: number;
+	/** 6202/6301/6302 deposit；住院押金抵扣金额。 */
+	depositFen?: number;
+	/** 6202/6301/6302 delvFee；配送/打包费，不参与医保费用总额。 */
+	deliveryFeeFen?: number;
 };
 
 export class InvalidMedicalInsuranceAmountsError extends Error {
@@ -154,6 +172,12 @@ export function assertValidMedicalInsuranceAmounts(
 		amounts.cashFen,
 		amounts.personalAccountFen,
 		amounts.fundFen,
+		amounts.otherPaymentFen ?? 0,
+		amounts.hospitalPartFen ?? 0,
+		amounts.personalAccountMutualAidFen ?? 0,
+		amounts.personalAccountSelfFen ?? 0,
+		amounts.depositFen ?? 0,
+		amounts.deliveryFeeFen ?? 0,
 	];
 	if (values.some((value) => !Number.isSafeInteger(value))) {
 		throw new InvalidMedicalInsuranceAmountsError("not_safe_integer");
@@ -165,7 +189,10 @@ export function assertValidMedicalInsuranceAmounts(
 		throw new InvalidMedicalInsuranceAmountsError("zero_total");
 	}
 	const splitTotal =
-		amounts.cashFen + amounts.personalAccountFen + amounts.fundFen;
+		amounts.cashFen +
+		amounts.personalAccountFen +
+		amounts.fundFen +
+		(amounts.otherPaymentFen ?? 0);
 	if (!Number.isSafeInteger(splitTotal) || splitTotal !== amounts.totalFen) {
 		throw new InvalidMedicalInsuranceAmountsError("mismatch");
 	}
@@ -208,6 +235,8 @@ export type MedicalInsuranceOrder = {
 	revsTokenHash: string | null;
 	revsTokenExpiresAt: string | null;
 	lastError: string | null;
+	/** 微信医保查单在 MED_INS_PAY_FAIL 时返回的医保局侧失败原因。 */
+	medInsFailReason?: string | null;
 	/** 官方微信医保混合订单标识；只保存 provider 可关联引用。 */
 	wechatMixTradeNo?: string | null;
 	/** 服务端生成的微信自费 out_trade_no；用于 JSAPI 预下单幂等。 */
@@ -237,6 +266,8 @@ export type MedicalInsuranceSettlementContext = {
 	businessCode?: string;
 	hospitalId: string;
 	patientId: string;
+	/** 6201 实际费用上传使用的收费批次号；6202 必须复用同一值。历史上下文缺失时不得回退猜测。 */
+	chrgBchno?: string;
 	networkRegister: Record<string, unknown>;
 	outNetworkSettleMain: Record<string, unknown>;
 	nationalUpDetailList: readonly Record<string, unknown>[];
@@ -300,6 +331,13 @@ export type MedicalInsuranceSettlementNotification = {
 	ownPayAmt: number;
 	psnAcctPay: number;
 	fundPay: number;
+	/** V2.2.5 扩展项；6302 旧回调未提供时保持 undefined。 */
+	othFeeAmt?: number;
+	hospPartAmt?: number;
+	acctMulaidPay?: number;
+	selfAcctPay?: number;
+	deposit?: number;
+	delvFee?: number;
 	setlType: "ALL" | "CASH" | "HI";
 	revsToken: string;
 };
@@ -357,12 +395,27 @@ export function normalizeMedicalInsuranceSettlementNotification(
 		}
 		return value.trim();
 	};
+	const optionalAmount = (field: string): number | undefined => {
+		if (
+			input[field] === undefined ||
+			input[field] === null ||
+			input[field] === ""
+		)
+			return undefined;
+		return yuanToFen(input[field], field);
+	};
 	const setlTypeRaw = text("setlType", 8);
 	if (setlTypeRaw !== "ALL" && setlTypeRaw !== "CASH" && setlTypeRaw !== "HI") {
 		throw new InvalidMedicalInsuranceNotificationError(
 			"setlType must be ALL, CASH or HI",
 		);
 	}
+	const othFeeAmt = optionalAmount("othFeeAmt");
+	const hospPartAmt = optionalAmount("hospPartAmt");
+	const acctMulaidPay = optionalAmount("acctMulaidPay");
+	const selfAcctPay = optionalAmount("selfAcctPay");
+	const deposit = optionalAmount("deposit");
+	const delvFee = optionalAmount("delvFee");
 	const notification: MedicalInsuranceSettlementNotification = {
 		payOrdId: text("payOrdId", 64),
 		callType: text("callType", 8),
@@ -372,6 +425,12 @@ export function normalizeMedicalInsuranceSettlementNotification(
 		ownPayAmt: yuanToFen(input.ownPayAmt, "ownPayAmt"),
 		psnAcctPay: yuanToFen(input.psnAcctPay, "psnAcctPay"),
 		fundPay: yuanToFen(input.fundPay, "fundPay"),
+		...(othFeeAmt === undefined ? {} : { othFeeAmt }),
+		...(hospPartAmt === undefined ? {} : { hospPartAmt }),
+		...(acctMulaidPay === undefined ? {} : { acctMulaidPay }),
+		...(selfAcctPay === undefined ? {} : { selfAcctPay }),
+		...(deposit === undefined ? {} : { deposit }),
+		...(delvFee === undefined ? {} : { delvFee }),
 		setlType: setlTypeRaw,
 		revsToken: text("revsToken", 64),
 	};
@@ -385,6 +444,24 @@ export function normalizeMedicalInsuranceSettlementNotification(
 		cashFen: notification.ownPayAmt,
 		personalAccountFen: notification.psnAcctPay,
 		fundFen: notification.fundPay,
+		...(notification.othFeeAmt === undefined
+			? {}
+			: { otherPaymentFen: notification.othFeeAmt }),
+		...(notification.hospPartAmt === undefined
+			? {}
+			: { hospitalPartFen: notification.hospPartAmt }),
+		...(notification.acctMulaidPay === undefined
+			? {}
+			: { personalAccountMutualAidFen: notification.acctMulaidPay }),
+		...(notification.selfAcctPay === undefined
+			? {}
+			: { personalAccountSelfFen: notification.selfAcctPay }),
+		...(notification.deposit === undefined
+			? {}
+			: { depositFen: notification.deposit }),
+		...(notification.delvFee === undefined
+			? {}
+			: { deliveryFeeFen: notification.delvFee }),
 	});
 	return notification;
 }
@@ -404,13 +481,41 @@ export function medicalInsuranceStatusForNotification(
 		cashFen: notification.ownPayAmt,
 		personalAccountFen: notification.psnAcctPay,
 		fundFen: notification.fundPay,
+		...(notification.othFeeAmt === undefined
+			? {}
+			: { otherPaymentFen: notification.othFeeAmt }),
+		...(notification.hospPartAmt === undefined
+			? {}
+			: { hospitalPartFen: notification.hospPartAmt }),
+		...(notification.acctMulaidPay === undefined
+			? {}
+			: { personalAccountMutualAidFen: notification.acctMulaidPay }),
+		...(notification.selfAcctPay === undefined
+			? {}
+			: { personalAccountSelfFen: notification.selfAcctPay }),
+		...(notification.deposit === undefined
+			? {}
+			: { depositFen: notification.deposit }),
+		...(notification.delvFee === undefined
+			? {}
+			: { deliveryFeeFen: notification.delvFee }),
 	};
 	if (currentAmounts) {
 		const same =
 			currentAmounts.totalFen === amounts.totalFen &&
 			currentAmounts.cashFen === amounts.cashFen &&
 			currentAmounts.personalAccountFen === amounts.personalAccountFen &&
-			currentAmounts.fundFen === amounts.fundFen;
+			currentAmounts.fundFen === amounts.fundFen &&
+			(currentAmounts.otherPaymentFen ?? 0) ===
+				(amounts.otherPaymentFen ?? 0) &&
+			(currentAmounts.hospitalPartFen ?? 0) ===
+				(amounts.hospitalPartFen ?? 0) &&
+			(currentAmounts.personalAccountMutualAidFen ?? 0) ===
+				(amounts.personalAccountMutualAidFen ?? 0) &&
+			(currentAmounts.personalAccountSelfFen ?? 0) ===
+				(amounts.personalAccountSelfFen ?? 0) &&
+			(currentAmounts.depositFen ?? 0) === (amounts.depositFen ?? 0) &&
+			(currentAmounts.deliveryFeeFen ?? 0) === (amounts.deliveryFeeFen ?? 0);
 		if (!same) return "awaiting_confirmation";
 	}
 	return amounts.cashFen === 0 ? "insurance_settled" : "cash_pending";
@@ -549,6 +654,8 @@ export interface MedicalInsuranceOrderRepository {
 			wechatOutTradeNo?: string | null;
 			wechatPayParams?: WechatMedicalInsurancePayParams | null;
 			wechatPaymentState?: MedicalInsuranceOrder["wechatPaymentState"];
+			/** 传 null 清除旧原因；未提供则保持已有值。 */
+			medInsFailReason?: string | null;
 		},
 	): Promise<MedicalInsuranceOrder | undefined>;
 }

@@ -34,7 +34,10 @@ function paymentAmountsFromLegacySettlement(
 	const amounts = result.settlement.amounts;
 	return assertValidPaymentAmounts({
 		totalFen: amounts.totalFen,
-		insuranceFen: amounts.personalAccountFen + amounts.fundFen,
+		insuranceFen:
+			amounts.personalAccountFen +
+			amounts.fundFen +
+			(amounts.otherPaymentFen ?? 0),
 		cashFen: amounts.cashFen,
 	});
 }

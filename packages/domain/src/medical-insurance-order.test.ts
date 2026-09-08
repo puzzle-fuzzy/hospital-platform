@@ -54,6 +54,20 @@ describe("医保金额四分项守恒", () => {
 			}),
 		).toThrow(InvalidMedicalInsuranceAmountsError);
 	});
+
+	test("V2.2.5 其他支付金额纳入总额并保留个账扩展字段", () => {
+		expect(() =>
+			assertValidMedicalInsuranceAmounts({
+				totalFen: 11000,
+				cashFen: 2000,
+				personalAccountFen: 3000,
+				fundFen: 5000,
+				otherPaymentFen: 1000,
+				personalAccountMutualAidFen: 500,
+				personalAccountSelfFen: 2500,
+			}),
+		).not.toThrow();
+	});
 });
 
 describe("6302 结算通知归一化", () => {

@@ -957,6 +957,10 @@ export const MedicalInsuranceWechatPayResponse = Type.Object({
 			Type.Literal("unknown"),
 		]),
 		cashFen: Type.Integer({ minimum: 0 }),
+		/** 仅医保部分明确为 MED_INS_PAY_FAIL 时返回医保局失败原因。 */
+		medInsFailReason: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 2048 }),
+		),
 		mixTradeNo: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
 		payParams: Type.Optional(WechatMedicalInsurancePayParamsSchema),
 	}),

@@ -244,10 +244,11 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 			medOrgOrd: "med-org-001",
 			orderType: "RegPay",
 			amounts: {
-				totalFen: 1000,
+				totalFen: 1100,
 				cashFen: 200,
 				personalAccountFen: 300,
 				fundFen: 500,
+				otherPaymentFen: 100,
 			},
 			authorization: {
 				patient: { idNo: "140581199001010011", userName: "测试患者" },
@@ -274,7 +275,7 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 		serial_no: "med-org-001",
 		med_inst_name: "高平市人民医院",
 		med_inst_no: "H14058101270",
-		total_fee: 1000,
+		total_fee: 1100,
 		appid: "wx-app-001",
 		openid: "openid-001",
 		city_id: "140500",
@@ -282,7 +283,7 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 		pay_auth_no: "pay-auth-001",
 		med_ins_gov_fee: 500,
 		med_ins_self_fee: 300,
-		med_ins_other_fee: 0,
+		med_ins_other_fee: 100,
 		med_ins_cash_fee: 200,
 		wechat_pay_cash_fee: 200,
 		med_ins_order_create_time: "2026-08-14T12:00:00.000Z",
@@ -306,6 +307,79 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 		},
 	});
 	expect(result.payParams).not.toHaveProperty("appId");
+});
+
+test("医保混合查单仅在医保失败时提取医保局失败原因", async () => {
+	const body = JSON.stringify({
+		mix_pay_status: "MIX_PAY_FAIL",
+		self_pay_status: "SELF_PAY_SUCCESS",
+		med_ins_pay_status: "MED_INS_PAY_FAIL",
+		med_ins_fail_reason: "医保局返回的具体失败原因",
+		total_fee: 1000,
+		wechat_pay_cash_fee: 200,
+	});
+	const gateway = createMedicalGateway(
+		async (_input, init) => {
+			const url = new URL(String(_input));
+			verifyRequestAuthorization(init, "GET", url.pathname, "");
+			return new Response(body, {
+				status: 200,
+				headers: providerResponseHeaders(body),
+			});
+		},
+		["medical-query-nonce"],
+	);
+
+	await expect(
+		gateway.queryMixedOrder(
+			{
+				orderId: "medical-query-001",
+				mixTradeNo: "mix-query-001",
+				expectedTotalFen: 1000,
+				expectedCashFen: 200,
+			},
+			context,
+		),
+	).resolves.toMatchObject({
+		cashState: "paid",
+		insuranceState: "failed",
+		medInsPayStatus: "MED_INS_PAY_FAIL",
+		medInsFailReason: "医保局返回的具体失败原因",
+	});
+});
+
+test("医保成功查单即使误带失败原因也不向业务层透传", async () => {
+	const body = JSON.stringify({
+		mix_pay_status: "MIX_PAY_SUCCESS",
+		self_pay_status: "SELF_PAY_SUCCESS",
+		med_ins_pay_status: "MED_INS_PAY_SUCCESS",
+		med_ins_fail_reason: "must-not-be-used",
+		total_fee: 1000,
+		wechat_pay_cash_fee: 200,
+	});
+	const gateway = createMedicalGateway(
+		async (_input, init) => {
+			const url = new URL(String(_input));
+			verifyRequestAuthorization(init, "GET", url.pathname, "");
+			return new Response(body, {
+				status: 200,
+				headers: providerResponseHeaders(body),
+			});
+		},
+		["medical-query-nonce-success"],
+	);
+
+	const result = await gateway.queryMixedOrder(
+		{
+			orderId: "medical-query-002",
+			mixTradeNo: "mix-query-002",
+			expectedTotalFen: 1000,
+			expectedCashFen: 200,
+		},
+		context,
+	);
+	expect(result.medInsPayStatus).toBe("MED_INS_PAY_SUCCESS");
+	expect(result).not.toHaveProperty("medInsFailReason");
 });
 
 test("微信未支付订单可以由服务端查单后关闭", async () => {

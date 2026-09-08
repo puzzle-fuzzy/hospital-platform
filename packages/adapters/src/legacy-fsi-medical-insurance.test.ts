@@ -3,7 +3,10 @@ import type {
 	AdapterCallContext,
 	MedicalInsuranceOrder,
 } from "@hospital/domain";
-import { createLegacyFsiMedicalInsuranceGateway } from "./legacy-fsi-medical-insurance";
+import {
+	accountFlag,
+	createLegacyFsiMedicalInsuranceGateway,
+} from "./legacy-fsi-medical-insurance";
 
 const order = {
 	medicalOrderId: "medical-order-context-missing-001",
@@ -15,6 +18,12 @@ const context: AdapterCallContext = {
 	traceId: "trace-context-missing-001",
 	idempotencyKey: "idempotency-context-missing-001",
 };
+
+test("acctUsedFlag uses the local insured-region rule", () => {
+	expect(accountFlag("140581")).toBe("0");
+	expect(accountFlag(" 140581 ")).toBe("0");
+	expect(accountFlag("140500")).toBe("1");
+});
 
 test("缺少关单上下文时在 Provider 边界前返回可识别错误", async () => {
 	let providerCalled = false;
@@ -75,6 +84,7 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 		businessId: "10001",
 		hospitalId: "10389001",
 		patientId: "20001",
+		chrgBchno: "fee-upload-batch-001",
 		networkRegister: { memberNo: "30001" },
 		outNetworkSettleMain: { transId: "40001" },
 		nationalUpDetailList: [],
@@ -84,6 +94,7 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 		tradingId: "70001",
 		cashierUrl: "https://cashier.example/zero-cash",
 	};
+	let paymentOrderInput: Record<string, unknown> | undefined;
 	const settlement = {
 		payOrdId: medicalOrder.payOrdId,
 		ordStas: "6",
@@ -94,15 +105,18 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 	};
 	const gateway = createLegacyFsiMedicalInsuranceGateway({
 		legacyFsi: {
-			createPaymentOrder: async () => ({
-				settlement,
-				statusClass: "settlement_candidate",
-				trace: {
-					provider: "medical-insurance",
-					operation: "medical-insurance.6202",
-					requestId: "fsi-6202-zero-cash",
-				},
-			}),
+			createPaymentOrder: async (input: Record<string, unknown>) => {
+				paymentOrderInput = input;
+				return {
+					settlement,
+					statusClass: "settlement_candidate",
+					trace: {
+						provider: "medical-insurance",
+						operation: "medical-insurance.6202",
+						requestId: "fsi-6202-zero-cash",
+					},
+				};
+			},
 			querySettlement: async () => ({
 				settlement: {
 					payOrdId: medicalOrder.payOrdId,
@@ -167,6 +181,11 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 	expect(pending.providerStatus).toBe(
 		"notify_success_zero_cash_cashier_pending",
 	);
+	expect(paymentOrderInput).toMatchObject({
+		chrgBchno: "fee-upload-batch-001",
+	});
+	expect(paymentOrderInput?.orgBizSer).toEqual(expect.any(String));
+	expect(paymentOrderInput?.orgBizSer).not.toBe(medicalOrder.medOrgOrd);
 	expect(providerPaths).not.toContain(
 		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	);

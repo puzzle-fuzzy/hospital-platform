@@ -1,0 +1,15 @@
+.cashier-page {
+	min-height: 100vh;
+	background: #f7f8fa;
+}
+
+.cashier-error {
+	margin: 48rpx;
+	padding: 32rpx;
+	border-radius: 16rpx;
+	background: #ffffff;
+	color: #5f6570;
+	font-size: 28rpx;
+	line-height: 1.6;
+	text-align: center;
+}

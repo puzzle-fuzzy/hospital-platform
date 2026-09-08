@@ -943,7 +943,7 @@ export function loadPatients(): Promise<Array<Patient>> {
  * 这样所有复用本 helper 的页面都不会因为“只是展示患者”而绕过账号边界。
  * `requireStoredPatientSelection` 同时检查首次默认、stale 和临床映射状态，
  * 因此调用方拿到的患者一定是可以进入只读临床查询的 ready 记录；页面不再
- * 各自复制这段容易漏条件的解析逻辑。
+	 * 各自复制这段容易漏条件的解析逻辑，也不会在页面曝光时不隐式调用 Provider。
  */
 export function loadCurrentPatient(): Promise<Patient> {
 	return getCurrentUser().then((currentUser) =>

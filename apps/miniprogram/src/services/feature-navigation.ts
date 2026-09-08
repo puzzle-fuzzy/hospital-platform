@@ -172,9 +172,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		title: "预约下单",
 		readiness: "读写已实现",
 		description:
-			"预约下单已接入服务端占位、预约写入、详情、挂号自费支付和取消；医保/混合支付仍由独立支付测试项目承接。",
+			"预约下单已接入服务端占位、预约写入、挂号详情、纯医保/混合支付、普通自费支付和取消。",
 		contractHint:
-			"小程序只提交 opaque 排班、号源和就诊人引用；挂号自费金额和订单由服务端生成，医保/混合结算继续按 miniprogram-pay 的独立流程验收。",
+			"小程序只提交 opaque 排班、号源和就诊人引用；支付金额、医保订单、微信调起参数和最终回写由服务端生成并查单确认。",
 		icon: "/assets/legacy-home/service-registration.svg",
 	},
 	"blood-appointment": {
