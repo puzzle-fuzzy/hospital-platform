@@ -322,4 +322,14 @@ test("mixed worker does not write HIS when only the cash part is paid", async ()
 		status: "cash_pending",
 		wechatPaymentState: "unknown",
 	});
+	const [scheduled] = await tasks.claimDueForQuery(
+		new Date(now.getTime() + 15_000),
+		1,
+		60_000,
+	);
+	expect(scheduled).toMatchObject({
+		status: "in_progress",
+		terminalOrdStas: null,
+		lastErrorCode: "wechat-mixed-payment-pending",
+	});
 });

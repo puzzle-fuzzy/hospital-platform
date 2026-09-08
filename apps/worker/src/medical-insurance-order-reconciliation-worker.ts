@@ -115,7 +115,8 @@ function reconciliationFailureCode(error: unknown): string | undefined {
 	if (!(error instanceof Error)) return undefined;
 	if (
 		error.message === "medical order version conflict" ||
-		error.message === "Medical insurance query task changed by another worker"
+		error.message ===
+			"Medical insurance query task was changed by another worker"
 	) {
 		return "concurrent-state-change";
 	}
@@ -294,7 +295,6 @@ export class MedicalInsuranceOrderReconciliationWorker {
 					: fullyPaid
 						? { lastErrorCode: "wechat-mixed-his-writeback-pending" }
 						: { lastErrorCode: "wechat-mixed-payment-pending" }),
-			terminalOrdStas: result.providerStatus,
 		});
 		if (updatedTask.status === "manual_review" && !providerFailed) {
 			await this.dependencies.orders.applySettlement(
