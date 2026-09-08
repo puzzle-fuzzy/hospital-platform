@@ -12,7 +12,11 @@ import {
 	assertMedicalInsuranceOrderTransition,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 } from "@hospital/domain";
-import { createNoopLogger, type AppLogger } from "@hospital/observability";
+import {
+	type AppLogger,
+	createNoopLogger,
+	providerFailureMetadata,
+} from "@hospital/observability";
 
 /** 新医保订单域使用 owner-scoped 查询参数，不能复用旧 PaymentOrder worker。 */
 export type MedicalInsuranceOrderQueryGateway = {
@@ -105,6 +109,17 @@ function sameAmounts(
 		order.amounts.personalAccountFen + order.amounts.fundFen ===
 			evidence.amounts.insuranceFen
 	);
+}
+
+function reconciliationFailureCode(error: unknown): string | undefined {
+	if (!(error instanceof Error)) return undefined;
+	if (
+		error.message === "medical order version conflict" ||
+		error.message === "Medical insurance query task changed by another worker"
+	) {
+		return "concurrent-state-change";
+	}
+	return undefined;
 }
 
 function candidateState(
@@ -509,6 +524,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 			return "reconciled";
 		} catch (error) {
+			const failureCode = reconciliationFailureCode(error);
 			const retryTask = taskAfterQuery(task, now, {
 				continueQuery: true,
 				lastErrorCode: "provider-query-failed",
@@ -526,6 +542,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 						maxAttempts: MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 						reason: "provider-query-failed",
 						errorName: error instanceof Error ? error.name : "UnknownError",
+						...(failureCode ? { failureCode } : {}),
+						...providerFailureMetadata(error),
 					},
 					"Medical insurance order query requires manual review",
 				);
@@ -538,6 +556,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 					orderId: task.medicalOrderId,
 					queryAttempts: retryTask.attempts,
 					errorName: error instanceof Error ? error.name : "UnknownError",
+					...(failureCode ? { failureCode } : {}),
+					...providerFailureMetadata(error),
 				},
 				"Medical insurance order query will be retried",
 			);

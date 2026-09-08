@@ -3,10 +3,10 @@ import { PatientDirectoryReferenceConflictError } from "@hospital/domain";
 import {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
+	createInMemoryMedicalInsuranceQueryTaskRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
-	createInMemoryMedicalInsuranceQueryTaskRepository,
 	createInMemoryReportReferenceRepository,
 	createInMemoryUserProfileRepository,
 	createNotConfiguredHealthKnowledgeRepository,
@@ -1120,6 +1120,10 @@ test("in-memory medical insurance query tasks use a lease and version CAS", asyn
 			claimedUntil: "2026-09-03T00:01:00.000Z",
 		},
 	]);
+	await tasks.requeue(
+		"medical-order-001",
+		new Date("2026-09-03T00:00:01.000Z"),
+	);
 	await expect(tasks.update(task, task.version)).rejects.toThrow(
 		"changed by another worker",
 	);

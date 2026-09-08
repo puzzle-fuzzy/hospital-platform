@@ -3923,12 +3923,12 @@ export function createMySqlRepositories(
 					 created_at, updated_at)
 				 VALUES (?, ?, 'pending', 0, ?, 1, ?, NULL, NULL, NULL, ?, ?)
 				 ON DUPLICATE KEY UPDATE
-					status = CASE WHEN status = 'manual_review' THEN status ELSE 'pending' END,
-					next_attempt_at = CASE WHEN status = 'manual_review' THEN next_attempt_at ELSE VALUES(next_attempt_at) END,
-					claimed_until = CASE WHEN status = 'manual_review' THEN claimed_until ELSE NULL END,
-					last_error_code = CASE WHEN status = 'manual_review' THEN last_error_code ELSE NULL END,
-					version = CASE WHEN status = 'manual_review' THEN version ELSE version + 1 END,
-					updated_at = CASE WHEN status = 'manual_review' THEN updated_at ELSE VALUES(updated_at) END`,
+					status = CASE WHEN status IN ('manual_review', 'in_progress') THEN status ELSE 'pending' END,
+					next_attempt_at = CASE WHEN status IN ('manual_review', 'in_progress') THEN next_attempt_at ELSE VALUES(next_attempt_at) END,
+					claimed_until = CASE WHEN status IN ('manual_review', 'in_progress') THEN claimed_until ELSE NULL END,
+					last_error_code = CASE WHEN status IN ('manual_review', 'in_progress') THEN last_error_code ELSE NULL END,
+					version = CASE WHEN status IN ('manual_review', 'in_progress') THEN version ELSE version + 1 END,
+					updated_at = CASE WHEN status IN ('manual_review', 'in_progress') THEN updated_at ELSE VALUES(updated_at) END`,
 				[
 					medicalOrderId,
 					medicalOrderId,

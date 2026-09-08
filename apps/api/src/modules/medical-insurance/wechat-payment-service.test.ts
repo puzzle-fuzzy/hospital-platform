@@ -4,7 +4,7 @@ import type {
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceWechatPaymentGateway,
 } from "@hospital/domain";
-import { createLogger, type AppLogger } from "@hospital/observability";
+import { type AppLogger, createLogger } from "@hospital/observability";
 import {
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
@@ -280,7 +280,7 @@ test("新建亲属或儿童混合支付在任何 Provider 请求前被拒绝", a
 	expect(providerCalls).toBe(0);
 });
 
-test("混合查单两段成功后只唤醒 Worker，不在 API 内并发回写 HIS", async () => {
+test("云健康混合查单只唤醒 Worker，不在 API 内并发查 Provider 或回写 HIS", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(order());
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([
@@ -300,6 +300,7 @@ test("混合查单两段成功后只唤醒 Worker，不在 API 内并发回写 H
 		},
 	]);
 	let synchronousCompletionCalls = 0;
+	let providerQueryCalls = 0;
 	const service = new MedicalInsuranceWechatPaymentService({
 		orders,
 		queryTasks: tasks,
@@ -307,19 +308,10 @@ test("混合查单两段成功后只唤醒 Worker，不在 API 内并发回写 H
 		identityUsers: {} as never,
 		patients: {} as never,
 		wechatPayment: {
-			queryMixedOrder: async () => ({
-				cashState: "paid",
-				insuranceState: "paid",
-				medInsPayStatus: "MED_INS_PAY_SUCCESS",
-				cashFen: 200,
-				totalFen: 1000,
-				providerStatus: "MIX_PAY_SUCCESS/SELF_PAY_SUCCESS/MED_INS_PAY_SUCCESS",
-				trace: {
-					provider: "wechat-pay",
-					operation: "medical-mix-query",
-					requestId: "wechat-query-provider-003",
-				},
-			}),
+			queryMixedOrder: async () => {
+				providerQueryCalls += 1;
+				throw new Error("API must not query a Worker-owned mixed order");
+			},
 		} as unknown as MedicalInsuranceWechatPaymentGateway,
 		confirmCashPayment: async () => {
 			synchronousCompletionCalls += 1;
@@ -340,8 +332,9 @@ test("混合查单两段成功后只唤醒 Worker，不在 API 内并发回写 H
 		}),
 	).resolves.toMatchObject({
 		status: "cash_pending",
-		paymentState: "cash_paid",
+		paymentState: "prepay_ready",
 	});
+	expect(providerQueryCalls).toBe(0);
 	expect(synchronousCompletionCalls).toBe(0);
 	expect(await tasks.claimDueForQuery(new Date(now), 1, 60_000)).toHaveLength(
 		1,

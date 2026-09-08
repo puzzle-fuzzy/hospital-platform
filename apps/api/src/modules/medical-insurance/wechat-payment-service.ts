@@ -18,9 +18,9 @@ import {
 	type WechatPaymentNotification,
 } from "@hospital/domain";
 import {
+	type AppLogger,
 	createNoopLogger,
 	providerFailureMetadata,
-	type AppLogger,
 } from "@hospital/observability";
 import type { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
@@ -441,6 +441,13 @@ export class MedicalInsuranceWechatPaymentService {
 			!order.payOrdId ||
 			!order.amounts
 		) {
+			return output(order, false);
+		}
+		if (this.dependencies.pluginPaymentBridge) {
+			// 云健康回写链路启用时，官方混合查单只能由持久化 Worker 串行
+			// 执行。页面轮询只读取本地状态并唤醒任务，不能与 Worker 同时
+			// 更新订单版本或抢占 in_progress 查询租约。
+			await this.requeue(orderId);
 			return output(order, false);
 		}
 		let result: Awaited<

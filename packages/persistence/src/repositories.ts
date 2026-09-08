@@ -1450,7 +1450,11 @@ export function createInMemoryMedicalInsuranceQueryTaskRepository(
 				});
 				return;
 			}
-			if (existing.status === "manual_review") return;
+			if (
+				existing.status === "manual_review" ||
+				existing.status === "in_progress"
+			)
+				return;
 			tasks.set(existing.taskId, {
 				...existing,
 				status: "pending",

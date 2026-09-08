@@ -1559,6 +1559,23 @@ test("MySQL medical insurance query tasks claim and update with a version fence"
 	});
 });
 
+test("MySQL medical insurance requeue preserves an active Worker lease", async () => {
+	const { pool, state } = createFakePool([{ affectedRows: 1 }]);
+	const repositories = createMySqlRepositories(pool);
+
+	await repositories.medicalInsuranceQueryTasks.requeue(
+		"medical-order-in-progress-001",
+		new Date("2026-09-03T00:00:01.000Z"),
+	);
+
+	expect(state.statements[0]).toContain(
+		"status IN ('manual_review', 'in_progress')",
+	);
+	expect(state.statements[0]).toContain(
+		"version = CASE WHEN status IN ('manual_review', 'in_progress') THEN version",
+	);
+});
+
 test("MySQL medical insurance query task insert is idempotent and rejects drift", async () => {
 	const now = "2026-09-03 00:00:00.000";
 	const task: MedicalInsuranceQueryTask = {
