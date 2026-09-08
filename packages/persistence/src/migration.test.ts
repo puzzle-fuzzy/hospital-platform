@@ -333,6 +333,22 @@ test("health knowledge migration keeps version and publication boundaries explic
 	expect(normalizedSql).toContain("is_clickable BOOLEAN NOT NULL");
 });
 
+test("medical mixed-payment requeue uses the UTC persistence clock", async () => {
+	const sql = await Bun.file(
+		new URL(
+			"../migrations/0039_medical_insurance_query_utc_requeue.sql",
+			import.meta.url,
+		),
+	).text();
+	const normalizedSql = sql.replace(/\s+/g, " ");
+
+	expect(normalizedSql).toContain("task.next_attempt_at = UTC_TIMESTAMP(3)");
+	expect(normalizedSql).toContain("task.updated_at = UTC_TIMESTAMP(3)");
+	expect(normalizedSql).toContain("task.status <> 'manual_review'");
+	expect(normalizedSql).not.toContain("task.next_attempt_at = NOW(3)");
+	expect(normalizedSql).not.toContain("task.updated_at = NOW(3)");
+});
+
 test("persistence failure logs keep raw error objects out of Pino", async () => {
 	const sources = await Promise.all([
 		Bun.file(new URL("./migrate.ts", import.meta.url)).text(),

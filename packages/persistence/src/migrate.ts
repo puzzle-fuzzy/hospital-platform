@@ -215,6 +215,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0038_medical_insurance_wechat_reconciliation.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0039_medical_insurance_query_utc_requeue",
+		file: "../migrations/0039_medical_insurance_query_utc_requeue.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
