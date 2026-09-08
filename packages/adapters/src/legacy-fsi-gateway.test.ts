@@ -3,6 +3,7 @@ import {
 	AdapterNotConfiguredError,
 	createLegacyFsiGateway,
 	type LegacyFsiCryptoGateway,
+	type ProviderRequestLogger,
 } from "./index";
 
 const context = {
@@ -34,6 +35,7 @@ function createCrypto(): LegacyFsiCryptoGateway {
 
 function gateway(
 	fetcher: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+	logger?: ProviderRequestLogger,
 ) {
 	return createLegacyFsiGateway({
 		relayUrl: "https://relay.example.test/forward",
@@ -41,6 +43,7 @@ function gateway(
 		relayAuthorizationToken: "relay-token-for-test",
 		crypto: createCrypto(),
 		fetcher,
+		...(logger ? { logger } : {}),
 	});
 }
 
@@ -138,6 +141,63 @@ test("legacy FSI gateway preserves non-final 6301 status without inventing amoun
 		ordStas: "1",
 	});
 	expect(result.statusClass).toBe("processing");
+});
+
+test("legacy FSI gateway captures rejected relay response body in the raw log window", async () => {
+	const previousRawLogging = Bun.env.PROVIDER_RAW_LOGGING;
+	const logs: Array<Record<string, unknown>> = [];
+	const logger: ProviderRequestLogger = {
+		info(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+		warn(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+		error(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+	};
+	Bun.env.PROVIDER_RAW_LOGGING = "true";
+
+	try {
+		const api = gateway(
+			async () =>
+				new Response(
+					JSON.stringify({
+						success: false,
+						code: 360053,
+						message: "provider rejection details",
+					}),
+					{ status: 200, headers: { "x-request-id": "relay-rejected-001" } },
+				),
+			logger,
+		);
+
+		await expect(api.uploadFees(feeUploadData(), context)).rejects.toMatchObject({
+			providerErrorCode: "360053",
+			providerErrorMessage: "provider rejection details",
+			requestOutcome: "rejected",
+		});
+
+		const rawResponse = logs.find(
+			(entry) =>
+				entry.event === "provider.response.raw" &&
+				entry.operation === "legacy-fsi.6201",
+		);
+		expect(rawResponse).toMatchObject({
+			provider: "legacy-fsi",
+			providerStatusCode: 200,
+			providerResponseBodyText: expect.stringContaining(
+				"provider rejection details",
+			),
+		});
+	} finally {
+		if (previousRawLogging === undefined) {
+			delete Bun.env.PROVIDER_RAW_LOGGING;
+		} else {
+			Bun.env.PROVIDER_RAW_LOGGING = previousRawLogging;
+		}
+	}
 });
 
 test("legacy FSI gateway refuses an unauthenticated relay", () => {

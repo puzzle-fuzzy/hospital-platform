@@ -311,6 +311,9 @@ export function createLegacyFsiGateway(
 					headers: { "content-type": "application/json" },
 					body: envelope,
 				},
+				// FSI 的拒绝响应会在 crypto.open 前结束；显式传入 logger，
+				// 让受控 PROVIDER_RAW_LOGGING 窗口仍能记录 relay 返回原文。
+				...(options.logger ? { logger: options.logger } : {}),
 			},
 			fetcher,
 		);
