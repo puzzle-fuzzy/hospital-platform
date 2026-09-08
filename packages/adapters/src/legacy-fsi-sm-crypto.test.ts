@@ -235,6 +235,30 @@ describe("sm-crypto gateway seal/open round trip", () => {
 		});
 	});
 
+	test("6201 preserves explicitly empty top-level disease fields", async () => {
+		const envelope = await gateway.seal(
+			{
+				infno: "6201",
+				data: {
+					medOrgOrd: "TEST-ORD-EMPTY-DISEASE",
+					diseCodg: "",
+					diseName: "",
+				},
+			},
+			callContext,
+		);
+
+		const opened = await mirrored.open(
+			{ infno: "6201", response: { ...envelope } },
+			callContext,
+		);
+		expect(opened.data).toEqual({
+			medOrgOrd: "TEST-ORD-EMPTY-DISEASE",
+			diseCodg: "",
+			diseName: "",
+		});
+	});
+
 	test("tampered signData is rejected in strict mode", async () => {
 		const envelope = await gateway.seal(
 			{ infno: "6202", data: { payOrdId: "PO-1" } },

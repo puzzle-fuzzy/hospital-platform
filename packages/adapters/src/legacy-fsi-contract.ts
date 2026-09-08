@@ -168,6 +168,18 @@ function requiredText(
 	return value.trim();
 }
 
+function requiredTextOrEmpty(
+	payload: Record<string, unknown>,
+	fieldName: string,
+	infno: LegacyFsiInfno,
+): string {
+	const value = payload[fieldName];
+	if (typeof value !== "string") {
+		contractError(infno, `${fieldName} is required`);
+	}
+	return value.trim();
+}
+
 function requiredAnyText(
 	payload: Record<string, unknown>,
 	fieldNames: readonly string[],
@@ -267,8 +279,6 @@ export function validate6201FeeUpload(payload: Record<string, unknown>): {
 		"caty",
 		"medType",
 		"feeType",
-		"diseCodg",
-		"diseName",
 		"mdtrtCertType",
 		"psnSetlway",
 		"chrgBchno",
@@ -277,6 +287,9 @@ export function validate6201FeeUpload(payload: Record<string, unknown>): {
 	]) {
 		requiredText(payload, fieldName, infno);
 	}
+	// 当前 3090 联调要求保留 6201 顶层诊断字段，但允许明确传空串。
+	requiredTextOrEmpty(payload, "diseCodg", infno);
+	requiredTextOrEmpty(payload, "diseName", infno);
 	const totalFen = yuanToFen(payload.medfeeSumamt, "medfeeSumamt", infno);
 	const rawAcctUsedFlag = payload.acctUsedFlag;
 	if (

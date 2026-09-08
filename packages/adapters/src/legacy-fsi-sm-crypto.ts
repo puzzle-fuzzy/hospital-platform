@@ -53,9 +53,14 @@ export function cleanLegacyFsiSignValue(value: unknown): unknown {
 
 export function cleanLegacyFsiSignObject(
 	input: Record<string, unknown>,
+	options: { preserveEmptyKeys?: ReadonlySet<string> } = {},
 ): Record<string, unknown> | null {
 	const result: Record<string, unknown> = {};
 	for (const [key, raw] of Object.entries(input)) {
+		if (raw === "" && options.preserveEmptyKeys?.has(key)) {
+			result[key] = "";
+			continue;
+		}
 		const cleaned = cleanLegacyFsiSignValue(raw);
 		if (cleaned === null) continue;
 		if (typeof cleaned === "object" && cleaned !== null) {
@@ -315,7 +320,11 @@ export function createSmCryptoLegacyFsiCrypto(
 			_context: AdapterCallContext,
 		): Promise<LegacyFsiSealedEnvelope> {
 			const cleaned =
-				cleanLegacyFsiSignObject(input.data) ??
+				cleanLegacyFsiSignObject(input.data, {
+					...(input.infno === "6201"
+						? { preserveEmptyKeys: new Set(["diseCodg", "diseName"]) }
+						: {}),
+				}) ??
 				contractError(input.infno, "data must not be empty after cleaning");
 			const timestamp = localLegacyFsiTimestamp();
 			const signPayload = {

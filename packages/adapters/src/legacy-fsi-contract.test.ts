@@ -94,14 +94,15 @@ test("6201 requires fee detail totals to match the medical fee total", () => {
 			inscpScpAmt: "7.00",
 		}),
 	).toEqual({ totalFen: 1200 });
-	expect(() =>
+	expect(
 		validate6201FeeUpload({
 			...requiredFields,
 			diseCodg: "",
+			diseName: "",
 			medfeeSumamt: "12.00",
 			feedetailList: [{ detItemFeeSumamt: "12.00" }],
 		}),
-	).toThrow(LegacyFsiContractError);
+	).toEqual({ totalFen: 1200 });
 	expect(() =>
 		validate6201FeeUpload({
 			...requiredFields,
