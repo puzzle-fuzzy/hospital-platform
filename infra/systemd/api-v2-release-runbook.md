@@ -5,6 +5,27 @@
 本文只负责切换 `hospital-platform-api-v2.service` 使用的 `current` release，
 不管理旧 Python 服务、不修改旧端口 `8001`、不执行数据库 migration，也不启动支付/医保/HIS worker。
 
+## 0. 3090 原始日志永久约束
+
+3090 的 `shared/api.env` 必须永久保持：
+
+```dotenv
+PROVIDER_RAW_LOGGING=true
+```
+
+任何发布、回滚、服务重启、迁移、联调或故障排查都不得把它改为 `false`、删除该变量，或以关闭原始日志
+输出的方式处理敏感信息。原始 Provider 日志是当前测试排查错误返回、医保失败原因和参数差异的必要证据。
+需要控制敏感信息暴露时，只能限制服务器访问权限、按 traceId/订单筛选和对外导出时脱敏；不得关闭 3090
+上的原始日志输出。每次操作后都必须复核：
+
+```bash
+grep '^PROVIDER_RAW_LOGGING=' shared/api.env
+# 必须输出 PROVIDER_RAW_LOGGING=true
+```
+
+原始日志可能包含医保凭证、患者信息、请求头和 Provider 完整报文，只能在 3090 受控环境内查看，禁止复制
+到聊天、普通文档、Git 或公共工单。
+
 ## 1. 一次性配置窄权限
 
 `current`、`releases` 和 `shared` 目录由 `ps` 自己管理，因此不需要为文件上传和软链接切换授予 root 权限。
