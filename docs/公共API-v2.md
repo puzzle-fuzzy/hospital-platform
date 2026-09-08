@@ -139,6 +139,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/fees` | Bearer + 必填幂等键 | 从关联预约读取服务端金额和患者映射，独立执行医保费用上传 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/settle` | Bearer + 必填幂等键 | 使用已授权订单和费用上传引用，独立执行医保结算，不把中间状态当成功 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/cancel` | Bearer + 必填幂等键 | 仅供支付小程序处理 2.6.33“已有支付进行中”：服务端依次查单、关单、取消结算；成功后允许复用有效授权并重开新医保订单；普通新小程序不调用 |
+| `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/cashier` | Bearer；幂等键可选 | 读取已保存的独立医保收银台地址和订单金额；只返回 HTTPS 收银台地址，不返回医保凭证或 provider 原始字段 |
+| `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/cashier-confirm` | Bearer + 必填幂等键 | 收银台返回后由服务端查 6301，并在确认自费支付后继续 2.27.2.27 → 2.6.65.5 后置结算；处理中不会伪造成功 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer + 必填幂等键 | 读取已落库 6202 金额、6201 授权和参保上下文，创建官方微信医保混合订单并返回小程序调起参数 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer；幂等键可选 | 按 `mix_trade_no` 查微信医保混合订单；自费成功后继续确认医保结算，不把调起成功当作完成 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/plugin-pay` | Bearer + 必填幂等键 | HIS 插件版收款入口：读取 6202 自费差额，按旧服务创建第二次云健康 `.2` 插件流水，再创建普通微信 JSAPI 支付参数 |

@@ -767,6 +767,8 @@ export const MedicalInsuranceOrderResponse = Type.Object({
 				cashFen: Type.Integer({ minimum: 0 }),
 			}),
 		),
+		/** 独立医保收银台地址；仅在服务端确认存在自费金额时返回。 */
+		cashierUrl: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
 	}),
 });
 

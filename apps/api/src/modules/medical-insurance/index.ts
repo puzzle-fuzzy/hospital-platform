@@ -123,6 +123,44 @@ export function medicalInsuranceModule(
 				tags: ["medical-insurance"],
 			},
 		)
+		.get(
+			"/payments/medical-insurance/orders/:orderId/cashier",
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await registrationService.cashier({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceQueryHeaders,
+				params: MedicalInsuranceOrderParams,
+				response: { 200: MedicalInsuranceOrderResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.post(
+			"/payments/medical-insurance/orders/:orderId/cashier-confirm",
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await registrationService.confirmCashierPayment({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceCommandHeaders,
+				params: MedicalInsuranceOrderParams,
+				response: { 200: MedicalInsuranceOrderResponse },
+				tags: ["medical-insurance"],
+			},
+		)
 		.post(
 			"/payments/medical-insurance/orders/:orderId/cancel",
 			async ({ request, headers, params, body }) => {

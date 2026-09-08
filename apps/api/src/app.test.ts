@@ -178,6 +178,8 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/payments/medical-insurance/authorize",
 		"/api/v1/payments/medical-insurance/orders/{orderId}",
 		"/api/v1/payments/medical-insurance/orders/{orderId}/cancel",
+		"/api/v1/payments/medical-insurance/orders/{orderId}/cashier",
+		"/api/v1/payments/medical-insurance/orders/{orderId}/cashier-confirm",
 		"/api/v1/payments/medical-insurance/orders/{orderId}/fees",
 		"/api/v1/payments/medical-insurance/orders/{orderId}/plugin-pay",
 		"/api/v1/payments/medical-insurance/orders/{orderId}/settle",

@@ -24,6 +24,7 @@ import { MedicalInsuranceRegistrationInputError } from "./errors";
 
 const PLUGIN_ORDER_PREFIX = "registration-medical-plugin-self-pay:";
 const PLUGIN_PREPAY_PREFIX = "registration-medical-plugin-prepay:";
+const PERSONAL_ACCOUNT_PAY_TYPE_ID = "5";
 
 function opaque(value: unknown, label: string): string {
 	if (!isBoundedOpaqueIdentifier(value))
@@ -55,6 +56,16 @@ function pluginOrderKey(medicalOrderId: string): string {
 
 function pluginPrepayKey(medicalOrderId: string): string {
 	return `${PLUGIN_PREPAY_PREFIX}${medicalOrderId}`;
+}
+
+function pluginPayTypeIdForOrder(
+	medicalOrder: MedicalInsuranceOrder,
+	configuredPayTypeId: string,
+): string {
+	return medicalOrder.amounts?.personalAccountFen !== undefined &&
+		medicalOrder.amounts.personalAccountFen > 0
+		? PERSONAL_ACCOUNT_PAY_TYPE_ID
+		: configuredPayTypeId;
 }
 
 function output(
@@ -190,7 +201,10 @@ export class MedicalInsurancePluginPaymentService {
 		return { authorization, settlement, openid: identity.providerSubject };
 	}
 
-	private pluginInput(settlement: MedicalInsuranceSettlementContext): Omit<
+	private pluginInput(
+		settlement: MedicalInsuranceSettlementContext,
+		medicalOrder: MedicalInsuranceOrder,
+	): Omit<
 		RegistrationSelfPaySettlementContext,
 		"outTradeNo" | "recordCode" | "thirdPartPayRecordId"
 	> & {
@@ -230,6 +244,10 @@ export class MedicalInsurancePluginPaymentService {
 				"Medical insurance plugin payment is not allowed for the current order",
 			);
 		}
+		const payTypeId = pluginPayTypeIdForOrder(
+			medicalOrder,
+			this.dependencies.pluginPayTypeId,
+		);
 		return {
 			businessId: settlement.businessId,
 			payingId: settlement.payingId,
@@ -247,7 +265,7 @@ export class MedicalInsurancePluginPaymentService {
 			psnName,
 			psnNo,
 			patInHosId: contextText(register, ["patInHosId", "pat_in_hos_id"]) ?? "0",
-			payTypeId: this.dependencies.pluginPayTypeId,
+			payTypeId,
 			payType: this.dependencies.pluginPayType,
 			workStationId: this.dependencies.pluginWorkStationId,
 			tradeCode,
@@ -289,6 +307,10 @@ export class MedicalInsurancePluginPaymentService {
 		options: { outTradeNo?: string } = {},
 	): Promise<MedicalInsuranceSettlementContext> {
 		const existing = settlement.plugin;
+		const expectedPayTypeId = pluginPayTypeIdForOrder(
+			order,
+			this.dependencies.pluginPayTypeId,
+		);
 		if (existing) {
 			if (existing.paymentOrderId !== paymentOrder.orderId) {
 				throw new PaymentOrderInputError(
@@ -300,9 +322,14 @@ export class MedicalInsurancePluginPaymentService {
 					"Medical insurance plugin outTradeNo does not match the saved context",
 				);
 			}
+			if (existing.payTypeId !== expectedPayTypeId) {
+				throw new PaymentOrderInputError(
+					"Medical insurance plugin payTypeId does not match the 6202 personal-account result",
+				);
+			}
 			return settlement;
 		}
-		const input = this.pluginInput(settlement);
+		const input = this.pluginInput(settlement, order);
 		const recordCode = stableCode(
 			`medical-insurance-plugin:${order.medicalOrderId}:${paymentOrder.orderId}`,
 		);

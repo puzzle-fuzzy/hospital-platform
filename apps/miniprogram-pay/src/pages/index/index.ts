@@ -15,6 +15,7 @@ import {
 } from "../../services/appointment";
 import {
 	clearPendingPayment,
+	continueMedicalCashierPaymentFromPending,
 	continueMedicalCashPayment,
 	continueMedicalPayment,
 	continueSelfPaymentFromPending,
@@ -69,8 +70,8 @@ const progressText: Record<RegistrationProgress, string> = {
 	insuring: "正在上传医保费用",
 	settling: "正在进行医保结算",
 	polling: "正在确认医保结算结果",
-	"cash-paying": "正在打开微信支付收银台",
-	"cash-confirming": "正在确认医保插件自费回写结果",
+	"cash-paying": "正在打开医保支付收银台",
+	"cash-confirming": "正在确认医保收银台支付并回写 HIS",
 	"self-paying": "正在打开微信自费支付收银台",
 	"self-confirming": "正在确认微信自费支付结果",
 	success: "挂号和医保支付成功",
@@ -275,6 +276,17 @@ Page<
 			);
 			return;
 		}
+		if (pending?.phase === "medical_cashier") {
+			if (authCode) app.globalData.authCode = "";
+			this.setData({
+				hasPendingPayment: true,
+				selectedMode: "medical",
+				stage: "cash-confirming",
+				error: "",
+				message: "请完成医保收银台后，返回并点击医保支付确认",
+			});
+			return;
+		}
 		if (!authCode && pending) {
 			const pendingMode = pending.mode ?? "mixed";
 			this.setData({
@@ -332,7 +344,17 @@ Page<
 		void continueMedicalPayment(authCode, pending, (stage, message) =>
 			setProgress(this, stage, message),
 		)
-			.then(() => this.setData({ hasPendingPayment: false }))
+			.then((result) => {
+				if (result?.kind === "cashier_opened") {
+					this.setData({
+						hasPendingPayment: true,
+						stage: "cash-confirming",
+						message: "请在医保收银台完成支付，完成后返回并点击医保支付确认",
+					});
+					return;
+				}
+				this.setData({ hasPendingPayment: false });
+			})
 			.catch(async (error: unknown) => {
 				if (error instanceof WechatPaymentCancelledError) {
 					await showWechatPaymentCancelled(this);
@@ -425,6 +447,44 @@ Page<
 		if (this.data.busy) return;
 		this.setData({ selectedMode: mode });
 		if (pending) {
+			if (pending.phase === "medical_cashier") {
+				if (mode !== "medical") {
+					this.setData({
+						message: "当前是纯医保收银台订单，请选择医保支付继续确认",
+						error: "",
+					});
+					return;
+				}
+				this.setData({ busy: true, error: "" });
+				setProgress(
+					this,
+					"cash-confirming",
+					"正在确认医保收银台支付并回写 HIS",
+				);
+				void continueMedicalCashierPaymentFromPending(
+					pending,
+					(stage, message) => setProgress(this, stage, message),
+				)
+					.then((completed) => {
+						if (completed) {
+							this.setData({ hasPendingPayment: false });
+							return;
+						}
+						this.setData({
+							hasPendingPayment: true,
+							message:
+								"收银台支付已返回，医院结算仍在确认，请稍后再次点击医保支付",
+						});
+					})
+					.catch((error: unknown) =>
+						this.setData({
+							error: friendlyError(error),
+							message: "医保收银台支付未完成，请查看日志后重试",
+						}),
+					)
+					.finally(() => this.setData({ busy: false }));
+				return;
+			}
 			if (pending.phase === "self_payment") {
 				if (mode !== "self") {
 					this.setData({

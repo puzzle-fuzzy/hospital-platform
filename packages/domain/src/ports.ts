@@ -303,6 +303,8 @@ export interface MedicalInsuranceGateway {
 		payTokenHash: string;
 		mdtrtId: string;
 		acctUsedFlag: string;
+		/** 6201 返回的独立医保收银台地址；不得写入日志原文。 */
+		cashierUrl?: string;
 		trace: ExternalTrace;
 	}>;
 	settle(

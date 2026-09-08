@@ -29,6 +29,7 @@ export type PendingPayment = {
 	phase?:
 		| "authorization"
 		| "cash_payment"
+		| "medical_cashier"
 		| "medical_cash_required"
 		| "self_payment"
 		| "self_payment_cancelled";
@@ -36,6 +37,8 @@ export type PendingPayment = {
 	wechatQueryIdempotencyKey?: string;
 	selfPayIdempotencyKey?: string;
 	selfQueryIdempotencyKey?: string;
+	cashierUrl?: string;
+	cashierConfirmIdempotencyKey?: string;
 };
 
 type Progress = (stage: PaymentProgress, message: string) => void;
@@ -107,6 +110,7 @@ function validPending(value: unknown): value is PendingPayment {
 		(item.phase === undefined ||
 			item.phase === "authorization" ||
 			item.phase === "cash_payment" ||
+			item.phase === "medical_cashier" ||
 			item.phase === "medical_cash_required" ||
 			item.phase === "self_payment" ||
 			item.phase === "self_payment_cancelled") &&
@@ -121,7 +125,13 @@ function validPending(value: unknown): value is PendingPayment {
 		(item.selfPayIdempotencyKey === undefined ||
 			isOpaque(item.selfPayIdempotencyKey)) &&
 		(item.selfQueryIdempotencyKey === undefined ||
-			isOpaque(item.selfQueryIdempotencyKey))
+			isOpaque(item.selfQueryIdempotencyKey)) &&
+		(item.cashierUrl === undefined ||
+			(typeof item.cashierUrl === "string" &&
+				item.cashierUrl.length <= 2048 &&
+				/^https:\/\//i.test(item.cashierUrl))) &&
+		(item.cashierConfirmIdempotencyKey === undefined ||
+			isOpaque(item.cashierConfirmIdempotencyKey))
 	);
 }
 
@@ -275,7 +285,10 @@ type MedicalOrder = {
 	orderId: string;
 	status: string;
 	amounts?: { totalFen: number; insuranceFen: number; cashFen: number };
+	cashierUrl?: string;
 };
+
+export type MedicalPaymentContinuationResult = { kind: "cashier_opened" };
 
 type MedicalCancellation = {
 	orderId: string;
@@ -431,6 +444,16 @@ function saveCashPaymentPhase(pending: PendingPayment): CashPaymentPending {
 	};
 	savePending(next);
 	return next;
+}
+
+function navigateToMedicalCashier(): Promise<void> {
+	return new Promise((resolve, reject) => {
+		wx.navigateTo({
+			url: "/pages/cashier/cashier",
+			success: () => resolve(),
+			fail: reject,
+		});
+	});
 }
 
 function finishMedicalPayment(
@@ -667,7 +690,7 @@ export async function continueMedicalPayment(
 	pending: PendingPayment,
 	onProgress: Progress,
 	restartAttempted = false,
-): Promise<void> {
+): Promise<MedicalPaymentContinuationResult | void> {
 	if (!authCode.trim()) throw new Error("医保授权结果为空");
 	const authorize = await request<{ orderId: string; status: "authorized" }>({
 		path: "/payments/medical-insurance/authorize",
@@ -680,10 +703,14 @@ export async function continueMedicalPayment(
 	savePending(pending);
 	onProgress("insuring", "医保授权成功，正在上传挂号费用");
 	try {
-		await orderCommand(
+		const fees = await orderCommand(
 			`/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/fees`,
 			pending.feesIdempotencyKey,
 		);
+		if (fees.cashierUrl) {
+			pending.cashierUrl = fees.cashierUrl;
+			savePending(pending);
+		}
 	} catch (error) {
 		if (
 			!restartAttempted &&
@@ -726,6 +753,16 @@ export async function continueMedicalPayment(
 		if (order.status === "insurance_settled") break;
 		if (order.status === "cash_pending") {
 			pending.orderId = orderId;
+			if (pending.mode === "medical" && pending.cashierUrl) {
+				pending.phase = "medical_cashier";
+				pending.cashierConfirmIdempotencyKey ??= newIdempotencyKey(
+					"medical-cashier-confirm",
+				);
+				savePending(pending);
+				onProgress("cash-paying", "正在打开医保支付收银台");
+				await navigateToMedicalCashier();
+				return { kind: "cashier_opened" };
+			}
 			if (pending.mode === "medical") {
 				pending.phase = "medical_cash_required";
 				savePending(pending);
@@ -747,4 +784,37 @@ export async function continueMedicalPayment(
 	if (order.status !== "insurance_settled")
 		throw new Error("医保结算仍在处理中，请稍后点击继续医保支付");
 	finishMedicalPayment(pending, orderId, onProgress);
+}
+
+/** 独立医保收银台返回后，只查服务端并允许后置结算，不信任 web-view 回跳本身。 */
+export async function continueMedicalCashierPaymentFromPending(
+	pending: PendingPayment,
+	onProgress: Progress,
+): Promise<boolean> {
+	const orderId = pending.orderId?.trim();
+	if (pending.phase !== "medical_cashier" || !orderId)
+		throw new Error("医保收银台支付上下文不完整，无法确认");
+	const cashierConfirmIdempotencyKey =
+		pending.cashierConfirmIdempotencyKey ??
+		newIdempotencyKey("medical-cashier-confirm");
+	const current = {
+		...pending,
+		orderId,
+		cashierConfirmIdempotencyKey,
+	};
+	savePending(current);
+	onProgress("cash-confirming", "正在确认医保收银台支付并回写 HIS");
+	const result = await request<MedicalOrder>({
+		path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/cashier-confirm`,
+		method: "POST",
+		idempotencyKey: cashierConfirmIdempotencyKey,
+	});
+	if (result.status === "insurance_settled") {
+		finishMedicalPayment(current, orderId, onProgress);
+		return true;
+	}
+	if (result.status === "failed" || result.status === "manual_review")
+		throw new Error("医保收银台支付回写未成功，请查看后台订单日志");
+	onProgress("cash-confirming", "收银台已返回，医院结算仍在确认，请稍后继续");
+	return false;
 }

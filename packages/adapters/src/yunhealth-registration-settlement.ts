@@ -31,6 +31,10 @@ const COMPLETE_SETTLE_OPERATION = "registration-self-pay.2.6.65.5";
 const THIRD_PART_ALREADY_COMPLETED_CODE =
 	"BusinessExceptionErrorCode@third-part-pay@0004";
 const ALLOWED_PAY_TYPES = new Set(["CREDIT", "POS", "CROWD_FUNDING"]);
+/** 普通自费微信支付的 2.6.65.2 支付方式。医保混合插件仍由配置传入 50。 */
+const SELF_PAY_WECHAT_PAY_TYPE_ID = 31;
+/** 6202 返回有个人账户实际支付金额时使用的支付方式。 */
+const PERSONAL_ACCOUNT_PAY_TYPE_ID = 5;
 
 export type YunhealthRegistrationPluginPayType =
 	| "CREDIT"
@@ -46,7 +50,7 @@ export type YunhealthRegistrationSettlementGatewayOptions = {
 	paymentOrgId: string;
 	/** 2.6.65.1 / 2.27.2.27 使用的医院 ID。 */
 	hospitalId?: string;
-	/** 旧服务已确认的插件 payTypeId，必须是正整数文本。 */
+	/** 医保自费混合插件的 payTypeId，必须是正整数文本。 */
 	pluginPayTypeId: string;
 	pluginPayType: YunhealthRegistrationPluginPayType;
 	/** HIS 已确认插件版收款的工作站号；当前合同允许为空字符串。 */
@@ -496,6 +500,11 @@ export function createYunhealthRegistrationSettlementGateway(
 		options.pluginPayTypeId,
 		"pluginPayTypeId",
 	);
+	const allowedPayTypeIds = new Set([
+		pluginPayTypeId,
+		SELF_PAY_WECHAT_PAY_TYPE_ID,
+		PERSONAL_ACCOUNT_PAY_TYPE_ID,
+	]);
 	const pluginPayType = requiredText(
 		options.pluginPayType,
 		"pluginPayType",
@@ -550,7 +559,7 @@ export function createYunhealthRegistrationSettlementGateway(
 			}
 			const requestPayTypeId = registrationContext?.payTypeId
 				? positiveInteger(registrationContext.payTypeId, "payTypeId")
-				: pluginPayTypeId;
+				: SELF_PAY_WECHAT_PAY_TYPE_ID;
 			const requestPayType = registrationContext?.payType
 				? requiredText(registrationContext.payType, "payType")
 				: pluginPayType;
@@ -564,7 +573,7 @@ export function createYunhealthRegistrationSettlementGateway(
 					? textAllowEmpty(registrationContext.workStationId, "workStationId")
 					: workStationId;
 			if (
-				requestPayTypeId !== pluginPayTypeId ||
+				!allowedPayTypeIds.has(requestPayTypeId) ||
 				requestPayType !== pluginPayType
 			) {
 				throw providerError(
@@ -886,10 +895,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 	const providerBaseUrl = providerUrl(baseUrl, "");
 	const authorization = normalizedAuthorization(options.authorizationToken);
 	const hospitalId = positiveInteger(options.hospitalId, "hospitalId");
-	const pluginPayTypeId = positiveInteger(
-		options.pluginPayTypeId,
-		"pluginPayTypeId",
-	);
+	const selfPayPayTypeId = SELF_PAY_WECHAT_PAY_TYPE_ID;
 	const pluginPayType = requiredText(
 		options.pluginPayType,
 		"pluginPayType",
@@ -906,8 +912,10 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 		"tradeTypeCode",
 	);
 	const fetcher = options.fetcher ?? fetch;
-	const pluginGateway =
-		createYunhealthRegistrationPluginPaymentGateway(options);
+	const pluginGateway = createYunhealthRegistrationPluginPaymentGateway({
+		...options,
+		pluginPayTypeId: String(selfPayPayTypeId),
+	});
 
 	const request = async <T>(input: {
 		step: string;
@@ -1073,7 +1081,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 					totalFen,
 					hospitalId: String(hospitalId),
 					patientId: providerPatientId,
-					payTypeId: String(pluginPayTypeId),
+					payTypeId: String(selfPayPayTypeId),
 					payType: pluginPayType,
 					workStationId,
 					recordCode,
@@ -1131,6 +1139,10 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 		options.pluginPayTypeId,
 		"pluginPayTypeId",
 	);
+	const allowedPluginPayTypeIds = new Set([
+		pluginPayTypeId,
+		PERSONAL_ACCOUNT_PAY_TYPE_ID,
+	]);
 	const pluginPayType = requiredText(
 		options.pluginPayType,
 		"pluginPayType",
@@ -1167,7 +1179,8 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 					},
 				);
 			}
-			if (input.payTypeId !== String(pluginPayTypeId)) {
+			const requestPayTypeId = positiveInteger(input.payTypeId, "payTypeId");
+			if (!allowedPluginPayTypeIds.has(requestPayTypeId)) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
 					"plugin payTypeId does not match server configuration",
@@ -1217,10 +1230,10 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						hospitalId,
 						notifyUrl: "",
 						payModel: "H5",
-						payTypeId: pluginPayTypeId,
+						payTypeId: requestPayTypeId,
 						payTypeParams: [
 							{
-								payTypeId: pluginPayTypeId,
+								payTypeId: requestPayTypeId,
 								amount: Number((totalFen / 100).toFixed(2)),
 								paymentSystemUserId: "",
 								spbillCreateIp: "",
@@ -1251,7 +1264,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			return {
 				payingId,
 				tradingId,
-				payTypeId: String(pluginPayTypeId),
+				payTypeId: String(requestPayTypeId),
 				payType: pluginPayType,
 				workStationId,
 				tradeTypeCode,

@@ -251,6 +251,8 @@ export type MedicalInsuranceSettlementContext = {
 	 * payingId/tradingId；两次 2.6.65.2 是两条不同的 Provider 流水。
 	 */
 	plugin?: MedicalInsurancePluginPaymentContext;
+	/** 6201 返回的独立医保收银台地址；短期保存，仅通过专用接口返回给支付小程序。 */
+	cashierUrl?: string;
 };
 
 export type MedicalInsurancePluginPaymentState =

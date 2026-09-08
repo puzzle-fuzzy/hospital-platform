@@ -496,7 +496,9 @@ function statusMapping(
 	switch (result.statusClass) {
 		case "processing":
 			return {
-				state: "awaiting_confirmation",
+				// 6202 ordStas=1 is still processing, but when ownPayAmt>0 the
+				// old service opens the 6201 cashier before waiting for 6301.
+				state: amounts.cashFen > 0 ? "cash_pending" : "awaiting_confirmation",
 				finality: "processing",
 				authoritative: false,
 			};
@@ -2592,6 +2594,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 							: "missing",
 					hasPayOrdId: Boolean(feeResult.credential.payOrdId),
 					hasPayToken: Boolean(feeResult.credential.payToken),
+					hasCashierUrl: Boolean(feeResult.cashierUrl),
+					cashierUrlLength: feeResult.cashierUrl?.length ?? 0,
 				},
 				"Medical insurance 6201 completed",
 			);
@@ -2647,6 +2651,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					tradeOrderIds,
 					payingId,
 					tradingId,
+					...(feeResult.cashierUrl ? { cashierUrl: feeResult.cashierUrl } : {}),
 				},
 			);
 			return {
@@ -2655,6 +2660,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				payTokenHash: sha256(feeResult.credential.payToken),
 				mdtrtId,
 				acctUsedFlag,
+				...(feeResult.cashierUrl ? { cashierUrl: feeResult.cashierUrl } : {}),
 				trace: trace(
 					"medical-insurance.6201",
 					context,

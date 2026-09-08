@@ -1,5 +1,5 @@
 {
-	"pages": ["pages/index/index"],
+	"pages": ["pages/index/index", "pages/cashier/cashier"],
 	"window": {
 		"navigationBarTitleText": "医保测试挂号",
 		"navigationBarBackgroundColor": "#f7f8fa",

@@ -290,6 +290,7 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 			"https://hospital.example.test/api/v1/payments/medical-insurance/wechat-notifications",
 		prepay_id: "wx-medical-prepay-001",
 	});
+	expect(mixedBody).not.toHaveProperty("cash_reduce_detail");
 	const payer = mixedBody.payer as Record<string, unknown>;
 	expect(payer.name).not.toBe("测试患者");
 	expect(payer.id_digest).not.toBe("140581199001010011");

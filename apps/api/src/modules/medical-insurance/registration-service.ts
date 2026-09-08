@@ -79,7 +79,19 @@ function opaque(value: unknown, label: string): string {
 
 function output(
 	order: MedicalInsuranceOrder,
+	cashierUrl?: unknown,
 ): MedicalInsuranceOrderPayload["data"] {
+	const safeCashierUrl =
+		typeof cashierUrl === "string" && cashierUrl.length <= 2048
+			? (() => {
+					try {
+						const parsed = new URL(cashierUrl);
+						return parsed.protocol === "https:" ? cashierUrl : undefined;
+					} catch {
+						return undefined;
+					}
+				})()
+			: undefined;
 	return {
 		orderId: order.medicalOrderId,
 		status: order.status,
@@ -93,6 +105,7 @@ function output(
 					},
 				}
 			: {}),
+		...(safeCashierUrl ? { cashierUrl: safeCashierUrl } : {}),
 	};
 }
 
@@ -379,7 +392,13 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance authorization is required",
 			);
-		if (order.status !== "created") return output(order);
+		if (order.status !== "created") {
+			const context = await this.dependencies.orders.getSettlementContext(
+				ownerUserId,
+				orderId,
+			);
+			return output(order, context?.cashierUrl);
+		}
 		const appointment = await this.appointment(
 			ownerUserId,
 			order.appointmentId,
@@ -457,7 +476,33 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance fee upload completed",
 		);
-		return output(updated);
+		return output(updated, result.cashierUrl);
+	}
+
+	async cashier(input: {
+		ownerUserId: string;
+		orderId: string;
+		context: unknown;
+	}): Promise<MedicalInsuranceOrderPayload["data"]> {
+		const context = contextOf(input.context);
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const orderId = opaque(input.orderId, "orderId");
+		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
+		if (!order || order.ownerUserId !== ownerUserId)
+			throw new MedicalInsuranceOrderNotFoundError();
+		const settlementContext =
+			await this.dependencies.orders.getSettlementContext(ownerUserId, orderId);
+		this.logger.info(
+			{
+				event: "medical-insurance.cashier.requested",
+				traceId: context.traceId,
+				ownerUserId,
+				orderId,
+				hasCashierUrl: Boolean(settlementContext?.cashierUrl),
+			},
+			"Medical insurance cashier context requested",
+		);
+		return output(order, settlementContext?.cashierUrl);
 	}
 
 	async settle(input: {
@@ -494,5 +539,16 @@ export class MedicalInsuranceRegistrationService {
 		context: unknown;
 	}): Promise<MedicalInsuranceOrderPayload["data"]> {
 		return this.core.confirmWechatCashPayment(input);
+	}
+
+	async confirmCashierPayment(input: {
+		ownerUserId: string;
+		orderId: string;
+		context: unknown;
+	}): Promise<MedicalInsuranceOrderPayload["data"]> {
+		return this.core.query({
+			...input,
+			cashPaymentConfirmed: true,
+		});
 	}
 }

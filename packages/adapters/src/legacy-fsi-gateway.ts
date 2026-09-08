@@ -60,6 +60,8 @@ export type LegacyFsiFeeUploadResult = {
 	credential: LegacyFsiFeeUploadCredential;
 	/** 6201 返回的真实就诊/医保结算号；上层也可使用同次前置结算事实补齐。 */
 	mdtrtId?: string;
+	/** 6201 返回的独立医保收银台地址；只允许 HTTPS。 */
+	cashierUrl?: string;
 	totalFen: number;
 	trace: ExternalTrace;
 };
@@ -435,9 +437,28 @@ export function createLegacyFsiGateway(
 				optionalTextField(payload, "mdtrt_id") ??
 				optionalTextField(extData, "mdtrtId") ??
 				optionalTextField(extData, "mdtrt_id");
+			const cashierCandidate =
+				optionalTextField(payload, "cashierUrl") ??
+				optionalTextField(extData, "cashierUrl") ??
+				optionalTextField(payload, "cashier_url") ??
+				optionalTextField(extData, "cashier_url") ??
+				optionalTextField(response.data, "cashierUrl") ??
+				optionalTextField(response.data, "cashier_url");
+			let cashierUrl: string | undefined;
+			if (cashierCandidate) {
+				try {
+					const parsed = new URL(cashierCandidate);
+					if (parsed.protocol === "https:" && cashierCandidate.length <= 2048) {
+						cashierUrl = cashierCandidate;
+					}
+				} catch {
+					// Provider may return a malformed optional field; do not expose it.
+				}
+			}
 			return {
 				credential,
 				...(mdtrtId ? { mdtrtId } : {}),
+				...(cashierUrl ? { cashierUrl } : {}),
 				totalFen,
 				trace: trace("6201", response.requestId),
 			};
