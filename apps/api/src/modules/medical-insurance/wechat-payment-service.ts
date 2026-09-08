@@ -235,6 +235,19 @@ export class MedicalInsuranceWechatPaymentService {
 					},
 				);
 			}
+			this.logger.info(
+				{
+					event: "medical-insurance.wechat-mix.ready",
+					traceId: input.context.traceId,
+					ownerUserId,
+					orderId,
+					businessType,
+					orderType,
+					reused: true,
+					paymentState: order.wechatPaymentState,
+				},
+				"Existing medical insurance WeChat mixed payment reused",
+			);
 			return output(order);
 		}
 		if (order.wechatPaymentState === "cash_paid") {
@@ -373,6 +386,22 @@ export class MedicalInsuranceWechatPaymentService {
 			},
 		);
 		order = updated ?? (await this.order(ownerUserId, orderId));
+		this.logger.info(
+			{
+				event: "medical-insurance.wechat-mix.queried",
+				traceId: input.context.traceId,
+				ownerUserId,
+				orderId,
+				businessType,
+				orderType,
+				providerStatus: result.providerStatus,
+				cashState: result.cashState,
+				insuranceState: result.insuranceState,
+				paymentState,
+				providerRequestId: result.trace.requestId,
+			},
+			"Medical insurance WeChat mixed payment queried",
+		);
 		if (paymentState === "cash_paid" && result.insuranceState === "paid") {
 			// wx.requestMedicalInsurancePay 的 success 只代表客户端调起成功；必须再走服务端
 			// 混合查单和医保后置完成，才能清除 pending 上下文。
@@ -390,20 +419,6 @@ export class MedicalInsuranceWechatPaymentService {
 				cashFen: confirmed.amounts?.cashFen ?? order.amounts?.cashFen ?? 0,
 			};
 		}
-		this.logger.info(
-			{
-				event: "medical-insurance.wechat-mix.queried",
-				traceId: input.context.traceId,
-				ownerUserId,
-				orderId,
-				businessType,
-				orderType,
-				providerStatus: result.providerStatus,
-				paymentState,
-				providerRequestId: result.trace.requestId,
-			},
-			"Medical insurance WeChat mixed payment queried",
-		);
 		return output(order, false);
 	}
 

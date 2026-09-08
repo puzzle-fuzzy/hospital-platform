@@ -25,6 +25,7 @@ import {
 	type PaymentMode,
 	type PaymentProgress,
 	readPendingPayment,
+	resumeMedicalCashPaymentFromPending,
 	setPendingPaymentMode,
 	startMedicalPayment,
 	startSelfPayment,
@@ -287,6 +288,49 @@ Page<
 			});
 			return;
 		}
+		if (!authCode && pending?.phase === "cash_payment" && !resumingPayment) {
+			resumingPayment = true;
+			this.setData({
+				busy: true,
+				hasPendingPayment: true,
+				selectedMode: "mixed",
+				error: "",
+			});
+			setProgress(this, "cash-confirming", "正在确认微信医保支付并回写 HIS");
+			console.info("[微信医保支付] 页面回到前台，主动查询混合订单", {
+				orderId: pending.orderId,
+			});
+			void ensureSession()
+				.then(() =>
+					resumeMedicalCashPaymentFromPending(pending, (stage, message) =>
+						setProgress(this, stage, message),
+					),
+				)
+				.then((completed) => {
+					if (completed) {
+						this.setData({ hasPendingPayment: false });
+						return;
+					}
+					this.setData({
+						hasPendingPayment: true,
+						error: "",
+						message: "微信医保支付仍在确认，请稍后继续医保混合支付",
+					});
+				})
+				.catch((error: unknown) => {
+					console.error("[微信医保支付] 页面回前台查单失败", error);
+					this.setData({
+						hasPendingPayment: Boolean(readPendingPayment()),
+						error: friendlyError(error),
+						message: "医保支付未完成，请不要重复预约",
+					});
+				})
+				.finally(() => {
+					resumingPayment = false;
+					this.setData({ busy: false });
+				});
+			return;
+		}
 		if (!authCode && pending) {
 			const pendingMode = pending.mode ?? "mixed";
 			this.setData({
@@ -529,10 +573,18 @@ Page<
 					mode: "mixed" as const,
 					phase: "cash_payment" as const,
 				};
-				setProgress(this, "cash-confirming", "请继续完成医保插件自费支付");
-				void continueMedicalCashPayment(mixedPending, (stage, message) =>
-					setProgress(this, stage, message),
+				setProgress(this, "cash-confirming", "正在确认已有微信医保支付订单");
+				void resumeMedicalCashPaymentFromPending(
+					mixedPending,
+					(stage, message) => setProgress(this, stage, message),
+					1,
 				)
+					.then(async (completed) => {
+						if (completed) return;
+						await continueMedicalCashPayment(mixedPending, (stage, message) =>
+							setProgress(this, stage, message),
+						);
+					})
 					.then(() => this.setData({ hasPendingPayment: false }))
 					.catch(async (error: unknown) => {
 						if (error instanceof WechatPaymentCancelledError) {
