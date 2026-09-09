@@ -28,6 +28,7 @@ test("acctUsedFlag uses the local insured-region rule", () => {
 
 test("授权查询按 family_pay_auth_no 判定亲情付并保存绑卡人身份", async () => {
 	let requestCount = 0;
+	let foundationForwardBody: Record<string, unknown> | undefined;
 	let storedAuthorization: MedicalInsuranceAuthorizationContext | undefined;
 	const gateway = createLegacyFsiMedicalInsuranceGateway({
 		legacyFsi: {} as never,
@@ -42,11 +43,18 @@ test("授权查询按 family_pay_auth_no 判定亲情付并保存绑卡人身份
 		relayUrl: "https://relay.example",
 		relayAuthorizationToken: "synthetic-token",
 		foundationBaseUrl: "https://foundation.example",
+		foundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
 		zhongyangBaseUrl: "https://zhongyang.example",
 		createId: () => "authorization-family-001",
 		now: () => new Date("2026-09-09T01:00:00.000Z"),
-		fetcher: async () => {
+		fetcher: async (_url, init) => {
 			requestCount += 1;
+			if (requestCount === 2 && typeof init?.body === "string") {
+				foundationForwardBody = JSON.parse(init.body) as Record<
+					string,
+					unknown
+				>;
+			}
 			const data =
 				requestCount === 1
 					? {
@@ -100,6 +108,10 @@ test("授权查询按 family_pay_auth_no 判定亲情付并保存绑卡人身份
 		),
 	).resolves.toMatchObject({ authorizationId: "authorization-family-001" });
 	expect(requestCount).toBe(2);
+	expect(foundationForwardBody).toMatchObject({
+		base_url: "https://foundation.example",
+		path: "/mbs-fsi-jc/web/api/fsi/callService",
+	});
 	expect(storedAuthorization).toMatchObject({
 		payAuthNo: "AUTH-FAMILY-001",
 		payForRelatives: true,

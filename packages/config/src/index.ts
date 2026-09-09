@@ -47,6 +47,8 @@ export type RuntimeConfig = {
 	medicalInsuranceDirectBaseUrl: string | undefined;
 	/** 通用 FSI（1101）明文调用的 forward 目标；与 6201/6202 目标不同。 */
 	medicalInsuranceFoundationBaseUrl: string | undefined;
+	/** 通用 FSI（1101）在 forward 目标上的接口路径；切换渠道时需与 base URL 同步核对。 */
+	medicalInsuranceFoundationPath: string;
 	medicalInsuranceRelayAuthorizationToken: string | undefined;
 	medicalInsuranceAppId: string | undefined;
 	medicalInsuranceAppSecret: string | undefined;
@@ -997,6 +999,8 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		medicalInsuranceRelayUrl: optional(env.MBS_FORWARD_RELAY_URL),
 		medicalInsuranceDirectBaseUrl: optional(env.MBS_FORWARD_BASE_URL_6201),
 		medicalInsuranceFoundationBaseUrl: optional(env.MBS_FORWARD_BASE_URL),
+		medicalInsuranceFoundationPath:
+			optional(env.MBS_FORWARD_PATH) ?? "/mbs-fsi/web/api/fsi/callService",
 		medicalInsuranceRelayAuthorizationToken: optional(
 			env.MBS_FORWARD_AUTHORIZATION_TOKEN,
 		),

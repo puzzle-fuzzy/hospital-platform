@@ -69,6 +69,8 @@ export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	relayUrl: string;
 	relayAuthorizationToken: string;
 	foundationBaseUrl: string;
+	/** 1101 通用 FSI 路径；未配置时兼容既有高平路径。 */
+	foundationPath?: string;
 	zhongyangBaseUrl: string;
 	zhongyangAuthorizationToken?: string;
 	userQueryBaseUrl?: string;
@@ -102,6 +104,20 @@ function requiredConfig(value: string | undefined): string {
 		throw new AdapterNotConfiguredError("medical-insurance");
 	}
 	return value.trim();
+}
+
+function forwardPath(value: string | undefined): string {
+	const path = value?.trim() || DEFAULT_FOUNDATION_PATH;
+	if (
+		!path.startsWith("/") ||
+		path.startsWith("//") ||
+		path.includes("?") ||
+		path.includes("#") ||
+		/\s/u.test(path)
+	) {
+		throw new AdapterNotConfiguredError("medical-insurance");
+	}
+	return path;
 }
 
 function safeText(
@@ -1370,6 +1386,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 ): MedicalInsuranceGateway {
 	const relayUrl = absoluteUrl(options.relayUrl);
 	const foundationBaseUrl = absoluteUrl(options.foundationBaseUrl);
+	const foundationPath = forwardPath(options.foundationPath);
 	const zhongyangBaseUrl = absoluteUrl(options.zhongyangBaseUrl);
 	const relayAuthorizationToken = requiredConfig(
 		options.relayAuthorizationToken,
@@ -1853,7 +1870,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			"medical-insurance.1101",
 			context,
 			foundationBaseUrl,
-			DEFAULT_FOUNDATION_PATH,
+			foundationPath,
 			{
 				infno: "1101",
 				msgid: `${orgCode.slice(0, 12)}${dateTimeCompact(currentDate)}${Math.floor(

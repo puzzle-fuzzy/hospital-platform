@@ -424,6 +424,7 @@ const medicalInsuranceGateway =
 				relayAuthorizationToken:
 					config.medicalInsuranceRelayAuthorizationToken ?? "",
 				foundationBaseUrl: config.medicalInsuranceFoundationBaseUrl ?? "",
+				foundationPath: config.medicalInsuranceFoundationPath,
 				zhongyangBaseUrl: config.zhongyangBaseUrl,
 				...(config.zhongyangAuthorizationToken
 					? { zhongyangAuthorizationToken: config.zhongyangAuthorizationToken }

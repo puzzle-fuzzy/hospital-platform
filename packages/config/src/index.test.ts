@@ -36,6 +36,7 @@ test("runtime config defaults to safe development gates", () => {
 		wechatIdentityReady: false,
 		wechatPaymentReady: false,
 		medicalInsuranceReady: false,
+		medicalInsuranceFoundationPath: "/mbs-fsi/web/api/fsi/callService",
 		yunhealthRegistrationSettlementReady: false,
 		yunhealthRegistrationPaymentSource: "1",
 		yunhealthRegistrationAuthSysCode: "thirdSelfMachine",
@@ -109,6 +110,7 @@ test("runtime config trims secrets and parses explicit worker settings", () => {
 		DATABASE_URL: " mysql://localhost/hospital ",
 		WECHAT_PAYMENT_READY: "1",
 		WECHAT_PAY_API_V3_KEY: " api-v3-key ",
+		MBS_FORWARD_PATH: " /mbs-fsi-jc/web/api/fsi/callService ",
 	});
 
 	expect(config).toMatchObject({
@@ -118,6 +120,7 @@ test("runtime config trims secrets and parses explicit worker settings", () => {
 		workerPollIntervalMs: 5000,
 		databaseUrl: "mysql://localhost/hospital",
 		wechatPayApiV3Key: "api-v3-key",
+		medicalInsuranceFoundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
 	});
 });
 
