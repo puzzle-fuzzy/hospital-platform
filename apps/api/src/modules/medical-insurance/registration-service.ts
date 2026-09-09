@@ -230,55 +230,17 @@ export class MedicalInsuranceRegistrationService {
 		const selected = patients.find(
 			(candidate) => candidate.id === appointment.patientId,
 		);
-		if (!selected || selected.relationship === "unknown") {
+		if (!selected) {
 			throw new MedicalInsuranceRegistrationInputError(
-				"当前就诊人的亲属关系不明确，无法发起医保授权",
+				"当前预约的就诊人不存在，无法发起医保授权",
 			);
 		}
 		if (selected.relationship === "self") return { payForRelatives: false };
 
-		const selfPatients = patients.filter(
-			(candidate) => candidate.relationship === "self",
-		);
-		if (selfPatients.length !== 1 || !selfPatients[0]) {
-			throw new MedicalInsuranceRegistrationInputError(
-				"当前微信用户缺少唯一的本人就诊人档案，无法代亲属支付",
-			);
-		}
-		const { identity, patient } = await this.patient(
-			ownerUserId,
-			appointment,
-			context,
-		);
-		const payerReference =
-			await this.dependencies.patients.resolveProviderReference({
-				ownerUserId,
-				patientId: selfPatients[0].id,
-				provider: "zhongyang",
-				referenceKind: "directory",
-			});
-		if (
-			!payerReference ||
-			validatePatientProviderReference(payerReference, selfPatients[0].id)
-		) {
-			throw new MedicalInsuranceRegistrationInputError(
-				"本人就诊人缺少有效的众阳目录映射，无法代亲属支付",
-			);
-		}
-		// 提前验证支付人的实名档案可解析，避免用户完成亲情授权后才在下单处失败。
-		const payerUnionId = identity.unionId;
-		if (!payerUnionId) {
-			throw new MedicalInsuranceRegistrationInputError(
-				"微信身份缺少 unionId，无法代亲属支付",
-			);
-		}
-		await this.dependencies.patientProfile.resolve(
-			{
-				unionId: payerUnionId,
-				providerPatientId: payerReference.providerPatientId,
-			},
-			context,
-		);
+		// 上游目录可能不返回本人/亲属关系。微信官方允许这类机构统一按所选
+		// 就诊人拼接 familyid，授权查询再通过 pay_auth_no 与
+		// family_pay_auth_no 的实际非空字段判定本人或亲情付。
+		const { patient } = await this.patient(ownerUserId, appointment, context);
 		const patientName = patient.name.trim();
 		const patientIdNo = patient.idNo.trim().toUpperCase();
 		if (!patientName || patientIdNo.length < 4) {

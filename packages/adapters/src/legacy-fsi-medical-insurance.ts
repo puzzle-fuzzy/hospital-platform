@@ -1775,25 +1775,78 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			"medical-insurance.authorization.user-query",
 			queryResponse.requestId,
 		);
-		const payAuthNo =
-			findTextAnywhere(
-				queryResponse.data,
-				["pay_auth_no", "family_pay_auth_no", "auth_no"],
-				"medical-insurance.authorization.user-query",
+		const authorizationOperation = "medical-insurance.authorization.user-query";
+		const directPayAuthNo = findTextAnywhere(
+			queryResponse.data,
+			["pay_auth_no"],
+			authorizationOperation,
+			queryResponse.requestId,
+		);
+		const familyPayAuthNo = findTextAnywhere(
+			queryResponse.data,
+			["family_pay_auth_no"],
+			authorizationOperation,
+			queryResponse.requestId,
+		);
+		if (directPayAuthNo && familyPayAuthNo) {
+			throw responseError(
+				authorizationOperation,
+				"userQuery returned both direct and family authorization numbers",
 				queryResponse.requestId,
-			) ??
+			);
+		}
+		const fallbackPayAuthNo = findTextAnywhere(
+			queryResponse.data,
+			["auth_no"],
+			authorizationOperation,
+			queryResponse.requestId,
+		);
+		const payAuthNo =
+			directPayAuthNo ??
+			familyPayAuthNo ??
+			fallbackPayAuthNo ??
 			requiredText(
 				queryPayload,
 				["pay_auth_no", "family_pay_auth_no", "auth_no"],
-				"medical-insurance.authorization.user-query",
+				authorizationOperation,
 				queryResponse.requestId,
 			);
+		const payForRelatives = Boolean(familyPayAuthNo);
 		if (!/^AUTH/i.test(payAuthNo)) {
 			throw responseError(
-				"medical-insurance.authorization.user-query",
+				authorizationOperation,
 				"userQuery did not return a valid pay_auth_no",
 				queryResponse.requestId,
 			);
+		}
+		let payer: { idNo: string; userName: string; idType: string } | undefined;
+		if (payForRelatives) {
+			const payerName = findTextAnywhere(
+				queryResponse.data,
+				["user_name"],
+				authorizationOperation,
+				queryResponse.requestId,
+			);
+			const payerIdNo = findTextAnywhere(
+				queryResponse.data,
+				["user_card_no"],
+				authorizationOperation,
+				queryResponse.requestId,
+			)
+				?.replaceAll(/\s/g, "")
+				.toUpperCase();
+			if (
+				!payerName ||
+				!payerIdNo ||
+				!(/^\d{15}$/u.test(payerIdNo) || /^\d{17}[0-9X]$/u.test(payerIdNo))
+			) {
+				throw responseError(
+					authorizationOperation,
+					"family authorization did not return a valid payer identity",
+					queryResponse.requestId,
+				);
+			}
+			payer = { idNo: payerIdNo, userName: payerName, idType: "01" };
 		}
 
 		const infoResponse = await relayPost(
@@ -1979,11 +2032,13 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			medicalOrderId: input.orderId,
 			providerSubject: input.providerSubject,
 			payAuthNo,
+			payForRelatives,
 			patient: {
 				idNo: input.patient.idNo,
 				userName: input.patient.name,
 				idType: "01",
 			},
+			...(payer ? { payer } : {}),
 			psnNo,
 			insutype: returnedInsutype,
 			insuplcAdmdvs,

@@ -220,6 +220,73 @@ test("medical authorization resolves the directory reference instead of the HIS 
 	});
 });
 
+test("关系为空时按所选就诊人生成 familyid 并继续医保授权", async () => {
+	const service = new MedicalInsuranceRegistrationService({
+		orders: createInMemoryMedicalInsuranceOrderRepository(),
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: "appointment-unknown-001",
+				ownerUserId: "user-unknown-001",
+				patientId: "patient-unknown-001",
+				status: "booked",
+			}),
+		} as never,
+		patients: {
+			listByOwner: async () => [
+				{
+					id: "patient-unknown-001",
+					ownerUserId: "user-unknown-001",
+					relationship: "unknown",
+				},
+			],
+			resolveProviderReference: async () => ({
+				patientId: "patient-unknown-001",
+				provider: "zhongyang",
+				providerPatientId: "directory-unknown-001",
+			}),
+		} as never,
+		identityUsers: {
+			findByUserId: async () => ({
+				userId: "user-unknown-001",
+				providerSubject: "openid-unknown-001",
+				unionId: "union-unknown-001",
+			}),
+		} as never,
+		patientProfile: {
+			resolve: async () => ({
+				patient: {
+					providerPatientId: "his-unknown-001",
+					name: "选中儿童",
+					cardNo: "CARD-UNKNOWN-001",
+					idNo: "140581201501010011",
+					phone: "13800000000",
+				},
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-patient-profile",
+					requestId: "profile-unknown-001",
+				},
+			}),
+		} as never,
+		medicalInsurance: {} as never,
+		now: () => now,
+	});
+
+	await expect(
+		service.authorizationContext({
+			ownerUserId: "user-unknown-001",
+			appointmentId: "appointment-unknown-001",
+			context: {
+				traceId: "authorization-context-unknown-001",
+				idempotencyKey: "authorization-context-unknown-001",
+			},
+		}),
+	).resolves.toEqual({
+		payForRelatives: true,
+		familyId: "62725109a76555072ba458cf4e122aa4",
+	});
+});
+
 test("医保授权后尚未产生 6201 支付流水时可以直接作废订单", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(

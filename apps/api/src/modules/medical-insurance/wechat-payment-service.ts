@@ -3,7 +3,6 @@ import type {
 	MedicalInsuranceWechatPayPayload,
 } from "@hospital/contracts";
 import {
-	type AdapterCallContext,
 	type AppointmentPatientProfileGateway,
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
@@ -18,7 +17,6 @@ import {
 	medicalInsuranceOrderTypeForBusiness,
 	type PatientRepository,
 	type UserIdentityRepository,
-	validatePatientProviderReference,
 	type WechatPaymentNotification,
 } from "@hospital/domain";
 import {
@@ -200,8 +198,6 @@ export class MedicalInsuranceWechatPaymentService {
 	private async paymentIdentity(
 		order: MedicalInsuranceOrder,
 		authorization: MedicalInsuranceAuthorizationContext,
-		unionId: string | undefined,
-		context: AdapterCallContext,
 	): Promise<MedicalInsuranceWechatPaymentIdentity> {
 		const patients = await this.dependencies.patients.listByOwner(
 			order.ownerUserId,
@@ -209,53 +205,37 @@ export class MedicalInsuranceWechatPaymentService {
 		const patient = patients.find(
 			(candidate) => candidate.id === order.patientId,
 		);
-		if (!patient || patient.relationship === "unknown") {
+		if (!patient) {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
 		}
 		const selectedIdentity = {
 			name: authorization.patient.userName,
 			idNo: authorization.patient.idNo,
 		};
-		if (patient.relationship === "self") {
+		const payForRelatives = authorization.payForRelatives === true;
+		if (
+			(patient.relationship === "self" && payForRelatives) ||
+			(patient.relationship !== "self" &&
+				patient.relationship !== "unknown" &&
+				!payForRelatives)
+		) {
+			throw new MedicalInsuranceWechatPaymentNotAllowedError();
+		}
+		if (!payForRelatives) {
 			return {
 				payForRelatives: false,
 				payer: selectedIdentity,
 			};
 		}
-		if (!unionId || !this.dependencies.patientProfile) {
+		const payer = authorization.payer;
+		if (!payer?.userName.trim() || !payer.idNo.trim()) {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
 		}
-		const selfPatients = patients.filter(
-			(candidate) => candidate.relationship === "self",
-		);
-		if (selfPatients.length !== 1 || !selfPatients[0]) {
-			throw new MedicalInsuranceWechatPaymentNotAllowedError();
-		}
-		const payerReference =
-			await this.dependencies.patients.resolveProviderReference({
-				ownerUserId: order.ownerUserId,
-				patientId: selfPatients[0].id,
-				provider: "zhongyang",
-				referenceKind: "directory",
-			});
-		if (
-			!payerReference ||
-			validatePatientProviderReference(payerReference, selfPatients[0].id)
-		) {
-			throw new MedicalInsuranceWechatPaymentNotAllowedError();
-		}
-		const payerProfile = await this.dependencies.patientProfile.resolve(
-			{
-				unionId,
-				providerPatientId: payerReference.providerPatientId,
-			},
-			context,
-		);
 		return {
 			payForRelatives: true,
 			payer: {
-				name: payerProfile.patient.name,
-				idNo: payerProfile.patient.idNo,
+				name: payer.userName,
+				idNo: payer.idNo,
 			},
 			relative: selectedIdentity,
 		};
@@ -268,7 +248,6 @@ export class MedicalInsuranceWechatPaymentService {
 		authorization: MedicalInsuranceAuthorizationContext;
 		settlement: MedicalInsuranceSettlementContext;
 		openid: string;
-		unionId?: string;
 	}> {
 		if (!order.authorizationId || !order.payOrdId || !order.amounts) {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
@@ -292,7 +271,6 @@ export class MedicalInsuranceWechatPaymentService {
 			authorization,
 			settlement,
 			openid: identity.providerSubject,
-			...(identity.unionId ? { unionId: identity.unionId } : {}),
 		};
 	}
 
@@ -404,16 +382,11 @@ export class MedicalInsuranceWechatPaymentService {
 		const paymentPayOrdId = order.payOrdId as string;
 		const paymentMedOrgOrd = order.medOrgOrd;
 		const medicalOrderCreateTime = order.createdAt;
-		const { authorization, settlement, openid, unionId } = await this.contexts(
+		const { authorization, settlement, openid } = await this.contexts(
 			order,
 			ownerUserId,
 		);
-		const paymentIdentity = await this.paymentIdentity(
-			order,
-			authorization,
-			unionId,
-			input.context,
-		);
+		const paymentIdentity = await this.paymentIdentity(order, authorization);
 		const paymentOutTradeNo = order.wechatOutTradeNo ?? outTradeNo(orderId);
 		const paymentPrepayExpiresAt =
 			paymentAmounts.cashFen > 0

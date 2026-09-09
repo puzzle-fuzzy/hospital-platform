@@ -1735,7 +1735,9 @@ export function createInMemoryMedicalInsuranceAuthorizationRepository(
 					JSON.stringify({
 						providerSubject: input.providerSubject,
 						payAuthNo: input.payAuthNo,
+						payForRelatives: input.payForRelatives === true,
 						patient: input.patient,
+						...(input.payer ? { payer: input.payer } : {}),
 						psnNo: input.psnNo,
 						insutype: input.insutype,
 						insuplcAdmdvs: input.insuplcAdmdvs,

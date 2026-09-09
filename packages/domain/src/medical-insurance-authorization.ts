@@ -11,7 +11,20 @@ export type MedicalInsuranceAuthorizationContext = {
 	medicalOrderId: string;
 	providerSubject: string;
 	payAuthNo: string;
+	/**
+	 * 授权查询实际返回的是本人授权号还是亲情授权号。
+	 *
+	 * 旧密文没有该字段，读取时按本人授权兼容；新授权必须由 adapter 根据
+	 * pay_auth_no / family_pay_auth_no 的非空来源写入，不能由就诊人目录关系猜测。
+	 */
+	payForRelatives?: boolean;
 	patient: {
+		idNo: string;
+		userName: string;
+		idType: string;
+	};
+	/** 亲情授权时由授权查询返回的当前绑卡人实名信息。 */
+	payer?: {
 		idNo: string;
 		userName: string;
 		idType: string;

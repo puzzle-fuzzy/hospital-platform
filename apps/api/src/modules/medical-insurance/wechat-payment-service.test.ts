@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import type {
+	MedicalInsuranceAuthorizationContext,
 	MedicalInsuranceOrder,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceWechatPaymentGateway,
+	MedicalInsuranceWechatPaymentIdentity,
 } from "@hospital/domain";
 import { type AppLogger, createLogger } from "@hospital/observability";
 import {
@@ -235,7 +237,75 @@ test("医保混合回调只唤醒持久化查单任务，不在回调内访问 P
 	);
 });
 
-test("亲属混合支付使用当前微信本人作为付款人并使用选中就诊人作为亲属", async () => {
+test("关系为空但授权查询返回本人授权号时按本人支付", async () => {
+	const patients = createInMemoryPatientRepository();
+	await patients.upsertFromDirectory({
+		ownerUserId: "user-unknown-direct-001",
+		patientId: "patient-unknown-direct-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-unknown-direct-001",
+			displayName: "本人就诊人",
+			relationship: "unknown",
+			cardNumberMasked: "******1234",
+		},
+	});
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders: {} as never,
+		queryTasks: {} as never,
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients,
+		wechatPayment: {} as never,
+		confirmCashPayment: async () => {
+			throw new Error("not used");
+		},
+	});
+	const authorization: MedicalInsuranceAuthorizationContext = {
+		authorizationId: "authorization-unknown-direct-001",
+		ownerUserId: "user-unknown-direct-001",
+		medicalOrderId: "order-unknown-direct-001",
+		providerSubject: "openid-unknown-direct-001",
+		payAuthNo: "AUTH-DIRECT-001",
+		payForRelatives: false,
+		patient: {
+			idNo: "140581198001011234",
+			userName: "本人就诊人",
+			idType: "01",
+		},
+		psnNo: "psn-unknown-direct-001",
+		insutype: "310",
+		insuplcAdmdvs: "140581",
+		insuCode: "140581",
+		expiresAt: "2026-09-08T09:00:00.000Z",
+		createdAt: now,
+	};
+	const paymentIdentity = await (
+		service as unknown as {
+			paymentIdentity: (
+				order: MedicalInsuranceOrder,
+				authorization: MedicalInsuranceAuthorizationContext,
+			) => Promise<MedicalInsuranceWechatPaymentIdentity>;
+		}
+	).paymentIdentity(
+		order({
+			medicalOrderId: "order-unknown-direct-001",
+			ownerUserId: "user-unknown-direct-001",
+			patientId: "patient-unknown-direct-001",
+		}),
+		authorization,
+	);
+
+	expect(paymentIdentity).toEqual({
+		payForRelatives: false,
+		payer: {
+			name: "本人就诊人",
+			idNo: "140581198001011234",
+		},
+	});
+});
+
+test("关系为空的亲情授权使用授权返回的绑卡人作为付款人", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -269,9 +339,15 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		medicalOrderId: "wechat-query-001",
 		providerSubject: "openid-relative-001",
 		payAuthNo: "pay-auth-relative-001",
+		payForRelatives: true,
 		patient: {
 			idNo: "140581201501010011",
 			userName: "选中儿童",
+			idType: "01",
+		},
+		payer: {
+			idNo: "140581198001010022",
+			userName: "当前微信本人",
 			idType: "01",
 		},
 		psnNo: "psn-relative-001",
@@ -300,7 +376,7 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		profile: {
 			providerPatientId: "provider-relative-001",
 			displayName: "选中儿童",
-			relationship: "child",
+			relationship: "unknown",
 			cardNumberMasked: "******0011",
 		},
 	});
@@ -319,25 +395,8 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		]),
 		patients,
 		patientProfile: {
-			resolve: async (input) => {
-				expect(input).toEqual({
-					unionId: "union-relative-001",
-					providerPatientId: "provider-self-001",
-				});
-				return {
-					patient: {
-						providerPatientId: "provider-self-001",
-						name: "当前微信本人",
-						cardNo: "CARD-SELF-001",
-						idNo: "140581198001010022",
-						phone: "13800000000",
-					},
-					trace: {
-						provider: "zhongyang",
-						operation: "appointment-patient-profile",
-						requestId: "profile-relative-001",
-					},
-				};
+			resolve: async () => {
+				throw new Error("支付人身份应来自医保授权查询，不应再次猜测本人档案");
 			},
 		},
 		wechatPayment: {

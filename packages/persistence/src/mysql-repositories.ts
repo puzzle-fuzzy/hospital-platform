@@ -676,8 +676,10 @@ function deserializeMedicalInsuranceAuthorizationPayload(
 	}
 	const candidate = parsed as {
 		payAuthNo?: unknown;
+		payForRelatives?: unknown;
 		providerSubject?: unknown;
 		patient?: unknown;
+		payer?: unknown;
 		psnNo?: unknown;
 		insutype?: unknown;
 		insuplcAdmdvs?: unknown;
@@ -685,6 +687,8 @@ function deserializeMedicalInsuranceAuthorizationPayload(
 	};
 	if (
 		typeof candidate.payAuthNo !== "string" ||
+		(candidate.payForRelatives !== undefined &&
+			typeof candidate.payForRelatives !== "boolean") ||
 		typeof candidate.providerSubject !== "string" ||
 		typeof candidate.patient !== "object" ||
 		candidate.patient === null ||
@@ -707,6 +711,27 @@ function deserializeMedicalInsuranceAuthorizationPayload(
 		typeof patient.idType !== "string"
 	) {
 		throw new Error("Medical insurance authorization payload is invalid");
+	}
+	if (candidate.payer !== undefined) {
+		if (
+			typeof candidate.payer !== "object" ||
+			candidate.payer === null ||
+			Array.isArray(candidate.payer)
+		) {
+			throw new Error("Medical insurance authorization payload is invalid");
+		}
+		const payer = candidate.payer as {
+			idNo?: unknown;
+			userName?: unknown;
+			idType?: unknown;
+		};
+		if (
+			typeof payer.idNo !== "string" ||
+			typeof payer.userName !== "string" ||
+			typeof payer.idType !== "string"
+		) {
+			throw new Error("Medical insurance authorization payload is invalid");
+		}
 	}
 	return parsed as MedicalInsuranceAuthorizationPayload;
 }
@@ -4060,7 +4085,9 @@ export function createMySqlRepositories(
 				const payload = JSON.stringify({
 					providerSubject: input.providerSubject,
 					payAuthNo: input.payAuthNo,
+					payForRelatives: input.payForRelatives === true,
 					patient: input.patient,
+					...(input.payer ? { payer: input.payer } : {}),
 					psnNo: input.psnNo,
 					insutype: input.insutype,
 					insuplcAdmdvs: input.insuplcAdmdvs,
