@@ -95,7 +95,12 @@ test("聚合器统计有界多请求 provider trace 并去重", () => {
 	expect(summary.providerRequestIdCount).toBe(3);
 });
 
-test("支持 journald -o json 的 MESSAGE envelope，并忽略已知 systemd 控制消息", () => {
+test("支持 journald --all -o json 的文本和字节 MESSAGE envelope", () => {
+	const binaryMessage = JSON.stringify({
+		event: "provider.response.raw",
+		traceId: "trace-provider-binary-envelope",
+		providerResponseBodyText: "含 C1 控制字符：\u0093",
+	});
 	const summary = aggregateLines([
 		JSON.stringify({
 			_SYSTEMD_UNIT: "hospital-platform-api-v2.service",
@@ -112,14 +117,19 @@ test("支持 journald -o json 的 MESSAGE envelope，并忽略已知 systemd 控
 			_SYSTEMD_UNIT: "hospital-platform-api-v2.service",
 			MESSAGE: "systemd 未知文本不应被静默吞掉",
 		}),
+		JSON.stringify({
+			_SYSTEMD_UNIT: "hospital-platform-api-v2.service",
+			MESSAGE: Array.from(new TextEncoder().encode(binaryMessage)),
+		}),
 	]);
 
-	expect(summary.parsedRecords).toBe(1);
+	expect(summary.parsedRecords).toBe(2);
 	expect(summary.parseErrors).toBe(1);
 	expect(summary.ignoredControlLines).toBe(1);
 	expect(summary.eventCounts["auth.wechat.login.succeeded"]).toBe(1);
-	expect(summary.traceIdCount).toBe(1);
-	expect(summary.correlation.chainCount).toBe(1);
+	expect(summary.eventCounts["provider.response.raw"]).toBe(1);
+	expect(summary.traceIdCount).toBe(2);
+	expect(summary.correlation.chainCount).toBe(2);
 	expect(summary.correlation.missingCount).toBe(0);
 });
 

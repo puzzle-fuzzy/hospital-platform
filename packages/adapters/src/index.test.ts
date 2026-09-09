@@ -3,8 +3,8 @@ import {
 	AdapterNotConfiguredError,
 	createFixtureMedicalInsuranceGateway,
 	createNotConfiguredGateways,
-	requestJson,
 	type ProviderRequestLogger,
+	requestJson,
 } from "./index";
 
 const context = {
@@ -159,6 +159,80 @@ test("provider HTTP boundary records exact business codes and raw responses", as
 			providerResponseBodyText: expect.stringContaining("trade-payment@0008"),
 			providerResponseBodyTextChunkIndex: 0,
 			providerResponseBodyTextChunkCount: 1,
+		});
+	} finally {
+		if (previousRawLogging === undefined) {
+			delete Bun.env.PROVIDER_RAW_LOGGING;
+		} else {
+			Bun.env.PROVIDER_RAW_LOGGING = previousRawLogging;
+		}
+	}
+});
+
+test("provider raw response chunks stay journald-queryable and preserve unsafe unicode", async () => {
+	const previousRawLogging = Bun.env.PROVIDER_RAW_LOGGING;
+	const logs: Array<Record<string, unknown>> = [];
+	const logger: ProviderRequestLogger = {
+		info(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+		warn(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+		error(bindings) {
+			logs.push(bindings as Record<string, unknown>);
+		},
+	};
+	Bun.env.PROVIDER_RAW_LOGGING = "true";
+	const rawBody = JSON.stringify({
+		success: false,
+		code: "360053",
+		message: `\u0093${"医保外部服务返回".repeat(900)}\u2028`,
+	});
+
+	try {
+		await requestJson(
+			{
+				provider: "medical-insurance",
+				operation: "6201",
+				url: "https://provider.invalid/6201",
+				method: "POST",
+				context,
+				body: { orderId: "order-001" },
+				logger,
+			},
+			async () => new Response(rawBody, { status: 200 }),
+		);
+
+		const rawChunks = logs
+			.filter((entry) => entry.event === "provider.response.raw")
+			.sort(
+				(left, right) =>
+					Number(left.providerResponseBodyTextChunkIndex) -
+					Number(right.providerResponseBodyTextChunkIndex),
+			);
+		expect(rawChunks.length).toBeGreaterThan(1);
+		for (const [index, entry] of rawChunks.entries()) {
+			expect(entry.providerResponseBodyTextEncoding).toBe("json-string-v1");
+			expect(entry.providerResponseBodyTextChunkIndex).toBe(index);
+			expect(entry.providerResponseBodyTextChunkCount).toBe(rawChunks.length);
+			const serialized = JSON.stringify(entry);
+			expect(new TextEncoder().encode(serialized).byteLength).toBeLessThan(
+				4_096,
+			);
+			expect(serialized).not.toMatch(
+				/[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Zl}\p{Zp}]/u,
+			);
+		}
+
+		const encoded = rawChunks
+			.map((entry) => String(entry.providerResponseBodyText ?? ""))
+			.join("");
+		expect(JSON.parse(encoded)).toBe(rawBody);
+		expect(rawChunks[0]).toMatchObject({
+			providerResponseBodyTextByteLength: new TextEncoder().encode(rawBody)
+				.byteLength,
+			providerResponseBodyTextSha256: expect.any(String),
 		});
 	} finally {
 		if (previousRawLogging === undefined) {

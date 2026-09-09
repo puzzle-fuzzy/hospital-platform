@@ -6,6 +6,8 @@ const MAX_DISTINCT_LABELS = 200;
 const MAX_CORRELATION_CHAINS = 256;
 /** 与 domain trace contract 对齐，防止异常日志数组消耗无界聚合资源。 */
 const MAX_PROVIDER_REQUEST_IDS = 8;
+/** journald `--all -o json` 的二进制 MESSAGE 仍需有界解码。 */
+const MAX_JOURNAL_MESSAGE_BYTES = 1_000_000;
 
 /**
  * P0 日志聚合只消费 journald 导出的 JSONL，不参与业务请求，也不改变线上状态。
@@ -114,19 +116,36 @@ function parseInputRecord(line) {
 		return { kind: "error" };
 	}
 
-	if (
-		parsed &&
-		typeof parsed === "object" &&
-		!Array.isArray(parsed) &&
-		typeof parsed.MESSAGE === "string"
-	) {
-		const message = parsed.MESSAGE.replace(/^\uFEFF/u, "");
-		try {
-			parsed = JSON.parse(message);
-		} catch {
-			const journalLine = classifyJournalLine(message.trim());
-			if (journalLine) return journalLine;
-			return { kind: "error" };
+	if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+		let message = null;
+		if (typeof parsed.MESSAGE === "string") {
+			message = parsed.MESSAGE;
+		} else if (
+			Array.isArray(parsed.MESSAGE) &&
+			parsed.MESSAGE.length <= MAX_JOURNAL_MESSAGE_BYTES &&
+			parsed.MESSAGE.every(
+				(value) => Number.isInteger(value) && value >= 0 && value <= 255,
+			)
+		) {
+			try {
+				message = new TextDecoder("utf-8", { fatal: true }).decode(
+					Uint8Array.from(parsed.MESSAGE),
+				);
+			} catch {
+				return { kind: "error" };
+			}
+		}
+		if (message === null) {
+			if ("MESSAGE" in parsed) return { kind: "error" };
+		} else {
+			message = message.replace(/^\uFEFF/u, "");
+			try {
+				parsed = JSON.parse(message);
+			} catch {
+				const journalLine = classifyJournalLine(message.trim());
+				if (journalLine) return journalLine;
+				return { kind: "error" };
+			}
 		}
 	}
 

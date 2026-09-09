@@ -10,7 +10,18 @@ const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000;
  * 一条过大的 JSON 日志被采集器静默丢弃。块按 index/total/hash 关联，仍可
  * 在日志平台按 traceId + event 重组为完整报文。
  */
-const RAW_LOG_CHUNK_LENGTH = 8_000;
+const RAW_LOG_CHUNK_MAX_JSON_BYTES = 1_500;
+
+/**
+ * journald 会把含 C1/格式/私用区等不可打印 Unicode 的 MESSAGE 导出为字节
+ * 数组；常用的 `.MESSAGE | fromjson` 随后会把整条 raw 事件漏掉。仅在原文
+ * 含这类字符时改用 JSON string literal 编码，拼接所有 chunk 后执行一次
+ * `JSON.parse` 即可无损还原原文。
+ */
+const JOURNAL_UNSAFE_CHARACTER =
+	/[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Zl}\p{Zp}]/u;
+const JOURNAL_UNSAFE_SERIALIZED_CHARACTER =
+	/[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Zl}\p{Zp}]/gu;
 
 /**
  * Provider 响应关联号的公共边界。
@@ -275,15 +286,51 @@ function emitRawBodyLog(
 	body: string,
 	message: string,
 ): void {
+	const textEncoder = new TextEncoder();
+	const encoding = JOURNAL_UNSAFE_CHARACTER.test(body)
+		? "json-string-v1"
+		: "plain";
+	const encodedBody =
+		encoding === "json-string-v1"
+			? JSON.stringify(body).replace(
+					JOURNAL_UNSAFE_SERIALIZED_CHARACTER,
+					(character) => {
+						const codePoint = character.codePointAt(0) ?? 0;
+						if (codePoint <= 0xffff) {
+							return `\\u${codePoint.toString(16).padStart(4, "0")}`;
+						}
+						const supplementary = codePoint - 0x10000;
+						const high = 0xd800 + (supplementary >> 10);
+						const low = 0xdc00 + (supplementary & 0x3ff);
+						return `\\u${high.toString(16)}\\u${low.toString(16)}`;
+					},
+				)
+			: body;
 	const chunks: string[] = [];
-	if (body.length === 0) {
+	if (encodedBody.length === 0) {
 		chunks.push("");
 	} else {
-		for (let offset = 0; offset < body.length; offset += RAW_LOG_CHUNK_LENGTH) {
-			chunks.push(body.slice(offset, offset + RAW_LOG_CHUNK_LENGTH));
+		let chunk = "";
+		let chunkJsonBytes = 2;
+		for (const character of encodedBody) {
+			const serializedCharacter = JSON.stringify(character).slice(1, -1);
+			const characterJsonBytes =
+				textEncoder.encode(serializedCharacter).byteLength;
+			if (
+				chunk &&
+				chunkJsonBytes + characterJsonBytes > RAW_LOG_CHUNK_MAX_JSON_BYTES
+			) {
+				chunks.push(chunk);
+				chunk = "";
+				chunkJsonBytes = 2;
+			}
+			chunk += character;
+			chunkJsonBytes += characterJsonBytes;
 		}
+		if (chunk) chunks.push(chunk);
 	}
-	const byteLength = new TextEncoder().encode(body).byteLength;
+	const byteLength = textEncoder.encode(body).byteLength;
+	const encodedByteLength = textEncoder.encode(encodedBody).byteLength;
 	const bodySha256 = shortSha256(body);
 	for (const [index, chunk] of chunks.entries()) {
 		emitProviderLog(
@@ -292,9 +339,11 @@ function emitRawBodyLog(
 			{
 				...bindings,
 				[bodyField]: chunk,
+				[`${bodyField}Encoding`]: encoding,
 				[`${bodyField}ChunkIndex`]: index,
 				[`${bodyField}ChunkCount`]: chunks.length,
 				[`${bodyField}ByteLength`]: byteLength,
+				[`${bodyField}EncodedByteLength`]: encodedByteLength,
 				[`${bodyField}Sha256`]: bodySha256,
 			},
 			message,
