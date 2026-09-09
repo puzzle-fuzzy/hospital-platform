@@ -114,6 +114,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		};
 	const medicalInsuranceWechatPayment: MedicalInsuranceWechatPaymentGateway = {
 		createMixedOrder: async (_input, _context) => unavailable("wechat-pay"),
+		recoverMixedOrder: async (_input, _context) => unavailable("wechat-pay"),
 		queryMixedOrder: async (_input, _context) => unavailable("wechat-pay"),
 	};
 

@@ -85,8 +85,8 @@ const miniprogramSource = (
 
 /**
  * 旧端源码已确认两个固定 H5 入口：互联网医院主 Tab 和默认智能客服；另有
- * 一个固定的医保电子凭证小程序入口。它们不等于开放通用外链；每个入口都
- * 必须通过自己的固定目标校验，其他页面仍全部禁止外部跳转。
+ * 固定的医保电子凭证入口和受服务端预约约束的医保授权入口。它们不等于
+ * 开放通用外链；每个入口都必须通过自己的固定目标校验。
  */
 const internetHospitalScript = await readSource(
 	"apps/miniprogram/src/pages/hospital/hospital.ts",
@@ -103,6 +103,24 @@ const smartCustomerTemplate = await readSource(
 const insuranceVoucherNavigationSource = await readSource(
 	"apps/miniprogram/src/services/insurance-voucher-navigation.ts",
 );
+const medicalInsuranceNavigationSource = await readSource(
+	"apps/miniprogram/src/services/medical-insurance.ts",
+);
+const medicalCashierScript = await readSource(
+	"apps/miniprogram/src/pages/medical-cashier/medical-cashier.ts",
+);
+const medicalCashierTemplate = await readSource(
+	"apps/miniprogram/src/pages/medical-cashier/medical-cashier.wxml",
+);
+const medicalAuthorizationNavigationSource =
+	medicalInsuranceNavigationSource.slice(
+		medicalInsuranceNavigationSource.indexOf(
+			"export async function navigateToMedicalAuth",
+		),
+		medicalInsuranceNavigationSource.indexOf(
+			"export async function startMedicalPayment",
+		),
+	);
 const miniprogramSourceWithoutBoundedExternalEntries = (
 	await Promise.all(
 		miniprogramProductionSourceFiles
@@ -112,6 +130,8 @@ const miniprogramSourceWithoutBoundedExternalEntries = (
 						"apps/miniprogram/src/pages/hospital/hospital.wxml",
 						"apps/miniprogram/src/pages/smart-customer/smart-customer.wxml",
 						"apps/miniprogram/src/services/insurance-voucher-navigation.ts",
+						"apps/miniprogram/src/services/medical-insurance.ts",
+						"apps/miniprogram/src/pages/medical-cashier/medical-cashier.wxml",
 						"apps/miniprogram/src/app.json",
 					].includes(file),
 			)
@@ -167,6 +187,47 @@ const insuranceVoucherNavigationIsBounded =
 	(sources["apps/miniprogram/src/app.json"] ?? "").includes(
 		'"wx81ce904580cc0ff1"',
 	);
+const medicalAuthorizationNavigationIsBounded =
+	medicalAuthorizationNavigationSource.includes("assertMedicalConfig();") &&
+	medicalAuthorizationNavigationSource.includes(
+		"await medicalAuthorizationContext(appointmentId)",
+	) &&
+	medicalInsuranceNavigationSource.includes(
+		"`/payments/medical-insurance/appointments/" +
+			"$" +
+			"{encodeURIComponent(appointmentId)}/authorization-context`",
+	) &&
+	medicalAuthorizationNavigationSource.includes(
+		"`&familyid=" +
+			"$" +
+			"{encodeURIComponent(authorizationContext.familyId)}`",
+	) &&
+	medicalAuthorizationNavigationSource.includes("wx.navigateToMiniProgram({") &&
+	medicalAuthorizationNavigationSource.includes(
+		"appId: MEDICAL_INSURANCE_CONFIG.medicalAppId",
+	) &&
+	["decodeURIComponent", "patientId", "openid", "unionId", "url:"].every(
+		(fragment) => !medicalAuthorizationNavigationSource.includes(fragment),
+	) &&
+	(sources["apps/miniprogram/src/config.ts"] ?? "").includes(
+		'medicalAppId: "wxe183cd55df4b4369"',
+	) &&
+	(sources["apps/miniprogram/src/app.json"] ?? "").includes(
+		'"wxe183cd55df4b4369"',
+	);
+const legacyMedicalCashierWebViewIsBounded =
+	(medicalCashierTemplate.match(/<web-view\b/gu) ?? []).length === 1 &&
+	medicalCashierTemplate.includes(
+		'<web-view wx:if="{{cashierUrl}}" src="{{cashierUrl}}" binderror="onWebViewError">',
+	) &&
+	medicalCashierScript.includes('pending?.phase === "medical_cashier"') &&
+	medicalCashierScript.includes("!/^https:\\/\\//iu.test(url)") &&
+	medicalCashierScript.includes("url.length > 2048") &&
+	[
+		"decodeURIComponent",
+		"navigateToMiniProgram",
+		"openEmbeddedMiniProgram",
+	].every((fragment) => !medicalCashierScript.includes(fragment));
 
 /** 每条规则都有稳定名称，方便 CI 失败后按规则定位，而不是只看总分。 */
 const checks = [];
@@ -429,8 +490,8 @@ for (const forbidden of [
 
 /**
  * 外部小程序和 WebView 不是普通页面跳转：它们需要明确的目标、受众、参数
- * 和失败边界。互联网医院、默认智能客服和医保电子凭证是旧端已确认的固定
- * 入口，因此仅允许这三处通过专门校验；其他页面仍必须保持无外部入口。
+ * 和失败边界。互联网医院、默认智能客服、医保电子凭证和医保授权均使用
+ * 专门校验；其他页面仍必须保持无外部入口。
  */
 check(
 	"miniprogram.no-unverified-external-entry",
@@ -440,8 +501,10 @@ check(
 	),
 	internetHospitalWebViewIsBounded &&
 		smartCustomerWebViewIsBounded &&
-		insuranceVoucherNavigationIsBounded,
-	"仅允许互联网医院、默认智能客服固定 H5 和医保电子凭证固定小程序入口；其他外部入口必须经过独立安全审计。",
+		insuranceVoucherNavigationIsBounded &&
+		medicalAuthorizationNavigationIsBounded &&
+		legacyMedicalCashierWebViewIsBounded,
+	"仅允许互联网医院、默认智能客服、医保电子凭证、受服务端预约约束的医保授权和旧订单兼容收银台入口；其他外部入口必须经过独立安全审计。",
 );
 
 /**

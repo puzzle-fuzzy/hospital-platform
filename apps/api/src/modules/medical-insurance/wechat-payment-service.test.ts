@@ -6,13 +6,15 @@ import type {
 } from "@hospital/domain";
 import { type AppLogger, createLogger } from "@hospital/observability";
 import {
+	createInMemoryIdentityUserRepository,
+	createInMemoryMedicalInsuranceAuthorizationRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
 	createInMemoryPatientRepository,
 } from "@hospital/persistence";
 import {
-	MedicalInsuranceWechatPaymentNotAllowedError,
 	MedicalInsuranceWechatPaymentService,
+	MedicalInsuranceWechatPrepayExpiredError,
 } from "./wechat-payment-service";
 
 const now = "2026-09-08T08:00:00.000Z";
@@ -89,6 +91,7 @@ test("医保查单失败原因会持久化并透传给支付小程序", async ()
 	const service = makeService(
 		orders,
 		{
+			mixState: "failed",
 			cashState: "paid",
 			insuranceState: "failed",
 			medInsPayStatus: "MED_INS_PAY_FAIL",
@@ -139,6 +142,7 @@ test("自费失败不会产生医保失败原因字段", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(order({ medInsFailReason: "旧医保失败原因" }));
 	const service = makeService(orders, {
+		mixState: "failed",
 		cashState: "failed",
 		insuranceState: "paid",
 		medInsPayStatus: "MED_INS_PAY_SUCCESS",
@@ -214,6 +218,7 @@ test("医保混合回调只唤醒持久化查单任务，不在回调内访问 P
 			outTradeNo: "out-query-001",
 			totalFen: 1000,
 			cashFen: 200,
+			mixPayType: "CASH_AND_INSURANCE",
 			selfPayStatus: "SELF_PAY_SUCCESS",
 			medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS",
 			receivedAt: now,
@@ -230,54 +235,244 @@ test("医保混合回调只唤醒持久化查单任务，不在回调内访问 P
 	);
 });
 
-test("新建亲属或儿童混合支付在任何 Provider 请求前被拒绝", async () => {
+test("亲属混合支付使用当前微信本人作为付款人并使用选中就诊人作为亲属", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
+			authorizationId: "authorization-relative-001",
 			wechatMixTradeNo: null,
 			wechatOutTradeNo: null,
 			wechatPaymentState: "not_started",
 		}),
 	);
-	let providerCalls = 0;
+	await orders.saveSettlementContext(
+		"user-wechat-query-001",
+		"wechat-query-001",
+		{
+			businessId: "appointment-wechat-query-001",
+			hospitalId: "hospital-relative-001",
+			patientId: "provider-relative-001",
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: [],
+			payingId: "paying-relative-001",
+			tradingId: "trading-relative-001",
+		},
+	);
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	await authorizations.put({
+		authorizationId: "authorization-relative-001",
+		ownerUserId: "user-wechat-query-001",
+		medicalOrderId: "wechat-query-001",
+		providerSubject: "openid-relative-001",
+		payAuthNo: "pay-auth-relative-001",
+		patient: {
+			idNo: "140581201501010011",
+			userName: "选中儿童",
+			idType: "01",
+		},
+		psnNo: "psn-relative-001",
+		insutype: "310",
+		insuplcAdmdvs: "140500",
+		insuCode: "insu-relative-001",
+		expiresAt: "2026-09-08T09:00:00.000Z",
+		createdAt: now,
+	});
+	const patients = createInMemoryPatientRepository();
+	await patients.upsertFromDirectory({
+		ownerUserId: "user-wechat-query-001",
+		patientId: "patient-self-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-self-001",
+			displayName: "当前微信本人",
+			relationship: "self",
+			cardNumberMasked: "******0022",
+		},
+	});
+	await patients.upsertFromDirectory({
+		ownerUserId: "user-wechat-query-001",
+		patientId: "patient-wechat-query-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-relative-001",
+			displayName: "选中儿童",
+			relationship: "child",
+			cardNumberMasked: "******0011",
+		},
+	});
+	let paymentIdentity: unknown;
+	const recoverFirstValues: Array<boolean | undefined> = [];
 	const service = new MedicalInsuranceWechatPaymentService({
 		orders,
 		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
-		authorizations: {} as never,
-		identityUsers: {} as never,
-		patients: createInMemoryPatientRepository([
+		authorizations,
+		identityUsers: createInMemoryIdentityUserRepository([
 			{
-				id: "patient-wechat-query-001",
-				ownerUserId: "user-wechat-query-001",
-				displayName: "测试儿童",
-				relationship: "child",
-				cardNumberMasked: "******0001",
-				source: "hospital-his",
-				clinicalAccess: "ready",
+				userId: "user-wechat-query-001",
+				providerSubject: "openid-relative-001",
+				unionId: "union-relative-001",
 			},
 		]),
+		patients,
+		patientProfile: {
+			resolve: async (input) => {
+				expect(input).toEqual({
+					unionId: "union-relative-001",
+					providerPatientId: "provider-self-001",
+				});
+				return {
+					patient: {
+						providerPatientId: "provider-self-001",
+						name: "当前微信本人",
+						cardNo: "CARD-SELF-001",
+						idNo: "140581198001010022",
+						phone: "13800000000",
+					},
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-patient-profile",
+						requestId: "profile-relative-001",
+					},
+				};
+			},
+		},
 		wechatPayment: {
-			createMixedOrder: async () => {
-				providerCalls += 1;
-				throw new Error("child payment must not reach WeChat");
+			createMixedOrder: async (
+				input: Parameters<
+					MedicalInsuranceWechatPaymentGateway["createMixedOrder"]
+				>[0],
+			) => {
+				paymentIdentity = input.paymentIdentity;
+				recoverFirstValues.push(input.recoverFirst);
+				return {
+					mixTradeNo: "mix-relative-001",
+					prepayId: "prepay-relative-001",
+					payParams: {
+						timeStamp: "1786752000",
+						nonceStr: "nonce-relative-001",
+						package: "prepay_id=prepay-relative-001",
+						signType: "RSA",
+						paySign: "signature-relative-001",
+						mixTradeNo: "mix-relative-001",
+					},
+					cashFen: 200,
+					trace: {
+						provider: "wechat-pay",
+						operation: "medical-mix-create",
+						requestId: "wechat-relative-001",
+					},
+				};
 			},
 		} as unknown as MedicalInsuranceWechatPaymentGateway,
 		confirmCashPayment: async () => {
-			throw new Error("child payment must not complete");
+			throw new Error("payment creation must not complete HIS");
+		},
+		now: () => new Date(now),
+	});
+
+	await service.create({
+		ownerUserId: "user-wechat-query-001",
+		orderId: "wechat-query-001",
+		context: {
+			traceId: "relative-payment-trace-001",
+			idempotencyKey: "relative-payment-request-001",
 		},
 	});
+	expect(paymentIdentity).toEqual({
+		payForRelatives: true,
+		payer: {
+			name: "当前微信本人",
+			idNo: "140581198001010022",
+		},
+		relative: {
+			name: "选中儿童",
+			idNo: "140581201501010011",
+		},
+	});
+	expect(recoverFirstValues).toEqual([undefined]);
+	const firstStored = await orders.findByMedicalOrderId("wechat-query-001");
+	expect(firstStored).toMatchObject({
+		wechatOutTradeNo: expect.stringMatching(/^MIP/u),
+		wechatPaymentState: "prepay_ready",
+		wechatPrepayExpiresAt: "2026-09-08T10:00:00.000Z",
+	});
+	if (!firstStored) throw new Error("created medical order was not persisted");
+	if (!firstStored.wechatOutTradeNo) {
+		throw new Error("created medical order did not persist out_trade_no");
+	}
+	const reset = await orders.applySettlement(
+		firstStored.medicalOrderId,
+		firstStored.version,
+		{
+			status: firstStored.status,
+			ordStas: firstStored.ordStas,
+			amounts: firstStored.amounts,
+			setlType: firstStored.setlType,
+			revsTokenHash: firstStored.revsTokenHash,
+			revsTokenExpiresAt: firstStored.revsTokenExpiresAt,
+			wechatMixTradeNo: null,
+			wechatOutTradeNo: firstStored.wechatOutTradeNo,
+			wechatPayParams: null,
+			wechatPrepayExpiresAt: null,
+			wechatPaymentState: "unknown",
+		},
+	);
+	if (!reset) throw new Error("medical order recovery fixture was not reset");
+
+	await service.create({
+		ownerUserId: "user-wechat-query-001",
+		orderId: "wechat-query-001",
+		context: {
+			traceId: "relative-payment-recovery-trace-001",
+			idempotencyKey: "relative-payment-recovery-request-001",
+		},
+	});
+	expect(recoverFirstValues).toEqual([undefined, true]);
+
+	const recoveredStored = await orders.findByMedicalOrderId("wechat-query-001");
+	if (!recoveredStored?.wechatOutTradeNo) {
+		throw new Error("recovered medical order was not persisted");
+	}
+	const expiredReset = await orders.applySettlement(
+		recoveredStored.medicalOrderId,
+		recoveredStored.version,
+		{
+			status: recoveredStored.status,
+			ordStas: recoveredStored.ordStas,
+			amounts: recoveredStored.amounts,
+			setlType: recoveredStored.setlType,
+			revsTokenHash: recoveredStored.revsTokenHash,
+			revsTokenExpiresAt: recoveredStored.revsTokenExpiresAt,
+			wechatMixTradeNo: null,
+			wechatOutTradeNo: recoveredStored.wechatOutTradeNo,
+			wechatPayParams: null,
+			wechatPrepayExpiresAt: "2026-09-08T07:59:59.000Z",
+			wechatPaymentState: "unknown",
+		},
+	);
+	if (!expiredReset) throw new Error("expired prepay fixture was not reset");
 
 	await expect(
 		service.create({
 			ownerUserId: "user-wechat-query-001",
 			orderId: "wechat-query-001",
 			context: {
-				traceId: "child-payment-trace-001",
-				idempotencyKey: "child-payment-request-001",
+				traceId: "relative-payment-expired-trace-001",
+				idempotencyKey: "relative-payment-expired-request-001",
 			},
 		}),
-	).rejects.toBeInstanceOf(MedicalInsuranceWechatPaymentNotAllowedError);
-	expect(providerCalls).toBe(0);
+	).rejects.toBeInstanceOf(MedicalInsuranceWechatPrepayExpiredError);
+	expect(recoverFirstValues).toEqual([undefined, true, true]);
+	expect(await orders.findByMedicalOrderId("wechat-query-001")).toMatchObject({
+		wechatMixTradeNo: "mix-relative-001",
+		wechatPaymentState: "unknown",
+		wechatPayParams: null,
+		wechatPrepayExpiresAt: "2026-09-08T07:59:59.000Z",
+	});
 });
 
 test("云健康混合查单只唤醒 Worker，不在 API 内并发查 Provider 或回写 HIS", async () => {

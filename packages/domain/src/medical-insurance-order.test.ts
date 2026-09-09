@@ -117,7 +117,7 @@ describe("6302 结算通知归一化", () => {
 		).toThrow();
 	});
 
-	test("通知推导状态：现金为零即全结；金额不一致进等待确认", () => {
+	test("通知推导状态：纯医保和混合支付均等待微信官方查单；金额不一致进等待确认", () => {
 		const amounts = {
 			totalFen: 100,
 			cashFen: 0,
@@ -137,7 +137,7 @@ describe("6302 结算通知归一化", () => {
 			revsToken: "R",
 		});
 		expect(medicalInsuranceStatusForNotification(full, amounts)).toBe(
-			"insurance_settled",
+			"cash_pending",
 		);
 		expect(
 			medicalInsuranceStatusForNotification(full, {

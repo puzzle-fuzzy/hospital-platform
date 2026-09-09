@@ -175,6 +175,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/payments/orders/{orderId}/wechat-prepay",
 		"/api/v1/payments/appointments/{appointmentId}/self-pay",
 		"/api/v1/payments/appointments/{appointmentId}/payment-exit",
+		"/api/v1/payments/medical-insurance/appointments/{appointmentId}/authorization-context",
 		"/api/v1/payments/medical-insurance/authorize",
 		"/api/v1/payments/medical-insurance/orders/{orderId}",
 		"/api/v1/payments/medical-insurance/orders/{orderId}/cancel",

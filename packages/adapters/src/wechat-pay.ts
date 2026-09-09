@@ -34,6 +34,8 @@ const DEFAULT_WECHAT_PAY_BASE_URL = "https://api.mch.weixin.qq.com";
 const JSAPI_ORDER_PATH = "/v3/pay/transactions/jsapi";
 const JSAPI_CLOSE_PATH_PREFIX = "/v3/pay/transactions/out-trade-no";
 const MEDICAL_MIX_ORDER_PATH = "/v3/med-ins/orders";
+const MEDICAL_MIX_ORDER_OUT_TRADE_NO_PATH_PREFIX =
+	"/v3/med-ins/orders/out-trade-no";
 const PLATFORM_SIGNATURE_MAX_SKEW_SECONDS = 300;
 const AES_GCM_TAG_BYTES = 16;
 const AES_GCM_KEY_BYTES = 32;
@@ -60,6 +62,16 @@ type WechatPaymentNotificationResource = {
 	nonce?: unknown;
 	associated_data?: unknown;
 };
+
+type MedicalMixedRecoveryInput = Parameters<
+	MedicalInsuranceWechatPaymentGateway["recoverMixedOrder"]
+>[0];
+type MedicalMixedOrderResult = Awaited<
+	ReturnType<MedicalInsuranceWechatPaymentGateway["createMixedOrder"]>
+>;
+type WechatJsapiPrepayResult = Awaited<
+	ReturnType<WechatPaymentGateway["createJsapiOrder"]>
+>;
 
 export type WechatPaymentGatewayOptions = {
 	/** 小程序 AppID；只服务端使用，不写入日志。 */
@@ -124,7 +136,8 @@ export type WechatMedicalInsuranceNotification = {
 	outTradeNo: string;
 	totalFen: number;
 	cashFen: number;
-	selfPayStatus: "SELF_PAY_SUCCESS";
+	mixPayType: "INSURANCE_ONLY" | "CASH_AND_INSURANCE";
+	selfPayStatus: "SELF_PAY_SUCCESS" | "NO_SELF_PAY";
 	medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS";
 	receivedAt: string;
 };
@@ -292,9 +305,6 @@ function verifyPlatformSignature(input: {
 		});
 	};
 
-	if (input.statusCode < 200 || input.statusCode >= 300) {
-		return;
-	}
 	if (!serial || !signature || !timestamp || !nonce) {
 		invalid("Wechat provider response signature headers are incomplete");
 	}
@@ -425,7 +435,23 @@ function encryptMedicalSensitive(
 }
 
 function medicalIdDigest(value: string): string {
-	const normalized = value.replaceAll(/\s/g, "").toUpperCase();
+	let normalized = value.replaceAll(/\s/g, "").toUpperCase();
+	if (/^\d{15}$/u.test(normalized)) {
+		const seventeenDigits = `${normalized.slice(0, 6)}19${normalized.slice(6)}`;
+		const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
+		const checks = ["1", "0", "X", "9", "8", "7", "6", "5", "4", "3", "2"];
+		const checksum = weights.reduce(
+			(total, weight, index) => total + Number(seventeenDigits[index]) * weight,
+			0,
+		);
+		normalized = `${seventeenDigits}${checks[checksum % 11]}`;
+	}
+	if (!/^\d{17}[0-9X]$/u.test(normalized)) {
+		throw providerError({
+			operation: "medical-mix-validation",
+			message: "Wechat medical payer identity number was unsupported",
+		});
+	}
 	return createHash("md5").update(normalized, "utf8").digest("hex");
 }
 
@@ -433,6 +459,34 @@ function medicalProviderOrderType(
 	value: "RegPay" | "DiagPay",
 ): "REG_PAY" | "DIAG_PAY" {
 	return value === "RegPay" ? "REG_PAY" : "DIAG_PAY";
+}
+
+function shouldRecoverMedicalCreate(
+	error: unknown,
+): error is ProviderRequestError {
+	return (
+		error instanceof ProviderRequestError &&
+		error.provider === "wechat-pay" &&
+		error.operation.startsWith("medical-mix-create") &&
+		(error.requestOutcome === "unknown" ||
+			error.providerErrorCode === "ALREADY_EXISTS")
+	);
+}
+
+function isMedicalOrderNotFound(error: unknown): error is ProviderRequestError {
+	return (
+		error instanceof ProviderRequestError &&
+		error.provider === "wechat-pay" &&
+		error.operation === "medical-mix-query-by-out-trade-no" &&
+		error.statusCode === 404 &&
+		error.providerErrorCode === "NOT_FOUND"
+	);
+}
+
+function uniqueRequestIds(values: readonly (string | undefined)[]): string[] {
+	return [
+		...new Set(values.filter((value): value is string => Boolean(value))),
+	];
 }
 
 function findProviderText(
@@ -484,7 +538,9 @@ function medicalProviderState(
 	if (
 		value === "MIX_PAY_SUCCESS" ||
 		value === "SELF_PAY_SUCCESS" ||
-		value === "MED_INS_PAY_SUCCESS"
+		value === "MED_INS_PAY_SUCCESS" ||
+		value === "NO_SELF_PAY" ||
+		value === "NO_MED_INS_PAY"
 	)
 		return "paid";
 	if (
@@ -516,7 +572,8 @@ function medicalProviderMedicalStatus(
 		value === "MED_INS_PAY_CREATED" ||
 		value === "MED_INS_PAY_SUCCESS" ||
 		value === "MED_INS_PAY_REFUND" ||
-		value === "MED_INS_PAY_FAIL"
+		value === "MED_INS_PAY_FAIL" ||
+		value === "NO_MED_INS_PAY"
 	) {
 		return value;
 	}
@@ -730,6 +787,258 @@ export class WechatPaymentApiGateway
 				testEnvironment: options.medicalInsurance.testEnvironment === true,
 			};
 		}
+	}
+
+	private async requestMedicalMixedOrder(
+		body: string,
+		context: AdapterCallContext,
+		operation: "medical-mix-create" | "medical-mix-create-retry",
+	): Promise<{ data: Record<string, unknown>; requestId: string }> {
+		const nonce = this.nonce();
+		const timestamp = unixSeconds(this.now);
+		return requestJson<Record<string, unknown>>(
+			{
+				provider: "wechat-pay",
+				operation,
+				url: new URL(MEDICAL_MIX_ORDER_PATH, this.baseUrl).toString(),
+				method: "POST",
+				context,
+				bodyText: body,
+				headers: {
+					// 医保下单的 payer 敏感字段使用平台公钥加密，必须声明对应的
+					// 微信支付公钥 ID/平台证书序列号；Authorization.serial_no 仍是商户证书序列号。
+					"Wechatpay-Serial": this.platformCertificateSerial,
+					Authorization: apiV3Authorization({
+						method: "POST",
+						path: MEDICAL_MIX_ORDER_PATH,
+						timestamp,
+						nonce,
+						body,
+						mchId: this.mchId,
+						merchantCertificateSerial: this.merchantCertificateSerial,
+						merchantPrivateKey: this.merchantPrivateKey,
+					}),
+				},
+				verifyResponse: (verification) =>
+					verifyPlatformSignature({
+						...verification,
+						platformCertificateSerial: this.platformCertificateSerial,
+						platformPublicKey: this.platformPublicKey,
+						now: this.now,
+						operation,
+					}),
+			},
+			this.fetcher,
+		);
+	}
+
+	private medicalMixedOrderResult(input: {
+		mixTradeNo: string;
+		cashFen: number;
+		prepay?: WechatJsapiPrepayResult;
+		operation: string;
+		requestId: string;
+		requestIds: readonly (string | undefined)[];
+	}): MedicalMixedOrderResult {
+		const mixTradeNo = requiredInput(input.mixTradeNo, "mixTradeNo", 32);
+		const medicalPayParams: WechatMedicalInsurancePayParams = input.prepay
+			? (() => {
+					const { appId: _appId, ...withoutAppId } = input.prepay.payParams;
+					return { ...withoutAppId, mixTradeNo };
+				})()
+			: { mixTradeNo };
+		return {
+			mixTradeNo,
+			...(input.prepay ? { prepayId: input.prepay.prepayId } : {}),
+			payParams: medicalPayParams,
+			cashFen: input.cashFen,
+			trace: {
+				provider: "wechat-pay",
+				operation: input.operation,
+				requestId: input.requestId,
+				requestIds: uniqueRequestIds(input.requestIds),
+				providerOrderId: mixTradeNo,
+			},
+		};
+	}
+
+	private medicalMixedOrderCreateResponse(input: {
+		response: { data: Record<string, unknown>; requestId: string };
+		cashFen: number;
+		prepay?: WechatJsapiPrepayResult;
+		operation: "medical-mix-create" | "medical-mix-create-retry";
+		requestIds: readonly (string | undefined)[];
+	}): MedicalMixedOrderResult {
+		const mixTradeNo = findProviderText(input.response.data, [
+			"mix_trade_no",
+			"mixTradeNo",
+		]);
+		if (!mixTradeNo) {
+			throw providerError({
+				operation: input.operation,
+				message: "Wechat medical mixed order did not contain mix_trade_no",
+				requestId: input.response.requestId,
+			});
+		}
+		return this.medicalMixedOrderResult({
+			mixTradeNo,
+			cashFen: input.cashFen,
+			...(input.prepay ? { prepay: input.prepay } : {}),
+			operation:
+				input.operation === "medical-mix-create-retry"
+					? "medical-mix-create-retried"
+					: "medical-mix-create",
+			requestId: input.response.requestId,
+			requestIds: [...input.requestIds, input.response.requestId],
+		});
+	}
+
+	/**
+	 * 官方明确要求“下单没有返回信息”时先按 out_trade_no 查单。这里还覆盖
+	 * 上一次下单已成功、当前重放收到 ALREADY_EXISTS 的情况，避免在本地尚未
+	 * 保存 mix_trade_no 时创建另一笔医保结算订单。
+	 */
+	private async recoverMedicalMixedOrderByOutTradeNo(input: {
+		order: MedicalMixedRecoveryInput;
+		prepay?: WechatJsapiPrepayResult;
+		context: AdapterCallContext;
+		requestIds: readonly (string | undefined)[];
+	}): Promise<MedicalMixedOrderResult> {
+		const medical = this.medicalInsurance;
+		if (!medical) throw new AdapterNotConfiguredError("wechat-pay");
+		const path = `${MEDICAL_MIX_ORDER_OUT_TRADE_NO_PATH_PREFIX}/${encodeURIComponent(input.order.outTradeNo)}`;
+		const nonce = this.nonce();
+		const timestamp = unixSeconds(this.now);
+		const response = await requestJson<Record<string, unknown>>(
+			{
+				provider: "wechat-pay",
+				operation: "medical-mix-query-by-out-trade-no",
+				url: new URL(path, this.baseUrl).toString(),
+				method: "GET",
+				context: input.context,
+				headers: {
+					Authorization: apiV3Authorization({
+						method: "GET",
+						path,
+						timestamp,
+						nonce,
+						body: "",
+						mchId: this.mchId,
+						merchantCertificateSerial: this.merchantCertificateSerial,
+						merchantPrivateKey: this.merchantPrivateKey,
+					}),
+				},
+				verifyResponse: (verification) =>
+					verifyPlatformSignature({
+						...verification,
+						platformCertificateSerial: this.platformCertificateSerial,
+						platformPublicKey: this.platformPublicKey,
+						now: this.now,
+						operation: "medical-mix-query-by-out-trade-no",
+					}),
+			},
+			this.fetcher,
+		);
+
+		const data = response.data;
+		const mixTradeNo = findProviderText(data, ["mix_trade_no"]);
+		const expectedMixPayType =
+			input.order.amounts.cashFen === 0
+				? "INSURANCE_ONLY"
+				: "CASH_AND_INSURANCE";
+		const responsePrepayId = findProviderText(data, ["prepay_id"]);
+		const responsePayForRelatives = data.pay_for_relatives;
+		const totalFen = providerFen(data.total_fee, "total_fee");
+		const fundFen = providerFen(data.med_ins_gov_fee, "med_ins_gov_fee");
+		const personalAccountFen = providerFen(
+			data.med_ins_self_fee,
+			"med_ins_self_fee",
+		);
+		const otherPaymentFen = providerFen(
+			data.med_ins_other_fee,
+			"med_ins_other_fee",
+		);
+		const medInsCashFen = providerFen(
+			data.med_ins_cash_fee,
+			"med_ins_cash_fee",
+		);
+		const wechatCashFen =
+			data.wechat_pay_cash_fee === undefined &&
+			input.order.amounts.cashFen === 0
+				? 0
+				: providerFen(data.wechat_pay_cash_fee, "wechat_pay_cash_fee");
+		const mixStatus = findProviderText(data, ["mix_pay_status"]);
+		const selfStatus = findProviderText(data, ["self_pay_status"]);
+		const medicalStatus = findProviderText(data, ["med_ins_pay_status"]);
+		if (mixStatus) medicalProviderState(mixStatus, "mix_pay_status");
+		if (selfStatus) medicalProviderState(selfStatus, "self_pay_status");
+		if (medicalStatus)
+			medicalProviderMedicalStatus(medicalStatus, "med_ins_pay_status");
+
+		if (
+			!mixTradeNo ||
+			!mixStatus ||
+			!selfStatus ||
+			!medicalStatus ||
+			findProviderText(data, ["appid"]) !== medical.appId ||
+			findProviderText(data, ["openid"]) !== input.order.openid ||
+			findProviderText(data, ["out_trade_no"]) !== input.order.outTradeNo ||
+			findProviderText(data, ["serial_no"]) !== input.order.medOrgOrd ||
+			findProviderText(data, ["pay_order_id"]) !== input.order.payOrdId ||
+			findProviderText(data, ["mix_pay_type"]) !== expectedMixPayType ||
+			findProviderText(data, ["order_type"]) !==
+				medicalProviderOrderType(input.order.orderType) ||
+			findProviderText(data, ["med_inst_no"]) !==
+				medical.medicalInstitutionNo ||
+			totalFen !== input.order.amounts.totalFen ||
+			fundFen !== input.order.amounts.fundFen ||
+			personalAccountFen !== input.order.amounts.personalAccountFen ||
+			otherPaymentFen !== (input.order.amounts.otherPaymentFen ?? 0) ||
+			medInsCashFen !== input.order.amounts.cashFen ||
+			wechatCashFen !== input.order.amounts.cashFen ||
+			(input.order.amounts.cashFen > 0
+				? !responsePrepayId ||
+					(input.prepay !== undefined &&
+						responsePrepayId !== input.prepay.prepayId)
+				: responsePrepayId !== undefined) ||
+			(input.order.expectedPayForRelatives
+				? responsePayForRelatives !== true
+				: responsePayForRelatives === true)
+		) {
+			throw providerError({
+				operation: "medical-mix-query-by-out-trade-no",
+				message:
+					"Wechat recovered medical order did not match local order facts",
+				requestId: response.requestId,
+			});
+		}
+		const recoveredPrepay: WechatJsapiPrepayResult | undefined =
+			input.order.amounts.cashFen > 0 && responsePrepayId
+				? (input.prepay ?? {
+						prepayId: responsePrepayId,
+						payParams: payParams({
+							appId: this.appId,
+							prepayId: responsePrepayId,
+							now: this.now,
+							nonce: this.nonce,
+							merchantPrivateKey: this.merchantPrivateKey,
+						}),
+						trace: paymentTrace(
+							"medical-mix-query-by-out-trade-no",
+							response.requestId,
+							responsePrepayId,
+						),
+					})
+				: undefined;
+
+		return this.medicalMixedOrderResult({
+			mixTradeNo,
+			cashFen: input.order.amounts.cashFen,
+			...(recoveredPrepay ? { prepay: recoveredPrepay } : {}),
+			operation: "medical-mix-create-recovered",
+			requestId: response.requestId,
+			requestIds: [...input.requestIds, response.requestId],
+		});
 	}
 
 	async createJsapiOrder(
@@ -958,8 +1267,8 @@ export class WechatPaymentApiGateway
 	}
 
 	/**
-	 * 医保混合订单：先创建同一 out_trade_no 的 JSAPI 自费预支付，再创建
-	 * 官方微信医保混合订单。两次请求均由服务端生成并签名，前端只收到调起参数。
+	 * 官方微信医保订单：纯医保直接下单；存在现金金额时先创建同一
+	 * out_trade_no 的 JSAPI 自费预支付。前端只收到 wx API 调起参数。
 	 */
 	async createMixedOrder(
 		input: Parameters<
@@ -989,20 +1298,38 @@ export class WechatPaymentApiGateway
 				message: "Wechat medical appId must match the JSAPI payment appId",
 			});
 		}
-		if (amounts.cashFen <= 0) {
-			throw providerError({
-				operation: "medical-mix-prepay",
-				message: "Wechat medical mixed order requires a positive cash amount",
-			});
+		const insuranceOnly = amounts.cashFen === 0;
+		const recoveryOrder: MedicalMixedRecoveryInput = {
+			orderId: input.orderId,
+			outTradeNo,
+			openid,
+			payOrdId,
+			medOrgOrd,
+			orderType: input.orderType,
+			amounts,
+			expectedPayForRelatives: input.paymentIdentity.payForRelatives,
+		};
+		const recoveryRequestIds: (string | undefined)[] = [];
+		if (input.recoverFirst) {
+			try {
+				return await this.recoverMedicalMixedOrderByOutTradeNo({
+					order: recoveryOrder,
+					context,
+					requestIds: recoveryRequestIds,
+				});
+			} catch (error) {
+				if (!isMedicalOrderNotFound(error)) throw error;
+				recoveryRequestIds.push(error.requestId);
+			}
 		}
-		const patientName = requiredInput(
-			input.authorization.patient.userName,
-			"patientName",
+		const payerName = requiredInput(
+			input.paymentIdentity.payer.name,
+			"payerName",
 			512,
 		);
-		const patientIdNo = requiredInput(
-			input.authorization.patient.idNo,
-			"patientIdNo",
+		const payerIdNo = requiredInput(
+			input.paymentIdentity.payer.idNo,
+			"payerIdNo",
 			32,
 		);
 		const payAuthNo = requiredInput(
@@ -1011,12 +1338,28 @@ export class WechatPaymentApiGateway
 			40,
 		);
 
-		const prepay = await this.createJsapiOrder(
-			{ orderId: outTradeNo, openid, totalFen: amounts.cashFen },
-			context,
-		);
+		const relative = input.paymentIdentity.payForRelatives
+			? {
+					name: requiredInput(
+						input.paymentIdentity.relative.name,
+						"relativeName",
+						512,
+					),
+					idNo: requiredInput(
+						input.paymentIdentity.relative.idNo,
+						"relativeIdNo",
+						32,
+					),
+				}
+			: undefined;
+		const prepay = insuranceOnly
+			? undefined
+			: await this.createJsapiOrder(
+					{ orderId: outTradeNo, openid, totalFen: amounts.cashFen },
+					context,
+				);
 		const body = JSON.stringify({
-			mix_pay_type: "CASH_AND_INSURANCE",
+			mix_pay_type: insuranceOnly ? "INSURANCE_ONLY" : "CASH_AND_INSURANCE",
 			order_type: medicalProviderOrderType(input.orderType),
 			out_trade_no: outTradeNo,
 			serial_no: medOrgOrd,
@@ -1026,13 +1369,29 @@ export class WechatPaymentApiGateway
 			appid: medical.appId,
 			openid,
 			payer: {
-				name: encryptMedicalSensitive(patientName, this.platformPublicKey),
+				name: encryptMedicalSensitive(payerName, this.platformPublicKey),
 				id_digest: encryptMedicalSensitive(
-					medicalIdDigest(patientIdNo),
+					medicalIdDigest(payerIdNo),
 					this.platformPublicKey,
 				),
 				card_type: "ID_CARD",
 			},
+			pay_for_relatives: input.paymentIdentity.payForRelatives,
+			...(relative
+				? {
+						relative: {
+							name: encryptMedicalSensitive(
+								relative.name,
+								this.platformPublicKey,
+							),
+							id_digest: encryptMedicalSensitive(
+								medicalIdDigest(relative.idNo),
+								this.platformPublicKey,
+							),
+							card_type: "ID_CARD",
+						},
+					}
+				: {}),
 			city_id: medical.cityId,
 			pay_order_id: payOrdId,
 			pay_auth_no: payAuthNo,
@@ -1041,79 +1400,130 @@ export class WechatPaymentApiGateway
 			med_ins_self_fee: amounts.personalAccountFen,
 			med_ins_other_fee: amounts.otherPaymentFen ?? 0,
 			med_ins_cash_fee: amounts.cashFen,
-			wechat_pay_cash_fee: amounts.cashFen,
 			med_ins_order_create_time:
 				input.medicalOrderCreateTime ?? this.now().toISOString(),
 			callback_url: medical.callbackUrl,
-			prepay_id: prepay.prepayId,
+			...(prepay
+				? {
+						wechat_pay_cash_fee: amounts.cashFen,
+						prepay_id: prepay.prepayId,
+					}
+				: {}),
 			...(medical.channelNo ? { channel_no: medical.channelNo } : {}),
 			...(medical.testEnvironment ? { med_ins_test_env: true } : {}),
 		});
-		const nonce = this.nonce();
-		const timestamp = unixSeconds(this.now);
-		const response = await requestJson<Record<string, unknown>>(
-			{
-				provider: "wechat-pay",
-				operation: "medical-mix-create",
-				url: new URL(MEDICAL_MIX_ORDER_PATH, this.baseUrl).toString(),
-				method: "POST",
+		recoveryRequestIds.push(prepay?.trace.requestId);
+		try {
+			const response = await this.requestMedicalMixedOrder(
+				body,
 				context,
-				bodyText: body,
-				headers: {
-					// 医保下单的 payer 敏感字段使用平台公钥加密，必须声明对应的
-					// 微信支付公钥 ID/平台证书序列号；Authorization.serial_no 仍是商户证书序列号。
-					"Wechatpay-Serial": this.platformCertificateSerial,
-					Authorization: apiV3Authorization({
-						method: "POST",
-						path: MEDICAL_MIX_ORDER_PATH,
-						timestamp,
-						nonce,
-						body,
-						mchId: this.mchId,
-						merchantCertificateSerial: this.merchantCertificateSerial,
-						merchantPrivateKey: this.merchantPrivateKey,
-					}),
-				},
-				verifyResponse: (verification) =>
-					verifyPlatformSignature({
-						...verification,
-						platformCertificateSerial: this.platformCertificateSerial,
-						platformPublicKey: this.platformPublicKey,
-						now: this.now,
-						operation: "medical-mix-create",
-					}),
-			},
-			this.fetcher,
-		);
-		const mixTradeNo = findProviderText(response.data, [
-			"mix_trade_no",
-			"mixTradeNo",
-		]);
-		if (!mixTradeNo) {
-			throw providerError({
+				"medical-mix-create",
+			);
+			return this.medicalMixedOrderCreateResponse({
+				response,
+				cashFen: amounts.cashFen,
+				...(prepay ? { prepay } : {}),
 				operation: "medical-mix-create",
-				message: "Wechat medical mixed order did not contain mix_trade_no",
-				requestId: response.requestId,
+				requestIds: recoveryRequestIds,
+			});
+		} catch (error) {
+			if (!shouldRecoverMedicalCreate(error)) throw error;
+			recoveryRequestIds.push(error.requestId);
+			try {
+				return await this.recoverMedicalMixedOrderByOutTradeNo({
+					order: recoveryOrder,
+					...(prepay ? { prepay } : {}),
+					context,
+					requestIds: recoveryRequestIds,
+				});
+			} catch (queryError) {
+				if (!isMedicalOrderNotFound(queryError)) throw queryError;
+				recoveryRequestIds.push(queryError.requestId);
+			}
+
+			// 官方查单明确 NOT_FOUND 后才允许用完全相同的 out_trade_no 和
+			// 业务报文重试一次。若重试结果仍未知，再查一次而不是继续 POST。
+			try {
+				const response = await this.requestMedicalMixedOrder(
+					body,
+					context,
+					"medical-mix-create-retry",
+				);
+				return this.medicalMixedOrderCreateResponse({
+					response,
+					cashFen: amounts.cashFen,
+					...(prepay ? { prepay } : {}),
+					operation: "medical-mix-create-retry",
+					requestIds: recoveryRequestIds,
+				});
+			} catch (retryError) {
+				if (!shouldRecoverMedicalCreate(retryError)) throw retryError;
+				recoveryRequestIds.push(retryError.requestId);
+				try {
+					return await this.recoverMedicalMixedOrderByOutTradeNo({
+						order: recoveryOrder,
+						...(prepay ? { prepay } : {}),
+						context,
+						requestIds: recoveryRequestIds,
+					});
+				} catch (secondQueryError) {
+					if (!isMedicalOrderNotFound(secondQueryError)) throw secondQueryError;
+					throw new ProviderRequestError({
+						provider: "wechat-pay",
+						operation: "medical-mix-create-recovery",
+						message:
+							"Wechat medical order was not found after a confirmed safe retry",
+						...(secondQueryError.requestId
+							? { requestId: secondQueryError.requestId }
+							: {}),
+						statusCode: 404,
+						retryable: true,
+						failureStage: "http",
+						requestOutcome: "rejected",
+						reason: "payment-order-not-found",
+						providerErrorCode: "NOT_FOUND",
+						cause: secondQueryError,
+					});
+				}
+			}
+		}
+	}
+
+	async recoverMixedOrder(
+		input: Parameters<
+			MedicalInsuranceWechatPaymentGateway["recoverMixedOrder"]
+		>[0],
+		context: AdapterCallContext,
+	): ReturnType<MedicalInsuranceWechatPaymentGateway["recoverMixedOrder"]> {
+		const medical = this.medicalInsurance;
+		if (!medical) throw new AdapterNotConfiguredError("wechat-pay");
+		const order: MedicalMixedRecoveryInput = {
+			orderId: requiredInput(input.orderId, "orderId", 64),
+			outTradeNo: requiredInput(input.outTradeNo, "outTradeNo", 32),
+			openid: requiredInput(input.openid, "openid"),
+			payOrdId: requiredInput(input.payOrdId, "payOrdId", 64),
+			medOrgOrd: requiredInput(input.medOrgOrd, "medOrgOrd", 40),
+			orderType: input.orderType,
+			amounts: assertValidMedicalInsuranceAmounts(input.amounts),
+			expectedPayForRelatives: input.expectedPayForRelatives,
+		};
+		if (!isMedicalInsuranceOrderType(order.orderType)) {
+			throw providerError({
+				operation: "medical-mix-validation",
+				message: "Wechat medical orderType is invalid",
 			});
 		}
-		const { appId: _appId, ...medicalPayParamsWithoutAppId } = prepay.payParams;
-		const medicalPayParams: WechatMedicalInsurancePayParams = {
-			...medicalPayParamsWithoutAppId,
-			mixTradeNo: requiredInput(mixTradeNo, "mixTradeNo", 32),
-		};
-		return {
-			mixTradeNo: medicalPayParams.mixTradeNo,
-			prepayId: prepay.prepayId,
-			payParams: medicalPayParams,
-			cashFen: amounts.cashFen,
-			trace: {
-				provider: "wechat-pay",
-				operation: "medical-mix-create",
-				requestId: response.requestId,
-				requestIds: [prepay.trace.requestId, response.requestId],
-				providerOrderId: mixTradeNo,
-			},
-		};
+		if (medical.appId !== this.appId) {
+			throw providerError({
+				operation: "medical-mix-validation",
+				message: "Wechat medical appId must match the JSAPI payment appId",
+			});
+		}
+		return this.recoverMedicalMixedOrderByOutTradeNo({
+			order,
+			context,
+			requestIds: [],
+		});
 	}
 
 	async queryMixedOrder(
@@ -1196,7 +1606,15 @@ export class WechatPaymentApiGateway
 		const mixStatus = findProviderText(data, ["mix_pay_status"]);
 		const selfStatus = findProviderText(data, ["self_pay_status"]);
 		const medicalStatus = findProviderText(data, ["med_ins_pay_status"]);
-		if (!mixStatus || !selfStatus || !medicalStatus) {
+		const mixPayType = findProviderText(data, ["mix_pay_type"]);
+		const expectedMixPayType =
+			expectedCashFen === 0 ? "INSURANCE_ONLY" : "CASH_AND_INSURANCE";
+		if (
+			!mixStatus ||
+			!selfStatus ||
+			!medicalStatus ||
+			mixPayType !== expectedMixPayType
+		) {
 			throw providerError({
 				operation: "medical-mix-query",
 				message: "Wechat medical query did not contain payment status fields",
@@ -1207,6 +1625,17 @@ export class WechatPaymentApiGateway
 			medicalStatus,
 			"med_ins_pay_status",
 		);
+		if (
+			medInsPayStatus === "NO_MED_INS_PAY" ||
+			(expectedCashFen === 0 && selfStatus !== "NO_SELF_PAY") ||
+			(expectedCashFen > 0 && selfStatus === "NO_SELF_PAY")
+		) {
+			throw providerError({
+				operation: "medical-mix-query",
+				message: "Wechat medical query payment type did not match the order",
+				requestId: response.requestId,
+			});
+		}
 		const medInsFailReason =
 			medInsPayStatus === "MED_INS_PAY_FAIL"
 				? findProviderText(data, ["med_ins_fail_reason", "medInsFailReason"])
@@ -1223,10 +1652,12 @@ export class WechatPaymentApiGateway
 			dataRecord.total_fee ?? dataRecord.totalFee,
 			"total_fee",
 		);
-		const cashFen = providerFen(
-			dataRecord.wechat_pay_cash_fee ?? dataRecord.wechatPayCashFee,
-			"wechat_pay_cash_fee",
-		);
+		const cashValue =
+			dataRecord.wechat_pay_cash_fee ?? dataRecord.wechatPayCashFee;
+		const cashFen =
+			cashValue === undefined && expectedCashFen === 0
+				? 0
+				: providerFen(cashValue, "wechat_pay_cash_fee");
 		if (totalFen === undefined || cashFen === undefined) {
 			throw providerError({
 				operation: "medical-mix-query",
@@ -1242,6 +1673,7 @@ export class WechatPaymentApiGateway
 			});
 		}
 		return {
+			mixState: medicalProviderState(mixStatus, "mix_pay_status"),
 			cashState: medicalProviderState(selfStatus, "self_pay_status"),
 			insuranceState: medicalProviderState(
 				medInsPayStatus,
@@ -1477,6 +1909,9 @@ export function createWechatMedicalInsuranceNotificationDecoder(
 		}
 		if (
 			options.expectedMchId !== undefined &&
+			// 普通商户医保成功通知的官方 resource 字段表不保证返回 mchid；
+			// 若微信实际返回则继续做归属校验，缺失时由 appid、单号和金额校验兜底。
+			resource.mchid !== undefined &&
 			mappedNotificationText(resource.mchid, "mchid") !== options.expectedMchId
 		) {
 			throw providerError({
@@ -1500,7 +1935,22 @@ export function createWechatMedicalInsuranceNotificationDecoder(
 				message: "Wechat medical notification mix payment was not successful",
 			});
 		}
-		if (resource.self_pay_status !== "SELF_PAY_SUCCESS") {
+		const mixPayType = mappedNotificationText(
+			resource.mix_pay_type,
+			"mix_pay_type",
+		);
+		if (
+			mixPayType !== "INSURANCE_ONLY" &&
+			mixPayType !== "CASH_AND_INSURANCE"
+		) {
+			throw providerError({
+				operation: "medical-notification-map",
+				message: "Wechat medical notification payment type was unsupported",
+			});
+		}
+		const expectedSelfPayStatus =
+			mixPayType === "INSURANCE_ONLY" ? "NO_SELF_PAY" : "SELF_PAY_SUCCESS";
+		if (resource.self_pay_status !== expectedSelfPayStatus) {
 			throw providerError({
 				operation: "medical-notification-map",
 				message: "Wechat medical notification self payment was not successful",
@@ -1513,6 +1963,15 @@ export function createWechatMedicalInsuranceNotificationDecoder(
 					"Wechat medical notification insurance payment was not successful",
 			});
 		}
+		const cashFen =
+			mixPayType === "INSURANCE_ONLY" &&
+			resource.wechat_pay_cash_fee === undefined
+				? 0
+				: medicalNotificationFen(
+						resource.wechat_pay_cash_fee,
+						"wechat_pay_cash_fee",
+						mixPayType === "INSURANCE_ONLY",
+					);
 		return {
 			notificationId: mappedNotificationText(
 				notification.notificationId,
@@ -1523,11 +1982,9 @@ export function createWechatMedicalInsuranceNotificationDecoder(
 			mixTradeNo,
 			outTradeNo,
 			totalFen: medicalNotificationFen(resource.total_fee, "total_fee"),
-			cashFen: medicalNotificationFen(
-				resource.wechat_pay_cash_fee,
-				"wechat_pay_cash_fee",
-			),
-			selfPayStatus: "SELF_PAY_SUCCESS",
+			cashFen,
+			mixPayType,
+			selfPayStatus: expectedSelfPayStatus,
 			medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS",
 			receivedAt,
 		};

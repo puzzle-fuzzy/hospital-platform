@@ -1,4 +1,5 @@
 import {
+	MedicalInsuranceAuthorizationContextResponse,
 	MedicalInsuranceAuthorizeRequest,
 	MedicalInsuranceAuthorizeResponse,
 	MedicalInsuranceCancellationResponse,
@@ -46,6 +47,10 @@ const MedicalInsuranceOrderParams = t.Object({
 	orderId: t.String({ minLength: 1, maxLength: 64 }),
 });
 
+const MedicalInsuranceAppointmentParams = t.Object({
+	appointmentId: t.String({ minLength: 1, maxLength: 64 }),
+});
+
 /**
  * 医保流程拆成明确的服务端命令：授权、费用上传、结算、查单和支付中关单。
  * 这里不提供“快速挂号编排”入口，预约写入和取消由 appointments 模块独立负责。
@@ -65,6 +70,25 @@ export function medicalInsuranceModule(
 	]);
 	const routes = new Elysia({ name: "medical-insurance-module" })
 		.onTransform({ as: "local" }, authentication.authenticate)
+		.get(
+			"/payments/medical-insurance/appointments/:appointmentId/authorization-context",
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await registrationService.authorizationContext({
+						ownerUserId: principal.userId,
+						appointmentId: params.appointmentId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceQueryHeaders,
+				params: MedicalInsuranceAppointmentParams,
+				response: { 200: MedicalInsuranceAuthorizationContextResponse },
+				tags: ["medical-insurance"],
+			},
+		)
 		.post(
 			"/payments/medical-insurance/authorize",
 			async ({ request, headers, body }) => {

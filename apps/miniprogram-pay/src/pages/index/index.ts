@@ -32,7 +32,12 @@ import {
 	startSelfPayment,
 	WechatPaymentCancelledError,
 } from "../../services/medical-insurance";
-import { loadPatients, mask, type Patient } from "../../services/patient";
+import {
+	initialPaymentPatientIndex,
+	loadPatients,
+	mask,
+	type Patient,
+} from "../../services/patient";
 import { ApiError } from "../../services/request";
 import { ensureSession } from "../../services/session";
 
@@ -293,10 +298,11 @@ Page<
 		}
 		if (!authCode && pending?.phase === "cash_payment" && !resumingPayment) {
 			resumingPayment = true;
+			const paymentMode = pending.mode === "medical" ? "medical" : "mixed";
 			this.setData({
 				busy: true,
 				hasPendingPayment: true,
-				selectedMode: "mixed",
+				selectedMode: paymentMode,
 				error: "",
 			});
 			setProgress(this, "cash-confirming", "正在确认微信医保支付并回写 HIS");
@@ -317,7 +323,10 @@ Page<
 					this.setData({
 						hasPendingPayment: true,
 						error: "",
-						message: "微信医保支付仍在确认，请稍后继续医保混合支付",
+						message:
+							paymentMode === "medical"
+								? "微信纯医保支付仍在确认，请稍后继续纯医保支付"
+								: "微信医保支付仍在确认，请稍后继续医保混合支付",
 					});
 				})
 				.catch((error: unknown) => {
@@ -349,7 +358,9 @@ Page<
 								: "authorizing",
 				message:
 					pending.phase === "cash_payment"
-						? "检测到未完成的医保插件自费，请点击主按钮继续支付"
+						? pendingMode === "medical"
+							? "检测到未完成的纯医保支付，请选择纯医保支付继续"
+							: "检测到未完成的医保混合支付，请选择医保混合支付继续"
 						: pending.phase === "self_payment"
 							? "检测到未完成的微信自费支付，请选择自费支付继续"
 							: pending.phase === "medical_cash_required"
@@ -441,17 +452,23 @@ Page<
 			await ensureSession();
 			const patients = await loadPatients();
 			const pending = readPendingPayment();
-			const pendingIndex = pending
-				? patients.findIndex((item) => item.id === pending.patientId)
-				: -1;
-			const defaultIndex =
-				pendingIndex >= 0 ? pendingIndex : patients.length === 1 ? 0 : -1;
+			const defaultIndex = initialPaymentPatientIndex(
+				patients,
+				pending?.patientId,
+			);
 			const defaultPatient = patients[defaultIndex];
+			const pendingPatientUnavailable = Boolean(pending && !defaultPatient);
 			this.setData({
 				patients,
 				patientNames: patients.map((item) => item.displayName),
 				patientIndex: defaultIndex,
 				hasPendingPayment: Boolean(pending),
+				...(pendingPatientUnavailable
+					? {
+							error:
+								"待支付订单绑定的就诊人已不在当前账号目录，已禁止切换后继续支付，请先恢复该就诊人或由工作人员处理原订单",
+						}
+					: {}),
 				...(defaultPatient
 					? {
 							patientRelation: defaultPatient.relation || "本人",
@@ -492,6 +509,17 @@ Page<
 		const mode = value as PaymentMode;
 		const pending = readPendingPayment();
 		if (this.data.busy) return;
+		if (
+			pending &&
+			this.data.patients[this.data.patientIndex]?.id !== pending.patientId
+		) {
+			this.setData({
+				error:
+					"待支付订单与当前就诊人不一致，已禁止继续支付，请先恢复原就诊人或由工作人员处理原订单",
+				message: "",
+			});
+			return;
+		}
 		this.setData({ selectedMode: mode });
 		if (pending) {
 			if (pending.phase === "medical_cashier") {
@@ -560,10 +588,7 @@ Page<
 					.finally(() => this.setData({ busy: false }));
 				return;
 			}
-			if (
-				pending.phase === "cash_payment" ||
-				pending.phase === "medical_cash_required"
-			) {
+			if (pending.phase === "medical_cash_required") {
 				if (mode !== "mixed") {
 					this.setData({
 						message: "当前医保订单包含自费金额，请选择医保混合支付",
@@ -597,7 +622,55 @@ Page<
 						}
 						this.setData({
 							error: friendlyError(error),
-							message: "医保插件自费未完成，请不要重复预约",
+							message: "医保混合支付未完成，请不要重复预约",
+						});
+					})
+					.finally(() => this.setData({ busy: false }));
+				return;
+			}
+			if (pending.phase === "cash_payment") {
+				const expectedMode = pending.mode === "medical" ? "medical" : "mixed";
+				if (mode !== expectedMode) {
+					this.setData({
+						message:
+							expectedMode === "medical"
+								? "当前是纯医保订单，请选择纯医保支付继续确认"
+								: "当前是医保混合订单，请选择医保混合支付继续确认",
+						error: "",
+					});
+					return;
+				}
+				this.setData({ busy: true, error: "" });
+				setProgress(this, "cash-confirming", "正在确认已有微信医保支付订单");
+				void resumeMedicalCashPaymentFromPending(
+					pending,
+					(stage, message) => setProgress(this, stage, message),
+					1,
+				)
+					.then(async (completed) => {
+						if (completed) return;
+						await continueMedicalCashPayment(pending, (stage, message) =>
+							setProgress(this, stage, message),
+						);
+					})
+					.then(() => this.setData({ hasPendingPayment: false }))
+					.catch(async (error: unknown) => {
+						if (error instanceof MedicalCashRequiredError) {
+							this.setData({
+								hasPendingPayment: true,
+								selectedMode: "medical",
+								error: "",
+								message: "当前医保订单包含自费金额，请选择医保混合支付",
+							});
+							return;
+						}
+						if (error instanceof WechatPaymentCancelledError) {
+							await showWechatPaymentCancelled(this);
+							return;
+						}
+						this.setData({
+							error: friendlyError(error),
+							message: "医保支付未完成，请不要重复预约",
 						});
 					})
 					.finally(() => this.setData({ busy: false }));
@@ -614,7 +687,7 @@ Page<
 			this.setData({ busy: true, error: "" });
 			setPendingPaymentMode(pending, mode);
 			setProgress(this, "authorizing", "请在医保小程序继续完成授权");
-			void navigateToMedicalAuth()
+			void navigateToMedicalAuth(pending.appointmentId)
 				.catch(async (error: unknown) => {
 					if (error instanceof MedicalAuthNavigationCancelledError) {
 						await showNavigationCancelled(this);

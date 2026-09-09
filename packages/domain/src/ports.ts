@@ -261,15 +261,36 @@ export type WechatMiniProgramPayParams = {
 /** 所有普通微信自费入口统一使用 APIv3 JSAPI 小程序调起参数。 */
 export type WechatPaymentLaunchParams = WechatMiniProgramPayParams;
 
-/** 微信小程序医保混合支付专用调起参数；字段名和 wx API 保持一致。 */
-export type WechatMedicalInsurancePayParams = {
-	timeStamp: string;
-	nonceStr: string;
-	package: string;
-	signType: "RSA";
-	paySign: string;
-	mixTradeNo: string;
-};
+/**
+ * 微信小程序医保支付调起参数；字段名和 wx.requestMedicalInsurancePay 保持一致。
+ *
+ * 纯医保只需要 mixTradeNo；存在微信自费金额时，其余五个 JSAPI 参数必须
+ * 成组存在。adapter 和 API schema 会在运行时继续校验这一互斥关系。
+ */
+export type WechatMedicalInsurancePayParams =
+	| {
+			mixTradeNo: string;
+	  }
+	| {
+			timeStamp: string;
+			nonceStr: string;
+			package: string;
+			signType: "RSA";
+			paySign: string;
+			mixTradeNo: string;
+	  };
+
+/** 微信医保下单的支付人与就诊人身份只在服务端调用帧内出现。 */
+export type MedicalInsuranceWechatPaymentIdentity =
+	| {
+			payForRelatives: false;
+			payer: { name: string; idNo: string };
+	  }
+	| {
+			payForRelatives: true;
+			payer: { name: string; idNo: string };
+			relative: { name: string; idNo: string };
+	  };
 
 export interface MedicalInsuranceGateway {
 	authorize(
@@ -365,17 +386,22 @@ export type MedicalInsuranceWechatProviderMedicalStatus =
 	| "NO_MED_INS_PAY";
 
 /**
- * 6202 留下自费金额后的官方微信医保混合支付边界。
+ * 6202 后的官方微信医保支付边界，同时承载纯医保和医保自费混合支付。
  *
  * 6201/6202 的凭证和 2.27.2.27 明细只能由后端从加密仓储读取后传入，
- * 小程序不能提交金额、payAuthNo、参保号或费用明细。adapter 负责先创建
- * JSAPI prepay，再创建 /v3/med-ins/orders 混合订单。
+ * 小程序不能提交金额、payAuthNo、参保号或费用明细。存在现金金额时
+ * adapter 先创建 JSAPI prepay；纯医保则直接创建 /v3/med-ins/orders。
  */
 export interface MedicalInsuranceWechatPaymentGateway {
 	createMixedOrder(
 		input: {
 			orderId: string;
 			outTradeNo: string;
+			/**
+			 * 本地已有“创建结果未知”事实时，必须先按 out_trade_no 恢复；
+			 * 只有微信明确返回 NOT_FOUND 才能继续用同一业务单号下单。
+			 */
+			recoverFirst?: boolean;
 			openid: string;
 			payOrdId: string;
 			medOrgOrd: string;
@@ -386,11 +412,36 @@ export interface MedicalInsuranceWechatPaymentGateway {
 			medicalOrderCreateTime?: string;
 			authorization: MedicalInsuranceAuthorizationContext;
 			settlement: MedicalInsuranceSettlementContext;
+			paymentIdentity: MedicalInsuranceWechatPaymentIdentity;
 		},
 		context: AdapterCallContext,
 	): Promise<{
 		mixTradeNo: string;
-		prepayId: string;
+		prepayId?: string;
+		payParams: WechatMedicalInsurancePayParams;
+		cashFen: number;
+		trace: ExternalTrace;
+	}>;
+	/**
+	 * 仅恢复一次结果未知的官方医保订单，不会创建新的 JSAPI/医保订单。
+	 * Worker 使用服务端持久化事实按 out_trade_no 查单；所有期望字段都必须
+	 * 与微信签名响应一致，避免把其他就诊人或其他业务单误写回本地订单。
+	 */
+	recoverMixedOrder(
+		input: {
+			orderId: string;
+			outTradeNo: string;
+			openid: string;
+			payOrdId: string;
+			medOrgOrd: string;
+			orderType: MedicalInsuranceOrderType;
+			amounts: MedicalInsuranceAmounts;
+			expectedPayForRelatives: boolean;
+		},
+		context: AdapterCallContext,
+	): Promise<{
+		mixTradeNo: string;
+		prepayId?: string;
 		payParams: WechatMedicalInsurancePayParams;
 		cashFen: number;
 		trace: ExternalTrace;
@@ -406,6 +457,7 @@ export interface MedicalInsuranceWechatPaymentGateway {
 		},
 		context: AdapterCallContext,
 	): Promise<{
+		mixState: MedicalInsuranceWechatProviderState;
 		cashState: MedicalInsuranceWechatProviderState;
 		insuranceState: MedicalInsuranceWechatProviderState;
 		medInsPayStatus: MedicalInsuranceWechatProviderMedicalStatus;

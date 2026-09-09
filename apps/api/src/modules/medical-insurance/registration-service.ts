@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import type {
+	MedicalInsuranceAuthorizationContextPayload,
 	MedicalInsuranceAuthorizePayload,
 	MedicalInsuranceOrderPayload,
 } from "@hospital/contracts";
@@ -210,6 +212,88 @@ export class MedicalInsuranceRegistrationService {
 		return { identity, patient: result.patient };
 	}
 
+	/**
+	 * 医保授权跳转前按预约锁定的就诊人决定是否进入亲情付授权。
+	 * 仅向小程序返回官方要求的 familyId 摘要；支付人与就诊人的完整实名资料继续只在
+	 * 服务端 Provider 调用帧内解析。
+	 */
+	async authorizationContext(input: {
+		ownerUserId: string;
+		appointmentId: string;
+		context: unknown;
+	}): Promise<MedicalInsuranceAuthorizationContextPayload["data"]> {
+		const context = contextOf(input.context);
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const appointmentId = opaque(input.appointmentId, "appointmentId");
+		const appointment = await this.appointment(ownerUserId, appointmentId);
+		const patients = await this.dependencies.patients.listByOwner(ownerUserId);
+		const selected = patients.find(
+			(candidate) => candidate.id === appointment.patientId,
+		);
+		if (!selected || selected.relationship === "unknown") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"当前就诊人的亲属关系不明确，无法发起医保授权",
+			);
+		}
+		if (selected.relationship === "self") return { payForRelatives: false };
+
+		const selfPatients = patients.filter(
+			(candidate) => candidate.relationship === "self",
+		);
+		if (selfPatients.length !== 1 || !selfPatients[0]) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"当前微信用户缺少唯一的本人就诊人档案，无法代亲属支付",
+			);
+		}
+		const { identity, patient } = await this.patient(
+			ownerUserId,
+			appointment,
+			context,
+		);
+		const payerReference =
+			await this.dependencies.patients.resolveProviderReference({
+				ownerUserId,
+				patientId: selfPatients[0].id,
+				provider: "zhongyang",
+				referenceKind: "directory",
+			});
+		if (
+			!payerReference ||
+			validatePatientProviderReference(payerReference, selfPatients[0].id)
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"本人就诊人缺少有效的众阳目录映射，无法代亲属支付",
+			);
+		}
+		// 提前验证支付人的实名档案可解析，避免用户完成亲情授权后才在下单处失败。
+		const payerUnionId = identity.unionId;
+		if (!payerUnionId) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"微信身份缺少 unionId，无法代亲属支付",
+			);
+		}
+		await this.dependencies.patientProfile.resolve(
+			{
+				unionId: payerUnionId,
+				providerPatientId: payerReference.providerPatientId,
+			},
+			context,
+		);
+		const patientName = patient.name.trim();
+		const patientIdNo = patient.idNo.trim().toUpperCase();
+		if (!patientName || patientIdNo.length < 4) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"亲属实名资料不完整，无法生成亲情付授权标识",
+			);
+		}
+		return {
+			payForRelatives: true,
+			familyId: createHash("md5")
+				.update(`${patientName}${patientIdNo.slice(-4)}`, "utf8")
+				.digest("hex"),
+		};
+	}
+
 	async authorize(input: {
 		ownerUserId: string;
 		appointmentId: string;
@@ -249,7 +333,8 @@ export class MedicalInsuranceRegistrationService {
 				(order.businessId !== undefined &&
 					order.businessId !== appointmentId) ||
 				(order.businessType !== undefined &&
-					order.businessType !== "registration"))
+					order.businessType !== "registration") ||
+				order.patientId !== appointment.patientId)
 		)
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance idempotency key conflicts with appointment",

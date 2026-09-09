@@ -87,13 +87,17 @@ type MedicalCancellation = {
 };
 
 type MedicalWechatPayParams = {
-	timeStamp: string;
-	nonceStr: string;
-	package: string;
-	signType: "RSA";
-	paySign: string;
 	mixTradeNo: string;
+	timeStamp?: string;
+	nonceStr?: string;
+	package?: string;
+	signType?: "RSA";
+	paySign?: string;
 };
+
+type MedicalAuthorizationContext =
+	| { payForRelatives: false }
+	| { payForRelatives: true; familyId: string };
 
 type MedicalWechatPayment = {
 	orderId: string;
@@ -326,31 +330,42 @@ function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 			});
 		}
 		const params = data.payParams;
+		const jsapiValues = [
+			params.timeStamp,
+			params.nonceStr,
+			params.package,
+			params.signType,
+			params.paySign,
+		];
+		const hasJsapiParams = jsapiValues.some((value) => value !== undefined);
 		if (
-			typeof params.timeStamp !== "string" ||
-			typeof params.nonceStr !== "string" ||
-			typeof params.package !== "string" ||
-			params.signType !== "RSA" ||
-			typeof params.paySign !== "string" ||
 			typeof params.mixTradeNo !== "string" ||
-			!params.timeStamp ||
-			!params.nonceStr ||
-			!params.package ||
-			!params.paySign ||
-			!params.mixTradeNo
+			!params.mixTradeNo ||
+			(hasJsapiParams &&
+				(typeof params.timeStamp !== "string" ||
+					typeof params.nonceStr !== "string" ||
+					typeof params.package !== "string" ||
+					params.signType !== "RSA" ||
+					typeof params.paySign !== "string" ||
+					!params.timeStamp ||
+					!params.nonceStr ||
+					!params.package ||
+					!params.paySign))
 		) {
 			throw new ApiError("医保微信支付参数不可用", {
 				code: "wechat-pay-params-missing",
 			});
 		}
-		payParams = {
-			timeStamp: params.timeStamp,
-			nonceStr: params.nonceStr,
-			package: params.package,
-			signType: "RSA",
-			paySign: params.paySign,
-			mixTradeNo: params.mixTradeNo,
-		};
+		payParams = hasJsapiParams
+			? {
+					timeStamp: params.timeStamp as string,
+					nonceStr: params.nonceStr as string,
+					package: params.package as string,
+					signType: "RSA",
+					paySign: params.paySign as string,
+					mixTradeNo: params.mixTradeNo,
+				}
+			: { mixTradeNo: params.mixTradeNo };
 	}
 	return {
 		orderId: data.orderId,
@@ -455,8 +470,37 @@ export function assertMedicalConfig(): void {
 	}
 }
 
-export async function navigateToMedicalAuth(): Promise<void> {
+async function medicalAuthorizationContext(
+	appointmentId: string,
+): Promise<MedicalAuthorizationContext> {
+	const response = requireSuccessDataResponse<unknown>(
+		await requestWithSession<unknown>({
+			url: `/payments/medical-insurance/appointments/${encodeURIComponent(appointmentId)}/authorization-context`,
+			idempotencyKey: createIdempotencyKey("medical-authorization-context"),
+		}),
+	).data;
+	if (!isRecord(response) || typeof response.payForRelatives !== "boolean") {
+		throw new ApiError("医保亲情付授权上下文不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	if (!response.payForRelatives) return { payForRelatives: false };
+	if (
+		typeof response.familyId !== "string" ||
+		!/^[a-f0-9]{32}$/u.test(response.familyId)
+	) {
+		throw new ApiError("医保亲情付授权标识不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	return { payForRelatives: true, familyId: response.familyId };
+}
+
+export async function navigateToMedicalAuth(
+	appointmentId: string,
+): Promise<void> {
 	assertMedicalConfig();
+	const authorizationContext = await medicalAuthorizationContext(appointmentId);
 	const path =
 		`auth/pages/bindcard/auth/index?openType=getAuthCode` +
 		`&cityCode=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalCityCode)}` +
@@ -466,7 +510,10 @@ export async function navigateToMedicalAuth(): Promise<void> {
 		`&orgChnlCrtfCodg=${MEDICAL_INSURANCE_CONFIG.medicalOrgChannelCredential}` +
 		`&orgCodg=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalOrgCode)}` +
 		`&bizType=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalBizType)}` +
-		`&orgAppId=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalOrgAppId)}`;
+		`&orgAppId=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalOrgAppId)}` +
+		(authorizationContext.payForRelatives
+			? `&familyid=${encodeURIComponent(authorizationContext.familyId)}`
+			: "");
 	await new Promise<void>((resolve, reject) => {
 		wx.navigateToMiniProgram({
 			appId: MEDICAL_INSURANCE_CONFIG.medicalAppId,
@@ -500,7 +547,7 @@ export async function startMedicalPayment(
 	};
 	savePendingPayment(pending);
 	onProgress("authorizing", "请在医保小程序完成授权，返回后请等待页面继续处理");
-	await navigateToMedicalAuth();
+	await navigateToMedicalAuth(appointment.appointmentId);
 	return pending;
 }
 
@@ -511,11 +558,11 @@ function requestWechatMedicalInsurancePayment(
 		const payment = (
 			wx as unknown as {
 				requestMedicalInsurancePay?: (options: {
-					timeStamp: string;
-					nonceStr: string;
-					package: string;
-					signType: "RSA";
-					paySign: string;
+					timeStamp?: string;
+					nonceStr?: string;
+					package?: string;
+					signType?: "RSA";
+					paySign?: string;
 					mixTradeNo: string;
 					success?: () => void;
 					fail?: (error: { errMsg?: string }) => void;
@@ -524,7 +571,7 @@ function requestWechatMedicalInsurancePayment(
 		).requestMedicalInsurancePay;
 		if (typeof payment !== "function") {
 			reject(
-				new ApiError("当前微信基础库不支持医保自费支付", {
+				new ApiError("当前微信基础库不支持医保支付", {
 					code: "wechat-payment-launch-failed",
 				}),
 			);
@@ -679,16 +726,6 @@ function saveCashPaymentPhase(pending: PendingPayment): PendingPayment & {
 	return next;
 }
 
-function navigateToMedicalCashier(): Promise<void> {
-	return new Promise((resolve, reject) => {
-		wx.navigateTo({
-			url: "/pages/medical-cashier/medical-cashier",
-			success: () => resolve(),
-			fail: reject,
-		});
-	});
-}
-
 let medicalCashConfirmation:
 	| { orderId: string; promise: Promise<boolean> }
 	| undefined;
@@ -729,7 +766,7 @@ async function queryMedicalCashPayment(
 				current,
 				onProgress,
 				current.orderId,
-				"挂号和医保混合支付成功",
+				"挂号和医保支付成功",
 			);
 			return true;
 		}
@@ -739,7 +776,7 @@ async function queryMedicalCashPayment(
 			});
 		}
 		if (result.paymentState === "failed") {
-			throw new ApiError("微信医保自费支付已失败", {
+			throw new ApiError("微信医保支付已失败", {
 				code: "payment-order-conflict",
 			});
 		}
@@ -808,9 +845,13 @@ export async function continueMedicalCashPayment(
 	if (payment.medInsFailReason) {
 		throw new MedicalInsurancePaymentFailureError(payment.medInsFailReason);
 	}
+	if (current.mode === "medical" && payment.cashFen > 0) {
+		savePendingPayment({ ...current, phase: "medical_cash_required" });
+		throw new MedicalCashRequiredError();
+	}
 	let paymentWasCancelled = false;
 	if (payment.payParams) {
-		onProgress("cash-paying", "正在打开微信医保自费收银台，请勿重复点击");
+		onProgress("cash-paying", "正在打开微信医保支付收银台，请勿重复点击");
 		try {
 			await requestWechatMedicalInsurancePayment(payment.payParams);
 		} catch (error) {
@@ -824,13 +865,13 @@ export async function continueMedicalCashPayment(
 		throw new WechatPaymentCancelledError();
 	}
 	if (payment.status === "failed" || payment.paymentState === "failed") {
-		throw new ApiError("微信医保自费支付已失败", {
+		throw new ApiError("微信医保支付已失败", {
 			code: "payment-order-conflict",
 		});
 	}
 	if (await confirmMedicalCashPayment(current, onProgress)) return;
 	throw new ApiError(
-		"微信医保支付仍在确认，请稍后点击医保混合支付继续，勿重复付款",
+		"微信医保支付仍在确认，请稍后点击原支付方式继续，勿重复付款",
 		{ code: "payment-prepay-in-progress" },
 	);
 }
@@ -906,7 +947,7 @@ export async function continueMedicalPayment(
 				"authorizing",
 				"旧支付已关闭，请重新完成医保授权；请勿重复付款或重新预约",
 			);
-			await navigateToMedicalAuth();
+			await navigateToMedicalAuth(replacement.appointmentId);
 			return;
 		}
 		throw error;
@@ -925,28 +966,20 @@ export async function continueMedicalPayment(
 		if (order.status === "insurance_settled") break;
 		if (order.status === "cash_pending") {
 			const latest = readPendingPayment() ?? current;
-			if (latest.mode === "medical" && latest.cashierUrl) {
-				const cashierPending = {
-					...latest,
-					phase: "medical_cashier" as const,
-					cashierConfirmIdempotencyKey:
-						latest.cashierConfirmIdempotencyKey ??
-						createIdempotencyKey("medical-cashier-confirm"),
-				};
-				savePendingPayment(cashierPending);
-				onProgress("cash-paying", "正在打开医保支付收银台，请勿重复点击");
-				await navigateToMedicalCashier();
-				return { kind: "cashier_opened" };
+			if (!order.amounts) {
+				throw new ApiError("医保结算金额不可用", {
+					code: "provider-response-invalid",
+				});
 			}
-			if (latest.mode === "medical") {
-				const required = { ...latest, phase: "medical_cash_required" as const };
-				savePendingPayment(required);
+			if (latest.mode === "medical" && order.amounts.cashFen > 0) {
+				savePendingPayment({
+					...latest,
+					orderId,
+					phase: "medical_cash_required",
+				});
 				throw new MedicalCashRequiredError();
 			}
-			await continueMedicalCashPayment(
-				{ ...latest, orderId, mode: "mixed" },
-				onProgress,
-			);
+			await continueMedicalCashPayment({ ...latest, orderId }, onProgress);
 			return;
 		}
 		if (order.status === "failed" || order.status === "manual_review") {

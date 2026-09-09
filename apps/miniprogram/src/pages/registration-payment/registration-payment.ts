@@ -401,20 +401,6 @@ Page<
 			return;
 		}
 		const mode = value as PaymentMode;
-		const pending = readPendingPayment();
-		if (
-			mode === "mixed" &&
-			this.data.patientRelationship !== "self" &&
-			!pending?.orderId
-		) {
-			this.setData({
-				selectedMode: "mixed",
-				error: "",
-				message:
-					"医保混合支付当前仅支持本人就诊；亲属和儿童请暂时选择普通自费支付或联系医院",
-			});
-			return;
-		}
 		this.setData({ selectedMode: mode, error: "" });
 		void this.startOrResumePayment(mode);
 	},
@@ -500,10 +486,7 @@ Page<
 			this.setData({ hasPendingPayment: false, completed: true });
 			return;
 		}
-		if (
-			pending.phase === "cash_payment" ||
-			pending.phase === "medical_cash_required"
-		) {
+		if (pending.phase === "medical_cash_required") {
 			if (mode !== "mixed") {
 				this.setData({
 					message:
@@ -529,6 +512,30 @@ Page<
 			this.setData({ hasPendingPayment: false, completed: true });
 			return;
 		}
+		if (pending.phase === "cash_payment") {
+			const expectedMode = pending.mode === "medical" ? "medical" : "mixed";
+			if (mode !== expectedMode) {
+				this.setData({
+					message:
+						expectedMode === "medical"
+							? "当前是纯医保订单，请选择纯医保支付继续确认；请勿重复付款"
+							: "当前是医保混合订单，请选择医保混合支付继续确认；请勿重复付款",
+				});
+				return;
+			}
+			const confirmed = await resumeMedicalCashPaymentFromPending(
+				pending,
+				(stage, message) => this.setData({ stage, message, error: "" }),
+				1,
+			);
+			if (!confirmed) {
+				await continueMedicalCashPayment(pending, (stage, message) =>
+					this.setData({ stage, message, error: "" }),
+				);
+			}
+			this.setData({ hasPendingPayment: false, completed: true });
+			return;
+		}
 		if (mode === "self") {
 			this.setData({
 				message:
@@ -541,7 +548,7 @@ Page<
 			stage: "authorizing",
 			message: STAGE_TEXT.authorizing ?? "请在医保小程序完成授权",
 		});
-		await navigateToMedicalAuth();
+		await navigateToMedicalAuth(pending.appointmentId);
 	},
 
 	async handlePaymentError(error: unknown): Promise<void> {

@@ -70,7 +70,7 @@ async function seal6302(data: Record<string, unknown>) {
 }
 
 describe("医保 6302 结算通知", () => {
-	test("全额医保（cash=0）推进到 insurance_settled", async () => {
+	test("全额医保（cash=0）仍推进到 cash_pending 等待微信官方查单", async () => {
 		const { service, repo } = await makeService();
 		await repo.insert(makeOrder());
 		const sealed = await seal6302({
@@ -88,7 +88,7 @@ describe("医保 6302 结算通知", () => {
 		const ack = await service.receive({ payload: sealed, context });
 		expect(ack.success).toBeTrue();
 		const updated = await repo.findByPayOrdId("PO-001");
-		expect(updated?.status).toBe("insurance_settled");
+		expect(updated?.status).toBe("cash_pending");
 		expect(updated?.version).toBe(2);
 	});
 

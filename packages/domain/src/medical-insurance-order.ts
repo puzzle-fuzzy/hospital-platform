@@ -477,8 +477,9 @@ export function normalizeMedicalInsuranceSettlementNotification(
 }
 
 /**
- * 依据 6302 通知推导订单目标状态：现金为 0 即医保全结，否则等待微信医保
- * APIv3 混合支付完成自费部分。
+ * 依据 6302 通知推导订单目标状态。6302 只证明医保侧产生了结算结果，纯医保
+ * 和混合支付都必须继续走微信官方医保订单查单，并在医院 .5 回写成功后才能
+ * 进入 insurance_settled；因此金额一致时统一停在 cash_pending。
  * 通知金额与订单已落库 6202 金额不一致时进入 awaiting_confirmation，
  * 不允许直接覆盖（权威差异必须人工对账）。
  */
@@ -528,7 +529,7 @@ export function medicalInsuranceStatusForNotification(
 			(currentAmounts.deliveryFeeFen ?? 0) === (amounts.deliveryFeeFen ?? 0);
 		if (!same) return "awaiting_confirmation";
 	}
-	return amounts.cashFen === 0 ? "insurance_settled" : "cash_pending";
+	return "cash_pending";
 }
 
 /** 查单任务状态；与 outbox/prepay 查单保持同一种 12 次上限语义。 */

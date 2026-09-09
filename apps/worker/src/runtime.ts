@@ -11,8 +11,8 @@ import {
 	config as defaultConfig,
 	medicalInsuranceConfigurationMissingFields,
 	type RuntimeConfig,
-	wechatPaymentConfigurationMissingFields,
 	wechatMedicalInsuranceConfigurationMissingFields,
+	wechatPaymentConfigurationMissingFields,
 	yunhealthRegistrationSettlementConfigurationMissingFields,
 } from "@hospital/config";
 import type { DependencyState } from "@hospital/contracts";
@@ -636,6 +636,8 @@ export function createWorkerRuntime(
 				tasks: repositories.medicalInsuranceQueryTasks,
 				orders: repositories.medicalInsuranceOrders,
 				medicalInsurance: medicalInsuranceGateway,
+				identityUsers: repositories.identityUsers,
+				patients: repositories.patients,
 				...(medicalWechatPaymentReady && wechatPayment
 					? { wechatPayment }
 					: {}),

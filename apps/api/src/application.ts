@@ -489,6 +489,9 @@ export function createDefaultApplicationServices(
 			authorizations: repositories.medicalInsuranceAuthorizations,
 			identityUsers: repositories.identityUsers,
 			patients: repositories.patients,
+			patientProfile:
+				options.appointmentPatientProfileGateway ??
+				gateways.appointmentPatientProfile,
 			wechatPayment:
 				options.medicalInsuranceWechatPaymentGateway ??
 				gateways.medicalInsuranceWechatPayment,

@@ -392,6 +392,7 @@ export type {
 	MedicalInsuranceSettlementEvidenceSource,
 	MedicalInsuranceSettlementState,
 	MedicalInsuranceWechatPaymentGateway,
+	MedicalInsuranceWechatPaymentIdentity,
 	MedicalInsuranceWechatPaymentState,
 	MedicalInsuranceWechatProviderMedicalStatus,
 	MedicalInsuranceWechatProviderState,

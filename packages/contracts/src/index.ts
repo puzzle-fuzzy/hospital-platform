@@ -924,18 +924,42 @@ export const WechatMiniProgramPayParamsSchema = Type.Object({
 /** 所有普通微信自费入口统一使用 APIv3 JSAPI 小程序调起参数。 */
 export const WechatPaymentLaunchParamsSchema = WechatMiniProgramPayParamsSchema;
 
-/** 微信医保混合支付专用调起参数，直接对应 wx.requestMedicalInsurancePay。 */
-export const WechatMedicalInsurancePayParamsSchema = Type.Object(
-	{
-		timeStamp: Type.String({ minLength: 1 }),
-		nonceStr: Type.String({ minLength: 1 }),
-		package: Type.String({ minLength: 1 }),
-		signType: Type.Literal("RSA"),
-		paySign: Type.String({ minLength: 1 }),
-		mixTradeNo: Type.String({ minLength: 1, maxLength: 32 }),
-	},
-	{ additionalProperties: false },
-);
+/** 微信医保调起参数：纯医保只含 mixTradeNo，混合支付额外携带整组 JSAPI 参数。 */
+export const WechatMedicalInsurancePayParamsSchema = Type.Union([
+	Type.Object(
+		{ mixTradeNo: Type.String({ minLength: 1, maxLength: 32 }) },
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			timeStamp: Type.String({ minLength: 1 }),
+			nonceStr: Type.String({ minLength: 1 }),
+			package: Type.String({ minLength: 1 }),
+			signType: Type.Literal("RSA"),
+			paySign: Type.String({ minLength: 1 }),
+			mixTradeNo: Type.String({ minLength: 1, maxLength: 32 }),
+		},
+		{ additionalProperties: false },
+	),
+]);
+
+/** 授权跳转前仅返回官方格式的亲情付路由标识，不返回患者实名或证件号。 */
+export const MedicalInsuranceAuthorizationContextResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Union([
+		Type.Object(
+			{ payForRelatives: Type.Literal(false) },
+			{ additionalProperties: false },
+		),
+		Type.Object(
+			{
+				payForRelatives: Type.Literal(true),
+				familyId: Type.String({ pattern: "^[a-f0-9]{32}$" }),
+			},
+			{ additionalProperties: false },
+		),
+	]),
+});
 
 /** 微信医保混合支付只返回服务端生成的调起参数，不返回 payAuthNo 或费用明细。 */
 export const MedicalInsuranceWechatPayResponse = Type.Object({
@@ -1148,6 +1172,9 @@ export type MedicalInsuranceAuthorizeRequestPayload = Static<
 >;
 export type MedicalInsuranceAuthorizePayload = Static<
 	typeof MedicalInsuranceAuthorizeResponse
+>;
+export type MedicalInsuranceAuthorizationContextPayload = Static<
+	typeof MedicalInsuranceAuthorizationContextResponse
 >;
 export type MedicalInsuranceOrderCommandPayload = Static<
 	typeof MedicalInsuranceOrderCommandRequest

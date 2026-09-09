@@ -45,6 +45,20 @@ export function mask(value: string): string {
 	return value || "未绑定";
 }
 
+/**
+ * 待支付订单存在时只允许恢复它原来绑定的就诊人。即使当前目录只剩一个
+ * 其它就诊人，也不能把页面选择回退到该就诊人后继续旧订单。
+ */
+export function initialPaymentPatientIndex(
+	patients: readonly Patient[],
+	pendingPatientId?: string,
+): number {
+	if (pendingPatientId) {
+		return patients.findIndex((patient) => patient.id === pendingPatientId);
+	}
+	return patients.length === 1 ? 0 : -1;
+}
+
 /** 就诊人由新版平台按当前会话返回；页面不接触医院患者号、证件号或手机号。 */
 export async function loadPatients(): Promise<Patient[]> {
 	const data = await request<{ items: unknown[] }>({ path: "/patients" });

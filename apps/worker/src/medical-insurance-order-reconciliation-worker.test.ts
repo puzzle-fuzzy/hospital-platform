@@ -5,8 +5,10 @@ import type {
 	MedicalInsuranceSettlementEvidence,
 } from "@hospital/domain";
 import {
+	createInMemoryIdentityUserRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
+	createInMemoryPatientRepository,
 } from "@hospital/persistence";
 import { MedicalInsuranceOrderReconciliationWorker } from "./medical-insurance-order-reconciliation-worker";
 
@@ -117,7 +119,7 @@ test("new medical order worker retries non-terminal 6301 evidence", async () => 
 	expect(await worker.runOnce(now)).toBe("idle");
 });
 
-test("new medical order worker completes only authoritative Yunhealth evidence", async () => {
+test("authoritative Yunhealth evidence still waits for the official WeChat medical order", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -155,7 +157,7 @@ test("new medical order worker completes only authoritative Yunhealth evidence",
 	expect(
 		await orders.findByMedicalOrderId("medical-order-worker-001"),
 	).toMatchObject({
-		status: "insurance_settled",
+		status: "cash_pending",
 		version: 3,
 	});
 });
@@ -184,6 +186,110 @@ test("new medical order worker does not query an order already in manual review"
 		60_000,
 	);
 	expect(claimedAgain).toBeUndefined();
+});
+
+test("worker recovers an unknown WeChat medical create result by out_trade_no", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			wechatOutTradeNo: "out-worker-recovery-001",
+			wechatPaymentState: "unknown",
+			wechatPrepayExpiresAt: "2026-09-03T02:00:00.000Z",
+		}),
+	);
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+	const patients = createInMemoryPatientRepository([
+		{
+			id: "patient-worker-001",
+			ownerUserId: "user-worker-001",
+			displayName: "代付儿童",
+			relationship: "child",
+			cardNumberMasked: "******0011",
+			source: "hospital-his",
+			clinicalAccess: "ready",
+		},
+	]);
+	let recoveredInput: unknown;
+	let createCalls = 0;
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks,
+		orders,
+		identityUsers: createInMemoryIdentityUserRepository([
+			{
+				userId: "user-worker-001",
+				providerSubject: "openid-worker-001",
+			},
+		]),
+		patients,
+		medicalInsurance: { query: async () => evidence() },
+		wechatPayment: {
+			createMixedOrder: async () => {
+				createCalls += 1;
+				throw new Error("create must not be used during recovery");
+			},
+			recoverMixedOrder: async (input) => {
+				recoveredInput = input;
+				return {
+					mixTradeNo: "mix-worker-recovery-001",
+					prepayId: "prepay-worker-recovery-001",
+					payParams: {
+						timeStamp: "1788393600",
+						nonceStr: "nonce-worker-recovery-001",
+						package: "prepay_id=prepay-worker-recovery-001",
+						signType: "RSA",
+						paySign: "signature-worker-recovery-001",
+						mixTradeNo: "mix-worker-recovery-001",
+					},
+					cashFen: 20,
+					trace: {
+						provider: "wechat-pay",
+						operation: "medical-mix-create-recovered",
+						requestId: "medical-mix-recovery-worker-001",
+					},
+				};
+			},
+			queryMixedOrder: async () => ({
+				mixState: "pending",
+				cashState: "pending",
+				insuranceState: "pending",
+				medInsPayStatus: "MED_INS_PAY_CREATED",
+				cashFen: 20,
+				totalFen: 100,
+				providerStatus: "MIX_PAY_CREATED/SELF_PAY_CREATED/MED_INS_PAY_CREATED",
+				trace: {
+					provider: "wechat-pay",
+					operation: "medical-mix-query",
+					requestId: "medical-mix-query-worker-recovery-001",
+				},
+			}),
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("retry_scheduled");
+	expect(createCalls).toBe(0);
+	expect(recoveredInput).toEqual({
+		orderId: "medical-order-worker-001",
+		outTradeNo: "out-worker-recovery-001",
+		openid: "openid-worker-001",
+		payOrdId: "pay-order-worker-001",
+		medOrgOrd: "medical-order-worker-001",
+		orderType: "RegPay",
+		amounts: order().amounts,
+		expectedPayForRelatives: true,
+	});
+	expect(
+		await orders.findByMedicalOrderId("medical-order-worker-001"),
+	).toMatchObject({
+		wechatMixTradeNo: "mix-worker-recovery-001",
+		wechatOutTradeNo: "out-worker-recovery-001",
+		wechatPaymentState: "prepay_ready",
+		wechatPrepayExpiresAt: "2026-09-03T02:00:00.000Z",
+		wechatPayParams: {
+			package: "prepay_id=prepay-worker-recovery-001",
+			mixTradeNo: "mix-worker-recovery-001",
+		},
+	});
 });
 
 test("mixed worker marks cash paid only after both WeChat payment parts are paid", async () => {
@@ -240,7 +346,11 @@ test("mixed worker marks cash paid only after both WeChat payment parts are paid
 			createMixedOrder: async () => {
 				throw new Error("create is not used");
 			},
+			recoverMixedOrder: async () => {
+				throw new Error("recover is not used");
+			},
 			queryMixedOrder: async () => ({
+				mixState: "paid",
 				cashState: "paid",
 				insuranceState: "paid",
 				medInsPayStatus: "MED_INS_PAY_SUCCESS",
@@ -293,7 +403,11 @@ test("mixed worker does not write HIS when only the cash part is paid", async ()
 			createMixedOrder: async () => {
 				throw new Error("create is not used");
 			},
+			recoverMixedOrder: async () => {
+				throw new Error("recover is not used");
+			},
 			queryMixedOrder: async () => ({
+				mixState: "pending",
 				cashState: "paid",
 				insuranceState: "pending",
 				medInsPayStatus: "MED_INS_PAY_CREATED",
@@ -331,5 +445,76 @@ test("mixed worker does not write HIS when only the cash part is paid", async ()
 		status: "in_progress",
 		terminalOrdStas: null,
 		lastErrorCode: "wechat-mixed-payment-pending",
+	});
+});
+
+test("pure insurance completes only after official WeChat query and final HIS settlement", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			amounts: {
+				totalFen: 100,
+				cashFen: 0,
+				personalAccountFen: 30,
+				fundFen: 70,
+			},
+			setlType: "ALL",
+			wechatMixTradeNo: "mix-pure-worker-001",
+			wechatOutTradeNo: "out-pure-worker-001",
+			wechatPaymentState: "prepay_ready",
+		}),
+	);
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+	let cashPaymentConfirmed: boolean | undefined;
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks,
+		orders,
+		medicalInsurance: {
+			query: async (input) => {
+				cashPaymentConfirmed = input.cashPaymentConfirmed;
+				return evidence({
+					amounts: { totalFen: 100, insuranceFen: 100, cashFen: 0 },
+					state: "insurance_settled",
+					source: "yunhealth",
+					providerStatus: "isSettle=1",
+					finality: "paid",
+					authoritative: true,
+				});
+			},
+		},
+		wechatPayment: {
+			createMixedOrder: async () => {
+				throw new Error("create is not used");
+			},
+			recoverMixedOrder: async () => {
+				throw new Error("recover is not used");
+			},
+			queryMixedOrder: async () => ({
+				mixState: "paid",
+				cashState: "paid",
+				insuranceState: "paid",
+				medInsPayStatus: "MED_INS_PAY_SUCCESS",
+				cashFen: 0,
+				totalFen: 100,
+				providerStatus: "MIX_PAY_SUCCESS/NO_SELF_PAY/MED_INS_PAY_SUCCESS",
+				trace: {
+					provider: "wechat-pay",
+					operation: "medical-mix-query",
+					requestId: "medical-pure-worker-001",
+				},
+			}),
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("reconciled");
+	expect(cashPaymentConfirmed).toBeTrue();
+	expect(
+		await orders.findByMedicalOrderId("medical-order-worker-001"),
+	).toMatchObject({
+		status: "insurance_settled",
+		wechatPaymentState: "cash_paid",
+		ordStas: "isSettle=1",
+		version: 3,
 	});
 });

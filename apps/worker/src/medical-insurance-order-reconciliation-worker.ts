@@ -7,10 +7,14 @@ import type {
 	MedicalInsuranceSettlementEvidence,
 	MedicalInsuranceSettlementEvidenceFinality,
 	MedicalInsuranceWechatPaymentGateway,
+	PatientRepository,
+	UserIdentityRepository,
 } from "@hospital/domain";
 import {
 	assertMedicalInsuranceOrderTransition,
+	isMedicalInsuranceOrderType,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+	medicalInsuranceOrderTypeForBusiness,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -21,7 +25,11 @@ import {
 /** 新医保订单域使用 owner-scoped 查询参数，不能复用旧 PaymentOrder worker。 */
 export type MedicalInsuranceOrderQueryGateway = {
 	query(
-		input: { orderId: string; ownerUserId: string },
+		input: {
+			orderId: string;
+			ownerUserId: string;
+			cashPaymentConfirmed?: boolean;
+		},
 		context: AdapterCallContext,
 	): Promise<MedicalInsuranceSettlementEvidence>;
 };
@@ -30,6 +38,7 @@ const BASE_QUERY_DELAY_MS = 15_000;
 const MAX_QUERY_DELAY_MS = 15 * 60 * 1000;
 const QUERY_BATCH_SIZE = 1;
 const QUERY_CLAIM_LEASE_MS = 60_000;
+const WECHAT_PREPAY_VALIDITY_MS = 2 * 60 * 60 * 1000;
 
 export type MedicalInsuranceOrderReconciliationWorkerResult =
 	| "idle"
@@ -106,7 +115,9 @@ function sameAmounts(
 	return (
 		order.amounts.totalFen === evidence.amounts.totalFen &&
 		order.amounts.cashFen === evidence.amounts.cashFen &&
-		order.amounts.personalAccountFen + order.amounts.fundFen ===
+		order.amounts.personalAccountFen +
+			order.amounts.fundFen +
+			(order.amounts.otherPaymentFen ?? 0) ===
 			evidence.amounts.insuranceFen
 	);
 }
@@ -134,9 +145,34 @@ function candidateState(
 		evidence.authoritative &&
 		evidence.source === "yunhealth"
 	) {
-		return evidence.amounts.cashFen > 0 ? "cash_pending" : "insurance_settled";
+		// .32 成功只允许进入微信官方医保订单阶段；纯医保也不能绕过
+		// INSURANCE_ONLY 查单和后续 .5 完成回写。
+		return "cash_pending";
 	}
 	return "awaiting_confirmation";
+}
+
+function recoverableOrderType(
+	order: MedicalInsuranceOrder,
+): MedicalInsuranceOrder["orderType"] {
+	const businessType =
+		order.businessType ?? (order.appointmentId ? "registration" : undefined);
+	if (!businessType) return undefined;
+	const expected = medicalInsuranceOrderTypeForBusiness(businessType);
+	const orderType = order.orderType ?? expected;
+	return isMedicalInsuranceOrderType(orderType) && orderType === expected
+		? orderType
+		: undefined;
+}
+
+function hasUsableWechatPrepay(
+	order: MedicalInsuranceOrder,
+	now: Date,
+): boolean {
+	if ((order.amounts?.cashFen ?? 0) === 0) return true;
+	if (!order.wechatPayParams || !order.wechatPrepayExpiresAt) return false;
+	const expiresAt = Date.parse(order.wechatPrepayExpiresAt);
+	return Number.isFinite(expiresAt) && expiresAt > now.getTime();
 }
 
 /** 返回可安全应用的订单状态；不允许查单把终态静默改回处理中。 */
@@ -170,6 +206,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			orders: MedicalInsuranceOrderRepository;
 			medicalInsurance: MedicalInsuranceOrderQueryGateway;
 			wechatPayment?: MedicalInsuranceWechatPaymentGateway;
+			identityUsers?: UserIdentityRepository;
+			patients?: PatientRepository;
 			completeWechatPayment?: (
 				input: {
 					ownerUserId: string;
@@ -191,6 +229,102 @@ export class MedicalInsuranceOrderReconciliationWorker {
 	): Promise<MedicalInsuranceQueryTask> {
 		const updated = taskAfterQuery(task, now, options);
 		return this.dependencies.tasks.update(updated, task.version);
+	}
+
+	private async recoverWechatMixedOrder(
+		task: MedicalInsuranceQueryTask,
+		order: MedicalInsuranceOrder,
+		now: Date,
+		context: AdapterCallContext,
+	): Promise<MedicalInsuranceOrderReconciliationWorkerResult> {
+		const gateway = this.dependencies.wechatPayment;
+		const orderType = recoverableOrderType(order);
+		const identity = await this.dependencies.identityUsers?.findByUserId(
+			order.ownerUserId,
+		);
+		const patients = await this.dependencies.patients?.listByOwner(
+			order.ownerUserId,
+		);
+		const patient = patients?.find(
+			(candidate) => candidate.id === order.patientId,
+		);
+		if (
+			!gateway ||
+			!identity?.providerSubject ||
+			!patient ||
+			patient.relationship === "unknown" ||
+			!order.wechatOutTradeNo ||
+			!order.payOrdId ||
+			!order.amounts ||
+			!orderType
+		) {
+			await this.updateTask(task, now, {
+				continueQuery: false,
+				manualReview: true,
+				lastErrorCode: "wechat-mixed-recovery-context-missing",
+			});
+			this.logger.error(
+				{
+					event:
+						"worker.payment.medical_wechat_recovery.manual_review_required",
+					taskId: task.taskId,
+					orderId: order.medicalOrderId,
+					reason: "wechat-mixed-recovery-context-missing",
+				},
+				"Medical insurance WeChat order recovery requires manual review",
+			);
+			return "manual_review";
+		}
+		const result = await gateway.recoverMixedOrder(
+			{
+				orderId: order.medicalOrderId,
+				outTradeNo: order.wechatOutTradeNo,
+				openid: identity.providerSubject,
+				payOrdId: order.payOrdId,
+				medOrgOrd: order.medOrgOrd,
+				orderType,
+				amounts: order.amounts,
+				expectedPayForRelatives: patient.relationship !== "self",
+			},
+			context,
+		);
+		const recoveredPrepayExpiresAt = result.prepayId
+			? (order.wechatPrepayExpiresAt ??
+				new Date(now.getTime() + WECHAT_PREPAY_VALIDITY_MS).toISOString())
+			: null;
+		const recoveredPrepayUsable =
+			!result.prepayId ||
+			(recoveredPrepayExpiresAt !== null &&
+				Date.parse(recoveredPrepayExpiresAt) > now.getTime());
+		const recovered = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				status: order.status,
+				ordStas: order.ordStas,
+				amounts: order.amounts,
+				setlType: order.setlType,
+				revsTokenHash: order.revsTokenHash,
+				revsTokenExpiresAt: order.revsTokenExpiresAt,
+				wechatMixTradeNo: result.mixTradeNo,
+				wechatOutTradeNo: order.wechatOutTradeNo,
+				wechatPayParams: recoveredPrepayUsable ? result.payParams : null,
+				wechatPrepayExpiresAt: recoveredPrepayExpiresAt,
+				wechatPaymentState: recoveredPrepayUsable ? "prepay_ready" : "unknown",
+			},
+		);
+		if (!recovered) throw new Error("medical order version conflict");
+		this.logger.info(
+			{
+				event: "worker.payment.medical_wechat_recovery.succeeded",
+				taskId: task.taskId,
+				orderId: order.medicalOrderId,
+				providerRequestId: result.trace.requestId,
+				mixTradeNo: result.mixTradeNo,
+			},
+			"Medical insurance WeChat order recovered by merchant order number",
+		);
+		return this.reconcileWechatMixedOrder(task, recovered, now, context);
 	}
 
 	private async reconcileWechatMixedOrder(
@@ -235,16 +369,22 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			context,
 		);
 		const fullyPaid =
-			result.cashState === "paid" && result.insuranceState === "paid";
+			result.mixState === "paid" &&
+			result.cashState === "paid" &&
+			result.insuranceState === "paid";
 		const providerFailed =
-			result.cashState === "failed" || result.insuranceState === "failed";
+			result.mixState === "failed" ||
+			result.cashState === "failed" ||
+			result.insuranceState === "failed";
 		const paymentState = fullyPaid
 			? "cash_paid"
 			: providerFailed
 				? "failed"
 				: result.cashState === "paid"
 					? "unknown"
-					: "prepay_ready";
+					: hasUsableWechatPrepay(order, now)
+						? "prepay_ready"
+						: "unknown";
 		const updated = await this.dependencies.orders.applySettlement(
 			order.medicalOrderId,
 			order.version,
@@ -270,17 +410,52 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				order.medicalOrderId,
 			);
 			if (
-				settlement?.plugin?.paymentOrderId &&
+				order.amounts.cashFen > 0 &&
 				this.dependencies.completeWechatPayment
 			) {
-				hisCompleted = await this.dependencies.completeWechatPayment(
+				// 已启用云健康插件时，混合支付缺少插件上下文只能等待补偿，
+				// 不能跳过 .29/.15 直接执行 .5。
+				if (settlement?.plugin?.paymentOrderId) {
+					hisCompleted = await this.dependencies.completeWechatPayment(
+						{
+							ownerUserId: order.ownerUserId,
+							medicalOrderId: order.medicalOrderId,
+							paymentOrderId: settlement.plugin.paymentOrderId,
+						},
+						context,
+					);
+				}
+			} else {
+				const completion = await this.dependencies.medicalInsurance.query(
 					{
+						orderId: order.medicalOrderId,
 						ownerUserId: order.ownerUserId,
-						medicalOrderId: order.medicalOrderId,
-						paymentOrderId: settlement.plugin.paymentOrderId,
+						cashPaymentConfirmed: true,
 					},
 					context,
 				);
+				if (
+					completion.state === "insurance_settled" &&
+					completion.finality === "paid" &&
+					completion.authoritative &&
+					sameAmounts(updated, completion)
+				) {
+					const completed = await this.dependencies.orders.applySettlement(
+						updated.medicalOrderId,
+						updated.version,
+						{
+							status: "insurance_settled",
+							ordStas: completion.providerStatus,
+							amounts: updated.amounts,
+							setlType: updated.setlType,
+							revsTokenHash: updated.revsTokenHash,
+							revsTokenExpiresAt: updated.revsTokenExpiresAt,
+							wechatPaymentState: "cash_paid",
+						},
+					);
+					if (!completed) throw new Error("medical order version conflict");
+					hisCompleted = true;
+				}
 			}
 		}
 		const continueQuery =
@@ -323,6 +498,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				queryAttempts: updatedTask.attempts,
 				providerRequestId: result.trace.requestId,
 				providerStatus: result.providerStatus,
+				mixState: result.mixState,
 				cashState: result.cashState,
 				insuranceState: result.insuranceState,
 				medInsPayStatus: result.medInsPayStatus,
@@ -400,10 +576,29 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				return await this.reconcileWechatMixedOrder(task, order, now, context);
 			}
 			if (
-				order.status === "insurance_settled" ||
-				order.status === "cash_pending" ||
-				order.status === "failed"
+				order.status === "cash_pending" &&
+				order.wechatPaymentState === "unknown" &&
+				order.wechatOutTradeNo
 			) {
+				return await this.recoverWechatMixedOrder(task, order, now, context);
+			}
+			if (order.status === "cash_pending") {
+				await this.updateTask(task, now, {
+					continueQuery: false,
+					lastErrorCode: "wechat-medical-order-not-created",
+				});
+				this.logger.info(
+					{
+						event:
+							"worker.payment.medical_order_query.waiting_for_wechat_order",
+						taskId: task.taskId,
+						orderId: task.medicalOrderId,
+					},
+					"Medical insurance order is waiting for the user to create the official WeChat medical order",
+				);
+				return "reconciled";
+			}
+			if (order.status === "insurance_settled" || order.status === "failed") {
 				await this.updateTask(task, now, {
 					continueQuery: false,
 					lastErrorCode: `order-already-${order.status}`,

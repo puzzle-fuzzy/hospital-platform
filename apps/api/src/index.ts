@@ -362,8 +362,8 @@ const medicalInsuranceCryptoConfig = medicalInsuranceReady
 				: {}),
 		}
 	: undefined;
-// 6201/6202 目前按测试环境的兼容模式接收“已解密但验签未通过”的响应；
-// 医保异步通知仍单独使用严格实例，避免把非严格边界扩大到回调入账。
+// 院方确认：MBS/FSI 当前统一保持可配置的非严格验签兼容模式；微信 APIv3
+// 请求响应与异步通知仍由独立的 RSA 验签链路严格校验。
 const medicalInsuranceCrypto = medicalInsuranceCryptoConfig
 	? createOfficialJavaLegacyFsiCrypto({
 			...medicalInsuranceCryptoConfig,
@@ -373,7 +373,7 @@ const medicalInsuranceCrypto = medicalInsuranceCryptoConfig
 const medicalInsuranceNotificationCrypto = medicalInsuranceCryptoConfig
 	? createOfficialJavaLegacyFsiCrypto({
 			...medicalInsuranceCryptoConfig,
-			verifyResponseStrict: true,
+			verifyResponseStrict: config.medicalInsuranceVerifyStrict,
 		})
 	: undefined;
 const medicalInsuranceNotification =

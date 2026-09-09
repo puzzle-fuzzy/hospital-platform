@@ -7,7 +7,7 @@
 
 	<view class="card">
 		<view class="label">就诊人</view>
-		<picker mode="selector" range="{{patientNames}}" value="{{patientIndex}}" bindchange="onPatientChange" disabled="{{busy}}">
+		<picker mode="selector" range="{{patientNames}}" value="{{patientIndex}}" bindchange="onPatientChange" disabled="{{busy || hasPendingPayment}}">
 			<view class="picker-row">
 				<text class="value">{{patientIndex >= 0 ? patientNames[patientIndex] : '请选择就诊人'}}</text>
 				<text class="arrow">›</text>
@@ -49,9 +49,9 @@
 
 	<view class="payment-label">选择支付方式</view>
 	<view class="payment-actions">
-		<button class="button payment-button medical-button" data-mode="medical" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'medical'}}" disabled="{{busy || (!hasPendingPayment && (patientIndex < 0 || !source || duplicate))}}">医保支付</button>
-		<button class="button payment-button mixed-button" data-mode="mixed" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy || (!hasPendingPayment && (patientIndex < 0 || !source || duplicate))}}">医保混合支付</button>
-		<button class="button payment-button self-button" data-mode="self" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy || (!hasPendingPayment && (patientIndex < 0 || !source || duplicate))}}">自费支付</button>
+		<button class="button payment-button medical-button" data-mode="medical" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'medical'}}" disabled="{{busy || patientIndex < 0 || (!hasPendingPayment && (!source || duplicate))}}">医保支付</button>
+		<button class="button payment-button mixed-button" data-mode="mixed" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy || patientIndex < 0 || (!hasPendingPayment && (!source || duplicate))}}">医保混合支付</button>
+		<button class="button payment-button self-button" data-mode="self" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy || patientIndex < 0 || (!hasPendingPayment && (!source || duplicate))}}">自费支付</button>
 	</view>
-	<view class="footnote">支付完成以医院最终结算结果为准；取消授权或支付不会重复挂号，当前预约会保留。</view>
+	<view class="footnote">支付完成以医院最终结算结果为准；取消后将由服务端查单，确认未支付才释放号源，状态未知时保留原订单。</view>
 </view>

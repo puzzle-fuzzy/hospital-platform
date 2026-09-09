@@ -5,12 +5,14 @@ import {
 	AppointmentDepartmentTreeResponse,
 	HealthKnowledgeDiseaseDetailSchema,
 	HealthKnowledgeDrugDetailSchema,
+	MedicalInsuranceAuthorizationContextResponse,
 	PatientCardNumberMaskedSchema,
 	PatientListResponse,
 	PatientSchema,
 	UserProfileDisplayNameSchema,
 	UserProfileSchema,
 	UserProfileUpdateRequest,
+	WechatMedicalInsurancePayParamsSchema,
 } from "./index";
 
 const displayNameSchema = TypeCompiler.Compile(UserProfileDisplayNameSchema);
@@ -29,6 +31,12 @@ const healthDrugDetailSchema = TypeCompiler.Compile(
 );
 const appointmentDepartmentTreeSchema = TypeCompiler.Compile(
 	AppointmentDepartmentTreeResponse,
+);
+const medicalInsurancePayParamsSchema = TypeCompiler.Compile(
+	WechatMedicalInsurancePayParamsSchema,
+);
+const medicalInsuranceAuthorizationContextSchema = TypeCompiler.Compile(
+	MedicalInsuranceAuthorizationContextResponse,
 );
 
 function profile(displayName: string) {
@@ -52,6 +60,37 @@ test("个人资料展示名按 Unicode code point 计数，而不是 UTF-16 code
 		expect(profileSchema.Check(profile(value))).toBe(true);
 		expect(updateSchema.Check({ version: 1, displayName: value })).toBe(true);
 	}
+});
+
+test("微信医保 contract 区分纯医保参数与完整混合支付参数", () => {
+	expect(
+		medicalInsurancePayParamsSchema.Check({ mixTradeNo: "mix-pure-001" }),
+	).toBeTrue();
+	expect(
+		medicalInsurancePayParamsSchema.Check({
+			mixTradeNo: "mix-combined-001",
+			timeStamp: "1786752000",
+			nonceStr: "nonce-001",
+			package: "prepay_id=prepay-001",
+			signType: "RSA",
+			paySign: "signature-001",
+		}),
+	).toBeTrue();
+	expect(
+		medicalInsurancePayParamsSchema.Check({
+			mixTradeNo: "mix-partial-001",
+			timeStamp: "1786752000",
+		}),
+	).toBeFalse();
+	expect(
+		medicalInsuranceAuthorizationContextSchema.Check({
+			success: true,
+			data: {
+				payForRelatives: true,
+				familyId: "62725109a76555072ba458cf4e122aa4",
+			},
+		}),
+	).toBeTrue();
 });
 
 test("个人资料展示名拒绝第 65 个 Unicode code point 和孤立代理项", () => {
