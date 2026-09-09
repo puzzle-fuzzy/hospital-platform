@@ -3,8 +3,10 @@ import {
 	assertMedicalInsuranceOrderTransition,
 	assertValidMedicalInsuranceAmounts,
 	InvalidMedicalInsuranceAmountsError,
+	InvalidMedicalInsurancePaymentBreakdownError,
 	isMedicalInsuranceOrderStatus,
 	MedicalInsuranceOrderTransitionError,
+	medicalInsurancePaymentBreakdown,
 	medicalInsuranceStatusForNotification,
 	normalizeMedicalInsuranceSettlementNotification,
 } from "./medical-insurance-order";
@@ -67,6 +69,42 @@ describe("医保金额四分项守恒", () => {
 				personalAccountSelfFen: 2500,
 			}),
 		).not.toThrow();
+	});
+
+	test("只有高平普通挂号可把医院承担金额映射为 HOSPITAL_REDUCE", () => {
+		const amounts = {
+			totalFen: 100,
+			cashFen: 30,
+			personalAccountFen: 20,
+			fundFen: 50,
+			hospitalPartFen: 10,
+		};
+		expect(
+			medicalInsurancePaymentBreakdown({
+				amounts,
+				orderType: "RegPay",
+				insuredAreaCode: "140581",
+			}),
+		).toEqual({
+			wechatCashFen: 20,
+			cashReduceDetails: [
+				{ cashReduceFen: 10, cashReduceType: "HOSPITAL_REDUCE" },
+			],
+		});
+		expect(() =>
+			medicalInsurancePaymentBreakdown({
+				amounts,
+				orderType: "RegPay",
+				insuredAreaCode: "140500",
+			}),
+		).toThrow(InvalidMedicalInsurancePaymentBreakdownError);
+		expect(() =>
+			medicalInsurancePaymentBreakdown({
+				amounts,
+				orderType: "DiagPay",
+				insuredAreaCode: "140581",
+			}),
+		).toThrow(InvalidMedicalInsurancePaymentBreakdownError);
 	});
 });
 

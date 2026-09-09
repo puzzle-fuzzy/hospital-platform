@@ -324,3 +324,191 @@ test("医保授权后尚未产生 6201 支付流水时可以直接作废订单",
 		orders.findByMedicalOrderId("medical-cancel-before-fees"),
 	).resolves.toMatchObject({ status: "cancelled" });
 });
+
+test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 和 6202", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-reauth-old",
+			patientId: "patient-reauth-001",
+			appointmentId: "appointment-reauth-001",
+			businessType: "registration",
+			businessId: "appointment-reauth-001",
+			authorizationId: "authorization-reauth-old",
+			feeUploadId: "fee-reauth-old",
+			payOrdId: "pay-reauth-old",
+			status: "fee_uploaded",
+		}),
+	);
+	const calls: string[] = [];
+	const ids = ["medical-reauth-new", "charge-reauth-new"];
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: "appointment-reauth-001",
+				ownerUserId: "user-service-001",
+				patientId: "patient-reauth-001",
+				providerPatientId: "his-patient-reauth-001",
+				providerAppointmentId: "provider-appointment-reauth-001",
+				departmentName: "测试科室",
+				doctorName: "测试医生",
+				workDate: "2026-09-03",
+				shiftName: "上午",
+				sourceSerialNumber: "1",
+				totalFen: 1000,
+				status: "booked",
+				createdAt: now.toISOString(),
+				updatedAt: now.toISOString(),
+			}),
+		} as never,
+		patients: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-reauth-001",
+				provider: "zhongyang",
+				providerPatientId: "directory-patient-reauth-001",
+			}),
+		} as never,
+		identityUsers: {
+			findByUserId: async () => ({
+				userId: "user-service-001",
+				providerSubject: "openid-reauth-001",
+				unionId: "unionid-reauth-001",
+			}),
+		} as never,
+		patientProfile: {
+			resolve: async () => ({
+				patient: {
+					providerPatientId: "his-patient-reauth-001",
+					name: "重新授权测试人",
+					cardNo: "card-reauth-001",
+					idNo: "140581199001010011",
+					phone: "13800000000",
+				},
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-patient-profile",
+					requestId: "profile-reauth-001",
+				},
+			}),
+		} as never,
+		medicalInsurance: {
+			cancel: async (input: { orderId: string; reason: string }) => {
+				calls.push(`cancel:${input.reason}:${input.orderId}`);
+				return {
+					state: "cancelled" as const,
+					paymentState: "closed" as const,
+					settlementState: "cancelled" as const,
+					providerStatus: "closed_for_reauthorization",
+					trace: {
+						provider: "medical-insurance" as const,
+						operation: "medical-insurance.cancellation",
+						requestId: "cancel-reauth-old",
+					},
+				};
+			},
+			authorize: async (input: { authCode: string; orderId: string }) => {
+				calls.push(`authorize:${input.authCode}:${input.orderId}`);
+				return {
+					authorizationId: "authorization-reauth-new",
+					trace: {
+						provider: "medical-insurance" as const,
+						operation: "medical-insurance.authorize",
+						requestId: "authorize-reauth-new",
+					},
+				};
+			},
+			uploadFees: async (input: { orderId: string }) => {
+				calls.push(`6201:${input.orderId}`);
+				return {
+					feeUploadId: "fee-reauth-new",
+					payOrdId: "pay-reauth-new",
+					payTokenHash: "b".repeat(64),
+					mdtrtId: "mdtrt-reauth-new",
+					acctUsedFlag: "0",
+					trace: {
+						provider: "medical-insurance" as const,
+						operation: "medical-insurance.6201",
+						requestId: "6201-reauth-new",
+					},
+				};
+			},
+			settle: async (input: { orderId: string }) => {
+				calls.push(`6202:${input.orderId}`);
+				return {
+					state: "insurance_settled" as const,
+					amounts: {
+						totalFen: 1000,
+						cashFen: 0,
+						personalAccountFen: 0,
+						fundFen: 1000,
+					},
+					trace: {
+						provider: "medical-insurance" as const,
+						operation: "medical-insurance.6202",
+						requestId: "6202-reauth-new",
+					},
+					source: "6202" as const,
+					providerStatus: "6",
+					finality: "succeeded" as const,
+					authoritative: true,
+				};
+			},
+		} as unknown as MedicalInsuranceGateway,
+		now: () => now,
+		createId: () => ids.shift() ?? "unexpected-id",
+	});
+
+	await expect(
+		service.authorize({
+			ownerUserId: "user-service-001",
+			appointmentId: "appointment-reauth-001",
+			authCode: "fresh-auth-code",
+			context: {
+				traceId: "medical-reauth-trace",
+				idempotencyKey: "medical-reauth-new-idempotency",
+			},
+		}),
+	).resolves.toEqual({ orderId: "medical-reauth-new", status: "authorized" });
+	expect(calls).toEqual([
+		"cancel:reauthorization:medical-reauth-old",
+		"authorize:fresh-auth-code:medical-reauth-new",
+	]);
+	await expect(
+		service.uploadFees({
+			ownerUserId: "user-service-001",
+			orderId: "medical-reauth-new",
+			context: {
+				traceId: "medical-reauth-6201-trace",
+				idempotencyKey: "medical-reauth-6201-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({ status: "fee_uploaded" });
+	await expect(
+		service.settle({
+			ownerUserId: "user-service-001",
+			orderId: "medical-reauth-new",
+			context: {
+				traceId: "medical-reauth-6202-trace",
+				idempotencyKey: "medical-reauth-6202-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({ status: "insurance_settled" });
+	expect(calls).toEqual([
+		"cancel:reauthorization:medical-reauth-old",
+		"authorize:fresh-auth-code:medical-reauth-new",
+		"6201:medical-reauth-new",
+		"6202:medical-reauth-new",
+	]);
+	await expect(
+		orders.findByMedicalOrderId("medical-reauth-old"),
+	).resolves.toMatchObject({ status: "cancelled" });
+	await expect(
+		orders.findByMedicalOrderId("medical-reauth-new"),
+	).resolves.toMatchObject({
+		authorizationId: "authorization-reauth-new",
+		feeUploadId: "fee-reauth-new",
+		payOrdId: "pay-reauth-new",
+		status: "insurance_settled",
+	});
+});

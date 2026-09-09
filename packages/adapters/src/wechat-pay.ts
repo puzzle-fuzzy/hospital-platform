@@ -21,6 +21,7 @@ import type {
 import {
 	assertValidMedicalInsuranceAmounts,
 	isMedicalInsuranceOrderType,
+	medicalInsurancePaymentBreakdown,
 } from "@hospital/domain";
 import {
 	AdapterNotConfiguredError,
@@ -136,6 +137,14 @@ export type WechatMedicalInsuranceNotification = {
 	outTradeNo: string;
 	totalFen: number;
 	cashFen: number;
+	fundFen: number;
+	personalAccountFen: number;
+	otherPaymentFen: number;
+	medicalCashFen: number;
+	cashReduceDetails: readonly {
+		cashReduceFen: number;
+		cashReduceType: string;
+	}[];
 	mixPayType: "INSURANCE_ONLY" | "CASH_AND_INSURANCE";
 	selfPayStatus: "SELF_PAY_SUCCESS" | "NO_SELF_PAY";
 	medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS";
@@ -528,6 +537,43 @@ function providerFen(value: unknown, field: string): number | undefined {
 	throw providerError({
 		operation: "medical-mix-query",
 		message: `Wechat medical response ${field} was not a valid fen amount`,
+	});
+}
+
+function providerCashReduceDetails(
+	value: unknown,
+	field = "cash_reduce_detail",
+): readonly { cashReduceFen: number; cashReduceType: string }[] {
+	if (value === undefined || value === null) return [];
+	if (!Array.isArray(value)) {
+		throw providerError({
+			operation: "medical-mix-validation",
+			message: `Wechat medical ${field} is invalid`,
+		});
+	}
+	return value.map((entry, index) => {
+		if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+			throw providerError({
+				operation: "medical-mix-validation",
+				message: `Wechat medical ${field}[${index}] is invalid`,
+			});
+		}
+		const record = entry as Record<string, unknown>;
+		const cashReduceFen = providerFen(
+			record.cash_reduce_fee ?? record.cashReduceFee,
+			`${field}[${index}].cash_reduce_fee`,
+		);
+		const cashReduceType =
+			typeof (record.cash_reduce_type ?? record.cashReduceType) === "string"
+				? String(record.cash_reduce_type ?? record.cashReduceType).trim()
+				: "";
+		if (cashReduceFen === undefined || cashReduceFen <= 0 || !cashReduceType) {
+			throw providerError({
+				operation: "medical-mix-validation",
+				message: `Wechat medical ${field}[${index}] is incomplete`,
+			});
+		}
+		return { cashReduceFen, cashReduceType };
 	});
 }
 
@@ -942,10 +988,13 @@ export class WechatPaymentApiGateway
 
 		const data = response.data;
 		const mixTradeNo = findProviderText(data, ["mix_trade_no"]);
+		const breakdown = medicalInsurancePaymentBreakdown({
+			amounts: input.order.amounts,
+			orderType: input.order.orderType,
+			insuredAreaCode: input.order.insuredAreaCode ?? "",
+		});
 		const expectedMixPayType =
-			input.order.amounts.cashFen === 0
-				? "INSURANCE_ONLY"
-				: "CASH_AND_INSURANCE";
+			breakdown.wechatCashFen === 0 ? "INSURANCE_ONLY" : "CASH_AND_INSURANCE";
 		const responsePrepayId = findProviderText(data, ["prepay_id"]);
 		const responsePayForRelatives = data.pay_for_relatives;
 		const totalFen = providerFen(data.total_fee, "total_fee");
@@ -963,10 +1012,12 @@ export class WechatPaymentApiGateway
 			"med_ins_cash_fee",
 		);
 		const wechatCashFen =
-			data.wechat_pay_cash_fee === undefined &&
-			input.order.amounts.cashFen === 0
+			data.wechat_pay_cash_fee === undefined && breakdown.wechatCashFen === 0
 				? 0
 				: providerFen(data.wechat_pay_cash_fee, "wechat_pay_cash_fee");
+		const cashReduceDetails = providerCashReduceDetails(
+			data.cash_reduce_detail,
+		);
 		const mixStatus = findProviderText(data, ["mix_pay_status"]);
 		const selfStatus = findProviderText(data, ["self_pay_status"]);
 		const medicalStatus = findProviderText(data, ["med_ins_pay_status"]);
@@ -995,8 +1046,10 @@ export class WechatPaymentApiGateway
 			personalAccountFen !== input.order.amounts.personalAccountFen ||
 			otherPaymentFen !== (input.order.amounts.otherPaymentFen ?? 0) ||
 			medInsCashFen !== input.order.amounts.cashFen ||
-			wechatCashFen !== input.order.amounts.cashFen ||
-			(input.order.amounts.cashFen > 0
+			wechatCashFen !== breakdown.wechatCashFen ||
+			JSON.stringify(cashReduceDetails) !==
+				JSON.stringify(breakdown.cashReduceDetails) ||
+			(breakdown.wechatCashFen > 0
 				? !responsePrepayId ||
 					(input.prepay !== undefined &&
 						responsePrepayId !== input.prepay.prepayId)
@@ -1013,7 +1066,7 @@ export class WechatPaymentApiGateway
 			});
 		}
 		const recoveredPrepay: WechatJsapiPrepayResult | undefined =
-			input.order.amounts.cashFen > 0 && responsePrepayId
+			breakdown.wechatCashFen > 0 && responsePrepayId
 				? (input.prepay ?? {
 						prepayId: responsePrepayId,
 						payParams: payParams({
@@ -1033,7 +1086,7 @@ export class WechatPaymentApiGateway
 
 		return this.medicalMixedOrderResult({
 			mixTradeNo,
-			cashFen: input.order.amounts.cashFen,
+			cashFen: breakdown.wechatCashFen,
 			...(recoveredPrepay ? { prepay: recoveredPrepay } : {}),
 			operation: "medical-mix-create-recovered",
 			requestId: response.requestId,
@@ -1292,13 +1345,18 @@ export class WechatPaymentApiGateway
 			});
 		}
 		const amounts = assertValidMedicalInsuranceAmounts(input.amounts);
+		const breakdown = medicalInsurancePaymentBreakdown({
+			amounts,
+			orderType: input.orderType,
+			insuredAreaCode: input.authorization.insuplcAdmdvs,
+		});
 		if (medical.appId !== this.appId) {
 			throw providerError({
 				operation: "medical-mix-validation",
 				message: "Wechat medical appId must match the JSAPI payment appId",
 			});
 		}
-		const insuranceOnly = amounts.cashFen === 0;
+		const insuranceOnly = breakdown.wechatCashFen === 0;
 		const recoveryOrder: MedicalMixedRecoveryInput = {
 			orderId: input.orderId,
 			outTradeNo,
@@ -1307,6 +1365,7 @@ export class WechatPaymentApiGateway
 			medOrgOrd,
 			orderType: input.orderType,
 			amounts,
+			insuredAreaCode: input.authorization.insuplcAdmdvs,
 			expectedPayForRelatives: input.paymentIdentity.payForRelatives,
 		};
 		const recoveryRequestIds: (string | undefined)[] = [];
@@ -1355,7 +1414,11 @@ export class WechatPaymentApiGateway
 		const prepay = insuranceOnly
 			? undefined
 			: await this.createJsapiOrder(
-					{ orderId: outTradeNo, openid, totalFen: amounts.cashFen },
+					{
+						orderId: outTradeNo,
+						openid,
+						totalFen: breakdown.wechatCashFen,
+					},
 					context,
 				);
 		const body = JSON.stringify({
@@ -1405,8 +1468,16 @@ export class WechatPaymentApiGateway
 			callback_url: medical.callbackUrl,
 			...(prepay
 				? {
-						wechat_pay_cash_fee: amounts.cashFen,
+						wechat_pay_cash_fee: breakdown.wechatCashFen,
 						prepay_id: prepay.prepayId,
+					}
+				: {}),
+			...(breakdown.cashReduceDetails.length > 0
+				? {
+						cash_reduce_detail: breakdown.cashReduceDetails.map((detail) => ({
+							cash_reduce_fee: detail.cashReduceFen,
+							cash_reduce_type: detail.cashReduceType,
+						})),
 					}
 				: {}),
 			...(medical.channelNo ? { channel_no: medical.channelNo } : {}),
@@ -1421,7 +1492,7 @@ export class WechatPaymentApiGateway
 			);
 			return this.medicalMixedOrderCreateResponse({
 				response,
-				cashFen: amounts.cashFen,
+				cashFen: breakdown.wechatCashFen,
 				...(prepay ? { prepay } : {}),
 				operation: "medical-mix-create",
 				requestIds: recoveryRequestIds,
@@ -1451,7 +1522,7 @@ export class WechatPaymentApiGateway
 				);
 				return this.medicalMixedOrderCreateResponse({
 					response,
-					cashFen: amounts.cashFen,
+					cashFen: breakdown.wechatCashFen,
 					...(prepay ? { prepay } : {}),
 					operation: "medical-mix-create-retry",
 					requestIds: recoveryRequestIds,
@@ -1505,6 +1576,9 @@ export class WechatPaymentApiGateway
 			medOrgOrd: requiredInput(input.medOrgOrd, "medOrgOrd", 40),
 			orderType: input.orderType,
 			amounts: assertValidMedicalInsuranceAmounts(input.amounts),
+			insuredAreaCode: input.insuredAreaCode
+				? requiredInput(input.insuredAreaCode, "insuredAreaCode", 16)
+				: "",
 			expectedPayForRelatives: input.expectedPayForRelatives,
 		};
 		if (!isMedicalInsuranceOrderType(order.orderType)) {
@@ -1658,7 +1732,33 @@ export class WechatPaymentApiGateway
 			cashValue === undefined && expectedCashFen === 0
 				? 0
 				: providerFen(cashValue, "wechat_pay_cash_fee");
-		if (totalFen === undefined || cashFen === undefined) {
+		const fundFen = providerFen(
+			dataRecord.med_ins_gov_fee ?? dataRecord.medInsGovFee,
+			"med_ins_gov_fee",
+		);
+		const personalAccountFen = providerFen(
+			dataRecord.med_ins_self_fee ?? dataRecord.medInsSelfFee,
+			"med_ins_self_fee",
+		);
+		const otherPaymentFen = providerFen(
+			dataRecord.med_ins_other_fee ?? dataRecord.medInsOtherFee,
+			"med_ins_other_fee",
+		);
+		const medicalCashFen = providerFen(
+			dataRecord.med_ins_cash_fee ?? dataRecord.medInsCashFee,
+			"med_ins_cash_fee",
+		);
+		const cashReduceDetails = providerCashReduceDetails(
+			dataRecord.cash_reduce_detail ?? dataRecord.cashReduceDetail,
+		);
+		if (
+			totalFen === undefined ||
+			cashFen === undefined ||
+			fundFen === undefined ||
+			personalAccountFen === undefined ||
+			otherPaymentFen === undefined ||
+			medicalCashFen === undefined
+		) {
 			throw providerError({
 				operation: "medical-mix-query",
 				message: "Wechat medical query did not contain amount fields",
@@ -1683,6 +1783,11 @@ export class WechatPaymentApiGateway
 			...(medInsFailReason ? { medInsFailReason } : {}),
 			cashFen,
 			totalFen,
+			fundFen,
+			personalAccountFen,
+			otherPaymentFen,
+			medicalCashFen,
+			cashReduceDetails,
 			providerStatus: [mixStatus, selfStatus, medicalStatus]
 				.filter(Boolean)
 				.join("/"),
@@ -1972,6 +2077,29 @@ export function createWechatMedicalInsuranceNotificationDecoder(
 						"wechat_pay_cash_fee",
 						mixPayType === "INSURANCE_ONLY",
 					);
+		const fundFen = medicalNotificationFen(
+			resource.med_ins_gov_fee,
+			"med_ins_gov_fee",
+			true,
+		);
+		const personalAccountFen = medicalNotificationFen(
+			resource.med_ins_self_fee,
+			"med_ins_self_fee",
+			true,
+		);
+		const otherPaymentFen = medicalNotificationFen(
+			resource.med_ins_other_fee,
+			"med_ins_other_fee",
+			true,
+		);
+		const medicalCashFen = medicalNotificationFen(
+			resource.med_ins_cash_fee,
+			"med_ins_cash_fee",
+			true,
+		);
+		const cashReduceDetails = providerCashReduceDetails(
+			resource.cash_reduce_detail,
+		);
 		return {
 			notificationId: mappedNotificationText(
 				notification.notificationId,
@@ -1983,6 +2111,11 @@ export function createWechatMedicalInsuranceNotificationDecoder(
 			outTradeNo,
 			totalFen: medicalNotificationFen(resource.total_fee, "total_fee"),
 			cashFen,
+			fundFen,
+			personalAccountFen,
+			otherPaymentFen,
+			medicalCashFen,
+			cashReduceDetails,
 			mixPayType,
 			selfPayStatus: expectedSelfPayStatus,
 			medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS",

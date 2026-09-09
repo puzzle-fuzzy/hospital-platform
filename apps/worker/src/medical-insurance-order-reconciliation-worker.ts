@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
 import type {
 	AdapterCallContext,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
+	MedicalInsurancePostPaymentComponent,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
 	MedicalInsuranceSettlementEvidence,
@@ -9,12 +11,14 @@ import type {
 	MedicalInsuranceWechatPaymentGateway,
 	PatientRepository,
 	UserIdentityRepository,
+	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import {
 	assertMedicalInsuranceOrderTransition,
 	isMedicalInsuranceOrderType,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	medicalInsuranceOrderTypeForBusiness,
+	medicalInsurancePaymentBreakdown,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -39,6 +43,86 @@ const MAX_QUERY_DELAY_MS = 15 * 60 * 1000;
 const QUERY_BATCH_SIZE = 1;
 const QUERY_CLAIM_LEASE_MS = 60_000;
 const WECHAT_PREPAY_VALIDITY_MS = 2 * 60 * 60 * 1000;
+
+function stableComponentCode(value: string): string {
+	return createHash("sha256").update(value).digest("hex").slice(0, 32);
+}
+
+function postPaymentComponents(input: {
+	order: MedicalInsuranceOrder;
+	insuredAreaCode: string;
+	now: Date;
+}): readonly MedicalInsurancePostPaymentComponent[] {
+	const amounts = input.order.amounts;
+	if (!amounts) throw new Error("medical payment amounts are unavailable");
+	if ((amounts.otherPaymentFen ?? 0) > 0) {
+		throw new Error("medical-insurance-med-ins-other-fee-unmapped");
+	}
+	const breakdown = medicalInsurancePaymentBreakdown({
+		amounts,
+		orderType: input.order.orderType ?? "RegPay",
+		insuredAreaCode: input.insuredAreaCode,
+	});
+	const definitions = [
+		...(breakdown.cashReduceDetails.length > 0
+			? [
+					{
+						kind: "hospital_reduce" as const,
+						amountFen: breakdown.cashReduceDetails[0]?.cashReduceFen ?? 0,
+						payModel: "H5" as const,
+						payTypeId: "50" as const,
+					},
+				]
+			: []),
+		{
+			kind: "fund" as const,
+			amountFen: amounts.fundFen,
+			payModel: "H5" as const,
+			payTypeId: "2" as const,
+		},
+		{
+			kind: "personal_account" as const,
+			amountFen: amounts.personalAccountFen,
+			payModel: "H5" as const,
+			payTypeId: "3" as const,
+		},
+		{
+			kind: "wechat_cash" as const,
+			amountFen: breakdown.wechatCashFen,
+			payModel: "MINI_PROGRAM" as const,
+			payTypeId: "3" as const,
+		},
+	].filter((component) => component.amountFen > 0);
+	return definitions.map((component) => ({
+		componentId: `${input.order.medicalOrderId}:${component.kind}`,
+		kind: component.kind,
+		totalFen: amounts.totalFen,
+		amountFen: component.amountFen,
+		payModel: component.payModel,
+		payTypeId: component.payTypeId,
+		recordCode: stableComponentCode(
+			`medical-post-payment:${input.order.medicalOrderId}:${component.kind}`,
+		),
+		state: "pending" as const,
+		attempts: 0,
+		updatedAt: input.now.toISOString(),
+	}));
+}
+
+function samePostPaymentComponent(
+	left: MedicalInsurancePostPaymentComponent,
+	right: MedicalInsurancePostPaymentComponent,
+): boolean {
+	return (
+		left.componentId === right.componentId &&
+		left.kind === right.kind &&
+		left.totalFen === right.totalFen &&
+		left.amountFen === right.amountFen &&
+		left.payModel === right.payModel &&
+		left.payTypeId === right.payTypeId &&
+		left.recordCode === right.recordCode
+	);
+}
 
 export type MedicalInsuranceOrderReconciliationWorkerResult =
 	| "idle"
@@ -169,7 +253,11 @@ function hasUsableWechatPrepay(
 	order: MedicalInsuranceOrder,
 	now: Date,
 ): boolean {
-	if ((order.amounts?.cashFen ?? 0) === 0) return true;
+	if (
+		(order.amounts?.cashFen ?? 0) - (order.amounts?.hospitalPartFen ?? 0) ===
+		0
+	)
+		return true;
 	if (!order.wechatPayParams || !order.wechatPrepayExpiresAt) return false;
 	const expiresAt = Date.parse(order.wechatPrepayExpiresAt);
 	return Number.isFinite(expiresAt) && expiresAt > now.getTime();
@@ -208,6 +296,10 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			wechatPayment?: MedicalInsuranceWechatPaymentGateway;
 			identityUsers?: UserIdentityRepository;
 			patients?: PatientRepository;
+			postPayment?: YunhealthRegistrationPluginPaymentGateway;
+			postPaymentPayType?: "CREDIT" | "POS" | "CROWD_FUNDING";
+			postPaymentWorkStationId?: string;
+			postPaymentTradeTypeCode?: string;
 			completeWechatPayment?: (
 				input: {
 					ownerUserId: string;
@@ -248,6 +340,10 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		const patient = patients?.find(
 			(candidate) => candidate.id === order.patientId,
 		);
+		const settlement = await this.dependencies.orders.getSettlementContext(
+			order.ownerUserId,
+			order.medicalOrderId,
+		);
 		if (
 			!gateway ||
 			!identity?.providerSubject ||
@@ -284,6 +380,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				medOrgOrd: order.medOrgOrd,
 				orderType,
 				amounts: order.amounts,
+				...(settlement?.insuredAreaCode
+					? { insuredAreaCode: settlement.insuredAreaCode }
+					: {}),
 				expectedPayForRelatives: patient.relationship !== "self",
 			},
 			context,
@@ -327,6 +426,231 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		return this.reconcileWechatMixedOrder(task, recovered, now, context);
 	}
 
+	private async completePostPaymentComponents(
+		order: MedicalInsuranceOrder,
+		wechatResult: Awaited<
+			ReturnType<MedicalInsuranceWechatPaymentGateway["queryMixedOrder"]>
+		>,
+		now: Date,
+		context: AdapterCallContext,
+	): Promise<boolean> {
+		const gateway = this.dependencies.postPayment;
+		if (!gateway || !order.amounts) return false;
+		let settlement = await this.dependencies.orders.getSettlementContext(
+			order.ownerUserId,
+			order.medicalOrderId,
+		);
+		if (!settlement?.insuredAreaCode || !settlement.businessCode) return false;
+		const businessId = settlement.businessId;
+		const tradeCode = settlement.businessCode;
+		const hospitalId = settlement.hospitalId;
+		const patientId = settlement.patientId;
+		const expected = medicalInsurancePaymentBreakdown({
+			amounts: order.amounts,
+			orderType: order.orderType ?? "RegPay",
+			insuredAreaCode: settlement.insuredAreaCode,
+		});
+		if (
+			wechatResult.totalFen !== order.amounts.totalFen ||
+			wechatResult.fundFen !== order.amounts.fundFen ||
+			wechatResult.personalAccountFen !== order.amounts.personalAccountFen ||
+			wechatResult.otherPaymentFen !== (order.amounts.otherPaymentFen ?? 0) ||
+			wechatResult.medicalCashFen !== order.amounts.cashFen ||
+			wechatResult.cashFen !== expected.wechatCashFen ||
+			JSON.stringify(wechatResult.cashReduceDetails ?? []) !==
+				JSON.stringify(expected.cashReduceDetails)
+		) {
+			throw new Error("medical-insurance-wechat-component-amount-mismatch");
+		}
+
+		const planned = postPaymentComponents({
+			order,
+			insuredAreaCode: settlement.insuredAreaCode,
+			now,
+		});
+		const saved = settlement.postPaymentComponents;
+		if (saved) {
+			if (
+				saved.length !== planned.length ||
+				saved.some(
+					(component, index) =>
+						!planned[index] ||
+						!samePostPaymentComponent(component, planned[index]),
+				)
+			) {
+				throw new Error("medical-insurance-post-payment-plan-changed");
+			}
+		} else {
+			settlement = { ...settlement, postPaymentComponents: planned };
+			await this.dependencies.orders.saveSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+				settlement,
+			);
+		}
+
+		for (const plannedComponent of planned) {
+			settlement =
+				(await this.dependencies.orders.getSettlementContext(
+					order.ownerUserId,
+					order.medicalOrderId,
+				)) ?? settlement;
+			const components: MedicalInsurancePostPaymentComponent[] = [
+				...(settlement.postPaymentComponents ?? planned),
+			];
+			const index = components.findIndex(
+				(component) => component.componentId === plannedComponent.componentId,
+			);
+			const current = components[index];
+			if (!current)
+				throw new Error("medical-insurance-post-payment-component-missing");
+			if (current.state === "succeeded") continue;
+
+			const attempted: MedicalInsurancePostPaymentComponent = {
+				...current,
+				state: "pending",
+				attempts: current.attempts + 1,
+				updatedAt: now.toISOString(),
+			};
+			components[index] = attempted;
+			settlement = { ...settlement, postPaymentComponents: components };
+			await this.dependencies.orders.saveSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+				settlement,
+			);
+
+			try {
+				const result = await gateway.createPreOrder(
+					{
+						orderId: attempted.componentId,
+						businessId,
+						tradeCode,
+						totalFen: attempted.totalFen,
+						amountFen: attempted.amountFen,
+						hospitalId,
+						patientId,
+						payTypeId: attempted.payTypeId,
+						payModel: attempted.payModel,
+						payType: this.dependencies.postPaymentPayType ?? "CREDIT",
+						workStationId: this.dependencies.postPaymentWorkStationId ?? "",
+						recordCode: attempted.recordCode,
+						tradeTypeCode: this.dependencies.postPaymentTradeTypeCode ?? "10",
+					},
+					{
+						...context,
+						idempotencyKey: `medical-post-payment:${attempted.componentId}`,
+					},
+				);
+				const succeeded: MedicalInsurancePostPaymentComponent = {
+					...attempted,
+					state: "succeeded",
+					payingId: result.payingId,
+					tradingId: result.tradingId,
+					providerRequestId: result.trace.requestId,
+					updatedAt: now.toISOString(),
+				};
+				components[index] = succeeded;
+				settlement = {
+					...settlement,
+					payingId: result.payingId,
+					tradingId: result.tradingId,
+					postPaymentComponents: components,
+				};
+				await this.dependencies.orders.saveSettlementContext(
+					order.ownerUserId,
+					order.medicalOrderId,
+					settlement,
+				);
+				this.logger.info(
+					{
+						event: "medical-insurance.post-payment-component.succeeded",
+						orderId: order.medicalOrderId,
+						component: succeeded.kind,
+						amountFen: succeeded.amountFen,
+						payModel: succeeded.payModel,
+						payTypeId: succeeded.payTypeId,
+						providerRequestId: result.trace.requestId,
+					},
+					"Medical insurance post-payment component persisted",
+				);
+			} catch (error) {
+				const metadata = providerFailureMetadata(error);
+				components[index] = {
+					...attempted,
+					state: "failed",
+					lastErrorCode:
+						metadata.providerErrorCode ??
+						metadata.providerFailureReason ??
+						"post-payment-component-failed",
+					updatedAt: now.toISOString(),
+				};
+				await this.dependencies.orders.saveSettlementContext(
+					order.ownerUserId,
+					order.medicalOrderId,
+					{ ...settlement, postPaymentComponents: components },
+				);
+				throw error;
+			}
+		}
+
+		settlement =
+			(await this.dependencies.orders.getSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+			)) ?? settlement;
+		if (!settlement.postPaymentCompletedAt) {
+			settlement = {
+				...settlement,
+				postPaymentCompletedAt: now.toISOString(),
+			};
+			await this.dependencies.orders.saveSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+				settlement,
+			);
+		}
+
+		const completion = await this.dependencies.medicalInsurance.query(
+			{
+				orderId: order.medicalOrderId,
+				ownerUserId: order.ownerUserId,
+				cashPaymentConfirmed: true,
+			},
+			{
+				...context,
+				idempotencyKey: `medical-post-payment-finalize:${order.medicalOrderId}`,
+			},
+		);
+		if (
+			completion.state !== "insurance_settled" ||
+			completion.finality !== "paid" ||
+			!completion.authoritative ||
+			!sameAmounts(order, completion)
+		) {
+			return false;
+		}
+		const latest = await this.dependencies.orders.findByMedicalOrderId(
+			order.medicalOrderId,
+		);
+		if (!latest) return false;
+		if (latest.status === "insurance_settled") return true;
+		const completed = await this.dependencies.orders.applySettlement(
+			latest.medicalOrderId,
+			latest.version,
+			{
+				status: "insurance_settled",
+				ordStas: completion.providerStatus,
+				amounts: latest.amounts,
+				setlType: latest.setlType,
+				revsTokenHash: latest.revsTokenHash,
+				revsTokenExpiresAt: latest.revsTokenExpiresAt,
+				wechatPaymentState: "cash_paid",
+			},
+		);
+		return completed?.status === "insurance_settled";
+	}
+
 	private async reconcileWechatMixedOrder(
 		task: MedicalInsuranceQueryTask,
 		order: MedicalInsuranceOrder,
@@ -357,6 +681,16 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 			return "manual_review";
 		}
+		const settlementBeforeQuery =
+			await this.dependencies.orders.getSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+			);
+		const breakdown = medicalInsurancePaymentBreakdown({
+			amounts: order.amounts,
+			orderType: order.orderType ?? "RegPay",
+			insuredAreaCode: settlementBeforeQuery?.insuredAreaCode ?? "",
+		});
 		const result = await gateway.queryMixedOrder(
 			{
 				orderId: order.medicalOrderId,
@@ -364,10 +698,28 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				expectedOutTradeNo: order.wechatOutTradeNo,
 				expectedPayOrdId: order.payOrdId,
 				expectedTotalFen: order.amounts.totalFen,
-				expectedCashFen: order.amounts.cashFen,
+				expectedCashFen: breakdown.wechatCashFen,
 			},
 			context,
 		);
+		const hasCompleteComponentEvidence =
+			result.fundFen !== undefined &&
+			result.personalAccountFen !== undefined &&
+			result.otherPaymentFen !== undefined &&
+			result.medicalCashFen !== undefined &&
+			result.cashReduceDetails !== undefined;
+		if (
+			(this.dependencies.postPayment && !hasCompleteComponentEvidence) ||
+			(hasCompleteComponentEvidence &&
+				(result.fundFen !== order.amounts.fundFen ||
+					result.personalAccountFen !== order.amounts.personalAccountFen ||
+					result.otherPaymentFen !== (order.amounts.otherPaymentFen ?? 0) ||
+					result.medicalCashFen !== order.amounts.cashFen ||
+					JSON.stringify(result.cashReduceDetails ?? []) !==
+						JSON.stringify(breakdown.cashReduceDetails)))
+		) {
+			throw new Error("medical-insurance-wechat-component-amount-mismatch");
+		}
 		const fullyPaid =
 			result.mixState === "paid" &&
 			result.cashState === "paid" &&
@@ -405,27 +757,35 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		if (!updated) throw new Error("medical order version conflict");
 		let hisCompleted = false;
 		if (fullyPaid) {
-			const settlement = await this.dependencies.orders.getSettlementContext(
-				order.ownerUserId,
-				order.medicalOrderId,
-			);
 			if (
-				order.amounts.cashFen > 0 &&
+				this.dependencies.postPayment &&
+				settlementBeforeQuery?.insuredAreaCode &&
+				settlementBeforeQuery.businessCode
+			) {
+				hisCompleted = await this.completePostPaymentComponents(
+					updated,
+					result,
+					now,
+					context,
+				);
+			} else if (
+				settlementBeforeQuery?.plugin?.paymentOrderId &&
 				this.dependencies.completeWechatPayment
 			) {
-				// 已启用云健康插件时，混合支付缺少插件上下文只能等待补偿，
-				// 不能跳过 .29/.15 直接执行 .5。
-				if (settlement?.plugin?.paymentOrderId) {
-					hisCompleted = await this.dependencies.completeWechatPayment(
-						{
-							ownerUserId: order.ownerUserId,
-							medicalOrderId: order.medicalOrderId,
-							paymentOrderId: settlement.plugin.paymentOrderId,
-						},
-						context,
-					);
-				}
-			} else {
+				// 仅兼容发布前已经创建过旧 plugin 流水的存量订单。
+				hisCompleted = await this.dependencies.completeWechatPayment(
+					{
+						ownerUserId: order.ownerUserId,
+						medicalOrderId: order.medicalOrderId,
+						paymentOrderId: settlementBeforeQuery.plugin.paymentOrderId,
+					},
+					context,
+				);
+			} else if (
+				settlementBeforeQuery?.payingId &&
+				settlementBeforeQuery.tradingId
+			) {
+				// 兼容本次发布前已经完成前置 .2、但尚未完成微信查单的纯医保单。
 				const completion = await this.dependencies.medicalInsurance.query(
 					{
 						orderId: order.medicalOrderId,
@@ -456,6 +816,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 					if (!completed) throw new Error("medical order version conflict");
 					hisCompleted = true;
 				}
+			} else {
+				throw new Error("medical-insurance-post-payment-not-configured");
 			}
 		}
 		const continueQuery =

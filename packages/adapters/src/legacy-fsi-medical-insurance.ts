@@ -49,8 +49,6 @@ const DEFAULT_SETTLE_WAY = 6;
 const DEFAULT_PRE_ORDER_AUTO_SETTLE = 3;
 // 众阳 2.6.65.4 文档示例使用 2；2.6.65.11 仍沿用挂号旧端实际使用的 3。
 const DEFAULT_PAY_QUERY_AUTO_SETTLE = 2;
-const DEFAULT_MEDICAL_PAY_TYPE_ID = 2;
-const DEFAULT_MEDICAL_PAY_MODEL = "H5";
 // 6201 的就医凭证类型沿用当前 1101 授权请求使用的居民身份证类型。
 const DEFAULT_MDTRT_CERT_TYPE = "01";
 // 当前院方提供的可用医保测试参数中的医院坐标；可由调用方按院区覆盖。
@@ -1244,25 +1242,6 @@ function providerSuccessFlag(value: unknown): boolean | undefined {
 	return undefined;
 }
 
-/** 只提取 Provider 业务拒绝的 code/message，供服务端原始联调日志关联。 */
-function providerDiagnosticText(
-	value: unknown,
-	keys: readonly string[],
-): string | undefined {
-	const raw = providerDeepValue(value, keys);
-	if (typeof raw !== "string" && typeof raw !== "number") return undefined;
-	const text = String(raw).trim();
-	if (!text || text.length > 256) return undefined;
-	if (
-		Array.from(text).some((character) => {
-			const code = character.charCodeAt(0);
-			return code <= 0x1f || code === 0x7f;
-		})
-	)
-		return undefined;
-	return text;
-}
-
 function providerDeepValue(
 	value: unknown,
 	keys: readonly string[],
@@ -1532,6 +1511,17 @@ export function createLegacyFsiMedicalInsuranceGateway(
 
 		let settlementContext: MedicalInsuranceSettlementContext = stored;
 		if (
+			settlementContext.postPaymentComponents?.some(
+				(component) => component.state !== "succeeded",
+			)
+		) {
+			throw responseError(
+				"medical-insurance.2.27.2.32",
+				"支付后置分项尚未全部成功",
+			);
+		}
+		if (
+			settlementContext.postPaymentCompletedAt ||
 			Object.keys(settlementContext.outNetworkSettleMain).length === 0 ||
 			settlementContext.upDetailList.length === 0
 		) {
@@ -1603,10 +1593,25 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			undefined,
 			["transId", "trans_id"],
 		);
-		if (
-			existingTransId !== undefined &&
-			String(existingTransId).trim() !== settlementContext.payingId
-		) {
+		const existingTransIdText = String(existingTransId ?? "").trim();
+		const matchingComponent = existingTransIdText
+			? settlementContext.postPaymentComponents?.find(
+					(component) =>
+						component.state === "succeeded" &&
+						component.payingId === existingTransIdText,
+				)
+			: undefined;
+		const finalPayingId =
+			matchingComponent?.payingId ?? settlementContext.payingId;
+		const finalTradingId =
+			matchingComponent?.tradingId ?? settlementContext.tradingId;
+		if (!finalPayingId || !finalTradingId) {
+			throw responseError(
+				"medical-insurance.2.27.2.32",
+				"支付后置分项尚未生成有效 payingId/tradingId",
+			);
+		}
+		if (existingTransIdText && existingTransIdText !== finalPayingId) {
 			throw responseError(
 				"medical-insurance.2.27.2.32",
 				"outNetworkSettleMain.transId 与 2.6.65.2 payingId 不一致",
@@ -1619,11 +1624,11 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			networkRegister: settlementContext.networkRegister,
 			outNetworkSettleMain: {
 				...settlementContext.outNetworkSettleMain,
-				transId: settlementContext.payingId,
+				transId: finalPayingId,
 			},
 			outSettleMainId: settlementContext.businessId,
 			patId: settlementContext.patientId,
-			tradingId: settlementContext.tradingId,
+			tradingId: finalTradingId,
 			upDetailList: settlementContext.upDetailList,
 		};
 		const notifyResponse = await zhongyangPost(
@@ -1664,9 +1669,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			};
 		}
 
-		// 高平医院的医保收银台要求纯医保零元订单也由用户完成一次确认。
-		// 因此 6202/6301 和 .32 成功仍不能直接执行 .5；无论 cashFen 是否
-		// 为 0，都必须先由 cashierUrl 回跳后的 cashier-confirm 明确放行。
+		// 6202/6301 和 .32 成功仍不能直接执行 .5；无论 cashFen 是否为 0，
+		// 都必须等微信官方医保订单查单成功后由 cashPaymentConfirmed 放行。
 		if (!input.cashPaymentConfirmed) {
 			return {
 				state: "cash_pending",
@@ -2128,9 +2132,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				if (
 					!businessId.trim() ||
 					!businessCode.trim() ||
-					tradeOrderIds.length === 0 ||
-					!/^\d+$/.test(priorSettlementContext.payingId) ||
-					!/^\d+$/.test(priorSettlementContext.tradingId)
+					tradeOrderIds.length === 0
 				) {
 					throw responseError(
 						"medical-insurance.6201",
@@ -2266,92 +2268,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				},
 				"Medical insurance current settlement child records observed",
 			);
-			let preOrderRequestId: string | undefined;
-			let payingId = priorSettlementContext?.payingId;
-			let tradingId = priorSettlementContext?.tradingId;
-			if (!resumePre6201) {
-				const preOrderResponse = await zhongyangPost(
-					"medical-insurance.2.6.65.2",
-					"/msun-middle-open-settlepay/api/v2/open/payment/pre-order",
-					context,
-					{
-						appCode: DEFAULT_APP_CODE,
-						authSysCode: DEFAULT_AUTH_SYS_CODE,
-						autoSettle: DEFAULT_PRE_ORDER_AUTO_SETTLE,
-						body: "预约挂号医保支付",
-						businessId,
-						expire: 20,
-						hospitalId,
-						notifyUrl: "",
-						payModel: DEFAULT_MEDICAL_PAY_MODEL,
-						payTypeId: DEFAULT_MEDICAL_PAY_TYPE_ID,
-						payTypeParams: [
-							{
-								payTypeId: DEFAULT_MEDICAL_PAY_TYPE_ID,
-								amount: 0,
-								paymentSystemUserId: "",
-								spbillCreateIp: "",
-							},
-						],
-						paymentSystemUserId: "",
-						spbillCreateIp: "",
-						total: settlementAmountFen / 100,
-						tradeCode: businessCode,
-						tradeTypeCode: DEFAULT_TRADE_TYPE_CODE,
-						workStationId: "",
-						requestId: stableNumericRequestId(
-							`medical-insurance.2.6.65.2:${input.orderId}:${businessId}`,
-						),
-						sceneCode: DEFAULT_SCENE_CODE,
-					},
-				);
-				preOrderRequestId = preOrderResponse.requestId;
-				if (providerSuccessFlag(preOrderResponse.data) === false) {
-					throw responseError(
-						"medical-insurance.2.6.65.2",
-						"医保支付流水创建失败",
-						preOrderResponse.requestId,
-						{
-							responseInvalid: false,
-							providerErrorCode: providerDiagnosticText(preOrderResponse.data, [
-								"code",
-							]),
-							providerErrorMessage: providerDiagnosticText(
-								preOrderResponse.data,
-								["message"],
-							),
-						},
-					);
-				}
-				payingId = findTextDeep(
-					preOrderResponse.data,
-					["payingId", "paying_id"],
-					"medical-insurance.2.6.65.2",
-					preOrderResponse.requestId,
-				);
-				tradingId = findTextDeep(
-					preOrderResponse.data,
-					["tradingId", "trading_id"],
-					"medical-insurance.2.6.65.2",
-					preOrderResponse.requestId,
-				);
-			}
-			if (
-				!payingId ||
-				!tradingId ||
-				!/^\d+$/.test(payingId) ||
-				!/^\d+$/.test(tradingId)
-			) {
-				throw responseError(
-					"medical-insurance.2.6.65.2",
-					"医保支付流水缺少有效 payingId/tradingId",
-					preOrderRequestId,
-				);
-			}
-			// 2.6.65.2 已经创建支付流水后，后续 2.27.2.27/6201
-			// 任一步失败都必须仍然具备 2.6.65.11/2.6.65.6 的取消上下文。
-			// 先落一个只含关单所需事实的密文上下文，后面成功拿到真实医保
-			// 明细后再用完整上下文覆盖；这样“正在收款中”不会变成孤儿流水。
+			// 新流程不在 6201 前创建 2.6.65.2。先保存 .1 产生的结算事实，
+			// 后续失败时只取消结算；微信/医保最终成功后才按非零分项创建 .2。
 			await options.orders.saveSettlementContext(
 				input.ownerUserId,
 				input.orderId,
@@ -2365,8 +2283,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					nationalUpDetailList: [],
 					upDetailList: [],
 					tradeOrderIds,
-					payingId,
-					tradingId,
+					insuredAreaCode: auth.insuplcAdmdvs,
 					feeUploadStage: "pre_6201",
 					settlementAmountFen,
 				},
@@ -2379,15 +2296,10 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					...(settleApplyRequestId
 						? { settleApplyProviderRequestId: settleApplyRequestId }
 						: {}),
-					...(preOrderRequestId
-						? { preOrderProviderRequestId: preOrderRequestId }
-						: {}),
 					hasBusinessId: Boolean(businessId),
 					tradeOrderCount: tradeOrderIds.length,
-					hasPayingId: Boolean(payingId),
-					hasTradingId: Boolean(tradingId),
 				},
-				"Medical insurance cancellation context saved before 6201",
+				"Medical insurance settlement context saved before 6201",
 			);
 			const detailResponse = await zhongyangGet(
 				"medical-insurance.2.27.2.27",
@@ -2830,8 +2742,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					// 这里留空是有意的：后置回写阶段会重新获取并严格映射真实明细。
 					upDetailList: [],
 					tradeOrderIds,
-					payingId,
-					tradingId,
+					insuredAreaCode: auth.insuplcAdmdvs,
 					feeUploadStage: "fee_uploaded",
 					settlementAmountFen,
 					...(feeResult.cashierUrl ? { cashierUrl: feeResult.cashierUrl } : {}),
@@ -2849,7 +2760,6 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					context,
 					[
 						...(settleApplyRequestId ? [settleApplyRequestId] : []),
-						...(preOrderRequestId ? [preOrderRequestId] : []),
 						detailResponse.requestId,
 						deptResponse.requestId,
 						doctorResponse.requestId,

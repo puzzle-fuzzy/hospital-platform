@@ -304,13 +304,13 @@ export class MedicalInsurancePaymentCore {
 	}
 
 	/**
-	 * 支付小程序专用的“支付中订单关闭并重开”分支。新门诊小程序不调用
-	 * 此命令，只接收 2.6.33 的 payment-in-progress 错误并提示用户处理。
+	 * 安全关闭旧医保订单并允许重开的分支，仅用于已确认的支付中恢复
+	 * 或用户明确重新展码授权。
 	 */
 	async cancel(input: {
 		ownerUserId: string;
 		orderId: string;
-		reason: "payment_in_progress";
+		reason: "payment_in_progress" | "reauthorization";
 		context: unknown;
 	}): Promise<MedicalInsuranceCancellationPayload["data"]> {
 		const context = contextOf(input.context);

@@ -212,6 +212,8 @@ export class MedicalInsurancePluginPaymentService {
 	} {
 		const register = settlement.networkRegister;
 		const tradeCode = settlement.businessCode?.trim();
+		const payingId = settlement.payingId;
+		const tradingId = settlement.tradingId;
 		const certNo = contextText(register, [
 			"idNo",
 			"id_no",
@@ -235,6 +237,10 @@ export class MedicalInsurancePluginPaymentService {
 			!settlement.businessId.trim() ||
 			!settlement.hospitalId.trim() ||
 			!settlement.patientId.trim() ||
+			typeof payingId !== "string" ||
+			typeof tradingId !== "string" ||
+			!/^[0-9]+$/.test(payingId) ||
+			!/^[0-9]+$/.test(tradingId) ||
 			!certNo ||
 			!psnName ||
 			!psnNo
@@ -248,8 +254,8 @@ export class MedicalInsurancePluginPaymentService {
 		);
 		return {
 			businessId: settlement.businessId,
-			payingId: settlement.payingId,
-			tradingId: settlement.tradingId,
+			payingId,
+			tradingId,
 			hospitalId: settlement.hospitalId,
 			patientId: settlement.patientId,
 			certNo,

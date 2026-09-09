@@ -187,11 +187,16 @@ export type {
 export { isValidMedicalInsuranceProviderQueryIdentity } from "./medical-insurance-credential";
 export type {
 	MedicalInsuranceAmounts,
+	MedicalInsuranceCashReduceDetail,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
 	MedicalInsuranceOrderStatus,
+	MedicalInsurancePaymentBreakdown,
 	MedicalInsurancePluginPaymentContext,
 	MedicalInsurancePluginPaymentState,
+	MedicalInsurancePostPaymentComponent,
+	MedicalInsurancePostPaymentComponentKind,
+	MedicalInsurancePostPaymentComponentState,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
 	MedicalInsuranceQueryTaskStatus,
@@ -201,10 +206,12 @@ export type {
 export {
 	assertMedicalInsuranceOrderTransition,
 	assertValidMedicalInsuranceAmounts,
+	InvalidMedicalInsurancePaymentBreakdownError,
 	isMedicalInsuranceOrderStatus,
 	isValidMedicalInsuranceReference,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	MedicalInsuranceOrderTransitionError,
+	medicalInsurancePaymentBreakdown,
 	medicalInsuranceStatusForNotification,
 	normalizeMedicalInsuranceSettlementNotification,
 } from "./medical-insurance-order";

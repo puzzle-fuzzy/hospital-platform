@@ -32,7 +32,7 @@ const COMPLETE_SETTLE_OPERATION = "registration-self-pay.2.6.65.5";
 const THIRD_PART_ALREADY_COMPLETED_CODE =
 	"BusinessExceptionErrorCode@third-part-pay@0004";
 const ALLOWED_PAY_TYPES = new Set(["CREDIT", "POS", "CROWD_FUNDING"]);
-/** 纯自费和医保混合现金腿通过微信支付时，2.6.65.2 固定使用该支付方式。 */
+/** 旧纯自费/存量兼容链路通过微信支付时使用的 2.6.65.2 支付方式。 */
 const SELF_PAY_WECHAT_PAY_TYPE_ID = 5027;
 /** 6202 返回有个人账户实际支付金额时使用的支付方式。 */
 const PERSONAL_ACCOUNT_PAY_TYPE_ID = 5;
@@ -1212,11 +1212,10 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 }
 
 /**
- * 旧挂号医保混合支付的第二次 2.6.65.2 预下单。
+ * 云健康 2.6.65.2 支付登记边界。
  *
- * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的
- * payingId/tradingId 连同 recordCode/outTradeNo 写入医保订单密文上下文，
- * 再调用普通微信 JSAPI 预下单。这样 Provider 两条支付流水不会被混用。
+ * 旧纯自费链路仍可使用配置的 5027；新医保链路只在微信医保支付终态成功后，
+ * 按 HOSPITAL_REDUCE/基金/个人账户/微信现金分项调用并持久化返回流水。
  */
 export function createYunhealthRegistrationPluginPaymentGateway(
 	options: YunhealthRegistrationSettlementGatewayOptions,
@@ -1255,6 +1254,17 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			const hospitalId = positiveInteger(input.hospitalId, "hospitalId");
 			positiveIntegerText(input.patientId, "patientId");
 			const totalFen = positiveInteger(input.totalFen, "totalFen");
+			const amountFen = positiveInteger(
+				input.amountFen ?? input.totalFen,
+				"amountFen",
+			);
+			if (amountFen > totalFen) {
+				throw providerError(
+					"registration-self-pay.2.6.65.2.plugin",
+					"component amount exceeds settlement total",
+					{ failureStage: "validation", requestOutcome: "not_sent" },
+				);
+			}
 			const recordCode = requiredText(input.recordCode, "recordCode", 32);
 			if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
 				throw providerError(
@@ -1267,10 +1277,15 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 				);
 			}
 			const requestPayTypeId = positiveInteger(input.payTypeId, "payTypeId");
-			if (requestPayTypeId !== SELF_PAY_WECHAT_PAY_TYPE_ID) {
+			const payModel = input.payModel ?? "H5";
+			const allowedComponent =
+				(payModel === "H5" &&
+					[2, 3, 50, SELF_PAY_WECHAT_PAY_TYPE_ID].includes(requestPayTypeId)) ||
+				(payModel === "MINI_PROGRAM" && requestPayTypeId === 3);
+			if (!allowedComponent) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
-					"WeChat self-pay plugin payTypeId must be 5027",
+					"2.6.65.2 payModel and payTypeId combination is unsupported",
 					{
 						failureStage: "validation",
 						requestOutcome: "not_sent",
@@ -1316,12 +1331,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						expire: 20,
 						hospitalId,
 						notifyUrl: "",
-						payModel: "H5",
+						payModel,
 						payTypeId: requestPayTypeId,
 						payTypeParams: [
 							{
 								payTypeId: requestPayTypeId,
-								amount: Number((totalFen / 100).toFixed(2)),
+								amount: Number((amountFen / 100).toFixed(2)),
 								paymentSystemUserId: "",
 								spbillCreateIp: "",
 							},

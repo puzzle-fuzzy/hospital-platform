@@ -360,8 +360,8 @@ export interface MedicalInsuranceGateway {
 		input: {
 			orderId: string;
 			ownerUserId: string;
-			/** 只有在 2.6.33 已确认“正在收款中”后才允许走此专用分支。 */
-			reason: "payment_in_progress";
+			/** 只用于 2.6.33 支付中恢复或用户明确重新展码时安全关闭旧单。 */
+			reason: "payment_in_progress" | "reauthorization";
 		},
 		context: AdapterCallContext,
 	): Promise<MedicalInsuranceCancellationEvidence>;
@@ -436,6 +436,7 @@ export interface MedicalInsuranceWechatPaymentGateway {
 			medOrgOrd: string;
 			orderType: MedicalInsuranceOrderType;
 			amounts: MedicalInsuranceAmounts;
+			insuredAreaCode?: string;
 			expectedPayForRelatives: boolean;
 		},
 		context: AdapterCallContext,
@@ -465,22 +466,34 @@ export interface MedicalInsuranceWechatPaymentGateway {
 		medInsFailReason?: string;
 		cashFen: number;
 		totalFen: number;
+		fundFen?: number;
+		personalAccountFen?: number;
+		otherPaymentFen?: number;
+		medicalCashFen?: number;
+		cashReduceDetails?: readonly {
+			cashReduceFen: number;
+			cashReduceType: string;
+		}[];
 		providerStatus: string;
 		trace: ExternalTrace;
 	}>;
 }
 
-/** 云健康旧插件混合支付的第二次 2.6.65.2 预下单。 */
+/** 云健康 2.6.65.2 分项登记；医保订单只允许在微信支付终态成功后调用。 */
 export interface YunhealthRegistrationPluginPaymentGateway {
 	createPreOrder(
 		input: {
 			orderId: string;
 			businessId: string;
 			tradeCode: string;
+			/** 整笔结算总额；每个分项调用保持不变。 */
 			totalFen: number;
+			/** 当前这一次 2.6.65.2 对应的分项金额。 */
+			amountFen?: number;
 			hospitalId: string;
 			patientId: string;
 			payTypeId: string;
+			payModel?: "H5" | "MINI_PROGRAM";
 			payType: "CREDIT" | "POS" | "CROWD_FUNDING";
 			workStationId: string;
 			recordCode: string;
@@ -501,7 +514,7 @@ export interface YunhealthRegistrationPluginPaymentGateway {
 /**
  * 普通挂号自费进入微信 APIv3 前的众阳结算准备边界。
  *
- * Provider 调用顺序固定为 2.6.65.1 -> 2.27.2.27 -> 2.6.65.2；
+ * 纯自费 Provider 调用顺序固定为 2.6.65.1 -> 2.27.2.27 -> 2.6.65.2；
  * 任何一步未确认成功都不得创建微信订单。返回的流水上下文必须先加密落库，
  * 后续微信查单成功后才能用于 .29/.15/.5 回写。
  */

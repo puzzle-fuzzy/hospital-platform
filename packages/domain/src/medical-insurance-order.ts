@@ -199,6 +199,62 @@ export function assertValidMedicalInsuranceAmounts(
 	return amounts;
 }
 
+export type MedicalInsuranceCashReduceDetail = {
+	cashReduceFen: number;
+	cashReduceType: "HOSPITAL_REDUCE";
+};
+
+export type MedicalInsurancePaymentBreakdown = {
+	wechatCashFen: number;
+	cashReduceDetails: readonly MedicalInsuranceCashReduceDetail[];
+};
+
+export class InvalidMedicalInsurancePaymentBreakdownError extends Error {
+	constructor(
+		readonly reason:
+			| "hospital_reduce_not_allowed"
+			| "hospital_reduce_exceeds_cash",
+	) {
+		super(`Invalid medical insurance payment breakdown: ${reason}`);
+		this.name = "InvalidMedicalInsurancePaymentBreakdownError";
+	}
+}
+
+/** 将高平普通挂号的医院承担金额映射成微信官方 HOSPITAL_REDUCE。 */
+export function medicalInsurancePaymentBreakdown(input: {
+	amounts: MedicalInsuranceAmounts;
+	orderType: MedicalInsuranceOrderType;
+	insuredAreaCode: string;
+}): MedicalInsurancePaymentBreakdown {
+	const amounts = assertValidMedicalInsuranceAmounts(input.amounts);
+	const hospitalReduceFen = amounts.hospitalPartFen ?? 0;
+	if (hospitalReduceFen === 0) {
+		return { wechatCashFen: amounts.cashFen, cashReduceDetails: [] };
+	}
+	if (
+		input.orderType !== "RegPay" ||
+		input.insuredAreaCode.trim() !== "140581"
+	) {
+		throw new InvalidMedicalInsurancePaymentBreakdownError(
+			"hospital_reduce_not_allowed",
+		);
+	}
+	if (hospitalReduceFen > amounts.cashFen) {
+		throw new InvalidMedicalInsurancePaymentBreakdownError(
+			"hospital_reduce_exceeds_cash",
+		);
+	}
+	return {
+		wechatCashFen: amounts.cashFen - hospitalReduceFen,
+		cashReduceDetails: [
+			{
+				cashReduceFen: hospitalReduceFen,
+				cashReduceType: "HOSPITAL_REDUCE",
+			},
+		],
+	};
+}
+
 /** 患者端/服务端共用的医保订单读模型；不含 provider 凭证原文。 */
 export type MedicalInsuranceOrder = {
 	medicalOrderId: string;
@@ -259,7 +315,8 @@ export type MedicalInsuranceOrder = {
 /**
  * 医保后置回写所需的服务端事实。
  *
- * 这些字段来自 2.6.65.1、2.27.2.27、2.6.33、1101 和 2.6.65.2，
+ * 这些字段来自 2.6.65.1、2.27.2.27、2.6.33 和 1101；支付最终成功后
+ * 再追加分项 2.6.65.2 流水。
  * 只能通过 owner-scoped 加密仓储交给医保 adapter，不能进入订单读模型、
  * API response、日志或 outbox。
  */
@@ -275,10 +332,13 @@ export type MedicalInsuranceSettlementContext = {
 	nationalUpDetailList: readonly Record<string, unknown>[];
 	upDetailList: readonly Record<string, unknown>[];
 	tradeOrderIds: readonly string[];
-	payingId: string;
-	tradingId: string;
+	/** 新流程只在支付成功后的分项 .2 完成后写入。 */
+	payingId?: string;
+	tradingId?: string;
+	/** 1101 已确认的参保地区，供支付后重试使用。 */
+	insuredAreaCode?: string;
 	/**
-	 * 6201 前置链路的持久化阶段。`pre_6201` 表示 .1/.2 已经产生真实
+	 * 6201 前置链路的持久化阶段。`pre_6201` 表示 .1 已经产生真实
 	 * 结算流水，重试时必须复用，不能再次创建；`fee_uploaded` 表示 6201
 	 * 已完成。历史上下文没有该字段时按旧流程处理。
 	 */
@@ -286,14 +346,45 @@ export type MedicalInsuranceSettlementContext = {
 	/** .1 已校验通过的真实结算金额，供 6201 安全续跑使用。 */
 	settlementAmountFen?: number;
 	/**
-	 * 6202 ownPayAmt>0 后的云健康插件自费上下文。
+	 * 历史版本在 6202 ownPayAmt>0 后创建的云健康插件自费上下文。
 	 *
 	 * 这里必须和医保主结算上下文一起加密保存，但不能复用主医保
-	 * payingId/tradingId；两次 2.6.65.2 是两条不同的 Provider 流水。
+	 * 仅用于继续完成发布前已存在的订单；新订单不再创建该前置流水。
 	 */
 	plugin?: MedicalInsurancePluginPaymentContext;
+	/** 微信/医保最终成功后，按金额分项后置提交的 2.6.65.2 流水。 */
+	postPaymentComponents?: readonly MedicalInsurancePostPaymentComponent[];
+	postPaymentCompletedAt?: string;
 	/** 6201 返回的独立医保收银台地址；短期保存，仅通过专用接口返回给支付小程序。 */
 	cashierUrl?: string;
+};
+
+export type MedicalInsurancePostPaymentComponentKind =
+	| "hospital_reduce"
+	| "fund"
+	| "personal_account"
+	| "wechat_cash";
+
+export type MedicalInsurancePostPaymentComponentState =
+	| "pending"
+	| "succeeded"
+	| "failed";
+
+export type MedicalInsurancePostPaymentComponent = {
+	componentId: string;
+	kind: MedicalInsurancePostPaymentComponentKind;
+	totalFen: number;
+	amountFen: number;
+	payModel: "H5" | "MINI_PROGRAM";
+	payTypeId: "2" | "3" | "50";
+	recordCode: string;
+	state: MedicalInsurancePostPaymentComponentState;
+	attempts: number;
+	payingId?: string;
+	tradingId?: string;
+	providerRequestId?: string;
+	lastErrorCode?: string;
+	updatedAt: string;
 };
 
 export type MedicalInsurancePluginPaymentState =
@@ -308,7 +399,7 @@ export type MedicalInsurancePluginPaymentState =
 export type MedicalInsurancePluginPaymentContext = {
 	/** 对应平台 hp_payment_orders 的内部订单号。 */
 	paymentOrderId: string;
-	/** 第二次 2.6.65.2 返回的插件支付流水，不是第一次医保流水。 */
+	/** 历史版第二次 2.6.65.2 返回的插件支付流水。 */
 	payingId: string;
 	tradingId: string;
 	payTypeId: string;

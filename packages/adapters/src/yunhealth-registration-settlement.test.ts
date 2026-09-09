@@ -129,6 +129,55 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 	});
 });
 
+test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", async () => {
+	let body: Record<string, unknown> | undefined;
+	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		paymentOrgId: "10756",
+		pluginPayTypeId: "5027",
+		pluginPayType: "CREDIT",
+		workStationId: "registration-machine-01",
+		fetcher: async (_input, init) => {
+			body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: { payingId: 600001, tradingId: 600002 },
+				}),
+				{ status: 200, headers: { "x-request-id": "yunhealth-component-2" } },
+			);
+		},
+	});
+
+	await gatewayInstance.createPreOrder(
+		{
+			orderId: "medical-order-001:wechat_cash",
+			businessId: "settlement-business-001",
+			tradeCode: "REGISTRATION-001",
+			totalFen: 10_000,
+			amountFen: 3_000,
+			hospitalId: "10389001",
+			patientId: "100001",
+			payTypeId: "3",
+			payModel: "MINI_PROGRAM",
+			payType: "CREDIT",
+			workStationId: "registration-machine-01",
+			recordCode: "fedcba9876543210fedcba9876543210",
+			tradeTypeCode: "10",
+		},
+		context,
+	);
+
+	expect(body).toMatchObject({
+		autoSettle: 3,
+		total: 100,
+		payModel: "MINI_PROGRAM",
+		payTypeId: 3,
+		payTypeParams: [{ payTypeId: 3, amount: 30 }],
+	});
+});
+
 test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", async () => {
 	const previousRawLogging = Bun.env.PROVIDER_RAW_LOGGING;
 	const logs: Array<Record<string, unknown>> = [];

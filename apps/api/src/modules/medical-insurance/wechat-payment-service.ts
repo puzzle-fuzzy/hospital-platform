@@ -15,6 +15,7 @@ import {
 	type MedicalInsuranceWechatPaymentGateway,
 	type MedicalInsuranceWechatPaymentIdentity,
 	medicalInsuranceOrderTypeForBusiness,
+	medicalInsurancePaymentBreakdown,
 	type PatientRepository,
 	type UserIdentityRepository,
 	type WechatPaymentNotification,
@@ -56,6 +57,14 @@ export type MedicalInsuranceWechatNotification = {
 	outTradeNo: string;
 	totalFen: number;
 	cashFen: number;
+	fundFen: number;
+	personalAccountFen: number;
+	otherPaymentFen: number;
+	medicalCashFen: number;
+	cashReduceDetails: readonly {
+		cashReduceFen: number;
+		cashReduceType: string;
+	}[];
 	mixPayType: "INSURANCE_ONLY" | "CASH_AND_INSURANCE";
 	selfPayStatus: "SELF_PAY_SUCCESS" | "NO_SELF_PAY";
 	medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS";
@@ -159,7 +168,7 @@ export type MedicalInsuranceWechatPaymentServiceDependencies = {
 		orderId: string;
 		context: { traceId: string; idempotencyKey: string };
 	}) => Promise<MedicalInsuranceOrderPayload["data"]>;
-	/** 云健康插件链路；配置完成时接管支付成功后的 .29 → .15 → .5。 */
+	/** 云健康后置链路的启用标记；页面查单只唤醒 Worker，避免并发回写。 */
 	pluginPaymentBridge?: MedicalInsurancePluginPaymentService;
 	logger?: AppLogger;
 	now?: () => Date;
@@ -325,7 +334,9 @@ export class MedicalInsuranceWechatPaymentService {
 		if (order.status === "insurance_settled") return output(order, false);
 		const { businessType, orderType } = orderBusiness(order);
 		if (order.wechatPaymentState === "prepay_ready" && order.wechatPayParams) {
-			const hasWechatCash = (order.amounts?.cashFen ?? 0) > 0;
+			const hasWechatCash =
+				(order.amounts?.cashFen ?? 0) - (order.amounts?.hospitalPartFen ?? 0) >
+				0;
 			const expiresAt = hasWechatCash
 				? prepayExpiresAt(order)
 				: Number.POSITIVE_INFINITY;
@@ -343,16 +354,6 @@ export class MedicalInsuranceWechatPaymentService {
 					return reconciled;
 				}
 				throw new MedicalInsuranceWechatPrepayExpiredError();
-			}
-			if (this.dependencies.pluginPaymentBridge && hasWechatCash) {
-				await this.dependencies.pluginPaymentBridge.prepareForOfficialWechatPayment(
-					{
-						ownerUserId,
-						orderId,
-						outTradeNo: order.wechatOutTradeNo ?? outTradeNo(orderId),
-						context: input.context,
-					},
-				);
 			}
 			await this.requeue(orderId);
 			this.logger.info(
@@ -387,9 +388,14 @@ export class MedicalInsuranceWechatPaymentService {
 			ownerUserId,
 		);
 		const paymentIdentity = await this.paymentIdentity(order, authorization);
+		const breakdown = medicalInsurancePaymentBreakdown({
+			amounts: paymentAmounts,
+			orderType,
+			insuredAreaCode: authorization.insuplcAdmdvs,
+		});
 		const paymentOutTradeNo = order.wechatOutTradeNo ?? outTradeNo(orderId);
 		const paymentPrepayExpiresAt =
-			paymentAmounts.cashFen > 0
+			breakdown.wechatCashFen > 0
 				? (order.wechatPrepayExpiresAt ??
 					new Date(
 						this.now().getTime() + WECHAT_PREPAY_VALIDITY_MS,
@@ -435,26 +441,16 @@ export class MedicalInsuranceWechatPaymentService {
 				}
 			}
 		}
-		if (this.dependencies.pluginPaymentBridge && paymentAmounts.cashFen > 0) {
-			await this.dependencies.pluginPaymentBridge.prepareForOfficialWechatPayment(
-				{
-					ownerUserId,
-					orderId,
-					outTradeNo: paymentOutTradeNo,
-					context: input.context,
-				},
-			);
-		}
 		this.logger.info(
 			{
 				event: "medical-insurance.wechat-mix.requested",
 				traceId: input.context.traceId,
 				ownerUserId,
 				orderId,
-				cashFen: paymentAmounts.cashFen,
+				cashFen: breakdown.wechatCashFen,
 				payForRelatives: paymentIdentity.payForRelatives,
 				mixPayType:
-					paymentAmounts.cashFen === 0
+					breakdown.wechatCashFen === 0
 						? "INSURANCE_ONLY"
 						: "CASH_AND_INSURANCE",
 				businessType,
@@ -479,7 +475,7 @@ export class MedicalInsuranceWechatPaymentService {
 			},
 			input.context,
 		);
-		if (result.cashFen !== paymentAmounts.cashFen) {
+		if (result.cashFen !== breakdown.wechatCashFen) {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
 		}
 		const recoveredPrepayExpired = Boolean(
@@ -487,22 +483,6 @@ export class MedicalInsuranceWechatPaymentService {
 				(!paymentPrepayExpiresAt ||
 					Date.parse(paymentPrepayExpiresAt) <= this.now().getTime()),
 		);
-		if (
-			this.dependencies.pluginPaymentBridge &&
-			paymentAmounts.cashFen > 0 &&
-			result.prepayId &&
-			!recoveredPrepayExpired
-		) {
-			await this.dependencies.pluginPaymentBridge.markOfficialWechatPrepayReady(
-				{
-					ownerUserId,
-					orderId,
-					outTradeNo: paymentOutTradeNo,
-					prepayId: result.prepayId,
-					context: input.context,
-				},
-			);
-		}
 		const updated = await this.dependencies.orders.applySettlement(
 			order.medicalOrderId,
 			order.version,
@@ -520,7 +500,9 @@ export class MedicalInsuranceWechatPaymentService {
 			if (
 				order.wechatPayParams &&
 				order.wechatMixTradeNo &&
-				((order.amounts?.cashFen ?? 0) === 0 ||
+				((order.amounts?.cashFen ?? 0) -
+					(order.amounts?.hospitalPartFen ?? 0) ===
+					0 ||
 					prepayExpiresAt(order) > this.now().getTime())
 			) {
 				await this.requeue(orderId);
@@ -576,6 +558,15 @@ export class MedicalInsuranceWechatPaymentService {
 			await this.requeue(orderId);
 			return output(order, false);
 		}
+		const settlement = await this.dependencies.orders.getSettlementContext(
+			ownerUserId,
+			orderId,
+		);
+		const breakdown = medicalInsurancePaymentBreakdown({
+			amounts: order.amounts,
+			orderType,
+			insuredAreaCode: settlement?.insuredAreaCode ?? "",
+		});
 		let result: Awaited<
 			ReturnType<MedicalInsuranceWechatPaymentGateway["queryMixedOrder"]>
 		>;
@@ -587,7 +578,7 @@ export class MedicalInsuranceWechatPaymentService {
 					expectedOutTradeNo: order.wechatOutTradeNo,
 					expectedPayOrdId: order.payOrdId,
 					expectedTotalFen: order.amounts.totalFen,
-					expectedCashFen: order.amounts.cashFen,
+					expectedCashFen: breakdown.wechatCashFen,
 				},
 				input.context,
 			);
@@ -606,6 +597,25 @@ export class MedicalInsuranceWechatPaymentService {
 				"Medical insurance WeChat mixed payment query failed",
 			);
 			throw error;
+		}
+		const hasCompleteComponentEvidence =
+			result.fundFen !== undefined &&
+			result.personalAccountFen !== undefined &&
+			result.otherPaymentFen !== undefined &&
+			result.medicalCashFen !== undefined &&
+			result.cashReduceDetails !== undefined;
+		if (
+			hasCompleteComponentEvidence &&
+			(result.fundFen !== order.amounts.fundFen ||
+				result.personalAccountFen !== order.amounts.personalAccountFen ||
+				result.otherPaymentFen !== (order.amounts.otherPaymentFen ?? 0) ||
+				result.medicalCashFen !== order.amounts.cashFen ||
+				JSON.stringify(result.cashReduceDetails) !==
+					JSON.stringify(breakdown.cashReduceDetails))
+		) {
+			throw new MedicalInsuranceWechatPaymentInputError(
+				"Medical insurance WeChat query component amounts do not match",
+			);
 		}
 		const fullyPaid =
 			result.mixState === "paid" &&
@@ -706,7 +716,16 @@ export class MedicalInsuranceWechatPaymentService {
 				"Medical insurance cash notification order was not found",
 			);
 		}
-		if (notification.totalFen !== order.amounts.cashFen) {
+		const settlement = await this.dependencies.orders.getSettlementContext(
+			order.ownerUserId,
+			order.medicalOrderId,
+		);
+		const breakdown = medicalInsurancePaymentBreakdown({
+			amounts: order.amounts,
+			orderType: order.orderType ?? "RegPay",
+			insuredAreaCode: settlement?.insuredAreaCode ?? "",
+		});
+		if (notification.totalFen !== breakdown.wechatCashFen) {
 			throw new MedicalInsuranceWechatPaymentInputError(
 				"Medical insurance cash notification amount does not match",
 			);
@@ -755,15 +774,38 @@ export class MedicalInsuranceWechatPaymentService {
 				"Medical insurance WeChat notification amount does not match",
 			);
 		}
-		if (order.amounts.cashFen !== notification.cashFen) {
+		const settlement = await this.dependencies.orders.getSettlementContext(
+			order.ownerUserId,
+			order.medicalOrderId,
+		);
+		const breakdown = medicalInsurancePaymentBreakdown({
+			amounts: order.amounts,
+			orderType: order.orderType ?? "RegPay",
+			insuredAreaCode: settlement?.insuredAreaCode ?? "",
+		});
+		if (
+			notification.cashFen !== breakdown.wechatCashFen ||
+			JSON.stringify(notification.cashReduceDetails) !==
+				JSON.stringify(breakdown.cashReduceDetails)
+		) {
 			throw new MedicalInsuranceWechatPaymentInputError(
 				"Medical insurance WeChat notification cash amount does not match",
 			);
 		}
+		if (
+			notification.fundFen !== order.amounts.fundFen ||
+			notification.personalAccountFen !== order.amounts.personalAccountFen ||
+			notification.otherPaymentFen !== (order.amounts.otherPaymentFen ?? 0) ||
+			notification.medicalCashFen !== order.amounts.cashFen
+		) {
+			throw new MedicalInsuranceWechatPaymentInputError(
+				"Medical insurance WeChat notification component amounts do not match",
+			);
+		}
 		const expectedMixPayType =
-			order.amounts.cashFen === 0 ? "INSURANCE_ONLY" : "CASH_AND_INSURANCE";
+			breakdown.wechatCashFen === 0 ? "INSURANCE_ONLY" : "CASH_AND_INSURANCE";
 		const expectedSelfPayStatus =
-			order.amounts.cashFen === 0 ? "NO_SELF_PAY" : "SELF_PAY_SUCCESS";
+			breakdown.wechatCashFen === 0 ? "NO_SELF_PAY" : "SELF_PAY_SUCCESS";
 		if (
 			notification.mixPayType !== expectedMixPayType ||
 			notification.selfPayStatus !== expectedSelfPayStatus

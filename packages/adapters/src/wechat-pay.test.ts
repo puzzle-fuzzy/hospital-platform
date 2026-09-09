@@ -417,6 +417,76 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 	expect(result.payParams).not.toHaveProperty("appId");
 });
 
+test("高平普通挂号优惠从医保现金中抵扣并只向 JSAPI 收取实际微信金额", async () => {
+	const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+	const responses = [
+		JSON.stringify({ prepay_id: "wx-reduce-prepay-001" }),
+		JSON.stringify({ mix_trade_no: "mix-reduce-001" }),
+	];
+	const gateway = createMedicalGateway(async (_input, init) => {
+		const path = new URL(String(_input)).pathname;
+		const rawBody = typeof init?.body === "string" ? init.body : "";
+		requests.push({
+			path,
+			body: JSON.parse(rawBody) as Record<string, unknown>,
+		});
+		verifyRequestAuthorization(init, "POST", path, rawBody);
+		const responseBody = responses.shift();
+		if (!responseBody) throw new Error("unexpected provider request");
+		return new Response(responseBody, {
+			status: 200,
+			headers: providerResponseHeaders(responseBody),
+		});
+	});
+
+	const result = await gateway.createMixedOrder(
+		{
+			orderId: "medical-reduce-001",
+			outTradeNo: "medical-reduce-out-001",
+			openid: "openid-reduce-001",
+			payOrdId: "pay-reduce-001",
+			medOrgOrd: "med-org-reduce-001",
+			orderType: "RegPay",
+			amounts: {
+				totalFen: 100,
+				cashFen: 30,
+				personalAccountFen: 20,
+				fundFen: 50,
+				hospitalPartFen: 10,
+			},
+			authorization: {
+				insuplcAdmdvs: "140581",
+				patient: { idNo: "140581199001010011", userName: "测试患者" },
+				payAuthNo: "pay-auth-reduce-001",
+			} as never,
+			settlement: {} as never,
+			paymentIdentity: {
+				payForRelatives: false,
+				payer: { name: "测试患者", idNo: "140581199001010011" },
+			},
+		},
+		context,
+	);
+
+	expect(requests.map(({ path }) => path)).toEqual([
+		"/v3/pay/transactions/jsapi",
+		"/v3/med-ins/orders",
+	]);
+	expect(requests[0]?.body).toMatchObject({ amount: { total: 20 } });
+	expect(requests[1]?.body).toMatchObject({
+		total_fee: 100,
+		med_ins_gov_fee: 50,
+		med_ins_self_fee: 20,
+		med_ins_other_fee: 0,
+		med_ins_cash_fee: 30,
+		wechat_pay_cash_fee: 20,
+		cash_reduce_detail: [
+			{ cash_reduce_fee: 10, cash_reduce_type: "HOSPITAL_REDUCE" },
+		],
+	});
+	expect(result.cashFen).toBe(20);
+});
+
 test("纯医保直接创建官方 INSURANCE_ONLY 订单且不创建 JSAPI 预支付", async () => {
 	const requests: Array<{ path: string; body: string }> = [];
 	const responseBody = JSON.stringify({ mix_trade_no: "mix-pure-001" });
@@ -799,6 +869,10 @@ test("纯医保查单接受 NO_SELF_PAY 且不要求现金字段", async () => {
 		self_pay_status: "NO_SELF_PAY",
 		med_ins_pay_status: "MED_INS_PAY_SUCCESS",
 		total_fee: 900,
+		med_ins_gov_fee: 600,
+		med_ins_self_fee: 300,
+		med_ins_other_fee: 0,
+		med_ins_cash_fee: 0,
 	});
 	const gateway = createMedicalGateway(
 		async (_input, init) => {
@@ -847,6 +921,10 @@ test("医保混合查单仅在医保失败时提取医保局失败原因", async
 		med_ins_fail_reason: "医保局返回的具体失败原因",
 		total_fee: 1000,
 		wechat_pay_cash_fee: 200,
+		med_ins_gov_fee: 500,
+		med_ins_self_fee: 300,
+		med_ins_other_fee: 0,
+		med_ins_cash_fee: 200,
 	});
 	const gateway = createMedicalGateway(
 		async (_input, init) => {
@@ -894,6 +972,10 @@ test("医保成功查单即使误带失败原因也不向业务层透传", async
 		med_ins_fail_reason: "must-not-be-used",
 		total_fee: 1000,
 		wechat_pay_cash_fee: 200,
+		med_ins_gov_fee: 500,
+		med_ins_self_fee: 300,
+		med_ins_other_fee: 0,
+		med_ins_cash_fee: 200,
 	});
 	const gateway = createMedicalGateway(
 		async (_input, init) => {
@@ -1227,6 +1309,10 @@ test("微信医保混合成功通知使用 APIv3 验签解密并提取安全事�
 		med_ins_pay_status: "MED_INS_PAY_SUCCESS",
 		total_fee: 1000,
 		wechat_pay_cash_fee: 200,
+		med_ins_gov_fee: 500,
+		med_ins_self_fee: 300,
+		med_ins_other_fee: 0,
+		med_ins_cash_fee: 200,
 		payer: { name: "must-not-cross-adapter-boundary" },
 	});
 	const cipher = createCipheriv(
@@ -1272,6 +1358,11 @@ test("微信医保混合成功通知使用 APIv3 验签解密并提取安全事�
 		outTradeNo: "medical-out-notification-001",
 		totalFen: 1000,
 		cashFen: 200,
+		fundFen: 500,
+		personalAccountFen: 300,
+		otherPaymentFen: 0,
+		medicalCashFen: 200,
+		cashReduceDetails: [],
 		mixPayType: "CASH_AND_INSURANCE",
 		selfPayStatus: "SELF_PAY_SUCCESS",
 		medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS",
@@ -1295,6 +1386,10 @@ test("微信纯医保成功通知接受 NO_SELF_PAY 和缺失现金字段", () =
 		self_pay_status: "NO_SELF_PAY",
 		med_ins_pay_status: "MED_INS_PAY_SUCCESS",
 		total_fee: 900,
+		med_ins_gov_fee: 600,
+		med_ins_self_fee: 300,
+		med_ins_other_fee: 0,
+		med_ins_cash_fee: 0,
 	});
 	const cipher = createCipheriv(
 		"aes-256-gcm",
@@ -1339,6 +1434,11 @@ test("微信纯医保成功通知接受 NO_SELF_PAY 和缺失现金字段", () =
 		outTradeNo: "medical-pure-notification-001",
 		totalFen: 900,
 		cashFen: 0,
+		fundFen: 600,
+		personalAccountFen: 300,
+		otherPaymentFen: 0,
+		medicalCashFen: 0,
+		cashReduceDetails: [],
 		mixPayType: "INSURANCE_ONLY",
 		selfPayStatus: "NO_SELF_PAY",
 		medicalInsurancePayStatus: "MED_INS_PAY_SUCCESS",

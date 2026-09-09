@@ -485,6 +485,54 @@ function deserializeMedicalInsuranceSettlementContext(
 					unknown
 				>)
 			: undefined;
+	const postPaymentComponents =
+		typeof parsed === "object" &&
+		parsed !== null &&
+		!Array.isArray(parsed) &&
+		(parsed as { postPaymentComponents?: unknown }).postPaymentComponents !==
+			undefined
+			? (parsed as { postPaymentComponents: unknown }).postPaymentComponents
+			: undefined;
+	const invalidPostPaymentComponents =
+		postPaymentComponents !== undefined &&
+		(!Array.isArray(postPaymentComponents) ||
+			postPaymentComponents.some((component) => {
+				if (
+					!component ||
+					typeof component !== "object" ||
+					Array.isArray(component)
+				)
+					return true;
+				const value = component as Record<string, unknown>;
+				return (
+					![
+						"hospital_reduce",
+						"fund",
+						"personal_account",
+						"wechat_cash",
+					].includes(String(value.kind)) ||
+					!["pending", "succeeded", "failed"].includes(String(value.state)) ||
+					!["H5", "MINI_PROGRAM"].includes(String(value.payModel)) ||
+					!["2", "3", "50"].includes(String(value.payTypeId)) ||
+					!["componentId", "recordCode", "updatedAt"].every(
+						(field) =>
+							typeof value[field] === "string" &&
+							Boolean((value[field] as string).trim()),
+					) ||
+					!["totalFen", "amountFen", "attempts"].every(
+						(field) =>
+							Number.isSafeInteger(value[field]) && Number(value[field]) >= 0,
+					) ||
+					Number(value.totalFen) <= 0 ||
+					Number(value.amountFen) <= 0 ||
+					Number(value.amountFen) > Number(value.totalFen) ||
+					(value.payingId !== undefined &&
+						typeof value.payingId !== "string") ||
+					(value.tradingId !== undefined &&
+						typeof value.tradingId !== "string") ||
+					(value.payingId === undefined) !== (value.tradingId === undefined)
+				);
+			}));
 	if (
 		typeof parsed !== "object" ||
 		parsed === null ||
@@ -492,8 +540,20 @@ function deserializeMedicalInsuranceSettlementContext(
 		typeof (parsed as { businessId?: unknown }).businessId !== "string" ||
 		typeof (parsed as { hospitalId?: unknown }).hospitalId !== "string" ||
 		typeof (parsed as { patientId?: unknown }).patientId !== "string" ||
-		typeof (parsed as { payingId?: unknown }).payingId !== "string" ||
-		typeof (parsed as { tradingId?: unknown }).tradingId !== "string" ||
+		((parsed as { payingId?: unknown }).payingId !== undefined &&
+			typeof (parsed as { payingId?: unknown }).payingId !== "string") ||
+		((parsed as { tradingId?: unknown }).tradingId !== undefined &&
+			typeof (parsed as { tradingId?: unknown }).tradingId !== "string") ||
+		((parsed as { payingId?: unknown }).payingId === undefined) !==
+			((parsed as { tradingId?: unknown }).tradingId === undefined) ||
+		((parsed as { insuredAreaCode?: unknown }).insuredAreaCode !== undefined &&
+			typeof (parsed as { insuredAreaCode?: unknown }).insuredAreaCode !==
+				"string") ||
+		((parsed as { postPaymentCompletedAt?: unknown }).postPaymentCompletedAt !==
+			undefined &&
+			typeof (parsed as { postPaymentCompletedAt?: unknown })
+				.postPaymentCompletedAt !== "string") ||
+		invalidPostPaymentComponents ||
 		typeof (parsed as { networkRegister?: unknown }).networkRegister !==
 			"object" ||
 		(parsed as { networkRegister?: unknown }).networkRegister === null ||

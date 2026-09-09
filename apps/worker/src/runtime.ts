@@ -5,6 +5,7 @@ import {
 	createLegacyFsiMedicalInsuranceGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatPaymentGateway,
+	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSettlementGateway,
 } from "@hospital/adapters";
 import {
@@ -118,10 +119,14 @@ function resolveRegistrationSelfPayContext(
 			);
 		if (!settlement) return undefined;
 		const providerContext = settlement.plugin ?? settlement;
+		const payingId = providerContext.payingId;
+		const tradingId = providerContext.tradingId;
 		if (
 			!settlement.businessId.trim() ||
-			!/^[0-9]+$/.test(providerContext.payingId) ||
-			!/^[0-9]+$/.test(providerContext.tradingId)
+			typeof payingId !== "string" ||
+			typeof tradingId !== "string" ||
+			!/^[0-9]+$/.test(payingId) ||
+			!/^[0-9]+$/.test(tradingId)
 		) {
 			return undefined;
 		}
@@ -151,8 +156,8 @@ function resolveRegistrationSelfPayContext(
 		}
 		return {
 			businessId: settlement.businessId,
-			payingId: providerContext.payingId,
-			tradingId: providerContext.tradingId,
+			payingId,
+			tradingId,
 			hospitalId,
 			patientId,
 			certNo,
@@ -447,6 +452,24 @@ export function createWorkerRuntime(
 					logger,
 				})
 			: undefined;
+	const medicalPostPaymentGateway =
+		runtimeConfig.yunhealthRegistrationSettlementReady &&
+		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig)
+			.length === 0
+			? createYunhealthRegistrationPluginPaymentGateway({
+					baseUrl: runtimeConfig.yunhealthBaseUrl ?? "",
+					authorizationToken: runtimeConfig.yunhealthAuthorizationToken ?? "",
+					paymentOrgId: runtimeConfig.yunhealthPaymentOrgId ?? "",
+					pluginPayTypeId:
+						runtimeConfig.yunhealthRegistrationPluginPayTypeId ?? "",
+					pluginPayType: (runtimeConfig.yunhealthRegistrationPluginPayType ??
+						"") as "CREDIT" | "POS" | "CROWD_FUNDING",
+					workStationId: runtimeConfig.yunhealthRegistrationWorkStationId ?? "",
+					authSysCode: runtimeConfig.yunhealthRegistrationAuthSysCode,
+					tradeTypeCode: runtimeConfig.yunhealthRegistrationTradeTypeCode,
+					logger,
+				})
+			: undefined;
 	const outbox = new OutboxWorker(
 		repositories.outbox,
 		{
@@ -638,6 +661,18 @@ export function createWorkerRuntime(
 				medicalInsurance: medicalInsuranceGateway,
 				identityUsers: repositories.identityUsers,
 				patients: repositories.patients,
+				...(medicalPostPaymentGateway
+					? {
+							postPayment: medicalPostPaymentGateway,
+							postPaymentPayType:
+								(runtimeConfig.yunhealthRegistrationPluginPayType ??
+									"CREDIT") as "CREDIT" | "POS" | "CROWD_FUNDING",
+							postPaymentWorkStationId:
+								runtimeConfig.yunhealthRegistrationWorkStationId ?? "",
+							postPaymentTradeTypeCode:
+								runtimeConfig.yunhealthRegistrationTradeTypeCode ?? "10",
+						}
+					: {}),
 				...(medicalWechatPaymentReady && wechatPayment
 					? { wechatPayment }
 					: {}),

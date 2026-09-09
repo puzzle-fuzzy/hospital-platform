@@ -211,10 +211,14 @@ function resolveRegistrationSelfPayContext(
 			);
 		if (!settlement) return undefined;
 		const providerContext = settlement.plugin ?? settlement;
+		const payingId = providerContext.payingId;
+		const tradingId = providerContext.tradingId;
 		if (
 			!settlement.businessId.trim() ||
-			!/^[0-9]+$/.test(providerContext.payingId) ||
-			!/^[0-9]+$/.test(providerContext.tradingId)
+			typeof payingId !== "string" ||
+			typeof tradingId !== "string" ||
+			!/^[0-9]+$/.test(payingId) ||
+			!/^[0-9]+$/.test(tradingId)
 		) {
 			return undefined;
 		}
@@ -244,8 +248,8 @@ function resolveRegistrationSelfPayContext(
 		}
 		return {
 			businessId: settlement.businessId,
-			payingId: providerContext.payingId,
-			tradingId: providerContext.tradingId,
+			payingId,
+			tradingId,
 			hospitalId,
 			patientId,
 			certNo,

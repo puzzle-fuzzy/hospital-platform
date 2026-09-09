@@ -278,16 +278,6 @@ export class MedicalInsuranceRegistrationService {
 			ownerUserId,
 			context.idempotencyKey,
 		);
-		// 统一订单的业务键比单次请求幂等键更重要：同一预约已经创建过
-		// 医保订单时，换一个幂等键重试也不能再造一笔订单。新 MySQL 仓储
-		// 提供业务键查询；旧仓储没有该方法时仍回退到原有行为。
-		if (!order && this.dependencies.orders.findByOwnerAndBusinessKey) {
-			order = await this.dependencies.orders.findByOwnerAndBusinessKey(
-				ownerUserId,
-				"registration",
-				appointmentId,
-			);
-		}
 		if (
 			order &&
 			((order.appointmentId !== undefined &&
@@ -301,14 +291,14 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance idempotency key conflicts with appointment",
 			);
-		// 支付小程序完成 2.6.65.11/2.6.65.6 后，原医保订单保留为
-		// cancelled；同一预约可以用原授权上下文创建一笔新的平台医保订单，
-		// 不要求用户重复跳转医保小程序。授权上下文仍由仓储按有效期校验。
-		const reusableAuthorizationId =
-			order?.status === "cancelled" ? order.authorizationId : null;
-		if (order?.status === "cancelled") order = undefined;
-		// 15 分钟只限制“首次创建医保订单”。已有订单必须继续按原单恢复和
-		// 查单，否则客户端本地上下文过期会让已扣款订单永久失联。
+		if (order?.status === "cancelled") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"本次医保授权尝试已作废，请重新展码授权",
+			);
+		}
+		// 15 分钟只限制创建新的医保订单。同一次幂等重试必须继续按原单恢复，
+		// 否则客户端本地上下文过期会让已扣款订单永久失联。先校验再关闭旧单，
+		// 避免一个已经失效的新授权尝试破坏仍需查单的旧支付事实。
 		if (
 			!order &&
 			(!Number.isFinite(appointmentCreatedAt) ||
@@ -330,6 +320,72 @@ export class MedicalInsuranceRegistrationService {
 			);
 			throw new MedicalInsuranceAppointmentStaleError();
 		}
+		// 同一个授权幂等键只表示同一次医保小程序回跳，可安全恢复原订单。
+		// 新幂等键表示用户已经重新展码：旧授权、payAuthNo、ecToken、6201
+		// 和 6202 结果都不能继续复用。创建新订单前必须先安全关闭旧业务单；
+		// 未确认关闭时保持失败关闭，绝不能让新授权与旧支付流水交叉。
+		if (!order && this.dependencies.orders.findByOwnerAndBusinessKey) {
+			const previousOrder =
+				await this.dependencies.orders.findByOwnerAndBusinessKey(
+					ownerUserId,
+					"registration",
+					appointmentId,
+				);
+			if (
+				previousOrder &&
+				((previousOrder.appointmentId !== undefined &&
+					previousOrder.appointmentId !== appointmentId) ||
+					(previousOrder.businessId !== undefined &&
+						previousOrder.businessId !== appointmentId) ||
+					(previousOrder.businessType !== undefined &&
+						previousOrder.businessType !== "registration") ||
+					previousOrder.patientId !== appointment.patientId)
+			) {
+				throw new MedicalInsuranceRegistrationInputError(
+					"Medical insurance business key conflicts with appointment",
+				);
+			}
+			if (
+				previousOrder?.status !== undefined &&
+				previousOrder.status !== "cancelled"
+			) {
+				this.logger.info(
+					{
+						event: "medical-insurance.reauthorization.cancellation.requested",
+						traceId: context.traceId,
+						ownerUserId,
+						orderId: previousOrder.medicalOrderId,
+						appointmentId,
+						previousStatus: previousOrder.status,
+					},
+					"Fresh medical insurance authorization is closing the previous order",
+				);
+				const cancellation = await this.core.cancel({
+					ownerUserId,
+					orderId: previousOrder.medicalOrderId,
+					reason: "reauthorization",
+					context,
+				});
+				if (
+					cancellation.status !== "cancelled" ||
+					!cancellation.restartAllowed
+				) {
+					throw new MedicalInsuranceRegistrationInputError(
+						"旧医保订单未能安全关闭，不能使用新的授权码发起支付",
+					);
+				}
+				this.logger.info(
+					{
+						event: "medical-insurance.reauthorization.cancellation.completed",
+						traceId: context.traceId,
+						ownerUserId,
+						orderId: previousOrder.medicalOrderId,
+						appointmentId,
+					},
+					"Previous medical insurance order closed for fresh authorization",
+				);
+			}
+		}
 		if (!order) {
 			const now = this.now().toISOString();
 			const medicalOrderId = this.createId();
@@ -341,7 +397,7 @@ export class MedicalInsuranceRegistrationService {
 				orderType: REGISTRATION_ORDER_TYPE,
 				businessId: appointmentId,
 				appointmentId,
-				authorizationId: reusableAuthorizationId ?? null,
+				authorizationId: null,
 				feeUploadId: null,
 				idempotencyKey: context.idempotencyKey,
 				medOrgOrd: medicalOrderId,
