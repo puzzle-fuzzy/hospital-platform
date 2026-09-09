@@ -34,7 +34,7 @@ function settlement() {
 	};
 }
 
-test("6202 的 psnAcctPay 有实际金额时第二次 .2 使用 payTypeId=5", async () => {
+test("6202 有个账金额时微信现金腿第二次 .2 仍固定使用 payTypeId=5027", async () => {
 	let requestPayTypeId: string | undefined;
 	let savedContext: Record<string, unknown> | undefined;
 	const paymentOrder = {
@@ -81,7 +81,7 @@ test("6202 的 psnAcctPay 有实际金额时第二次 .2 使用 payTypeId=5", as
 			},
 		} as never,
 		hospitalSettlement: {} as never,
-		pluginPayTypeId: "50",
+		pluginPayTypeId: "5027",
 		pluginPayType: "CREDIT",
 		pluginWorkStationId: "",
 		pluginTradeTypeCode: "10",
@@ -94,6 +94,6 @@ test("6202 的 psnAcctPay 有实际金额时第二次 .2 使用 payTypeId=5", as
 		context: { traceId: "trace-001", idempotencyKey: "idempotency-001" },
 	});
 
-	expect(requestPayTypeId).toBe("5");
-	expect(savedContext?.plugin).toMatchObject({ payTypeId: "5" });
+	expect(requestPayTypeId).toBe("5027");
+	expect(savedContext?.plugin).toMatchObject({ payTypeId: "5027" });
 });

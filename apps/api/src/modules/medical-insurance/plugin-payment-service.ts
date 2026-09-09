@@ -24,7 +24,9 @@ import { MedicalInsuranceRegistrationInputError } from "./errors";
 
 const PLUGIN_ORDER_PREFIX = "registration-medical-plugin-self-pay:";
 const PLUGIN_PREPAY_PREFIX = "registration-medical-plugin-prepay:";
-const PERSONAL_ACCOUNT_PAY_TYPE_ID = "5";
+const WECHAT_SELF_PAY_TYPE_ID = "5027";
+/** 已经落库的旧流水只允许继续完成，不用于创建新的 2.6.65.2 微信自费流水。 */
+const LEGACY_WECHAT_SELF_PAY_TYPE_IDS = new Set(["5", "31", "50"]);
 
 function opaque(value: unknown, label: string): string {
 	if (!isBoundedOpaqueIdentifier(value))
@@ -58,14 +60,13 @@ function pluginPrepayKey(medicalOrderId: string): string {
 	return `${PLUGIN_PREPAY_PREFIX}${medicalOrderId}`;
 }
 
-function pluginPayTypeIdForOrder(
-	medicalOrder: MedicalInsuranceOrder,
-	configuredPayTypeId: string,
-): string {
-	return medicalOrder.amounts?.personalAccountFen !== undefined &&
-		medicalOrder.amounts.personalAccountFen > 0
-		? PERSONAL_ACCOUNT_PAY_TYPE_ID
-		: configuredPayTypeId;
+function pluginPayTypeIdForOrder(configuredPayTypeId: string): string {
+	if (configuredPayTypeId !== WECHAT_SELF_PAY_TYPE_ID) {
+		throw new DependencyNotConfiguredError(
+			"yunhealth-wechat-self-pay-type-id-5027",
+		);
+	}
+	return WECHAT_SELF_PAY_TYPE_ID;
 }
 
 function output(
@@ -202,10 +203,7 @@ export class MedicalInsurancePluginPaymentService {
 		return { authorization, settlement, openid: identity.providerSubject };
 	}
 
-	private pluginInput(
-		settlement: MedicalInsuranceSettlementContext,
-		medicalOrder: MedicalInsuranceOrder,
-	): Omit<
+	private pluginInput(settlement: MedicalInsuranceSettlementContext): Omit<
 		RegistrationSelfPaySettlementContext,
 		"outTradeNo" | "recordCode" | "thirdPartPayRecordId"
 	> & {
@@ -246,7 +244,6 @@ export class MedicalInsurancePluginPaymentService {
 			);
 		}
 		const payTypeId = pluginPayTypeIdForOrder(
-			medicalOrder,
 			this.dependencies.pluginPayTypeId,
 		);
 		return {
@@ -309,7 +306,6 @@ export class MedicalInsurancePluginPaymentService {
 	): Promise<MedicalInsuranceSettlementContext> {
 		const existing = settlement.plugin;
 		const expectedPayTypeId = pluginPayTypeIdForOrder(
-			order,
 			this.dependencies.pluginPayTypeId,
 		);
 		if (existing) {
@@ -323,14 +319,17 @@ export class MedicalInsurancePluginPaymentService {
 					"Medical insurance plugin outTradeNo does not match the saved context",
 				);
 			}
-			if (existing.payTypeId !== expectedPayTypeId) {
+			if (
+				existing.payTypeId !== expectedPayTypeId &&
+				!LEGACY_WECHAT_SELF_PAY_TYPE_IDS.has(existing.payTypeId)
+			) {
 				throw new PaymentOrderInputError(
-					"Medical insurance plugin payTypeId does not match the 6202 personal-account result",
+					"Medical insurance plugin payTypeId does not match the current or legacy WeChat self-pay mapping",
 				);
 			}
 			return settlement;
 		}
-		const input = this.pluginInput(settlement, order);
+		const input = this.pluginInput(settlement);
 		const recordCode = stableCode(
 			`medical-insurance-plugin:${order.medicalOrderId}:${paymentOrder.orderId}`,
 		);
@@ -342,7 +341,7 @@ export class MedicalInsurancePluginPaymentService {
 				totalFen: order.amounts?.cashFen ?? 0,
 				hospitalId: input.hospitalId ?? "",
 				patientId: input.patientId ?? "",
-				payTypeId: input.payTypeId ?? this.dependencies.pluginPayTypeId,
+				payTypeId: expectedPayTypeId,
 				payType: input.payType ?? this.dependencies.pluginPayType,
 				workStationId:
 					input.workStationId ?? this.dependencies.pluginWorkStationId,

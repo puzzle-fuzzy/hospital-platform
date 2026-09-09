@@ -23,7 +23,7 @@ const registrationContext = {
 	psnName: "测试患者",
 	psnNo: "P000001",
 	patInHosId: "0",
-	payTypeId: "31",
+	payTypeId: "5027",
 	payType: "CREDIT" as const,
 };
 
@@ -32,7 +32,7 @@ function gateway(fetcher: ProviderFetcher, workStationId = "") {
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "50",
+		pluginPayTypeId: "5027",
 		pluginPayType: "CREDIT",
 		workStationId,
 		fetcher,
@@ -51,7 +51,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "50",
+		pluginPayTypeId: "5027",
 		pluginPayType: "CREDIT",
 		workStationId: "registration-machine-01",
 		fetcher: async (input, init) => {
@@ -78,7 +78,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 			totalFen: 1234,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "50",
+			payTypeId: "5027",
 			payType: "CREDIT",
 			workStationId: "registration-machine-01",
 			recordCode: "0123456789abcdef0123456789abcdef",
@@ -98,7 +98,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,
 		payModel: "H5",
-		payTypeId: 50,
+		payTypeId: 5027,
 		recordCode: "0123456789abcdef0123456789abcdef",
 		requestId: "0123456789abcdef0123456789abcdef",
 		sceneCode: "WeChatSmallProgram",
@@ -109,7 +109,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 	});
 	expect(request?.body.payTypeParams).toEqual([
 		{
-			payTypeId: 50,
+			payTypeId: 5027,
 			amount: 12.34,
 			paymentSystemUserId: "",
 			spbillCreateIp: "",
@@ -118,7 +118,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 	expect(result).toMatchObject({
 		payingId: "500001",
 		tradingId: "500002",
-		payTypeId: "50",
+		payTypeId: "5027",
 		payType: "CREDIT",
 		workStationId: "registration-machine-01",
 		tradeTypeCode: "10",
@@ -150,7 +150,7 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 			baseUrl: "https://yunhealth.example.test",
 			authorizationToken: "server-token",
 			paymentOrgId: "10756",
-			pluginPayTypeId: "50",
+			pluginPayTypeId: "5027",
 			pluginPayType: "CREDIT",
 			workStationId: "",
 			logger,
@@ -175,7 +175,7 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 					totalFen: 1234,
 					hospitalId: "10389001",
 					patientId: "100001",
-					payTypeId: "50",
+					payTypeId: "5027",
 					payType: "CREDIT",
 					workStationId: "",
 					recordCode: "0123456789abcdef0123456789abcdef",
@@ -214,17 +214,17 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 	}
 });
 
-test("云健康插件版第二次 .2 在 6202 有个人账户时允许 payTypeId=5", async () => {
-	let request: Record<string, unknown> | undefined;
+test("云健康插件版第二次 .2 拒绝把个人账户 payTypeId=5 当作微信自费", async () => {
+	let requested = false;
 	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "50",
+		pluginPayTypeId: "5027",
 		pluginPayType: "CREDIT",
 		workStationId: "",
-		fetcher: async (_input, init) => {
-			request = JSON.parse(String(init?.body)) as Record<string, unknown>;
+		fetcher: async () => {
+			requested = true;
 			return new Response(
 				JSON.stringify({
 					success: true,
@@ -235,28 +235,29 @@ test("云健康插件版第二次 .2 在 6202 有个人账户时允许 payTypeId
 		},
 	});
 
-	const result = await gatewayInstance.createPreOrder(
-		{
-			orderId: "medical-order-account",
-			businessId: "settlement-business-001",
-			tradeCode: "REGISTRATION-001",
-			totalFen: 1234,
-			hospitalId: "10389001",
-			patientId: "100001",
-			payTypeId: "5",
-			payType: "CREDIT",
-			workStationId: "",
-			recordCode: "0123456789abcdef0123456789abcdef",
-			tradeTypeCode: "10",
-		},
-		context,
-	);
-
-	expect(request).toMatchObject({
-		payTypeId: 5,
-		payTypeParams: [{ payTypeId: 5 }],
+	await expect(
+		gatewayInstance.createPreOrder(
+			{
+				orderId: "medical-order-account",
+				businessId: "settlement-business-001",
+				tradeCode: "REGISTRATION-001",
+				totalFen: 1234,
+				hospitalId: "10389001",
+				patientId: "100001",
+				payTypeId: "5",
+				payType: "CREDIT",
+				workStationId: "",
+				recordCode: "0123456789abcdef0123456789abcdef",
+				tradeTypeCode: "10",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		failureStage: "validation",
+		requestOutcome: "not_sent",
 	});
-	expect(result.payTypeId).toBe("5");
+	expect(requested).toBeFalse();
 });
 
 test("旧服务允许 Token 为空时云健康请求不发送授权头", async () => {
@@ -265,7 +266,7 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "50",
+		pluginPayTypeId: "5027",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		fetcher: async (_input, init) => {
@@ -291,7 +292,7 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 			totalFen: 1234,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "50",
+			payTypeId: "5027",
 			payType: "CREDIT",
 			workStationId: "",
 			recordCode: "0123456789abcdef0123456789abcdef",
@@ -368,7 +369,7 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 		patInHosId: 0,
 		payFee: 12.34,
 		payType: "CREDIT",
-		payTypeId: 31,
+		payTypeId: 5027,
 		payingId: "260650000000001",
 		settleId: "settlement-business-001",
 		tradingId: "260650000000002",
@@ -383,7 +384,7 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 		recordList: [
 			{
 				payingId: "260650000000001",
-				payTypeId: 31,
+				payTypeId: 5027,
 				receiveAmount: 12.34,
 				recordCode: expect.stringMatching(/^[a-f0-9]{32}$/u),
 				status: "3",
@@ -574,7 +575,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		authorizationToken: "",
 		paymentOrgId: "10756",
 		hospitalId: "10389001",
-		pluginPayTypeId: "50",
+		pluginPayTypeId: "5027",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		tradeTypeCode: "10",
@@ -626,8 +627,8 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		},
 	});
 	expect(requests[2]?.body).toMatchObject({
-		payTypeId: 31,
-		payTypeParams: [{ payTypeId: 31 }],
+		payTypeId: 5027,
+		payTypeParams: [{ payTypeId: 5027 }],
 	});
 	expect(requests[1]?.method).toBe("GET");
 	expect(requests[1]?.url).toBe(

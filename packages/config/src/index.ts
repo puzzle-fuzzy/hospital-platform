@@ -481,6 +481,12 @@ export function yunhealthRegistrationSettlementConfigurationMissingFields(
 			missing.push(`${name}(positive-integer)`);
 	}
 	if (
+		runtimeConfig.yunhealthRegistrationPluginPayTypeId &&
+		runtimeConfig.yunhealthRegistrationPluginPayTypeId !== "5027"
+	) {
+		missing.push("YUNHEALTH_PLUGIN_PAY_TYPE_ID(5027)");
+	}
+	if (
 		runtimeConfig.yunhealthRegistrationPluginPayType &&
 		!["CREDIT", "POS", "CROWD_FUNDING"].includes(
 			runtimeConfig.yunhealthRegistrationPluginPayType,

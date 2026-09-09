@@ -32,10 +32,12 @@ const COMPLETE_SETTLE_OPERATION = "registration-self-pay.2.6.65.5";
 const THIRD_PART_ALREADY_COMPLETED_CODE =
 	"BusinessExceptionErrorCode@third-part-pay@0004";
 const ALLOWED_PAY_TYPES = new Set(["CREDIT", "POS", "CROWD_FUNDING"]);
-/** 普通自费微信支付的 2.6.65.2 支付方式。医保混合插件仍由配置传入 50。 */
-const SELF_PAY_WECHAT_PAY_TYPE_ID = 31;
+/** 纯自费和医保混合现金腿通过微信支付时，2.6.65.2 固定使用该支付方式。 */
+const SELF_PAY_WECHAT_PAY_TYPE_ID = 5027;
 /** 6202 返回有个人账户实际支付金额时使用的支付方式。 */
 const PERSONAL_ACCOUNT_PAY_TYPE_ID = 5;
+/** 已创建的历史支付流水仍需按原支付方式完成 HIS 回写，不能中途改号。 */
+const LEGACY_WECHAT_SELF_PAY_TYPE_IDS = [31, 50] as const;
 
 export type YunhealthRegistrationPluginPayType =
 	| "CREDIT"
@@ -581,6 +583,7 @@ export function createYunhealthRegistrationSettlementGateway(
 		pluginPayTypeId,
 		SELF_PAY_WECHAT_PAY_TYPE_ID,
 		PERSONAL_ACCOUNT_PAY_TYPE_ID,
+		...LEGACY_WECHAT_SELF_PAY_TYPE_IDS,
 	]);
 	const pluginPayType = requiredText(
 		options.pluginPayType,
@@ -1225,10 +1228,8 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 		options.pluginPayTypeId,
 		"pluginPayTypeId",
 	);
-	const allowedPluginPayTypeIds = new Set([
-		pluginPayTypeId,
-		PERSONAL_ACCOUNT_PAY_TYPE_ID,
-	]);
+	if (pluginPayTypeId !== SELF_PAY_WECHAT_PAY_TYPE_ID)
+		throw new AdapterNotConfiguredError("yunhealth");
 	const pluginPayType = requiredText(
 		options.pluginPayType,
 		"pluginPayType",
@@ -1266,10 +1267,10 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 				);
 			}
 			const requestPayTypeId = positiveInteger(input.payTypeId, "payTypeId");
-			if (!allowedPluginPayTypeIds.has(requestPayTypeId)) {
+			if (requestPayTypeId !== SELF_PAY_WECHAT_PAY_TYPE_ID) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
-					"plugin payTypeId does not match server configuration",
+					"WeChat self-pay plugin payTypeId must be 5027",
 					{
 						failureStage: "validation",
 						requestOutcome: "not_sent",
