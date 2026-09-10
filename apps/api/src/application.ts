@@ -476,9 +476,6 @@ export function createDefaultApplicationServices(
 			identityUsers: repositories.identityUsers,
 			paymentOrders,
 			wechatPrepay,
-			pluginPayment:
-				options.yunhealthRegistrationPluginPaymentGateway ??
-				gateways.yunhealthRegistrationPluginPayment,
 			hospitalSettlement:
 				options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
 			pluginPayTypeId: options.yunhealthRegistrationPluginPayTypeId ?? "",

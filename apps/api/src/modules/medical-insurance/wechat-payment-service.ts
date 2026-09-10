@@ -356,9 +356,9 @@ export class MedicalInsuranceWechatPaymentService {
 		if (order.status === "insurance_settled") return output(order, false);
 		const { businessType, orderType } = orderBusiness(order);
 		if (order.wechatPaymentState === "prepay_ready" && order.wechatPayParams) {
-			const hasWechatCash =
-				(order.amounts?.cashFen ?? 0) - (order.amounts?.hospitalPartFen ?? 0) >
-				0;
+			// 6202 hospPartAmt 属于 othFeeAmt 明细，不是 ownPayAmt 内的现金
+			// 减免；是否存在微信现金腿只能看 ownPayAmt/cashFen。
+			const hasWechatCash = (order.amounts?.cashFen ?? 0) > 0;
 			const expiresAt = hasWechatCash
 				? prepayExpiresAt(order)
 				: Number.POSITIVE_INFINITY;
@@ -527,9 +527,7 @@ export class MedicalInsuranceWechatPaymentService {
 			if (
 				order.wechatPayParams &&
 				order.wechatMixTradeNo &&
-				((order.amounts?.cashFen ?? 0) -
-					(order.amounts?.hospitalPartFen ?? 0) ===
-					0 ||
+				((order.amounts?.cashFen ?? 0) === 0 ||
 					prepayExpiresAt(order) > this.now().getTime())
 			) {
 				await this.requeue(orderId);

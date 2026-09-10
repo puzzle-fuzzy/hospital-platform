@@ -104,6 +104,20 @@ describe("医保金额四分项守恒", () => {
 				insuredAreaCode: "140581",
 			}),
 		).toThrow(InvalidMedicalInsurancePaymentBreakdownError);
+		const unmappedOtherPayment = () =>
+			medicalInsurancePaymentBreakdown({
+				amounts: {
+					...amounts,
+					totalFen: 101,
+					otherPaymentFen: 11,
+				},
+				orderType: "RegPay",
+				insuredAreaCode: "140581",
+			});
+		expect(unmappedOtherPayment).toThrow(
+			InvalidMedicalInsurancePaymentBreakdownError,
+		);
+		expect(unmappedOtherPayment).toThrow("other_payment_unmapped");
 	});
 });
 

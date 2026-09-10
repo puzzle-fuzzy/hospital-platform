@@ -3,6 +3,7 @@ import type {
 	AdapterCallContext,
 	MedicalInsuranceAuthorizationContext,
 	MedicalInsuranceOrder,
+	MedicalInsuranceSettlementContext,
 } from "@hospital/domain";
 import {
 	accountFlag,
@@ -24,6 +25,132 @@ test("acctUsedFlag uses the local insured-region rule", () => {
 	expect(accountFlag("140581")).toBe("0");
 	expect(accountFlag(" 140581 ")).toBe("0");
 	expect(accountFlag("140500")).toBe("1");
+});
+
+function authorizationSelectionFixture(
+	insuinfo: readonly Record<string, unknown>[],
+) {
+	let requestCount = 0;
+	let storedAuthorization: MedicalInsuranceAuthorizationContext | undefined;
+	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		legacyFsi: {} as never,
+		orders: {} as never,
+		authorizations: {
+			put: async (input: MedicalInsuranceAuthorizationContext) => {
+				storedAuthorization = input;
+				return input;
+			},
+		} as never,
+		credentials: {} as never,
+		relayUrl: "https://relay.example",
+		relayAuthorizationToken: "synthetic-token",
+		foundationBaseUrl: "https://foundation.example",
+		foundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
+		zhongyangBaseUrl: "https://zhongyang.example",
+		createId: () => "authorization-selection-001",
+		now: () => new Date("2026-09-10T01:00:00.000Z"),
+		fetcher: async () => {
+			requestCount += 1;
+			const data =
+				requestCount === 1
+					? {
+							code: 0,
+							message: "success",
+							pay_auth_no: "AUTH-SELECTION-001",
+						}
+					: { baseinfo: {}, insuinfo };
+			return new Response(JSON.stringify(data), {
+				status: 200,
+				headers: {
+					"content-type": "application/json",
+					"x-request-id": `request-selection-${requestCount}`,
+				},
+			});
+		},
+	});
+	return {
+		gateway,
+		readStored: () => storedAuthorization,
+		readRequestCount: () => requestCount,
+	};
+}
+
+const authorizationSelectionInput = {
+	authCode: "authorization-code-selection-001",
+	patientId: "patient-selection-001",
+	ownerUserId: "user-selection-001",
+	orderId: "order-selection-001",
+	providerSubject: "openid-selection-001",
+	patient: {
+		providerPatientId: "provider-selection-001",
+		name: "参保地选择测试人",
+		cardNo: "CARD-SELECTION-001",
+		idNo: "140581199001010011",
+		phone: "13800000000",
+	},
+};
+
+test("1101同险种多条同参保地不依赖返回顺序", async () => {
+	const fixture = authorizationSelectionFixture([
+		{
+			insutype: "310",
+			psn_no: "psn-selection-001",
+			insuplc_admdvs: "140581",
+			psn_insu_stas: "0",
+		},
+		{
+			insuType: "310",
+			psnNo: "psn-selection-001",
+			insuplcAdmdvs: "140581",
+			psnInsuStas: "1",
+		},
+		{
+			insutype: "390",
+			psn_no: "psn-selection-001",
+			insuplc_admdvs: "140500",
+		},
+	]);
+
+	await expect(
+		fixture.gateway.authorize(authorizationSelectionInput, {
+			traceId: "trace-selection-same-area-001",
+			idempotencyKey: "idem-selection-same-area-001",
+		}),
+	).resolves.toMatchObject({
+		authorizationId: "authorization-selection-001",
+		regionCode: "140581",
+	});
+	expect(fixture.readStored()).toMatchObject({
+		psnNo: "psn-selection-001",
+		insutype: "310",
+		insuplcAdmdvs: "140581",
+	});
+});
+
+test("1101同险种返回多个参保地时拒绝猜测", async () => {
+	const fixture = authorizationSelectionFixture([
+		{
+			insutype: "310",
+			psn_no: "psn-selection-001",
+			insuplc_admdvs: "140581",
+			psn_insu_stas: "1",
+		},
+		{
+			insutype: "310",
+			psn_no: "psn-selection-001",
+			insuplc_admdvs: "140500",
+			psn_insu_stas: "0",
+		},
+	]);
+
+	await expect(
+		fixture.gateway.authorize(authorizationSelectionInput, {
+			traceId: "trace-selection-conflict-001",
+			idempotencyKey: "idem-selection-conflict-001",
+		}),
+	).rejects.toThrow("同一险种存在多个不同的参保地区划");
+	expect(fixture.readRequestCount()).toBe(2);
+	expect(fixture.readStored()).toBeUndefined();
 });
 
 test("授权查询按 family_pay_auth_no 判定亲情付并保存绑卡人身份", async () => {
@@ -181,7 +308,7 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 			fundFen: 60,
 		},
 	} as MedicalInsuranceOrder;
-	const settlementContext = {
+	let settlementContext: MedicalInsuranceSettlementContext = {
 		businessId: "10001",
 		hospitalId: "10389001",
 		patientId: "20001",
@@ -191,8 +318,6 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 		nationalUpDetailList: [],
 		upDetailList: [{ detailId: "50001" }],
 		tradeOrderIds: ["60001"],
-		payingId: "40001",
-		tradingId: "70001",
 		cashierUrl: "https://cashier.example/zero-cash",
 	};
 	let paymentOrderInput: Record<string, unknown> | undefined;
@@ -279,9 +404,7 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 		context,
 	);
 	expect(pending.state).toBe("cash_pending");
-	expect(pending.providerStatus).toBe(
-		"notify_success_zero_cash_cashier_pending",
-	);
+	expect(pending.providerStatus).toBe("6");
 	expect(paymentOrderInput).toMatchObject({
 		chrgBchno: "fee-upload-batch-001",
 	});
@@ -290,6 +413,12 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 	expect(providerPaths).not.toContain(
 		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	);
+	// 模拟官方 INSURANCE_ONLY 查单成功后，支付后置分项已经产生的流水。
+	settlementContext = {
+		...settlementContext,
+		payingId: "40001",
+		tradingId: "70001",
+	};
 
 	const completed = await gateway.query(
 		{

@@ -448,6 +448,83 @@ test("mixed worker does not write HIS when only the cash part is paid", async ()
 	});
 });
 
+test("医院负担不让 Worker 把过期微信现金预支付误判为可用", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			amounts: {
+				totalFen: 100,
+				cashFen: 20,
+				personalAccountFen: 30,
+				fundFen: 30,
+				otherPaymentFen: 20,
+				hospitalPartFen: 20,
+			},
+			wechatMixTradeNo: "mix-expired-cash-worker-001",
+			wechatOutTradeNo: "out-expired-cash-worker-001",
+			wechatPaymentState: "prepay_ready",
+			wechatPayParams: {
+				timeStamp: "1788393599",
+				nonceStr: "expired-cash-worker-nonce-001",
+				package: "prepay_id=expired-cash-worker-001",
+				signType: "RSA",
+				paySign: "expired-cash-worker-signature-001",
+				mixTradeNo: "mix-expired-cash-worker-001",
+			},
+			wechatPrepayExpiresAt: "2026-09-02T23:59:59.000Z",
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-worker-001",
+		"medical-order-worker-001",
+		{
+			businessId: "business-expired-cash-worker-001",
+			businessCode: "trade-expired-cash-worker-001",
+			hospitalId: "10389001",
+			patientId: "provider-expired-cash-worker-001",
+			insuredAreaCode: "140581",
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: [],
+		},
+	);
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
+		orders,
+		medicalInsurance: { query: async () => evidence() },
+		wechatPayment: {
+			createMixedOrder: async () => {
+				throw new Error("create is not used");
+			},
+			recoverMixedOrder: async () => {
+				throw new Error("recover is not used");
+			},
+			queryMixedOrder: async () => ({
+				mixState: "pending",
+				cashState: "pending",
+				insuranceState: "pending",
+				medInsPayStatus: "MED_INS_PAY_CREATED",
+				cashFen: 20,
+				totalFen: 100,
+				providerStatus: "MIX_PAY_CREATED/SELF_PAY_CREATED/MED_INS_PAY_CREATED",
+				trace: {
+					provider: "wechat-pay",
+					operation: "medical-mix-query",
+					requestId: "medical-expired-cash-worker-query-001",
+				},
+			}),
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("retry_scheduled");
+	expect(
+		await orders.findByMedicalOrderId("medical-order-worker-001"),
+	).toMatchObject({ wechatPaymentState: "unknown" });
+});
+
 test("pure insurance completes only after official WeChat query and final HIS settlement", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(

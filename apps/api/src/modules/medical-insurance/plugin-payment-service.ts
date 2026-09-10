@@ -9,14 +9,12 @@ import {
 	type MedicalInsuranceAuthorizationContext,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
-	type MedicalInsurancePluginPaymentContext,
 	type MedicalInsuranceSettlementContext,
 	type PaymentOrder,
 	PaymentOrderInputError,
 	type PaymentOrderService,
 	type RegistrationSelfPaySettlementContext,
 	type UserIdentityRepository,
-	type YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import type { WechatPrepayService } from "../payments/service";
@@ -46,10 +44,6 @@ function contextText(
 		if (normalized) return normalized;
 	}
 	return undefined;
-}
-
-function stableCode(value: string): string {
-	return createHash("sha256").update(value).digest("hex").slice(0, 32);
 }
 
 function pluginOrderKey(medicalOrderId: string): string {
@@ -112,12 +106,6 @@ function medicalOrderOutput(
 	};
 }
 
-function samePluginContext(
-	context: MedicalInsurancePluginPaymentContext,
-): MedicalInsurancePluginPaymentContext {
-	return { ...context };
-}
-
 function prepayIdFromPackage(packageValue: string): string | undefined {
 	const prefix = "prepay_id=";
 	return packageValue.startsWith(prefix)
@@ -131,7 +119,6 @@ export type MedicalInsurancePluginPaymentServiceDependencies = {
 	identityUsers: UserIdentityRepository;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
-	pluginPayment: YunhealthRegistrationPluginPaymentGateway;
 	hospitalSettlement: import("@hospital/domain").HospitalSettlementGateway;
 	pluginPayTypeId: string;
 	pluginPayType: "CREDIT" | "POS" | "CROWD_FUNDING";
@@ -142,12 +129,10 @@ export type MedicalInsurancePluginPaymentServiceDependencies = {
 };
 
 /**
- * 云健康插件版医保混合支付编排。官方微信 APIv3 医保混合支付是当前主入口；
- * 本 service 负责把旧服务要求的云健康插件流水接回同一支付成功边界：
- *
- * 6202 cash_pending → 第二次云健康 .2 → 同一 out_trade_no 的微信 JSAPI
- * → 微信查单成功 → .29 → .15 → .5。所有插件流水都挂在医保订单密文
- * settlement context 下，普通纯自费订单不会进入这条链。
+ * 历史云健康插件版医保混合支付的续跑编排。新订单统一使用官方微信
+ * APIv3 医保混合支付，并在支付成功后由 Worker 按 6202 分项调用 .2；
+ * 本 service 只允许已经存在 plugin 上下文的旧订单继续完成，禁止为新订单
+ * 在支付前创建 .2 流水。
  */
 export class MedicalInsurancePluginPaymentService {
 	private readonly logger: AppLogger;
@@ -203,80 +188,6 @@ export class MedicalInsurancePluginPaymentService {
 		return { authorization, settlement, openid: identity.providerSubject };
 	}
 
-	private pluginInput(settlement: MedicalInsuranceSettlementContext): Omit<
-		RegistrationSelfPaySettlementContext,
-		"outTradeNo" | "recordCode" | "thirdPartPayRecordId"
-	> & {
-		tradeCode: string;
-		tradeTypeCode: string;
-	} {
-		const register = settlement.networkRegister;
-		const tradeCode = settlement.businessCode?.trim();
-		const payingId = settlement.payingId;
-		const tradingId = settlement.tradingId;
-		const certNo = contextText(register, [
-			"idNo",
-			"id_no",
-			"certNo",
-			"cert_no",
-		]);
-		const psnName = contextText(register, [
-			"netPatName",
-			"net_pat_name",
-			"psnName",
-			"psn_name",
-		]);
-		const psnNo = contextText(register, [
-			"memberNo",
-			"member_no",
-			"psnNo",
-			"psn_no",
-		]);
-		if (
-			!tradeCode ||
-			!settlement.businessId.trim() ||
-			!settlement.hospitalId.trim() ||
-			!settlement.patientId.trim() ||
-			typeof payingId !== "string" ||
-			typeof tradingId !== "string" ||
-			!/^[0-9]+$/.test(payingId) ||
-			!/^[0-9]+$/.test(tradingId) ||
-			!certNo ||
-			!psnName ||
-			!psnNo
-		) {
-			throw new MedicalInsuranceRegistrationInputError(
-				"Medical insurance plugin payment is not allowed for the current order",
-			);
-		}
-		const payTypeId = pluginPayTypeIdForOrder(
-			this.dependencies.pluginPayTypeId,
-		);
-		return {
-			businessId: settlement.businessId,
-			payingId,
-			tradingId,
-			hospitalId: settlement.hospitalId,
-			patientId: settlement.patientId,
-			certNo,
-			psnCertType:
-				contextText(register, [
-					"psnCertType",
-					"psn_cert_type",
-					"idType",
-					"id_type",
-				]) ?? "01",
-			psnName,
-			psnNo,
-			patInHosId: contextText(register, ["patInHosId", "pat_in_hos_id"]) ?? "0",
-			payTypeId,
-			payType: this.dependencies.pluginPayType,
-			workStationId: this.dependencies.pluginWorkStationId,
-			tradeCode,
-			tradeTypeCode: this.dependencies.pluginTradeTypeCode,
-		};
-	}
-
 	private async saveMedicalPaymentState(
 		order: MedicalInsuranceOrder,
 		patch: {
@@ -303,11 +214,8 @@ export class MedicalInsurancePluginPaymentService {
 	}
 
 	private async ensurePluginOrder(
-		ownerUserId: string,
-		order: MedicalInsuranceOrder,
 		settlement: MedicalInsuranceSettlementContext,
 		paymentOrder: PaymentOrder,
-		context: { traceId: string; idempotencyKey: string },
 		options: { outTradeNo?: string } = {},
 	): Promise<MedicalInsuranceSettlementContext> {
 		const existing = settlement.plugin;
@@ -335,57 +243,9 @@ export class MedicalInsurancePluginPaymentService {
 			}
 			return settlement;
 		}
-		const input = this.pluginInput(settlement);
-		const recordCode = stableCode(
-			`medical-insurance-plugin:${order.medicalOrderId}:${paymentOrder.orderId}`,
+		throw new MedicalInsuranceRegistrationInputError(
+			"Fresh medical insurance plugin pre-order is disabled",
 		);
-		const result = await this.dependencies.pluginPayment.createPreOrder(
-			{
-				orderId: paymentOrder.orderId,
-				businessId: input.businessId,
-				tradeCode: input.tradeCode,
-				totalFen: order.amounts?.cashFen ?? 0,
-				hospitalId: input.hospitalId ?? "",
-				patientId: input.patientId ?? "",
-				payTypeId: expectedPayTypeId,
-				payType: input.payType ?? this.dependencies.pluginPayType,
-				workStationId:
-					input.workStationId ?? this.dependencies.pluginWorkStationId,
-				recordCode,
-				tradeTypeCode: input.tradeTypeCode,
-			},
-			context,
-		);
-		const plugin: MedicalInsurancePluginPaymentContext = {
-			paymentOrderId: paymentOrder.orderId,
-			payingId: result.payingId,
-			tradingId: result.tradingId,
-			payTypeId: result.payTypeId,
-			payType: result.payType,
-			workStationId: result.workStationId,
-			tradeCode: input.tradeCode,
-			tradeTypeCode: input.tradeTypeCode,
-			outTradeNo: options.outTradeNo ?? paymentOrder.orderId,
-			recordCode,
-			state: "preorder_created",
-		};
-		const next = { ...settlement, plugin: samePluginContext(plugin) };
-		await this.dependencies.orders.saveSettlementContext(
-			ownerUserId,
-			order.medicalOrderId,
-			next,
-		);
-		this.logger.info(
-			{
-				event: "medical-insurance.plugin-preorder.created",
-				traceId: context.traceId,
-				orderId: order.medicalOrderId,
-				paymentOrderId: paymentOrder.orderId,
-				providerRequestId: result.trace.requestId,
-			},
-			"Medical insurance Yunhealth plugin pre-order created",
-		);
-		return next;
 	}
 
 	/** 保存官方微信 v3 混合预支付证据；不把 paySign 等调起字段写入插件上下文。 */
@@ -437,11 +297,7 @@ export class MedicalInsurancePluginPaymentService {
 		);
 	}
 
-	/**
-	 * 官方微信医保混合支付下单前先创建云健康第二次 .2 流水。
-	 * 这里故意不创建普通微信订单，避免把 APIv3 混合单和旧插件支付单混成两笔
-	 * 收款；只把后续 .29 所需的 payingId/tradingId/recordCode/outTradeNo 加密落库。
-	 */
+	/** 仅续跑发布前已经存在 plugin 上下文的订单；新订单禁止前置创建 .2。 */
 	async prepareForOfficialWechatPayment(input: {
 		ownerUserId: string;
 		orderId: string;
@@ -461,41 +317,30 @@ export class MedicalInsurancePluginPaymentService {
 			);
 		}
 		const { settlement } = await this.contexts(ownerUserId, medicalOrder);
+		if (!settlement.plugin) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Fresh medical insurance plugin pre-order is disabled",
+			);
+		}
 		const existingPaymentOrder =
 			await this.dependencies.paymentOrders.findByOwnerAndIdempotencyKey(
 				ownerUserId,
 				pluginOrderKey(orderId),
 			);
-		if (settlement.plugin && !existingPaymentOrder) {
+		if (!existingPaymentOrder) {
 			throw new DependencyNotConfiguredError(
 				"medical-insurance-plugin-payment",
 			);
 		}
-		const paymentOrder =
-			existingPaymentOrder ??
-			(await this.dependencies.paymentOrders.createCashPending({
-				ownerUserId,
-				patientId: medicalOrder.patientId,
-				idempotencyKey: pluginOrderKey(orderId),
-				amounts: {
-					totalFen: medicalOrder.amounts.cashFen,
-					insuranceFen: 0,
-					cashFen: medicalOrder.amounts.cashFen,
-				},
-			}));
+		const paymentOrder = existingPaymentOrder;
 		if (paymentOrder.state === "failed" || paymentOrder.state === "cancelled") {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance plugin payment order must be reconciled before retry",
 			);
 		}
-		const withPlugin = await this.ensurePluginOrder(
-			ownerUserId,
-			medicalOrder,
-			settlement,
-			paymentOrder,
-			input.context,
-			{ outTradeNo: requestedOutTradeNo },
-		);
+		const withPlugin = await this.ensurePluginOrder(settlement, paymentOrder, {
+			outTradeNo: requestedOutTradeNo,
+		});
 		this.logger.info(
 			{
 				event: "medical-insurance.plugin-preorder.ready-for-wechat-mix",
@@ -800,28 +645,24 @@ export class MedicalInsurancePluginPaymentService {
 			);
 		}
 		const { settlement } = await this.contexts(ownerUserId, medicalOrder);
+		if (!settlement.plugin) {
+			// 公开旧入口仍需保留给存量订单查询/续跑，但新订单绝不能在
+			// 用户付款前创建 2.6.65.2 流水。
+			throw new MedicalInsuranceRegistrationInputError(
+				"Fresh medical insurance plugin pre-order is disabled",
+			);
+		}
 		const existingPaymentOrder =
 			await this.dependencies.paymentOrders.findByOwnerAndIdempotencyKey(
 				ownerUserId,
 				pluginOrderKey(orderId),
 			);
-		if (settlement.plugin && !existingPaymentOrder) {
+		if (!existingPaymentOrder) {
 			throw new DependencyNotConfiguredError(
 				"medical-insurance-plugin-payment",
 			);
 		}
-		const paymentOrder =
-			existingPaymentOrder ??
-			(await this.dependencies.paymentOrders.createCashPending({
-				ownerUserId,
-				patientId: medicalOrder.patientId,
-				idempotencyKey: pluginOrderKey(orderId),
-				amounts: {
-					totalFen: medicalOrder.amounts.cashFen,
-					insuranceFen: 0,
-					cashFen: medicalOrder.amounts.cashFen,
-				},
-			}));
+		const paymentOrder = existingPaymentOrder;
 		if (
 			paymentOrder.state === "cash_paid" ||
 			paymentOrder.state === "his_written_back"
@@ -842,13 +683,7 @@ export class MedicalInsurancePluginPaymentService {
 				"Medical insurance plugin payment order must be reconciled before retry",
 			);
 		}
-		const withPlugin = await this.ensurePluginOrder(
-			ownerUserId,
-			medicalOrder,
-			settlement,
-			paymentOrder,
-			input.context,
-		);
+		const withPlugin = await this.ensurePluginOrder(settlement, paymentOrder);
 		const prepay = await this.dependencies.wechatPrepay.create({
 			ownerUserId,
 			orderId: paymentOrder.orderId,

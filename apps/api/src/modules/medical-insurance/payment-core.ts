@@ -262,14 +262,15 @@ export class MedicalInsurancePaymentCore {
 			context,
 		);
 		const amounts = assertValidMedicalInsuranceAmounts({
+			// 6301 的公共 PaymentAmounts 只保留总额/现金/医保合计；6202 已经
+			// 确认的医院负担、个账细分等事实必须从订单原样带过，不能在查单
+			// 时重建成 0，否则后续高平优惠分项会被错误判成未映射。
+			...(order.amounts ?? {}),
 			totalFen: result.amounts.totalFen,
 			cashFen: result.amounts.cashFen,
 			personalAccountFen:
 				order.amounts?.personalAccountFen ?? result.amounts.insuranceFen,
 			fundFen: order.amounts?.fundFen ?? 0,
-			...(order.amounts?.otherPaymentFen === undefined
-				? {}
-				: { otherPaymentFen: order.amounts.otherPaymentFen }),
 		});
 		const updated = await this.dependencies.orders.applySettlement(
 			order.medicalOrderId,

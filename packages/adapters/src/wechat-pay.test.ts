@@ -8,7 +8,10 @@ import {
 	generateKeyPairSync,
 	privateDecrypt,
 } from "node:crypto";
-import type { MedicalInsuranceWechatPaymentGateway } from "@hospital/domain";
+import {
+	InvalidMedicalInsurancePaymentBreakdownError,
+	type MedicalInsuranceWechatPaymentGateway,
+} from "@hospital/domain";
 import { ProviderRequestError } from "./errors";
 import {
 	createWechatMedicalInsuranceNotificationDecoder,
@@ -162,10 +165,12 @@ function medicalCreateInput(input: {
 					personalAccountFen: 300,
 					fundFen: 500,
 					otherPaymentFen: 100,
+					hospitalPartFen: 100,
 				},
 		authorization: {
 			patient: { idNo: "140581199001010011", userName: "测试患者" },
 			payAuthNo: "pay-auth-001",
+			insuplcAdmdvs: "140581",
 		} as never,
 		settlement: {} as never,
 		paymentIdentity: pure
@@ -332,10 +337,12 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 				personalAccountFen: 300,
 				fundFen: 500,
 				otherPaymentFen: 100,
+				hospitalPartFen: 100,
 			},
 			authorization: {
 				patient: { idNo: "140581199001010011", userName: "测试患者" },
 				payAuthNo: "pay-auth-001",
+				insuplcAdmdvs: "140581",
 			} as never,
 			settlement: {} as never,
 			paymentIdentity: {
@@ -484,6 +491,29 @@ test("高平普通挂号医院负担归入医保其他支付且不重复扣减�
 	});
 	expect(requests[1]?.body).not.toHaveProperty("cash_reduce_detail");
 	expect(result.cashFen).toBe(20);
+});
+
+test("未映射的6202其他支付在发起微信请求前拒绝", async () => {
+	let providerCalls = 0;
+	const gateway = createMedicalGateway(async () => {
+		providerCalls += 1;
+		throw new Error("unexpected provider request");
+	});
+	const input = medicalCreateInput({
+		outTradeNo: "medical-unmapped-other-001",
+	});
+	input.amounts = {
+		totalFen: 1100,
+		cashFen: 200,
+		personalAccountFen: 300,
+		fundFen: 500,
+		otherPaymentFen: 100,
+	};
+
+	await expect(gateway.createMixedOrder(input, context)).rejects.toThrow(
+		InvalidMedicalInsurancePaymentBreakdownError,
+	);
+	expect(providerCalls).toBe(0);
 });
 
 test("纯医保直接创建官方 INSURANCE_ONLY 订单且不创建 JSAPI 预支付", async () => {
@@ -731,6 +761,7 @@ test("后台恢复入口只按 out_trade_no 查单且重建小程序调起参数
 			medOrgOrd: createInput.medOrgOrd,
 			orderType: createInput.orderType,
 			amounts: createInput.amounts,
+			insuredAreaCode: "140581",
 			expectedPayForRelatives: true,
 		},
 		context,

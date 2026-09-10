@@ -213,7 +213,8 @@ export class InvalidMedicalInsurancePaymentBreakdownError extends Error {
 	constructor(
 		readonly reason:
 			| "hospital_part_not_allowed"
-			| "hospital_part_exceeds_other_payment",
+			| "hospital_part_exceeds_other_payment"
+			| "other_payment_unmapped",
 	) {
 		super(`Invalid medical insurance payment breakdown: ${reason}`);
 		this.name = "InvalidMedicalInsurancePaymentBreakdownError";
@@ -247,6 +248,11 @@ export function medicalInsurancePaymentBreakdown(input: {
 	if (hospitalPartFen > otherPaymentFen) {
 		throw new InvalidMedicalInsurancePaymentBreakdownError(
 			"hospital_part_exceeds_other_payment",
+		);
+	}
+	if (otherPaymentFen !== hospitalPartFen) {
+		throw new InvalidMedicalInsurancePaymentBreakdownError(
+			"other_payment_unmapped",
 		);
 	}
 	return {

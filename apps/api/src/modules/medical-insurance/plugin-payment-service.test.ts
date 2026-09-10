@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
-function medicalOrder(personalAccountFen: number) {
+const context = { traceId: "trace-001", idempotencyKey: "idempotency-001" };
+
+function medicalOrder() {
 	return {
 		medicalOrderId: "medical-order-001",
 		ownerUserId: "user-001",
@@ -12,8 +14,8 @@ function medicalOrder(personalAccountFen: number) {
 		amounts: {
 			totalFen: 1000,
 			cashFen: 200,
-			personalAccountFen,
-			fundFen: 800 - personalAccountFen,
+			personalAccountFen: 300,
+			fundFen: 500,
 		},
 	};
 }
@@ -24,61 +26,61 @@ function settlement() {
 		businessCode: "REGISTRATION-001",
 		hospitalId: "10389001",
 		patientId: "100001",
-		payingId: "260650000000001",
-		tradingId: "260650000000002",
 		networkRegister: {
 			idNo: "11010519900101007X",
 			netPatName: "测试患者",
 			memberNo: "P000001",
 		},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: [],
 	};
 }
 
-test("6202 有个账金额时微信现金腿第二次 .2 仍固定使用 payTypeId=5027", async () => {
-	let requestPayTypeId: string | undefined;
-	let savedContext: Record<string, unknown> | undefined;
-	const paymentOrder = {
-		orderId: "payment-order-001",
-		state: "pending",
-	};
-	const service = new MedicalInsurancePluginPaymentService({
+function serviceWith(input: {
+	getSettlement: () => Record<string, unknown>;
+	findPaymentOrder: () => unknown;
+	saveSettlement?: (value: unknown) => void;
+	applySettlement?: () => unknown;
+	createPrepay?: () => unknown;
+	onCreatePaymentOrder?: () => void;
+}) {
+	return new MedicalInsurancePluginPaymentService({
 		orders: {
-			findByMedicalOrderId: async () => medicalOrder(300),
-			getSettlementContext: async () => settlement(),
+			findByMedicalOrderId: async () => medicalOrder(),
+			getSettlementContext: async () => input.getSettlement(),
 			saveSettlementContext: async (
 				_owner: string,
 				_order: string,
 				value: unknown,
-			) => {
-				savedContext = value as Record<string, unknown>;
-			},
+			) => input.saveSettlement?.(value),
+			applySettlement: async () => input.applySettlement?.() ?? medicalOrder(),
 		} as never,
 		authorizations: { get: async () => ({}) } as never,
 		identityUsers: {
 			findByUserId: async () => ({ providerSubject: "openid-001" }),
 		} as never,
 		paymentOrders: {
-			findByOwnerAndIdempotencyKey: async () => null,
-			createCashPending: async () => paymentOrder,
-		} as never,
-		wechatPrepay: {} as never,
-		pluginPayment: {
-			createPreOrder: async (input: { payTypeId: string }) => {
-				requestPayTypeId = input.payTypeId;
-				return {
-					payingId: "500001",
-					tradingId: "500002",
-					payTypeId: input.payTypeId,
-					payType: "CREDIT" as const,
-					workStationId: "",
-					tradeTypeCode: "10",
-					trace: {
-						provider: "yunhealth",
-						operation: "plugin",
-						requestId: "plugin-1",
-					},
-				};
+			findByOwnerAndIdempotencyKey: async () => input.findPaymentOrder(),
+			createCashPending: async () => {
+				input.onCreatePaymentOrder?.();
+				throw new Error("unexpected payment order creation");
 			},
+		} as never,
+		wechatPrepay: {
+			create: async () =>
+				input.createPrepay?.() ?? {
+					paymentState: "cash_pending",
+					payParams: {
+						appId: "wx-app-001",
+						timeStamp: "1788998400",
+						nonceStr: "nonce-001",
+						package: "prepay_id=prepay-001",
+						signType: "RSA",
+						paySign: "signature-001",
+					},
+				},
 		} as never,
 		hospitalSettlement: {} as never,
 		pluginPayTypeId: "5027",
@@ -86,14 +88,86 @@ test("6202 有个账金额时微信现金腿第二次 .2 仍固定使用 payType
 		pluginWorkStationId: "",
 		pluginTradeTypeCode: "10",
 	});
+}
 
-	await service.prepareForOfficialWechatPayment({
-		ownerUserId: "user-001",
-		orderId: "medical-order-001",
-		outTradeNo: "wechat-order-001",
-		context: { traceId: "trace-001", idempotencyKey: "idempotency-001" },
+test("fresh旧插件入口在付款和2.6.65.2前拒绝", async () => {
+	let paymentOrders = 0;
+	let wechatPrepays = 0;
+	const service = serviceWith({
+		getSettlement: settlement,
+		findPaymentOrder: () => undefined,
+		onCreatePaymentOrder: () => {
+			paymentOrders += 1;
+		},
+		createPrepay: () => {
+			wechatPrepays += 1;
+		},
 	});
 
-	expect(requestPayTypeId).toBe("5027");
-	expect(savedContext?.plugin).toMatchObject({ payTypeId: "5027" });
+	await expect(
+		service.create({
+			ownerUserId: "user-001",
+			orderId: "medical-order-001",
+			context,
+		}),
+	).rejects.toThrow("Fresh medical insurance plugin pre-order is disabled");
+	expect(paymentOrders).toBe(0);
+	expect(wechatPrepays).toBe(0);
+});
+
+test("发布前已存在的plugin上下文仍可恢复且不会再次提交2.6.65.2", async () => {
+	let wechatPrepays = 0;
+	let stored = {
+		...settlement(),
+		plugin: {
+			paymentOrderId: "payment-order-001",
+			payingId: "500001",
+			tradingId: "500002",
+			payTypeId: "5027",
+			payType: "CREDIT",
+			workStationId: "",
+			tradeCode: "REGISTRATION-001",
+			tradeTypeCode: "10",
+			outTradeNo: "payment-order-001",
+			recordCode: "12345678901234567890123456789012",
+			state: "preorder_created",
+		},
+	};
+	const paymentOrder = { orderId: "payment-order-001", state: "cash_pending" };
+	const service = serviceWith({
+		getSettlement: () => stored,
+		findPaymentOrder: () => paymentOrder,
+		saveSettlement: (value) => {
+			stored = value as typeof stored;
+		},
+		createPrepay: () => {
+			wechatPrepays += 1;
+			return {
+				paymentState: "cash_pending",
+				payParams: {
+					appId: "wx-app-001",
+					timeStamp: "1788998400",
+					nonceStr: "nonce-001",
+					package: "prepay_id=prepay-001",
+					signType: "RSA",
+					paySign: "signature-001",
+				},
+			};
+		},
+	});
+
+	const result = await service.create({
+		ownerUserId: "user-001",
+		orderId: "medical-order-001",
+		context,
+	});
+
+	expect(wechatPrepays).toBe(1);
+	expect(stored.plugin).toMatchObject({
+		paymentOrderId: "payment-order-001",
+		payingId: "500001",
+		state: "prepay_ready",
+		prepayId: "prepay-001",
+	});
+	expect(result.payParams?.package).toBe("prepay_id=prepay-001");
 });

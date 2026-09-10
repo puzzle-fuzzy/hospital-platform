@@ -390,6 +390,30 @@ function firstTextWithSource(
 	return undefined;
 }
 
+function uniqueTextFromRecords(
+	records: readonly ProviderRecord[],
+	keys: readonly string[],
+	label: string,
+	operation: string,
+	requestId: string | undefined,
+): string | undefined {
+	const values = [
+		...new Set(
+			records
+				.map((record) => optionalText(record, keys, operation, requestId))
+				.filter((value): value is string => Boolean(value)),
+		),
+	];
+	if (values.length > 1) {
+		throw responseError(
+			operation,
+			`同一险种存在多个不同的${label}，无法判定当前有效参保记录`,
+			requestId,
+		);
+	}
+	return values[0];
+}
+
 function providerKeys(value: unknown): readonly string[] {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		return [];
@@ -524,25 +548,22 @@ type SettlementMapping = {
 	authoritative: boolean;
 };
 
-function statusMapping(
-	result: {
-		statusClass: ReturnType<typeof classifyLegacyFsiOrderStatus>;
-		settlement: { ordStas: string };
-	},
-	amounts: MedicalInsuranceAmounts,
-): SettlementMapping {
+function statusMapping(result: {
+	statusClass: ReturnType<typeof classifyLegacyFsiOrderStatus>;
+	settlement: { ordStas: string };
+}): SettlementMapping {
 	switch (result.statusClass) {
 		case "processing":
 			return {
-				// 6202 ordStas=1 is still processing, but when ownPayAmt>0 the
-				// old service opens the 6201 cashier before waiting for 6301.
-				state: amounts.cashFen > 0 ? "cash_pending" : "awaiting_confirmation",
+				// 无论 ownPayAmt 是否为 0，6202 已确认金额后都要进入微信官方
+				// 医保订单阶段；纯医保也必须创建 INSURANCE_ONLY 订单。
+				state: "cash_pending",
 				finality: "processing",
 				authoritative: false,
 			};
 		case "settlement_candidate":
 			return {
-				state: amounts.cashFen > 0 ? "cash_pending" : "awaiting_confirmation",
+				state: "cash_pending",
 				finality: "settlement_candidate",
 				authoritative: false,
 			};
@@ -1508,6 +1529,15 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"后置结算上下文不存在",
 			);
 		}
+		const legacyPluginContext = Boolean(
+			stored.plugin || (stored.payingId && stored.tradingId),
+		);
+		if (!stored.postPaymentCompletedAt && !legacyPluginContext) {
+			throw responseError(
+				"medical-insurance.2.27.2.32",
+				"支付后置分项尚未完成，不能提前提交医院结算",
+			);
+		}
 
 		let settlementContext: MedicalInsuranceSettlementContext = stored;
 		if (
@@ -1933,7 +1963,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			"medical-insurance.1101",
 			infoResponse.requestId,
 		);
-		const selectedInsu = insuInfoList.find(
+		const matchingInsu = insuInfoList.filter(
 			(item) =>
 				optionalText(
 					item,
@@ -1942,29 +1972,45 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					infoResponse.requestId,
 				) === insutype,
 		);
-		if (!selectedInsu) {
+		if (matchingInsu.length === 0) {
 			throw responseError(
 				"medical-insurance.1101",
 				`参保信息缺少 insutype=${insutype}`,
 				infoResponse.requestId,
 			);
 		}
-		// 众阳/医保 1101 的参保号和参保地不保证都落在同一条 insuinfo
-		// 记录中。旧项目的真实处理顺序是 insuinfo -> baseinfo -> 授权查询结果，
-		// 这里保持同一顺序，避免把 HTTP 200 的有效响应误判成字段缺失。
-		const psnNoResult = firstTextWithSource(
-			[
-				{ source: "1101.insuinfo", record: selectedInsu },
-				{ source: "1101.baseinfo", record: baseInfo },
-				{
-					source: "authorization.user-query",
-					record: queryPayload,
-				},
-			],
+		const selectedInsu = matchingInsu[0] as ProviderRecord;
+		const selectedPsnNo = uniqueTextFromRecords(
+			matchingInsu,
 			["psn_no", "psnNo"],
+			"参保人员编号",
 			"medical-insurance.1101",
 			infoResponse.requestId,
 		);
+		const selectedInsuredArea = uniqueTextFromRecords(
+			matchingInsu,
+			["insuplc_admdvs", "insuplcAdmdvs"],
+			"参保地区划",
+			"medical-insurance.1101",
+			infoResponse.requestId,
+		);
+		// 众阳/医保 1101 的参保号和参保地不保证都落在同一条 insuinfo
+		// 记录中。旧项目的真实处理顺序是 insuinfo -> baseinfo -> 授权查询结果，
+		// 这里保持同一顺序，避免把 HTTP 200 的有效响应误判成字段缺失。
+		const psnNoResult = selectedPsnNo
+			? { value: selectedPsnNo, source: "1101.insuinfo" }
+			: firstTextWithSource(
+					[
+						{ source: "1101.baseinfo", record: baseInfo },
+						{
+							source: "authorization.user-query",
+							record: queryPayload,
+						},
+					],
+					["psn_no", "psnNo"],
+					"medical-insurance.1101",
+					infoResponse.requestId,
+				);
 		const psnNo = psnNoResult?.value;
 		if (!psnNo) {
 			throw responseError(
@@ -1973,15 +2019,14 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				infoResponse.requestId,
 			);
 		}
-		const insuplcAdmdvsResult = firstTextWithSource(
-			[
-				{ source: "1101.insuinfo", record: selectedInsu },
-				{ source: "1101.baseinfo", record: baseInfo },
-			],
-			["insuplc_admdvs", "insuplcAdmdvs"],
-			"medical-insurance.1101",
-			infoResponse.requestId,
-		);
+		const insuplcAdmdvsResult = selectedInsuredArea
+			? { value: selectedInsuredArea, source: "1101.insuinfo" }
+			: firstTextWithSource(
+					[{ source: "1101.baseinfo", record: baseInfo }],
+					["insuplc_admdvs", "insuplcAdmdvs"],
+					"medical-insurance.1101",
+					infoResponse.requestId,
+				);
 		const insuplcAdmdvs = insuplcAdmdvsResult?.value;
 		if (!insuplcAdmdvs) {
 			throw responseError(
@@ -2030,15 +2075,17 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			},
 			"Medical insurance 1101 response fields parsed",
 		);
-		const companyName = optionalText(
-			selectedInsu,
+		const companyName = uniqueTextFromRecords(
+			matchingInsu,
 			["emp_name", "empName"],
+			"参保单位",
 			"medical-insurance.1101",
 			infoResponse.requestId,
 		);
-		const netPatType = optionalText(
-			selectedInsu,
+		const netPatType = uniqueTextFromRecords(
+			matchingInsu,
 			["psn_type", "psnType"],
+			"人员类别",
 			"medical-insurance.1101",
 			infoResponse.requestId,
 		);
@@ -2856,7 +2903,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"Medical insurance 6202 completed",
 			);
 			const amounts = mapMedicalAmounts(result.settlement);
-			const mapping = statusMapping(result, amounts);
+			const mapping = statusMapping(result);
 			if (result.statusClass === "settlement_candidate") {
 				try {
 					return await finalizeStoredSettlement(
@@ -3182,7 +3229,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					result.trace.requestId,
 				);
 			const payment = paymentAmounts(amounts, result.trace.requestId);
-			const mapping = statusMapping(result, amounts);
+			const mapping = statusMapping(result);
 			if (result.statusClass === "settlement_candidate") {
 				try {
 					const finalized = await finalizeStoredSettlement(

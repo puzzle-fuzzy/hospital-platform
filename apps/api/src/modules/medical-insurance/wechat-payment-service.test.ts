@@ -81,9 +81,205 @@ function makeService(
 		confirmCashPayment: async () => {
 			throw new Error("should not complete a failed query");
 		},
+		now: () => new Date(now),
 		...(logger ? { logger } : {}),
 	});
 }
+
+test("医院负担不掩盖已过期的微信现金预支付", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			amounts: {
+				totalFen: 1000,
+				cashFen: 200,
+				personalAccountFen: 300,
+				fundFen: 300,
+				otherPaymentFen: 200,
+				hospitalPartFen: 200,
+			},
+			wechatPayParams: {
+				timeStamp: "1786751999",
+				nonceStr: "expired-cash-nonce-001",
+				package: "prepay_id=expired-cash-prepay-001",
+				signType: "RSA",
+				paySign: "expired-cash-signature-001",
+				mixTradeNo: "mix-query-001",
+			},
+			wechatPrepayExpiresAt: "2026-09-08T07:59:59.000Z",
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-wechat-query-001",
+		"wechat-query-001",
+		{
+			businessId: "appointment-wechat-query-001",
+			businessCode: "registration-wechat-query-001",
+			hospitalId: "10389001",
+			patientId: "provider-wechat-query-001",
+			insuredAreaCode: "140581",
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: [],
+		},
+	);
+	const service = makeService(orders, {
+		mixState: "pending",
+		cashState: "pending",
+		insuranceState: "pending",
+		medInsPayStatus: "MED_INS_PAY_CREATED",
+		cashFen: 200,
+		totalFen: 1000,
+		providerStatus: "MIX_PAY_CREATED/SELF_PAY_CREATED/MED_INS_PAY_CREATED",
+		trace: {
+			provider: "wechat-pay",
+			operation: "medical-mix-query",
+			requestId: "medical-expired-cash-query-001",
+		},
+	});
+
+	await expect(
+		service.create({
+			ownerUserId: "user-wechat-query-001",
+			orderId: "wechat-query-001",
+			context: {
+				traceId: "medical-expired-cash-trace-001",
+				idempotencyKey: "medical-expired-cash-request-001",
+			},
+		}),
+	).rejects.toBeInstanceOf(MedicalInsuranceWechatPrepayExpiredError);
+});
+
+test("6202纯医保cash_pending可以直接创建官方INSURANCE_ONLY订单", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			authorizationId: "authorization-pure-001",
+			amounts: {
+				totalFen: 1000,
+				cashFen: 0,
+				personalAccountFen: 300,
+				fundFen: 700,
+			},
+			wechatMixTradeNo: null,
+			wechatOutTradeNo: null,
+			wechatPaymentState: "not_started",
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-wechat-query-001",
+		"wechat-query-001",
+		{
+			businessId: "appointment-wechat-query-001",
+			businessCode: "registration-pure-001",
+			hospitalId: "10389001",
+			patientId: "provider-pure-001",
+			insuredAreaCode: "140500",
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: [],
+		},
+	);
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	await authorizations.put({
+		authorizationId: "authorization-pure-001",
+		ownerUserId: "user-wechat-query-001",
+		medicalOrderId: "wechat-query-001",
+		providerSubject: "openid-pure-001",
+		payAuthNo: "pay-auth-pure-001",
+		patient: {
+			idNo: "140500199001010011",
+			userName: "纯医保测试人",
+			idType: "01",
+		},
+		psnNo: "psn-pure-001",
+		insutype: "310",
+		insuplcAdmdvs: "140500",
+		insuCode: "insu-pure-001",
+		expiresAt: "2026-09-08T09:00:00.000Z",
+		createdAt: now,
+	});
+	const patients = createInMemoryPatientRepository();
+	await patients.upsertFromDirectory({
+		ownerUserId: "user-wechat-query-001",
+		patientId: "patient-wechat-query-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-pure-001",
+			displayName: "纯医保测试人",
+			relationship: "self",
+			cardNumberMasked: "******0011",
+		},
+	});
+	let createInput:
+		| Parameters<MedicalInsuranceWechatPaymentGateway["createMixedOrder"]>[0]
+		| undefined;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
+		authorizations,
+		identityUsers: createInMemoryIdentityUserRepository([
+			{
+				userId: "user-wechat-query-001",
+				providerSubject: "openid-pure-001",
+			},
+		]),
+		patients,
+		wechatPayment: {
+			createMixedOrder: async (
+				input: Parameters<
+					MedicalInsuranceWechatPaymentGateway["createMixedOrder"]
+				>[0],
+			) => {
+				createInput = input;
+				return {
+					mixTradeNo: "mix-pure-001",
+					payParams: { mixTradeNo: "mix-pure-001" },
+					cashFen: 0,
+					trace: {
+						provider: "wechat-pay",
+						operation: "medical-mix-create",
+						requestId: "wechat-pure-001",
+					},
+				};
+			},
+		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		confirmCashPayment: async () => {
+			throw new Error("payment creation must not finalize HIS");
+		},
+		now: () => new Date(now),
+	});
+
+	const result = await service.create({
+		ownerUserId: "user-wechat-query-001",
+		orderId: "wechat-query-001",
+		context: {
+			traceId: "medical-pure-create-001",
+			idempotencyKey: "medical-pure-create-001",
+		},
+	});
+
+	expect(createInput).toMatchObject({
+		orderType: "RegPay",
+		amounts: { cashFen: 0 },
+		paymentIdentity: { payForRelatives: false },
+	});
+	expect(result).toMatchObject({
+		status: "cash_pending",
+		paymentState: "prepay_ready",
+		payParams: { mixTradeNo: "mix-pure-001" },
+	});
+	expect(await orders.findByMedicalOrderId("wechat-query-001")).toMatchObject({
+		wechatMixTradeNo: "mix-pure-001",
+		wechatPrepayExpiresAt: null,
+		wechatPaymentState: "prepay_ready",
+	});
+});
 
 test("医保查单失败原因会持久化并透传给支付小程序", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();

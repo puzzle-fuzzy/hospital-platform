@@ -253,11 +253,8 @@ function hasUsableWechatPrepay(
 	order: MedicalInsuranceOrder,
 	now: Date,
 ): boolean {
-	if (
-		(order.amounts?.cashFen ?? 0) - (order.amounts?.hospitalPartFen ?? 0) ===
-		0
-	)
-		return true;
+	// 6202 hospPartAmt 是 othFeeAmt 明细，不能从 ownPayAmt/cashFen 再减。
+	if ((order.amounts?.cashFen ?? 0) === 0) return true;
 	if (!order.wechatPayParams || !order.wechatPrepayExpiresAt) return false;
 	const expiresAt = Date.parse(order.wechatPrepayExpiresAt);
 	return Number.isFinite(expiresAt) && expiresAt > now.getTime();
