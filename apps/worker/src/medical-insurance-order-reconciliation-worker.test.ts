@@ -580,9 +580,10 @@ test("mixed payment persists successful post-payment components and retries only
 			status: "cash_pending",
 			amounts: {
 				totalFen: 100,
-				cashFen: 30,
+				cashFen: 20,
 				personalAccountFen: 20,
 				fundFen: 50,
+				otherPaymentFen: 10,
 				hospitalPartFen: 10,
 			},
 			wechatMixTradeNo: "mix-component-worker-001",
@@ -626,7 +627,7 @@ test("mixed payment persists successful post-payment components and retries only
 				}
 				finalizationCalls += 1;
 				return evidence({
-					amounts: { totalFen: 100, insuranceFen: 70, cashFen: 30 },
+					amounts: { totalFen: 100, insuranceFen: 80, cashFen: 20 },
 					state: "insurance_settled",
 					source: "yunhealth",
 					providerStatus: "isSettle=1",
@@ -651,11 +652,9 @@ test("mixed payment persists successful post-payment components and retries only
 				totalFen: 100,
 				fundFen: 50,
 				personalAccountFen: 20,
-				otherPaymentFen: 0,
-				medicalCashFen: 30,
-				cashReduceDetails: [
-					{ cashReduceFen: 10, cashReduceType: "HOSPITAL_REDUCE" },
-				],
+				otherPaymentFen: 10,
+				medicalCashFen: 20,
+				cashReduceDetails: [],
 				providerStatus: "MIX_PAY_SUCCESS/SELF_PAY_SUCCESS/MED_INS_PAY_SUCCESS",
 				trace: {
 					provider: "wechat-pay",
@@ -726,7 +725,7 @@ test("mixed payment persists successful post-payment components and retries only
 			totalFen: 100,
 			amountFen: 20,
 			payModel: "MINI_PROGRAM",
-			payTypeId: "3",
+			payTypeId: "5027",
 		},
 	]);
 	expect(finalizationCalls).toBe(1);

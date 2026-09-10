@@ -1388,6 +1388,20 @@ test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 		tradeOrderIds: ["provider-trade-order-001"],
 		payingId: "260650000000001",
 		tradingId: "260650000000002",
+		postPaymentComponents: [
+			{
+				componentId: "medical-repair-001:wechat_cash",
+				kind: "wechat_cash",
+				totalFen: 100,
+				amountFen: 100,
+				payModel: "MINI_PROGRAM",
+				payTypeId: "5027",
+				recordCode: "0123456789abcdef0123456789abcdef",
+				state: "pending",
+				attempts: 0,
+				updatedAt: "2026-09-03T00:00:00.000Z",
+			},
+		],
 	};
 
 	await expect(

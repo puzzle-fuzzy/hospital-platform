@@ -159,7 +159,7 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 			amountFen: 3_000,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "3",
+			payTypeId: "5027",
 			payModel: "MINI_PROGRAM",
 			payType: "CREDIT",
 			workStationId: "registration-machine-01",
@@ -173,8 +173,8 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 		autoSettle: 3,
 		total: 100,
 		payModel: "MINI_PROGRAM",
-		payTypeId: 3,
-		payTypeParams: [{ payTypeId: 3, amount: 30 }],
+		payTypeId: 5027,
+		payTypeParams: [{ payTypeId: 5027, amount: 30 }],
 	});
 });
 

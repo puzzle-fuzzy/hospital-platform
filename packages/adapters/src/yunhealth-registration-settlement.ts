@@ -1279,9 +1279,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			const requestPayTypeId = positiveInteger(input.payTypeId, "payTypeId");
 			const payModel = input.payModel ?? "H5";
 			const allowedComponent =
+				// H5+5027 仅兼容发布前普通自费前置流水；新医保分项严格使用
+				// H5+2/3/50 或 MINI_PROGRAM+5027。
 				(payModel === "H5" &&
 					[2, 3, 50, SELF_PAY_WECHAT_PAY_TYPE_ID].includes(requestPayTypeId)) ||
-				(payModel === "MINI_PROGRAM" && requestPayTypeId === 3);
+				(payModel === "MINI_PROGRAM" &&
+					requestPayTypeId === SELF_PAY_WECHAT_PAY_TYPE_ID);
 			if (!allowedComponent) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",

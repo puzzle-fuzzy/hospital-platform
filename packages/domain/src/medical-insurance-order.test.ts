@@ -71,12 +71,13 @@ describe("医保金额四分项守恒", () => {
 		).not.toThrow();
 	});
 
-	test("只有高平普通挂号可把医院承担金额映射为 HOSPITAL_REDUCE", () => {
+	test("只有高平普通挂号可承接6202医院负担且不重复扣减现金", () => {
 		const amounts = {
 			totalFen: 100,
-			cashFen: 30,
+			cashFen: 20,
 			personalAccountFen: 20,
 			fundFen: 50,
+			otherPaymentFen: 10,
 			hospitalPartFen: 10,
 		};
 		expect(
@@ -87,9 +88,7 @@ describe("医保金额四分项守恒", () => {
 			}),
 		).toEqual({
 			wechatCashFen: 20,
-			cashReduceDetails: [
-				{ cashReduceFen: 10, cashReduceType: "HOSPITAL_REDUCE" },
-			],
+			cashReduceDetails: [],
 		});
 		expect(() =>
 			medicalInsurancePaymentBreakdown({

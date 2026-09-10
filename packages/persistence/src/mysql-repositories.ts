@@ -513,7 +513,7 @@ function deserializeMedicalInsuranceSettlementContext(
 					].includes(String(value.kind)) ||
 					!["pending", "succeeded", "failed"].includes(String(value.state)) ||
 					!["H5", "MINI_PROGRAM"].includes(String(value.payModel)) ||
-					!["2", "3", "50"].includes(String(value.payTypeId)) ||
+					!["2", "3", "50", "5027"].includes(String(value.payTypeId)) ||
 					!["componentId", "recordCode", "updatedAt"].every(
 						(field) =>
 							typeof value[field] === "string" &&

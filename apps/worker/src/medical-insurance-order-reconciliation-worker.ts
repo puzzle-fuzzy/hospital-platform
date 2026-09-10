@@ -55,20 +55,20 @@ function postPaymentComponents(input: {
 }): readonly MedicalInsurancePostPaymentComponent[] {
 	const amounts = input.order.amounts;
 	if (!amounts) throw new Error("medical payment amounts are unavailable");
-	if ((amounts.otherPaymentFen ?? 0) > 0) {
-		throw new Error("medical-insurance-med-ins-other-fee-unmapped");
-	}
 	const breakdown = medicalInsurancePaymentBreakdown({
 		amounts,
 		orderType: input.order.orderType ?? "RegPay",
 		insuredAreaCode: input.insuredAreaCode,
 	});
+	if ((amounts.otherPaymentFen ?? 0) !== (amounts.hospitalPartFen ?? 0)) {
+		throw new Error("medical-insurance-med-ins-other-fee-unmapped");
+	}
 	const definitions = [
-		...(breakdown.cashReduceDetails.length > 0
+		...(amounts.hospitalPartFen && amounts.hospitalPartFen > 0
 			? [
 					{
 						kind: "hospital_reduce" as const,
-						amountFen: breakdown.cashReduceDetails[0]?.cashReduceFen ?? 0,
+						amountFen: amounts.hospitalPartFen,
 						payModel: "H5" as const,
 						payTypeId: "50" as const,
 					},
@@ -90,7 +90,7 @@ function postPaymentComponents(input: {
 			kind: "wechat_cash" as const,
 			amountFen: breakdown.wechatCashFen,
 			payModel: "MINI_PROGRAM" as const,
-			payTypeId: "3" as const,
+			payTypeId: "5027" as const,
 		},
 	].filter((component) => component.amountFen > 0);
 	return definitions.map((component) => ({

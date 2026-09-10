@@ -212,46 +212,46 @@ export type MedicalInsurancePaymentBreakdown = {
 export class InvalidMedicalInsurancePaymentBreakdownError extends Error {
 	constructor(
 		readonly reason:
-			| "hospital_reduce_not_allowed"
-			| "hospital_reduce_exceeds_cash",
+			| "hospital_part_not_allowed"
+			| "hospital_part_exceeds_other_payment",
 	) {
 		super(`Invalid medical insurance payment breakdown: ${reason}`);
 		this.name = "InvalidMedicalInsurancePaymentBreakdownError";
 	}
 }
 
-/** 将高平普通挂号的医院承担金额映射成微信官方 HOSPITAL_REDUCE。 */
+/**
+ * 校验 6202 的医院负担与其他支付拆分，并计算实际微信现金金额。
+ *
+ * V2.2.5 中 `hospPartAmt` 是 `othFeeAmt` 的医院负担明细，而不是
+ * `ownPayAmt` 内的现金减免；因此它不能再次从现金金额中扣除，也不能
+ * 重复写入微信 `cash_reduce_detail`。当前医院只确认了高平普通挂号的
+ * 医院负担映射，其他未识别的 `othFeeAmt` 必须保持 fail-closed。
+ */
 export function medicalInsurancePaymentBreakdown(input: {
 	amounts: MedicalInsuranceAmounts;
 	orderType: MedicalInsuranceOrderType;
 	insuredAreaCode: string;
 }): MedicalInsurancePaymentBreakdown {
 	const amounts = assertValidMedicalInsuranceAmounts(input.amounts);
-	const hospitalReduceFen = amounts.hospitalPartFen ?? 0;
-	if (hospitalReduceFen === 0) {
-		return { wechatCashFen: amounts.cashFen, cashReduceDetails: [] };
-	}
+	const hospitalPartFen = amounts.hospitalPartFen ?? 0;
+	const otherPaymentFen = amounts.otherPaymentFen ?? 0;
 	if (
-		input.orderType !== "RegPay" ||
-		input.insuredAreaCode.trim() !== "140581"
+		hospitalPartFen > 0 &&
+		(input.orderType !== "RegPay" || input.insuredAreaCode.trim() !== "140581")
 	) {
 		throw new InvalidMedicalInsurancePaymentBreakdownError(
-			"hospital_reduce_not_allowed",
+			"hospital_part_not_allowed",
 		);
 	}
-	if (hospitalReduceFen > amounts.cashFen) {
+	if (hospitalPartFen > otherPaymentFen) {
 		throw new InvalidMedicalInsurancePaymentBreakdownError(
-			"hospital_reduce_exceeds_cash",
+			"hospital_part_exceeds_other_payment",
 		);
 	}
 	return {
-		wechatCashFen: amounts.cashFen - hospitalReduceFen,
-		cashReduceDetails: [
-			{
-				cashReduceFen: hospitalReduceFen,
-				cashReduceType: "HOSPITAL_REDUCE",
-			},
-		],
+		wechatCashFen: amounts.cashFen,
+		cashReduceDetails: [],
 	};
 }
 
@@ -376,7 +376,7 @@ export type MedicalInsurancePostPaymentComponent = {
 	totalFen: number;
 	amountFen: number;
 	payModel: "H5" | "MINI_PROGRAM";
-	payTypeId: "2" | "3" | "50";
+	payTypeId: "2" | "3" | "50" | "5027";
 	recordCode: string;
 	state: MedicalInsurancePostPaymentComponentState;
 	attempts: number;

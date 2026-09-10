@@ -417,7 +417,7 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 	expect(result.payParams).not.toHaveProperty("appId");
 });
 
-test("高平普通挂号优惠从医保现金中抵扣并只向 JSAPI 收取实际微信金额", async () => {
+test("高平普通挂号医院负担归入医保其他支付且不重复扣减微信现金", async () => {
 	const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
 	const responses = [
 		JSON.stringify({ prepay_id: "wx-reduce-prepay-001" }),
@@ -449,9 +449,10 @@ test("高平普通挂号优惠从医保现金中抵扣并只向 JSAPI 收取实�
 			orderType: "RegPay",
 			amounts: {
 				totalFen: 100,
-				cashFen: 30,
+				cashFen: 20,
 				personalAccountFen: 20,
 				fundFen: 50,
+				otherPaymentFen: 10,
 				hospitalPartFen: 10,
 			},
 			authorization: {
@@ -477,13 +478,11 @@ test("高平普通挂号优惠从医保现金中抵扣并只向 JSAPI 收取实�
 		total_fee: 100,
 		med_ins_gov_fee: 50,
 		med_ins_self_fee: 20,
-		med_ins_other_fee: 0,
-		med_ins_cash_fee: 30,
+		med_ins_other_fee: 10,
+		med_ins_cash_fee: 20,
 		wechat_pay_cash_fee: 20,
-		cash_reduce_detail: [
-			{ cash_reduce_fee: 10, cash_reduce_type: "HOSPITAL_REDUCE" },
-		],
 	});
+	expect(requests[1]?.body).not.toHaveProperty("cash_reduce_detail");
 	expect(result.cashFen).toBe(20);
 });
 
