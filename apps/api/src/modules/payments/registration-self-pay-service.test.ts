@@ -39,6 +39,7 @@ test("自费微信已支付后必须先回写 HIS，再进入 completed", async 
 	const service = new RegistrationSelfPayService({
 		appointments: appointments(),
 		paymentOrders,
+		identityUsers: {} as never,
 		wechatPrepay: {} as never,
 		preparation: {} as never,
 		hospitalSettlement: {
@@ -100,6 +101,7 @@ test("HIS 回写未确认时不伪造完成，保留 cash_paid 供后续重试",
 	const service = new RegistrationSelfPayService({
 		appointments: appointments(),
 		paymentOrders,
+		identityUsers: {} as never,
 		wechatPrepay: {} as never,
 		preparation: {} as never,
 		hospitalSettlement: {
@@ -185,8 +187,15 @@ test("新自费订单先完成并保存 .1/.32/.2 上下文，再创建微信 AP
 			}),
 		} as never,
 		paymentOrders,
+		identityUsers: {
+			findByUserId: async () => ({
+				userId: ownerUserId,
+				providerSubject: "openid-self-pay-001",
+			}),
+		} as never,
 		preparation: {
-			prepare: async () => {
+			prepare: async (input) => {
+				expect(input.paymentSystemUserId).toBe("openid-self-pay-001");
 				events.push("prepare-.1-.32-.2");
 				return {
 					registrationContext: preparedContext,

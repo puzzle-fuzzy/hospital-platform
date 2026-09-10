@@ -509,6 +509,7 @@ export function createDefaultApplicationServices(
 	const registrationSelfPay = new RegistrationSelfPayService({
 		appointments: appointmentWrites,
 		paymentOrders,
+		identityUsers: repositories.identityUsers,
 		wechatPrepay: registrationWechatPrepay,
 		hospitalSettlement:
 			options.hospitalSettlementGateway ?? gateways.hospitalSettlement,

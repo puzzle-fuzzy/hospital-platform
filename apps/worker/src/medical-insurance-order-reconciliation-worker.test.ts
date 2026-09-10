@@ -691,12 +691,19 @@ test("mixed payment persists successful post-payment components and retries only
 		amountFen?: number;
 		payModel?: string;
 		payTypeId: string;
+		paymentSystemUserId?: string;
 	}> = [];
 	let personalAccountAttempts = 0;
 	let finalizationCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
 		tasks,
 		orders,
+		identityUsers: createInMemoryIdentityUserRepository([
+			{
+				userId: "user-worker-001",
+				providerSubject: "openid-component-worker-001",
+			},
+		]),
 		medicalInsurance: {
 			query: async (input) => {
 				if (!input.cashPaymentConfirmed) {
@@ -787,12 +794,15 @@ test("mixed payment persists successful post-payment components and retries only
 		"wechat_cash",
 	]);
 	expect(
-		componentCalls.map(({ totalFen, amountFen, payModel, payTypeId }) => ({
-			totalFen,
-			amountFen,
-			payModel,
-			payTypeId,
-		})),
+		componentCalls.map(
+			({ totalFen, amountFen, payModel, payTypeId, paymentSystemUserId }) => ({
+				totalFen,
+				amountFen,
+				payModel,
+				payTypeId,
+				...(paymentSystemUserId ? { paymentSystemUserId } : {}),
+			}),
+		),
 	).toEqual([
 		{ totalFen: 100, amountFen: 10, payModel: "H5", payTypeId: "50" },
 		{ totalFen: 100, amountFen: 50, payModel: "H5", payTypeId: "2" },
@@ -803,6 +813,7 @@ test("mixed payment persists successful post-payment components and retries only
 			amountFen: 20,
 			payModel: "MINI_PROGRAM",
 			payTypeId: "5027",
+			paymentSystemUserId: "openid-component-worker-001",
 		},
 	]);
 	expect(finalizationCalls).toBe(1);

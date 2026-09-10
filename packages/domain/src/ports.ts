@@ -494,6 +494,8 @@ export interface YunhealthRegistrationPluginPaymentGateway {
 			patientId: string;
 			payTypeId: string;
 			payModel: "H5" | "MINI_PROGRAM";
+			/** MINI_PROGRAM 时传当前微信付款人的 openid；H5 分项留空。 */
+			paymentSystemUserId?: string;
 			payType: "CREDIT" | "POS" | "CROWD_FUNDING";
 			workStationId: string;
 			recordCode: string;
@@ -525,6 +527,8 @@ export interface RegistrationSelfPayPreparationGateway {
 			totalFen: number;
 			providerRegisterId: string;
 			providerPatientId: string;
+			/** 当前登录微信用户的 openid，只能从服务端身份仓储读取。 */
+			paymentSystemUserId: string;
 			patient: {
 				name: string;
 				cardNo: string;

@@ -1040,6 +1040,11 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 		async prepare(input, context) {
 			const orderId = requiredText(input.orderId, "orderId", 128);
 			const totalFen = positiveInteger(input.totalFen, "totalFen");
+			const paymentSystemUserId = requiredText(
+				input.paymentSystemUserId,
+				"paymentSystemUserId",
+				128,
+			);
 			const providerRegisterId = positiveIntegerText(
 				input.providerRegisterId,
 				"providerRegisterId",
@@ -1172,6 +1177,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 					patientId: providerPatientId,
 					payTypeId: String(selfPayPayTypeId),
 					payModel: "MINI_PROGRAM",
+					paymentSystemUserId,
 					payType: pluginPayType,
 					workStationId,
 					recordCode,
@@ -1279,6 +1285,10 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			}
 			const requestPayTypeId = positiveInteger(input.payTypeId, "payTypeId");
 			const payModel = input.payModel;
+			const paymentSystemUserId =
+				payModel === "MINI_PROGRAM"
+					? requiredText(input.paymentSystemUserId, "paymentSystemUserId", 128)
+					: "";
 			const allowedComponent =
 				// 医保基金、个人账户和高平优惠使用 H5；所有 5027 微信现金
 				// （包括普通自费）必须使用小程序模式，禁止再回退到 H5。
@@ -1340,11 +1350,11 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 							{
 								payTypeId: requestPayTypeId,
 								amount: Number((amountFen / 100).toFixed(2)),
-								paymentSystemUserId: "",
+								paymentSystemUserId,
 								spbillCreateIp: "",
 							},
 						],
-						paymentSystemUserId: "",
+						paymentSystemUserId,
 						recordCode,
 						requestId: recordCode,
 						sceneCode: "WeChatSmallProgram",

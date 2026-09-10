@@ -519,6 +519,17 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 
 			try {
+				const paymentSystemUserId =
+					attempted.payModel === "MINI_PROGRAM"
+						? (
+								await this.dependencies.identityUsers?.findByUserId(
+									order.ownerUserId,
+								)
+							)?.providerSubject
+						: undefined;
+				if (attempted.payModel === "MINI_PROGRAM" && !paymentSystemUserId) {
+					throw new Error("medical-insurance-post-payment-openid-missing");
+				}
 				const result = await gateway.createPreOrder(
 					{
 						orderId: attempted.componentId,
@@ -530,6 +541,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 						patientId,
 						payTypeId: attempted.payTypeId,
 						payModel: attempted.payModel,
+						...(paymentSystemUserId ? { paymentSystemUserId } : {}),
 						payType: this.dependencies.postPaymentPayType ?? "CREDIT",
 						workStationId: this.dependencies.postPaymentWorkStationId ?? "",
 						recordCode: attempted.recordCode,

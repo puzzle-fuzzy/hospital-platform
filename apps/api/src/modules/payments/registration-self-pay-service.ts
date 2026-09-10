@@ -2,19 +2,25 @@ import type { RegistrationSelfPayPayload } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
 	type HospitalSettlementGateway,
+	normalizeIdentityUserReadModel,
 	type PaymentOrder,
 	PaymentOrderInputError,
 	type PaymentOrderService,
 	type RegistrationSelfPayPreparationGateway,
 	type RegistrationSelfPaySettlementContext,
+	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import type { AppointmentWriteService } from "../appointments/write-service";
-import type { WechatPrepayService } from "./service";
+import {
+	PaymentIdentityNotFoundError,
+	type WechatPrepayService,
+} from "./service";
 
 export type RegistrationSelfPayServiceDependencies = {
 	appointments: AppointmentWriteService;
 	paymentOrders: PaymentOrderService;
+	identityUsers: UserIdentityRepository;
 	wechatPrepay: WechatPrepayService;
 	/** 微信已确认收款后，必须经过 HIS 回写才能进入 completed。 */
 	hospitalSettlement: HospitalSettlementGateway;
@@ -298,6 +304,12 @@ export class RegistrationSelfPayService {
 				})
 			: undefined;
 		if (!registrationContext) {
+			const storedIdentity =
+				await this.dependencies.identityUsers.findByUserId(ownerUserId);
+			if (!storedIdentity) throw new PaymentIdentityNotFoundError();
+			const identity = normalizeIdentityUserReadModel(storedIdentity, {
+				expectedUserId: ownerUserId,
+			});
 			const provider =
 				await this.dependencies.appointments.getProviderPaymentContext(
 					ownerUserId,
@@ -310,6 +322,7 @@ export class RegistrationSelfPayService {
 					totalFen: order.amounts.totalFen,
 					providerRegisterId: provider.providerRegisterId,
 					providerPatientId: provider.providerPatientId,
+					paymentSystemUserId: identity.providerSubject,
 					patient: provider.patient,
 				},
 				{

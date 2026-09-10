@@ -80,6 +80,7 @@ test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插
 			patientId: "100001",
 			payTypeId: "5027",
 			payModel: "MINI_PROGRAM",
+			paymentSystemUserId: "openid-mini-program-001",
 			payType: "CREDIT",
 			workStationId: "registration-machine-01",
 			recordCode: "0123456789abcdef0123456789abcdef",
@@ -100,6 +101,7 @@ test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插
 		hospitalId: 10389001,
 		payModel: "MINI_PROGRAM",
 		payTypeId: 5027,
+		paymentSystemUserId: "openid-mini-program-001",
 		recordCode: "0123456789abcdef0123456789abcdef",
 		requestId: "0123456789abcdef0123456789abcdef",
 		sceneCode: "WeChatSmallProgram",
@@ -112,7 +114,7 @@ test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插
 		{
 			payTypeId: 5027,
 			amount: 12.34,
-			paymentSystemUserId: "",
+			paymentSystemUserId: "openid-mini-program-001",
 			spbillCreateIp: "",
 		},
 	]);
@@ -162,6 +164,7 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 			patientId: "100001",
 			payTypeId: "5027",
 			payModel: "MINI_PROGRAM",
+			paymentSystemUserId: "openid-component-001",
 			payType: "CREDIT",
 			workStationId: "registration-machine-01",
 			recordCode: "fedcba9876543210fedcba9876543210",
@@ -175,8 +178,56 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 		total: 100,
 		payModel: "MINI_PROGRAM",
 		payTypeId: 5027,
-		payTypeParams: [{ payTypeId: 5027, amount: 30 }],
+		paymentSystemUserId: "openid-component-001",
+		payTypeParams: [
+			{
+				payTypeId: 5027,
+				amount: 30,
+				paymentSystemUserId: "openid-component-001",
+			},
+		],
 	});
+});
+
+test("云健康小程序 .2 缺少 openid 时在发送前失败", async () => {
+	let requested = false;
+	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		paymentOrgId: "10756",
+		pluginPayTypeId: "5027",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		fetcher: async () => {
+			requested = true;
+			return new Response(JSON.stringify({ success: true }));
+		},
+	});
+
+	await expect(
+		gatewayInstance.createPreOrder(
+			{
+				orderId: "medical-order-missing-openid",
+				businessId: "settlement-business-001",
+				tradeCode: "REGISTRATION-001",
+				totalFen: 1234,
+				hospitalId: "10389001",
+				patientId: "100001",
+				payTypeId: "5027",
+				payModel: "MINI_PROGRAM",
+				payType: "CREDIT",
+				workStationId: "",
+				recordCode: "0123456789abcdef0123456789abcdef",
+				tradeTypeCode: "10",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		failureStage: "validation",
+		requestOutcome: "not_sent",
+	});
+	expect(requested).toBeFalse();
 });
 
 test("云健康 .2 拒绝5027回退到H5", async () => {
@@ -268,6 +319,7 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 					patientId: "100001",
 					payTypeId: "5027",
 					payModel: "MINI_PROGRAM",
+					paymentSystemUserId: "openid-rejected-001",
 					payType: "CREDIT",
 					workStationId: "",
 					recordCode: "0123456789abcdef0123456789abcdef",
@@ -387,6 +439,7 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 			patientId: "100001",
 			payTypeId: "5027",
 			payModel: "MINI_PROGRAM",
+			paymentSystemUserId: "openid-no-auth-001",
 			payType: "CREDIT",
 			workStationId: "",
 			recordCode: "0123456789abcdef0123456789abcdef",
@@ -698,6 +751,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 			totalFen: 1000,
 			providerRegisterId: "1952638941030000100",
 			providerPatientId: "1952638941030000200",
+			paymentSystemUserId: "openid-prepare-001",
 			patient: {
 				name: "测试患者",
 				cardNo: "P000001",
@@ -723,7 +777,13 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 	expect(requests[2]?.body).toMatchObject({
 		payModel: "MINI_PROGRAM",
 		payTypeId: 5027,
-		payTypeParams: [{ payTypeId: 5027 }],
+		paymentSystemUserId: "openid-prepare-001",
+		payTypeParams: [
+			{
+				payTypeId: 5027,
+				paymentSystemUserId: "openid-prepare-001",
+			},
+		],
 	});
 	expect(requests[1]?.method).toBe("GET");
 	expect(requests[1]?.url).toBe(
