@@ -248,6 +248,50 @@ test("medical authorization resolves the directory reference instead of the HIS 
 	});
 });
 
+test("关系为空的就诊人按临时验收规则视为本人", async () => {
+	const service = new MedicalInsuranceRegistrationService({
+		orders: createInMemoryMedicalInsuranceOrderRepository(),
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: "appointment-unknown-relation-001",
+				ownerUserId: "user-unknown-relation-001",
+				patientId: "patient-unknown-relation-001",
+				status: "booked",
+				createdAt: now.toISOString(),
+			}),
+		} as never,
+		patients: {
+			listByOwner: async () => [
+				{
+					id: "patient-unknown-relation-001",
+					ownerUserId: "user-unknown-relation-001",
+					displayName: "关系字段为空的就诊人",
+					relationship: "unknown",
+					cardNumberMasked: "******0011",
+					source: "hospital-his",
+					clinicalAccess: "unavailable",
+				},
+			],
+		} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {} as never,
+		now: () => now,
+	});
+
+	await expect(
+		service.authorizationContext({
+			ownerUserId: "user-unknown-relation-001",
+			appointmentId: "appointment-unknown-relation-001",
+			context: {
+				traceId: "authorization-context-unknown-relation-001",
+				idempotencyKey: "authorization-context-unknown-relation-001",
+			},
+		}),
+	).resolves.toEqual({ payForRelatives: false });
+});
+
 test("亲属授权上下文按预约选中就诊人生成 familyId 并先验证本人付款档案", async () => {
 	const profileInputs: string[] = [];
 	const service = new MedicalInsuranceRegistrationService({

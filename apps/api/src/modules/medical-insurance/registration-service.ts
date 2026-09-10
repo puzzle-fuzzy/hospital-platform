@@ -232,10 +232,27 @@ export class MedicalInsuranceRegistrationService {
 		const selected = patients.find(
 			(candidate) => candidate.id === appointment.patientId,
 		);
-		if (!selected || selected.relationship === "unknown") {
+		if (!selected) {
 			throw new MedicalInsuranceRegistrationInputError(
-				"当前就诊人的亲属关系不明确，无法发起医保授权",
+				"当前预约未关联有效就诊人，无法发起医保授权",
 			);
+		}
+		// 临时验收兼容：当前众阳 patient-list 可能把 relation 返回为空，
+		// 目录层会将其规范化为 unknown。为避免医保主链路在展码前被阻断，
+		// 本轮测试按院方确认将 unknown 暂时视为本人；保留独立告警事件，
+		// 后续接入权威本人/亲属关系后应恢复严格判断。
+		if (selected.relationship === "unknown") {
+			this.logger.warn(
+				{
+					event: "medical-insurance.authorization.relationship-fallback",
+					traceId: context.traceId,
+					ownerUserId,
+					appointmentId,
+					assumedRelationship: "self",
+				},
+				"Unknown patient relationship temporarily treated as self",
+			);
+			return { payForRelatives: false };
 		}
 		if (selected.relationship === "self") return { payForRelatives: false };
 
