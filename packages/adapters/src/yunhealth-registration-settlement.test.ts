@@ -39,7 +39,7 @@ function gateway(fetcher: ProviderFetcher, workStationId = "") {
 	});
 }
 
-test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返回插件流水号", async () => {
+test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插件流水号", async () => {
 	let request:
 		| {
 				url: string;
@@ -79,6 +79,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 			hospitalId: "10389001",
 			patientId: "100001",
 			payTypeId: "5027",
+			payModel: "MINI_PROGRAM",
 			payType: "CREDIT",
 			workStationId: "registration-machine-01",
 			recordCode: "0123456789abcdef0123456789abcdef",
@@ -97,7 +98,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 		autoSettle: 3,
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,
-		payModel: "H5",
+		payModel: "MINI_PROGRAM",
 		payTypeId: 5027,
 		recordCode: "0123456789abcdef0123456789abcdef",
 		requestId: "0123456789abcdef0123456789abcdef",
@@ -178,6 +179,47 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 	});
 });
 
+test("云健康 .2 拒绝5027回退到H5", async () => {
+	let requested = false;
+	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		paymentOrgId: "10756",
+		pluginPayTypeId: "5027",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		fetcher: async () => {
+			requested = true;
+			return new Response(JSON.stringify({ success: true }));
+		},
+	});
+
+	await expect(
+		gatewayInstance.createPreOrder(
+			{
+				orderId: "medical-order-invalid-h5-5027",
+				businessId: "settlement-business-001",
+				tradeCode: "REGISTRATION-001",
+				totalFen: 1234,
+				hospitalId: "10389001",
+				patientId: "100001",
+				payTypeId: "5027",
+				payModel: "H5",
+				payType: "CREDIT",
+				workStationId: "",
+				recordCode: "0123456789abcdef0123456789abcdef",
+				tradeTypeCode: "10",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		failureStage: "validation",
+		requestOutcome: "not_sent",
+	});
+	expect(requested).toBeFalse();
+});
+
 test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", async () => {
 	const previousRawLogging = Bun.env.PROVIDER_RAW_LOGGING;
 	const logs: Array<Record<string, unknown>> = [];
@@ -225,6 +267,7 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 					hospitalId: "10389001",
 					patientId: "100001",
 					payTypeId: "5027",
+					payModel: "MINI_PROGRAM",
 					payType: "CREDIT",
 					workStationId: "",
 					recordCode: "0123456789abcdef0123456789abcdef",
@@ -294,6 +337,7 @@ test("云健康插件版第二次 .2 拒绝把个人账户 payTypeId=5 当作微
 				hospitalId: "10389001",
 				patientId: "100001",
 				payTypeId: "5",
+				payModel: "H5",
 				payType: "CREDIT",
 				workStationId: "",
 				recordCode: "0123456789abcdef0123456789abcdef",
@@ -342,6 +386,7 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 			hospitalId: "10389001",
 			patientId: "100001",
 			payTypeId: "5027",
+			payModel: "MINI_PROGRAM",
 			payType: "CREDIT",
 			workStationId: "",
 			recordCode: "0123456789abcdef0123456789abcdef",
@@ -676,6 +721,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		},
 	});
 	expect(requests[2]?.body).toMatchObject({
+		payModel: "MINI_PROGRAM",
 		payTypeId: 5027,
 		payTypeParams: [{ payTypeId: 5027 }],
 	});

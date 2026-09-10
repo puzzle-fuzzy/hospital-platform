@@ -493,7 +493,7 @@ export interface YunhealthRegistrationPluginPaymentGateway {
 			hospitalId: string;
 			patientId: string;
 			payTypeId: string;
-			payModel?: "H5" | "MINI_PROGRAM";
+			payModel: "H5" | "MINI_PROGRAM";
 			payType: "CREDIT" | "POS" | "CROWD_FUNDING";
 			workStationId: string;
 			recordCode: string;
