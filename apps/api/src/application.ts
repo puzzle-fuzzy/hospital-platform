@@ -447,6 +447,7 @@ export function createDefaultApplicationServices(
 	});
 	const medicalInsurance = new MedicalInsuranceRegistrationService({
 		orders: repositories.medicalInsuranceOrders,
+		authorizations: repositories.medicalInsuranceAuthorizations,
 		appointments: repositories.appointmentWrites,
 		patients: repositories.patients,
 		identityUsers: repositories.identityUsers,

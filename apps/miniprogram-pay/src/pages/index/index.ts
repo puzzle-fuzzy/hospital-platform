@@ -14,6 +14,7 @@ import {
 	selectSource,
 } from "../../services/appointment";
 import {
+	canSwitchMedicalAuthorizationToSelfPay,
 	clearPendingPayment,
 	continueMedicalCashierPaymentFromPending,
 	continueMedicalCashPayment,
@@ -25,9 +26,9 @@ import {
 	navigateToMedicalAuth,
 	type PaymentMode,
 	type PaymentProgress,
+	prepareFreshMedicalAuthorization,
 	readPendingPayment,
 	resumeMedicalCashPaymentFromPending,
-	setPendingPaymentMode,
 	startMedicalPayment,
 	startSelfPayment,
 	WechatPaymentCancelledError,
@@ -403,6 +404,15 @@ Page<
 			setProgress(this, stage, message),
 		)
 			.then((result) => {
+				if (result?.kind === "reauthorization_started") {
+					this.setData({
+						hasPendingPayment: true,
+						stage: "authorizing",
+						error: "",
+						message: "旧支付已关闭，请在医保小程序重新完成授权",
+					});
+					return;
+				}
 				if (result?.kind === "cashier_opened") {
 					this.setData({
 						hasPendingPayment: true,
@@ -434,8 +444,26 @@ Page<
 					showStaleAppointment(this);
 					return;
 				}
+				const latestPending = readPendingPayment();
+				if (
+					error instanceof ApiError &&
+					error.statusCode === 502 &&
+					["provider-response-invalid", "provider-request-rejected"].includes(
+						error.code,
+					) &&
+					canSwitchMedicalAuthorizationToSelfPay(latestPending)
+				) {
+					this.setData({
+						hasPendingPayment: true,
+						stage: "",
+						error:
+							"未查询到当前就诊人可用于本次支付的医保参保信息，暂时无法使用医保支付",
+						message: "预约已保留，可直接点击“自费支付”继续，无需重新挂号",
+					});
+					return;
+				}
 				this.setData({
-					hasPendingPayment: Boolean(readPendingPayment()),
+					hasPendingPayment: Boolean(latestPending),
 					error: friendlyError(error),
 					message: "医保支付未完成，请不要重复预约",
 				});
@@ -677,6 +705,32 @@ Page<
 				return;
 			}
 			if (mode === "self") {
+				if (canSwitchMedicalAuthorizationToSelfPay(pending)) {
+					this.setData({ busy: true, error: "" });
+					setProgress(
+						this,
+						"self-paying",
+						"医保暂不可用，正在改用普通自费支付",
+					);
+					void startSelfPayment(pending, (stage, message) =>
+						setProgress(this, stage, message),
+					)
+						.then(() => this.setData({ hasPendingPayment: false }))
+						.catch(async (error: unknown) => {
+							if (error instanceof WechatPaymentCancelledError) {
+								await showWechatPaymentCancelled(this);
+								return;
+							}
+							this.setData({
+								hasPendingPayment: Boolean(readPendingPayment()),
+								error: friendlyError(error),
+								message:
+									"自费支付未完成，请继续当前自费订单；请勿重复预约或付款",
+							});
+						})
+						.finally(() => this.setData({ busy: false }));
+					return;
+				}
 				this.setData({
 					message:
 						"当前预约已经进入医保流程，不能切换为自费支付；请先取消预约后重新选择",
@@ -685,9 +739,12 @@ Page<
 				return;
 			}
 			this.setData({ busy: true, error: "" });
-			setPendingPaymentMode(pending, mode);
+			const freshAuthorization = prepareFreshMedicalAuthorization(
+				pending,
+				mode,
+			);
 			setProgress(this, "authorizing", "请在医保小程序继续完成授权");
-			void navigateToMedicalAuth(pending.appointmentId)
+			void navigateToMedicalAuth(freshAuthorization.appointmentId)
 				.catch(async (error: unknown) => {
 					if (error instanceof MedicalAuthNavigationCancelledError) {
 						await showNavigationCancelled(this);

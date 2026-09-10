@@ -3,6 +3,7 @@ import type {
 	MedicalInsuranceWechatPayPayload,
 } from "@hospital/contracts";
 import {
+	type AdapterCallContext,
 	type AppointmentPatientProfileGateway,
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
@@ -18,6 +19,7 @@ import {
 	medicalInsurancePaymentBreakdown,
 	type PatientRepository,
 	type UserIdentityRepository,
+	validatePatientProviderReference,
 	type WechatPaymentNotification,
 } from "@hospital/domain";
 import {
@@ -207,6 +209,8 @@ export class MedicalInsuranceWechatPaymentService {
 	private async paymentIdentity(
 		order: MedicalInsuranceOrder,
 		authorization: MedicalInsuranceAuthorizationContext,
+		unionId: string | undefined,
+		context: AdapterCallContext,
 	): Promise<MedicalInsuranceWechatPaymentIdentity> {
 		const patients = await this.dependencies.patients.listByOwner(
 			order.ownerUserId,
@@ -214,37 +218,53 @@ export class MedicalInsuranceWechatPaymentService {
 		const patient = patients.find(
 			(candidate) => candidate.id === order.patientId,
 		);
-		if (!patient) {
+		if (!patient || patient.relationship === "unknown") {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
 		}
 		const selectedIdentity = {
 			name: authorization.patient.userName,
 			idNo: authorization.patient.idNo,
 		};
-		const payForRelatives = authorization.payForRelatives === true;
-		if (
-			(patient.relationship === "self" && payForRelatives) ||
-			(patient.relationship !== "self" &&
-				patient.relationship !== "unknown" &&
-				!payForRelatives)
-		) {
-			throw new MedicalInsuranceWechatPaymentNotAllowedError();
-		}
-		if (!payForRelatives) {
+		if (patient.relationship === "self") {
 			return {
 				payForRelatives: false,
 				payer: selectedIdentity,
 			};
 		}
-		const payer = authorization.payer;
-		if (!payer?.userName.trim() || !payer.idNo.trim()) {
+		if (!unionId || !this.dependencies.patientProfile) {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
 		}
+		const selfPatients = patients.filter(
+			(candidate) => candidate.relationship === "self",
+		);
+		if (selfPatients.length !== 1 || !selfPatients[0]) {
+			throw new MedicalInsuranceWechatPaymentNotAllowedError();
+		}
+		const payerReference =
+			await this.dependencies.patients.resolveProviderReference({
+				ownerUserId: order.ownerUserId,
+				patientId: selfPatients[0].id,
+				provider: "zhongyang",
+				referenceKind: "directory",
+			});
+		if (
+			!payerReference ||
+			validatePatientProviderReference(payerReference, selfPatients[0].id)
+		) {
+			throw new MedicalInsuranceWechatPaymentNotAllowedError();
+		}
+		const payerProfile = await this.dependencies.patientProfile.resolve(
+			{
+				unionId,
+				providerPatientId: payerReference.providerPatientId,
+			},
+			context,
+		);
 		return {
 			payForRelatives: true,
 			payer: {
-				name: payer.userName,
-				idNo: payer.idNo,
+				name: payerProfile.patient.name,
+				idNo: payerProfile.patient.idNo,
 			},
 			relative: selectedIdentity,
 		};
@@ -257,6 +277,7 @@ export class MedicalInsuranceWechatPaymentService {
 		authorization: MedicalInsuranceAuthorizationContext;
 		settlement: MedicalInsuranceSettlementContext;
 		openid: string;
+		unionId?: string;
 	}> {
 		if (!order.authorizationId || !order.payOrdId || !order.amounts) {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
@@ -280,6 +301,7 @@ export class MedicalInsuranceWechatPaymentService {
 			authorization,
 			settlement,
 			openid: identity.providerSubject,
+			...(identity.unionId ? { unionId: identity.unionId } : {}),
 		};
 	}
 
@@ -383,11 +405,16 @@ export class MedicalInsuranceWechatPaymentService {
 		const paymentPayOrdId = order.payOrdId as string;
 		const paymentMedOrgOrd = order.medOrgOrd;
 		const medicalOrderCreateTime = order.createdAt;
-		const { authorization, settlement, openid } = await this.contexts(
+		const { authorization, settlement, openid, unionId } = await this.contexts(
 			order,
 			ownerUserId,
 		);
-		const paymentIdentity = await this.paymentIdentity(order, authorization);
+		const paymentIdentity = await this.paymentIdentity(
+			order,
+			authorization,
+			unionId,
+			input.context,
+		);
 		const breakdown = medicalInsurancePaymentBreakdown({
 			amounts: paymentAmounts,
 			orderType,

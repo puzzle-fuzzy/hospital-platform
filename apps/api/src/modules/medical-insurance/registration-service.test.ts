@@ -4,6 +4,7 @@ import type {
 	MedicalInsuranceOrder,
 } from "@hospital/domain";
 import {
+	createInMemoryMedicalInsuranceAuthorizationRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
 } from "@hospital/persistence";
@@ -73,6 +74,7 @@ test("non-terminal 6202 settlement is persisted and enqueued exactly once", asyn
 	} as unknown as MedicalInsuranceGateway;
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
 		appointments: {} as never,
 		patients: {} as never,
 		identityUsers: {} as never,
@@ -117,6 +119,8 @@ test("non-terminal 6202 settlement is persisted and enqueued exactly once", asyn
 
 test("medical authorization resolves the directory reference instead of the HIS patient id", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
 	const appointments = {
 		findRegistration: async () => ({
 			appointmentId: "appointment-auth-001",
@@ -178,8 +182,31 @@ test("medical authorization resolves the directory reference instead of the HIS 
 		},
 	} as never;
 	const medicalInsurance = {
-		authorize: async (input: { patientId: string }) => {
+		authorize: async (input: {
+			patientId: string;
+			ownerUserId: string;
+			orderId: string;
+			providerSubject: string;
+		}) => {
 			expect(input.patientId).toBe("his-patient-001");
+			await authorizations.put({
+				authorizationId: "authorization-auth-001",
+				ownerUserId: input.ownerUserId,
+				medicalOrderId: input.orderId,
+				providerSubject: input.providerSubject,
+				payAuthNo: "pay-auth-001",
+				patient: {
+					idNo: "110101199001011234",
+					userName: "张三",
+					idType: "01",
+				},
+				psnNo: "psn-001",
+				insutype: "310",
+				insuplcAdmdvs: "140500",
+				insuCode: "140500",
+				expiresAt: "2026-09-03T00:15:00.000Z",
+				createdAt: now.toISOString(),
+			});
 			return {
 				authorizationId: "authorization-auth-001",
 				trace: {
@@ -192,6 +219,7 @@ test("medical authorization resolves the directory reference instead of the HIS 
 	} as never;
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
+		authorizations,
 		appointments,
 		patients,
 		identityUsers,
@@ -220,53 +248,76 @@ test("medical authorization resolves the directory reference instead of the HIS 
 	});
 });
 
-test("关系为空时按所选就诊人生成 familyid 并继续医保授权", async () => {
+test("亲属授权上下文按预约选中就诊人生成 familyId 并先验证本人付款档案", async () => {
+	const profileInputs: string[] = [];
 	const service = new MedicalInsuranceRegistrationService({
 		orders: createInMemoryMedicalInsuranceOrderRepository(),
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
 		appointments: {
 			findRegistration: async () => ({
-				appointmentId: "appointment-unknown-001",
-				ownerUserId: "user-unknown-001",
-				patientId: "patient-unknown-001",
+				appointmentId: "appointment-relative-001",
+				ownerUserId: "user-relative-001",
+				patientId: "patient-child-001",
 				status: "booked",
+				createdAt: now.toISOString(),
 			}),
 		} as never,
 		patients: {
 			listByOwner: async () => [
 				{
-					id: "patient-unknown-001",
-					ownerUserId: "user-unknown-001",
-					relationship: "unknown",
+					id: "patient-self-001",
+					ownerUserId: "user-relative-001",
+					displayName: "当前微信本人",
+					relationship: "self",
+					cardNumberMasked: "******0022",
+					source: "hospital-his",
+					clinicalAccess: "ready",
+				},
+				{
+					id: "patient-child-001",
+					ownerUserId: "user-relative-001",
+					displayName: "选中儿童",
+					relationship: "child",
+					cardNumberMasked: "******0011",
+					source: "hospital-his",
+					clinicalAccess: "ready",
 				},
 			],
-			resolveProviderReference: async () => ({
-				patientId: "patient-unknown-001",
+			resolveProviderReference: async (input: { patientId: string }) => ({
+				patientId: input.patientId,
 				provider: "zhongyang",
-				providerPatientId: "directory-unknown-001",
+				providerPatientId:
+					input.patientId === "patient-self-001"
+						? "provider-self-001"
+						: "provider-child-001",
 			}),
 		} as never,
 		identityUsers: {
 			findByUserId: async () => ({
-				userId: "user-unknown-001",
-				providerSubject: "openid-unknown-001",
-				unionId: "union-unknown-001",
+				userId: "user-relative-001",
+				providerSubject: "openid-relative-001",
+				unionId: "union-relative-001",
 			}),
 		} as never,
 		patientProfile: {
-			resolve: async () => ({
-				patient: {
-					providerPatientId: "his-unknown-001",
-					name: "选中儿童",
-					cardNo: "CARD-UNKNOWN-001",
-					idNo: "140581201501010011",
-					phone: "13800000000",
-				},
-				trace: {
-					provider: "zhongyang",
-					operation: "appointment-patient-profile",
-					requestId: "profile-unknown-001",
-				},
-			}),
+			resolve: async (input: { providerPatientId: string }) => {
+				profileInputs.push(input.providerPatientId);
+				const selected = input.providerPatientId === "provider-child-001";
+				return {
+					patient: {
+						providerPatientId: input.providerPatientId,
+						name: selected ? "选中儿童" : "当前微信本人",
+						cardNo: selected ? "CARD-CHILD" : "CARD-SELF",
+						idNo: selected ? "140581201501010011" : "140581198001010022",
+						phone: "13800000000",
+					},
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-patient-profile",
+						requestId: `profile-${input.providerPatientId}`,
+					},
+				};
+			},
 		} as never,
 		medicalInsurance: {} as never,
 		now: () => now,
@@ -274,17 +325,18 @@ test("关系为空时按所选就诊人生成 familyid 并继续医保授权", a
 
 	await expect(
 		service.authorizationContext({
-			ownerUserId: "user-unknown-001",
-			appointmentId: "appointment-unknown-001",
+			ownerUserId: "user-relative-001",
+			appointmentId: "appointment-relative-001",
 			context: {
-				traceId: "authorization-context-unknown-001",
-				idempotencyKey: "authorization-context-unknown-001",
+				traceId: "authorization-context-relative-001",
+				idempotencyKey: "authorization-context-relative-001",
 			},
 		}),
 	).resolves.toEqual({
 		payForRelatives: true,
 		familyId: "62725109a76555072ba458cf4e122aa4",
 	});
+	expect(profileInputs).toEqual(["provider-child-001", "provider-self-001"]);
 });
 
 test("医保授权后尚未产生 6201 支付流水时可以直接作废订单", async () => {
@@ -299,6 +351,7 @@ test("医保授权后尚未产生 6201 支付流水时可以直接作废订单",
 	);
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
 		appointments: {} as never,
 		patients: {} as never,
 		identityUsers: {} as never,
@@ -326,6 +379,8 @@ test("医保授权后尚未产生 6201 支付流水时可以直接作废订单",
 });
 
 test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 和 6202", async () => {
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -344,6 +399,7 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 	const ids = ["medical-reauth-new", "charge-reauth-new"];
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
+		authorizations,
 		appointments: {
 			findRegistration: async () => ({
 				appointmentId: "appointment-reauth-001",
@@ -407,8 +463,31 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 					},
 				};
 			},
-			authorize: async (input: { authCode: string; orderId: string }) => {
+			authorize: async (input: {
+				authCode: string;
+				ownerUserId: string;
+				orderId: string;
+				providerSubject: string;
+			}) => {
 				calls.push(`authorize:${input.authCode}:${input.orderId}`);
+				await authorizations.put({
+					authorizationId: "authorization-reauth-new",
+					ownerUserId: input.ownerUserId,
+					medicalOrderId: input.orderId,
+					providerSubject: input.providerSubject,
+					payAuthNo: "pay-auth-reauth-new",
+					patient: {
+						idNo: "140581199001010011",
+						userName: "重新授权测试人",
+						idType: "01",
+					},
+					psnNo: "psn-reauth-new",
+					insutype: "310",
+					insuplcAdmdvs: "140581",
+					insuCode: "140581",
+					expiresAt: "2026-09-03T00:15:00.000Z",
+					createdAt: now.toISOString(),
+				});
 				return {
 					authorizationId: "authorization-reauth-new",
 					trace: {
@@ -459,21 +538,38 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 		createId: () => ids.shift() ?? "unexpected-id",
 	});
 
-	await expect(
-		service.authorize({
-			ownerUserId: "user-service-001",
-			appointmentId: "appointment-reauth-001",
-			authCode: "fresh-auth-code",
-			context: {
-				traceId: "medical-reauth-trace",
-				idempotencyKey: "medical-reauth-new-idempotency",
-			},
-		}),
-	).resolves.toEqual({ orderId: "medical-reauth-new", status: "authorized" });
+	const authorized = await service.authorize({
+		ownerUserId: "user-service-001",
+		appointmentId: "appointment-reauth-001",
+		authCode: "fresh-auth-code",
+		context: {
+			traceId: "medical-reauth-trace",
+			idempotencyKey: "medical-reauth-new-idempotency",
+		},
+	});
+	expect(authorized).toEqual({
+		orderId: "medical-reauth-new",
+		status: "authorized",
+	});
 	expect(calls).toEqual([
 		"cancel:reauthorization:medical-reauth-old",
 		"authorize:fresh-auth-code:medical-reauth-new",
 	]);
+	await expect(
+		service.authorize({
+			ownerUserId: "user-service-001",
+			appointmentId: "appointment-reauth-001",
+			authCode: "must-not-be-consumed-again",
+			context: {
+				traceId: "medical-reauth-retry-trace",
+				idempotencyKey: "medical-reauth-new-idempotency",
+			},
+		}),
+	).resolves.toEqual({
+		orderId: "medical-reauth-new",
+		status: "authorized",
+	});
+	expect(calls).toHaveLength(2);
 	await expect(
 		service.uploadFees({
 			ownerUserId: "user-service-001",
@@ -483,7 +579,10 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 				idempotencyKey: "medical-reauth-6201-idempotency",
 			},
 		}),
-	).resolves.toMatchObject({ status: "fee_uploaded" });
+	).resolves.toMatchObject({
+		orderId: "medical-reauth-new",
+		status: "fee_uploaded",
+	});
 	await expect(
 		service.settle({
 			ownerUserId: "user-service-001",
@@ -493,7 +592,10 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 				idempotencyKey: "medical-reauth-6202-idempotency",
 			},
 		}),
-	).resolves.toMatchObject({ status: "insurance_settled" });
+	).resolves.toMatchObject({
+		orderId: "medical-reauth-new",
+		status: "insurance_settled",
+	});
 	expect(calls).toEqual([
 		"cancel:reauthorization:medical-reauth-old",
 		"authorize:fresh-auth-code:medical-reauth-new",
@@ -502,10 +604,13 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 	]);
 	await expect(
 		orders.findByMedicalOrderId("medical-reauth-old"),
-	).resolves.toMatchObject({ status: "cancelled" });
+	).resolves.toMatchObject({
+		status: "cancelled",
+	});
 	await expect(
 		orders.findByMedicalOrderId("medical-reauth-new"),
 	).resolves.toMatchObject({
+		idempotencyKey: "medical-reauth-new-idempotency",
 		authorizationId: "authorization-reauth-new",
 		feeUploadId: "fee-reauth-new",
 		payOrdId: "pay-reauth-new",

@@ -152,16 +152,36 @@ export function readPendingPayment(): PendingPayment | null {
 	return value;
 }
 
+/** 仅尚未生成医保订单号的授权阶段允许改走同一预约的普通自费。 */
+export function canSwitchMedicalAuthorizationToSelfPay(
+	pending: PendingPayment | null,
+): pending is PendingPayment {
+	return (
+		pending?.phase === "authorization" &&
+		pending.orderId === undefined &&
+		pending.mode !== "self"
+	);
+}
+
 export function clearPendingPayment(): void {
 	wx.removeStorageSync(STORAGE_KEYS.pendingPayment);
 }
 
-/** 预约已存在时只允许切换后续支付分支，不重新创建预约或医保订单。 */
-export function setPendingPaymentMode(
+/** 用户明确重新展码时建立全新授权尝试，不复用旧订单和三组幂等键。 */
+export function prepareFreshMedicalAuthorization(
 	pending: PendingPayment,
-	mode: PaymentMode,
+	mode: Exclude<PaymentMode, "self">,
 ): PendingPayment {
-	const next = { ...pending, mode };
+	const next: PendingPayment = {
+		appointmentId: pending.appointmentId,
+		patientId: pending.patientId,
+		createdAt: pending.createdAt,
+		authorizeIdempotencyKey: newIdempotencyKey("medical-authorize-restart"),
+		feesIdempotencyKey: newIdempotencyKey("medical-fees-restart"),
+		settleIdempotencyKey: newIdempotencyKey("medical-settle-restart"),
+		mode,
+		phase: "authorization",
+	};
 	savePending(next);
 	return next;
 }
@@ -328,7 +348,9 @@ type MedicalOrder = {
 	cashierUrl?: string;
 };
 
-export type MedicalPaymentContinuationResult = { kind: "cashier_opened" };
+export type MedicalPaymentContinuationResult =
+	| { kind: "cashier_opened" }
+	| { kind: "reauthorization_started" };
 
 type MedicalCancellation = {
 	orderId: string;
@@ -660,8 +682,13 @@ export async function continueMedicalCashPayment(
 	);
 }
 
+type SelfPaymentAppointment = Pick<
+	CreatedAppointment,
+	"appointmentId" | "patientId"
+>;
+
 function selfPaymentPending(
-	appointment: CreatedAppointment,
+	appointment: SelfPaymentAppointment,
 ): SelfPaymentPending {
 	const pending: SelfPaymentPending = {
 		appointmentId: appointment.appointmentId,
@@ -681,7 +708,7 @@ function selfPaymentPending(
 
 /** 纯自费挂号不进入医保授权，只创建普通微信支付单并按微信查单确认。 */
 export async function startSelfPayment(
-	appointment: CreatedAppointment,
+	appointment: SelfPaymentAppointment,
 	onProgress: Progress,
 ): Promise<PendingPayment> {
 	const pending = selfPaymentPending(appointment);
@@ -813,7 +840,6 @@ export async function continueMedicalPayment(
 	authCode: string,
 	pending: PendingPayment,
 	onProgress: Progress,
-	restartAttempted = false,
 ): Promise<MedicalPaymentContinuationResult | undefined> {
 	if (!authCode.trim()) throw new Error("医保授权结果为空");
 	const authorize = await request<{ orderId: string; status: "authorized" }>({
@@ -837,7 +863,6 @@ export async function continueMedicalPayment(
 		}
 	} catch (error) {
 		if (
-			!restartAttempted &&
 			error instanceof ApiError &&
 			error.code === "medical-insurance-payment-in-progress"
 		) {
@@ -846,21 +871,13 @@ export async function continueMedicalPayment(
 			if (cancellation.status !== "cancelled" || !cancellation.restartAllowed) {
 				throw new Error("当前支付订单未能安全关闭，请稍后重试");
 			}
-			const replacement = { ...pending };
-			delete replacement.orderId;
-			replacement.authorizeIdempotencyKey = newIdempotencyKey(
-				"medical-authorize-restart",
+			const replacement = prepareFreshMedicalAuthorization(
+				pending,
+				pending.mode === "mixed" ? "mixed" : "medical",
 			);
-			replacement.feesIdempotencyKey = newIdempotencyKey(
-				"medical-fees-restart",
-			);
-			replacement.settleIdempotencyKey = newIdempotencyKey(
-				"medical-settle-restart",
-			);
-			replacement.phase = "authorization";
-			savePending(replacement);
-			onProgress("insuring", "旧支付已关闭，正在重新发起医保订单");
-			return continueMedicalPayment(authCode, replacement, onProgress, true);
+			onProgress("authorizing", "旧支付已关闭，请重新完成医保授权");
+			await navigateToMedicalAuth(replacement.appointmentId);
+			return { kind: "reauthorization_started" };
 		}
 		throw error;
 	}
