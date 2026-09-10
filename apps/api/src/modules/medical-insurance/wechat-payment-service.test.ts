@@ -152,7 +152,7 @@ test("医院负担不掩盖已过期的微信现金预支付", async () => {
 	).rejects.toBeInstanceOf(MedicalInsuranceWechatPrepayExpiredError);
 });
 
-test("6202纯医保cash_pending可以直接创建官方INSURANCE_ONLY订单", async () => {
+test("6202纯医保且关系为空时按本人创建官方INSURANCE_ONLY订单", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -212,7 +212,7 @@ test("6202纯医保cash_pending可以直接创建官方INSURANCE_ONLY订单", as
 		profile: {
 			providerPatientId: "provider-pure-001",
 			displayName: "纯医保测试人",
-			relationship: "self",
+			relationship: "unknown",
 			cardNumberMasked: "******0011",
 		},
 	});

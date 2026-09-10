@@ -188,7 +188,7 @@ test("new medical order worker does not query an order already in manual review"
 	expect(claimedAgain).toBeUndefined();
 });
 
-test("worker recovers an unknown WeChat medical create result by out_trade_no", async () => {
+test("worker按本人恢复关系为空患者的未知微信医保建单结果", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -203,8 +203,8 @@ test("worker recovers an unknown WeChat medical create result by out_trade_no", 
 		{
 			id: "patient-worker-001",
 			ownerUserId: "user-worker-001",
-			displayName: "代付儿童",
-			relationship: "child",
+			displayName: "关系为空测试人",
+			relationship: "unknown",
 			cardNumberMasked: "******0011",
 			source: "hospital-his",
 			clinicalAccess: "ready",
@@ -276,7 +276,7 @@ test("worker recovers an unknown WeChat medical create result by out_trade_no", 
 		medOrgOrd: "medical-order-worker-001",
 		orderType: "RegPay",
 		amounts: order().amounts,
-		expectedPayForRelatives: true,
+		expectedPayForRelatives: false,
 	});
 	expect(
 		await orders.findByMedicalOrderId("medical-order-worker-001"),

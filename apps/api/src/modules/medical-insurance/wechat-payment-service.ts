@@ -218,14 +218,27 @@ export class MedicalInsuranceWechatPaymentService {
 		const patient = patients.find(
 			(candidate) => candidate.id === order.patientId,
 		);
-		if (!patient || patient.relationship === "unknown") {
+		if (!patient) {
 			throw new MedicalInsuranceWechatPaymentNotAllowedError();
 		}
 		const selectedIdentity = {
 			name: authorization.patient.userName,
 			idNo: authorization.patient.idNo,
 		};
-		if (patient.relationship === "self") {
+		if (patient.relationship === "self" || patient.relationship === "unknown") {
+			if (patient.relationship === "unknown") {
+				// 与授权阶段保持同一临时验收策略：众阳关系为空时按本人支付，
+				// 避免1101/6201/6202完成后又在微信下单阶段被二次阻断。
+				this.logger.warn(
+					{
+						event: "medical-insurance.wechat-payment.relationship-fallback",
+						traceId: context.traceId,
+						orderId: order.medicalOrderId,
+						assumedRelationship: "self",
+					},
+					"Unknown patient relationship temporarily treated as self for payment",
+				);
+			}
 			return {
 				payForRelatives: false,
 				payer: selectedIdentity,

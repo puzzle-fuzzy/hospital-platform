@@ -345,7 +345,6 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			!gateway ||
 			!identity?.providerSubject ||
 			!patient ||
-			patient.relationship === "unknown" ||
 			!order.wechatOutTradeNo ||
 			!order.payOrdId ||
 			!order.amounts ||
@@ -380,7 +379,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				...(settlement?.insuredAreaCode
 					? { insuredAreaCode: settlement.insuredAreaCode }
 					: {}),
-				expectedPayForRelatives: patient.relationship !== "self",
+				// 与授权/下单阶段的临时验收策略一致：unknown 暂按本人。
+				expectedPayForRelatives:
+					patient.relationship !== "self" && patient.relationship !== "unknown",
 			},
 			context,
 		);
