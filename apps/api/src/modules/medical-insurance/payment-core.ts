@@ -343,14 +343,20 @@ export class MedicalInsurancePaymentCore {
 			throw new MedicalInsuranceRegistrationInputError(
 				"已完成的医保支付不能走支付中关单分支",
 			);
-		// 授权回跳后用户还没有进入 6201 时，医保 Provider 没有支付流水，
-		// 不应为了“取消”伪造 2.6.65.6 请求；只有明确的 created/failed 状态
-		// 才能直接把平台医保订单置为失效，然后由上层取消预约释放号源。
-		if (
+		// 仅完成授权、尚未创建 2.6.65.1 结算主单时，可以直接作废本地订单。
+		// 如果 pre_6201 上下文已经存在，说明上游结算主单已经创建，即使 6201
+		// 尚未完成也必须继续走 Provider 取消，不能只清理本地状态。
+		const canCancelLocallyBeforeFeeUpload =
 			!order.feeUploadId &&
 			!order.payOrdId &&
-			(order.status === "created" || order.status === "failed")
-		) {
+			(order.status === "created" || order.status === "failed");
+		const preFeeSettlementContext = canCancelLocallyBeforeFeeUpload
+			? await this.dependencies.orders.getSettlementContext(
+					ownerUserId,
+					orderId,
+				)
+			: undefined;
+		if (canCancelLocallyBeforeFeeUpload && !preFeeSettlementContext) {
 			const updated = await this.dependencies.orders.applySettlement(
 				order.medicalOrderId,
 				order.version,
