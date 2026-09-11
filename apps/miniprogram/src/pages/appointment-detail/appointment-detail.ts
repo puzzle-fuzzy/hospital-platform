@@ -518,7 +518,9 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				const definitivelyFailed = selfPayIsDefinitivelyFailed(error);
 				this.setData({
 					selfPayBusy: false,
-					selfPayStatus: definitivelyFailed ? "failed" : "awaiting_confirmation",
+					selfPayStatus: definitivelyFailed
+						? "failed"
+						: "awaiting_confirmation",
 					selfPayMessage: definitivelyFailed
 						? "自费支付未完成，预约已保留，请稍后重新发起支付；请勿重复预约"
 						: "支付结果暂时无法确认，预约已保留，请点击继续自费支付；请勿重复付款或重新预约",

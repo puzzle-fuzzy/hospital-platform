@@ -635,10 +635,18 @@ test("native payment boundaries always end with a user-actionable result", async
 	const client = await source("services/api-client.ts");
 	const insurance = await source("services/medical-insurance.ts");
 	const selfPay = await source("services/registration-self-pay.ts");
-	const paymentPage = await source("pages/registration-payment/registration-payment.ts");
-	const paymentTemplate = await source("pages/registration-payment/registration-payment.wxml");
-	const paymentStyles = await source("pages/registration-payment/registration-payment.wxss");
-	const detailPage = await source("pages/appointment-detail/appointment-detail.ts");
+	const paymentPage = await source(
+		"pages/registration-payment/registration-payment.ts",
+	);
+	const paymentTemplate = await source(
+		"pages/registration-payment/registration-payment.wxml",
+	);
+	const paymentStyles = await source(
+		"pages/registration-payment/registration-payment.wxss",
+	);
+	const detailPage = await source(
+		"pages/appointment-detail/appointment-detail.ts",
+	);
 
 	// 网络请求和微信收银台都必须有终点；支付未知时保留订单并引导查单，
 	// 不能让页面永久 loading，也不能把未知结果误报成失败。
@@ -670,11 +678,17 @@ test("native payment boundaries always end with a user-actionable result", async
 });
 
 test("native registration migration preserves duplicate-appointment safety", async () => {
-	const page = await source("pages/confirm-registration/confirm-registration.ts");
-	const template = await source("pages/confirm-registration/confirm-registration.wxml");
+	const page = await source(
+		"pages/confirm-registration/confirm-registration.ts",
+	);
+	const template = await source(
+		"pages/confirm-registration/confirm-registration.wxml",
+	);
 	const types = await source("types.ts");
 
-	expect(types).toContain('duplicate: AppointmentRegistrationResponse["data"] | null');
+	expect(types).toContain(
+		'duplicate: AppointmentRegistrationResponse["data"] | null',
+	);
 	expect(page).toContain('registration.data.status === "duplicate"');
 	expect(page).toContain("requestAppointmentCancellation");
 	expect(page).toContain("onCancelAndRetry");
@@ -685,7 +699,9 @@ test("native registration migration preserves duplicate-appointment safety", asy
 
 test("native mixed payment resumes by querying the existing order", async () => {
 	const service = await source("services/medical-insurance.ts");
-	const page = await source("pages/registration-payment/registration-payment.ts");
+	const page = await source(
+		"pages/registration-payment/registration-payment.ts",
+	);
 
 	expect(service).toContain("medicalCashConfirmation");
 	expect(service).toContain("resumeMedicalCashPaymentFromPending");

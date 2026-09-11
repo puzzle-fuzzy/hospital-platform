@@ -1906,10 +1906,16 @@ function requestWithConfig<TResponse = unknown>(
 			fail: (error) => {
 				const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";
 				const timedOut = /timeout|超时/iu.test(errMsg);
-				observe(0, "network-error", timedOut ? "request-timeout" : "network-failed");
+				observe(
+					0,
+					"network-error",
+					timedOut ? "request-timeout" : "network-failed",
+				);
 				reject(
 					new ApiError(
-						timedOut ? "请求超时，请稍后重试" : "网络请求失败，请检查网络或服务地址",
+						timedOut
+							? "请求超时，请稍后重试"
+							: "网络请求失败，请检查网络或服务地址",
 						{
 							code: timedOut ? "request-timeout" : "network-failed",
 							requestId,

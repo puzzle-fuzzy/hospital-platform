@@ -567,7 +567,7 @@ export interface YunhealthRegistrationPluginPaymentGateway {
  *
  * 纯自费 Provider 调用顺序固定为 2.6.65.1 -> 2.27.2.27 -> 2.6.65.2；
  * 任何一步未确认成功都不得创建微信订单。返回的流水上下文必须先加密落库，
-	 * 后续微信查单成功后才能调用 .5；众阳在 .5 中以 recordCode 反调 .9。
+ * 后续微信查单成功后才能调用 .5；众阳在 .5 中以 recordCode 反调 .9。
  */
 export interface RegistrationSelfPayPreparationGateway {
 	prepare(

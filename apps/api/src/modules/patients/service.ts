@@ -584,9 +584,7 @@ export class PatientService {
 							traceId: adapterContextTraceId(context),
 							operationId,
 							errorType:
-								releaseError instanceof Error
-									? releaseError.name
-									: "unknown",
+								releaseError instanceof Error ? releaseError.name : "unknown",
 						},
 						"Failed to release patient directory synchronization lease",
 					);

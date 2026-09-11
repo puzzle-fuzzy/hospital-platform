@@ -38,7 +38,9 @@ const medicalCredentialPlaceholder =
 
 async function loadMedicalOrgChannelCredential(): Promise<string> {
 	if (!(await Bun.file(medicalCredentialPath).exists())) return "";
-	const localConfig = JSON.parse(await Bun.file(medicalCredentialPath).text()) as {
+	const localConfig = JSON.parse(
+		await Bun.file(medicalCredentialPath).text(),
+	) as {
 		identityVerificationFeedback?: { orgChannelAuthCode?: unknown };
 	};
 	return String(

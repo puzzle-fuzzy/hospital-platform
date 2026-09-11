@@ -101,7 +101,8 @@ export async function startRegistrationSelfPay(
 				success: () => finish(resolve),
 				fail: (error) =>
 					finish(() => {
-						const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";
+						const errMsg =
+							typeof error?.errMsg === "string" ? error.errMsg : "";
 						if (/cancel/i.test(errMsg)) {
 							cancelled = true;
 							resolve();
