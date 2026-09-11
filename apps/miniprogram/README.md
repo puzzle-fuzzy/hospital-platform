@@ -128,7 +128,8 @@ CLI 必须针对当前独立运行根执行（正式为 `apps/miniprogram/dist`�
 “爽约记录”单独查询过去 90 天，并只展示服务端归一化的 `missed` 状态。两页都保留本次完整查询结果，首批只渲染 10 条，
 “加载更多”只展开本地已取得的数据，不代表 provider 分页。
 “我的挂号”继续复刻旧端的全宽就诊人/院区行、在线/全部标签、灰色列表背景、预约状态图标、卡片操作按钮和院内导航弹窗；
-平台预约记录现在可进入 owner-scoped 挂号详情，本地平台预约支持详情和取消，Provider 历史摘要仍不提供写操作，支付继续由独立的 `miniprogram-pay` 处理。
+平台预约记录现在可进入 owner-scoped 挂号详情，本地平台预约支持详情和取消，Provider 历史摘要仍不提供写操作。
+正式主小程序在预约写入后进入 `pages/registration-payment/registration-payment`，提供“医保移动支付”和“自费支付”两条入口。
 预约目录保留左侧科室独立滚动、右侧细分门诊的旧版“两列级联”交互；号源页按医生或按日期展示，日期号源按每次 12 条展开。
 这些页面只读展示服务端规范化结果，预约写入、锁号、取消和支付尚未开放。
 首页的“门诊缴费”进入 `pages/outpatient-payment/outpatient-payment`，按当前内部 `patientId` 查询门诊待缴/已缴摘要；
@@ -139,11 +140,12 @@ CLI 必须针对当前独立运行根执行（正式为 `apps/miniprogram/dist`�
 本期只读 LIS/PACS/ECG 摘要；服务端已准备 gated LIS 详情的 opaque 引用客户端方法，
 报告目录现在只在存在服务端 `reportId` 时进入原生详情页，详情页只展示白名单检测项；默认 gate 关闭时保持摘要只读，真实 provider 详情、文件下载和体检报告仍未开放。
 旧端曾把完整 `medicalCardNo` 拼接到第三方二维码 URL；新端不会复用该实现。二维码只有在医院确认扫码字段、签名、短 TTL、撤销和真机设备验收后，才由服务端生成短期引用。
-`api-client.ts` 已封装 `requestWechatPrepay(orderId, idempotencyKey)`，只接收服务端生成的
-`payParams`；`launchWechatPayment` 只把白名单字段交给 `wx.requestPayment`，调起成功和取消都不会直接更新业务状态。
-页面仍需在订单状态为 `cash_pending` 时调用它，支付最终结果必须重新读取服务端订单状态。
+纯自费和医保混合现金段使用 2.6.65.2 `result` 返回并经服务端校验的 APIv2/MD5 参数；
+小程序只把白名单字段交给 `wx.requestPayment` 或 `wx.requestMedicalInsurancePay`，不在客户端生成或修改签名。
+历史已经创建的 RSA 订单仅保留收尾兼容，不作为新订单路线。微信调起成功和取消都不会直接更新业务状态；
+支付最终结果必须重新读取服务端订单状态，并以 2.6.65.5 `isSettle=1` 后的完成状态为准。
 同时可用 `getWechatPrepay(orderId, idempotencyKey)` 读取 `not_started/pending/ready/unknown`，避免网络重试时把未知结果误报为失败。
-以上只是支付领域的服务端参数与客户端安全边界封装，不代表小程序已经开放支付页面、微信支付、医保授权或结算回写；当前门诊费用仍为只读查询。
+挂号支付页面已经开放；当前门诊费用仍为只读查询，不复用挂号支付状态机。
 后续按业务门禁推进：微信登录/就诊人选择 → 预约目录与挂号记录 → 门诊费用只读 → 普通资料读写 →
 报告 Provider contract 和只读验收 → 病历、患者绑定与健康内容等独立 contract → 支付、医保、退款和 HIS 回写最后专项。
 

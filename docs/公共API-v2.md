@@ -272,19 +272,23 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 
 `miniprogram-pay` 使用上表中的独立命令，不存在把“预约 + 医保支付”包成一个后端快速编排
 接口的入口。业务顺序固定为：读取排班/号源 → 创建服务端占位 → 预约写入 → 医保授权 →
-费用上传 → 医保结算 → 微信自费混合下单 → `wx.requestMedicalInsurancePay` → 微信医保混合查单 → 必要时查医保后置结算。
+费用上传 → 医保结算 → 按 6202 金额调用 2.6.65.2 → 使用 `.2.result` 的 APIv2/MD5 参数调起支付
+→ 微信医保混合查单 → 2.6.65.5 最终结算确认。
 预约已存在时服务端返回已有的 opaque `appointmentId`，
 小程序只能先调用取消命令，取消成功后再用新的幂等键重新占位和写入。
 
 预约占位、预约写入、取消、医保授权、费用上传和结算分别有独立的日志事件、幂等键和错误边界；
-provider 患者号、预约号、身份证、卡号、授权码和 payToken 不进入公共响应。微信混合支付的
-`prepay_id`、`paySign` 和 `mixTradeNo` 由服务端生成，小程序只调用 `wx.requestMedicalInsurancePay`；
+provider 患者号、预约号、身份证、卡号、授权码和 payToken 不进入公共响应。微信现金段的
+`prepay_id`、`paySign` 由服务端从 2.6.65.2 `result` 校验后投影为 APIv2/MD5 调起参数；
+小程序不生成、不修改签名，只负责调起收银台并查询服务端最终状态。纯医保和混合支付继续
+携带服务端生成的 `mixTradeNo` 调用 `wx.requestMedicalInsurancePay`；
 医保 adapter 或
 持久化未配置时统一 fail-closed，不返回伪造成功。
 
-主小程序的确认页复用同一组预约基础命令，但只完成预约事实写入并进入挂号详情，不在主
-小程序中复制支付状态机：`POST /appointments/holds` → `POST /appointments/registrations`。
-支付入口仍由 `miniprogram-pay` 独立承接，避免一个页面同时持有预约提交和医保授权回跳状态。
+主小程序在预约事实写入后进入 `pages/registration-payment/registration-payment`，统一提供
+“医保移动支付”和“自费支付”。微信客户端回调不作为业务完成依据；页面必须继续查询服务端，
+只有 2.6.65.5 返回 `isSettle=1`，并且服务端订单进入 `completed` 或
+`insurance_settled`，才显示“最终支付和医院结算已确认”。
 
 ### 3.4 我的医生
 

@@ -44,17 +44,16 @@
 
 			<view wx:if="{{!completed}}" class="payment-section">
 				<view class="section-title">选择支付方式</view>
-				<button class="payment-button medical-button" data-mode="medical" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'medical'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'medical' ? '继续医保支付' : '纯医保支付'}}</button>
-				<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'mixed' ? '继续医保混合支付' : '医保混合支付'}}</button>
-				<view wx:if="{{patientRelationship !== 'self'}}" class="footnote">为亲属或儿童支付时，将以当前微信用户作为付款人，并按所选就诊人进入医保亲情付授权。</view>
-				<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'self' ? '继续确认自费支付' : '普通自费支付'}}</button>
+				<view class="payment-actions">
+					<button class="payment-button medical-button" data-mode="medical" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'medical'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'medical' ? '继续医保支付' : '纯医保支付'}}</button>
+					<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'mixed' ? '继续医保混合支付' : '医保混合支付'}}</button>
+					<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'self' ? '继续确认自费支付' : '普通自费支付'}}</button>
+				</view>
 			</view>
 			<view wx:else class="completed-card">
 				<text>最终支付和医院结算已确认</text>
 				<button class="primary-button" bindtap="onOpenDetail">查看挂号详情</button>
 			</view>
-
-			<view class="footnote">支付调起成功不等于业务完成；请等待页面确认医保、微信自费和医院回写结果。若提示“支付确认中”，请点击“继续支付”查询原订单，不要重复付款或重新预约。</view>
 		</block>
 	</view>
 </scroll-view>

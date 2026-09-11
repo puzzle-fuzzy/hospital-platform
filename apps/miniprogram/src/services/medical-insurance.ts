@@ -91,7 +91,7 @@ type MedicalWechatPayParams = {
 	timeStamp?: string;
 	nonceStr?: string;
 	package?: string;
-	signType?: "RSA";
+	signType?: "MD5" | "RSA";
 	paySign?: string;
 };
 
@@ -275,7 +275,7 @@ function readMedicalCancellation(value: unknown): MedicalCancellation {
 	};
 }
 
-function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
+export function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 	const payload = requireSuccessDataResponse<unknown>(value);
 	const data = payload.data;
 	if (!isRecord(data) || !isOpaque(data.orderId)) {
@@ -345,7 +345,7 @@ function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 				(typeof params.timeStamp !== "string" ||
 					typeof params.nonceStr !== "string" ||
 					typeof params.package !== "string" ||
-					params.signType !== "RSA" ||
+					(params.signType !== "MD5" && params.signType !== "RSA") ||
 					typeof params.paySign !== "string" ||
 					!params.timeStamp ||
 					!params.nonceStr ||
@@ -361,7 +361,7 @@ function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 					timeStamp: params.timeStamp as string,
 					nonceStr: params.nonceStr as string,
 					package: params.package as string,
-					signType: "RSA",
+					signType: params.signType as "MD5" | "RSA",
 					paySign: params.paySign as string,
 					mixTradeNo: params.mixTradeNo,
 				}
@@ -435,15 +435,40 @@ export function readPendingPayment(): PendingPayment | null {
 	return value;
 }
 
+/**
+ * 医保授权尚未形成服务端医保订单时，允许同一预约改走普通自费。
+ * 一旦已有 orderId，就必须继续原医保订单或由服务端安全关单，不能并行
+ * 创建自费订单，避免重复扣款。
+ */
+export function canSwitchMedicalAuthorizationToSelfPay(
+	pending: PendingPayment | null,
+): pending is PendingPayment {
+	return (
+		pending?.phase === "authorization" &&
+		pending.orderId === undefined &&
+		pending.mode !== "self"
+	);
+}
+
 export function clearPendingPayment(): void {
 	wx.removeStorageSync(MINIPROGRAM_STORAGE_KEYS.pendingMedicalPayment);
 }
 
-export function setPendingPaymentMode(
+/** 用户明确重新展码时建立全新授权尝试，不复用旧订单和三组幂等键。 */
+export function prepareFreshMedicalAuthorization(
 	pending: PendingPayment,
-	mode: PaymentMode,
+	mode: Exclude<PaymentMode, "self">,
 ): PendingPayment {
-	const next = { ...pending, mode };
+	const next: PendingPayment = {
+		appointmentId: pending.appointmentId,
+		patientId: pending.patientId,
+		createdAt: pending.createdAt,
+		authorizeIdempotencyKey: createIdempotencyKey("medical-authorize-restart"),
+		feesIdempotencyKey: createIdempotencyKey("medical-fees-restart"),
+		settleIdempotencyKey: createIdempotencyKey("medical-settle-restart"),
+		mode,
+		phase: "authorization",
+	};
 	savePendingPayment(next);
 	return next;
 }
@@ -561,7 +586,7 @@ function requestWechatMedicalInsurancePayment(
 					timeStamp?: string;
 					nonceStr?: string;
 					package?: string;
-					signType?: "RSA";
+					signType?: "MD5" | "RSA";
 					paySign?: string;
 					mixTradeNo: string;
 					success?: () => void;
@@ -880,7 +905,6 @@ export async function continueMedicalPayment(
 	authCode: string,
 	pending: PendingPayment,
 	onProgress: Progress,
-	restartAttempted = false,
 ): Promise<{ kind: "cashier_opened" } | undefined> {
 	if (!authCode.trim())
 		throw new ApiError("医保授权结果为空", {
@@ -915,7 +939,6 @@ export async function continueMedicalPayment(
 			savePendingPayment({ ...current, cashierUrl: fees.cashierUrl });
 	} catch (error) {
 		if (
-			!restartAttempted &&
 			error instanceof ApiError &&
 			error.code === "medical-insurance-payment-in-progress"
 		) {
@@ -926,23 +949,10 @@ export async function continueMedicalPayment(
 					code: "medical-insurance-cancellation-context-missing",
 				});
 			}
-			const {
-				orderId: _oldOrderId,
-				cashierUrl: _oldCashierUrl,
-				...replacementBase
-			} = current;
-			const replacement: PendingPayment = { ...replacementBase };
-			replacement.authorizeIdempotencyKey = createIdempotencyKey(
-				"medical-authorize-restart",
+			const replacement = prepareFreshMedicalAuthorization(
+				current,
+				current.mode === "mixed" ? "mixed" : "medical",
 			);
-			replacement.feesIdempotencyKey = createIdempotencyKey(
-				"medical-fees-restart",
-			);
-			replacement.settleIdempotencyKey = createIdempotencyKey(
-				"medical-settle-restart",
-			);
-			replacement.phase = "authorization";
-			savePendingPayment(replacement);
 			onProgress(
 				"authorizing",
 				"旧支付已关闭，请重新完成医保授权；请勿重复付款或重新预约",

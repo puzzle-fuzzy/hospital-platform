@@ -7,6 +7,7 @@ import {
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
+	canSwitchMedicalAuthorizationToSelfPay,
 	clearPendingPayment,
 	continueMedicalCashierPaymentFromPending,
 	continueMedicalCashPayment,
@@ -18,9 +19,9 @@ import {
 	MedicalInsurancePaymentFailureError,
 	navigateToMedicalAuth,
 	type PaymentMode,
+	prepareFreshMedicalAuthorization,
 	readPendingPayment,
 	resumeMedicalCashPaymentFromPending,
-	setPendingPaymentMode,
 	startMedicalPayment,
 	startSelfPayment,
 	WechatPaymentCancelledError,
@@ -79,6 +80,20 @@ const STAGE_TEXT: Record<string, string> = {
 	"self-confirming": "正在确认微信自费支付结果，请勿重复付款",
 	success: "支付和医院结算已确认",
 };
+
+function confirmSelfPayAfterInsutypeUnavailable(): Promise<boolean> {
+	return new Promise((resolve) => {
+		wx.showModal({
+			title: "当前无法使用医保",
+			content:
+				"当前就诊人没有可用于本次支付的有效医保参保信息，无法继续医保支付。预约已保留，是否改用普通自费支付？",
+			confirmText: "改用自费",
+			cancelText: "暂不支付",
+			success: (result) => resolve(result.confirm),
+			fail: () => resolve(false),
+		});
+	});
+}
 
 function decodeRouteValue(value: string | undefined): string {
 	if (typeof value !== "string") return "";
@@ -537,18 +552,29 @@ Page<
 			return;
 		}
 		if (mode === "self") {
+			if (canSwitchMedicalAuthorizationToSelfPay(pending)) {
+				await startSelfPayment(
+					{
+						appointmentId: pending.appointmentId,
+						patientId: pending.patientId,
+					},
+					(stage, message) => this.setData({ stage, message, error: "" }),
+				);
+				this.setData({ hasPendingPayment: false, completed: true });
+				return;
+			}
 			this.setData({
 				message:
 					"当前预约已进入医保流程，不能切换为自费支付；请先继续原医保支付，请勿重复付款或重新预约",
 			});
 			return;
 		}
-		setPendingPaymentMode(pending, mode);
+		const freshAuthorization = prepareFreshMedicalAuthorization(pending, mode);
 		this.setData({
 			stage: "authorizing",
 			message: STAGE_TEXT.authorizing ?? "请在医保小程序完成授权",
 		});
-		await navigateToMedicalAuth(pending.appointmentId);
+		await navigateToMedicalAuth(freshAuthorization.appointmentId);
 	},
 
 	async handlePaymentError(error: unknown): Promise<void> {
@@ -589,6 +615,44 @@ Page<
 			});
 			return;
 		}
+		const pending = readPendingPayment();
+		if (
+			error instanceof ApiError &&
+			error.code === "medical-insurance-insutype-unavailable" &&
+			canSwitchMedicalAuthorizationToSelfPay(pending)
+		) {
+			this.setData({
+				hasPendingPayment: true,
+				stage: "",
+				error: "",
+				message: "当前就诊人暂无有效医保参保信息，预约已保留",
+			});
+			const confirmed = await confirmSelfPayAfterInsutypeUnavailable();
+			if (!confirmed) {
+				this.setData({
+					message: "已暂不支付，可稍后点击“普通自费支付”继续，无需重新挂号",
+				});
+				return;
+			}
+			this.setData({ selectedMode: "self", error: "" });
+			try {
+				await startSelfPayment(
+					{
+						appointmentId: pending.appointmentId,
+						patientId: pending.patientId,
+					},
+					(stage, message) => this.setData({ stage, message, error: "" }),
+				);
+				this.setData({
+					hasPendingPayment: false,
+					completed: true,
+					message: "挂号和自费支付成功",
+				});
+			} catch (selfPayError) {
+				await this.handlePaymentError(selfPayError);
+			}
+			return;
+		}
 		if (
 			error instanceof ApiError &&
 			error.code === "medical-insurance-appointment-stale"
@@ -602,7 +666,7 @@ Page<
 			return;
 		}
 		this.setData({
-			hasPendingPayment: Boolean(readPendingPayment()),
+			hasPendingPayment: Boolean(pending),
 			error: paymentError(error),
 			message: paymentActionMessage(error),
 		});

@@ -107,7 +107,14 @@ type PaymentParams = Extract<
 	{ timeStamp: string }
 >;
 
-export type WechatPaymentLaunch = { kind: "native"; params: PaymentParams };
+type RegistrationSelfPayParams = NonNullable<
+	RegistrationSelfPayResponse["data"]["payParams"]
+>;
+
+export type WechatPaymentLaunch = {
+	kind: "native";
+	params: RegistrationSelfPayParams;
+};
 
 /**
  * 服务端错误码是稳定 contract，用户文案不能依赖 provider 或旧服务返回的英文 message。
@@ -171,6 +178,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 			"当前已有一笔医保支付在进行中，请完成后再试",
 		"medical-insurance-cancellation-context-missing":
 			"当前医保订单需要人工处理，请联系工作人员",
+		"medical-insurance-insutype-unavailable":
+			"当前就诊人未查询到可用于本次支付的有效医保参保信息，可确认改用普通自费支付",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
 		"report-query-invalid": "暂时无法查询检查报告，请稍后再试",
 		"report-patient-not-found": "未查询到检查报告",
@@ -713,7 +722,7 @@ function registrationSelfPayResponse(
 	const payParams =
 		data.payParams === undefined
 			? undefined
-			: parseWechatPaymentLaunchParamsValue(data.payParams);
+			: parseRegistrationSelfPayParamsValue(data.payParams);
 	if (data.payParams !== undefined && !payParams) {
 		throw new ApiError("服务端支付参数不可用", {
 			code: "wechat-pay-params-missing",
@@ -2837,21 +2846,66 @@ export function toWechatPaymentParams(payload: unknown): PaymentParams | null {
 	return parseWechatPaymentParamsValue(payload.data.payParams);
 }
 
-/** APIv3 返回的是服务端签名后的微信原生调起参数。 */
+/** 纯自费返回服务端校验后的众阳 MD5 参数；历史 APIv3 订单兼容 RSA。 */
 export function toWechatPaymentLaunch(
 	payload: unknown,
 ): WechatPaymentLaunch | null {
 	if (!isRecord(payload) || !isRecord(payload.data)) return null;
 	const params = payload.data.payParams;
-	const launchParams = parseWechatPaymentLaunchParamsValue(params);
+	const launchParams = parseRegistrationSelfPayParamsValue(params);
 	if (!launchParams) return null;
 	return { kind: "native", params: launchParams };
 }
 
-function parseWechatPaymentLaunchParamsValue(
+function parseRegistrationSelfPayParamsValue(
 	value: unknown,
-): PaymentParams | null {
-	return parseWechatPaymentParamsValue(value);
+): RegistrationSelfPayParams | null {
+	if (!isRecord(value)) return null;
+	const appId = value.appId;
+	const timeStamp = value.timeStamp;
+	const nonceStr = value.nonceStr;
+	const packageValue = value.package;
+	const paySign = value.paySign;
+	if (
+		typeof appId !== "string" ||
+		!appId ||
+		typeof timeStamp !== "string" ||
+		!timeStamp ||
+		typeof nonceStr !== "string" ||
+		!nonceStr ||
+		nonceStr.length > 32 ||
+		typeof packageValue !== "string" ||
+		!/^prepay_id=\S+$/u.test(packageValue) ||
+		typeof paySign !== "string" ||
+		!paySign
+	) {
+		return null;
+	}
+	if (
+		value.signType === "MD5" &&
+		/^\d{10}$/u.test(timeStamp) &&
+		/^[A-Fa-f0-9]{32}$/u.test(paySign)
+	) {
+		return {
+			appId,
+			timeStamp,
+			nonceStr,
+			package: packageValue,
+			signType: "MD5",
+			paySign,
+		};
+	}
+	if (value.signType === "RSA") {
+		return {
+			appId,
+			timeStamp,
+			nonceStr,
+			package: packageValue,
+			signType: "RSA",
+			paySign,
+		};
+	}
+	return null;
 }
 
 function parseWechatPaymentParamsValue(value: unknown): PaymentParams | null {

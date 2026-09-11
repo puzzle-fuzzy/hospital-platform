@@ -43,6 +43,7 @@ import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 } from "./session-generation";
+import { readMedicalWechatPayment } from "./medical-insurance";
 
 test("预约记录请求显式编码 online 范围和日期窗口", () => {
 	expect(
@@ -57,7 +58,21 @@ test("预约记录请求显式编码 online 范围和日期窗口", () => {
 	);
 });
 
-test("自费支付响应只接受 APIv3 微信原生调起参数", () => {
+test("自费支付响应接受众阳 MD5 参数并兼容历史 APIv3 RSA 参数", () => {
+	expect(
+		toWechatPaymentLaunch({
+			data: {
+				payParams: {
+					appId: "wx-app",
+					timeStamp: "1789115826",
+					nonceStr: "nonce-md5-001",
+					package: "prepay_id=wx-md5-prepay",
+					signType: "MD5",
+					paySign: "A".repeat(32),
+				},
+			},
+		}),
+	).toMatchObject({ kind: "native", params: { signType: "MD5" } });
 	expect(
 		toWechatPaymentLaunch({
 			data: {
@@ -94,6 +109,30 @@ test("自费支付响应只接受 APIv3 微信原生调起参数", () => {
 		}),
 	).toBeNull();
 	expect(toWechatPaymentLaunch({ data: { payParams: {} } })).toBeNull();
+});
+
+test("医保混合支付接受服务端返回的 MD5 调起参数", () => {
+	expect(
+		readMedicalWechatPayment({
+			success: true,
+			data: {
+				orderId: "medical-order-001",
+				status: "cash_pending",
+				paymentState: "prepay_ready",
+				cashFen: 100,
+				payParams: {
+					timeStamp: "1789115826",
+					nonceStr: "nonce-md5-001",
+					package: "prepay_id=wx-md5-prepay",
+					signType: "MD5",
+					paySign: "B".repeat(32),
+					mixTradeNo: "mix-md5-001",
+				},
+			},
+		}),
+	).toMatchObject({
+		payParams: { signType: "MD5", mixTradeNo: "mix-md5-001" },
+	});
 });
 
 test("预约记录请求的 all 范围不携带在线日期窗口", () => {

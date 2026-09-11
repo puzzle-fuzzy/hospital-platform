@@ -637,6 +637,7 @@ test("native payment boundaries always end with a user-actionable result", async
 	const selfPay = await source("services/registration-self-pay.ts");
 	const paymentPage = await source("pages/registration-payment/registration-payment.ts");
 	const paymentTemplate = await source("pages/registration-payment/registration-payment.wxml");
+	const paymentStyles = await source("pages/registration-payment/registration-payment.wxss");
 	const detailPage = await source("pages/appointment-detail/appointment-detail.ts");
 
 	// 网络请求和微信收银台都必须有终点；支付未知时保留订单并引导查单，
@@ -651,7 +652,19 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentPage).toContain("paymentActionMessage");
 	expect(paymentPage).toContain("预约已保留");
 	expect(paymentPage).toContain("请勿重复预约或重复付款");
-	expect(paymentTemplate).toContain("不要重复付款或重新预约");
+	expect(paymentPage).toContain("canSwitchMedicalAuthorizationToSelfPay");
+	expect(paymentPage).toContain("medical-insurance-insutype-unavailable");
+	expect(paymentPage).toContain(
+		"当前就诊人没有可用于本次支付的有效医保参保信息",
+	);
+	expect(paymentPage).toContain('confirmText: "改用自费"');
+	expect(paymentPage).toContain('cancelText: "暂不支付"');
+	expect(paymentTemplate).not.toContain('class="footnote"');
+	expect(paymentTemplate).toContain('class="payment-actions"');
+	expect(paymentStyles).toContain("flex-direction: column");
+	expect(paymentStyles).toContain("border: 2rpx solid #3d6df6");
+	expect(paymentStyles).toContain(".mixed-button");
+	expect(paymentStyles).toContain("background: #3d6df6");
 	expect(detailPage).toContain('selfPayStatus: "awaiting_confirmation"');
 	expect(detailPage).toContain("请点击继续自费支付");
 });

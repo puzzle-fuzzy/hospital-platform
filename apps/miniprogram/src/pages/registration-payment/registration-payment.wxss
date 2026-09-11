@@ -179,6 +179,12 @@
 	margin-bottom: 16rpx;
 }
 
+.payment-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 20rpx;
+}
+
 .payment-button,
 .primary-button,
 .secondary-button {
@@ -190,19 +196,20 @@
 }
 
 .payment-button {
-	color: #ffffff;
+	margin-bottom: 0;
+	border: 2rpx solid #3d6df6;
+	background: #ffffff;
+	color: #3d6df6;
 }
 
-.medical-button {
-	background: #3d6df6;
+.payment-button::after {
+	border: 0;
 }
 
 .mixed-button {
-	background: #20a867;
-}
-
-.self-button {
-	background: #ee8b2c;
+	border-color: #3d6df6;
+	background: #3d6df6;
+	color: #ffffff;
 }
 
 .primary-button {
@@ -220,13 +227,5 @@
 	padding: 24rpx 28rpx 8rpx;
 	color: #176b45;
 	font-size: 28rpx;
-	text-align: center;
-}
-
-.footnote {
-	padding: 12rpx 10rpx;
-	color: #98a2b3;
-	font-size: 23rpx;
-	line-height: 1.6;
 	text-align: center;
 }

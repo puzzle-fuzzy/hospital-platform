@@ -921,6 +921,25 @@ export const WechatMiniProgramPayParamsSchema = Type.Object({
 	paySign: Type.String({ minLength: 1 }),
 });
 
+/** 众阳 2.6.65.2 返回的 APIv2/MD5 小程序收银台参数。 */
+export const YunhealthMiniProgramPayParamsSchema = Type.Object(
+	{
+		appId: Type.String({ minLength: 1, maxLength: 64 }),
+		timeStamp: Type.String({ pattern: "^\\d{10}$" }),
+		nonceStr: Type.String({ minLength: 1, maxLength: 32 }),
+		package: Type.String({ pattern: "^prepay_id=.+", maxLength: 128 }),
+		signType: Type.Literal("MD5"),
+		paySign: Type.String({ pattern: "^[A-Fa-f0-9]{32}$" }),
+	},
+	{ additionalProperties: false },
+);
+
+/** 新订单使用众阳 MD5；历史已经创建的 APIv3 订单继续允许 RSA 收尾。 */
+export const RegistrationSelfPayLaunchParamsSchema = Type.Union([
+	YunhealthMiniProgramPayParamsSchema,
+	WechatMiniProgramPayParamsSchema,
+]);
+
 /** 所有普通微信自费入口统一使用 APIv3 JSAPI 小程序调起参数。 */
 export const WechatPaymentLaunchParamsSchema = WechatMiniProgramPayParamsSchema;
 
@@ -928,6 +947,17 @@ export const WechatPaymentLaunchParamsSchema = WechatMiniProgramPayParamsSchema;
 export const WechatMedicalInsurancePayParamsSchema = Type.Union([
 	Type.Object(
 		{ mixTradeNo: Type.String({ minLength: 1, maxLength: 32 }) },
+		{ additionalProperties: false },
+	),
+	Type.Object(
+		{
+			timeStamp: Type.String({ pattern: "^\\d{10}$" }),
+			nonceStr: Type.String({ minLength: 1, maxLength: 32 }),
+			package: Type.String({ pattern: "^prepay_id=.+", maxLength: 128 }),
+			signType: Type.Literal("MD5"),
+			paySign: Type.String({ pattern: "^[A-Fa-f0-9]{32}$" }),
+			mixTradeNo: Type.String({ minLength: 1, maxLength: 32 }),
+		},
 		{ additionalProperties: false },
 	),
 	Type.Object(
@@ -1026,7 +1056,7 @@ export const RegistrationSelfPayResponse = Type.Object({
 		]),
 		paymentState: PaymentStateSchema,
 		totalFen: Type.Integer({ minimum: 1 }),
-		payParams: Type.Optional(WechatPaymentLaunchParamsSchema),
+		payParams: Type.Optional(RegistrationSelfPayLaunchParamsSchema),
 	}),
 });
 
