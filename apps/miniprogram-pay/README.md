@@ -24,11 +24,11 @@
   → GET /payments/medical-insurance/orders/{orderId}（处理中时查单）
 ```
 
-医保结算出现自费差额时，服务端先按普通商户创建 JSAPI 预支付，再调用微信支付 APIv3
-`/v3/med-ins/orders` 创建 `CASH_AND_INSURANCE` 订单；纯医保跳过 JSAPI，直接调用同一个
-接口创建 `INSURANCE_ONLY` 订单。两种方式都由小程序使用 `wx.requestMedicalInsurancePay`
-调起官方医保收银台，并以 `mix_trade_no` 的服务端查单终态为准。需要云健康/HIS 回写时，
-插件链路只建立后续 `.29 → .15 → .5` 所需的关联事实，不再创建第二笔微信收款订单。
+医保结算完成后，服务端先按 6202 的非零金额分项逐笔调用 HIS `2.6.65.2`。存在微信现金
+分项时，直接复用 `.2.result` 返回且经服务端校验的 APIv2/MD5 `prepay_id` 和签名参数，再调用
+微信支付 APIv3 `/v3/med-ins/orders` 创建 `CASH_AND_INSURANCE` 订单；纯医保调用同一接口创建
+`INSURANCE_ONLY` 订单。两种方式都由小程序使用 `wx.requestMedicalInsurancePay` 调起官方医保
+收银台，并以 `mix_trade_no` 的服务端查单终态及 HIS `2.6.65.5 isSettle=1` 作为最终完成依据。
 
 就诊人可在创建预约前切换。预约和待支付上下文建立后，就诊人被锁定为该订单原始
 `patientId`，页面不允许切换；若该就诊人已不在当前账号目录，页面保持未选择并禁止继续

@@ -281,7 +281,7 @@
 - [ ] 门诊费用明细/收银台/电子账单：资源授权、金额单位、订单归属、短期引用、过期、失败和查单；不恢复旧任意 WebView。
 - [ ] 微信支付：平台订单、服务端金额事实、预支付、回调验签解密、查单、关单、重复通知、补偿和最终状态；配置 gate 未完成前保持 503。
 - [ ] 医保：授权码生命周期、1101、6201、6202、6301、医保/微信混合支付、查单、退款和回调；所有 provider token、身份证、卡号和 payToken 只在服务端。
-- [ ] 云健康/HIS：挂号结算通知、完成、插件支付、退款申请/同步和最终一致性；不能把前端 `requestPayment` 成功或 HTTP 200 当业务成功。
+- [ ] 云健康/HIS：挂号结算准备、HIS 收款、退款申请/同步和最终一致性；不能把前端 `requestPayment` 成功或 HTTP 200 当业务成功。
 - [ ] Worker：只有完成支付密钥、微信配置、真实 Provider、重试/补偿和回写验收后才打开业务循环；当前的 `not_configured` 是正确的 fail-closed 状态。
 
 ## 7. 明确不需要补充、也不应原样迁移的内容
@@ -378,7 +378,7 @@
 ### 11.2 后台任务、恢复和运维闭环：新增 P1
 
 - [x] 已修复全量候选门禁中人工复核测试的 TypeScript 可空值断言，并用 Biome 统一发布审计测试格式；持久化 typecheck、工具测试、workspace 全量 typecheck/test/build 均通过。
-- [ ] 旧 FastAPI 启动时会加载数据库中的 APScheduler 任务，并单独启动 `plugin_payment_reconcile_loop`，后者会扫描“微信预支付已创建但云健康/HIS 未完成回写”的订单并继续完成结算。新 Worker 目前只实现微信通知 handler 和微信查单，没有对应的云健康/HIS 插件恢复 handler；支付/HIS 批次开启前必须明确逐项替代、存量迁移和人工补偿方案。
+- [ ] 旧 FastAPI 启动时会加载数据库中的 APScheduler 任务，并单独启动 `plugin_payment_reconcile_loop`，后者会扫描“微信预支付已创建但云健康/HIS 未完成回写”的订单并继续完成结算。新 Worker 目前只实现微信通知 handler 和微信查单，没有对应的 HIS 收款恢复 handler；支付/HIS 批次开启前必须明确逐项替代、存量迁移和人工补偿方案。
 - [x] 已为 `OutboxWorker` 和 `PaymentReconciliationWorker` 增加 12 次自动重试上限；达到上限后分别落库为 `manual_review`，清除下一次自动调度，并输出可检索的人工接管日志。新迁移为 `0017_outbox_manual_review_state`，尚未执行到生产库。
 - [x] 已补齐人工复核队列的低敏查询、告警检查和单条受控重放：`apps/worker/src/manual-review.ts` 提供 `list`、`check` 和要求固定原因码及 `--confirm` 的 `requeue`；`check` 以退出码 `2` 暴露队列积压，仓储使用状态条件更新且不重置累计尝试次数。对应手册见 [`docs/发布/人工复核运维手册.md`](docs/发布/人工复核运维手册.md)。这些能力完成并取得生产证据前，支付/HIS gate 继续关闭。
 - [x] 已确认 `payment-order.created`、`payment-order.state-changed` 是内部审计事件，不直接触发 Provider；Worker 组合根已显式注册经过 payload/金额/状态校验的归档 handler，并输出 `worker.outbox.audit_event_archived`，损坏事件仍会失败并进入重试/人工复核。这样支付 gate 打开后不会因缺 handler 无限重试，也不会把归档成功误报为支付成功。
@@ -520,7 +520,7 @@
 - [x] 已删除 `docs/obsidian/`（46 个 Git 跟踪文件），`pnpm docs:audit` 通过（875→829 个文档）；历史日期文档中对 `docs/obsidian/.obsidian` 的纯文本提及保留为历史记录，不再作为导航入口。
 - [x] `docs/架构决策/0001`、`docs/架构决策/0002` 已翻译为中文（0003/0004 原为中文）；全库扫描确认其余 docs 文档均为中文。
 - [x] 已接收医保测试环境材料并登记 [`docs/提供商接入/2026-09-03-医保测试凭据.md`](docs/提供商接入/2026-09-03-医保测试凭据.md)：移动支付渠道反馈单（应用 ID、SM4 数字密钥、渠道 SM2 公私钥、平台公钥）、线上身份核验反馈单（机构编码、业务类型、渠道认证编码）与国标 V2.2.5 规范；`docs/相关文档/`、`.local/medical-insurance/`、`.local/wechat-payment/` 已加入 `.gitignore`，凭据原件与提取值均不入库。
-- [x] 旧 `env/.env.prod`（含 `MBS_SM2_*`、`MBS_APP_*`、中转地址、微信医保插件配置）与 `insurance-service/.env` 已按所有者决策脱敏暂存到 `.local/medical-insurance/legacy-env-key-material.json`，微信商户 PEM 暂存 `.local/wechat-payment/`；暂存文件不打印、不入库、不进入组合根。
+- [x] 旧 `env/.env.prod`（含 `MBS_SM2_*`、`MBS_APP_*`、中转地址、微信医保收款配置）与 `insurance-service/.env` 已按所有者决策脱敏暂存到 `.local/medical-insurance/legacy-env-key-material.json`，微信商户 PEM 暂存 `.local/wechat-payment/`；暂存文件不打印、不入库、不进入组合根。
 - [x] 国标 V2.2.5 与山西 v1.3.35 的关键差异已沉淀到规范化文档第 11 节：ordStas 17–25 冲正/退费中间态、6202/6301/6302 金额字段族扩充影响守恒不变量、6203 `refStatus=ACCT`、签名排除 `extra`；全部保持 fail-closed，不改代码。
 
 ### 15.2 P2：crypto 实现与验证（材料已齐，需四层验证链）
@@ -580,9 +580,9 @@ requiredMaterials 补齐 6201/6202 前置数据源与 wecity；3090 test-v3 分�
 
 - [ ] 预约写入链：试算挂号费（register-fee-quote）→ 锁号 TTL → 预约登记 → 取消状态机，落地 [`docs/预约写入契约-v1.md`](docs/预约写入契约-v1.md)；确认页提交从关闭态切到真实编排（保持幂等与 owner 校验）。
 - [ ] 微信支付 gate 开启：`.local/wechat-payment` 证书进入受控 env、`WECHAT_PAYMENT_READY` 打开前置 preflight、公网 notify 验收；门诊缴费页接入 `wx.requestPayment`（金额只来自服务端订单）。
-- [ ] 混合支付编排：6202 `ownPayAmt>0` 时插件自费二次预下单（参保地 `140581` 且普通挂号时 `payTypeId=50`）→ plugin-payment-order/complete 服务端化（吸收 test-v3 diff 中 order_service 的 362 行修复语义）。
+- [ ] HIS 收款编排验收：6202 返回后，所有非零支付分项在微信医保下单前按需调用 `2.6.65.2`；医保报销使用 `2/H5`、个人账户使用 `5/H5`、微信现金使用 `31/MINI_PROGRAM`，符合条件的医保优惠挂号使用 `50/H5`。微信现金调起参数取自 `.2.result`，支付后由 `.5 isSettle=1` 确认最终完成；代码和 3090 已具备该流程，仍需保留真实订单验收记录。
 - [x] 已确认：2.6.65.2 顶层 `payTypeId` 为整型单值，数组字段是 `payTypeParams`；`2` 为医保报销，6202 的 `psnAcctPay` 有实际金额时传 `5`，`31` 为微信支付，`32` 为支付宝支付，`50` 为医保优惠挂号（参保地 `140581` 且普通挂号）；普通自费流程固定传 `31`。
-- [ ] Provider 待确认：2.6.65.1/2.6.65.2 的 `autoSettle` 合法枚举及 `autoSettle=3` 的含义；当前 `.1` 使用 `2`、插件 `.2` 使用 `3`，原始接口文档需要逐字段联调确认后才能固化。
+- [ ] Provider 待确认：2.6.65.1/2.6.65.2 的 `autoSettle` 合法枚举及 `autoSettle=3` 的含义；当前 `.1` 使用 `2`、HIS 收款 `.2` 使用 `3`，原始接口文档需要逐字段联调确认后才能固化。
 
 ### 17.3 P2：治理与收尾
 

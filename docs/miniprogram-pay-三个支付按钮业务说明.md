@@ -82,13 +82,13 @@ https://test-hp.meiyi.pro/api/v2
 
 | 顺序 | 调用 | 作用 |
 | --- | --- | --- |
-| 1 | `POST /payments/medical-insurance/orders/{orderId}/plugin-pay` | 服务端读取 6202 的真实自费金额，按旧服务第二次 `.2` 创建云健康插件流水，再创建普通微信 JSAPI 订单 |
-| 2 | `wx.requestPayment(...)` | 调起插件版普通微信自费收银台 |
-| 3 | `GET /payments/medical-insurance/orders/{orderId}/plugin-pay` | 服务端查普通微信订单；确认支付后依次执行 `.29 → .15 → .5` 回写 HIS |
-| 4 | 服务端最终结算 | `.5` 返回确认后，医保订单进入 `insurance_settled`，平台支付单进入 `completed` |
+| 1 | `POST /payments/medical-insurance/orders/{orderId}/wechat-pay` | 服务端按 6202 的非零金额分项逐笔调用 HIS `2.6.65.2`；医保报销使用 `2/H5`、个人账户使用 `5/H5`、微信现金使用 `31/MINI_PROGRAM`，符合条件的医保优惠挂号使用 `50/H5` |
+| 2 | 服务端创建微信医保订单 | 现金分项复用 `.2.result` 返回的 APIv2/MD5 `prepay_id` 和签名参数，并携带医保订单信息创建官方 `CASH_AND_INSURANCE` 订单 |
+| 3 | `wx.requestMedicalInsurancePay(...)` | 使用服务端返回的 `mixTradeNo` 与 MD5 调起参数打开微信医保支付收银台 |
+| 4 | `GET /payments/medical-insurance/orders/{orderId}/wechat-pay` | 服务端查询微信医保订单并串行完成 HIS `.5`；只有 `.5` 返回 `isSettle=1` 才进入最终成功状态 |
 
 只有服务端确认医保和现金两部分都完成，页面才显示“挂号和医保支付成功”。
-`wx.requestPayment` 的成功回调本身不代表业务完成，必须等待服务端完成 HIS 回写。
+`wx.requestMedicalInsurancePay` 的成功回调本身不代表业务完成，必须等待服务端完成 HIS 回写。
 
 ## 4. 自费支付
 
@@ -98,18 +98,12 @@ https://test-hp.meiyi.pro/api/v2
 | --- | --- | --- |
 | 1 | `POST /appointments/holds` | 与其它支付方式相同，服务端重新锁定众阳号源并读取挂号费 |
 | 2 | `POST /appointments/registrations` | 与其它支付方式相同，服务端检查重复预约后调用众阳 `2.10.4.1` |
-| 3 | `POST /payments/appointments/{appointmentId}/self-pay` | 服务端读取已保存的预约金额，创建现金待支付订单，并通过微信支付 APIv3 创建 JSAPI 预支付单 |
-| 4 | `wx.requestPayment(...)` | 调起普通微信支付收银台 |
-| 5 | `GET /payments/appointments/{appointmentId}/self-pay` | 服务端调用微信支付查单，只有明确 `SUCCESS` 才将平台订单置为 `cash_paid` |
+| 3 | `POST /payments/appointments/{appointmentId}/self-pay` | 服务端读取已保存的预约金额，按 HIS 收款顺序调用 `2.6.65.1 → 2.27.2.27 → 2.6.65.2`；`.2` 固定使用 `payTypeId=31`、`payModel=MINI_PROGRAM` |
+| 4 | `wx.requestPayment(...)` | 使用 `.2.result` 返回且经服务端校验的 APIv2/MD5 参数调起微信自费收银台 |
+| 5 | `GET /payments/appointments/{appointmentId}/self-pay` | 服务端幂等调用 `2.6.65.5`；只有返回 `isSettle=1` 才依次进入 `cash_paid → his_written_back → completed` |
 
-普通自费预支付由服务端调用微信：
-
-```text
-POST /v3/pay/transactions/jsapi
-```
-
-金额来自服务端已保存的预约事实，小程序不能提交或修改金额。当前没有使用门户中分类不匹配的
-`2.6.65.*` 接口来伪造门诊自费 HIS 终结链路。
+金额来自服务端已保存的预约事实，小程序不能提交或修改金额。当前新建订单统一使用 HIS
+`2.6.65.2.result` 的 MD5 参数，不再由平台另建一笔微信 APIv3 订单。修改前已落库的历史订单仍可按原上下文收尾，但不能用于创建新订单。
 
 ## 5. 已有待支付上下文时的处理
 
@@ -128,7 +122,7 @@ POST /payments/appointments/{appointmentId}/payment-exit
 | --- | --- | --- |
 | 医保授权中 | 无 | 退出成功后订单失效、预约取消；失败则保留 pending 重试 |
 | 医保结算产生自费金额 | 无 | 退出成功后医保订单失效、预约取消；失败则保留 pending 重试 |
-| 医保插件自费支付中 | 无 | 先查单；明确未支付才取消结算、作废订单并释放号源 |
+| 医保混合支付现金确认中 | 无 | 先查微信医保订单和 HIS 结算状态；明确未支付才取消结算、作废订单并释放号源 |
 | 微信自费支付中 | 无 | 先查单；明确未支付才关单、作废订单并释放号源 |
 
 如果查到已支付或 provider 状态未知，服务端拒绝作废和释放号源，页面保留原支付上下文；

@@ -40,12 +40,14 @@ POST /appointments/holds
   → POST /payments/medical-insurance/authorize
   → POST /payments/medical-insurance/orders/{orderId}/fees
   → POST /payments/medical-insurance/orders/{orderId}/settle
-  → 需要自费时 POST /payments/medical-insurance/orders/{orderId}/plugin-pay
+  → POST /payments/medical-insurance/orders/{orderId}/wechat-pay（纯医保或混合支付）
   → 纯自费时 POST /payments/appointments/{appointmentId}/self-pay
   → 服务端查单确认最终状态
 ```
 
 服务端会在预约写入前检查重复预约；重复时不会再次挂号，用户确认后才调用独立取消接口，再重新读取号源并重试。医保结算返回自费金额时，纯医保分支不会偷偷切换为混合支付，而是提示用户明确选择医保混合支付。详细接口、状态和日志见 [`docs/miniprogram-pay-三个支付按钮业务说明.md`](docs/miniprogram-pay-三个支付按钮业务说明.md) 与 [`docs/医保支付操作流程图.md`](docs/医保支付操作流程图.md)。
+
+当前挂号支付统一走 HIS 收款：纯自费和医保各支付分项先由服务端调用众阳 `2.6.65.2`，微信现金分项使用 `.2.result` 返回的 APIv2/MD5 参数调起收银台；付款后继续调用 `2.6.65.5`，只有 `isSettle=1` 才视为医院结算完成。
 
 ### 安全和运行门禁
 
@@ -191,13 +193,13 @@ API 默认运行在 `http://localhost:3000`：
 - `POST /api/v1/payments/appointments/:appointmentId/payment-exit`：用户明确退出医保、医保混合或自费支付；服务端确认未支付后作废关联订单并取消预约、释放号源
 - `GET /api/v1/appointments/registrations/:appointmentId`：读取当前账号和就诊人范围内的挂号详情
 - `GET /api/v1/appointments/records`：按内部 `patientId` 和最多 366 天范围读取脱敏预约历史摘要
-- `POST /api/v1/payments/appointments/:appointmentId/self-pay`：创建挂号普通微信自费支付
-- `GET /api/v1/payments/appointments/:appointmentId/self-pay`：查询挂号自费订单最终状态
+- `POST /api/v1/payments/appointments/:appointmentId/self-pay`：按 HIS 收款流程完成 `.1 → .27 → .2`，返回 `.2.result` 中的微信 APIv2/MD5 调起参数
+- `GET /api/v1/payments/appointments/:appointmentId/self-pay`：调用 `.5` 确认挂号自费订单最终状态，只有 `isSettle=1` 才完成
 - `POST /api/v1/payments/medical-insurance/authorize`：接收授权码并创建医保订单
 - `POST /api/v1/payments/medical-insurance/orders/:orderId/fees`：上传服务端核对的医保费用
 - `POST /api/v1/payments/medical-insurance/orders/:orderId/settle`：发起医保结算
-- `POST /api/v1/payments/medical-insurance/orders/:orderId/plugin-pay`：按 HIS 插件版收款创建普通微信 JSAPI 调起参数
-- `GET /api/v1/payments/medical-insurance/orders/:orderId/plugin-pay`：查单并按 `.29 → .15 → .5` 回写 HIS
+- `POST /api/v1/payments/medical-insurance/orders/:orderId/plugin-pay`：历史订单的 HIS 收款兼容入口；新订单统一从 `wechat-pay` 发起
+- `GET /api/v1/payments/medical-insurance/orders/:orderId/plugin-pay`：历史订单的 HIS 收款续跑入口；新订单最终状态以 `wechat-pay` 查单和 `.5` 确认为准
 - `GET /api/v1/payments/medical-insurance/orders/:orderId`：查询医保订单最终状态
 - `GET /api/v1/payments/outpatient/records`：按内部 `patientId` 读取门诊待缴/已缴费用摘要；当前只读，不启动支付或医保结算
 - `GET /api/v1/payments/outpatient/records/:recordId`：读取已核对的门诊费用摘要详情；当前只读

@@ -112,7 +112,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 
 | 方法 | 公共路径 | 认证/幂等 | 用途和关键输入 |
 | --- | --- | --- | --- |
-| `POST` | `/Payment/Api/MYDService/ThirdpartyPayQuery` | 众阳服务端回调；无患者会话 | 非 HIS 收款 2.6.65.9：众阳在 2.6.65.5 内按 `.2` 的 `recordCode` 反向查支付；平台精确关联密文订单，普通自费实时查微信商户单、医保分项实时查微信 `mix_trade_no`，只有状态、金额、交易号和支付时间完整一致才返回 `SUCCESS` |
+| `POST` | `/Payment/Api/MYDService/ThirdpartyPayQuery` | 众阳服务端回调；无患者会话 | HIS 收款状态回查 2.6.65.9：众阳在 2.6.65.5 内按 `.2` 的 `recordCode` 反向查支付；平台精确关联密文订单，普通自费按 HIS 收款上下文确认，医保分项实时查微信 `mix_trade_no`，只有状态、金额、交易号和支付时间完整一致才返回 `SUCCESS` |
 | `GET` | `/api/v2/health/live` | 无 | 只证明 API 进程可响应，返回 `status: ok`；响应带 `Cache-Control: no-store` |
 | `GET` | `/api/v2/health/ready` | 无 | 返回 database、redis、schema 的 `ok`/`not_configured`/`unavailable`；响应带 `Cache-Control: no-store`，不是 provider 验收 |
 | `GET` | `/api/v2/system/ping` | 无 | 返回服务名和 API 版本，不执行业务依赖探测 |
@@ -133,9 +133,9 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/appointments/registrations/{appointmentId}` | Bearer | 必填 query `patientId`；仅返回当前账号、当前就诊人对应的挂号详情和脱敏就诊卡；Provider 历史记录没有平台详情引用时由小程序按已核实摘要展示 |
 | `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射调用取消接口；重复取消返回已取消，不接收 provider 预约号 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
-| `POST` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 必填幂等键 | 从已写入预约读取服务端挂号费，创建普通微信 JSAPI 自费订单并返回小程序调起参数；不会进入医保授权 |
+| `POST` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 必填幂等键 | 从已写入预约读取服务端挂号费，按 HIS 收款顺序完成 `.1 → .27 → .2`，返回 `.2.result` 中经校验的 APIv2/MD5 小程序调起参数；不会进入医保授权 |
 | `POST` | `/api/v2/payments/appointments/{appointmentId}/payment-exit` | Bearer + 必填幂等键 | 用户明确退出医保、医保混合或自费支付；服务端查单/关单并作废未支付订单，再取消预约释放号源；已支付或未知状态 fail-closed |
-| `GET` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 幂等键可选 | 服务端查微信自费订单并返回 `awaiting_confirmation`、`cash_paid` 或 `failed`；调起成功不代表支付完成 |
+| `GET` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 幂等键可选 | 服务端幂等调用 HIS `.5` 并返回 `awaiting_confirmation`、`cash_paid` 或 `failed`；只有 `isSettle=1` 才完成，调起成功不代表支付完成 |
 | `GET` | `/api/v2/payments/medical-insurance/appointments/{appointmentId}/authorization-context` | Bearer + 幂等键可选 | 按预约锁定的就诊人返回医保授权跳转上下文；本人只返回 `payForRelatives=false`，亲属只额外返回官方格式的 `familyId` 摘要，不返回实名资料 |
 | `POST` | `/api/v2/payments/medical-insurance/authorize` | Bearer + 必填幂等键 | body 为 `{appointmentId, authCode}`；授权码只在服务端调用医保授权 adapter，成功后返回服务端 `orderId` |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/fees` | Bearer + 必填幂等键 | 从关联预约读取服务端金额和患者映射，独立执行医保费用上传 |
@@ -145,8 +145,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/cashier-confirm` | Bearer + 必填幂等键 | 仅兼容旧版本已在途收银台返回后的 6301 与医院后置结算；不能作为新订单的微信官方支付依据 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer + 必填幂等键 | 读取已落库 6202 金额、6201 授权和参保上下文；现金为零创建官方 `INSURANCE_ONLY` 医保订单，存在现金差额则创建 `CASH_AND_INSURANCE` 混合订单，并返回小程序调起参数。Provider 调用前先保存稳定 `out_trade_no` 并唤醒补偿 Worker；若创建结果未知或重放返回 `ALREADY_EXISTS`，API 重试与 Worker 都先调用微信官方商户订单号查单恢复 `mix_trade_no`，仅 API 在查单明确 `NOT_FOUND` 后才用原业务单号安全重试一次，Worker 自身只查不建 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer；幂等键可选 | 按 `mix_trade_no` 查询微信官方医保订单；纯医保或混合支付都必须在官方查单与医院最终回写完成后才返回终态 |
-| `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/plugin-pay` | Bearer + 必填幂等键 | 旧插件兼容入口；新纯医保和医保混合支付不从此接口发起，保留用于历史订单和医院后置回写衔接 |
-| `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/plugin-pay` | Bearer；幂等键可选 | 旧插件兼容查单入口；不是微信官方医保订单的最终状态来源 |
+| `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/plugin-pay` | Bearer + 必填幂等键 | 历史 HIS 收款订单兼容入口；新纯医保和医保混合支付不从此接口发起，仅用于历史订单续跑 |
+| `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/plugin-pay` | Bearer；幂等键可选 | 历史 HIS 收款订单兼容查询入口；不是微信官方医保订单的最终状态来源 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}` | Bearer；幂等键可选 | 查询医保订单最终状态和服务端金额快照；不返回 payToken、身份证或 provider 原始字段 |
 | `GET` | `/api/v2/my/doctors` | Bearer | 返回当前平台用户关注的医生关系；不接收 `userId` 或 `patientId` |
 | `GET` | `/api/v2/my/doctors/{doctorId}` | Bearer | 返回当前用户自己的单个医生关系快照 |
