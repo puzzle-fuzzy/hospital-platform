@@ -111,6 +111,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const yunhealthRegistrationPluginPayment: YunhealthRegistrationPluginPaymentGateway =
 		{
 			createPreOrder: async (_input, _context) => unavailable("yunhealth"),
+			completeSettlement: async (_input, _context) => unavailable("yunhealth"),
 		};
 	const medicalInsuranceWechatPayment: MedicalInsuranceWechatPaymentGateway = {
 		createMixedOrder: async (_input, _context) => unavailable("wechat-pay"),

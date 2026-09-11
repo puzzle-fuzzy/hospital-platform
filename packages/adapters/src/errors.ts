@@ -40,6 +40,8 @@ export type ProviderFailureReason =
 	| "appointment-source-unavailable"
 	/** 微信查单明确返回订单不存在，可安全把本地尝试置为 failed 后重试。 */
 	| "payment-order-not-found"
+	/** 1101 返回有效参保列表，但没有当前医保支付要求的险种。 */
+	| "medical-insurance-insutype-unavailable"
 	/** 众阳 2.6.33 明确返回已有支付流水，支付小程序可进入关单重开分支。 */
 	| "medical-insurance-payment-in-progress"
 	/** 新服务没有保存完整关单上下文时，禁止把本地前置校验伪装成 Provider 502。 */

@@ -452,6 +452,7 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		"wechat-query-001",
 		{
 			businessId: "appointment-wechat-query-001",
+			businessCode: "REGISTRATION-001",
 			hospitalId: "hospital-relative-001",
 			patientId: "provider-relative-001",
 			networkRegister: {},
@@ -508,6 +509,7 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 	});
 	let paymentIdentity: unknown;
 	const recoverFirstValues: Array<boolean | undefined> = [];
+	const paymentSequence: string[] = [];
 	const service = new MedicalInsuranceWechatPaymentService({
 		orders,
 		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
@@ -548,6 +550,7 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 					MedicalInsuranceWechatPaymentGateway["createMixedOrder"]
 				>[0],
 			) => {
+				paymentSequence.push("wechat-medical-mix");
 				paymentIdentity = input.paymentIdentity;
 				recoverFirstValues.push(input.recoverFirst);
 				return {
@@ -573,6 +576,12 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		confirmCashPayment: async () => {
 			throw new Error("payment creation must not complete HIS");
 		},
+		pluginPaymentBridge: {
+			prepareSplitPaymentsBeforeOfficialWechatPayment: async () => {
+				paymentSequence.push("yunhealth-2.6.65.2");
+				return {};
+			},
+		} as never,
 		now: () => new Date(now),
 	});
 
@@ -596,6 +605,10 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		},
 	});
 	expect(recoverFirstValues).toEqual([undefined]);
+	expect(paymentSequence.slice(0, 2)).toEqual([
+		"yunhealth-2.6.65.2",
+		"wechat-medical-mix",
+	]);
 	const firstStored = await orders.findByMedicalOrderId("wechat-query-001");
 	expect(firstStored).toMatchObject({
 		wechatOutTradeNo: expect.stringMatching(/^MIP/u),

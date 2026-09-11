@@ -513,7 +513,9 @@ function deserializeMedicalInsuranceSettlementContext(
 					].includes(String(value.kind)) ||
 					!["pending", "succeeded", "failed"].includes(String(value.state)) ||
 					!["H5", "MINI_PROGRAM"].includes(String(value.payModel)) ||
-					!["2", "3", "50", "5027"].includes(String(value.payTypeId)) ||
+					!["2", "3", "5", "31", "50", "5027"].includes(
+						String(value.payTypeId),
+					) ||
 					!["componentId", "recordCode", "updatedAt"].every(
 						(field) =>
 							typeof value[field] === "string" &&
@@ -530,7 +532,17 @@ function deserializeMedicalInsuranceSettlementContext(
 						typeof value.payingId !== "string") ||
 					(value.tradingId !== undefined &&
 						typeof value.tradingId !== "string") ||
-					(value.payingId === undefined) !== (value.tradingId === undefined)
+					(value.payingId === undefined) !== (value.tradingId === undefined) ||
+					(value.payParams !== undefined &&
+						(value.kind !== "wechat_cash" ||
+							!validYunhealthPayParams(value.payParams))) ||
+					(value.wechatOutTradeNo !== undefined &&
+						(value.kind !== "wechat_cash" ||
+							typeof value.wechatOutTradeNo !== "string" ||
+							value.wechatOutTradeNo.length > 32 ||
+							!/^[A-Za-z0-9_\-*]+$/u.test(value.wechatOutTradeNo))) ||
+					(value.payParams === undefined) !==
+						(value.wechatOutTradeNo === undefined)
 				);
 			}));
 	if (
@@ -636,9 +648,45 @@ const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"payTypeId",
 	"payType",
 	"workStationId",
+	"payParams",
 	"thirdPartPayRecordId",
 	"thirdPartPayRawResponse",
 ]);
+
+const YUNHEALTH_PAY_PARAM_FIELDS = new Set([
+	"appId",
+	"timeStamp",
+	"nonceStr",
+	"package",
+	"signType",
+	"paySign",
+]);
+
+function validYunhealthPayParams(value: unknown): boolean {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const params = value as Record<string, unknown>;
+	return (
+		!Object.keys(params).some(
+			(field) => !YUNHEALTH_PAY_PARAM_FIELDS.has(field),
+		) &&
+		typeof params.appId === "string" &&
+		params.appId.length > 0 &&
+		params.appId.length <= 64 &&
+		typeof params.timeStamp === "string" &&
+		/^\d{10}$/u.test(params.timeStamp) &&
+		typeof params.nonceStr === "string" &&
+		params.nonceStr.length > 0 &&
+		params.nonceStr.length <= 32 &&
+		typeof params.package === "string" &&
+		params.package.length <= 128 &&
+		/^prepay_id=\S+$/u.test(params.package) &&
+		params.signType === "MD5" &&
+		typeof params.paySign === "string" &&
+		/^[A-Fa-f0-9]{32}$/u.test(params.paySign)
+	);
+}
 
 function deserializeRegistrationSelfPayContext(
 	value: string,
@@ -687,7 +735,9 @@ function deserializeRegistrationSelfPayContext(
 			(typeof record.thirdPartPayRecordId !== "string" ||
 				!record.thirdPartPayRecordId.trim())) ||
 		(record.thirdPartPayRawResponse !== undefined &&
-			typeof record.thirdPartPayRawResponse !== "string")
+			typeof record.thirdPartPayRawResponse !== "string") ||
+		(record.payParams !== undefined &&
+			!validYunhealthPayParams(record.payParams))
 	) {
 		throw new Error("Registration self-pay context is invalid");
 	}
@@ -1929,6 +1979,9 @@ function medicalWechatPayParams(
 ): WechatMedicalInsurancePayParams | undefined {
 	if (value === null) return undefined;
 	const parsed = JSON.parse(cipher.open(value)) as unknown;
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+		throw new Error("Persistence returned invalid medical Wechat pay params");
+	}
 	const record = parsed as Record<string, unknown>;
 	const expectedFields = [
 		"timeStamp",
@@ -1938,24 +1991,40 @@ function medicalWechatPayParams(
 		"paySign",
 		"mixTradeNo",
 	];
+	const hasJsapiFields = [
+		"timeStamp",
+		"nonceStr",
+		"package",
+		"signType",
+		"paySign",
+	].some((key) => key in record);
+	const validRsa =
+		record.signType === "RSA" &&
+		typeof record.timeStamp === "string" &&
+		typeof record.nonceStr === "string" &&
+		typeof record.package === "string" &&
+		typeof record.paySign === "string" &&
+		Boolean(record.timeStamp) &&
+		Boolean(record.nonceStr) &&
+		Boolean(record.package) &&
+		Boolean(record.paySign);
+	const validMd5 =
+		record.signType === "MD5" &&
+		typeof record.timeStamp === "string" &&
+		/^\d{10}$/u.test(record.timeStamp) &&
+		typeof record.nonceStr === "string" &&
+		record.nonceStr.length > 0 &&
+		record.nonceStr.length <= 32 &&
+		typeof record.package === "string" &&
+		/^prepay_id=\S+$/u.test(record.package) &&
+		typeof record.paySign === "string" &&
+		/^[A-Fa-f0-9]{32}$/u.test(record.paySign);
 	if (
-		typeof parsed !== "object" ||
-		parsed === null ||
-		Array.isArray(parsed) ||
 		Object.keys(record).some((key) => !expectedFields.includes(key)) ||
-		expectedFields.some((key) => !(key in record)) ||
-		typeof record.timeStamp !== "string" ||
-		typeof record.nonceStr !== "string" ||
-		typeof record.package !== "string" ||
-		record.signType !== "RSA" ||
-		typeof record.paySign !== "string" ||
 		typeof record.mixTradeNo !== "string" ||
-		!record.timeStamp ||
-		!record.nonceStr ||
-		!record.package ||
-		!record.paySign ||
 		!record.mixTradeNo ||
-		String(record.mixTradeNo).length > 32
+		String(record.mixTradeNo).length > 32 ||
+		(hasJsapiFields && !validRsa && !validMd5)
 	) {
 		throw new Error("Persistence returned invalid medical Wechat pay params");
 	}
@@ -2904,15 +2973,21 @@ export function createMySqlRepositories(
 			});
 		},
 		async saveRegistrationSelfPayContext(ownerUserId, orderId, context) {
+			const recordCodeHash = context.recordCode
+				? createHash("sha256").update(context.recordCode).digest("hex")
+				: null;
 			const result = await execute<ResultSetHeader>(
 				pool,
 				`UPDATE hp_payment_orders
-				 SET registration_self_pay_context_ciphertext = ?, updated_at = NOW(3)
+				 SET registration_self_pay_context_ciphertext = ?,
+				     registration_self_pay_record_code_hash = ?,
+				     updated_at = NOW(3)
 				 WHERE owner_user_id = ? AND order_id = ?`,
 				[
 					requiredPrepayCipher().seal(
 						serializeRegistrationSelfPayContext(context),
 					),
+					recordCodeHash,
 					ownerUserId,
 					orderId,
 				],
@@ -2932,11 +3007,51 @@ export function createMySqlRepositories(
 				[ownerUserId, orderId],
 			);
 			const ciphertext = rows[0]?.registration_self_pay_context_ciphertext;
-			return ciphertext
-				? deserializeRegistrationSelfPayContext(
-						requiredPrepayCipher().open(ciphertext),
-					)
-				: undefined;
+			if (!ciphertext) return undefined;
+			const context = deserializeRegistrationSelfPayContext(
+				requiredPrepayCipher().open(ciphertext),
+			);
+			if (context.recordCode) {
+				const recordCodeHash = createHash("sha256")
+					.update(context.recordCode)
+					.digest("hex");
+				await execute<ResultSetHeader>(
+					pool,
+					`UPDATE hp_payment_orders
+					 SET registration_self_pay_record_code_hash = ?
+					 WHERE owner_user_id = ? AND order_id = ?
+					 AND registration_self_pay_record_code_hash IS NULL`,
+					[recordCodeHash, ownerUserId, orderId],
+				);
+			}
+			return context;
+		},
+		async findByRegistrationSelfPayRecordCode(recordCode) {
+			const recordCodeHash = createHash("sha256")
+				.update(recordCode)
+				.digest("hex");
+			const rows = await execute<
+				(PaymentOrderRow & {
+					registration_self_pay_context_ciphertext: string | null;
+				})[]
+			>(
+				pool,
+				`SELECT order_id, owner_user_id, patient_id, idempotency_key,
+				        total_fen, insurance_fen, cash_fen, state, version,
+				        created_at, updated_at,
+				        registration_self_pay_context_ciphertext
+				 FROM hp_payment_orders
+				 WHERE registration_self_pay_record_code_hash = ? LIMIT 1`,
+				[recordCodeHash],
+			);
+			const row = rows[0];
+			const ciphertext = row?.registration_self_pay_context_ciphertext;
+			if (!row || !ciphertext) return undefined;
+			const context = deserializeRegistrationSelfPayContext(
+				requiredPrepayCipher().open(ciphertext),
+			);
+			if (context.recordCode !== recordCode) return undefined;
+			return { order: paymentOrder(row), context };
 		},
 	};
 
@@ -3866,6 +3981,122 @@ export function createMySqlRepositories(
 			return ciphertext
 				? deserializeMedicalInsuranceSettlementContext(cipher.open(ciphertext))
 				: undefined;
+		},
+		async saveYunhealthPaymentQueryReference(input) {
+			const cipher = requiredMedicalInsuranceCredentialCipher();
+			const rows = await execute<
+				(RowDataPacket & { settlement_context_ciphertext: string | null })[]
+			>(
+				pool,
+				`SELECT settlement_context_ciphertext
+				 FROM hp_medical_insurance_orders
+				 WHERE medical_order_id = ? AND owner_user_id = ? LIMIT 1`,
+				[input.medicalOrderId, input.ownerUserId],
+			);
+			const ciphertext = rows[0]?.settlement_context_ciphertext;
+			if (!ciphertext) {
+				throw new Error("Yunhealth payment query reference is invalid");
+			}
+			const context = deserializeMedicalInsuranceSettlementContext(
+				cipher.open(ciphertext),
+			);
+			const component = context.postPaymentComponents?.find(
+				(candidate) => candidate.componentId === input.componentId,
+			);
+			if (!component || component.recordCode !== input.recordCode) {
+				throw new Error("Yunhealth payment query reference is invalid");
+			}
+			const recordCodeHash = createHash("sha256")
+				.update(input.recordCode)
+				.digest("hex");
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_yunhealth_payment_query_references
+				 (record_code_hash, owner_user_id, medical_order_id, component_id)
+				 VALUES (?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE updated_at = updated_at`,
+				[
+					recordCodeHash,
+					input.ownerUserId,
+					input.medicalOrderId,
+					input.componentId,
+				],
+			);
+			const references = await execute<
+				(RowDataPacket & {
+					owner_user_id: string;
+					medical_order_id: string;
+					component_id: string;
+				})[]
+			>(
+				pool,
+				`SELECT owner_user_id, medical_order_id, component_id
+				 FROM hp_yunhealth_payment_query_references
+				 WHERE record_code_hash = ? LIMIT 1`,
+				[recordCodeHash],
+			);
+			const saved = references[0];
+			if (
+				!saved ||
+				saved.owner_user_id !== input.ownerUserId ||
+				saved.medical_order_id !== input.medicalOrderId ||
+				saved.component_id !== input.componentId
+			) {
+				throw new Error("Yunhealth payment query reference conflicts");
+			}
+		},
+		async findByYunhealthPaymentRecordCode(recordCode) {
+			const recordCodeHash = createHash("sha256")
+				.update(recordCode)
+				.digest("hex");
+			const references = await execute<
+				(RowDataPacket & {
+					owner_user_id: string;
+					medical_order_id: string;
+					component_id: string;
+				})[]
+			>(
+				pool,
+				`SELECT owner_user_id, medical_order_id, component_id
+				 FROM hp_yunhealth_payment_query_references
+				 WHERE record_code_hash = ? LIMIT 1`,
+				[recordCodeHash],
+			);
+			const reference = references[0];
+			if (!reference) return undefined;
+			const [orderRows, contextRows] = await Promise.all([
+				execute<MIRow[]>(
+					pool,
+					`${MI_SELECT} WHERE medical_order_id = ? AND owner_user_id = ? LIMIT 1`,
+					[reference.medical_order_id, reference.owner_user_id],
+				),
+				execute<
+					(RowDataPacket & {
+						settlement_context_ciphertext: string | null;
+					})[]
+				>(
+					pool,
+					`SELECT settlement_context_ciphertext
+					 FROM hp_medical_insurance_orders
+					 WHERE medical_order_id = ? AND owner_user_id = ? LIMIT 1`,
+					[reference.medical_order_id, reference.owner_user_id],
+				),
+			]);
+			const row = orderRows[0];
+			const ciphertext = contextRows[0]?.settlement_context_ciphertext;
+			if (!row || !ciphertext) return undefined;
+			const context = deserializeMedicalInsuranceSettlementContext(
+				requiredMedicalInsuranceCredentialCipher().open(ciphertext),
+			);
+			const component = context.postPaymentComponents?.find(
+				(candidate) => candidate.componentId === reference.component_id,
+			);
+			if (!component || component.recordCode !== recordCode) return undefined;
+			return {
+				order: miOrder(row, prepayCipher),
+				context,
+				component,
+			};
 		},
 		async applySettlement(medicalOrderId, expectedVersion, patch) {
 			const result = await execute<ResultSetHeader>(

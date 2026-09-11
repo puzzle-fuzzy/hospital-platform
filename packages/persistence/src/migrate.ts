@@ -225,6 +225,16 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0040_medical_insurance_legacy_prepay_expiry.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0046_registration_self_pay_record_code_hash",
+		file: "../migrations/0046_registration_self_pay_record_code_hash.sql",
+		executionMode: "non_transactional_ddl",
+	},
+	{
+		id: "0047_yunhealth_payment_query_references",
+		file: "../migrations/0047_yunhealth_payment_query_references.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -247,6 +257,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_medical_insurance_query_tasks",
 	"hp_medical_insurance_credentials",
 	"hp_medical_insurance_authorizations",
+	"hp_yunhealth_payment_query_references",
 	"hp_payment_prepay_attempts",
 	"hp_wechat_payment_notifications",
 	"hp_appointment_schedule_snapshots",
@@ -356,6 +367,7 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"state",
 			"version",
 			"registration_self_pay_context_ciphertext",
+			"registration_self_pay_record_code_hash",
 		],
 	},
 	{
@@ -638,6 +650,17 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"is_clickable",
 		],
 	},
+	{
+		table: "hp_yunhealth_payment_query_references",
+		columns: [
+			"record_code_hash",
+			"owner_user_id",
+			"medical_order_id",
+			"component_id",
+			"created_at",
+			"updated_at",
+		],
+	},
 ] as const;
 
 /** 保护 owner 隔离查询和租约竞争的安全关键索引及其列顺序。 */
@@ -693,6 +716,11 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		columns: ["owner_user_id", "order_id"],
 	},
 	{
+		table: "hp_payment_orders",
+		name: "uq_hp_payment_orders_registration_record_code_hash",
+		columns: ["registration_self_pay_record_code_hash"],
+	},
+	{
 		table: "hp_payment_prepay_attempts",
 		name: "uq_hp_prepay_owner_order_idempotency",
 		columns: ["owner_user_id", "order_id", "idempotency_key"],
@@ -726,6 +754,16 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		table: "hp_medical_insurance_orders",
 		name: "uq_hp_mi_orders_wechat_mix_trade_no",
 		columns: ["wechat_mix_trade_no"],
+	},
+	{
+		table: "hp_yunhealth_payment_query_references",
+		name: "uq_hp_yunhealth_query_order_component",
+		columns: ["medical_order_id", "component_id"],
+	},
+	{
+		table: "hp_yunhealth_payment_query_references",
+		name: "ix_hp_yunhealth_query_owner_order",
+		columns: ["owner_user_id", "medical_order_id"],
 	},
 	{
 		table: "hp_medical_insurance_query_tasks",
@@ -882,6 +920,20 @@ export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 		columns: ["owner_user_id", "patient_id"],
 		referencedTable: "hp_patients",
 		referencedColumns: ["owner_user_id", "patient_id"],
+	},
+	{
+		table: "hp_yunhealth_payment_query_references",
+		name: "fk_hp_yunhealth_query_medical_order",
+		columns: ["medical_order_id"],
+		referencedTable: "hp_medical_insurance_orders",
+		referencedColumns: ["medical_order_id"],
+	},
+	{
+		table: "hp_yunhealth_payment_query_references",
+		name: "fk_hp_yunhealth_query_owner",
+		columns: ["owner_user_id"],
+		referencedTable: "hp_identity_users",
+		referencedColumns: ["user_id"],
 	},
 	{
 		table: "hp_appointment_holds",

@@ -29,6 +29,7 @@ import { PatientBindingService, patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
 import type { RegistrationPaymentExitService } from "./modules/payments/registration-payment-exit-service";
 import type { RegistrationSelfPayService } from "./modules/payments/registration-self-pay-service";
+import { yunhealthPaymentQueryModule } from "./modules/payments/yunhealth-payment-query";
 import { profileModule } from "./modules/profile";
 import { reportsModule } from "./modules/reports";
 import { systemModule } from "./modules/system";
@@ -51,6 +52,8 @@ export type AppOptions = {
 	wechatPaymentEnabled?: boolean;
 	/** 挂号自费与普通自费共用官方微信支付 APIv3。 */
 	registrationSelfPayEnabled?: boolean;
+	/** 临时联调：false 时不注册众阳 2.6.65.9 反向查询路由。 */
+	yunhealthPaymentQueryEnabled?: boolean;
 	/**
 	 * 医保结算通知模块；未传入 service 时不注册路由（组合根级 fail-closed）。
 	 * 生产组合根只有在 MEDICAL_INSURANCE_READY 与完整密钥配置下才构造。
@@ -211,6 +214,12 @@ export function createApp(options: AppOptions = {}) {
 		.use(errorHandlerPlugin())
 		.use(openApiPlugin())
 		.use(healthModule(readiness))
+		.use(
+			options.yunhealthPaymentQueryEnabled !== false &&
+				services.yunhealthPaymentQuery
+				? yunhealthPaymentQueryModule(services.yunhealthPaymentQuery, logger)
+				: new Elysia({ name: "yunhealth-payment-query-not-configured" }),
+		)
 		.group("/api/v1", (api) =>
 			api
 				.use(systemModule())

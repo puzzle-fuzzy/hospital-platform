@@ -277,6 +277,9 @@ const hospitalSettlementGateway =
 				paymentSource: config.yunhealthRegistrationPaymentSource,
 				authSysCode: config.yunhealthRegistrationAuthSysCode,
 				tradeTypeCode: config.yunhealthRegistrationTradeTypeCode,
+				...(config.wechatPayAppId
+					? { miniProgramAppId: config.wechatPayAppId }
+					: {}),
 				logger,
 			})
 		: undefined;
@@ -296,6 +299,9 @@ const registrationSelfPayPreparationGateway =
 				paymentSource: config.yunhealthRegistrationPaymentSource,
 				authSysCode: config.yunhealthRegistrationAuthSysCode,
 				tradeTypeCode: config.yunhealthRegistrationTradeTypeCode,
+				...(config.wechatPayAppId
+					? { miniProgramAppId: config.wechatPayAppId }
+					: {}),
 				logger,
 			})
 		: undefined;
@@ -314,6 +320,9 @@ const yunhealthRegistrationPluginPaymentGateway =
 				paymentSource: config.yunhealthRegistrationPaymentSource,
 				authSysCode: config.yunhealthRegistrationAuthSysCode,
 				tradeTypeCode: config.yunhealthRegistrationTradeTypeCode,
+				...(config.wechatPayAppId
+					? { miniProgramAppId: config.wechatPayAppId }
+					: {}),
 				logger,
 			})
 		: undefined;
@@ -433,7 +442,7 @@ const medicalInsuranceGateway =
 				userQueryPath: config.medicalInsuranceUserQueryPath,
 				orgCode: config.medicalInsuranceOrgCode,
 				hospitalId: config.medicalInsuranceHospitalId,
-				insutype: config.medicalInsuranceInsutype,
+				insutypes: config.medicalInsuranceInsutypes,
 				insuCode: config.medicalInsuranceInsuCode,
 				logger,
 			})
@@ -559,6 +568,8 @@ const app = createApp({
 	services,
 	wechatPaymentEnabled,
 	registrationSelfPayEnabled: wechatPaymentEnabled,
+	// 临时联调：只验证 `.2 -> 支付 -> .5`，暂停 .9。
+	yunhealthPaymentQueryEnabled: false,
 	...(wechatMedicalInsurancePaymentNotification
 		? { wechatMedicalInsurancePaymentNotification }
 		: {}),

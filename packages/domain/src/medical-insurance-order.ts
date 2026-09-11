@@ -3,7 +3,11 @@ import type {
 	MedicalInsuranceOrderType,
 } from "./medical-insurance-business";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
-import type { WechatMedicalInsurancePayParams } from "./ports";
+import type {
+	WechatMedicalInsurancePayParams,
+	YunhealthMiniProgramPayParams,
+	YunhealthMiniProgramPrepay,
+} from "./ports";
 
 /**
  * 医保订单域（F 批次）。
@@ -382,16 +386,37 @@ export type MedicalInsurancePostPaymentComponent = {
 	totalFen: number;
 	amountFen: number;
 	payModel: "H5" | "MINI_PROGRAM";
-	payTypeId: "2" | "3" | "50" | "5027";
+	payTypeId: "2" | "3" | "5" | "31" | "50" | "5027";
 	recordCode: string;
 	state: MedicalInsurancePostPaymentComponentState;
 	attempts: number;
 	payingId?: string;
 	tradingId?: string;
 	providerRequestId?: string;
+	/** wechat_cash 分项由 .2 返回的 APIv2/MD5 收银台参数。 */
+	payParams?: YunhealthMiniProgramPayParams;
+	/** wechat_cash 分项在微信侧真实使用的 out_trade_no。 */
+	wechatOutTradeNo?: string;
 	lastErrorCode?: string;
 	updatedAt: string;
 };
+
+/** 从加密结算上下文提取可直接复用的众阳 .2 微信现金预支付。 */
+export function medicalInsuranceCashPrepay(
+	context: MedicalInsuranceSettlementContext | undefined,
+): YunhealthMiniProgramPrepay | undefined {
+	const component = context?.postPaymentComponents?.find(
+		(item) => item.kind === "wechat_cash" && item.state === "succeeded",
+	);
+	if (!component?.payParams || !component.wechatOutTradeNo) return undefined;
+	const match = /^prepay_id=(\S+)$/u.exec(component.payParams.package);
+	if (!match?.[1]) return undefined;
+	return {
+		outTradeNo: component.wechatOutTradeNo,
+		prepayId: match[1],
+		payParams: component.payParams,
+	};
+}
 
 export type MedicalInsurancePluginPaymentState =
 	| "preorder_created"
@@ -747,6 +772,22 @@ export interface MedicalInsuranceOrderRepository {
 		ownerUserId: string,
 		medicalOrderId: string,
 	): Promise<MedicalInsuranceSettlementContext | undefined>;
+	/** 为众阳 .9 保存不可逆 recordCode 索引；明文仍只存在医保结算密文中。 */
+	saveYunhealthPaymentQueryReference(input: {
+		ownerUserId: string;
+		medicalOrderId: string;
+		componentId: string;
+		recordCode: string;
+	}): Promise<void>;
+	/** 众阳 .9 按 .2 recordCode 精确读取同一笔后置支付分项。 */
+	findByYunhealthPaymentRecordCode(recordCode: string): Promise<
+		| {
+				order: MedicalInsuranceOrder;
+				context: MedicalInsuranceSettlementContext;
+				component: MedicalInsurancePostPaymentComponent;
+		  }
+		| undefined
+	>;
 	applySettlement(
 		medicalOrderId: string,
 		expectedVersion: number,

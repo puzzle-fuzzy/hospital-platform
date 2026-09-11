@@ -649,7 +649,7 @@ export function createWorkerRuntime(
 					userQueryPath: runtimeConfig.medicalInsuranceUserQueryPath,
 					orgCode: runtimeConfig.medicalInsuranceOrgCode,
 					hospitalId: runtimeConfig.medicalInsuranceHospitalId,
-					insutype: runtimeConfig.medicalInsuranceInsutype,
+					insutypes: runtimeConfig.medicalInsuranceInsutypes,
 					insuCode: runtimeConfig.medicalInsuranceInsuCode,
 					logger,
 				})

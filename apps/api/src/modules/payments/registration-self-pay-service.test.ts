@@ -163,7 +163,7 @@ test("新自费订单先完成并保存 .1/.32/.2 上下文，再创建微信 AP
 		patInHosId: "0",
 		outTradeNo: "payment-order-new-001",
 		recordCode: "0123456789abcdef0123456789abcdef",
-		payTypeId: "5027",
+		payTypeId: "31",
 		payType: "CREDIT" as const,
 		workStationId: "",
 	};

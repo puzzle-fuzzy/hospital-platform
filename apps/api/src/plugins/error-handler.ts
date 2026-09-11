@@ -139,6 +139,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-appointment-stale": 30530,
 	"medical-insurance-payment-in-progress": 30540,
 	"medical-insurance-cancellation-context-missing": 30550,
+	"medical-insurance-insutype-unavailable": 30560,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -318,6 +319,13 @@ export function errorHandlerPlugin() {
 					return errorPayload(
 						"appointment-source-unavailable",
 						"指定号源刚刚发生变化，请刷新后重试",
+					);
+				}
+				if (error.reason === "medical-insurance-insutype-unavailable") {
+					set.status = 409;
+					return errorPayload(
+						"medical-insurance-insutype-unavailable",
+						"当前就诊人未查询到可用于本次支付的有效医保参保信息，请确认是否改用普通自费支付",
 					);
 				}
 				if (error.reason === "medical-insurance-payment-in-progress") {

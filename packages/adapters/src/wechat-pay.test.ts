@@ -1112,6 +1112,7 @@ test("微信订单查询只把已验签的 SUCCESS 映射为 cash_paid", async (
 		gateway.query({ orderId: "order-003" }, context),
 	).resolves.toEqual({
 		state: "cash_paid",
+		providerState: "SUCCESS",
 		totalFen: 300,
 		trace: {
 			provider: "wechat-pay",

@@ -20,7 +20,12 @@ export type {
 	ProviderRequestLogger,
 	ProviderResponse,
 } from "./http";
-export { configureProviderRequestLogger, requestJson } from "./http";
+export {
+	configureProviderRequestLogger,
+	emitRawBodyLog,
+	providerRawLoggingEnabled,
+	requestJson,
+} from "./http";
 export {
 	classifyLegacyFsiOrderStatus,
 	LEGACY_FSI_ROUTES,

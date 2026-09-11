@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { ProviderRequestError } from "./errors";
 import type { ProviderFetcher, ProviderRequestLogger } from "./http";
 import {
 	createYunhealthRegistrationPluginPaymentGateway,
@@ -10,6 +9,15 @@ import {
 const context = {
 	traceId: "registration-self-pay-trace-001",
 	idempotencyKey: "registration-self-pay-request-001",
+};
+
+const yunhealthMd5Result = {
+	appId: "wx1234567890abcdef",
+	timeStamp: "1789000000",
+	nonceStr: "0123456789abcdef0123456789abcdef",
+	package: "prepay_id=wx-provider-prepay-001",
+	signType: "MD5",
+	sign: "0123456789abcdef0123456789abcdef",
 };
 
 const registrationContext = {
@@ -23,6 +31,8 @@ const registrationContext = {
 	psnName: "测试患者",
 	psnNo: "P000001",
 	patInHosId: "0",
+	outTradeNo: "payment-order-001",
+	recordCode: "0123456789abcdef0123456789abcdef",
 	payTypeId: "5027",
 	payType: "CREDIT" as const,
 };
@@ -32,14 +42,14 @@ function gateway(fetcher: ProviderFetcher, workStationId = "") {
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "5027",
+		pluginPayTypeId: "31",
 		pluginPayType: "CREDIT",
 		workStationId,
 		fetcher,
 	});
 }
 
-test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插件流水号", async () => {
+test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返回插件流水号", async () => {
 	let request:
 		| {
 				url: string;
@@ -51,7 +61,7 @@ test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "5027",
+		pluginPayTypeId: "31",
 		pluginPayType: "CREDIT",
 		workStationId: "registration-machine-01",
 		fetcher: async (input, init) => {
@@ -78,9 +88,8 @@ test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插
 			totalFen: 1234,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "5027",
-			payModel: "MINI_PROGRAM",
-			paymentSystemUserId: "openid-mini-program-001",
+			payTypeId: "31",
+			payModel: "H5",
 			payType: "CREDIT",
 			workStationId: "registration-machine-01",
 			recordCode: "0123456789abcdef0123456789abcdef",
@@ -97,11 +106,11 @@ test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插
 		appCode: "WeChatSmallProg",
 		authSysCode: "thirdSelfMachine",
 		autoSettle: 3,
+		body: "自费支付",
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,
-		payModel: "MINI_PROGRAM",
-		payTypeId: 5027,
-		paymentSystemUserId: "openid-mini-program-001",
+		payModel: "H5",
+		payTypeId: 31,
 		recordCode: "0123456789abcdef0123456789abcdef",
 		requestId: "0123456789abcdef0123456789abcdef",
 		sceneCode: "WeChatSmallProgram",
@@ -112,16 +121,16 @@ test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插
 	});
 	expect(request?.body.payTypeParams).toEqual([
 		{
-			payTypeId: 5027,
+			payTypeId: 31,
 			amount: 12.34,
-			paymentSystemUserId: "openid-mini-program-001",
+			paymentSystemUserId: "",
 			spbillCreateIp: "",
 		},
 	]);
 	expect(result).toMatchObject({
 		payingId: "500001",
 		tradingId: "500002",
-		payTypeId: "5027",
+		payTypeId: "31",
 		payType: "CREDIT",
 		workStationId: "registration-machine-01",
 		tradeTypeCode: "10",
@@ -132,13 +141,67 @@ test("云健康插件版第二次 .2 对5027使用小程序模式并只返回插
 	});
 });
 
+test("云健康 .2 将 result 的 MD5 sign 安全投影为小程序 paySign", async () => {
+	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		paymentOrgId: "10756",
+		pluginPayTypeId: "31",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		miniProgramAppId: yunhealthMd5Result.appId,
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						payingId: 500001,
+						tradingId: 500002,
+						payRecord: { outTradeNo: "REGISTRATION-001" },
+						result: JSON.stringify(yunhealthMd5Result),
+					},
+				}),
+				{ status: 200, headers: { "x-request-id": "yunhealth-md5-2" } },
+			),
+	});
+
+	const result = await gatewayInstance.createPreOrder(
+		{
+			orderId: "self-pay-order-md5",
+			businessId: "settlement-business-001",
+			tradeCode: "REGISTRATION-001",
+			totalFen: 1234,
+			hospitalId: "10389001",
+			patientId: "100001",
+			payTypeId: "31",
+			payModel: "MINI_PROGRAM",
+			paymentSystemUserId: "openid-md5-001",
+			payType: "CREDIT",
+			workStationId: "",
+			recordCode: "0123456789abcdef0123456789abcdef",
+			tradeTypeCode: "10",
+		},
+		context,
+	);
+
+	expect(result.payParams).toEqual({
+		appId: yunhealthMd5Result.appId,
+		timeStamp: yunhealthMd5Result.timeStamp,
+		nonceStr: yunhealthMd5Result.nonceStr,
+		package: yunhealthMd5Result.package,
+		signType: "MD5",
+		paySign: yunhealthMd5Result.sign,
+	});
+	expect(result.outTradeNo).toBe("REGISTRATION-001");
+});
+
 test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", async () => {
 	let body: Record<string, unknown> | undefined;
 	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "5027",
+		pluginPayTypeId: "31",
 		pluginPayType: "CREDIT",
 		workStationId: "registration-machine-01",
 		fetcher: async (_input, init) => {
@@ -146,7 +209,12 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 			return new Response(
 				JSON.stringify({
 					success: true,
-					data: { payingId: 600001, tradingId: 600002 },
+					data: {
+						payingId: 600001,
+						tradingId: 600002,
+						payRecord: { outTradeNo: "REGISTRATION-001" },
+						result: JSON.stringify(yunhealthMd5Result),
+					},
 				}),
 				{ status: 200, headers: { "x-request-id": "yunhealth-component-2" } },
 			);
@@ -162,7 +230,7 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 			amountFen: 3_000,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "5027",
+			payTypeId: "31",
 			payModel: "MINI_PROGRAM",
 			paymentSystemUserId: "openid-component-001",
 			payType: "CREDIT",
@@ -177,98 +245,64 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 		autoSettle: 3,
 		total: 100,
 		payModel: "MINI_PROGRAM",
-		payTypeId: 5027,
-		paymentSystemUserId: "openid-component-001",
-		payTypeParams: [
-			{
-				payTypeId: 5027,
-				amount: 30,
-				paymentSystemUserId: "openid-component-001",
-			},
-		],
+		payTypeId: 31,
+		payTypeParams: [{ payTypeId: 31, amount: 30 }],
 	});
 });
 
-test("云健康小程序 .2 缺少 openid 时在发送前失败", async () => {
-	let requested = false;
+test("医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结果", async () => {
+	let request:
+		| { path: string; body: Record<string, unknown>; headers: Headers }
+		| undefined;
 	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "5027",
+		pluginPayTypeId: "31",
 		pluginPayType: "CREDIT",
-		workStationId: "",
-		fetcher: async () => {
-			requested = true;
-			return new Response(JSON.stringify({ success: true }));
+		workStationId: "registration-machine-01",
+		fetcher: async (input, init) => {
+			request = {
+				path: new URL(String(input)).pathname,
+				body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+				headers: new Headers(init?.headers),
+			};
+			return new Response(
+				JSON.stringify({ success: true, data: { isSettle: 1 } }),
+				{ status: 200, headers: { "x-request-id": "yunhealth-complete-5" } },
+			);
 		},
 	});
 
 	await expect(
-		gatewayInstance.createPreOrder(
+		gatewayInstance.completeSettlement!(
 			{
-				orderId: "medical-order-missing-openid",
 				businessId: "settlement-business-001",
-				tradeCode: "REGISTRATION-001",
-				totalFen: 1234,
 				hospitalId: "10389001",
-				patientId: "100001",
-				payTypeId: "5027",
-				payModel: "MINI_PROGRAM",
-				payType: "CREDIT",
-				workStationId: "",
-				recordCode: "0123456789abcdef0123456789abcdef",
+				workStationId: "registration-machine-01",
 				tradeTypeCode: "10",
 			},
 			context,
 		),
-	).rejects.toMatchObject({
-		name: "ProviderRequestError",
-		failureStage: "validation",
-		requestOutcome: "not_sent",
+	).resolves.toMatchObject({
+		operation: "registration-self-pay.2.6.65.5",
+		requestId: "yunhealth-complete-5",
 	});
-	expect(requested).toBeFalse();
-});
-
-test("云健康 .2 拒绝5027回退到H5", async () => {
-	let requested = false;
-	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
-		baseUrl: "https://yunhealth.example.test",
-		authorizationToken: "server-token",
-		paymentOrgId: "10756",
-		pluginPayTypeId: "5027",
-		pluginPayType: "CREDIT",
-		workStationId: "",
-		fetcher: async () => {
-			requested = true;
-			return new Response(JSON.stringify({ success: true }));
-		},
+	expect(request?.path).toBe(
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	);
+	expect(request?.headers.get("authorization")).toBe("Bearer server-token");
+	expect(request?.body).toEqual({
+		appCode: "WeChatSmallProg",
+		authSysCode: "thirdSelfMachine",
+		autoSettle: 2,
+		businessId: "settlement-business-001",
+		hospitalId: 10389001,
+		sceneCode: "WeChatSmallProgram",
+		thirdFlag: 1,
+		tradeTypeCode: "10",
+		workStationId: "registration-machine-01",
 	});
-
-	await expect(
-		gatewayInstance.createPreOrder(
-			{
-				orderId: "medical-order-invalid-h5-5027",
-				businessId: "settlement-business-001",
-				tradeCode: "REGISTRATION-001",
-				totalFen: 1234,
-				hospitalId: "10389001",
-				patientId: "100001",
-				payTypeId: "5027",
-				payModel: "H5",
-				payType: "CREDIT",
-				workStationId: "",
-				recordCode: "0123456789abcdef0123456789abcdef",
-				tradeTypeCode: "10",
-			},
-			context,
-		),
-	).rejects.toMatchObject({
-		name: "ProviderRequestError",
-		failureStage: "validation",
-		requestOutcome: "not_sent",
-	});
-	expect(requested).toBeFalse();
 });
 
 test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", async () => {
@@ -292,7 +326,7 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 			baseUrl: "https://yunhealth.example.test",
 			authorizationToken: "server-token",
 			paymentOrgId: "10756",
-			pluginPayTypeId: "5027",
+			pluginPayTypeId: "31",
 			pluginPayType: "CREDIT",
 			workStationId: "",
 			logger,
@@ -317,9 +351,8 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 					totalFen: 1234,
 					hospitalId: "10389001",
 					patientId: "100001",
-					payTypeId: "5027",
-					payModel: "MINI_PROGRAM",
-					paymentSystemUserId: "openid-rejected-001",
+					payTypeId: "31",
+					payModel: "H5",
 					payType: "CREDIT",
 					workStationId: "",
 					recordCode: "0123456789abcdef0123456789abcdef",
@@ -358,17 +391,17 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 	}
 });
 
-test("云健康插件版第二次 .2 拒绝把个人账户 payTypeId=5 当作微信自费", async () => {
-	let requested = false;
+test("医保支付后置 .2 个人账户分项使用 payTypeId=5 和 H5", async () => {
+	let body: Record<string, unknown> | undefined;
 	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "5027",
+		pluginPayTypeId: "31",
 		pluginPayType: "CREDIT",
 		workStationId: "",
-		fetcher: async () => {
-			requested = true;
+		fetcher: async (_input, init) => {
+			body = JSON.parse(String(init?.body)) as Record<string, unknown>;
 			return new Response(
 				JSON.stringify({
 					success: true,
@@ -379,30 +412,30 @@ test("云健康插件版第二次 .2 拒绝把个人账户 payTypeId=5 当作微
 		},
 	});
 
-	await expect(
-		gatewayInstance.createPreOrder(
-			{
-				orderId: "medical-order-account",
-				businessId: "settlement-business-001",
-				tradeCode: "REGISTRATION-001",
-				totalFen: 1234,
-				hospitalId: "10389001",
-				patientId: "100001",
-				payTypeId: "5",
-				payModel: "H5",
-				payType: "CREDIT",
-				workStationId: "",
-				recordCode: "0123456789abcdef0123456789abcdef",
-				tradeTypeCode: "10",
-			},
-			context,
-		),
-	).rejects.toMatchObject({
-		name: "ProviderRequestError",
-		failureStage: "validation",
-		requestOutcome: "not_sent",
+	const result = await gatewayInstance.createPreOrder(
+		{
+			orderId: "medical-order-account",
+			businessId: "settlement-business-001",
+			tradeCode: "REGISTRATION-001",
+			totalFen: 1234,
+			hospitalId: "10389001",
+			patientId: "100001",
+			payTypeId: "5",
+			payModel: "H5",
+			payType: "CREDIT",
+			workStationId: "",
+			recordCode: "0123456789abcdef0123456789abcdef",
+			tradeTypeCode: "10",
+		},
+		context,
+	);
+
+	expect(body).toMatchObject({
+		payModel: "H5",
+		payTypeId: 5,
+		payTypeParams: [{ payTypeId: 5, amount: 12.34 }],
 	});
-	expect(requested).toBeFalse();
+	expect(result.payTypeId).toBe("5");
 });
 
 test("旧服务允许 Token 为空时云健康请求不发送授权头", async () => {
@@ -411,7 +444,7 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "5027",
+		pluginPayTypeId: "31",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		fetcher: async (_input, init) => {
@@ -437,9 +470,8 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 			totalFen: 1234,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "5027",
-			payModel: "MINI_PROGRAM",
-			paymentSystemUserId: "openid-no-auth-001",
+			payTypeId: "31",
+			payModel: "H5",
 			payType: "CREDIT",
 			workStationId: "",
 			recordCode: "0123456789abcdef0123456789abcdef",
@@ -451,16 +483,13 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 	expect(headers?.get("authorization")).toBeNull();
 });
 
-test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算确认", async () => {
+test("云健康非 HIS 收款只调用 .5 并要求最终结算确认", async () => {
 	const requests: Array<{
 		path: string;
 		body: Record<string, unknown>;
 		headers: Headers;
 	}> = [];
 	let call = 0;
-	let savedThirdPartResponse:
-		| { rawResponse: string; thirdPartPayRecordId: string }
-		| undefined;
 	const gatewayInstance = gateway(async (input, init) => {
 		requests.push({
 			path: new URL(String(input)).pathname,
@@ -468,12 +497,7 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 			headers: new Headers(init?.headers),
 		});
 		call += 1;
-		const body =
-			call === 1
-				? { success: true, data: { thirdPartPayRecordId: 900001 } }
-				: call === 2
-					? { success: true, data: { accepted: true } }
-					: { success: true, data: { isSettle: 1 } };
+		const body = { success: true, data: { isSettle: 1 } };
 		return new Response(JSON.stringify(body), {
 			status: 200,
 			headers: { "x-request-id": `yunhealth-request-${call}` },
@@ -492,16 +516,11 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 				trace: [],
 			},
 			registrationContext,
-			onThirdPartPayResponse: async (response) => {
-				savedThirdPartResponse = response;
-			},
 		},
 		context,
 	);
 
 	expect(requests.map((request) => request.path)).toEqual([
-		"/msun-yb-app-miop/thirdPartPay/start",
-		"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
 		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
 	expect(
@@ -510,162 +529,24 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并要求最终结算�
 				request.headers.get("authorization") === "Bearer server-token",
 		),
 	).toBeTrue();
-	expect(requests[0]?.body).toMatchObject({
-		agreementNo: "payment-order-001",
-		patId: "100001",
-		patInHosId: 0,
-		payFee: 12.34,
-		payType: "CREDIT",
-		payTypeId: 5027,
-		payingId: "260650000000001",
-		settleId: "settlement-business-001",
-		tradingId: "260650000000002",
-	});
-	const notifyBody = requests[1]?.body;
-	const requestParam = JSON.parse(String(notifyBody?.requestParam)) as {
-		payingType: string;
-		recordList: Array<Record<string, unknown>>;
-	};
-	expect(requestParam).toEqual({
-		payingType: "1",
-		recordList: [
-			{
-				payingId: "260650000000001",
-				payTypeId: 5027,
-				receiveAmount: 12.34,
-				recordCode: expect.stringMatching(/^[a-f0-9]{32}$/u),
-				status: "3",
-				source: "1",
-			},
-		],
-	});
-	expect(requests[2]?.body).toEqual({
+	expect(requests[0]?.body).toEqual({
+		appCode: "WeChatSmallProg",
 		authSysCode: "thirdSelfMachine",
 		autoSettle: 2,
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,
+		sceneCode: "WeChatSmallProgram",
 		thirdFlag: 1,
 		tradeTypeCode: "10",
 		workStationId: "",
 	});
-	expect(savedThirdPartResponse).toEqual({
-		rawResponse: JSON.stringify({
-			success: true,
-			data: { thirdPartPayRecordId: 900001 },
-		}),
-		thirdPartPayRecordId: "900001",
-	});
 	expect(trace).toEqual({
 		provider: "yunhealth",
 		operation: "registration-self-pay.2.6.65.5",
-		requestId: "yunhealth-request-3",
-		requestIds: [
-			"yunhealth-request-1",
-			"yunhealth-request-2",
-			"yunhealth-request-3",
-		],
+		requestId: "yunhealth-request-1",
+		requestIds: ["yunhealth-request-1"],
 		providerOrderId: "settlement-business-001",
 	});
-});
-
-test("云健康 .29 已完成但未返回主键时从 .27 恢复并继续 .15 -> .5", async () => {
-	const requests: Array<{
-		path: string;
-		method: string;
-		url: string;
-		body?: Record<string, unknown>;
-	}> = [];
-	let call = 0;
-	let savedThirdPartResponse:
-		| { rawResponse: string; thirdPartPayRecordId: string }
-		| undefined;
-	const responses = [
-		{
-			success: false,
-			code: "BusinessExceptionErrorCode@third-part-pay@0004",
-			message: "当前支付记录已完成，请勿重复操作",
-			data: null,
-		},
-		{
-			success: true,
-			data: {
-				thirdPartPayRecordList: [
-					{
-						agreementNo: "payment-order-recover-001",
-						payingId: registrationContext.payingId,
-						tradingId: registrationContext.tradingId,
-						thirdPartPayRecordId: "9007199254740993",
-						transStatus: "0",
-					},
-				],
-			},
-		},
-		{ success: true, data: { accepted: true } },
-		{ success: true, data: { isSettle: 1 } },
-	];
-	const gatewayInstance = gateway(async (input, init) => {
-		const url = String(input);
-		const bodyText = String(init?.body ?? "");
-		requests.push({
-			path: new URL(url).pathname,
-			method: String(init?.method ?? "GET"),
-			url,
-			...(bodyText
-				? { body: JSON.parse(bodyText) as Record<string, unknown> }
-				: {}),
-		});
-		const body = responses[call];
-		call += 1;
-		return new Response(JSON.stringify(body), {
-			status: 200,
-			headers: { "x-request-id": `yunhealth-recover-${call}` },
-		});
-	});
-
-	const trace = await gatewayInstance.writeBack(
-		{
-			orderId: "payment-order-recover-001",
-			settlement: {
-				orderId: "payment-order-recover-001",
-				state: "cash_paid",
-				totalFen: 1000,
-				insuranceFen: 0,
-				cashFen: 1000,
-				trace: [],
-			},
-			registrationContext,
-			onThirdPartPayResponse: async (response) => {
-				savedThirdPartResponse = response;
-			},
-		},
-		context,
-	);
-
-	expect(requests.map((request) => request.path)).toEqual([
-		"/msun-yb-app-miop/thirdPartPay/start",
-		"/msun-yb-app-miop/v1/out-insur-settle-infos",
-		"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
-		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
-	]);
-	expect(requests.map((request) => request.method)).toEqual([
-		"POST",
-		"GET",
-		"POST",
-		"POST",
-	]);
-	expect(requests[1]?.url).toBe(
-		"https://yunhealth.example.test/msun-yb-app-miop/v1/out-insur-settle-infos?patId=100001&outSettleMainId=settlement-business-001",
-	);
-	expect(savedThirdPartResponse).toEqual({
-		rawResponse: JSON.stringify(responses[0]),
-		thirdPartPayRecordId: "9007199254740993",
-	});
-	expect(trace.requestIds).toEqual([
-		"yunhealth-recover-1",
-		"yunhealth-recover-2",
-		"yunhealth-recover-3",
-		"yunhealth-recover-4",
-	]);
 });
 
 test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整数流水", async () => {
@@ -712,7 +593,9 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 				payRecord: {
 					payingId: "1952638941030000002",
 					tradingId: "1952638941030000003",
+					outTradeNo: "REGISTRATION-SELF-001",
 				},
+				result: JSON.stringify(yunhealthMd5Result),
 			},
 		},
 	];
@@ -722,10 +605,11 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		authorizationToken: "",
 		paymentOrgId: "10756",
 		hospitalId: "10389001",
-		pluginPayTypeId: "5027",
+		pluginPayTypeId: "31",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		tradeTypeCode: "10",
+		miniProgramAppId: yunhealthMd5Result.appId,
 		fetcher: async (request, init) => {
 			const bodyText = String(init?.body ?? "");
 			requests.push({
@@ -751,7 +635,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 			totalFen: 1000,
 			providerRegisterId: "1952638941030000100",
 			providerPatientId: "1952638941030000200",
-			paymentSystemUserId: "openid-prepare-001",
+			paymentSystemUserId: "openid-self-001",
 			patient: {
 				name: "测试患者",
 				cardNo: "P000001",
@@ -776,14 +660,9 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 	});
 	expect(requests[2]?.body).toMatchObject({
 		payModel: "MINI_PROGRAM",
-		payTypeId: 5027,
-		paymentSystemUserId: "openid-prepare-001",
-		payTypeParams: [
-			{
-				payTypeId: 5027,
-				paymentSystemUserId: "openid-prepare-001",
-			},
-		],
+		payTypeId: 31,
+		paymentSystemUserId: "openid-self-001",
+		payTypeParams: [{ payTypeId: 31, paymentSystemUserId: "openid-self-001" }],
 	});
 	expect(requests[1]?.method).toBe("GET");
 	expect(requests[1]?.url).toBe(
@@ -797,42 +676,20 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		tradingId: "1952638941030000003",
 		patientId: "1952638941030000200",
 		outTradeNo: "payment-order-prepare-001",
+		payParams: {
+			appId: yunhealthMd5Result.appId,
+			timeStamp: yunhealthMd5Result.timeStamp,
+			nonceStr: yunhealthMd5Result.nonceStr,
+			package: yunhealthMd5Result.package,
+			signType: "MD5",
+			paySign: yunhealthMd5Result.sign,
+		},
 	});
 	expect(result.trace.requestIds).toEqual([
 		"prepare-1",
 		"prepare-2",
 		"prepare-3",
 	]);
-});
-
-test("云健康 .29 缺少 thirdPartPayRecordId 时停止后续 HIS 回写", async () => {
-	let calls = 0;
-	const gatewayInstance = gateway(async () => {
-		calls += 1;
-		return new Response(JSON.stringify({ success: true, data: {} }), {
-			status: 200,
-			headers: { "x-request-id": "yunhealth-invalid-29" },
-		});
-	});
-
-	await expect(
-		gatewayInstance.writeBack(
-			{
-				orderId: "payment-order-missing-record-id",
-				settlement: {
-					orderId: "payment-order-missing-record-id",
-					state: "cash_paid",
-					totalFen: 100,
-					insuranceFen: 0,
-					cashFen: 100,
-					trace: [],
-				},
-				registrationContext,
-			},
-			context,
-		),
-	).rejects.toBeInstanceOf(ProviderRequestError);
-	expect(calls).toBe(1);
 });
 
 test("云健康自费回写拒绝混合金额，不能发出任何请求", async () => {
@@ -866,12 +723,7 @@ test("云健康 .5 返回未结算时不返回成功 trace", async () => {
 	let calls = 0;
 	const gatewayInstance = gateway(async () => {
 		calls += 1;
-		const body =
-			calls === 1
-				? { success: true, data: { thirdPartPayRecordId: 900001 } }
-				: calls === 2
-					? { success: true, data: { accepted: true } }
-					: { success: true, data: { isSettle: 0 } };
+		const body = { success: true, data: { isSettle: 0 } };
 		return new Response(JSON.stringify(body), {
 			status: 200,
 			headers: { "x-request-id": `yunhealth-not-settled-${calls}` },
@@ -895,5 +747,5 @@ test("云健康 .5 返回未结算时不返回成功 trace", async () => {
 			context,
 		),
 	).rejects.toMatchObject({ requestOutcome: "unknown" });
-	expect(calls).toBe(3);
+	expect(calls).toBe(1);
 });

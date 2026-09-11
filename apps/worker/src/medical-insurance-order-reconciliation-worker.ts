@@ -17,6 +17,7 @@ import {
 	assertMedicalInsuranceOrderTransition,
 	isMedicalInsuranceOrderType,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+	medicalInsuranceCashPrepay,
 	medicalInsuranceOrderTypeForBusiness,
 	medicalInsurancePaymentBreakdown,
 } from "@hospital/domain";
@@ -48,7 +49,7 @@ function stableComponentCode(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 32);
 }
 
-function postPaymentComponents(input: {
+function expectedPrePaymentComponents(input: {
 	order: MedicalInsuranceOrder;
 	insuredAreaCode: string;
 	now: Date;
@@ -84,13 +85,13 @@ function postPaymentComponents(input: {
 			kind: "personal_account" as const,
 			amountFen: amounts.personalAccountFen,
 			payModel: "H5" as const,
-			payTypeId: "3" as const,
+			payTypeId: "5" as const,
 		},
 		{
 			kind: "wechat_cash" as const,
 			amountFen: breakdown.wechatCashFen,
 			payModel: "MINI_PROGRAM" as const,
-			payTypeId: "5027" as const,
+			payTypeId: "31" as const,
 		},
 	].filter((component) => component.amountFen > 0);
 	return definitions.map((component) => ({
@@ -109,7 +110,7 @@ function postPaymentComponents(input: {
 	}));
 }
 
-function samePostPaymentComponent(
+function samePrePaymentComponent(
 	left: MedicalInsurancePostPaymentComponent,
 	right: MedicalInsurancePostPaymentComponent,
 ): boolean {
@@ -367,6 +368,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 			return "manual_review";
 		}
+		const cashPrepay = medicalInsuranceCashPrepay(settlement);
 		const result = await gateway.recoverMixedOrder(
 			{
 				orderId: order.medicalOrderId,
@@ -382,6 +384,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				// 与授权/下单阶段的临时验收策略一致：unknown 暂按本人。
 				expectedPayForRelatives:
 					patient.relationship !== "self" && patient.relationship !== "unknown",
+				...(cashPrepay ? { cashPrepay } : {}),
 			},
 			context,
 		);
@@ -424,7 +427,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		return this.reconcileWechatMixedOrder(task, recovered, now, context);
 	}
 
-	private async completePostPaymentComponents(
+	private async completePrePaymentComponents(
 		order: MedicalInsuranceOrder,
 		wechatResult: Awaited<
 			ReturnType<MedicalInsuranceWechatPaymentGateway["queryMixedOrder"]>
@@ -440,9 +443,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		);
 		if (!settlement?.insuredAreaCode || !settlement.businessCode) return false;
 		const businessId = settlement.businessId;
-		const tradeCode = settlement.businessCode;
 		const hospitalId = settlement.hospitalId;
-		const patientId = settlement.patientId;
 		const expected = medicalInsurancePaymentBreakdown({
 			amounts: order.amounts,
 			orderType: order.orderType ?? "RegPay",
@@ -461,147 +462,27 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			throw new Error("medical-insurance-wechat-component-amount-mismatch");
 		}
 
-		const planned = postPaymentComponents({
+		const planned = expectedPrePaymentComponents({
 			order,
 			insuredAreaCode: settlement.insuredAreaCode,
 			now,
 		});
 		const saved = settlement.postPaymentComponents;
-		if (saved) {
-			if (
-				saved.length !== planned.length ||
-				saved.some(
-					(component, index) =>
-						!planned[index] ||
-						!samePostPaymentComponent(component, planned[index]),
-				)
-			) {
-				throw new Error("medical-insurance-post-payment-plan-changed");
-			}
-		} else {
-			settlement = { ...settlement, postPaymentComponents: planned };
-			await this.dependencies.orders.saveSettlementContext(
-				order.ownerUserId,
-				order.medicalOrderId,
-				settlement,
-			);
+		if (!saved) {
+			throw new Error("medical-insurance-pre-payment-components-missing");
 		}
-
-		for (const plannedComponent of planned) {
-			settlement =
-				(await this.dependencies.orders.getSettlementContext(
-					order.ownerUserId,
-					order.medicalOrderId,
-				)) ?? settlement;
-			const components: MedicalInsurancePostPaymentComponent[] = [
-				...(settlement.postPaymentComponents ?? planned),
-			];
-			const index = components.findIndex(
-				(component) => component.componentId === plannedComponent.componentId,
-			);
-			const current = components[index];
-			if (!current)
-				throw new Error("medical-insurance-post-payment-component-missing");
-			if (current.state === "succeeded") continue;
-
-			const attempted: MedicalInsurancePostPaymentComponent = {
-				...current,
-				state: "pending",
-				attempts: current.attempts + 1,
-				updatedAt: now.toISOString(),
-			};
-			components[index] = attempted;
-			settlement = { ...settlement, postPaymentComponents: components };
-			await this.dependencies.orders.saveSettlementContext(
-				order.ownerUserId,
-				order.medicalOrderId,
-				settlement,
-			);
-
-			try {
-				const paymentSystemUserId =
-					attempted.payModel === "MINI_PROGRAM"
-						? (
-								await this.dependencies.identityUsers?.findByUserId(
-									order.ownerUserId,
-								)
-							)?.providerSubject
-						: undefined;
-				if (attempted.payModel === "MINI_PROGRAM" && !paymentSystemUserId) {
-					throw new Error("medical-insurance-post-payment-openid-missing");
-				}
-				const result = await gateway.createPreOrder(
-					{
-						orderId: attempted.componentId,
-						businessId,
-						tradeCode,
-						totalFen: attempted.totalFen,
-						amountFen: attempted.amountFen,
-						hospitalId,
-						patientId,
-						payTypeId: attempted.payTypeId,
-						payModel: attempted.payModel,
-						...(paymentSystemUserId ? { paymentSystemUserId } : {}),
-						payType: this.dependencies.postPaymentPayType ?? "CREDIT",
-						workStationId: this.dependencies.postPaymentWorkStationId ?? "",
-						recordCode: attempted.recordCode,
-						tradeTypeCode: this.dependencies.postPaymentTradeTypeCode ?? "10",
-					},
-					{
-						...context,
-						idempotencyKey: `medical-post-payment:${attempted.componentId}`,
-					},
-				);
-				const succeeded: MedicalInsurancePostPaymentComponent = {
-					...attempted,
-					state: "succeeded",
-					payingId: result.payingId,
-					tradingId: result.tradingId,
-					providerRequestId: result.trace.requestId,
-					updatedAt: now.toISOString(),
-				};
-				components[index] = succeeded;
-				settlement = {
-					...settlement,
-					payingId: result.payingId,
-					tradingId: result.tradingId,
-					postPaymentComponents: components,
-				};
-				await this.dependencies.orders.saveSettlementContext(
-					order.ownerUserId,
-					order.medicalOrderId,
-					settlement,
-				);
-				this.logger.info(
-					{
-						event: "medical-insurance.post-payment-component.succeeded",
-						orderId: order.medicalOrderId,
-						component: succeeded.kind,
-						amountFen: succeeded.amountFen,
-						payModel: succeeded.payModel,
-						payTypeId: succeeded.payTypeId,
-						providerRequestId: result.trace.requestId,
-					},
-					"Medical insurance post-payment component persisted",
-				);
-			} catch (error) {
-				const metadata = providerFailureMetadata(error);
-				components[index] = {
-					...attempted,
-					state: "failed",
-					lastErrorCode:
-						metadata.providerErrorCode ??
-						metadata.providerFailureReason ??
-						"post-payment-component-failed",
-					updatedAt: now.toISOString(),
-				};
-				await this.dependencies.orders.saveSettlementContext(
-					order.ownerUserId,
-					order.medicalOrderId,
-					{ ...settlement, postPaymentComponents: components },
-				);
-				throw error;
-			}
+		if (
+			saved.length !== planned.length ||
+			saved.some(
+				(component, index) =>
+					!planned[index] ||
+					!samePrePaymentComponent(component, planned[index]),
+			)
+		) {
+			throw new Error("medical-insurance-pre-payment-plan-changed");
+		}
+		if (saved.some((component) => component.state !== "succeeded")) {
+			throw new Error("medical-insurance-pre-payment-components-incomplete");
 		}
 
 		settlement =
@@ -610,6 +491,21 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				order.medicalOrderId,
 			)) ?? settlement;
 		if (!settlement.postPaymentCompletedAt) {
+			if (!gateway.completeSettlement) {
+				throw new Error("yunhealth-complete-settlement-not-configured");
+			}
+			await gateway.completeSettlement(
+				{
+					businessId,
+					hospitalId,
+					workStationId: this.dependencies.postPaymentWorkStationId ?? "",
+					tradeTypeCode: this.dependencies.postPaymentTradeTypeCode ?? "10",
+				},
+				{
+					...context,
+					idempotencyKey: `medical-post-payment-complete:${order.medicalOrderId}`,
+				},
+			);
 			settlement = {
 				...settlement,
 				postPaymentCompletedAt: now.toISOString(),
@@ -772,7 +668,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				settlementBeforeQuery?.insuredAreaCode &&
 				settlementBeforeQuery.businessCode
 			) {
-				hisCompleted = await this.completePostPaymentComponents(
+				hisCompleted = await this.completePrePaymentComponents(
 					updated,
 					result,
 					now,

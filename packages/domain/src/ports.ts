@@ -132,6 +132,14 @@ export type ExternalTrace = {
 
 /** 微信查单 adapter 只允许返回三种可编排状态，其他 provider 状态必须 fail-closed。 */
 export type WechatPaymentQueryState = "cash_pending" | "cash_paid" | "failed";
+export type WechatPaymentProviderState =
+	| "SUCCESS"
+	| "REFUND"
+	| "NOTPAY"
+	| "CLOSED"
+	| "REVOKED"
+	| "USERPAYING"
+	| "PAYERROR";
 
 /**
  * 医保 provider 的结算状态只能映射到医保阶段，不能直接宣称微信已支付或 HIS 已回写。
@@ -214,7 +222,7 @@ export type RegistrationSelfPaySettlementContext = {
 	businessCode?: string;
 	payingId: string;
 	tradingId: string;
-	/** 旧云健康插件 .29/.15/.5 所需的服务端结算上下文。 */
+	/** 众阳 .2/.5 及其反向 .9 查单所需的服务端结算上下文。 */
 	hospitalId?: string;
 	patientId?: string;
 	certNo?: string;
@@ -222,22 +230,21 @@ export type RegistrationSelfPaySettlementContext = {
 	psnName?: string;
 	psnNo?: string;
 	patInHosId?: string;
-	/** 插件订单与 .29 agreementNo 共用的微信 out_trade_no。 */
+	/** 众阳 .9 最终用于微信查单的 out_trade_no。 */
 	outTradeNo?: string;
 	/** 订单创建时固化的 32 位 recordCode；重试不得重新生成。 */
 	recordCode?: string;
 	payTypeId?: string;
 	payType?: "CREDIT" | "POS" | "CROWD_FUNDING";
 	workStationId?: string;
+	/** 2.6.65.2 返回并由服务端校验后的 APIv2 小程序收银台参数。 */
+	payParams?: YunhealthMiniProgramPayParams;
 	thirdPartPayRecordId?: string;
 	/** 仅允许保存在服务端 AES-GCM 密文中，不得写入日志或 API 响应。 */
 	thirdPartPayRawResponse?: string;
 };
 
-/**
- * .29 成功后可选的内部留存回调。rawResponse 只允许进入服务端加密上下文，
- * 不得进入 ExternalTrace、日志、API response 或任何业务判断。
- */
+/** 旧插件链路兼容回调；非 HIS .5/.9 流程不会调用。 */
 export type HospitalSettlementThirdPartPayResponse = {
 	rawResponse: string;
 	thirdPartPayRecordId: string;
@@ -258,6 +265,29 @@ export type WechatMiniProgramPayParams = {
 	paySign: string;
 };
 
+/** 众阳 2.6.65.2 返回的 APIv2 小程序支付调起参数。 */
+export type YunhealthMiniProgramPayParams = {
+	appId: string;
+	timeStamp: string;
+	nonceStr: string;
+	package: string;
+	signType: "MD5";
+	/** Provider 原始字段名为 sign；服务端投影为微信小程序要求的 paySign。 */
+	paySign: string;
+};
+
+/** 众阳 .2 已创建的微信 APIv2 现金预支付事实。 */
+export type YunhealthMiniProgramPrepay = {
+	outTradeNo: string;
+	prepayId: string;
+	payParams: YunhealthMiniProgramPayParams;
+};
+
+/** 新纯自费走众阳 MD5；历史 APIv3 订单继续兼容 RSA 收尾。 */
+export type RegistrationSelfPayLaunchParams =
+	| YunhealthMiniProgramPayParams
+	| WechatMiniProgramPayParams;
+
 /** 所有普通微信自费入口统一使用 APIv3 JSAPI 小程序调起参数。 */
 export type WechatPaymentLaunchParams = WechatMiniProgramPayParams;
 
@@ -275,7 +305,7 @@ export type WechatMedicalInsurancePayParams =
 			timeStamp: string;
 			nonceStr: string;
 			package: string;
-			signType: "RSA";
+			signType: "MD5" | "RSA";
 			paySign: string;
 			mixTradeNo: string;
 	  };
@@ -413,6 +443,7 @@ export interface MedicalInsuranceWechatPaymentGateway {
 			authorization: MedicalInsuranceAuthorizationContext;
 			settlement: MedicalInsuranceSettlementContext;
 			paymentIdentity: MedicalInsuranceWechatPaymentIdentity;
+			cashPrepay?: YunhealthMiniProgramPrepay;
 		},
 		context: AdapterCallContext,
 	): Promise<{
@@ -438,6 +469,7 @@ export interface MedicalInsuranceWechatPaymentGateway {
 			amounts: MedicalInsuranceAmounts;
 			insuredAreaCode?: string;
 			expectedPayForRelatives: boolean;
+			cashPrepay?: YunhealthMiniProgramPrepay;
 		},
 		context: AdapterCallContext,
 	): Promise<{
@@ -474,6 +506,8 @@ export interface MedicalInsuranceWechatPaymentGateway {
 			cashReduceFen: number;
 			cashReduceType: string;
 		}[];
+		/** 微信医保混合查单返回的 RFC3339 支付时间。 */
+		paidTime?: string;
 		providerStatus: string;
 		trace: ExternalTrace;
 	}>;
@@ -509,8 +543,23 @@ export interface YunhealthRegistrationPluginPaymentGateway {
 		payType: "CREDIT" | "POS" | "CROWD_FUNDING";
 		workStationId: string;
 		tradeTypeCode: string;
+		payParams?: YunhealthMiniProgramPayParams;
+		outTradeNo?: string;
 		trace: ExternalTrace;
 	}>;
+	/**
+	 * 众阳非 HIS 收款完成结算。调用 .5 后，众阳会按各笔 .2 的 recordCode
+	 * 同步反调平台提供的 .9 查询支付终态。
+	 */
+	completeSettlement?(
+		input: {
+			businessId: string;
+			hospitalId: string;
+			workStationId: string;
+			tradeTypeCode: string;
+		},
+		context: AdapterCallContext,
+	): Promise<ExternalTrace>;
 }
 
 /**
@@ -518,7 +567,7 @@ export interface YunhealthRegistrationPluginPaymentGateway {
  *
  * 纯自费 Provider 调用顺序固定为 2.6.65.1 -> 2.27.2.27 -> 2.6.65.2；
  * 任何一步未确认成功都不得创建微信订单。返回的流水上下文必须先加密落库，
- * 后续微信查单成功后才能用于 .29/.15/.5 回写。
+	 * 后续微信查单成功后才能调用 .5；众阳在 .5 中以 recordCode 反调 .9。
  */
 export interface RegistrationSelfPayPreparationGateway {
 	prepare(
@@ -527,8 +576,8 @@ export interface RegistrationSelfPayPreparationGateway {
 			totalFen: number;
 			providerRegisterId: string;
 			providerPatientId: string;
-			/** 当前登录微信用户的 openid，只能从服务端身份仓储读取。 */
-			paymentSystemUserId: string;
+			/** 众阳 MINI_PROGRAM .2 下单所需的当前支付人微信 openid。 */
+			paymentSystemUserId?: string;
 			patient: {
 				name: string;
 				cardNo: string;
@@ -590,7 +639,10 @@ export interface WechatPaymentGateway {
 		context: AdapterCallContext,
 	): Promise<{
 		state: WechatPaymentQueryState;
+		providerState?: WechatPaymentProviderState;
 		totalFen: number;
+		/** 微信在支付成功后返回的 RFC3339 支付完成时间。 */
+		successTime?: string;
 		trace: ExternalTrace;
 	}>;
 	/** 只允许在查单确认未支付后关闭普通微信预支付单。 */
@@ -609,7 +661,7 @@ export interface HospitalSettlementGateway {
 			settlement: PaymentOrderSnapshot;
 			/** 服务端从同一预约的医保结算上下文解析出的 Provider 关联键。 */
 			registrationContext?: RegistrationSelfPaySettlementContext;
-			/** .29 成功后只保存完整 raw 响应，不参与后续业务处理。 */
+			/** 旧插件链路兼容字段；非 HIS .5/.9 adapter 会忽略。 */
 			onThirdPartPayResponse?: (
 				response: HospitalSettlementThirdPartPayResponse,
 			) => void | Promise<void>;

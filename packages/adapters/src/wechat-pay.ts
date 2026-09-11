@@ -16,6 +16,7 @@ import type {
 	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
 	WechatPaymentNotification as WechatPaymentNotificationRecord,
+	WechatPaymentProviderState,
 	WechatPaymentQueryState,
 } from "@hospital/domain";
 import {
@@ -49,6 +50,7 @@ type WechatOrderQueryResponse = {
 	trade_state?: unknown;
 	transaction_id?: unknown;
 	amount?: unknown;
+	success_time?: unknown;
 };
 
 type WechatPaymentNotificationEnvelope = {
@@ -73,6 +75,15 @@ type MedicalMixedOrderResult = Awaited<
 type WechatJsapiPrepayResult = Awaited<
 	ReturnType<WechatPaymentGateway["createJsapiOrder"]>
 >;
+type MedicalCashPrepayResult = Omit<
+	WechatJsapiPrepayResult,
+	"payParams" | "trace"
+> & {
+	payParams:
+		| WechatJsapiPrepayResult["payParams"]
+		| import("@hospital/domain").YunhealthMiniProgramPayParams;
+	trace?: WechatJsapiPrepayResult["trace"];
+};
 
 export type WechatPaymentGatewayOptions = {
 	/** 小程序 AppID；只服务端使用，不写入日志。 */
@@ -881,7 +892,7 @@ export class WechatPaymentApiGateway
 	private medicalMixedOrderResult(input: {
 		mixTradeNo: string;
 		cashFen: number;
-		prepay?: WechatJsapiPrepayResult;
+		prepay?: MedicalCashPrepayResult;
 		operation: string;
 		requestId: string;
 		requestIds: readonly (string | undefined)[];
@@ -911,7 +922,7 @@ export class WechatPaymentApiGateway
 	private medicalMixedOrderCreateResponse(input: {
 		response: { data: Record<string, unknown>; requestId: string };
 		cashFen: number;
-		prepay?: WechatJsapiPrepayResult;
+		prepay?: MedicalCashPrepayResult;
 		operation: "medical-mix-create" | "medical-mix-create-retry";
 		requestIds: readonly (string | undefined)[];
 	}): MedicalMixedOrderResult {
@@ -946,7 +957,7 @@ export class WechatPaymentApiGateway
 	 */
 	private async recoverMedicalMixedOrderByOutTradeNo(input: {
 		order: MedicalMixedRecoveryInput;
-		prepay?: WechatJsapiPrepayResult;
+		prepay?: MedicalCashPrepayResult;
 		context: AdapterCallContext;
 		requestIds: readonly (string | undefined)[];
 	}): Promise<MedicalMixedOrderResult> {
@@ -1018,6 +1029,8 @@ export class WechatPaymentApiGateway
 		const cashReduceDetails = providerCashReduceDetails(
 			data.cash_reduce_detail,
 		);
+		const expectedPrepayId =
+			input.prepay?.prepayId ?? input.order.cashPrepay?.prepayId;
 		const mixStatus = findProviderText(data, ["mix_pay_status"]);
 		const selfStatus = findProviderText(data, ["self_pay_status"]);
 		const medicalStatus = findProviderText(data, ["med_ins_pay_status"]);
@@ -1051,8 +1064,8 @@ export class WechatPaymentApiGateway
 				JSON.stringify(breakdown.cashReduceDetails) ||
 			(breakdown.wechatCashFen > 0
 				? !responsePrepayId ||
-					(input.prepay !== undefined &&
-						responsePrepayId !== input.prepay.prepayId)
+					(expectedPrepayId !== undefined &&
+						responsePrepayId !== expectedPrepayId)
 				: responsePrepayId !== undefined) ||
 			(input.order.expectedPayForRelatives
 				? responsePayForRelatives !== true
@@ -1065,9 +1078,18 @@ export class WechatPaymentApiGateway
 				requestId: response.requestId,
 			});
 		}
-		const recoveredPrepay: WechatJsapiPrepayResult | undefined =
+		const savedCashPrepay = input.order.cashPrepay;
+		const suppliedPrepay: MedicalCashPrepayResult | undefined =
+			input.prepay ??
+			(savedCashPrepay
+				? {
+						prepayId: savedCashPrepay.prepayId,
+						payParams: savedCashPrepay.payParams,
+					}
+				: undefined);
+		const recoveredPrepay: MedicalCashPrepayResult | undefined =
 			breakdown.wechatCashFen > 0 && responsePrepayId
-				? (input.prepay ?? {
+				? (suppliedPrepay ?? {
 						prepayId: responsePrepayId,
 						payParams: payParams({
 							appId: this.appId,
@@ -1177,7 +1199,9 @@ export class WechatPaymentApiGateway
 		context: AdapterCallContext,
 	): Promise<{
 		state: WechatPaymentQueryState;
+		providerState?: WechatPaymentProviderState;
 		totalFen: number;
+		successTime?: string;
 		trace: ExternalTrace;
 	}> {
 		const orderId = requiredInput(input.orderId, "orderId", 32);
@@ -1251,6 +1275,8 @@ export class WechatPaymentApiGateway
 			throw error;
 		}
 		const state = mapTradeState(response.data.trade_state);
+		const providerState = response.data
+			.trade_state as WechatPaymentProviderState;
 		const amount = response.data.amount;
 		if (
 			typeof amount !== "object" ||
@@ -1267,9 +1293,15 @@ export class WechatPaymentApiGateway
 			typeof response.data.transaction_id === "string"
 				? response.data.transaction_id.trim()
 				: undefined;
+		const successTime =
+			typeof response.data.success_time === "string"
+				? response.data.success_time.trim()
+				: undefined;
 		return {
 			state,
+			providerState,
 			totalFen,
+			...(successTime ? { successTime } : {}),
 			trace: paymentTrace("order-query", response.requestId, providerOrderId),
 		};
 	}
@@ -1367,6 +1399,7 @@ export class WechatPaymentApiGateway
 			amounts,
 			insuredAreaCode: input.authorization.insuplcAdmdvs,
 			expectedPayForRelatives: input.paymentIdentity.payForRelatives,
+			...(input.cashPrepay ? { cashPrepay: input.cashPrepay } : {}),
 		};
 		const recoveryRequestIds: (string | undefined)[] = [];
 		if (input.recoverFirst) {
@@ -1411,16 +1444,39 @@ export class WechatPaymentApiGateway
 					),
 				}
 			: undefined;
-		const prepay = insuranceOnly
+		if (insuranceOnly && input.cashPrepay) {
+			throw providerError({
+				operation: "medical-mix-validation",
+				message: "Pure medical order must not contain a cash prepay",
+			});
+		}
+		if (
+			input.cashPrepay &&
+			(input.cashPrepay.outTradeNo !== outTradeNo ||
+				input.cashPrepay.payParams.appId !== medical.appId ||
+				input.cashPrepay.payParams.package !==
+					`prepay_id=${input.cashPrepay.prepayId}`)
+		) {
+			throw providerError({
+				operation: "medical-mix-validation",
+				message: "Yunhealth cash prepay does not match the medical order",
+			});
+		}
+		const prepay: MedicalCashPrepayResult | undefined = insuranceOnly
 			? undefined
-			: await this.createJsapiOrder(
-					{
-						orderId: outTradeNo,
-						openid,
-						totalFen: breakdown.wechatCashFen,
-					},
-					context,
-				);
+			: input.cashPrepay
+				? {
+						prepayId: input.cashPrepay.prepayId,
+						payParams: input.cashPrepay.payParams,
+					}
+				: await this.createJsapiOrder(
+						{
+							orderId: outTradeNo,
+							openid,
+							totalFen: breakdown.wechatCashFen,
+						},
+						context,
+					);
 		const body = JSON.stringify({
 			mix_pay_type: insuranceOnly ? "INSURANCE_ONLY" : "CASH_AND_INSURANCE",
 			order_type: medicalProviderOrderType(input.orderType),
@@ -1483,7 +1539,7 @@ export class WechatPaymentApiGateway
 			...(medical.channelNo ? { channel_no: medical.channelNo } : {}),
 			...(medical.testEnvironment ? { med_ins_test_env: true } : {}),
 		});
-		recoveryRequestIds.push(prepay?.trace.requestId);
+		recoveryRequestIds.push(prepay?.trace?.requestId);
 		try {
 			const response = await this.requestMedicalMixedOrder(
 				body,
@@ -1580,6 +1636,7 @@ export class WechatPaymentApiGateway
 				? requiredInput(input.insuredAreaCode, "insuredAreaCode", 16)
 				: "",
 			expectedPayForRelatives: input.expectedPayForRelatives,
+			...(input.cashPrepay ? { cashPrepay: input.cashPrepay } : {}),
 		};
 		if (!isMedicalInsuranceOrderType(order.orderType)) {
 			throw providerError({
@@ -1591,6 +1648,18 @@ export class WechatPaymentApiGateway
 			throw providerError({
 				operation: "medical-mix-validation",
 				message: "Wechat medical appId must match the JSAPI payment appId",
+			});
+		}
+		if (
+			order.cashPrepay &&
+			(order.cashPrepay.outTradeNo !== order.outTradeNo ||
+				order.cashPrepay.payParams.appId !== medical.appId ||
+				order.cashPrepay.payParams.package !==
+					`prepay_id=${order.cashPrepay.prepayId}`)
+		) {
+			throw providerError({
+				operation: "medical-mix-validation",
+				message: "Recovered Yunhealth cash prepay does not match the order",
 			});
 		}
 		return this.recoverMedicalMixedOrderByOutTradeNo({
@@ -1721,6 +1790,7 @@ export class WechatPaymentApiGateway
 				requestId: response.requestId,
 			});
 		}
+		const paidTime = findProviderText(data, ["paid_time", "paidTime"]);
 		const dataRecord = data as Record<string, unknown>;
 		const totalFen = providerFen(
 			dataRecord.total_fee ?? dataRecord.totalFee,
@@ -1788,6 +1858,7 @@ export class WechatPaymentApiGateway
 			otherPaymentFen,
 			medicalCashFen,
 			cashReduceDetails,
+			...(paidTime ? { paidTime } : {}),
 			providerStatus: [mixStatus, selfStatus, medicalStatus]
 				.filter(Boolean)
 				.join("/"),

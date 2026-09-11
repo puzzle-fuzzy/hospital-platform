@@ -8,6 +8,7 @@ import type {
 import {
 	accountFlag,
 	createLegacyFsiMedicalInsuranceGateway,
+	medicalTypeForBusiness,
 } from "./legacy-fsi-medical-insurance";
 
 const order = {
@@ -25,6 +26,14 @@ test("acctUsedFlag uses the local insured-region rule", () => {
 	expect(accountFlag("140581")).toBe("0");
 	expect(accountFlag(" 140581 ")).toBe("0");
 	expect(accountFlag("140500")).toBe("1");
+});
+
+test("6201 医疗类别按挂号、门诊职工和门诊居民选择", () => {
+	expect(medicalTypeForBusiness("registration", "310")).toBe("12");
+	expect(medicalTypeForBusiness("registration", "390")).toBe("12");
+	expect(medicalTypeForBusiness("outpatient", "310")).toBe("11");
+	expect(medicalTypeForBusiness("outpatient", "390")).toBe("110104");
+	expect(medicalTypeForBusiness("outpatient", "999")).toBeUndefined();
 });
 
 function authorizationSelectionFixture(
@@ -127,7 +136,7 @@ test("1101同险种多条同参保地不依赖返回顺序", async () => {
 	});
 });
 
-test("1101同险种返回多个参保地时拒绝猜测", async () => {
+test("1101跳过暂停险种记录并选择有效参保地", async () => {
 	const fixture = authorizationSelectionFixture([
 		{
 			insutype: "310",
@@ -148,9 +157,35 @@ test("1101同险种返回多个参保地时拒绝猜测", async () => {
 			traceId: "trace-selection-conflict-001",
 			idempotencyKey: "idem-selection-conflict-001",
 		}),
-	).rejects.toThrow("同一险种存在多个不同的参保地区划");
+	).resolves.toMatchObject({ regionCode: "140581" });
 	expect(fixture.readRequestCount()).toBe(2);
-	expect(fixture.readStored()).toBeUndefined();
+	expect(fixture.readStored()).toMatchObject({
+		insutype: "310",
+		insuplcAdmdvs: "140581",
+	});
+});
+
+test("1101仅返回有效居民险种390时继续医保流程", async () => {
+	const fixture = authorizationSelectionFixture([
+		{
+			insutype: "390",
+			psn_no: "psn-resident-001",
+			insuplc_admdvs: "140581",
+			psn_insu_stas: "1",
+		},
+	]);
+
+	await expect(
+		fixture.gateway.authorize(authorizationSelectionInput, {
+			traceId: "trace-selection-resident-001",
+			idempotencyKey: "idem-selection-resident-001",
+		}),
+	).resolves.toMatchObject({ regionCode: "140581" });
+	expect(fixture.readStored()).toMatchObject({
+		psnNo: "psn-resident-001",
+		insutype: "390",
+		insuplcAdmdvs: "140581",
+	});
 });
 
 test("授权查询按 family_pay_auth_no 判定亲情付并保存绑卡人身份", async () => {

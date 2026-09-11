@@ -67,7 +67,8 @@ export type RuntimeConfig = {
 	medicalInsuranceUserQueryPath: string;
 	medicalInsuranceOrgCode: string;
 	medicalInsuranceHospitalId: string;
-	medicalInsuranceInsutype: string;
+	/** 允许用于医保支付的险种，按优先级排列；MBS_INSUTYPE 支持逗号分隔。 */
+	medicalInsuranceInsutypes: string[];
 	medicalInsuranceInsuCode: string;
 	/** 众阳患者目录默认关闭；配置完整也不代表 provider 已联调。 */
 	patientDirectoryReady: boolean;
@@ -482,9 +483,9 @@ export function yunhealthRegistrationSettlementConfigurationMissingFields(
 	}
 	if (
 		runtimeConfig.yunhealthRegistrationPluginPayTypeId &&
-		runtimeConfig.yunhealthRegistrationPluginPayTypeId !== "5027"
+		runtimeConfig.yunhealthRegistrationPluginPayTypeId !== "31"
 	) {
-		missing.push("YUNHEALTH_PLUGIN_PAY_TYPE_ID(5027)");
+		missing.push("YUNHEALTH_PLUGIN_PAY_TYPE_ID(31)");
 	}
 	if (
 		runtimeConfig.yunhealthRegistrationPluginPayType &&
@@ -892,6 +893,14 @@ function origins(value: string | undefined): string[] {
 		.filter(Boolean);
 }
 
+function configuredList(value: string | undefined): string[] {
+	if (!value) return [];
+	return value
+		.split(",")
+		.map((item) => item.trim())
+		.filter(Boolean);
+}
+
 function logLevel(
 	value: string | undefined,
 	environmentValue: RuntimeConfig["environment"],
@@ -1037,7 +1046,9 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		medicalInsuranceOrgCode:
 			optional(env.MBS_INSURANCE_ORG_CODE) ?? "H14058101270",
 		medicalInsuranceHospitalId: optional(env.MBS_HOSPITAL_ID) ?? "10389001",
-		medicalInsuranceInsutype: optional(env.MBS_INSUTYPE) ?? "310",
+		medicalInsuranceInsutypes: Array.from(
+			new Set(configuredList(env.MBS_INSUTYPE ?? "310,390")),
+		),
 		medicalInsuranceInsuCode: optional(env.MBS_INSU_CODE) ?? "140581",
 		patientDirectoryReady: boolean(
 			env.ZHONGYANG_PATIENT_DIRECTORY_READY,

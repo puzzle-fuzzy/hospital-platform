@@ -21,6 +21,7 @@ import {
 	type UserIdentityRepository,
 	validatePatientProviderReference,
 	type WechatPaymentNotification,
+	type YunhealthMiniProgramPrepay,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -110,6 +111,15 @@ function outTradeNo(orderId: string): string {
 }
 
 const WECHAT_PREPAY_VALIDITY_MS = 2 * 60 * 60 * 1000;
+const YUNHEALTH_PREPAY_VALIDITY_MS = 20 * 60 * 1000;
+
+function yunhealthPrepayExpiresAt(prepay: YunhealthMiniProgramPrepay): string {
+	const signedAt = Number(prepay.payParams.timeStamp) * 1000;
+	if (!Number.isSafeInteger(signedAt) || signedAt <= 0) {
+		throw new MedicalInsuranceWechatPaymentNotAllowedError();
+	}
+	return new Date(signedAt + YUNHEALTH_PREPAY_VALIDITY_MS).toISOString();
+}
 
 function prepayExpiresAt(order: MedicalInsuranceOrder): number {
 	const explicit = order.wechatPrepayExpiresAt
@@ -390,6 +400,15 @@ export class MedicalInsuranceWechatPaymentService {
 				}
 				throw new MedicalInsuranceWechatPrepayExpiredError();
 			}
+			if (this.dependencies.pluginPaymentBridge) {
+				await this.dependencies.pluginPaymentBridge.prepareSplitPaymentsBeforeOfficialWechatPayment(
+					{
+						ownerUserId,
+						orderId,
+						context: input.context,
+					},
+				);
+			}
 			await this.requeue(orderId);
 			this.logger.info(
 				{
@@ -433,14 +452,47 @@ export class MedicalInsuranceWechatPaymentService {
 			orderType,
 			insuredAreaCode: authorization.insuplcAdmdvs,
 		});
-		const paymentOutTradeNo = order.wechatOutTradeNo ?? outTradeNo(orderId);
+		let pluginCashPrepay: YunhealthMiniProgramPrepay | undefined;
+		// 临时联调：所有 6202 非零分项先完成 2.6.65.2，再创建微信医保订单；
+		// 微信现金分项直接复用 .2.result 的 MD5 prepay_id。
+		if (this.dependencies.pluginPaymentBridge) {
+			const prepared =
+				await this.dependencies.pluginPaymentBridge.prepareSplitPaymentsBeforeOfficialWechatPayment(
+					{
+						ownerUserId,
+						orderId,
+						context: input.context,
+					},
+				);
+			pluginCashPrepay = prepared.cashPrepay;
+		}
+		if (
+			pluginCashPrepay &&
+			order.wechatOutTradeNo &&
+			order.wechatOutTradeNo !== pluginCashPrepay.outTradeNo
+		) {
+			throw new MedicalInsuranceWechatPaymentNotAllowedError();
+		}
+		const paymentOutTradeNo =
+			pluginCashPrepay?.outTradeNo ??
+			order.wechatOutTradeNo ??
+			outTradeNo(orderId);
 		const paymentPrepayExpiresAt =
 			breakdown.wechatCashFen > 0
 				? (order.wechatPrepayExpiresAt ??
-					new Date(
-						this.now().getTime() + WECHAT_PREPAY_VALIDITY_MS,
-					).toISOString())
+					(pluginCashPrepay
+						? yunhealthPrepayExpiresAt(pluginCashPrepay)
+						: new Date(
+								this.now().getTime() + WECHAT_PREPAY_VALIDITY_MS,
+							).toISOString()))
 				: null;
+		if (
+			pluginCashPrepay &&
+			(!paymentPrepayExpiresAt ||
+				Date.parse(paymentPrepayExpiresAt) <= this.now().getTime())
+		) {
+			throw new MedicalInsuranceWechatPrepayExpiredError();
+		}
 		let recoverFirst =
 			order.wechatPaymentState === "unknown" &&
 			order.wechatOutTradeNo === paymentOutTradeNo;
@@ -512,6 +564,7 @@ export class MedicalInsuranceWechatPaymentService {
 				authorization,
 				settlement,
 				paymentIdentity,
+				...(pluginCashPrepay ? { cashPrepay: pluginCashPrepay } : {}),
 			},
 			input.context,
 		);

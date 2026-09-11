@@ -752,6 +752,14 @@ export function createInMemoryPaymentOrderRepository(
 			const context = registrationSelfPayContexts.get(orderId);
 			return context ? { ...context } : undefined;
 		},
+		async findByRegistrationSelfPayRecordCode(recordCode) {
+			for (const [orderId, context] of registrationSelfPayContexts) {
+				if (context.recordCode !== recordCode) continue;
+				const order = orders.get(orderId);
+				if (order) return { order, context: { ...context } };
+			}
+			return undefined;
+		},
 	};
 }
 
@@ -1208,6 +1216,12 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
 			getSettlementContext: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
+			saveYunhealthPaymentQueryReference: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
+			findByYunhealthPaymentRecordCode: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
 			applySettlement: async () => {
@@ -1793,6 +1807,10 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 		string,
 		MedicalInsuranceSettlementContext
 	>();
+	const yunhealthPaymentReferences = new Map<
+		string,
+		{ ownerUserId: string; medicalOrderId: string; componentId: string }
+	>();
 	return {
 		async insert(order) {
 			if (orders.has(order.medicalOrderId)) {
@@ -1932,6 +1950,72 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				})),
 				upDetailList: context.upDetailList.map((item) => ({ ...item })),
 				tradeOrderIds: [...context.tradeOrderIds],
+			};
+		},
+		async saveYunhealthPaymentQueryReference(input) {
+			const order = orders.get(input.medicalOrderId);
+			const context = settlementContexts.get(input.medicalOrderId);
+			const component = context?.postPaymentComponents?.find(
+				(candidate) => candidate.componentId === input.componentId,
+			);
+			if (
+				!order ||
+				order.ownerUserId !== input.ownerUserId ||
+				!component ||
+				component.recordCode !== input.recordCode
+			) {
+				throw new Error("Yunhealth payment query reference is invalid");
+			}
+			const existing = yunhealthPaymentReferences.get(input.recordCode);
+			if (
+				existing &&
+				(existing.ownerUserId !== input.ownerUserId ||
+					existing.medicalOrderId !== input.medicalOrderId ||
+					existing.componentId !== input.componentId)
+			) {
+				throw new Error("Yunhealth payment query reference conflicts");
+			}
+			yunhealthPaymentReferences.set(input.recordCode, {
+				ownerUserId: input.ownerUserId,
+				medicalOrderId: input.medicalOrderId,
+				componentId: input.componentId,
+			});
+		},
+		async findByYunhealthPaymentRecordCode(recordCode) {
+			const reference = yunhealthPaymentReferences.get(recordCode);
+			if (!reference) return undefined;
+			const order = orders.get(reference.medicalOrderId);
+			const context = settlementContexts.get(reference.medicalOrderId);
+			const postPaymentComponents = context?.postPaymentComponents;
+			const component = postPaymentComponents?.find(
+				(candidate) => candidate.componentId === reference.componentId,
+			);
+			if (
+				!order ||
+				order.ownerUserId !== reference.ownerUserId ||
+				!context ||
+				!postPaymentComponents ||
+				!component ||
+				component.recordCode !== recordCode
+			) {
+				return undefined;
+			}
+			return {
+				order: { ...order },
+				context: {
+					...context,
+					postPaymentComponents: postPaymentComponents.map((candidate) => ({
+						...candidate,
+					})),
+					networkRegister: { ...context.networkRegister },
+					outNetworkSettleMain: { ...context.outNetworkSettleMain },
+					nationalUpDetailList: context.nationalUpDetailList.map((item) => ({
+						...item,
+					})),
+					upDetailList: context.upDetailList.map((item) => ({ ...item })),
+					tradeOrderIds: [...context.tradeOrderIds],
+				},
+				component: { ...component },
 			};
 		},
 		async applySettlement(medicalOrderId, expectedVersion, patch) {

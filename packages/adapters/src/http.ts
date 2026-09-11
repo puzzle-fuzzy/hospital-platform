@@ -279,7 +279,7 @@ function providerResponseDetails(raw: string): ProviderResponseDetails {
 	return result;
 }
 
-function emitRawBodyLog(
+export function emitRawBodyLog(
 	logger: ProviderRequestLogger | undefined,
 	bindings: Record<string, unknown>,
 	bodyField: "providerRequestBodyText" | "providerResponseBodyText",

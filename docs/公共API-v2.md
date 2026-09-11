@@ -107,11 +107,12 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 
 ## 3. 当前公共接口
 
-表中的路径为公网 `/api/v2` 路径。应用源码中的对应内部路径是去掉 `/api/v2` 后换成
-`/api/v1`；健康检查是唯一的根路径映射例外。
+表中的患者端路径为公网 `/api/v2` 路径。应用源码中的对应内部路径是去掉 `/api/v2` 后换成
+`/api/v1`；健康检查和众阳反向支付查询是两个明确的根路径映射例外。
 
 | 方法 | 公共路径 | 认证/幂等 | 用途和关键输入 |
 | --- | --- | --- | --- |
+| `POST` | `/Payment/Api/MYDService/ThirdpartyPayQuery` | 众阳服务端回调；无患者会话 | 非 HIS 收款 2.6.65.9：众阳在 2.6.65.5 内按 `.2` 的 `recordCode` 反向查支付；平台精确关联密文订单，普通自费实时查微信商户单、医保分项实时查微信 `mix_trade_no`，只有状态、金额、交易号和支付时间完整一致才返回 `SUCCESS` |
 | `GET` | `/api/v2/health/live` | 无 | 只证明 API 进程可响应，返回 `status: ok`；响应带 `Cache-Control: no-store` |
 | `GET` | `/api/v2/health/ready` | 无 | 返回 database、redis、schema 的 `ok`/`not_configured`/`unavailable`；响应带 `Cache-Control: no-store`，不是 provider 验收 |
 | `GET` | `/api/v2/system/ping` | 无 | 返回服务名和 API 版本，不执行业务依赖探测 |
@@ -161,8 +162,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/knowledge/health/disease/list/symptoms` | Bearer | 根据 1–10 个审核症状标识查询疾病；使用 `symptomIds` 查询参数 |
 | `GET` | `/api/v2/knowledge/health/disease/detail/{diseaseId}` | Bearer | 返回指定审核疾病详情和可审计药品引用 |
 | `GET` | `/api/v2/knowledge/health/drug/detail/{drugId}` | Bearer | 返回指定审核药品详情；不构成个体化用药建议 |
-| `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg` |
-| `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；只返回已开放的检验详情白名单，不返回文件 URL |
+| `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg|peis`；未指定时只聚合 LIS、PACS、ECG，PEIS 由客户端显式查询 |
+| `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；按短期引用实时回查 LIS/PACS/ECG/PEIS 详情白名单，不返回文件 URL |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
 | `GET` | `/api/v2/payments/outpatient/records/{recordId}` | Bearer；幂等键可选 | 必填 query `patientId`、`status=unpaid|paid`；返回当前用户/就诊人范围内已核对的单笔门诊费用摘要，不返回项目级费用明细 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
@@ -304,15 +305,17 @@ opaque `doctorId`。关注时 API 会在未来 7 天排班目录中重新确认�
 ### 3.5 报告
 
 报告目录只返回 `kind`、标题、时间、`available`/`abnormal`、`hasAttachment` 和可选的
-opaque `reportId`；当前只有检验报告可以返回该 `reportId`。读取详情时必须同时提交目录当前选中的
-内部 `patientId`，服务端按 owner、patient、reportId 和 TTL 再次校验；`reportId` 不能独立作为授权凭证。
-影像和心电 provider 即使返回
-原始报告号，也会在 adapter 边界丢弃，因为当前没有对应的可审计详情 contract。检验详情的检测项只包含 `name`、`result`、`unit`、`referenceRange`
-和 `flag`；`flag` 为 `normal`、`high`、`low`、`critical` 或 `unknown`。
+opaque `reportId`。读取详情时必须同时提交目录当前选中的内部 `patientId`，服务端按
+owner、patient、reportId、Provider 类型和 TTL 再次校验；`reportId` 不能独立作为授权凭证。
+检验详情的检测项只包含 `name`、`result`、`unit`、`referenceRange` 和 `flag`；`flag` 为
+`normal`、`high`、`low`、`critical` 或 `unknown`。PACS、ECG 和 PEIS 详情只返回各自白名单后的
+通用字段与分节文本，不返回 Provider 原始报告号、身份证号或附件地址。
 
 未指定 `kind` 时，服务端会同时读取 LIS、PACS 和 ECG 三个来源；当前公共 contract 没有部分成功状态，
-因此任一来源失败都会让整次目录查询失败，不能把其余来源拼成不完整的成功列表。只有明确返回的空数组
-才是对应来源的成功空结果。
+因此任一来源失败都会让整次目录查询失败，不能把其余来源拼成不完整的成功列表。PEIS 必须以
+`kind=peis` 显式查询：服务端在单次调用内按当前会话和患者映射实时解析身份证号，并使用部署配置的
+单院区 `hospitalId` 请求众阳；身份证号不进入公共请求、响应、日志或本地报告引用。只有明确返回的
+空数组才是对应来源的成功空结果。
 
 `kind` 在 service 和 adapter 都做运行时白名单校验；内部调用传入未知来源时返回已有的
 `400 report-query-invalid`，不会落入 adapter 的默认 ECG 分支，也不会访问 Provider。
@@ -320,18 +323,22 @@ opaque `reportId`；当前只有检验报告可以返回该 `reportId`。读取�
 目录摘要与详情引用是两个独立能力：provider 没有稳定报告号、详情 gate 未开启或无法建立
 短期引用时，目录仍可返回安全摘要并省略 `reportId`，客户端只能隐藏详情入口；不能因为单条详情引用不可用而把整批报告目录当成服务不可用。
 
-目录和 LIS 详情的 `reportedAt` 都必须使用服务端已审计的日期/时间格式；详情返回无法解析的时间时，
-服务端返回 `502 provider-response-invalid`，不会把临床时间当普通文本展示。详情标题和时间是否能由 Provider
-稳定回显并与目录摘要逐字段关联，仍需正式详情 contract 确认；在此之前不扩展数据库引用字段或猜测关联规则。
+目录和详情的 `reportedAt` 都必须使用服务端已审计的日期/时间格式；详情返回无法解析的时间时，
+服务端返回 `502 provider-response-invalid`，不会把临床时间当普通文本展示。PACS、ECG、PEIS 没有
+独立详情接口时，短期引用只保存 Provider 报告号与原目录查询日期窗口；每次详情读取都重新查询众阳列表并
+定位同一报告，不保存报告正文、身份证号或附件 URL。
 
-报告公共目录单次最多返回 512 条，LIS 详情单次最多返回 1024 条检测项；预约科室、排班和历史
+报告公共目录单次最多返回 512 条，LIS 详情单次最多返回 1024 条检测项；非 LIS 详情最多返回
+64 个字段、16 个分节和 8 个附件引用；预约科室、排班和历史
 分别最多返回 256、512、512 条。这些是服务端资源保护，不是 Provider 的分页总数，也不是患者
 实际报告/预约数量上限。超过上限时服务端整批返回 `502 provider-response-invalid`，不会截断后
 继续返回 `loaded`，也不会为不完整结果创建详情引用、排班引用或短期快照；当前 contract 没有
 公开分页字段，客户端不得自行把拒绝结果解释为“暂无更多数据”。
 
-影像附件、体检报告、原始报告号、患者字段和文件下载 URL 尚未开放。详情返回 404 不等于
-患者没有报告，也可能表示该报告类型尚未通过详情 gate。
+附件响应只接受 PDF 或图片，单个文件最多 20 MiB，并限制为众阳基地址同源或部署明确配置的来源。
+小程序只持有短期 opaque `attachmentId`，服务端在下载前再次实时回查报告并重新计算附件引用；源 URL、
+Provider 鉴权和患者字段均不下发。详情或附件返回 404 不等于患者没有报告，也可能表示短期引用已过期、
+报告已从实时窗口消失或对应 gate 尚未开放。以上仅代表代码契约已实现，仍需众阳真实响应、公网和真机验收。
 
 ### 3.6 门诊病历目录
 
@@ -478,10 +485,11 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 30530 | `medical-insurance-appointment-stale` | 关联预约超过 15 分钟支付窗口，必须重新获取号源并预约 |
 | 409 | 30540 | `medical-insurance-payment-in-progress` | 当前已有支付在进行中；新小程序只提示，支付小程序可调用专用关单重开分支 |
 | 409 | 30550 | `medical-insurance-cancellation-context-missing` | 服务端缺少安全关单所需的 Provider 上下文；不会盲目调用关单接口，需人工补录或处理 |
+| 409 | 30560 | `medical-insurance-insutype-unavailable` | 1101 没有返回可用于本次支付的有效医保险种；预约保留，可由用户确认改用普通自费支付 |
 | 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | 50320 | `outpatient-payment-record-not-found` | 当前用户/就诊人范围内未找到对应门诊缴费记录 |
 | 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
-| 404 | 40120 | `report-not-found` | 报告详情不可用或尚未通过 gate |
+| 404 | 40120 | `report-not-found` | 报告详情或附件不可用、短期引用已过期，或尚未通过 gate |
 | 404 | 60110 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |
 | 404 | 50110 | `payment-order-not-found` | 订单不存在或不属于当前用户 |
 | 404 | 50120 | `payment-quote-not-found` | 服务端报价不存在 |

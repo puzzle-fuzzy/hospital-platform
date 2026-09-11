@@ -9,22 +9,31 @@ import {
 	type MedicalInsuranceAuthorizationContext,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
+	type MedicalInsurancePostPaymentComponent,
 	type MedicalInsuranceSettlementContext,
+	medicalInsuranceCashPrepay,
+	medicalInsurancePaymentBreakdown,
 	type PaymentOrder,
 	PaymentOrderInputError,
 	type PaymentOrderService,
 	type RegistrationSelfPaySettlementContext,
 	type UserIdentityRepository,
+	type YunhealthMiniProgramPrepay,
+	type YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
-import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import {
+	type AppLogger,
+	createNoopLogger,
+	providerFailureMetadata,
+} from "@hospital/observability";
 import type { WechatPrepayService } from "../payments/service";
 import { MedicalInsuranceRegistrationInputError } from "./errors";
 
 const PLUGIN_ORDER_PREFIX = "registration-medical-plugin-self-pay:";
 const PLUGIN_PREPAY_PREFIX = "registration-medical-plugin-prepay:";
-const WECHAT_SELF_PAY_TYPE_ID = "5027";
+const WECHAT_SELF_PAY_TYPE_ID = "31";
 /** 已经落库的旧流水只允许继续完成，不用于创建新的 2.6.65.2 微信自费流水。 */
-const LEGACY_WECHAT_SELF_PAY_TYPE_IDS = new Set(["5", "31", "50"]);
+const LEGACY_WECHAT_SELF_PAY_TYPE_IDS = new Set(["5", "50", "5027"]);
 
 function opaque(value: unknown, label: string): string {
 	if (!isBoundedOpaqueIdentifier(value))
@@ -46,6 +55,86 @@ function contextText(
 	return undefined;
 }
 
+function stableCode(value: string): string {
+	return createHash("sha256").update(value).digest("hex").slice(0, 32);
+}
+
+function prePaymentComponents(input: {
+	order: MedicalInsuranceOrder;
+	insuredAreaCode: string;
+	now: Date;
+}): readonly MedicalInsurancePostPaymentComponent[] {
+	const amounts = input.order.amounts;
+	if (!amounts) throw new Error("medical payment amounts are unavailable");
+	if ((amounts.otherPaymentFen ?? 0) !== (amounts.hospitalPartFen ?? 0)) {
+		throw new Error("medical-insurance-med-ins-other-fee-unmapped");
+	}
+	const breakdown = medicalInsurancePaymentBreakdown({
+		amounts,
+		orderType: input.order.orderType ?? "RegPay",
+		insuredAreaCode: input.insuredAreaCode,
+	});
+	const definitions = [
+		...(amounts.hospitalPartFen && amounts.hospitalPartFen > 0
+			? [
+					{
+						kind: "hospital_reduce" as const,
+						amountFen: amounts.hospitalPartFen,
+						payModel: "H5" as const,
+						payTypeId: "50" as const,
+					},
+				]
+			: []),
+		{
+			kind: "fund" as const,
+			amountFen: amounts.fundFen,
+			payModel: "H5" as const,
+			payTypeId: "2" as const,
+		},
+		{
+			kind: "personal_account" as const,
+			amountFen: amounts.personalAccountFen,
+			payModel: "H5" as const,
+			payTypeId: "5" as const,
+		},
+		{
+			kind: "wechat_cash" as const,
+			amountFen: breakdown.wechatCashFen,
+			payModel: "MINI_PROGRAM" as const,
+			payTypeId: "31" as const,
+		},
+	].filter((component) => component.amountFen > 0);
+	return definitions.map((component) => ({
+		componentId: `${input.order.medicalOrderId}:${component.kind}`,
+		kind: component.kind,
+		totalFen: amounts.totalFen,
+		amountFen: component.amountFen,
+		payModel: component.payModel,
+		payTypeId: component.payTypeId,
+		recordCode: stableCode(
+			`medical-post-payment:${input.order.medicalOrderId}:${component.kind}`,
+		),
+		state: "pending" as const,
+		attempts: 0,
+		updatedAt: input.now.toISOString(),
+	}));
+}
+
+function samePrePaymentComponent(
+	left: MedicalInsurancePostPaymentComponent,
+	right: MedicalInsurancePostPaymentComponent,
+): boolean {
+	return (
+		left.componentId === right.componentId &&
+		left.kind === right.kind &&
+		left.totalFen === right.totalFen &&
+		left.amountFen === right.amountFen &&
+		left.payModel === right.payModel &&
+		left.payTypeId === right.payTypeId &&
+		left.recordCode === right.recordCode
+	);
+}
+
 function pluginOrderKey(medicalOrderId: string): string {
 	return `${PLUGIN_ORDER_PREFIX}${medicalOrderId}`;
 }
@@ -57,7 +146,7 @@ function pluginPrepayKey(medicalOrderId: string): string {
 function pluginPayTypeIdForOrder(configuredPayTypeId: string): string {
 	if (configuredPayTypeId !== WECHAT_SELF_PAY_TYPE_ID) {
 		throw new DependencyNotConfiguredError(
-			"yunhealth-wechat-self-pay-type-id-5027",
+			"yunhealth-wechat-self-pay-type-id-31",
 		);
 	}
 	return WECHAT_SELF_PAY_TYPE_ID;
@@ -119,6 +208,7 @@ export type MedicalInsurancePluginPaymentServiceDependencies = {
 	identityUsers: UserIdentityRepository;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
+	pluginPayment: YunhealthRegistrationPluginPaymentGateway;
 	hospitalSettlement: import("@hospital/domain").HospitalSettlementGateway;
 	pluginPayTypeId: string;
 	pluginPayType: "CREDIT" | "POS" | "CROWD_FUNDING";
@@ -129,10 +219,8 @@ export type MedicalInsurancePluginPaymentServiceDependencies = {
 };
 
 /**
- * 历史云健康插件版医保混合支付的续跑编排。新订单统一使用官方微信
- * APIv3 医保混合支付，并在支付成功后由 Worker 按 6202 分项调用 .2；
- * 本 service 只允许已经存在 plugin 上下文的旧订单继续完成，禁止为新订单
- * 在支付前创建 .2 流水。
+ * 云健康医保支付联调编排。当前临时顺序是在官方微信医保支付前按 6202
+ * 分项调用 .2，支付成功后由 Worker 调用 .5；旧 plugin 上下文继续兼容。
  */
 export class MedicalInsurancePluginPaymentService {
 	private readonly logger: AppLogger;
@@ -297,7 +385,196 @@ export class MedicalInsurancePluginPaymentService {
 		);
 	}
 
-	/** 仅续跑发布前已经存在 plugin 上下文的订单；新订单禁止前置创建 .2。 */
+	/** 临时验证顺序：所有非零 6202 分项先完成 .2，之后才允许创建微信订单。 */
+	async prepareSplitPaymentsBeforeOfficialWechatPayment(input: {
+		ownerUserId: string;
+		orderId: string;
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<{ cashPrepay?: YunhealthMiniProgramPrepay }> {
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const orderId = opaque(input.orderId, "orderId");
+		const medicalOrder = await this.order(ownerUserId, orderId);
+		if (medicalOrder.status !== "cash_pending" || !medicalOrder.amounts) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance pre-payment components are not allowed for the current order",
+			);
+		}
+		const { settlement: loadedSettlement, openid } = await this.contexts(
+			ownerUserId,
+			medicalOrder,
+		);
+		if (!loadedSettlement.insuredAreaCode || !loadedSettlement.businessCode) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance pre-payment component context is incomplete",
+			);
+		}
+		const planned = prePaymentComponents({
+			order: medicalOrder,
+			insuredAreaCode: loadedSettlement.insuredAreaCode,
+			now: this.now(),
+		});
+		let settlement = loadedSettlement;
+		const saved = settlement.postPaymentComponents;
+		if (saved) {
+			if (
+				saved.length !== planned.length ||
+				saved.some(
+					(component, index) =>
+						!planned[index] ||
+						!samePrePaymentComponent(component, planned[index]),
+				)
+			) {
+				throw new Error("medical-insurance-pre-payment-plan-changed");
+			}
+		} else {
+			settlement = { ...settlement, postPaymentComponents: planned };
+			await this.dependencies.orders.saveSettlementContext(
+				ownerUserId,
+				orderId,
+				settlement,
+			);
+		}
+
+		for (const plannedComponent of planned) {
+			settlement =
+				(await this.dependencies.orders.getSettlementContext(
+					ownerUserId,
+					orderId,
+				)) ?? settlement;
+			const components: MedicalInsurancePostPaymentComponent[] = [
+				...(settlement.postPaymentComponents ?? planned),
+			];
+			const index = components.findIndex(
+				(component) => component.componentId === plannedComponent.componentId,
+			);
+			const current = components[index];
+			if (!current) {
+				throw new Error("medical-insurance-pre-payment-component-missing");
+			}
+			if (current.state === "succeeded") continue;
+
+			const attempted: MedicalInsurancePostPaymentComponent = {
+				...current,
+				state: "pending",
+				attempts: current.attempts + 1,
+				updatedAt: this.now().toISOString(),
+			};
+			components[index] = attempted;
+			settlement = { ...settlement, postPaymentComponents: components };
+			await this.dependencies.orders.saveSettlementContext(
+				ownerUserId,
+				orderId,
+				settlement,
+			);
+
+			try {
+				const result = await this.dependencies.pluginPayment.createPreOrder(
+					{
+						orderId: attempted.componentId,
+						businessId: settlement.businessId,
+						tradeCode: loadedSettlement.businessCode,
+						totalFen: attempted.totalFen,
+						amountFen: attempted.amountFen,
+						hospitalId: settlement.hospitalId,
+						patientId: settlement.patientId,
+						payTypeId: attempted.payTypeId,
+						payModel: attempted.payModel,
+						...(attempted.payModel === "MINI_PROGRAM"
+							? { paymentSystemUserId: openid }
+							: {}),
+						payType: this.dependencies.pluginPayType,
+						workStationId: this.dependencies.pluginWorkStationId,
+						recordCode: attempted.recordCode,
+						tradeTypeCode: this.dependencies.pluginTradeTypeCode,
+					},
+					{
+						...input.context,
+						idempotencyKey: `medical-post-payment:${attempted.componentId}`,
+					},
+				);
+				if (
+					attempted.kind === "wechat_cash" &&
+					(!result.payParams || !result.outTradeNo)
+				) {
+					throw new MedicalInsuranceRegistrationInputError(
+						"Yunhealth .2 did not return the WeChat MD5 prepay parameters",
+					);
+				}
+				components[index] = {
+					...attempted,
+					state: "succeeded",
+					payingId: result.payingId,
+					tradingId: result.tradingId,
+					providerRequestId: result.trace.requestId,
+					...(result.payParams
+						? {
+								payParams: result.payParams,
+								wechatOutTradeNo: result.outTradeNo,
+							}
+						: {}),
+					updatedAt: this.now().toISOString(),
+				};
+				settlement = {
+					...settlement,
+					payingId: result.payingId,
+					tradingId: result.tradingId,
+					postPaymentComponents: components,
+				};
+				await this.dependencies.orders.saveSettlementContext(
+					ownerUserId,
+					orderId,
+					settlement,
+				);
+				this.logger.info(
+					{
+						event: "medical-insurance.pre-payment-component.succeeded",
+						traceId: input.context.traceId,
+						orderId,
+						component: attempted.kind,
+						amountFen: attempted.amountFen,
+						payModel: attempted.payModel,
+						payTypeId: attempted.payTypeId,
+						providerRequestId: result.trace.requestId,
+					},
+					"Medical insurance pre-payment component persisted before WeChat",
+				);
+			} catch (error) {
+				const metadata = providerFailureMetadata(error);
+				components[index] = {
+					...attempted,
+					state: "failed",
+					lastErrorCode:
+						metadata.providerErrorCode ??
+						metadata.providerFailureReason ??
+						"pre-payment-component-failed",
+					updatedAt: this.now().toISOString(),
+				};
+				await this.dependencies.orders.saveSettlementContext(
+					ownerUserId,
+					orderId,
+					{ ...settlement, postPaymentComponents: components },
+				);
+				throw error;
+			}
+		}
+		const completedSettlement =
+			(await this.dependencies.orders.getSettlementContext(
+				ownerUserId,
+				orderId,
+			)) ?? settlement;
+		const cashPrepay = medicalInsuranceCashPrepay(completedSettlement);
+		if (
+			planned.some((component) => component.kind === "wechat_cash") &&
+			!cashPrepay
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Yunhealth .2 WeChat MD5 prepay context is incomplete",
+			);
+		}
+		return cashPrepay ? { cashPrepay } : {};
+	}
+
+	/** 仅续跑发布前已经存在 plugin 上下文的旧订单。 */
 	async prepareForOfficialWechatPayment(input: {
 		ownerUserId: string;
 		orderId: string;

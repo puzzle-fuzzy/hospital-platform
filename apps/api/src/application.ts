@@ -55,6 +55,7 @@ import {
 } from "./modules/payments/notification-service";
 import { RegistrationPaymentExitService } from "./modules/payments/registration-payment-exit-service";
 import { RegistrationSelfPayService } from "./modules/payments/registration-self-pay-service";
+import { YunhealthPaymentQueryService } from "./modules/payments/yunhealth-payment-query-service";
 import { UserProfileService } from "./modules/profile";
 import { ReportService } from "./modules/reports";
 
@@ -80,6 +81,8 @@ export type ApplicationServices = {
 	/** 挂号自费与其他普通自费共用官方微信 APIv3 收银台。 */
 	registrationWechatPrepay?: WechatPrepayService;
 	registrationSelfPay?: RegistrationSelfPayService;
+	/** 众阳非 HIS 收款流程在 .5 中反向调用的 2.6.65.9 支付查询。 */
+	yunhealthPaymentQuery?: YunhealthPaymentQueryService;
 	registrationPaymentExit?: RegistrationPaymentExitService;
 	wechatPaymentNotifications: WechatPaymentNotificationService;
 	/** 普通资料模块在默认组合根启用；自定义测试组合根可省略以保持 fail-closed。 */
@@ -476,6 +479,9 @@ export function createDefaultApplicationServices(
 			identityUsers: repositories.identityUsers,
 			paymentOrders,
 			wechatPrepay,
+			pluginPayment:
+				options.yunhealthRegistrationPluginPaymentGateway ??
+				gateways.yunhealthRegistrationPluginPayment,
 			hospitalSettlement:
 				options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
 			pluginPayTypeId: options.yunhealthRegistrationPluginPayTypeId ?? "",
@@ -527,10 +533,6 @@ export function createDefaultApplicationServices(
 				input.registrationContext,
 			);
 		},
-		onThirdPartPayResponse: persistThirdPartPayResponse(
-			repositories,
-			options.logger,
-		),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const registrationPaymentExit = new RegistrationPaymentExitService({
@@ -540,6 +542,15 @@ export function createDefaultApplicationServices(
 		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
 		paymentOrders,
 		wechatPrepay: registrationWechatPrepay,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
+	const yunhealthPaymentQuery = new YunhealthPaymentQueryService({
+		orders: repositories.paymentOrders,
+		medicalOrders: repositories.medicalInsuranceOrders,
+		wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
+		medicalWechatPayment:
+			options.medicalInsuranceWechatPaymentGateway ??
+			gateways.medicalInsuranceWechatPayment,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const patients = new PatientService(repositories.patients, {
@@ -610,6 +621,7 @@ export function createDefaultApplicationServices(
 		wechatPrepay,
 		registrationWechatPrepay,
 		registrationSelfPay,
+		yunhealthPaymentQuery,
 		registrationPaymentExit,
 		wechatPaymentNotifications: new WechatPaymentNotificationService({
 			notifications: repositories.wechatPaymentNotifications,

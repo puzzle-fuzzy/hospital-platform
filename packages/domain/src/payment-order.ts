@@ -481,6 +481,14 @@ export interface PaymentOrderRepository {
 		ownerUserId: string,
 		orderId: string,
 	): Promise<RegistrationSelfPaySettlementContext | undefined>;
+	/** 众阳 2.6.65.9 只能使用 .2 下单时的 recordCode 反查同一笔密文上下文。 */
+	findByRegistrationSelfPayRecordCode?(recordCode: string): Promise<
+		| {
+				order: PaymentOrder;
+				context: RegistrationSelfPaySettlementContext;
+		  }
+		| undefined
+	>;
 }
 
 export class PaymentOrderInputError extends Error {

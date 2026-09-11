@@ -10,6 +10,7 @@ import type {
 	MedicalInsuranceCancellationEvidence,
 	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceGateway,
+	MedicalInsuranceBusinessType,
 	MedicalInsuranceOrderRepository,
 	MedicalInsuranceSettlementContext,
 	MedicalInsuranceSettlementEvidence,
@@ -75,7 +76,8 @@ export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	userQueryPath?: string;
 	orgCode?: string;
 	hospitalId?: string;
-	insutype?: string;
+	/** 1101 可接受险种，按优先级排列。 */
+	insutypes?: readonly string[];
 	insuCode?: string;
 	/** 6201 uldLatlnt；没有分院区配置时使用院方确认的默认坐标。 */
 	uldLatlnt?: string;
@@ -690,6 +692,7 @@ function mapFeeDetails(
 	details: readonly ProviderRecord[],
 	appointment: AppointmentMedicalInsuranceContext,
 	auth: MedicalInsuranceAuthorizationContext,
+	medType: "12" | "11" | "110104",
 	deptCode: string,
 	deptName: string,
 	doctorCode: string,
@@ -796,7 +799,8 @@ function mapFeeDetails(
 				doctorName,
 			hospApprFlag:
 				optionalText(detail, ["hospApprFlag"], operation, requestId) ?? "1",
-			medType: optionalText(detail, ["medType"], operation, requestId) ?? "11",
+			// 费用明细必须与 6201 顶层医疗类别保持一致，不能沿用 HIS 明细中的旧值。
+			medType,
 			medListName,
 			medListSpc:
 				optionalText(detail, ["spec", "medListSpc"], operation, requestId) ??
@@ -1376,6 +1380,17 @@ export function accountFlag(insuplcAdmdvs: string): string {
 	return insuplcAdmdvs.trim() === "140581" ? "0" : "1";
 }
 
+export function medicalTypeForBusiness(
+	businessType: MedicalInsuranceBusinessType,
+	insutype: string,
+): "12" | "11" | "110104" | undefined {
+	// 院方确认：挂号统一传 12；门诊按 1101 选中的险种区分职工和居民。
+	if (businessType === "registration") return "12";
+	if (insutype.trim() === "310") return "11";
+	if (insutype.trim() === "390") return "110104";
+	return undefined;
+}
+
 /**
  * 真实医保编排：授权解析 → 1101 → 2.6.65.1/2.27.2.27 → 2.1.9/2.1.13/2.6.33
  * → 6201 → 6202 → 6301。6201/6202 仍通过严格加密 FSI gateway，所有短期
@@ -1398,7 +1413,15 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		options.userQueryPath?.trim() || DEFAULT_USER_QUERY_PATH;
 	const orgCode = options.orgCode?.trim() || "H14058101270";
 	const hospitalId = options.hospitalId?.trim() || "10389001";
-	const insutype = options.insutype?.trim() || "310";
+	const configuredInsutypes = Array.from(
+		new Set(
+			(options.insutypes?.length ? options.insutypes : ["310", "390"])
+				.map((value) => value.trim())
+				.filter(Boolean),
+		),
+	);
+	const insutypes =
+		configuredInsutypes.length > 0 ? configuredInsutypes : ["310", "390"];
 	const insuCode = options.insuCode?.trim() || "140581";
 	const uldLatlnt = options.uldLatlnt?.trim() || DEFAULT_ULD_LATLNT;
 	const authorizationToken =
@@ -1963,22 +1986,37 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			"medical-insurance.1101",
 			infoResponse.requestId,
 		);
-		const matchingInsu = insuInfoList.filter(
-			(item) =>
-				optionalText(
-					item,
-					["insutype", "insuType", "insutypeCode"],
-					"medical-insurance.1101",
-					infoResponse.requestId,
-				) === insutype,
-		);
-		if (matchingInsu.length === 0) {
+		const selectedInsuGroup = insutypes
+			.map((allowedInsutype) => ({
+				allowedInsutype,
+				records: insuInfoList.filter((item) => {
+					const returnedInsutype = optionalText(
+						item,
+						["insutype", "insuType", "insutypeCode"],
+						"medical-insurance.1101",
+						infoResponse.requestId,
+					);
+					const insuranceStatus = optionalText(
+						item,
+						["psn_insu_stas", "psnInsuStas"],
+						"medical-insurance.1101",
+						infoResponse.requestId,
+					);
+					return (
+						returnedInsutype === allowedInsutype &&
+						(insuranceStatus === undefined || insuranceStatus === "1")
+					);
+				}),
+			}))
+			.find((group) => group.records.length > 0);
+		if (!selectedInsuGroup) {
 			throw responseError(
 				"medical-insurance.1101",
-				`参保信息缺少 insutype=${insutype}`,
+				`参保信息缺少可用险种 insutype=${insutypes.join(",")}`,
 				infoResponse.requestId,
 			);
 		}
+		const matchingInsu = selectedInsuGroup.records;
 		const selectedInsu = matchingInsu[0] as ProviderRecord;
 		const selectedPsnNo = uniqueTextFromRecords(
 			matchingInsu,
@@ -2041,7 +2079,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				["insutype", "insuType", "insutypeCode"],
 				"medical-insurance.1101",
 				infoResponse.requestId,
-			) ?? insutype;
+			) ?? selectedInsuGroup.allowedInsutype;
 		const baseInfoEcToken = tokenFromBaseInfo(baseInfo);
 		const queryEcToken = optionalText(
 			queryPayload,
@@ -2152,6 +2190,26 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				throw responseError(
 					"medical-insurance.6201",
 					"authorization context is unavailable",
+				);
+			const order = await options.orders.findByMedicalOrderId(input.orderId);
+			if (!order || order.ownerUserId !== input.ownerUserId)
+				throw responseError(
+					"medical-insurance.6201",
+					"order context is unavailable",
+				);
+			const businessType =
+				order.businessType ??
+				(order.appointmentId ? "registration" : undefined);
+			if (!businessType)
+				throw responseError(
+					"medical-insurance.6201",
+					"medical insurance business type is unavailable",
+				);
+			const medType = medicalTypeForBusiness(businessType, auth.insutype);
+			if (!medType)
+				throw responseError(
+					"medical-insurance.6201",
+					`门诊险种 ${auth.insutype} 没有配置医疗类别`,
 				);
 			const appointment = input.appointment;
 			const registerId =
@@ -2525,6 +2583,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				details,
 				appointment,
 				auth,
+				medType,
 				deptCode,
 				deptName,
 				doctorCode,
@@ -2648,7 +2707,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					acctUsedFlag,
 					deptCode,
 					caty,
-					medType: "11",
+					businessType,
+					medType,
 					feeType: "01",
 					mdtrtCertType: DEFAULT_MDTRT_CERT_TYPE,
 					uldLatlnt,
@@ -2695,7 +2755,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					deptName,
 					deptCode,
 					caty,
-					medType: "11",
+					medType,
 					feeType: "01",
 					psnSetlway: "01",
 					mdtrtCertType: DEFAULT_MDTRT_CERT_TYPE,

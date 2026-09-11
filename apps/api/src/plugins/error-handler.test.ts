@@ -538,6 +538,33 @@ test("Provider adapter 标记响应非法时映射为 provider-response-invalid"
 	});
 });
 
+test("1101 没有有效医保险种时返回可确认改用自费的业务错误", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new ProviderRequestError({
+			provider: "medical-insurance",
+			operation: "medical-insurance.1101",
+			message: "参保信息缺少可用险种 insutype=310,390",
+			retryable: false,
+			failureStage: "response",
+			responseInvalid: false,
+			requestOutcome: "rejected",
+			reason: "medical-insurance-insutype-unavailable",
+		});
+	});
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(409);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "medical-insurance-insutype-unavailable",
+			numericCode: 30560,
+			message:
+				"当前就诊人未查询到可用于本次支付的有效医保参保信息，请确认是否改用普通自费支付",
+		},
+	});
+});
+
 test("医保关单上下文缺失不再伪装成 Provider 502", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 		throw new ProviderRequestError({

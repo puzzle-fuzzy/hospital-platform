@@ -132,6 +132,19 @@ test("versioned ping endpoint is available", async () => {
 	expect((await response.json()).success).toBe(true);
 });
 
+test("临时联调关闭众阳 2.6.65.9 反向查询路由", async () => {
+	const response = await createApp({
+		yunhealthPaymentQueryEnabled: false,
+	}).handle(new Request("http://localhost/openapi/json"));
+	const document = (await response.json()) as {
+		paths: Record<string, unknown>;
+	};
+
+	expect(
+		document.paths["/Payment/Api/MYDService/ThirdpartyPayQuery"],
+	).toBeUndefined();
+});
+
 test("OpenAPI route inventory matches the current public application surface", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/openapi/json"),
@@ -142,6 +155,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 
 	// 这份白名单用于发现“代码加了路由但契约文档未更新”或误开放写入接口。
 	const expectedPaths = [
+		"/Payment/Api/MYDService/ThirdpartyPayQuery",
 		"/api/v1/appointments/clinic-departments",
 		"/api/v1/appointments/departments",
 		"/api/v1/appointments/department-tree",
@@ -326,6 +340,7 @@ test("public API documentation lists every stable public error code", async () =
 		"medical-insurance-order-not-found",
 		"medical-insurance-payment-in-progress",
 		"medical-insurance-cancellation-context-missing",
+		"medical-insurance-insutype-unavailable",
 		"outpatient-payment-query-invalid",
 		"report-query-invalid",
 		"report-patient-not-found",

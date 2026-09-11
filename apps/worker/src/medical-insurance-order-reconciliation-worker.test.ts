@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import type {
 	MedicalInsuranceOrder,
+	MedicalInsurancePostPaymentComponent,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceSettlementEvidence,
 } from "@hospital/domain";
@@ -13,6 +15,34 @@ import {
 import { MedicalInsuranceOrderReconciliationWorker } from "./medical-insurance-order-reconciliation-worker";
 
 const now = new Date("2026-09-03T00:00:00.000Z");
+
+function prePaymentComponent(
+	kind: MedicalInsurancePostPaymentComponent["kind"],
+	amountFen: number,
+	payModel: MedicalInsurancePostPaymentComponent["payModel"],
+	payTypeId: MedicalInsurancePostPaymentComponent["payTypeId"],
+	totalFen = 100,
+): MedicalInsurancePostPaymentComponent {
+	const medicalOrderId = "medical-order-worker-001";
+	return {
+		componentId: `${medicalOrderId}:${kind}`,
+		kind,
+		totalFen,
+		amountFen,
+		payModel,
+		payTypeId,
+		recordCode: createHash("sha256")
+			.update(`medical-post-payment:${medicalOrderId}:${kind}`)
+			.digest("hex")
+			.slice(0, 32),
+		state: "succeeded",
+		attempts: 1,
+		payingId: `paying-${kind}`,
+		tradingId: `trading-${kind}`,
+		providerRequestId: `pre-payment-${kind}`,
+		updatedAt: now.toISOString(),
+	};
+}
 
 function order(
 	overrides: Partial<MedicalInsuranceOrder> = {},
@@ -525,7 +555,7 @@ test("医院负担不让 Worker 把过期微信现金预支付误判为可用", 
 	).toMatchObject({ wechatPaymentState: "unknown" });
 });
 
-test("pure insurance completes only after official WeChat query and final HIS settlement", async () => {
+test("pure insurance uses pre-payment .2 components then calls .5 after WeChat", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -556,11 +586,16 @@ test("pure insurance completes only after official WeChat query and final HIS se
 			nationalUpDetailList: [],
 			upDetailList: [],
 			tradeOrderIds: ["trade-pure-worker-001"],
+			postPaymentComponents: [
+				prePaymentComponent("fund", 70, "H5", "2"),
+				prePaymentComponent("personal_account", 30, "H5", "5"),
+			],
 		},
 	);
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let cashPaymentConfirmed: boolean | undefined;
 	const componentInputs: unknown[] = [];
+	let completeSettlementCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
 		tasks,
 		orders,
@@ -607,18 +642,14 @@ test("pure insurance completes only after official WeChat query and final HIS se
 		postPayment: {
 			createPreOrder: async (input) => {
 				componentInputs.push(input);
+				throw new Error(".2 must not run after payment");
+			},
+			completeSettlement: async () => {
+				completeSettlementCalls += 1;
 				return {
-					payingId: `26065000000000${componentInputs.length}`,
-					tradingId: `26066000000000${componentInputs.length}`,
-					payTypeId: input.payTypeId,
-					payType: input.payType,
-					workStationId: input.workStationId,
-					tradeTypeCode: input.tradeTypeCode,
-					trace: {
-						provider: "yunhealth",
-						operation: "registration-plugin-payment-preorder",
-						requestId: `component-${componentInputs.length}`,
-					},
+					provider: "yunhealth",
+					operation: "registration-self-pay.2.6.65.5",
+					requestId: "complete-pure-worker-001",
 				};
 			},
 		},
@@ -626,20 +657,8 @@ test("pure insurance completes only after official WeChat query and final HIS se
 
 	expect(await worker.runOnce(now)).toBe("reconciled");
 	expect(cashPaymentConfirmed).toBeTrue();
-	expect(componentInputs).toEqual([
-		expect.objectContaining({
-			totalFen: 100,
-			amountFen: 70,
-			payModel: "H5",
-			payTypeId: "2",
-		}),
-		expect.objectContaining({
-			totalFen: 100,
-			amountFen: 30,
-			payModel: "H5",
-			payTypeId: "3",
-		}),
-	]);
+	expect(componentInputs).toEqual([]);
+	expect(completeSettlementCalls).toBe(1);
 	expect(
 		await orders.findByMedicalOrderId("medical-order-worker-001"),
 	).toMatchObject({
@@ -650,7 +669,7 @@ test("pure insurance completes only after official WeChat query and final HIS se
 	});
 });
 
-test("mixed payment persists successful post-payment components and retries only the failed component", async () => {
+test("mixed payment does not create .2 after payment and calls .5 with pre-payment components", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -682,6 +701,12 @@ test("mixed payment persists successful post-payment components and retries only
 			nationalUpDetailList: [],
 			upDetailList: [],
 			tradeOrderIds: ["trade-component-worker-001"],
+			postPaymentComponents: [
+				prePaymentComponent("hospital_reduce", 10, "H5", "50"),
+				prePaymentComponent("fund", 50, "H5", "2"),
+				prePaymentComponent("personal_account", 20, "H5", "5"),
+				prePaymentComponent("wechat_cash", 20, "MINI_PROGRAM", "31"),
+			],
 		},
 	);
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
@@ -693,8 +718,8 @@ test("mixed payment persists successful post-payment components and retries only
 		payTypeId: string;
 		paymentSystemUserId?: string;
 	}> = [];
-	let personalAccountAttempts = 0;
 	let finalizationCalls = 0;
+	let completeSettlementCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
 		tasks,
 		orders,
@@ -750,74 +775,24 @@ test("mixed payment persists successful post-payment components and retries only
 		postPayment: {
 			createPreOrder: async (input) => {
 				componentCalls.push(input);
-				if (input.orderId.endsWith(":personal_account")) {
-					personalAccountAttempts += 1;
-					if (personalAccountAttempts === 1) {
-						throw new Error("temporary personal account failure");
-					}
-				}
+				throw new Error(".2 must not run after payment");
+			},
+			completeSettlement: async () => {
+				completeSettlementCalls += 1;
 				return {
-					payingId: `27065000000000${componentCalls.length}`,
-					tradingId: `27066000000000${componentCalls.length}`,
-					payTypeId: input.payTypeId,
-					payType: input.payType,
-					workStationId: input.workStationId,
-					tradeTypeCode: input.tradeTypeCode,
-					trace: {
-						provider: "yunhealth",
-						operation: "registration-plugin-payment-preorder",
-						requestId: `component-${componentCalls.length}`,
-					},
+					provider: "yunhealth",
+					operation: "registration-self-pay.2.6.65.5",
+					requestId: "complete-component-worker-001",
 				};
 			},
 		},
 	});
 
-	expect(await worker.runOnce(now)).toBe("retry_scheduled");
-	let settlement = await orders.getSettlementContext(
-		"user-worker-001",
-		"medical-order-worker-001",
-	);
-	expect(
-		settlement?.postPaymentComponents?.map((component) => component.state),
-	).toEqual(["succeeded", "succeeded", "failed", "pending"]);
-
-	const retryAt = new Date(now.getTime() + 60_000);
-	expect(await worker.runOnce(retryAt)).toBe("reconciled");
-	expect(
-		componentCalls.map((input) => input.orderId.split(":").at(-1)),
-	).toEqual([
-		"hospital_reduce",
-		"fund",
-		"personal_account",
-		"personal_account",
-		"wechat_cash",
-	]);
-	expect(
-		componentCalls.map(
-			({ totalFen, amountFen, payModel, payTypeId, paymentSystemUserId }) => ({
-				totalFen,
-				amountFen,
-				payModel,
-				payTypeId,
-				...(paymentSystemUserId ? { paymentSystemUserId } : {}),
-			}),
-		),
-	).toEqual([
-		{ totalFen: 100, amountFen: 10, payModel: "H5", payTypeId: "50" },
-		{ totalFen: 100, amountFen: 50, payModel: "H5", payTypeId: "2" },
-		{ totalFen: 100, amountFen: 20, payModel: "H5", payTypeId: "3" },
-		{ totalFen: 100, amountFen: 20, payModel: "H5", payTypeId: "3" },
-		{
-			totalFen: 100,
-			amountFen: 20,
-			payModel: "MINI_PROGRAM",
-			payTypeId: "5027",
-			paymentSystemUserId: "openid-component-worker-001",
-		},
-	]);
+	expect(await worker.runOnce(now)).toBe("reconciled");
+	expect(componentCalls).toEqual([]);
+	expect(completeSettlementCalls).toBe(1);
 	expect(finalizationCalls).toBe(1);
-	settlement = await orders.getSettlementContext(
+	const settlement = await orders.getSettlementContext(
 		"user-worker-001",
 		"medical-order-worker-001",
 	);
@@ -826,7 +801,7 @@ test("mixed payment persists successful post-payment components and retries only
 			(item) => item.state === "succeeded",
 		),
 	).toBeTrue();
-	expect(settlement?.postPaymentCompletedAt).toBe(retryAt.toISOString());
+	expect(settlement?.postPaymentCompletedAt).toBe(now.toISOString());
 });
 
 test("nonzero med_ins_other_fee stays unmapped and blocks post-payment writeback", async () => {
