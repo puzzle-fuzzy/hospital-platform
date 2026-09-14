@@ -398,7 +398,9 @@ export class MedicalInsurancePaymentCore {
 			order.version,
 			{
 				status: result.state,
-				ordStas: result.providerStatus,
+				// ord_stas 只保存 6202/6301/6302 的短状态快照（数据库 VARCHAR(8)）。
+				// 关单诊断可能是长文本，保留在响应和结构化日志中，不能写入该列。
+				ordStas: order.ordStas,
 				amounts: order.amounts,
 				setlType: order.setlType,
 				revsTokenHash: order.revsTokenHash,

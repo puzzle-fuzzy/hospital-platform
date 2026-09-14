@@ -169,5 +169,5 @@ test("2.6.65.1已创建但6201未完成时重授权会取消上游结算", async
 	]);
 	await expect(
 		orders.findByMedicalOrderId(original.medicalOrderId),
-	).resolves.toMatchObject({ status: "cancelled" });
+	).resolves.toMatchObject({ status: "cancelled", ordStas: null });
 });
