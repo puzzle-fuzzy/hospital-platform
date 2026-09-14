@@ -6,13 +6,17 @@ import {
 	type LaboratoryReportDetail,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
+	normalizeAdapterCallContext,
 	parseIsoCalendarDate,
+	type ReportAttachmentContent,
+	type ReportAttachmentGateway,
 	type ReportDetailGateway,
 	type ReportDirectoryEntry,
 	type ReportDirectoryGateway,
 	type ReportDirectoryInput,
 	type ReportDirectoryQuery,
 	type ReportKind,
+	type ReportProviderAttachment,
 	type ReportSummary,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
@@ -25,8 +29,15 @@ const LABORATORY_DETAIL_PATH =
 const IMAGING_PATH =
 	"/msun-middle-business-pacs/v1/exclude-privacy-patient-reports";
 const ECG_PATH = "/msun-middle-business-ecg/v2/ecg-reports";
-const REPORT_DIRECTORY_INPUT_FIELDS = new Set(["providerPatientId", "query"]);
+const PEIS_PATH = "/msun-peis-app-peis-new/v1/find-report-list-for-wechat";
+const REPORT_DIRECTORY_INPUT_FIELDS = new Set([
+	"providerPatientId",
+	"providerIdentityNumber",
+	"hospitalId",
+	"query",
+]);
 const REPORT_DIRECTORY_QUERY_FIELDS = new Set(["startDate", "endDate", "kind"]);
+const MAX_REPORT_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 type ProviderObject = Record<string, unknown>;
 
@@ -173,6 +184,18 @@ function normalizeDirectoryInput(value: unknown): ReportDirectoryInput {
 	}
 	return {
 		providerPatientId: record.providerPatientId,
+		...(record.providerIdentityNumber === undefined
+			? {}
+			: typeof record.providerIdentityNumber === "string"
+				? { providerIdentityNumber: record.providerIdentityNumber }
+				: invalidInput(operation, "Zhongyang PEIS identity number is invalid")),
+		...(record.hospitalId === undefined
+			? {}
+			: typeof record.hospitalId === "number" &&
+					Number.isSafeInteger(record.hospitalId) &&
+					record.hospitalId > 0
+				? { hospitalId: record.hospitalId }
+				: invalidInput(operation, "Zhongyang PEIS hospital id is invalid")),
 		query,
 	};
 }
@@ -222,6 +245,28 @@ function requireSuccessfulEnvelope(
 	}
 }
 
+/**
+ * 心电目录使用失败包络表达合法空结果。
+ *
+ * 2026-09-14 的目标环境实证响应为
+ * `{ success:false, code:"0001", message:"未查询到数据", data:null }`。
+ * 这里只兼容这一个来源、错误码、文案和 data 形状的精确组合；其它
+ * `success=false` 仍由 requireSuccessfulEnvelope 拒绝，不能把真实业务
+ * 故障静默降级成“没有报告”。
+ */
+function isKnownEmptyReportEnvelope(
+	envelope: ProviderObject,
+	operation: string,
+): boolean {
+	return (
+		operation === "reports-ecg" &&
+		envelope.success === false &&
+		envelope.code === "0001" &&
+		envelope.message === "未查询到数据" &&
+		envelope.data === null
+	);
+}
+
 /** 兼容 provider 的数组响应和 `{ success, data }` 包装，但不接受任意对象透传。 */
 function responseItems(
 	value: unknown,
@@ -240,6 +285,7 @@ function responseItems(
 		return value.map((item) => objectValue(item, operation, requestId));
 	}
 	const envelope = objectValue(value, operation, requestId);
+	if (isKnownEmptyReportEnvelope(envelope, operation)) return [];
 	requireSuccessfulEnvelope(envelope, operation, requestId);
 	if (!Array.isArray(envelope.data)) {
 		throw providerError(
@@ -256,6 +302,32 @@ function responseItems(
 		);
 	}
 	return envelope.data.map((item) => objectValue(item, operation, requestId));
+}
+
+/** PEIS 的成功数据比 LIS/PACS/ECG 多一层 `{ data: { report } }`。 */
+function peisResponseItems(
+	value: unknown,
+	operation: string,
+	requestId: string,
+): ProviderObject[] {
+	const envelope = objectValue(value, operation, requestId);
+	requireSuccessfulEnvelope(envelope, operation, requestId);
+	const data = objectValue(envelope.data, operation, requestId);
+	if (!Array.isArray(data.report)) {
+		throw providerError(
+			operation,
+			"Zhongyang PEIS report response data was invalid",
+			requestId,
+		);
+	}
+	if (data.report.length > MAX_REPORT_DIRECTORY_ITEMS) {
+		throw providerError(
+			operation,
+			"Zhongyang report response contained too many items",
+			requestId,
+		);
+	}
+	return data.report.map((item) => objectValue(item, operation, requestId));
 }
 
 /** 详情接口返回单个对象；只接受明确的 object/envelope，不透传原始响应。 */
@@ -336,14 +408,15 @@ function optionalText(
  * 对象、数组和布尔值都属于响应结构异常，不能用 JavaScript 的 truthy 规则
  * 把它们误报成患者可用的附件。
  */
-function hasAttachmentText(
+function attachmentText(
 	value: ProviderObject,
 	field: string,
 	operation: string,
 	requestId: string,
-): boolean {
+): string | undefined {
 	const marker = value[field];
-	if (marker === undefined || marker === null) return false;
+	if (marker === undefined || marker === null || marker === "")
+		return undefined;
 	if (typeof marker !== "string") {
 		throw providerError(
 			operation,
@@ -364,7 +437,15 @@ function hasAttachmentText(
 			requestId,
 		);
 	}
-	return normalized.length > 0;
+	if (!normalized) return undefined;
+	if (normalized.length > 2048) {
+		throw providerError(
+			operation,
+			`Zhongyang report attachment field ${field} is invalid`,
+			requestId,
+		);
+	}
+	return normalized;
 }
 
 /**
@@ -373,19 +454,20 @@ function hasAttachmentText(
  * 降级成“有附件”。即使附件地址当前不下发，异常值也不能绕过 Provider
  * 响应边界进入未来的下载/授权逻辑。
  */
-function hasAttachmentTextList(
+function attachmentTextList(
 	value: ProviderObject,
 	field: string,
 	operation: string,
 	requestId: string,
-): boolean {
+): string[] {
 	const marker = value[field];
-	if (marker === undefined || marker === null) return false;
+	if (marker === undefined || marker === null) return [];
 	if (
 		!Array.isArray(marker) ||
 		marker.some(
 			(item) =>
 				typeof item !== "string" ||
+				item.trim().length > 2048 ||
 				Array.from(item).some((character) => {
 					const code = character.charCodeAt(0);
 					return code <= 0x1f || code === 0x7f;
@@ -398,7 +480,31 @@ function hasAttachmentTextList(
 			requestId,
 		);
 	}
-	return marker.some((item) => item.trim().length > 0);
+	return marker.map((item) => item.trim()).filter(Boolean);
+}
+
+function hasAttachmentTextList(
+	value: ProviderObject,
+	field: string,
+	operation: string,
+	requestId: string,
+): boolean {
+	return attachmentTextList(value, field, operation, requestId).length > 0;
+}
+
+function detailField(
+	label: string,
+	value: unknown,
+	field: string,
+	operation: string,
+	requestId: string,
+): { label: string; value: string } | undefined {
+	const normalized = optionalText(value, field, operation, requestId, 2048);
+	return normalized === undefined ? undefined : { label, value: normalized };
+}
+
+function compactFields<T>(values: readonly (T | undefined)[]): T[] {
+	return values.filter((value): value is T => value !== undefined);
 }
 
 /**
@@ -616,28 +722,117 @@ function mapImaging(
 	requestId: string,
 ): ReportDirectoryEntry {
 	const title =
-		optionalText(value.reportDocName, "reportDocName", operation, requestId) ??
 		optionalText(value.stuBodypart, "stuBodypart", operation, requestId) ??
 		optionalText(value.modality, "modality", operation, requestId) ??
 		"影像检查报告";
-	// PACS 当前只有目录摘要合同；provider 报告号不能进入内部目录项，
-	// 否则后续新增详情路由时可能绕过“仅 LIS 可查详情”的业务边界。
+	const reportedAt = requiredText(
+		value.reportAuditTime,
+		"reportAuditTime",
+		operation,
+		requestId,
+		64,
+	);
+	const providerReportId = requiredText(
+		value.reportId,
+		"reportId",
+		operation,
+		requestId,
+		256,
+	);
+	const attachments = compactFields([
+		attachmentText(value, "reportPdfPath", operation, requestId)
+			? {
+					sourceUrl: attachmentText(
+						value,
+						"reportPdfPath",
+						operation,
+						requestId,
+					) as string,
+					kind: "pdf" as const,
+					label: "影像报告 PDF",
+				}
+			: undefined,
+		attachmentText(value, "reportImgPath", operation, requestId)
+			? {
+					sourceUrl: attachmentText(
+						value,
+						"reportImgPath",
+						operation,
+						requestId,
+					) as string,
+					kind: "image" as const,
+					label: "影像报告图片",
+				}
+			: undefined,
+	]);
+	const fields = compactFields([
+		detailField("检查设备", value.modality, "modality", operation, requestId),
+		detailField(
+			"检查部位",
+			value.stuBodypart,
+			"stuBodypart",
+			operation,
+			requestId,
+		),
+		detailField(
+			"报告医生",
+			value.reportDocName,
+			"reportDocName",
+			operation,
+			requestId,
+		),
+		detailField(
+			"审核医生",
+			value.auditDocName,
+			"auditDocName",
+			operation,
+			requestId,
+		),
+	]);
+	const sections = compactFields([
+		optionalText(value.finding, "finding", operation, requestId, 10_000)
+			? {
+					title: "检查所见",
+					content: optionalText(
+						value.finding,
+						"finding",
+						operation,
+						requestId,
+						10_000,
+					) as string,
+				}
+			: undefined,
+		optionalText(value.conclusion, "conclusion", operation, requestId, 10_000)
+			? {
+					title: "检查结论",
+					content: optionalText(
+						value.conclusion,
+						"conclusion",
+						operation,
+						requestId,
+						10_000,
+					) as string,
+				}
+			: undefined,
+	]);
 	return {
 		summary: {
 			kind: "imaging",
 			title,
-			reportedAt: requiredText(
-				value.reportAuditTime,
-				"reportAuditTime",
-				operation,
-				requestId,
-				64,
-			),
+			reportedAt,
 			status: "available",
-			hasAttachment:
-				hasAttachmentText(value, "reportPdfPath", operation, requestId) ||
-				hasAttachmentText(value, "reportImgPath", operation, requestId),
+			hasAttachment: attachments.length > 0,
 		},
+		providerReportId,
+		detail: {
+			kind: "imaging",
+			title,
+			reportedAt,
+			fields,
+			sections,
+			hasAttachment: attachments.length > 0,
+		},
+		attachments,
 	};
 }
 
@@ -650,24 +845,143 @@ function mapEcg(
 		optionalText(value.diagnosis, "diagnosis", operation, requestId) ??
 		optionalText(value.reportDocName, "reportDocName", operation, requestId) ??
 		"心电报告";
-	// ECG 当前没有可审计的详情端口；即使 provider 返回 ecgReportId，
-	// 也不能把它保存在目录项中，避免把“有报告号”误判为“可查询详情”。
+	const reportedAt = requiredText(
+		value.diagnoseTime,
+		"diagnoseTime",
+		operation,
+		requestId,
+		64,
+	);
+	const providerReportId = requiredText(
+		value.ecgReportId,
+		"ecgReportId",
+		operation,
+		requestId,
+		256,
+	);
+	const pdfPath = attachmentText(value, "pdfPath", operation, requestId);
+	const attachments = pdfPath
+		? [{ sourceUrl: pdfPath, kind: "pdf" as const, label: "心电报告 PDF" }]
+		: [];
+	const fields = compactFields([
+		detailField("心率 HR", value.hr, "hr", operation, requestId),
+		detailField("PR 间期", value.pr, "pr", operation, requestId),
+		detailField("QRS 时限", value.qrs, "qrs", operation, requestId),
+		detailField("QT 间期", value.qt, "qt", operation, requestId),
+		detailField("QTc", value.qtc, "qtc", operation, requestId),
+		detailField("QRS 轴", value.qrsAxes, "qrsAxes", operation, requestId),
+		detailField("P 轴", value.paxes, "paxes", operation, requestId),
+		detailField("T 轴", value.taxes, "taxes", operation, requestId),
+		detailField(
+			"报告医生",
+			value.reportDocName,
+			"reportDocName",
+			operation,
+			requestId,
+		),
+		detailField(
+			"审核医生",
+			value.auditDocName,
+			"auditDocName",
+			operation,
+			requestId,
+		),
+	]);
+	const diagnosis = optionalText(
+		value.diagnosis,
+		"diagnosis",
+		operation,
+		requestId,
+		10_000,
+	);
 	return {
 		summary: {
 			kind: "ecg",
 			title,
 			// 旧端报告列表的可见时间使用 `diagnoseTime`。审核时间是另一
 			// 个 Provider 字段，不能在缺少诊断时间时静默冒充报告时间。
-			reportedAt: requiredText(
-				value.diagnoseTime,
-				"diagnoseTime",
-				operation,
-				requestId,
-				64,
-			),
+			reportedAt,
 			status: "available",
-			hasAttachment: hasAttachmentText(value, "pdfPath", operation, requestId),
+			hasAttachment: attachments.length > 0,
 		},
+		providerReportId,
+		detail: {
+			kind: "ecg",
+			title,
+			reportedAt,
+			fields,
+			sections: diagnosis ? [{ title: "心电诊断", content: diagnosis }] : [],
+			hasAttachment: attachments.length > 0,
+		},
+		attachments,
+	};
+}
+
+function mapPeis(
+	value: ProviderObject,
+	operation: string,
+	requestId: string,
+): ReportDirectoryEntry {
+	const title =
+		optionalText(value.packageNames, "packageNames", operation, requestId) ??
+		optionalText(value.serialNo, "serialNo", operation, requestId) ??
+		optionalText(value.healthExamNo, "healthExamNo", operation, requestId) ??
+		"体检报告";
+	const reportedAt = requiredText(
+		value.summaryTime ?? value.endTime ?? value.startTime,
+		"summaryTime",
+		operation,
+		requestId,
+		64,
+	);
+	const providerReportId = requiredText(
+		value.peisRegInfoId,
+		"peisRegInfoId",
+		operation,
+		requestId,
+		256,
+	);
+	const pdfUrl = attachmentText(value, "pdfUrl", operation, requestId);
+	const attachments = pdfUrl
+		? [{ sourceUrl: pdfUrl, kind: "pdf" as const, label: "体检报告 PDF" }]
+		: [];
+	const fields = compactFields([
+		detailField(
+			"体检套餐",
+			value.packageNames,
+			"packageNames",
+			operation,
+			requestId,
+		),
+		detailField("体检开始", value.startTime, "startTime", operation, requestId),
+		detailField("体检结束", value.endTime, "endTime", operation, requestId),
+		detailField("总检医生", value.doctor, "doctor", operation, requestId),
+		detailField(
+			"完成状态",
+			value.isFinished,
+			"isFinished",
+			operation,
+			requestId,
+		),
+	]);
+	return {
+		summary: {
+			kind: "peis",
+			title,
+			reportedAt,
+			status: "available",
+			hasAttachment: attachments.length > 0,
+		},
+		providerReportId,
+		detail: {
+			kind: "peis",
+			title,
+			reportedAt,
+			fields,
+			sections: [],
+			hasAttachment: attachments.length > 0,
+		},
+		attachments,
 	};
 }
 
@@ -780,16 +1094,260 @@ function slashDateTime(value: string, endOfDay: boolean): string {
 	return `${value.replaceAll("-", "/")} ${endOfDay ? "23:59:59" : "00:00:00"}`;
 }
 
-/** 众阳报告目录只读 adapter；不支持详情、解读、体检身份证查询或文件下载。 */
-export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
+/** 众阳报告只读 adapter；非 LIS 详情复用实时列表行，不保存报告正文。 */
+export type ZhongyangReportGatewayOptions = ZhongyangGatewayOptions & {
+	/** 跨域附件必须由部署配置显式加入；默认仅允许众阳 base URL 同源。 */
+	attachmentAllowedOrigins?: readonly string[];
+};
+
+function normalizeAttachmentOrigin(value: string): string {
+	let url: URL;
+	try {
+		url = new URL(value.trim());
+	} catch {
+		throw new AdapterNotConfiguredError("zhongyang");
+	}
+	if (
+		(url.protocol !== "http:" && url.protocol !== "https:") ||
+		url.username ||
+		url.password ||
+		url.hash ||
+		url.search ||
+		(url.pathname !== "/" && url.pathname !== "")
+	) {
+		throw new AdapterNotConfiguredError("zhongyang");
+	}
+	return url.origin;
+}
+
+function attachmentContentType(
+	attachment: ReportProviderAttachment,
+	url: URL,
+	response: Response,
+): ReportAttachmentContent["contentType"] {
+	const declared = (response.headers.get("content-type") ?? "")
+		.split(";", 1)[0]
+		?.trim()
+		.toLowerCase();
+	if (attachment.kind === "pdf") {
+		if (
+			declared &&
+			declared !== "application/pdf" &&
+			declared !== "application/octet-stream"
+		) {
+			throw providerError(
+				"reports-attachment",
+				"Zhongyang report attachment content type was invalid",
+				response.headers.get("x-request-id") ?? undefined,
+			);
+		}
+		return "application/pdf";
+	}
+	if (declared?.startsWith("image/")) {
+		return declared as `image/${string}`;
+	}
+	if (!declared || declared === "application/octet-stream") {
+		const extension = url.pathname.split(".").pop()?.toLowerCase();
+		const inferred =
+			extension === "png"
+				? "image/png"
+				: extension === "gif"
+					? "image/gif"
+					: extension === "webp"
+						? "image/webp"
+						: extension === "jpg" || extension === "jpeg"
+							? "image/jpeg"
+							: undefined;
+		if (inferred) return inferred;
+	}
+	throw providerError(
+		"reports-attachment",
+		"Zhongyang report attachment content type was invalid",
+		response.headers.get("x-request-id") ?? undefined,
+	);
+}
+
+async function boundedResponseBody(
+	response: Response,
+	requestId: string,
+): Promise<Uint8Array> {
+	const declaredLength = Number(response.headers.get("content-length"));
+	if (
+		Number.isFinite(declaredLength) &&
+		(declaredLength < 0 || declaredLength > MAX_REPORT_ATTACHMENT_BYTES)
+	) {
+		throw providerError(
+			"reports-attachment",
+			"Zhongyang report attachment was too large",
+			requestId,
+		);
+	}
+	if (!response.body) return new Uint8Array();
+	const reader = response.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			total += value.byteLength;
+			if (total > MAX_REPORT_ATTACHMENT_BYTES) {
+				await reader.cancel();
+				throw providerError(
+					"reports-attachment",
+					"Zhongyang report attachment was too large",
+					requestId,
+				);
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	const body = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		body.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return body;
+}
+
+export class ZhongyangReportApiGateway
+	implements
+		ReportDirectoryGateway,
+		ReportDetailGateway,
+		ReportAttachmentGateway
+{
 	private readonly baseUrl: string;
 	private readonly authorizationToken: string | undefined;
 	private readonly fetcher: ProviderFetcher;
+	private readonly attachmentAllowedOrigins: ReadonlySet<string>;
 
-	constructor(options: ZhongyangGatewayOptions) {
+	constructor(options: ZhongyangReportGatewayOptions) {
 		this.baseUrl = requiredConfig(options.baseUrl);
 		this.authorizationToken = options.authorizationToken?.trim() || undefined;
 		this.fetcher = options.fetcher ?? fetch;
+		this.attachmentAllowedOrigins = new Set([
+			new URL(this.baseUrl).origin,
+			...(options.attachmentAllowedOrigins ?? []).map(
+				normalizeAttachmentOrigin,
+			),
+		]);
+	}
+
+	async fetchAttachment(
+		attachment: ReportProviderAttachment,
+		context: AdapterCallContext,
+	): Promise<ReportAttachmentContent> {
+		const normalizedContext = normalizeAdapterCallContext(context);
+		if (!normalizedContext) {
+			return invalidInput(
+				"reports-attachment",
+				"Zhongyang report attachment context is invalid",
+			);
+		}
+		if (
+			typeof attachment !== "object" ||
+			attachment === null ||
+			(attachment.kind !== "pdf" && attachment.kind !== "image") ||
+			typeof attachment.sourceUrl !== "string"
+		) {
+			return invalidInput(
+				"reports-attachment",
+				"Zhongyang report attachment input is invalid",
+			);
+		}
+		let url: URL;
+		try {
+			url = new URL(attachment.sourceUrl);
+		} catch {
+			return invalidInput(
+				"reports-attachment",
+				"Zhongyang report attachment URL is invalid",
+			);
+		}
+		if (
+			(url.protocol !== "http:" && url.protocol !== "https:") ||
+			url.username ||
+			url.password ||
+			url.hash ||
+			!this.attachmentAllowedOrigins.has(url.origin)
+		) {
+			return invalidInput(
+				"reports-attachment",
+				"Zhongyang report attachment origin is not allowed",
+			);
+		}
+
+		const controller = new AbortController();
+		const timeoutId = setTimeout(
+			() => controller.abort(),
+			normalizedContext.timeoutMs ?? 20_000,
+		);
+		const onAbort = () => controller.abort();
+		if (normalizedContext.signal?.aborted) controller.abort();
+		else
+			normalizedContext.signal?.addEventListener("abort", onAbort, {
+				once: true,
+			});
+		try {
+			const headers = new Headers({
+				Accept: attachment.kind === "pdf" ? "application/pdf" : "image/*",
+				"x-request-id": normalizedContext.traceId,
+				"idempotency-key": normalizedContext.idempotencyKey,
+				...(this.authorizationToken
+					? { Authorization: `Bearer ${this.authorizationToken}` }
+					: {}),
+			});
+			const response = await this.fetcher(url, {
+				method: "GET",
+				headers,
+				// 不跟随 Provider 返回的重定向；否则一个已允许的同源 URL
+				// 可以把带鉴权的下载链带到未加入白名单的外部来源。
+				redirect: "manual",
+				signal: controller.signal,
+			});
+			const requestId =
+				response.headers.get("x-request-id")?.trim() ||
+				normalizedContext.traceId;
+			if (!response.ok) {
+				throw new ProviderRequestError({
+					provider: "zhongyang",
+					operation: "reports-attachment",
+					message: "Zhongyang report attachment request failed",
+					statusCode: response.status,
+					requestId,
+					retryable: response.status >= 500,
+					failureStage: "http",
+					requestOutcome: "rejected",
+				});
+			}
+			const contentType = attachmentContentType(attachment, url, response);
+			const body = await boundedResponseBody(response, requestId);
+			if (body.byteLength === 0) {
+				throw providerError(
+					"reports-attachment",
+					"Zhongyang report attachment was empty",
+					requestId,
+				);
+			}
+			return { body, contentType };
+		} catch (error) {
+			if (error instanceof ProviderRequestError) throw error;
+			throw new ProviderRequestError({
+				provider: "zhongyang",
+				operation: "reports-attachment",
+				message: "Zhongyang report attachment transport failed",
+				retryable: true,
+				failureStage: "transport",
+				requestOutcome: "unknown",
+				cause: error,
+			});
+		} finally {
+			clearTimeout(timeoutId);
+			normalizedContext.signal?.removeEventListener("abort", onAbort);
+		}
 	}
 
 	private async requestKind(
@@ -807,48 +1365,80 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 				? LABORATORY_PATH
 				: kind === "imaging"
 					? IMAGING_PATH
-					: ECG_PATH,
+					: kind === "ecg"
+						? ECG_PATH
+						: PEIS_PATH,
 			this.baseUrl,
 		);
-		url.searchParams.set("patId", providerPatientId);
+		if (kind !== "peis") url.searchParams.set("patId", providerPatientId);
 		if (kind === "laboratory") {
 			url.searchParams.set("startTime", dateTime(input.query.startDate, false));
 			url.searchParams.set("endTime", dateTime(input.query.endDate, true));
 		} else if (kind === "imaging") {
 			url.searchParams.set("startDate", input.query.startDate);
 			url.searchParams.set("endDate", input.query.endDate);
-		} else {
+		} else if (kind === "ecg") {
 			url.searchParams.set(
 				"startTime",
 				slashDateTime(input.query.startDate, false),
 			);
 			url.searchParams.set("endTime", slashDateTime(input.query.endDate, true));
 		}
+		let body: Record<string, unknown> | undefined;
+		if (kind === "peis") {
+			const identityNumber = requiredConfig(input.providerIdentityNumber ?? "");
+			if (
+				identityNumber.length > 32 ||
+				Array.from(identityNumber).some((character) => {
+					const code = character.charCodeAt(0);
+					return code <= 0x1f || code === 0x7f;
+				}) ||
+				!Number.isSafeInteger(input.hospitalId) ||
+				(input.hospitalId ?? 0) <= 0
+			) {
+				return invalidInput(
+					operation,
+					"Zhongyang PEIS query context is invalid",
+				);
+			}
+			body = {
+				idcard: identityNumber,
+				hospitalId: input.hospitalId,
+				startTime: dateTime(input.query.startDate, false),
+				endTime: dateTime(input.query.endDate, true),
+			};
+		}
 		const response = await requestJson<unknown>(
 			{
 				provider: "zhongyang",
 				operation,
 				url: url.toString(),
-				method: "GET",
+				method: kind === "peis" ? "POST" : "GET",
 				context,
+				...(body ? { body } : {}),
 				...(this.authorizationToken
 					? { headers: { Authorization: `Bearer ${this.authorizationToken}` } }
 					: {}),
 			},
 			this.fetcher,
 		);
-		const items = responseItems(
-			response.data,
-			operation,
-			response.requestId,
-			MAX_REPORT_DIRECTORY_ITEMS,
-		);
+		const items =
+			kind === "peis"
+				? peisResponseItems(response.data, operation, response.requestId)
+				: responseItems(
+						response.data,
+						operation,
+						response.requestId,
+						MAX_REPORT_DIRECTORY_ITEMS,
+					);
 		const map =
 			kind === "laboratory"
 				? mapLaboratory
 				: kind === "imaging"
 					? mapImaging
-					: mapEcg;
+					: kind === "ecg"
+						? mapEcg
+						: mapPeis;
 		const reports = items.map((item) =>
 			map(item, operation, response.requestId),
 		);
@@ -864,6 +1454,11 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		context: AdapterCallContext,
 	): Promise<{
 		detail: LaboratoryReportDetail;
+		attachments: readonly {
+			sourceUrl: string;
+			kind: "pdf";
+			label: string;
+		}[];
 		trace: ExternalTrace;
 	}> {
 		const operation = "reports-laboratory-detail";
@@ -886,12 +1481,31 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 			},
 			this.fetcher,
 		);
+		const providerDetail = responseObject(
+			response.data,
+			operation,
+			response.requestId,
+		);
+		const attachmentUrls = attachmentTextList(
+			providerDetail,
+			"pdfUrlList",
+			operation,
+			response.requestId,
+		);
 		return {
 			detail: mapLaboratoryDetail(
-				responseObject(response.data, operation, response.requestId),
+				providerDetail,
 				operation,
 				response.requestId,
 			),
+			attachments: attachmentUrls.map((sourceUrl, index) => ({
+				sourceUrl,
+				kind: "pdf" as const,
+				label:
+					attachmentUrls.length === 1
+						? "检验报告 PDF"
+						: `检验报告 PDF ${index + 1}`,
+			})),
 			trace: {
 				provider: "zhongyang",
 				operation,
@@ -964,11 +1578,11 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 }
 
 export type ZhongyangReportGateway = ReportDirectoryGateway &
-	ReportDetailGateway;
-export type ZhongyangReportGatewayOptions = ZhongyangGatewayOptions;
+	ReportDetailGateway &
+	ReportAttachmentGateway;
 
 export function createZhongyangReportGateway(
-	options: ZhongyangGatewayOptions,
+	options: ZhongyangReportGatewayOptions,
 ): ZhongyangReportGateway {
 	return new ZhongyangReportApiGateway(options);
 }

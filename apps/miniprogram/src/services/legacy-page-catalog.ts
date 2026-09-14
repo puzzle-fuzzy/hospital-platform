@@ -295,17 +295,17 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			domain: "健康",
 			status: "partial",
 			nativeTarget: "pages/report-detail/report-detail",
-			// 详情页已有 LIS 安全只读子集；未接入的影像、心电和附件能力
-			// 仍由同一个 feature 状态边界明确关闭。
+			// 四类详情和附件已进入安全只读子集；没有短期详情引用时仍由
+			// 同一个 feature 状态边界明确提示，不能绕过服务端重查。
 			featureKey: "report-detail",
-			note: "已建立 owner/patient/TTL 引用骨架；真实详情与附件仍待 provider。",
+			note: "已实现 owner/patient/TTL 实时详情与附件代理；真实众阳、公网和真机证据仍待补。",
 		},
 		{
 			legacyPath: "pagesB/health/report_query.vue",
 			domain: "健康",
 			status: "partial",
 			nativeTarget: "pages/report-directory/report-directory",
-			note: "已迁移有限日期窗口报告目录；PEIS/PACS/ECG 详情仍分开。",
+			note: "已迁移可选日期与 LIS/PACS/ECG/PEIS 实时目录；详情和附件使用服务端短期引用。",
 		},
 		{
 			legacyPath: "pagesB/health/risk_form_fall.vue",

@@ -121,6 +121,122 @@ page {
 	border-radius: 10rpx;
 }
 
+.profile-editor-mask {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 36rpx;
+	background: rgba(19, 30, 54, 0.48);
+}
+
+.profile-editor {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 650rpx;
+	padding: 36rpx 32rpx 30rpx;
+	border-radius: 24rpx;
+	background: #ffffff;
+	box-shadow: 0 18rpx 50rpx rgba(31, 51, 91, 0.18);
+}
+
+.profile-editor-title,
+.profile-editor-copy {
+	display: block;
+}
+
+.profile-editor-title {
+	color: #222222;
+	font-size: 34rpx;
+	font-weight: 700;
+	text-align: center;
+}
+
+.profile-editor-copy {
+	margin-top: 12rpx;
+	color: #778198;
+	font-size: 24rpx;
+	line-height: 1.55;
+	text-align: center;
+}
+
+.profile-editor-avatar-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	width: 180rpx;
+	margin: 28rpx auto 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: #3d6df6;
+	font-size: 24rpx;
+	line-height: 1.4;
+}
+
+.profile-editor-avatar {
+	box-sizing: border-box;
+	width: 128rpx;
+	height: 128rpx;
+	margin-bottom: 12rpx;
+	border: 6rpx solid #edf3ff;
+	border-radius: 50%;
+	background: #ffffff;
+}
+
+.profile-editor-nickname {
+	box-sizing: border-box;
+	width: 100%;
+	height: 88rpx;
+	margin-top: 28rpx;
+	padding: 0 24rpx;
+	border: 2rpx solid #dce5f7;
+	border-radius: 14rpx;
+	background: #f8faff;
+	color: #222222;
+	font-size: 28rpx;
+}
+
+.profile-editor-actions {
+	display: flex;
+	gap: 20rpx;
+	margin-top: 30rpx;
+}
+
+.profile-editor-cancel,
+.profile-editor-save {
+	box-sizing: border-box;
+	flex: 1;
+	height: 78rpx;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 999rpx;
+	font-size: 27rpx;
+	line-height: 78rpx;
+}
+
+.profile-editor-cancel {
+	background: #f0f3f8;
+	color: #5f687a;
+}
+
+.profile-editor-save {
+	background: #3d6df6;
+	color: #ffffff;
+}
+
+.profile-editor-save[disabled],
+.profile-editor-cancel[disabled] {
+	opacity: 0.58;
+}
+
 .family-card {
 	display: flex;
 	align-items: center;

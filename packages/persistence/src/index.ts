@@ -6,6 +6,7 @@ export {
 	PersistenceUnavailableError,
 } from "./errors";
 export { importHealthKnowledgeBundle } from "./health-knowledge-import";
+export { createRedisIntelligentGuideConversationStore } from "./intelligent-guide-conversation";
 export { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
 export {
 	type CoreSchemaState,

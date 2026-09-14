@@ -147,6 +147,24 @@ describe("旧端页面全量迁移台账", () => {
 		expect(pageScript).not.toContain("fullUrl");
 	});
 
+	test("智能导诊 action-only 入口迁为原生文字和语音会话", async () => {
+		expect(FEATURE_STATUS_CATALOG.guide).toMatchObject({
+			readiness: "全量替换进行中",
+		});
+		const pageWxml = await Bun.file(
+			new URL("../pages/smart-guide/smart-guide.wxml", import.meta.url),
+		).text();
+		const pageScript = await Bun.file(
+			new URL("../pages/smart-guide/smart-guide.ts", import.meta.url),
+		).text();
+		expect(pageWxml).not.toContain("<web-view");
+		expect(pageWxml).toContain('bindtouchstart="onVoiceTouchStart"');
+		expect(pageScript).toContain("requestIntelligentGuideMessage");
+		expect(pageScript).toContain("requestIntelligentGuideAudio");
+		expect(pageScript).not.toContain("html.ydrj.top");
+		expect(pageScript).not.toContain("providerConversationId");
+	});
+
 	test("我的医保电子凭证入口恢复为旧端固定小程序跳转", async () => {
 		const app = await Bun.file(new URL("../app.json", import.meta.url)).text();
 		const pageScript = await Bun.file(

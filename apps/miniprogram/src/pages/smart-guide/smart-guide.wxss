@@ -1,0 +1,277 @@
+page {
+	height: 100%;
+	overflow: hidden;
+	background: #f5f7fb;
+}
+
+.smart-guide-scroll {
+	height: 100%;
+	box-sizing: border-box;
+}
+
+.guide-hero {
+	margin: 24rpx 24rpx 0;
+	padding: 30rpx;
+	border-radius: 28rpx;
+	background: linear-gradient(135deg, #4678f5 0%, #6a8df4 100%);
+	color: #ffffff;
+	box-shadow: 0 14rpx 36rpx rgba(55, 96, 207, 0.2);
+}
+
+.guide-hero__row {
+	display: flex;
+	align-items: center;
+	gap: 22rpx;
+}
+
+.guide-hero__icon-shell {
+	display: flex;
+	width: 78rpx;
+	height: 78rpx;
+	flex: 0 0 78rpx;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	padding: 10rpx;
+	overflow: hidden;
+	border-radius: 22rpx;
+	background: rgba(255, 255, 255, 0.95);
+}
+
+.guide-hero__icon {
+	display: block;
+	width: 58rpx;
+	height: 58rpx;
+}
+
+.guide-hero__title {
+	font-size: 36rpx;
+	font-weight: 700;
+}
+
+.guide-hero__subtitle {
+	margin-top: 8rpx;
+	font-size: 25rpx;
+	opacity: 0.9;
+}
+
+.guide-progress {
+	height: 8rpx;
+	margin-top: 26rpx;
+	overflow: hidden;
+	border-radius: 999rpx;
+	background: rgba(255, 255, 255, 0.28);
+}
+
+.guide-progress__bar {
+	height: 100%;
+	border-radius: inherit;
+	background: #ffffff;
+}
+
+.guide-progress__text {
+	margin-top: 10rpx;
+	font-size: 22rpx;
+	opacity: 0.9;
+}
+
+.guide-disclaimer {
+	margin: 20rpx 24rpx 0;
+	padding: 18rpx 22rpx;
+	border: 1rpx solid #f0d28a;
+	border-radius: 18rpx;
+	background: #fff9e9;
+	color: #76591b;
+	font-size: 23rpx;
+	line-height: 1.6;
+}
+
+.guide-messages {
+	padding: 28rpx 24rpx 10rpx;
+}
+
+.guide-message {
+	display: flex;
+	margin-bottom: 22rpx;
+}
+
+.guide-message--assistant {
+	justify-content: flex-start;
+}
+
+.guide-message--user {
+	justify-content: flex-end;
+}
+
+.guide-bubble {
+	max-width: 78%;
+	box-sizing: border-box;
+	padding: 20rpx 24rpx;
+	border-radius: 22rpx;
+	background: #ffffff;
+	color: #30384a;
+	font-size: 28rpx;
+	line-height: 1.65;
+	box-shadow: 0 7rpx 22rpx rgba(36, 50, 82, 0.07);
+}
+
+.guide-message--assistant .guide-bubble {
+	border-bottom-left-radius: 6rpx;
+}
+
+.guide-message--user .guide-bubble {
+	border-bottom-right-radius: 6rpx;
+	background: #4778f5;
+	color: #ffffff;
+}
+
+.guide-bubble--pending {
+	color: #73809a;
+}
+
+.guide-summary,
+.guide-advice {
+	margin-top: 18rpx;
+	padding-top: 16rpx;
+	border-top: 1rpx solid #edf0f5;
+}
+
+.guide-departments {
+	margin-top: 18rpx;
+}
+
+.guide-department {
+	display: flex;
+	box-sizing: border-box;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	margin: 12rpx 0 0;
+	padding: 18rpx 20rpx;
+	border: 1rpx solid #dce5ff;
+	border-radius: 16rpx;
+	background: #f5f8ff;
+	color: #263651;
+	font-size: 27rpx;
+	line-height: 1.4;
+}
+
+.guide-department::after,
+.guide-send::after,
+.guide-voice::after,
+.guide-restart::after {
+	border: 0;
+}
+
+.guide-department__action {
+	flex-shrink: 0;
+	margin-left: 16rpx;
+	color: #4778f5;
+	font-weight: 600;
+}
+
+.guide-composer {
+	display: flex;
+	align-items: flex-end;
+	gap: 16rpx;
+	margin: 6rpx 24rpx 0;
+	padding: 18rpx;
+	border-radius: 22rpx;
+	background: #ffffff;
+	box-shadow: 0 8rpx 28rpx rgba(36, 50, 82, 0.08);
+}
+
+.guide-input {
+	min-height: 64rpx;
+	max-height: 180rpx;
+	width: auto;
+	min-width: 0;
+	flex: 1;
+	box-sizing: border-box;
+	padding: 12rpx 6rpx;
+	font-size: 28rpx;
+	line-height: 1.45;
+}
+
+.guide-send {
+	box-sizing: border-box;
+	width: 132rpx;
+	min-width: 132rpx;
+	height: 72rpx;
+	flex: 0 0 132rpx;
+	margin: 0;
+	padding: 0 24rpx;
+	border-radius: 18rpx;
+	background: #4778f5;
+	color: #ffffff;
+	font-size: 27rpx;
+	line-height: 72rpx;
+}
+
+.guide-send[disabled] {
+	background: #aebcea;
+	color: #ffffff;
+}
+
+.guide-voice-area {
+	display: flex;
+	align-items: center;
+	gap: 18rpx;
+	margin: 16rpx 24rpx 0;
+}
+
+.guide-voice {
+	box-sizing: border-box;
+	width: 220rpx;
+	height: 70rpx;
+	flex: 0 0 220rpx;
+	margin: 0;
+	padding: 0 20rpx;
+	border: 1rpx solid #cfdbff;
+	border-radius: 18rpx;
+	background: #eef3ff;
+	color: #365fbf;
+	font-size: 26rpx;
+	line-height: 68rpx;
+}
+
+.guide-voice--recording {
+	border-color: #f09a9a;
+	background: #fff0f0;
+	color: #c83f3f;
+}
+
+.guide-voice[disabled] {
+	background: #f1f3f7;
+	color: #9da5b4;
+}
+
+.guide-voice-tip {
+	min-width: 0;
+	flex: 1;
+	color: #7b8598;
+	font-size: 22rpx;
+	line-height: 1.5;
+}
+
+.guide-actions {
+	padding: 18rpx 24rpx 0;
+}
+
+.guide-restart {
+	box-sizing: border-box;
+	width: 100%;
+	height: 72rpx;
+	margin: 0;
+	padding: 0 24rpx;
+	border: 1rpx solid #dfe4ef;
+	border-radius: 18rpx;
+	background: #ffffff;
+	color: #536079;
+	font-size: 26rpx;
+	line-height: 70rpx;
+}
+
+.guide-bottom-space {
+	height: calc(28rpx + env(safe-area-inset-bottom));
+}

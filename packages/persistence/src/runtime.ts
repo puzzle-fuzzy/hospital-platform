@@ -2,6 +2,7 @@ import type { DependencyState } from "@hospital/contracts";
 import type { AppLogger } from "@hospital/observability";
 import Redis from "ioredis";
 import { createPool, type Pool } from "mysql2/promise";
+import type { IntelligentGuideConversationStore } from "@hospital/domain";
 import type { DependencyPort, PersistencePorts } from "./index";
 import { type CoreSchemaState, readCoreSchemaStateFromPool } from "./migrate";
 import {
@@ -12,6 +13,7 @@ import {
 	createRedisSessionStore,
 	type RedisSessionStore,
 } from "./redis-session";
+import { createRedisIntelligentGuideConversationStore } from "./intelligent-guide-conversation";
 import {
 	auditRedisSessionTtl,
 	RedisSessionTtlAuditError,
@@ -23,6 +25,8 @@ export type PersistenceRuntime = PersistencePorts & {
 	repositories: MySqlRepositories | undefined;
 	/** Redis 配置存在时提供带 TTL 的会话存储；未配置时保持 undefined。 */
 	sessions: RedisSessionStore | undefined;
+	/** Redis 配置存在时提供 owner-scoped 的智能导诊会话引用映射。 */
+	intelligentGuideConversations: IntelligentGuideConversationStore | undefined;
 	/**
 	 * 仅供受控维护命令使用的 TTL 聚合；正常 API 请求永远不调用 SCAN。
 	 * 该方法使用独立维护凭证时才有可能通过，不能把应用 ACL 强行扩权。
@@ -419,6 +423,9 @@ export function createPersistenceRuntime(options: {
 				: undefined,
 		sessions: sessionClient
 			? createRedisSessionStore(sessionClient)
+			: undefined,
+		intelligentGuideConversations: sessionClient
+			? createRedisIntelligentGuideConversationStore(sessionClient)
 			: undefined,
 		auditSessionTtl: redisClient
 			? async () => {

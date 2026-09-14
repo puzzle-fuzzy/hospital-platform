@@ -58,6 +58,7 @@ export type FeatureStatus = {
 		| "读写已实现"
 		| "已接入安全子集"
 		| "全量替换进行中"
+		| "代码已实现，待实证"
 		| "待 provider contract"
 		| "待临床审核"
 		| "待支付与回写 contract"
@@ -114,6 +115,12 @@ export function getFeatureUserFacingCopy(
 				badge: "就诊人服务完善中",
 				description: `${feature.title}需要完善就诊人服务，当前暂时无法使用。`,
 				progress: "我们正在完成就诊人信息和授权流程检查，开放后会及时更新。",
+			};
+		case "代码已实现，待实证":
+			return {
+				badge: "服务联调中",
+				description: `${feature.title}已接入医院服务，本次数据暂时无法打开。`,
+				progress: "请返回列表重新查询；我们正在完成真实环境和设备验证。",
 			};
 		case "待外部入口 contract":
 			return {
@@ -304,9 +311,11 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	guide: {
 		title: "智能导诊",
-		readiness: "待外部入口 contract",
-		description: "智能导诊正在迁移中，当前不会返回未经版本管理的医疗建议。",
-		contractHint: "等待模型/知识版本、免责声明、会话审计和风险分流规则确认。",
+		readiness: "全量替换进行中",
+		description:
+			"智能导诊已恢复文字、语音问答和科室推荐，可从推荐结果继续进入挂号。",
+		contractHint:
+			"平台按当前用户隔离会话，不向小程序暴露旧服务凭证或旧会话标识；导诊结果不能替代医生诊断。",
 		icon: "/assets/legacy-home/right-guide.png",
 	},
 	"health-encyclopedia": {
@@ -406,17 +415,18 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"report-detail": {
 		title: "报告详情",
-		readiness: "待 provider contract",
-		description: "报告详情正在迁移中，当前不会打开未经授权的临床报告资源。",
-		contractHint: "等待来源详情合同、患者归属、脱敏字段和资源授权确认。",
+		readiness: "代码已实现，待实证",
+		description: "当前报告没有可用的短期详情引用，请返回列表重新查询。",
+		contractHint:
+			"四类详情已按患者归属、脱敏字段和短期资源授权实现；仍需众阳、公网和真机验收。",
 		icon: "/assets/legacy-home/report-tab.svg",
 	},
 	"report-peis": {
 		title: "体检报告",
-		readiness: "待 provider contract",
-		description: "体检报告正在迁移中，当前不会使用身份证号直连第三方报告系统。",
+		readiness: "代码已实现，待实证",
+		description: "体检报告已改为由服务端实时查询，身份证号不会由小程序提交。",
 		contractHint:
-			"等待 PEIS 患者映射、报告资源授权、脱敏字段和附件下载规则确认。",
+			"PEIS 患者映射、脱敏详情和附件代理已实现；仍需真实众阳响应和真机验收。",
 		icon: "/assets/legacy-home/report-tab.svg",
 	},
 	"report-follow-up": {
@@ -530,6 +540,7 @@ export const FEATURE_SURFACE_TARGETS: Readonly<
 	"health-praise": "/pages/health-praise/health-praise",
 	"pre-visit": "/pages/pre-visit/pre-visit",
 	"risk-evaluation": "/pages/risk-evaluation/risk-evaluation",
+	guide: "/pages/smart-guide/smart-guide",
 	"smart-customer": "/pages/smart-customer/smart-customer",
 	"patient-subscription": "/pages/patient-subscription/patient-subscription",
 	"blood-appointment": "/pages/blood-appointment/blood-appointment",

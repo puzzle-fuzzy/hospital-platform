@@ -20,10 +20,12 @@ import { restorePlatformSession } from "./session-service";
 import { logClientErrorTransformed } from "./telemetry";
 import {
 	clearStoredWechatUserProfile,
+	normalizeWechatUserProfileSelection,
 	readStoredWechatUserProfile,
 	requestWechatUserProfile,
 	storeWechatUserProfile,
 	WechatUserProfileAuthorizationError,
+	WechatUserProfileSelectionError,
 	WechatUserProfileUnavailableError,
 } from "./wechat-user-profile";
 
@@ -539,12 +541,12 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 			throw profileSessionChangedError();
 		}
 		// 普通资料 GET 暂时失败时，当前 owner 和会话代际仍然可能是有效的。
-		// 此时微信授权被用户拒绝必须保留为 declined，让下一次用户点击进入
-		// openSetting 重试链；不能因为资料接口故障把用户选择误报成会话变化。
+		// 此时旧授权路径被用户拒绝仍保留为 declined；页面下一次点击统一
+		// 打开头像昵称填写面板，不能再跳入无法提供头像昵称的权限设置页。
 		if (error instanceof WechatUserProfileAuthorizationError) {
 			publishProfileState({
 				wechatProfileState: "declined",
-				wechatProfileHint: "未授权，可点击此处重新获取",
+				wechatProfileHint: "点击设置头像和昵称",
 			});
 		} else if (error instanceof WechatUserProfileUnavailableError) {
 			publishProfileState({
@@ -588,6 +590,108 @@ export function authorizeGlobalWechatProfile(): Promise<GlobalUserProfileState> 
 		return appData.userProfileConsentPromise;
 	}
 	const promise = authorizeGlobalWechatProfileInternal();
+	appData.userProfileConsentPromise = promise;
+	void promise.then(
+		() => {
+			if (appData.userProfileConsentPromise === promise) {
+				appData.userProfileConsentPromise = null;
+			}
+		},
+		() => {
+			if (appData.userProfileConsentPromise === promise) {
+				appData.userProfileConsentPromise = null;
+			}
+		},
+	);
+	return promise;
+}
+
+/**
+ * 接收微信当前推荐的头像昵称填写组件结果。
+ *
+ * `chooseAvatar` 只返回微信沙箱文件路径，`input[type=nickname]` 只返回用户
+ * 本次确认的昵称；两项必须在同一个当前 owner/会话代际下校验并提交。
+ * 头像留在当前设备的 owner 隔离缓存中，昵称通过普通资料接口持久化。
+ */
+async function saveGlobalWechatProfileSelectionInternal(input: {
+	nickName: unknown;
+	avatarUrl: unknown;
+}): Promise<GlobalUserProfileState> {
+	const current = getGlobalUserProfile();
+	if (
+		!canAuthorizeWechatProfile(current) ||
+		!current.ownerId ||
+		!isCurrentSessionGeneration(current.sessionGeneration)
+	) {
+		throw profileSessionChangedError();
+	}
+	const selection = normalizeWechatUserProfileSelection(input);
+	if (!selection) throw new WechatUserProfileSelectionError();
+
+	publishProfileState({
+		wechatProfileState: "loading",
+		wechatProfileHint: "正在保存头像和昵称...",
+		error: current.status === "error" ? current.error : "",
+	});
+	assertCurrentWechatProfileContext(current.ownerId, current.sessionGeneration);
+	storeWechatUserProfile(current.ownerId, {
+		...selection,
+		// 新头像昵称填写能力不再返回性别；保留服务端当前已确认值。
+		gender: current.gender,
+	});
+
+	let nextState = publishProfileState({
+		avatarUrl: selection.avatarUrl,
+		displayName: selection.nickName,
+		wechatProfileState: "ready",
+		wechatProfileHint: "头像和昵称已显示",
+	});
+	try {
+		const response = await updateUserProfile({
+			version: current.version,
+			displayName: selection.nickName,
+			gender: current.gender,
+		});
+		assertCurrentWechatProfileContext(
+			current.ownerId,
+			current.sessionGeneration,
+		);
+		nextState = publishProfileState({
+			status: "ready",
+			serverDisplayName: response.data.displayName,
+			displayName: response.data.displayName,
+			gender: response.data.gender,
+			age: response.data.age,
+			email: response.data.email,
+			version: response.data.version,
+			wechatProfileState: "ready",
+			wechatProfileHint: "头像和昵称已保存",
+			error: "",
+		});
+	} catch (error) {
+		if (error instanceof ApiError && error.code === "session-changed") {
+			throw error;
+		}
+		// 头像昵称已经由用户确认并写入当前 owner 的设备缓存；服务端暂时
+		// 不可用时继续展示，但明确说明昵称同步仍需重试。
+		nextState = publishProfileState({
+			wechatProfileState: "ready",
+			wechatProfileHint: `头像和昵称已显示，资料同步失败：${safeApiErrorMessage(error, "请稍后重试")}`,
+		});
+	}
+	return nextState;
+}
+
+/** 用户点击保存后的全局单飞入口，防止连续点击造成昵称版本冲突。 */
+export function saveGlobalWechatProfileSelection(input: {
+	nickName: unknown;
+	avatarUrl: unknown;
+}): Promise<GlobalUserProfileState> {
+	const appData = globalData();
+	if (appData.userProfileConsentPromise) {
+		return appData.userProfileConsentPromise;
+	}
+	const promise = saveGlobalWechatProfileSelectionInternal(input);
 	appData.userProfileConsentPromise = promise;
 	void promise.then(
 		() => {

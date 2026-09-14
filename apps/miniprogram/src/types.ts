@@ -16,6 +16,8 @@ import type {
 	HealthKnowledgeDrugDetailResponsePayload,
 	HealthKnowledgeSymptomListResponsePayload,
 	HealthPayload,
+	IntelligentGuideMessageRequestPayload,
+	IntelligentGuideMessageResponsePayload,
 	MyDoctorDeletePayload,
 	MyDoctorListPayload,
 	MyDoctorResponsePayload,
@@ -52,9 +54,15 @@ export type ApiRequestOptions = {
 	data?: ApiRequestData;
 	authenticated?: boolean;
 	idempotencyKey?: string;
+	/** 医疗自由文本等敏感正文不进入 develop/trial 请求预览。 */
+	sensitivePayload?: boolean;
 };
 
 export type HealthResponse = HealthPayload;
+export type IntelligentGuideMessageRequest =
+	IntelligentGuideMessageRequestPayload;
+export type IntelligentGuideMessageResponse =
+	IntelligentGuideMessageResponsePayload;
 export type HealthKnowledgeCatalogResponse =
 	HealthKnowledgeCatalogResponsePayload;
 export type HealthKnowledgeDiseaseListResponse =
@@ -170,7 +178,18 @@ export type ReportDirectoryView = Report & {
 	viewKey: string;
 };
 export type ReportDetail = ReportDetailResponse["data"];
-export type LaboratoryReportItem = ReportDetail["items"][number];
+export type LaboratoryReportDetail = Extract<
+	ReportDetail,
+	{ kind: "laboratory" }
+>;
+export type NonLaboratoryReportDetail = Exclude<
+	ReportDetail,
+	{ kind: "laboratory" }
+>;
+export type LaboratoryReportItem = LaboratoryReportDetail["items"][number];
+export type ReportAttachment = NonNullable<ReportDetail["attachments"]>[number];
+export type ReportDetailField = NonLaboratoryReportDetail["fields"][number];
+export type ReportDetailSection = NonLaboratoryReportDetail["sections"][number];
 
 /** 健康百科目录项的页面模型；排序和分组只发生在小程序展示层。 */
 export type HealthKnowledgeCatalogItem =
@@ -205,7 +224,7 @@ export type AppointmentScheduleQuery = DateRange & {
 /** 报告查询条件只允许内部 patientId 和有限日期范围。 */
 export type ReportQuery = DateRange & {
 	patientId: string;
-	kind?: "laboratory" | "imaging" | "ecg";
+	kind?: "laboratory" | "imaging" | "ecg" | "peis";
 };
 
 /** 小程序事件中只提取页面声明的数据集字段。 */
@@ -267,6 +286,14 @@ export type BannerItem = {
 	image: string;
 };
 
+export type HomeQuickEntryItem =
+	| BannerItem
+	| {
+			action: string;
+			icon: string;
+			text: string;
+	  };
+
 export type TabBarItem = {
 	activeIcon: string;
 	icon: string;
@@ -283,7 +310,7 @@ export type IndexPageData = {
 	sessionStatus: SessionLabel;
 	topTabList: ReadonlyArray<TopTabItem>;
 	bannerList: ReadonlyArray<BannerItem>;
-	rightList: ReadonlyArray<BannerItem>;
+	rightList: ReadonlyArray<HomeQuickEntryItem>;
 	serviceTabs: ReadonlyArray<ServiceTab>;
 	activeServiceTab: number;
 	activeServiceItems: ReadonlyArray<ServiceItem>;
@@ -597,9 +624,16 @@ export type ReportDetailPageData = {
 	title: string;
 	reportCount: number;
 	activeTab: "report" | "image";
+	kind: Report["kind"] | "";
+	kindLabel: string;
 	reportedAt: string;
 	items: Array<LaboratoryReportItemView>;
 	hasItems: boolean;
+	fields: Array<ReportDetailField>;
+	sections: Array<ReportDetailSection>;
+	hasGenericContent: boolean;
+	attachments: Array<ReportAttachment>;
+	openingAttachmentId: string;
 	hasAttachment: boolean;
 	error: string;
 };
@@ -613,9 +647,16 @@ export type ReportDirectoryPageData = {
 	selectedPatient: Patient | null;
 	/** 当前报告目录所属的会话代际；详情事件必须和这代患者上下文一致。 */
 	patientSessionGeneration: number;
+	/** 查询窗口由页面日期选择器控制，始终使用平台 YYYY-MM-DD。 */
+	startDate: string;
+	endDate: string;
+	today: string;
+	/** 报告来源筛选只作用于本次已校验读模型，不接触 Provider 标识。 */
+	activeKind: "all" | Report["kind"];
 	reports: Array<ReportDirectoryView>;
 	visibleReports: Array<ReportDirectoryView>;
 	reportCount: number;
+	filteredReportCount: number;
 	hasMoreReports: boolean;
 	visibleReportCount: number;
 	loading: boolean;
@@ -674,6 +715,14 @@ export type MyPageData = {
 	wechatProfileState: "idle" | "loading" | "ready" | "declined";
 	/** 授权状态的低敏提示，不包含微信原始回调或 URL。 */
 	wechatProfileHint: string;
+	/** 微信当前头像昵称填写面板只在用户明确点击后显示。 */
+	profileEditorVisible: boolean;
+	/** 尚未保存的昵称只属于当前页面实例。 */
+	profileDraftName: string;
+	/** `chooseAvatar` 返回的微信沙箱头像路径，保存前不进入全局资料。 */
+	profileDraftAvatarUrl: string;
+	/** 防止保存按钮重复提交普通资料版本更新。 */
+	profileSaving: boolean;
 	selectedPatient: Patient | null;
 	patientCount: number;
 	menuSections: ReadonlyArray<MyMenuSection>;

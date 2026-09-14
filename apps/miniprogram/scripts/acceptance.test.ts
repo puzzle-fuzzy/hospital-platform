@@ -267,28 +267,33 @@ test("consult tab keeps the old three-tab shell while realtime remains closed", 
 	expect(template).toContain("query-state-shell");
 	expect(style).toContain(".consult-patient-card");
 	expect(style).toContain(".consult-tab-active");
+	// 真机上的原生 button 外边框可能被自身盒边界裁切；切换按钮必须使用
+	// 可视区域内的完整描边，不能再退回容易丢失底边的 1rpx 外边框。
+	expect(style).toMatch(
+		/\.consult-patient-switch\s*\{[\s\S]*?box-shadow:\s*inset 0 0 0 2rpx/,
+	);
 });
 
-test("native profile consent remains clickable while patient data is loading", async () => {
+test("native profile uses WeChat avatar and nickname filling instead of the settings page", async () => {
 	const my = await source("pages/my/my.ts");
 	const template = await source("pages/my/my.wxml");
 	const style = await source("pages/my/my.wxss");
+	const profileBridge = await source("services/wechat-user-profile.ts");
 
-	// 患者目录和微信资料授权是两条独立的用户动作；目录 loading 不能吞掉
-	// 用户对“未授权”提示的点击，否则真机会表现为提示闪动但没有授权弹窗。
-	expect(my).toContain('if (this.data.wechatProfileState === "loading")');
-	expect(my).not.toContain(
-		'this.data.loading || this.data.wechatProfileState === "loading"',
-	);
+	// 微信权限设置页不能返回头像昵称；个人中心必须使用微信当前的头像选择
+	// 和昵称填写组件，并由用户点击保存后提交同一份资料。
 	expect(template).toContain(
 		'class="profile-auth-action" catchtap="onWechatProfileTap"',
 	);
-	expect(my).toContain("openWechatUserProfileSettings");
-	expect(my).toContain('this.data.wechatProfileState === "declined"');
-	expect(await source("services/wechat-user-profile.ts")).toContain(
-		"拒绝后再次直接调用",
-	);
-	expect(style).toContain("扩大授权提示的可点击区域");
+	expect(template).toContain('open-type="chooseAvatar"');
+	expect(template).toContain('bindchooseavatar="onProfileAvatarChosen"');
+	expect(template).toContain('type="nickname"');
+	expect(template).toContain('bindtap="onProfileEditorSave"');
+	expect(my).toContain("saveGlobalWechatProfileSelection");
+	expect(my).not.toContain("openWechatUserProfileSettings");
+	expect(profileBridge).not.toContain("wx.openSetting");
+	expect(profileBridge).not.toContain("openWechatUserProfileSettings");
+	expect(style).toContain(".profile-editor-mask");
 });
 
 test("native profile consent remains available when ordinary profile read is temporarily unavailable", async () => {
@@ -1605,13 +1610,13 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(template).toContain('bindtap="onFamilyTap"');
 	expect(template).toContain('bindtap="onHeaderTap"');
 	// 视觉以旧端为准；头像资源仍使用本地默认图，真实头像只能来自用户
-	// 主动授权后的当前 owner 快照，不能在登录 loading 中偷偷请求。
+	// 主动选择后的当前 owner 快照，不能在登录 loading 中偷偷请求。
 	expect(template).toContain("/assets/legacy-user/legacy-user-background.png");
 	expect(template).toContain('bindtap="onWechatProfileTap"');
 	expect(template).toContain(
 		"avatarUrl || '/assets/legacy-user/default-avatar.svg'",
 	);
-	expect(my).toContain("authorizeGlobalWechatProfile");
+	expect(my).toContain("saveGlobalWechatProfileSelection");
 	expect(await source("services/global-user-profile.ts")).toContain(
 		"头像和昵称已显示，资料同步失败",
 	);
@@ -1903,6 +1908,9 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	const smartCustomerTemplate = await source(
 		"pages/smart-customer/smart-customer.wxml",
 	);
+	const smartGuide = await source("pages/smart-guide/smart-guide.ts");
+	const smartGuideTemplate = await source("pages/smart-guide/smart-guide.wxml");
+	const home = await source("pages/index/index.ts");
 
 	// 这两个页面虽然已经是正式主 Tab，但页面入口存在不等于业务 contract
 	// 已冻结。门禁直接阻止旧端 WebSocket、队列直连和 provider 患者号回到新端。
@@ -1945,6 +1953,44 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	);
 	expect(smartCustomerTemplate).toContain('src="{{webViewUrl}}"');
 	expect(smartCustomerTemplate).not.toContain("migration-surface");
+
+	// 智能导诊不再复用失效证书和 ticket 消费缺失的旧 WebView；小程序只
+	// 提交微信临时 code 和平台会话引用，由新 API 服务端桥接旧 AI。
+	expect(home).toContain('navigateToFeatureEntry("guide")');
+	expect(smartGuide).toContain("requestIntelligentGuideMessage");
+	expect(smartGuide).toContain("requestIntelligentGuideAudio");
+	expect(smartGuide).toContain("getWechatLoginCode");
+	expect(smartGuide).toContain("不能替代医生诊断");
+	expect(smartGuide).not.toContain("html.ydrj.top");
+	expect(smartGuide).not.toContain("access_token");
+	expect(smartGuide).not.toContain("providerConversationId");
+	expect(smartGuideTemplate).not.toContain("<web-view");
+	expect(smartGuideTemplate).toContain('bindtap="onDepartmentTap"');
+	expect(smartGuideTemplate).toContain('bindtouchstart="onVoiceTouchStart"');
+	expect(smartGuideTemplate).toContain('bindtouchend="onVoiceTouchEnd"');
+});
+
+test("native intelligent guide keeps its composer and voice actions stable on narrow screens", async () => {
+	const template = await source("pages/smart-guide/smart-guide.wxml");
+	const style = await source("pages/smart-guide/smart-guide.wxss");
+
+	// 原生 button 自带左右 auto margin，放进 flex 后会吞掉剩余宽度并把
+	// textarea 挤到换行；三个操作按钮都必须显式接管自身盒模型。
+	expect(style).toMatch(
+		/\.guide-input\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?flex:\s*1;/,
+	);
+	expect(style).toMatch(
+		/\.guide-send\s*\{[\s\S]*?flex:\s*0 0 132rpx;[\s\S]*?margin:\s*0;/,
+	);
+	expect(style).toMatch(
+		/\.guide-voice\s*\{[\s\S]*?flex:\s*0 0 220rpx;[\s\S]*?margin:\s*0;/,
+	);
+	expect(style).toMatch(
+		/\.guide-restart\s*\{[\s\S]*?width:\s*100%;[\s\S]*?margin:\s*0;/,
+	);
+	// 页头只能使用正方形业务图标，不能把带文字的横幅压进方形图标框。
+	expect(template).toContain("/assets/legacy-user/doctor.svg");
+	expect(template).not.toContain("/assets/legacy-home/right-guide.png");
 });
 
 test("native primary tabs keep scrolling inside the content viewport", async () => {
@@ -2007,7 +2053,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(45);
+	expect(app.pages).toHaveLength(46);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -3416,6 +3462,25 @@ test("native report count comes from the report directory total", async () => {
 	expect(detail).not.toContain("reportCount: 1");
 });
 
+test("native report directory renders an error once inside the page state", async () => {
+	const template = await source("pages/report-directory/report-directory.wxml");
+	const style = await source("pages/report-directory/report-directory.wxss");
+
+	// 查询错误只出现在带重试操作的页面状态卡中，不能再在页面顶部重复
+	// 渲染一条红色提示；患者看到一份错误原因和一个明确的重试入口即可。
+	expect(template.match(/<text[^>]*>{{error}}<\/text>/g)).toHaveLength(1);
+	expect(template).toContain('class="state-error-message">{{error}}</text>');
+	expect(style).toContain(".state-error-message {");
+	expect(template).toContain('wx:elif="{{error}}"');
+	expect(template).toContain('bindtap="onRetry"');
+	expect(template).toContain('class="query-panel"');
+	expect(template).toContain('bindchange="onStartDateChange"');
+	expect(template).toContain('data-kind="peis"');
+	expect(template).not.toContain("报告详情功能正在完善中");
+	expect(template).not.toContain("详情引用暂未开放");
+	expect(template).toContain("该报告暂无可查看详情");
+});
+
 test("native report detail actions reject stale directory events", async () => {
 	const page = await source("pages/report-directory/report-directory.ts");
 	const template = await source("pages/report-directory/report-directory.wxml");
@@ -3738,11 +3803,13 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 		'url: `/pages/appointment-detail/appointment-detail?${query.join("&")}`',
 	);
 	expect(appointmentRecords).toContain('navigateToFeatureStatus("pre-visit")');
+	expect(reportDetail).toContain("downloadReportAttachment(");
+	expect(reportDetail).toContain("wx.openDocument({");
+	expect(reportDetail).toContain("wx.previewImage({");
 	expect(reportDetail).toContain(
-		'navigateToFeatureStatus("report-cloud-image")',
+		'url: "/pages/appointment-directory/appointment-directory"',
 	);
-	expect(reportDetail).toContain('navigateToFeatureStatus("report-share")');
-	expect(reportDetail).toContain('navigateToFeatureStatus("report-follow-up")');
+	expect(reportDetail).not.toContain("navigateToFeatureStatus");
 	expect(reportDirectory).toContain('navigateToFeatureStatus("report-detail")');
 	expect(outpatientPayment).toContain(
 		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
@@ -3775,6 +3842,44 @@ test("native patient center does not mislabel reports as outpatient medical reco
 	expect(myTemplate).not.toContain('data-action="reports"');
 	expect(myPage).toContain('case "medical-record"');
 	expect(featureNavigation).toContain('"medical-record"');
+});
+
+test("native homepage places report query and outpatient medical records in their requested regions", async () => {
+	const home = await source("pages/index/index.ts");
+	const topEntries = home.slice(
+		home.indexOf("const TOP_TAB_LIST"),
+		home.indexOf("const BANNER_LIST"),
+	);
+	const quickEntries = home.slice(
+		home.indexOf("const RIGHT_LIST"),
+		home.indexOf("const SERVICE_TABS"),
+	);
+	const serviceEntries = home.slice(
+		home.indexOf("const SERVICE_TABS"),
+		home.indexOf("type IndexPageMethods"),
+	);
+
+	expect(topEntries).toContain('action: "reports"');
+	expect(topEntries).toContain('text: "报告查询"');
+	expect(topEntries).not.toContain('action: "medical-record"');
+	expect(quickEntries).toContain('action: "medical-record"');
+	expect(quickEntries).toContain('text: "门诊病历"');
+	expect(quickEntries).not.toContain('action: "reports"');
+	expect(serviceEntries).not.toContain('title: "门诊病历"');
+	expect(serviceEntries).not.toContain('action: "medical-record"');
+});
+
+test("native homepage companion entry opens the bottom consultation tab", async () => {
+	const home = await source("pages/index/index.ts");
+	const companionBranch = home.slice(
+		home.indexOf('case "companion":'),
+		home.indexOf('case "consultation":'),
+	);
+
+	expect(companionBranch).toContain(
+		'wx.switchTab({ url: "/pages/consult/consult" })',
+	);
+	expect(companionBranch).not.toContain('navigateToFeatureStatus("companion")');
 });
 
 test("native homepage and my page reject stale patient directory responses", async () => {

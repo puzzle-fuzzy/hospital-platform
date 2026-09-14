@@ -8,6 +8,8 @@ import type {
 	AppointmentRecordDirectoryGateway,
 	AppointmentWriteGateway,
 	HospitalSettlementGateway,
+	IntelligentGuideConversationStore,
+	IntelligentGuideGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
@@ -15,6 +17,7 @@ import type {
 	PaymentOrder,
 	RegistrationSelfPayPreparationGateway,
 	RegistrationSelfPaySettlementContext,
+	ReportAttachmentGateway,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
@@ -40,6 +43,7 @@ import {
 	type SessionTokenService,
 } from "./modules/auth";
 import { HealthKnowledgeService } from "./modules/knowledge";
+import { IntelligentGuideService } from "./modules/intelligent-guide";
 import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment-core";
 import { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
@@ -75,6 +79,8 @@ export type ApplicationServices = {
 	outpatientPayments?: OutpatientPaymentService;
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
 	healthKnowledge?: HealthKnowledgeService;
+	/** 智能导诊通过服务端身份桥接旧 AI，不向小程序下发旧 JWT 或会话 ID。 */
+	intelligentGuide?: IntelligentGuideService;
 	reports: ReportService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
@@ -111,6 +117,10 @@ export type ApplicationServiceOptions = {
 	patientBindingGateway?: PatientBindingGateway;
 	/** 旧服务端微信登录，用于取得众阳 patCards 的用户级 JWT。 */
 	patientProviderAuthorizationGateway?: PatientProviderAuthorizationGateway;
+	/** 旧服务智能导诊文字/语音接口；只允许服务端持有上游地址。 */
+	intelligentGuideGateway?: IntelligentGuideGateway;
+	/** owner-scoped 的平台会话引用到旧会话 ID 映射。 */
+	intelligentGuideConversations?: IntelligentGuideConversationStore;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
 	/** 挂号页一级/二级树及受控三级科室读取，独立于既有扁平目录契约。 */
@@ -123,10 +133,14 @@ export type ApplicationServiceOptions = {
 	/** 门诊费用只读目录；支付和医保结算不由该网关隐式开启。 */
 	outpatientPaymentGateway?: OutpatientPaymentGateway;
 	outpatientPaymentAuthSysCode?: string;
-	/** 只有完成众阳 LIS/PACS/ECG 只读合同和真实环境验收后才打开。 */
+	/** 只有完成众阳 LIS/PACS/ECG/PEIS 只读合同和真实环境验收后才打开。 */
 	reportDirectoryGateway?: ReportDirectoryGateway;
 	/** LIS 详情必须单独完成资源授权、引用落库和真实环境验收后才打开。 */
 	reportDetailGateway?: ReportDetailGateway;
+	/** 报告附件经同一众阳网关受控代理，不向小程序暴露源地址。 */
+	reportAttachmentGateway?: ReportAttachmentGateway;
+	/** 单院区 PEIS 查询的众阳医院 ID；不接受客户端覆盖。 */
+	reportPeisHospitalId?: number;
 	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
 	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
 	/** 医保授权、费用上传、结算和查单的真实 adapter；未配置时 fail-closed。 */
@@ -585,6 +599,20 @@ export function createDefaultApplicationServices(
 				: {}),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
+		...(options.patientProviderAuthorizationGateway &&
+		options.intelligentGuideGateway &&
+		options.intelligentGuideConversations
+			? {
+					intelligentGuide: new IntelligentGuideService({
+						identityUsers: repositories.identityUsers,
+						providerAuthorizationGateway:
+							options.patientProviderAuthorizationGateway,
+						guideGateway: options.intelligentGuideGateway,
+						conversations: options.intelligentGuideConversations,
+						...(options.logger ? { logger: options.logger } : {}),
+					}),
+				}
+			: {}),
 		appointments,
 		appointmentWrites,
 		medicalInsurance,
@@ -600,8 +628,18 @@ export function createDefaultApplicationServices(
 			repository: repositories.patients,
 			directory: options.reportDirectoryGateway ?? gateways.reportDirectory,
 			references: repositories.reportReferences,
+			identityUsers: repositories.identityUsers,
+			patientProfile:
+				options.appointmentPatientProfileGateway ??
+				gateways.appointmentPatientProfile,
+			...(options.reportPeisHospitalId
+				? { peisHospitalId: options.reportPeisHospitalId }
+				: {}),
 			...(options.reportDetailGateway
 				? { detail: options.reportDetailGateway }
+				: {}),
+			...(options.reportAttachmentGateway
+				? { attachment: options.reportAttachmentGateway }
 				: {}),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),

@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
 	normalizeWechatUserProfile,
-	openWechatUserProfileSettings,
+	normalizeWechatUserProfileSelection,
 	WechatUserProfileAuthorizationError,
-	WechatUserProfileSettingsError,
 	WechatUserProfileUnavailableError,
 } from "./wechat-user-profile";
 
@@ -60,6 +59,33 @@ describe("微信个人资料授权边界", () => {
 		).toBeNull();
 	});
 
+	test("头像昵称填写组件接受微信沙箱头像路径并拒绝任意 HTTP 地址", () => {
+		expect(
+			normalizeWechatUserProfileSelection({
+				nickName: "  新昵称  ",
+				avatarUrl: "http://tmp/avatar-123.png",
+			}),
+		).toEqual({
+			nickName: "新昵称",
+			avatarUrl: "http://tmp/avatar-123.png",
+		});
+		expect(
+			normalizeWechatUserProfileSelection({
+				nickName: "新昵称",
+				avatarUrl: "wxfile://store/avatar-123.png",
+			}),
+		).toEqual({
+			nickName: "新昵称",
+			avatarUrl: "wxfile://store/avatar-123.png",
+		});
+		expect(
+			normalizeWechatUserProfileSelection({
+				nickName: "新昵称",
+				avatarUrl: "http://example.com/avatar.png",
+			}),
+		).toBeNull();
+	});
+
 	test("授权拒绝是独立的可重试错误，不等同于登录失效", () => {
 		const error = new WechatUserProfileAuthorizationError();
 		expect(error.code).toBe("wechat-profile-authorization-denied");
@@ -70,58 +96,5 @@ describe("微信个人资料授权边界", () => {
 		const error = new WechatUserProfileUnavailableError();
 		expect(error.code).toBe("wechat-profile-unavailable");
 		expect(error.name).toBe("WechatUserProfileUnavailableError");
-	});
-
-	test("用户拒绝后通过用户点击打开授权设置页", async () => {
-		const runtime = globalThis as typeof globalThis & {
-			wx?: {
-				openSetting?: (options: {
-					success?: (result: unknown) => void;
-					fail?: () => void;
-				}) => void;
-			};
-		};
-		const previousWx = runtime.wx;
-		let openSettingCalls = 0;
-		runtime.wx = {
-			openSetting(options) {
-				openSettingCalls += 1;
-				options.success?.({});
-			},
-		};
-
-		try {
-			await openWechatUserProfileSettings();
-			expect(openSettingCalls).toBe(1);
-		} finally {
-			if (previousWx === undefined) delete runtime.wx;
-			else runtime.wx = previousWx;
-		}
-	});
-
-	test("设置页无法打开时保留独立错误语义", async () => {
-		const runtime = globalThis as typeof globalThis & {
-			wx?: {
-				openSetting?: (options: {
-					success?: (result: unknown) => void;
-					fail?: () => void;
-				}) => void;
-			};
-		};
-		const previousWx = runtime.wx;
-		runtime.wx = {
-			openSetting(options) {
-				options.fail?.();
-			},
-		};
-
-		try {
-			await expect(openWechatUserProfileSettings()).rejects.toBeInstanceOf(
-				WechatUserProfileSettingsError,
-			);
-		} finally {
-			if (previousWx === undefined) delete runtime.wx;
-			else runtime.wx = previousWx;
-		}
 	});
 });

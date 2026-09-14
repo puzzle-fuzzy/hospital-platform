@@ -78,6 +78,8 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"my-doctor-query-invalid": 60300,
 	"my-doctor-not-found": 60310,
 	"my-doctor-already-followed": 60320,
+	"intelligent-guide-invalid": 60400,
+	"intelligent-guide-conversation-expired": 60410,
 } as const);
 
 /** 80xxx 客户端本地保留段；与服务端段位（10xxx–60xxx、10900）无交集。 */

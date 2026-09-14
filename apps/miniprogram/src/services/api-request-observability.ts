@@ -117,7 +117,11 @@ function summarizeResponseEnvelope(
  */
 export function recordApiRequestObservation(
 	observation: ApiRequestObservation,
-	payload?: Readonly<{ requestData?: unknown; responseData?: unknown }>,
+	payload?: Readonly<{
+		requestData?: unknown;
+		responseData?: unknown;
+		sensitive?: boolean;
+	}>,
 ): void {
 	const envelope =
 		payload?.responseData === undefined
@@ -128,10 +132,14 @@ export function recordApiRequestObservation(
 		...observation,
 		path: sanitizeApiRequestPath(observation.path),
 		...(envelope === undefined ? {} : { envelope }),
-		...(verbose && payload?.requestData !== undefined
+		...(verbose &&
+		payload?.sensitive !== true &&
+		payload?.requestData !== undefined
 			? { requestPreview: redactClientValue(payload.requestData) }
 			: {}),
-		...(verbose && payload?.responseData !== undefined
+		...(verbose &&
+		payload?.sensitive !== true &&
+		payload?.responseData !== undefined
 			? { responsePreview: redactClientValue(payload.responseData) }
 			: {}),
 	}) as ApiRequestObservation;

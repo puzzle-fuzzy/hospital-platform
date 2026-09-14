@@ -18,6 +18,10 @@ import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
 import { healthKnowledgeModule } from "./modules/knowledge";
+import {
+	intelligentGuideModule,
+	type IntelligentGuideService,
+} from "./modules/intelligent-guide";
 import type { MedicalInsuranceRegistrationService } from "./modules/medical-insurance";
 import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
@@ -177,6 +181,16 @@ export function createApp(options: AppOptions = {}) {
 				);
 			},
 		} as unknown as MedicalInsurancePluginPaymentService);
+	const intelligentGuide =
+		services.intelligentGuide ??
+		({
+			chatText: async () => {
+				throw new DependencyNotConfiguredError("intelligent-guide");
+			},
+			chatAudio: async () => {
+				throw new DependencyNotConfiguredError("intelligent-guide");
+			},
+		} as unknown as IntelligentGuideService);
 	const registrationSelfPay =
 		services.registrationSelfPay ??
 		({
@@ -229,6 +243,7 @@ export function createApp(options: AppOptions = {}) {
 						? healthKnowledgeModule(services.healthKnowledge, services.sessions)
 						: new Elysia({ name: "health-knowledge-not-configured" }),
 				)
+				.use(intelligentGuideModule(intelligentGuide, services.sessions))
 				.use(
 					services.profile
 						? profileModule(services.profile, services.sessions)

@@ -32,15 +32,15 @@
 | `GET /system/user/current/info` | 公网 `GET /api/v2/me`（内部 `/api/v1/me`） | 验证平台会话并返回内部用户 ID；provider subject 不出端 | 已实现最小会话视图；患者关系通过服务端 owner-scoped `/api/v1/patients` 返回内部 patientId |
 | 旧个人资料、头像、患者新增/绑卡和协议入口 | 普通资料为公网 `GET/PUT /api/v2/me/profile`；头像、consent、binding 仍为独立 contract | 普通资料只接收昵称、性别、年龄、邮箱并使用 owner/version；不把旧 `/system/user/current/info/update`、`/system/user/current/avatar/upload`、`patients`、`patCards` 直接暴露给小程序 | 普通资料代码、0014 migration、生产 schema、API 运行和未登录公网 401 已验收；真实微信读写/409、真机、头像、实名、患者绑定和协议仍待完成；详见 [`user-profile-contract.md`](用户资料契约.md)、``../release/user-profile-production-acceptance-2026-08-16.md`` 和 [`patient-binding-contract-draft.md`](患者绑定契约草案.md) |
 | 小程序 `VITE_ZHONGYI_BASE_API` 直连患者档案、绑卡 | `GET/POST /api/v1/patients` | 服务端调用 Zhongyang adapter，小程序不再直连外部域名 | 目录 adapter、内部映射和同步 API 已实现；真实账号同步、映射和真机证据待完成；新增/绑卡写入未实现 |
-| 小程序预约/科室/报告接口 | `/api/v1/appointments`、`/api/v1/reports`、`GET /api/v1/reports/:reportId?patientId=...` | 以患者端业务模型重组，不按旧 provider URL 透传；在线/全部挂号分别由 `scope=online|all` 映射服务端渠道 3/4，爽约记录是预约历史 `status=missed` 的派生筛选；科室/排班 adapter 拒绝重复主键且只接受已确认的 `usableSourceNum`，页面列表 key 不承担业务身份；报告目录按可验证 `reportedAt` 倒序，详情再按 owner + patient + reportId + TTL 校验；底层预约查询构造器拒绝未知字段、非法日期和范围错配 | 当前 live 候选 `ce1c217` 已具备预约历史/爽约、渠道 3/4、报告目录和全量迁移状态覆盖视图的只读代码，并保留二维码和健康数值工具的安全边界；就诊页今日窗口只展示服务端预约摘要，不推断叫号/队列；线上仍为 `13f597e`，均待当前候选真机四方链路证据；报告真实 provider、预约写入、锁号、支付和体检报告未迁移 |
+| 小程序预约/科室/报告接口 | `/api/v1/appointments`、`/api/v1/reports`、`GET /api/v1/reports/:reportId?patientId=...`、`GET /api/v1/reports/:reportId/attachments/:attachmentId?patientId=...` | 以患者端业务模型重组，不按旧 provider URL 透传；在线/全部挂号分别由 `scope=online|all` 映射服务端渠道 3/4，爽约记录是预约历史 `status=missed` 的派生筛选；报告目录按可验证 `reportedAt` 倒序，详情和附件均按 owner + patient + reportId + TTL 实时回查；PEIS 身份证只在服务端单次调用内解析，附件由受控来源代理 | 预约和报告只读代码已实现；PACS/ECG/PEIS 详情、opaque 附件入口及单院区 PEIS 配置已纳入候选代码，不导入 Provider 历史报告正文；众阳真实响应、附件来源、公网、开发者工具和真机证据仍待验收，不能据此宣称线上已完成 |
 | 小程序门诊缴费列表 | `GET /msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records` | 新 API 按 owner-scoped 内部 `patientId` 查询，服务端固定日期窗口和渠道，只返回费用展示读模型 | 只读查询 adapter、API 和原生页面已实现；支付调起、医保授权、结算回写和退费仍未开放 |
 | 旧首页就诊人卡片、就诊人绑定和二维码 | `GET /api/v1/patients`、`POST /api/v1/patients/sync`、后续独立二维码 contract | 首页只消费服务端脱敏患者读模型；选择页只保存 opaque `patientId`；二维码必须由服务端按医院扫码协议生成短期 token | 就诊人卡片、独立选择页和同步已实现；内部/众阳患者号不展示；二维码等待扫码字段、签名、TTL 和真机设备验收 |
-| 旧首页报告查询 | `GET /api/v1/reports`、`GET /api/v1/reports/:reportId?patientId=...` | 新端独立报告目录页承载患者上下文和分批渲染；详情接受服务端 opaque `reportId` 与当前内部 `patientId`，服务端复核 owner + patient + TTL | 报告目录页、有限日期窗口和 gated LIS 详情入口已实现；真实 provider 详情、附件下载、体检报告仍待验收 |
+| 旧首页报告查询 | `GET /api/v1/reports`、`GET /api/v1/reports/:reportId?patientId=...`、`GET /api/v1/reports/:reportId/attachments/:attachmentId?patientId=...` | 新端独立报告目录页承载患者上下文；LIS/PACS/ECG/PEIS 列表实时查询众阳，详情与附件接受 opaque 引用并由服务端复核 owner + patient + TTL；PACS/ECG/PEIS 复用原查询窗口实时定位，不落库正文或源 URL | 列表、四类详情、附件代理和原生页面代码已实现；PEIS 使用服务端身份证解析和静态单院区参数；仍待应用 0041 migration、配置实际医院 ID/附件来源并完成众阳、公网、开发者工具和真机验收 |
 | 旧端 `pagesB/account/follow` | 无服务端 API；原生页面 `pages/official-account/official-account` | 只迁移静态公众号通知说明和本地图标；不把打开页面解释为已关注，不生成伪二维码 | 静态页面已实现并纳入构建/源代码验收；二维码、关注状态、模板消息授权和外部主体仍待独立 contract |
 | 旧端 `pagesB/hospital/hospitalList` | 无服务端 API；原生页面 `pages/hospital-list/hospital-list` | 迁移已核对的单院区静态卡片，图片使用本地受控资源；“去挂号”进入预约只读目录，“查看路线”不猜坐标、不调用外部地图 | 静态入口已实现并纳入构建/源代码验收；动态机构/院区目录、多院区选择和真实路线仍待独立 contract |
 | 旧端 `pagesB/hospital/navigation` | 无服务端 API；原生页面 `pages/hospital-navigation/hospital-navigation` | 只迁移旧端静态 `map.jpg`、背景色、`aspectFit` 和点击预览；不把静态地图伪装成实时路线服务 | 静态页面已实现并纳入构建验收；动态医院列表、楼层/科室定位和实时路线待取得独立 contract |
 | `GET /knowledge/*` | `/api/v1/knowledge/*` | 先迁移已审核健康百科只读内容；自测另行版本化 | 健康百科 contract/domain/persistence、fail-closed repository、服务端挂载和原生目录/详情页面已完成；旧库源快照导出器已完成，但内容脱敏导入、重复/控制字符复核、临床审核、真实 schema 执行和内容发布仍待实现 |
-| `POST /intelligent/*` | `/api/v1/assistant/*` | 后续迁移 AI 导诊和报告解读 | 后续 |
+| 旧 `POST /intelligent/outpatient_recommend/chat_text|chat_audio` | 公网 `POST /api/v2/intelligent-guide/messages|audio` | 原生文字/长按录音；每次新的微信 code 只在服务端换旧凭证，旧 `conversation_id` 由 owner-scoped Redis 引用隔离，推荐科室进入现有挂号页；不开放 `/intelligent/*` 万能代理 | 代码、contract、adapter、API、原生页和本地测试已实现；旧模型/知识版本、语音识别、真实账号和真机仍待验收 |
 | 旧个人中心扩展、外部 WebView、公众号、签名、订阅和采血 | 普通 profile 已独立实现；其余仍使用独立的 consent/external-entry/notification contract | 公众号说明和反馈帮助页只有静态页面，不复用患者目录或预约目录的字段和 token；外部入口使用 audience/allowlist/一次性引用 | 普通 profile 已注册但生产/真机待验收；真实头像、反馈写入、关注/订阅、签名、WebView 和采血能力未注册；详见 [`user-profile-contract.md`](用户资料契约.md) 与 [`patient-center-and-external-entry-boundaries.md`](患者中心与外部入口边界.md) |
 
 ## 2. 旧服务仍存在、但新 API 尚未注册的接口组
@@ -61,7 +61,7 @@
 | `/knowledge/health/*` | 健康百科、疾病和药品内容 | 新端已挂载版本化只读路由，并接入原生目录/搜索/详情页；无已发布 bundle 时 fail-closed；映射见 [`health-knowledge-content-mapping.md`](健康知识内容映射.md) | 临床审核、内容版本、药品关联、搜索和脱敏导入 |
 | `/knowledge/selftest/*` | 健康自测题目与结果 | 未注册 | 题库版本、评分算法、临床复核、免责声明、授权和结果保留规则 |
 | `/knowledge/report/*` | 报告解读 | 未注册 | 报告资源授权、解读模型/知识版本、免责声明和审计；不能从报告目录顺手开放 |
-| `/intelligent/*` | AI 导诊、客服、文本/音频会话和 RAG 文档 | 未注册 | 会话 owner、模型/知识版本、内容安全、免责声明、音频存储和限流 |
+| `/intelligent/*` | AI 导诊、客服、文本/音频会话和 RAG 文档 | 只收窄注册导诊 `chat_text`/`chat_audio` 的平台桥接；客服、RAG、报告解读及通用代理仍未注册 | 导诊已具备 owner 会话隔离、免责声明、2 MiB/60 秒音频边界和敏感正文禁日志；真实模型/知识版本、内容安全、限流、旧语音识别与真机仍需验收 |
 | `/monitor/*` | Redis、在线用户、服务器资源、缓存和监控 | 患者 API 不迁移 | 独立运维身份、RBAC、审计、网络隔离和告警策略 |
 | `/application/job/*` | 定时任务管理 | API 未迁移；新端由 worker 承担运行基础 | 管理端权限、任务状态、租约、并发和审计；不能让患者 token 管理任务 |
 | `/system/user|role|menu|dept|position|dict|param|notice|log/*` | 管理端 RBAC、字典、参数、通知和操作日志 | 患者 API 不迁移 | 独立 Admin API、权限模型、审计和管理端验收；不能与患者会话混用 |

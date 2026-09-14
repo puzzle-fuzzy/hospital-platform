@@ -3,6 +3,7 @@ import {
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
 	createLegacyHospitalPatientAuthGateway,
+	createLegacyIntelligentGuideGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatIdentityGateway,
 	createWechatMedicalInsuranceNotificationDecoder,
@@ -197,6 +198,11 @@ const patientProviderAuthorizationGateway = config.legacyPatientAuthBaseUrl
 			baseUrl: config.legacyPatientAuthBaseUrl,
 		})
 	: undefined;
+const intelligentGuideGateway = config.legacyPatientAuthBaseUrl
+	? createLegacyIntelligentGuideGateway({
+			baseUrl: config.legacyPatientAuthBaseUrl,
+		})
+	: undefined;
 const appointmentGateway =
 	(appointmentDirectoryStatus === "configured" ||
 		appointmentRecordsStatus === "configured") &&
@@ -217,7 +223,9 @@ const appointmentDepartmentTreeGateway =
 const appointmentRecordDirectoryGateway =
 	appointmentRecordsStatus === "configured" ? appointmentGateway : undefined;
 const appointmentPatientProfileGateway =
-	appointmentWritesStatus === "configured" && config.zhongyangBaseUrl
+	(appointmentWritesStatus === "configured" ||
+		reportDirectoryStatus === "configured") &&
+	config.zhongyangBaseUrl
 		? createZhongyangAppointmentPatientProfileGateway({
 				baseUrl: config.zhongyangBaseUrl,
 				...(config.zhongyangAuthorizationToken
@@ -251,6 +259,7 @@ const reportGateway =
 	config.zhongyangBaseUrl
 		? createZhongyangReportGateway({
 				baseUrl: config.zhongyangBaseUrl,
+				attachmentAllowedOrigins: config.reportAttachmentOrigins,
 				...(config.zhongyangAuthorizationToken
 					? {
 							authorizationToken: config.zhongyangAuthorizationToken,
@@ -262,6 +271,10 @@ const reportDirectoryGateway =
 	reportDirectoryStatus === "configured" ? reportGateway : undefined;
 const reportDetailGateway =
 	reportDetailStatus === "configured" ? reportGateway : undefined;
+const reportAttachmentGateway =
+	reportDirectoryStatus === "configured" && reportDetailStatus === "configured"
+		? reportGateway
+		: undefined;
 const hospitalSettlementGateway =
 	yunhealthRegistrationSettlementStatus === "configured"
 		? createYunhealthRegistrationSettlementGateway({
@@ -471,6 +484,13 @@ const services = createDefaultApplicationServices({
 	...(patientProviderAuthorizationGateway
 		? { patientProviderAuthorizationGateway }
 		: {}),
+	...(intelligentGuideGateway ? { intelligentGuideGateway } : {}),
+	...(persistence.intelligentGuideConversations
+		? {
+				intelligentGuideConversations:
+					persistence.intelligentGuideConversations,
+			}
+		: {}),
 	...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
 	...(appointmentDepartmentTreeGateway
 		? { appointmentDepartmentTreeGateway }
@@ -486,6 +506,10 @@ const services = createDefaultApplicationServices({
 	outpatientPaymentAuthSysCode: config.outpatientPaymentAuthSysCode,
 	...(reportDirectoryGateway ? { reportDirectoryGateway } : {}),
 	...(reportDetailGateway ? { reportDetailGateway } : {}),
+	...(reportAttachmentGateway ? { reportAttachmentGateway } : {}),
+	...(config.reportPeisHospitalId
+		? { reportPeisHospitalId: config.reportPeisHospitalId }
+		: {}),
 	...(wechatPaymentNotificationDecoder
 		? { wechatPaymentNotificationDecoder }
 		: {}),
@@ -638,6 +662,9 @@ logger.info(
 		authRuntimeStatus,
 		authIdentityGateway: identityGateway ? "injected" : "fail_closed",
 		authSessionStore: persistence.sessions ? "injected" : "fail_closed",
+		intelligentGuideRuntime: services.intelligentGuide
+			? "enabled"
+			: "fail_closed",
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
 		wechatMedicalInsuranceConfiguration: wechatMedicalInsuranceStatus,

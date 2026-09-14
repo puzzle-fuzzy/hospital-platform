@@ -1,7 +1,5 @@
 <scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
 	<view class="page">
-	<view wx:if="{{error}}" class="error-message">{{error}}</view>
-
 	<view wx:if="{{selectedPatient}}" class="patient-strip" bindtap="onChangePatient">
 		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
 		<view class="patient-copy">
@@ -23,11 +21,40 @@
 		</view>
 	</view>
 
-	<view class="notice">当前仅展示已开放的检验、影像和心电报告摘要，报告详情功能正在完善中。</view>
-
 	<view class="page-header">
 		<view class="page-title">报告查询</view>
-		<view wx:if="{{reportCount > 0}}" class="page-description">近 30 天共 {{reportCount}} 份报告</view>
+		<view class="page-description">按就诊人、日期和报告类型查询院内报告</view>
+	</view>
+
+	<view class="query-panel">
+		<view class="query-row">
+			<text class="query-label">报告日期</text>
+			<view class="date-range">
+				<picker mode="date" value="{{startDate}}" end="{{endDate}}" bindchange="onStartDateChange">
+					<view class="date-picker">{{startDate}}</view>
+				</picker>
+				<text class="date-separator">至</text>
+				<picker mode="date" value="{{endDate}}" start="{{startDate}}" end="{{today}}" bindchange="onEndDateChange">
+					<view class="date-picker">{{endDate}}</view>
+				</picker>
+			</view>
+		</view>
+		<view class="query-row query-row-types">
+			<text class="query-label">报告类型</text>
+			<scroll-view class="kind-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
+				<view class="kind-options">
+					<view class="kind-option {{activeKind === 'all' ? 'kind-option-active' : ''}}" data-kind="all" bindtap="onKindChange">全部</view>
+					<view class="kind-option {{activeKind === 'laboratory' ? 'kind-option-active' : ''}}" data-kind="laboratory" bindtap="onKindChange">检验</view>
+					<view class="kind-option {{activeKind === 'imaging' ? 'kind-option-active' : ''}}" data-kind="imaging" bindtap="onKindChange">影像</view>
+					<view class="kind-option {{activeKind === 'ecg' ? 'kind-option-active' : ''}}" data-kind="ecg" bindtap="onKindChange">心电</view>
+					<view class="kind-option {{activeKind === 'peis' ? 'kind-option-active' : ''}}" data-kind="peis" bindtap="onKindChange">体检</view>
+				</view>
+			</scroll-view>
+		</view>
+		<view class="query-summary">
+			<text wx:if="{{!loading && !error}}">共查询到 {{filteredReportCount}} 份{{activeKind === 'all' ? '' : '当前类型'}}报告</text>
+			<text wx:else>查询条件已保留，可调整后重新查询</text>
+		</view>
 	</view>
 
 	<!--
@@ -43,8 +70,9 @@
 			<text>正在加载报告目录...</text>
 		</block>
 		<block wx:elif="{{error}}">
-			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-			<text>{{error}}</text>
+			<view class="state-error-mark">!</view>
+			<text class="state-error-title">报告暂时未能加载</text>
+			<text class="state-error-message">{{error}}</text>
 			<view class="state-hint state-hint-action" bindtap="onRetry">再试一次</view>
 			<view
 				wx:if="{{canSelectPatient}}"
@@ -54,7 +82,8 @@
 		</block>
 		<block wx:else>
 			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-			<text wx:if="{{selectedPatient}}">未查询到相关报告</text>
+			<text wx:if="{{selectedPatient && reportCount > 0}}">当前报告类型下没有记录</text>
+			<text wx:elif="{{selectedPatient}}">所选日期内未查询到报告</text>
 			<text wx:else>请先选择就诊人</text>
 			<text wx:if="{{selectedPatient}}" class="state-hint">如需查询其他就诊人，请点击上方更换</text>
 			<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
@@ -81,7 +110,7 @@
 				<text wx:if="{{item.hasAttachment}}">含附件</text>
 			</view>
 			<view wx:if="{{item.reportId}}" class="report-hint">查看安全详情</view>
-			<view wx:else class="report-hint">详情引用暂未开放</view>
+			<view wx:else class="report-hint">该报告暂无可查看详情</view>
 		</view>
 
 		<view wx:if="{{hasMoreReports}}" class="load-more" bindtap="onLoadMore">加载更多报告</view>

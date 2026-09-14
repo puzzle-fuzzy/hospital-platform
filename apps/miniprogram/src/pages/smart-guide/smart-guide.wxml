@@ -1,0 +1,81 @@
+<scroll-view
+	class="smart-guide-scroll secondary-page-scroll"
+	scroll-y="true"
+	enhanced="true"
+	scroll-into-view="{{scrollIntoView}}"
+>
+	<view class="guide-hero">
+		<view class="guide-hero__row">
+			<view class="guide-hero__icon-shell">
+				<image class="guide-hero__icon" src="/assets/legacy-user/doctor.svg" mode="aspectFit"></image>
+			</view>
+			<view>
+				<view class="guide-hero__title">智能导诊</view>
+				<view class="guide-hero__subtitle">描述身体不适，为您推荐门诊科室</view>
+			</view>
+		</view>
+		<view class="guide-progress" wx:if="{{progress > 0}}">
+			<view class="guide-progress__bar" style="width: {{progress}}%;"></view>
+		</view>
+		<view class="guide-progress__text" wx:if="{{progress > 0}}">导诊进度 {{progress}}%</view>
+	</view>
+
+	<view class="guide-disclaimer">{{disclaimer}}</view>
+
+	<view class="guide-messages">
+		<view
+			wx:for="{{messages}}"
+			wx:key="id"
+			id="{{item.id}}"
+			class="guide-message guide-message--{{item.role}}"
+		>
+			<view class="guide-bubble {{item.pending ? 'guide-bubble--pending' : ''}}">
+				<text user-select="true">{{item.content}}</text>
+				<view class="guide-summary" wx:if="{{item.summary && item.summary !== item.content}}">{{item.summary}}</view>
+				<view class="guide-departments" wx:if="{{item.departments.length > 0}}">
+					<button
+						wx:for="{{item.departments}}"
+						wx:for-item="department"
+						wx:key="departmentId"
+						class="guide-department"
+						data-department-id="{{department.departmentId}}"
+						data-display-name="{{department.displayName}}"
+						bindtap="onDepartmentTap"
+					>
+						<text>{{department.displayName}}</text>
+						<text class="guide-department__action">去挂号</text>
+					</button>
+				</view>
+				<view class="guide-advice" wx:if="{{item.advice}}">{{item.advice}}</view>
+			</view>
+		</view>
+	</view>
+
+	<view class="guide-composer">
+		<textarea
+			class="guide-input"
+			value="{{inputValue}}"
+			maxlength="50"
+			auto-height="true"
+			placeholder="请描述症状、部位和持续时间"
+			bindinput="onInput"
+		></textarea>
+		<button class="guide-send" disabled="{{sending}}" bindtap="onSend">{{sending ? '分析中' : '发送'}}</button>
+	</view>
+	<view class="guide-voice-area">
+		<button
+			class="guide-voice {{recording ? 'guide-voice--recording' : ''}}"
+			disabled="{{sending}}"
+			bindtouchstart="onVoiceTouchStart"
+			bindtouchend="onVoiceTouchEnd"
+			bindtouchcancel="onVoiceTouchEnd"
+		>
+			{{recording ? '松开发送' : '按住说话'}}
+		</button>
+		<text class="guide-voice-tip">最长 60 秒，录音只用于本次导诊识别</text>
+	</view>
+	<view class="guide-actions">
+		<button class="guide-restart" disabled="{{sending}}" bindtap="onRestart">重新开始</button>
+	</view>
+	<view class="guide-bottom-space"></view>
+</scroll-view>

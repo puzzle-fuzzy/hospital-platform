@@ -25,14 +25,10 @@
 			<view wx:if="{{reportCount > 0}}" class="report-count">您共有{{reportCount}}份检查报告</view>
 			<view class="report-card">
 				<view class="report-title">{{title}}</view>
-				<view class="report-actions">
+				<view wx:if="{{hasAttachment}}" class="report-actions">
 					<view class="report-action" bindtap="onDownloadCloudImage">
 						<image src="/assets/legacy-home/report-download.svg" mode="heightFix" class="report-download-icon" />
-						<text>下载云影像</text>
-					</view>
-					<view class="report-action" bindtap="onShareReport">
-						<image src="/assets/legacy-home/report-share.svg" mode="heightFix" class="report-share-icon" />
-						<text>分享报告</text>
+						<text>打开报告附件</text>
 					</view>
 				</view>
 			</view>
@@ -40,19 +36,23 @@
 
 		<view class="report-tabs-wrap">
 			<view class="report-tabs">
-				<view class="report-tab" bindtap="onTabChange" data-tab="report">
+				<view class="report-tab {{activeTab === 'report' ? 'report-tab-active' : ''}}" bindtap="onTabChange" data-tab="report">
 					<image src="/assets/legacy-home/report-tab.svg" mode="heightFix" class="report-tab-icon" />
 					<text>图文报告</text>
 				</view>
-				<view class="report-tab" bindtap="onTabChange" data-tab="image">
+				<view class="report-tab {{activeTab === 'image' ? 'report-tab-active' : ''}}" bindtap="onTabChange" data-tab="image">
 					<image src="/assets/legacy-home/report-cloud.svg" mode="heightFix" class="report-tab-icon" />
-					<text>云影像</text>
+					<text>报告附件</text>
 				</view>
 			</view>
 		</view>
 
 		<view wx:if="{{activeTab === 'report'}}" class="report-content">
-			<view wx:if="{{hasItems}}" class="report-items">
+			<view class="report-basic">
+				<text>{{kindLabel}}</text>
+				<text>{{reportedAt}}</text>
+			</view>
+			<view wx:if="{{kind === 'laboratory' && hasItems}}" class="report-items">
 				<view wx:for="{{items}}" wx:key="index" class="report-item">
 					<view class="report-item-heading">
 						<text class="report-item-name">{{item.name}}</text>
@@ -65,21 +65,45 @@
 					<text wx:if="{{item.referenceRange}}" class="report-item-range">参考范围：{{item.referenceRange}}</text>
 				</view>
 			</view>
+			<view wx:elif="{{kind !== 'laboratory' && hasGenericContent}}" class="report-generic">
+				<view wx:for="{{fields}}" wx:key="label" class="report-field">
+					<text class="report-field-label">{{item.label}}</text>
+					<text class="report-field-value">{{item.value}}</text>
+				</view>
+				<view wx:for="{{sections}}" wx:key="title" class="report-section">
+					<text class="report-section-title">{{item.title}}</text>
+					<text class="report-section-content">{{item.content}}</text>
+				</view>
+			</view>
 			<view wx:else class="report-empty">
 				<text class="report-empty-icon">阅</text>
 				<text>暂无可展示的检测项</text>
 			</view>
 		</view>
 
-		<view wx:else class="cloud-empty">
-			<text class="cloud-empty-icon">☁️</text>
-			<text>暂无云影像</text>
+		<view wx:else class="report-content">
+			<view wx:if="{{attachments.length}}" class="attachment-list">
+				<view
+					wx:for="{{attachments}}"
+					wx:key="attachmentId"
+					class="attachment-item"
+					bindtap="onAttachmentTap"
+					data-attachment-id="{{item.attachmentId}}"
+				>
+					<text class="attachment-label">{{item.label}}</text>
+					<text class="attachment-action">{{openingAttachmentId === item.attachmentId ? '正在打开' : '查看'}}</text>
+				</view>
+			</view>
+			<view wx:else class="cloud-empty">
+				<text class="cloud-empty-icon">☁️</text>
+				<text>众阳当前未返回可用附件</text>
+			</view>
 		</view>
 	</block>
 
 	<view wx:if="{{!loading && !error}}" class="bottom-action-wrap">
 		<view class="bottom-action">
-			<text class="bottom-action-hint">报告有疑问,点击复诊,去问诊</text>
+			<text class="bottom-action-hint">如需进一步就诊，可按科室预约挂号</text>
 			<view class="bottom-action-button" bindtap="onGotoConsultation">复诊预约挂号</view>
 		</view>
 	</view>

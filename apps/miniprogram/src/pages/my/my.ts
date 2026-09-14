@@ -1,15 +1,16 @@
-import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError } from "../../services/api-client";
 import { loadPatientsForOwner } from "../../services/dashboard-service";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { navigateToFeatureEntry } from "../../services/feature-navigation";
 import {
-	authorizeGlobalWechatProfile,
 	type GlobalUserProfileState,
 	getGlobalUserProfile,
 	refreshGlobalUserProfile,
+	saveGlobalWechatProfileSelection,
 	subscribeGlobalUserProfile,
 	waitForGlobalUserProfile,
 } from "../../services/global-user-profile";
+import { navigateToInsuranceVoucher } from "../../services/insurance-voucher-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -35,14 +36,17 @@ import {
 	sessionStateAfterAuthenticatedReadError,
 	sessionVerificationStateFromError,
 } from "../../services/session-service";
-import { openWechatUserProfileSettings } from "../../services/wechat-user-profile";
-import { navigateToInsuranceVoucher } from "../../services/insurance-voucher-navigation";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
 	loadPage(forceProfileRefresh?: boolean): Promise<void>;
 	onHeaderTap(): void;
 	onWechatProfileTap(): Promise<void>;
+	onProfileAvatarChosen(event: { detail?: { avatarUrl?: unknown } }): void;
+	onProfileNicknameInput(event: { detail?: { value?: unknown } }): void;
+	onProfileEditorPanelTap(): void;
+	onProfileEditorCancel(): void;
+	onProfileEditorSave(): Promise<void>;
 	onFamilyTap(): void;
 	onAction(event: ActionEvent): void;
 	onRetry(): void;
@@ -166,6 +170,10 @@ Page<MyPageData, MyPageMethods>({
 		avatarUrl: "",
 		wechatProfileState: "idle",
 		wechatProfileHint: "",
+		profileEditorVisible: false,
+		profileDraftName: "",
+		profileDraftAvatarUrl: "",
+		profileSaving: false,
 		selectedPatient: null,
 		patientCount: 0,
 		menuSections: MY_MENU_SECTIONS,
@@ -187,6 +195,10 @@ Page<MyPageData, MyPageMethods>({
 					sessionState: "checking",
 					selectedPatient: null,
 					patientCount: 0,
+					profileEditorVisible: false,
+					profileDraftName: "",
+					profileDraftAvatarUrl: "",
+					profileSaving: false,
 					loading: true,
 					error: "",
 				});
@@ -317,23 +329,10 @@ Page<MyPageData, MyPageMethods>({
 		);
 	},
 
-	/**
-	 * 用户主动获取微信头像、昵称和性别。
-	 *
-	 * 这是唯一允许触发微信个人资料授权的入口；页面加载、登录换 code、
-	 * 患者同步和预约读取都不能调用它。授权结果先绑定当前 owner 的本机
-	 * 展示缓存，再在服务端资料仍是默认值时用 version 条件更新昵称/性别。
-	 * 如果普通资料同步失败，不能把本机展示说成服务端已保存，但头像昵称
-	 * 仍可在本次设备会话中正常显示并允许用户稍后重试。
-	 */
+	/** 用户主动打开微信头像选择和昵称填写面板。 */
 	onWechatProfileTap(): Promise<void> {
-		// `loading` 只表示患者目录还在刷新，不能阻断头像/昵称授权；否则
-		// 用户在页面显示“未授权，可点击此处重新获取”时，恰好因为目录请求
-		// 尚未结束而点击无效，表现为提示闪动却没有任何反馈。
-		if (this.data.wechatProfileState === "loading") {
-			// 授权弹窗或资料同步正在进行时不重复发起请求，但必须给出
-			// 可见反馈；无声 return 会让用户误以为点击事件没有绑定。
-			wx.showToast({ title: "正在获取头像和昵称，请稍候", icon: "none" });
+		if (this.data.profileSaving) {
+			wx.showToast({ title: "正在保存头像和昵称，请稍候", icon: "none" });
 			return Promise.resolve();
 		}
 		if (this.data.sessionState !== "valid") {
@@ -355,22 +354,67 @@ Page<MyPageData, MyPageMethods>({
 			});
 			return Promise.resolve();
 		}
+		this.setData({
+			profileEditorVisible: true,
+			profileDraftName:
+				globalProfile.displayName === "微信用户"
+					? ""
+					: globalProfile.displayName,
+			profileDraftAvatarUrl: globalProfile.avatarUrl,
+		});
+		return Promise.resolve();
+	},
 
-		/**
-		 * 微信会缓存拒绝结果；拒绝态不能只再次调用 getUserProfile，
-		 * 否则真机会立即失败，用户看到提示闪动却没有任何授权界面。
-		 * 只有用户点击当前提示时才打开设置页，设置页返回后再复用全局
-		 * 单飞授权流程。正常 idle/ready 状态仍直接走首次授权弹窗。
-		 */
-		const authorizationPromise =
-			this.data.wechatProfileState === "declined"
-				? openWechatUserProfileSettings().then(() =>
-						authorizeGlobalWechatProfile(),
-					)
-				: authorizeGlobalWechatProfile();
+	/** `chooseAvatar` 只暂存本次微信沙箱路径，点击保存后才进入全局资料。 */
+	onProfileAvatarChosen(event): void {
+		const avatarUrl = event.detail?.avatarUrl;
+		if (typeof avatarUrl !== "string" || !avatarUrl.trim()) {
+			wx.showToast({ title: "头像选择失败，请重试", icon: "none" });
+			return;
+		}
+		this.setData({ profileDraftAvatarUrl: avatarUrl.trim() });
+	},
 
-		return authorizationPromise
+	/** `input[type=nickname]` 提供微信昵称填写能力，输入只留在页面草稿。 */
+	onProfileNicknameInput(event): void {
+		const value = event.detail?.value;
+		this.setData({ profileDraftName: typeof value === "string" ? value : "" });
+	},
+
+	/** 阻止头像昵称面板内部点击冒泡到遮罩关闭动作。 */
+	onProfileEditorPanelTap(): void {},
+
+	onProfileEditorCancel(): void {
+		if (this.data.profileSaving) return;
+		this.setData({
+			profileEditorVisible: false,
+			profileDraftName: "",
+			profileDraftAvatarUrl: "",
+		});
+	},
+
+	/** 用户确认两项资料后，立即更新当前页面并持久化昵称。 */
+	onProfileEditorSave(): Promise<void> {
+		if (this.data.profileSaving) return Promise.resolve();
+		if (!this.data.profileDraftAvatarUrl.trim()) {
+			wx.showToast({ title: "请先选择头像", icon: "none" });
+			return Promise.resolve();
+		}
+		if (!this.data.profileDraftName.trim()) {
+			wx.showToast({ title: "请先填写昵称", icon: "none" });
+			return Promise.resolve();
+		}
+		this.setData({ profileSaving: true });
+		return saveGlobalWechatProfileSelection({
+			nickName: this.data.profileDraftName,
+			avatarUrl: this.data.profileDraftAvatarUrl,
+		})
 			.then(() => {
+				this.setData({
+					profileEditorVisible: false,
+					profileDraftName: "",
+					profileDraftAvatarUrl: "",
+				});
 				wx.showToast({ title: "头像昵称已更新", icon: "success" });
 			})
 			.catch((error: unknown) => {
@@ -380,44 +424,15 @@ Page<MyPageData, MyPageMethods>({
 				}
 				if (
 					error instanceof Error &&
-					error.name === "WechatUserProfileUnavailableError"
+					error.name === "WechatUserProfileSelectionError"
 				) {
-					this.setData({
-						wechatProfileState: "idle",
-						wechatProfileHint: "当前微信版本暂不支持资料授权，请升级后重试",
-					});
-					wx.showToast({
-						title: "当前微信版本不支持资料授权",
-						icon: "none",
-					});
+					wx.showToast({ title: "头像或昵称不完整，请重新填写", icon: "none" });
 					return;
 				}
-				if (
-					error instanceof Error &&
-					error.name === "WechatUserProfileAuthorizationError"
-				) {
-					// 拒绝授权是可重试的用户选择，必须在当前页面保留稳定的
-					// 可点击文案；不能只依赖另一个 bundle 的订阅回调，也不能
-					// 让页面回到无提示的“点击获取”而看起来像没有响应。
-					this.setData({
-						wechatProfileState: "declined",
-						wechatProfileHint: "未授权，可点击此处重新获取",
-					});
-					wx.showToast({ title: "未授权，可再次点击获取", icon: "none" });
-					return;
-				}
-				if (
-					error instanceof Error &&
-					error.name === "WechatUserProfileSettingsError"
-				) {
-					this.setData({
-						wechatProfileState: "declined",
-						wechatProfileHint: "授权设置未打开，请再次点击重试",
-					});
-					wx.showToast({ title: "授权设置未打开，请重试", icon: "none" });
-					return;
-				}
-				wx.showToast({ title: "获取头像昵称失败，请重试", icon: "none" });
+				wx.showToast({ title: "保存头像昵称失败，请重试", icon: "none" });
+			})
+			.finally(() => {
+				this.setData({ profileSaving: false });
 			});
 	},
 

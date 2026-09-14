@@ -123,6 +123,43 @@ test("develop 环境附带脱敏的中转请求与响应摘要，并同步进入
 	}
 });
 
+test("医疗自由文本只保留响应封套，不生成 develop 正文预览", () => {
+	clearApiRequestObservations();
+	setClientTelemetryEnvVersionForTests("develop");
+	try {
+		recordApiRequestObservation(
+			{
+				requestId: "guide-sensitive-1",
+				method: "POST",
+				path: "/intelligent-guide/messages",
+				statusCode: 200,
+				durationMs: 90,
+				outcome: "success",
+			},
+			{
+				requestData: { message: "右下腹疼痛两天" },
+				responseData: {
+					success: true,
+					data: { message: "请及时到急诊评估" },
+				},
+				sensitive: true,
+			},
+		);
+		const [observation] = getRecentApiRequestObservations();
+		expect(observation?.envelope).toEqual({
+			success: true,
+			dataType: "object",
+		});
+		expect("requestPreview" in (observation ?? {})).toBe(false);
+		expect("responsePreview" in (observation ?? {})).toBe(false);
+		expect(JSON.stringify(observation)).not.toContain("右下腹疼痛");
+		expect(JSON.stringify(observation)).not.toContain("急诊评估");
+	} finally {
+		clearApiRequestObservations();
+		clearClientTelemetryEvents();
+	}
+});
+
 test("release 环境保留封套摘要，但请求与响应正文一律不记录", () => {
 	clearApiRequestObservations();
 	setClientTelemetryEnvVersionForTests("release");

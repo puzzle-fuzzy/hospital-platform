@@ -16,6 +16,9 @@ import type {
 	HealthKnowledgeDiseaseListResponse,
 	HealthKnowledgeDrugDetailResponse,
 	HealthKnowledgeSymptomListResponse,
+	IntelligentGuideMessageRequest,
+	IntelligentGuideMessageResponse,
+	LaboratoryReportItem,
 	MyDoctorDeleteResponse,
 	MyDoctorListResponse,
 	MyDoctorResponse,
@@ -25,7 +28,10 @@ import type {
 	PatientBindingResponse,
 	PatientListResponse,
 	RegistrationSelfPayResponse,
+	ReportAttachment,
+	ReportDetailField,
 	ReportDetailResponse,
+	ReportDetailSection,
 	ReportListResponse,
 	UserProfileResponse,
 	UserProfileUpdateRequest,
@@ -154,6 +160,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"my-doctor-query-invalid": "我的医生请求不合法，请稍后再试",
 		"my-doctor-not-found": "未找到该医生，请刷新后再试",
 		"my-doctor-already-followed": "该医生已在我的医生中",
+		"intelligent-guide-invalid": "请重新输入需要咨询的症状",
+		"intelligent-guide-conversation-expired": "本次导诊会话已失效，请重新开始",
 		"appointment-query-invalid": "暂时无法查询预约信息，请稍后再试",
 		"appointment-record-query-invalid": "暂时无法查询挂号记录，请稍后再试",
 		"date-range-invalid": "暂时无法查询，请稍后再试",
@@ -215,6 +223,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"appointment-department-missing": "请选择预约科室",
 		"report-detail-id-missing": "报告链接已失效，请返回上一页重试",
 		"report-detail-response-missing": "暂时无法打开报告，请稍后再试",
+		"report-attachment-failed": "报告附件暂时无法打开，请稍后再试",
 		"wechat-pay-params-missing": "暂时无法发起支付，请稍后再试",
 		"wechat-payment-cancelled": "已取消支付",
 		"wechat-payment-launch-failed": "支付未完成，请稍后再试",
@@ -627,7 +636,7 @@ function requireReportRequestOptions(value: unknown): {
 	patientId: string;
 	startDate: string;
 	endDate: string;
-	kind?: "laboratory" | "imaging" | "ecg";
+	kind?: "laboratory" | "imaging" | "ecg" | "peis";
 } {
 	if (!isRecord(value)) {
 		throw new ApiError("报告查询条件不合法", { code: "report-query-invalid" });
@@ -668,6 +677,101 @@ export function requireSuccessDataResponse<TData>(value: unknown): {
 		});
 	}
 	return { success: true, data: value.data as TData };
+}
+
+function invalidIntelligentGuideResponse(): never {
+	throw new ApiError("Intelligent guide response is invalid", {
+		code: "provider-response-invalid",
+	});
+}
+
+/** 智能导诊响应处在网络边界，不能依靠泛型直接进入聊天页面。 */
+export function requireIntelligentGuideMessageResponse(
+	value: unknown,
+): IntelligentGuideMessageResponse {
+	if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
+		return invalidIntelligentGuideResponse();
+	}
+	const data = value.data;
+	const allowedFields = new Set([
+		"conversationReference",
+		"progress",
+		"message",
+		"userInput",
+		"departments",
+		"advice",
+		"summary",
+		"disclaimer",
+	]);
+	if (
+		Object.keys(data).some((field) => !allowedFields.has(field)) ||
+		typeof data.conversationReference !== "string" ||
+		!data.conversationReference ||
+		data.conversationReference.length > 128 ||
+		!/^[A-Za-z0-9._:-]+$/u.test(data.conversationReference) ||
+		!Number.isInteger(data.progress) ||
+		(data.progress as number) < 0 ||
+		(data.progress as number) > 100 ||
+		!Array.isArray(data.departments) ||
+		data.departments.length > 20 ||
+		typeof data.disclaimer !== "string" ||
+		!data.disclaimer ||
+		data.disclaimer.length > 512
+	) {
+		return invalidIntelligentGuideResponse();
+	}
+	const optionalText = (
+		field: "message" | "userInput" | "advice" | "summary",
+	) => {
+		const candidate = data[field];
+		if (candidate === undefined) return undefined;
+		if (
+			typeof candidate !== "string" ||
+			!candidate ||
+			candidate.length > 4_000
+		) {
+			return invalidIntelligentGuideResponse();
+		}
+		return candidate;
+	};
+	const departments = data.departments.map((item) => {
+		if (
+			!isRecord(item) ||
+			typeof item.departmentId !== "string" ||
+			!item.departmentId ||
+			item.departmentId.length > 128 ||
+			!/^[A-Za-z0-9._:-]+$/u.test(item.departmentId) ||
+			typeof item.displayName !== "string" ||
+			!item.displayName ||
+			item.displayName.length > 128
+		) {
+			return invalidIntelligentGuideResponse();
+		}
+		return {
+			departmentId: item.departmentId,
+			displayName: item.displayName,
+		};
+	});
+	const message = optionalText("message");
+	const userInput = optionalText("userInput");
+	const advice = optionalText("advice");
+	const summary = optionalText("summary");
+	if (!message && departments.length === 0 && !advice && !summary) {
+		return invalidIntelligentGuideResponse();
+	}
+	return {
+		success: true,
+		data: {
+			conversationReference: data.conversationReference,
+			progress: data.progress as number,
+			...(message ? { message } : {}),
+			...(userInput ? { userInput } : {}),
+			departments,
+			...(advice ? { advice } : {}),
+			...(summary ? { summary } : {}),
+			disclaimer: data.disclaimer,
+		},
+	};
 }
 
 const REGISTRATION_SELF_PAY_STATUSES = new Set([
@@ -1202,19 +1306,23 @@ function isUserProfileVersion(
 
 const REPORT_KINDS = new Set<
 	ReportListResponse["data"]["items"][number]["kind"]
->(["laboratory", "imaging", "ecg"]);
+>(["laboratory", "imaging", "ecg", "peis"]);
 
 const REPORT_STATUSES = new Set<
 	ReportListResponse["data"]["items"][number]["status"]
 >(["available", "abnormal"]);
 
-const REPORT_DETAIL_FLAGS = new Set<
-	ReportDetailResponse["data"]["items"][number]["flag"]
->(["normal", "high", "low", "critical", "unknown"]);
+const REPORT_DETAIL_FLAGS = new Set<LaboratoryReportItem["flag"]>([
+	"normal",
+	"high",
+	"low",
+	"critical",
+	"unknown",
+]);
 
 type ReportKind = ReportListResponse["data"]["items"][number]["kind"];
 type ReportStatus = ReportListResponse["data"]["items"][number]["status"];
-type ReportDetailFlag = ReportDetailResponse["data"]["items"][number]["flag"];
+type ReportDetailFlag = LaboratoryReportItem["flag"];
 
 function isReportKind(value: unknown): value is ReportKind {
 	return REPORT_KINDS.has(value as ReportKind);
@@ -1401,9 +1509,6 @@ export function requireReportListResponse(value: unknown): ReportListResponse {
 		) {
 			return invalidReportResponse("Report list response item is invalid");
 		}
-		if (kind !== "laboratory" && reportId !== undefined) {
-			return invalidReportResponse("Report list response item is invalid");
-		}
 		if (
 			!hasSafeReportText(item.title, 256) ||
 			!hasSafeReportText(item.reportedAt, 64) ||
@@ -1423,6 +1528,31 @@ export function requireReportListResponse(value: unknown): ReportListResponse {
 		});
 	}
 	return { success: true, data: { items, total: data.total } };
+}
+
+function requireReportAttachments(value: unknown): ReportAttachment[] {
+	if (value === undefined) return [];
+	if (!Array.isArray(value) || value.length > 8) {
+		return invalidReportResponse("Report attachment list is invalid");
+	}
+	const seen = new Set<string>();
+	return value.map((item) => {
+		if (
+			!isRecord(item) ||
+			!hasSafeReportText(item.attachmentId, 128) ||
+			seen.has(item.attachmentId) ||
+			(item.kind !== "pdf" && item.kind !== "image") ||
+			!hasSafeReportText(item.label, 64)
+		) {
+			return invalidReportResponse("Report attachment item is invalid");
+		}
+		seen.add(item.attachmentId);
+		return {
+			attachmentId: item.attachmentId,
+			kind: item.kind,
+			label: item.label,
+		};
+	});
 }
 
 /**
@@ -1449,44 +1579,98 @@ export function requireReportDetailResponse(
 	if (
 		!hasSafeReportText(data.reportId, 128) ||
 		data.reportId !== expectedReportId ||
-		data.kind !== "laboratory" ||
+		!isReportKind(data.kind) ||
 		!hasSafeReportText(data.title, 256) ||
 		!hasSafeReportText(data.reportedAt, 64) ||
-		!Array.isArray(data.items) ||
 		typeof data.hasAttachment !== "boolean"
 	) {
 		return invalidReportResponse("Report detail response is invalid");
 	}
+	const attachments = requireReportAttachments(data.attachments);
+	if (
+		data.attachments !== undefined &&
+		data.hasAttachment !== attachments.length > 0
+	) {
+		return invalidReportResponse("Report attachment state is invalid");
+	}
 
-	const items: ReportDetailResponse["data"]["items"] = [];
-	for (const item of data.items) {
+	if (data.kind === "laboratory") {
+		if (!Array.isArray(data.items)) {
+			return invalidReportResponse("Report detail response is invalid");
+		}
+		const items: LaboratoryReportItem[] = [];
+		for (const item of data.items) {
+			if (
+				!isRecord(item) ||
+				!hasSafeReportText(item.name, 256) ||
+				!hasSafeReportText(item.result, 256) ||
+				!isReportDetailFlag(item.flag)
+			) {
+				return invalidReportResponse("Report detail item is invalid");
+			}
+			const unit = optionalReportText(item.unit, 64);
+			const referenceRange = optionalReportText(item.referenceRange, 256);
+			items.push({
+				name: item.name,
+				result: item.result,
+				...(unit === undefined ? {} : { unit }),
+				...(referenceRange === undefined ? {} : { referenceRange }),
+				flag: item.flag,
+			});
+		}
+		return {
+			success: true,
+			data: {
+				reportId: data.reportId,
+				kind: "laboratory",
+				title: data.title,
+				reportedAt: data.reportedAt,
+				items,
+				hasAttachment: data.hasAttachment,
+				attachments,
+			},
+		};
+	}
+
+	if (
+		!Array.isArray(data.fields) ||
+		data.fields.length > 64 ||
+		!Array.isArray(data.sections) ||
+		data.sections.length > 16
+	) {
+		return invalidReportResponse("Report detail response is invalid");
+	}
+	const fields: ReportDetailField[] = data.fields.map((item) => {
 		if (
 			!isRecord(item) ||
-			!hasSafeReportText(item.name, 256) ||
-			!hasSafeReportText(item.result, 256) ||
-			!isReportDetailFlag(item.flag)
+			!hasSafeReportText(item.label, 64) ||
+			!hasSafeReportText(item.value, 2048)
 		) {
-			return invalidReportResponse("Report detail item is invalid");
+			return invalidReportResponse("Report detail field is invalid");
 		}
-		const unit = optionalReportText(item.unit, 64);
-		const referenceRange = optionalReportText(item.referenceRange, 256);
-		items.push({
-			name: item.name,
-			result: item.result,
-			...(unit === undefined ? {} : { unit }),
-			...(referenceRange === undefined ? {} : { referenceRange }),
-			flag: item.flag,
-		});
-	}
+		return { label: item.label, value: item.value };
+	});
+	const sections: ReportDetailSection[] = data.sections.map((item) => {
+		if (
+			!isRecord(item) ||
+			!hasSafeReportText(item.title, 64) ||
+			!hasSafeReportText(item.content, 10_000)
+		) {
+			return invalidReportResponse("Report detail section is invalid");
+		}
+		return { title: item.title, content: item.content };
+	});
 	return {
 		success: true,
 		data: {
 			reportId: data.reportId,
-			kind: "laboratory",
+			kind: data.kind,
 			title: data.title,
 			reportedAt: data.reportedAt,
-			items,
+			fields,
+			sections,
 			hasAttachment: data.hasAttachment,
+			attachments,
 		},
 	};
 }
@@ -1805,6 +1989,7 @@ function requestWithConfig<TResponse = unknown>(
 		data,
 		authenticated = false,
 		idempotencyKey,
+		sensitivePayload = false,
 	} = options;
 	const { apiBaseUrl, apiPrefix, accessToken } = config;
 	if (!apiBaseUrl) {
@@ -1838,7 +2023,11 @@ function requestWithConfig<TResponse = unknown>(
 			outcome: "success" | "http-error" | "network-error",
 			errorCode?: string,
 			resolvedRequestId = requestId,
-			payload?: Readonly<{ requestData?: unknown; responseData?: unknown }>,
+			payload?: Readonly<{
+				requestData?: unknown;
+				responseData?: unknown;
+				sensitive?: boolean;
+			}>,
 		) => {
 			recordApiRequestObservation(
 				{
@@ -1877,6 +2066,7 @@ function requestWithConfig<TResponse = unknown>(
 						{
 							requestData: data,
 							responseData: response.data,
+							sensitive: sensitivePayload,
 						},
 					);
 					resolve(response.data as TResponse);
@@ -1892,6 +2082,7 @@ function requestWithConfig<TResponse = unknown>(
 					{
 						requestData: data,
 						responseData: errorData,
+						sensitive: sensitivePayload,
 					},
 				);
 				reject(
@@ -2224,6 +2415,209 @@ export function requestAppointmentClinicDepartments(
 			payload,
 		),
 	);
+}
+
+/**
+ * 发送一条智能导诊文字消息。微信 code 只由服务端兑换旧服务凭证，旧 JWT
+ * 和 provider conversation_id 永远不会进入小程序。
+ */
+export function requestIntelligentGuideMessage(
+	input: IntelligentGuideMessageRequest,
+): Promise<IntelligentGuideMessageResponse> {
+	return requestWithSession<unknown>({
+		url: "/intelligent-guide/messages",
+		method: "POST",
+		data: input,
+		authenticated: true,
+		sensitivePayload: true,
+	}).then(requireIntelligentGuideMessageResponse);
+}
+
+type IntelligentGuideAudioUpload = {
+	filePath: string;
+	legacyLoginCode: string;
+	conversationReference?: string;
+};
+
+function parseUploadJson(value: string): unknown {
+	try {
+		return JSON.parse(value);
+	} catch {
+		throw new ApiError("Intelligent guide audio response is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+}
+
+async function uploadIntelligentGuideAudio(
+	input: IntelligentGuideAudioUpload,
+	config: ApiConfig,
+	sessionGeneration: number,
+): Promise<IntelligentGuideMessageResponse> {
+	if (
+		!input.filePath ||
+		input.filePath.length > 2_048 ||
+		!input.legacyLoginCode ||
+		input.legacyLoginCode.length > 256
+	) {
+		throw new ApiError("Intelligent guide audio input is invalid", {
+			code: "intelligent-guide-invalid",
+		});
+	}
+	if (!config.apiBaseUrl) {
+		throw new ApiError("API 地址尚未配置", { code: "api-base-url-missing" });
+	}
+	if (!isAllowedApiBaseUrl(config.apiBaseUrl)) {
+		throw new ApiError("API 地址必须使用 HTTPS", {
+			code: "api-base-url-insecure",
+		});
+	}
+	if (!isAllowedApiPrefix(config.apiPrefix)) {
+		throw new ApiError("API 版本前缀尚未配置", {
+			code: "api-prefix-invalid",
+		});
+	}
+	if (
+		!isCurrentSessionGeneration(sessionGeneration) ||
+		getAppConfig().accessToken !== config.accessToken
+	) {
+		throw new ApiError("Session changed before audio upload", {
+			code: "session-changed",
+		});
+	}
+
+	const path = "/intelligent-guide/audio";
+	const requestId = createRequestId();
+	const startedAt = Date.now();
+	const payload = await new Promise<unknown>((resolve, reject) => {
+		wx.uploadFile({
+			url: buildApiRequestUrl(config.apiBaseUrl, config.apiPrefix, path),
+			filePath: input.filePath,
+			name: "audio",
+			timeout: API_REQUEST_TIMEOUT_MS,
+			formData: {
+				legacyLoginCode: input.legacyLoginCode,
+				...(input.conversationReference
+					? { conversationReference: input.conversationReference }
+					: {}),
+			},
+			header: {
+				Authorization: `Bearer ${config.accessToken}`,
+				"x-request-id": requestId,
+			},
+			success: (response) => {
+				let data: unknown;
+				try {
+					data = parseUploadJson(response.data);
+				} catch (error) {
+					recordApiRequestObservation({
+						requestId,
+						method: "POST",
+						path,
+						statusCode: response.statusCode,
+						durationMs: Math.max(0, Date.now() - startedAt),
+						outcome: "http-error",
+						errorCode: "provider-response-invalid",
+					});
+					reject(error);
+					return;
+				}
+				if (response.statusCode >= 200 && response.statusCode < 300) {
+					recordApiRequestObservation(
+						{
+							requestId,
+							method: "POST",
+							path,
+							statusCode: response.statusCode,
+							durationMs: Math.max(0, Date.now() - startedAt),
+							outcome: "success",
+						},
+						{ responseData: data, sensitive: true },
+					);
+					resolve(data);
+					return;
+				}
+				const errorCode = parseErrorCode(data);
+				recordApiRequestObservation(
+					{
+						requestId,
+						method: "POST",
+						path,
+						statusCode: response.statusCode,
+						durationMs: Math.max(0, Date.now() - startedAt),
+						outcome: "http-error",
+						errorCode,
+					},
+					{ responseData: data, sensitive: true },
+				);
+				reject(
+					new ApiError(parseErrorMessage(data), {
+						statusCode: response.statusCode,
+						code: errorCode,
+						requestId,
+						numericCode: parseErrorNumericCode(data),
+					}),
+				);
+			},
+			fail: (error) => {
+				const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";
+				const timedOut = /timeout|超时/iu.test(errMsg);
+				const errorCode = timedOut ? "request-timeout" : "network-failed";
+				recordApiRequestObservation({
+					requestId,
+					method: "POST",
+					path,
+					statusCode: 0,
+					durationMs: Math.max(0, Date.now() - startedAt),
+					outcome: "network-error",
+					errorCode,
+				});
+				reject(
+					new ApiError(
+						timedOut
+							? "请求超时，请稍后重试"
+							: "网络请求失败，请检查网络或服务地址",
+						{ code: errorCode, requestId },
+					),
+				);
+			},
+		});
+	});
+
+	if (
+		!isCurrentSessionGeneration(sessionGeneration) ||
+		getAppConfig().accessToken !== config.accessToken
+	) {
+		throw new ApiError("Session changed while audio upload was pending", {
+			code: "session-changed",
+		});
+	}
+	return requireIntelligentGuideMessageResponse(payload);
+}
+
+/** 上传原生录音；这是有外部副作用的命令，401 后不自动换账号重放。 */
+export async function requestIntelligentGuideAudio(
+	input: IntelligentGuideAudioUpload,
+): Promise<IntelligentGuideMessageResponse> {
+	let config = getAppConfig();
+	if (!config.accessToken) {
+		await login();
+		config = getAppConfig();
+	}
+	const sessionGeneration = getSessionGeneration();
+	try {
+		return await uploadIntelligentGuideAudio(input, config, sessionGeneration);
+	} catch (error) {
+		if (
+			error instanceof ApiError &&
+			error.statusCode === 401 &&
+			isCurrentSessionGeneration(sessionGeneration) &&
+			getAppConfig().accessToken === config.accessToken
+		) {
+			setAccessToken("");
+		}
+		throw error;
+	}
 }
 
 /**
@@ -2792,7 +3186,7 @@ export function requestReports(
 		patientId: string;
 		startDate: string;
 		endDate: string;
-		kind?: "laboratory" | "imaging" | "ecg";
+		kind?: "laboratory" | "imaging" | "ecg" | "peis";
 	},
 	expectedSessionGeneration: number,
 ): Promise<ReportListResponse> {
@@ -2811,7 +3205,7 @@ export function requestReports(
 	).then(requireReportListResponse);
 }
 
-/** 读取服务端生成的短期 LIS 详情引用。 */
+/** 读取服务端生成的短期报告详情引用。 */
 export function requestReportDetail(
 	options: {
 		patientId: string;
@@ -2831,6 +3225,136 @@ export function requestReportDetail(
 		},
 		expectedSessionGeneration,
 	).then((payload) => requireReportDetailResponse(payload, options.reportId));
+}
+
+/**
+ * 使用固定患者会话下载 API 代理后的报告附件。
+ *
+ * 客户端只提交 opaque attachmentId；众阳源 URL、鉴权和 origin 白名单全部
+ * 留在服务端。该读取不自动登录或跨代际重放，避免旧患者附件进入新会话。
+ */
+export function downloadReportAttachment(
+	options: {
+		patientId: string;
+		reportId: string;
+		attachmentId: string;
+	},
+	expectedSessionGeneration: number,
+): Promise<string> {
+	const patientId = requirePatientScopedId(options?.patientId);
+	if (
+		!isBoundedPatientId(options?.reportId) ||
+		!isBoundedPatientId(options?.attachmentId)
+	) {
+		throw new ApiError("报告附件引用无效", {
+			code: "report-attachment-failed",
+		});
+	}
+	const config = getAppConfig();
+	if (!config.apiBaseUrl || !isAllowedApiBaseUrl(config.apiBaseUrl)) {
+		throw new ApiError("API 地址尚未配置", {
+			code: config.apiBaseUrl
+				? "api-base-url-insecure"
+				: "api-base-url-missing",
+		});
+	}
+	if (!isAllowedApiPrefix(config.apiPrefix)) {
+		throw new ApiError("API 版本前缀尚未配置", {
+			code: "api-prefix-invalid",
+		});
+	}
+	if (
+		!config.accessToken ||
+		!isCurrentSessionGeneration(expectedSessionGeneration)
+	) {
+		throw new ApiError("Session changed before report attachment download", {
+			code: "session-changed",
+		});
+	}
+	const path = `/reports/${encodeURIComponent(options.reportId)}/attachments/${encodeURIComponent(options.attachmentId)}?patientId=${encodeURIComponent(patientId)}`;
+	const url = buildApiRequestUrl(config.apiBaseUrl, config.apiPrefix, path);
+	const requestId = createRequestId();
+	const startedAt = Date.now();
+	return new Promise<string>((resolve, reject) => {
+		wx.downloadFile({
+			url,
+			timeout: API_REQUEST_TIMEOUT_MS,
+			header: {
+				Authorization: `Bearer ${config.accessToken}`,
+				"x-request-id": requestId,
+			},
+			success: (response) => {
+				const statusCode = response.statusCode;
+				const sessionCurrent = isCurrentSessionGeneration(
+					expectedSessionGeneration,
+				);
+				recordApiRequestObservation({
+					requestId,
+					method: "GET",
+					path: sanitizeApiRequestPath(path),
+					statusCode,
+					durationMs: Math.max(0, Date.now() - startedAt),
+					outcome:
+						statusCode >= 200 && statusCode < 300 ? "success" : "http-error",
+					...(statusCode >= 200 && statusCode < 300
+						? {}
+						: { errorCode: "report-attachment-failed" }),
+				});
+				if (!sessionCurrent) {
+					reject(
+						new ApiError("Session changed during report attachment download", {
+							code: "session-changed",
+						}),
+					);
+					return;
+				}
+				if (
+					statusCode >= 200 &&
+					statusCode < 300 &&
+					typeof response.tempFilePath === "string" &&
+					response.tempFilePath
+				) {
+					resolve(response.tempFilePath);
+					return;
+				}
+				if (
+					statusCode === 401 &&
+					getAppConfig().accessToken === config.accessToken
+				) {
+					setAccessToken("");
+				}
+				reject(
+					new ApiError("报告附件下载失败", {
+						statusCode,
+						code:
+							statusCode === 404
+								? "report-not-found"
+								: "report-attachment-failed",
+						requestId,
+					}),
+				);
+			},
+			fail: (error) => {
+				const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";
+				const timedOut = /timeout|超时/iu.test(errMsg);
+				recordApiRequestObservation({
+					requestId,
+					method: "GET",
+					path: sanitizeApiRequestPath(path),
+					statusCode: 0,
+					durationMs: Math.max(0, Date.now() - startedAt),
+					outcome: "network-error",
+					errorCode: timedOut ? "request-timeout" : "network-failed",
+				});
+				reject(
+					new ApiError(timedOut ? "报告附件下载超时" : "报告附件下载失败", {
+						code: timedOut ? "request-timeout" : "report-attachment-failed",
+						requestId,
+					}),
+				);
+			},
+		});
+	});
 }
 
 /** 读取服务端生成的微信调起参数。 */

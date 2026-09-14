@@ -5,6 +5,7 @@ import {
 	buildAppointmentScheduleQuery,
 	CLIENT_ERROR_MESSAGES,
 	contextualApiErrorMessage,
+	downloadReportAttachment,
 	isAllowedApiPrefix,
 	isUsableAccessToken,
 	localizedApiErrorMessage,
@@ -26,6 +27,7 @@ import {
 	requireHealthKnowledgeDiseaseListResponse,
 	requireHealthKnowledgeDrugDetailResponse,
 	requireHealthKnowledgeSymptomListResponse,
+	requireIntelligentGuideMessageResponse,
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
@@ -44,6 +46,45 @@ import {
 	getSessionGeneration,
 } from "./session-generation";
 import { readMedicalWechatPayment } from "./medical-insurance";
+
+test("智能导诊响应只接受平台会话引用和白名单结果字段", () => {
+	expect(
+		requireIntelligentGuideMessageResponse({
+			success: true,
+			data: {
+				conversationReference: "guide-public-001",
+				progress: 40,
+				message: "还伴随其他不适吗？",
+				userInput: "头痛两天",
+				departments: [],
+				disclaimer: "仅用于科室推荐，不能替代医生诊断。",
+			},
+		}),
+	).toEqual({
+		success: true,
+		data: {
+			conversationReference: "guide-public-001",
+			progress: 40,
+			message: "还伴随其他不适吗？",
+			userInput: "头痛两天",
+			departments: [],
+			disclaimer: "仅用于科室推荐，不能替代医生诊断。",
+		},
+	});
+	expect(() =>
+		requireIntelligentGuideMessageResponse({
+			success: true,
+			data: {
+				conversationReference: "guide-public-001",
+				providerConversationId: "must-not-enter-client",
+				progress: 40,
+				message: "继续描述",
+				departments: [],
+				disclaimer: "仅用于科室推荐。",
+			},
+		}),
+	).toThrow();
+});
 
 test("预约记录请求显式编码 online 范围和日期窗口", () => {
 	expect(
@@ -687,6 +728,7 @@ test("报告目录响应必须保持公开字段、详情引用和列表总数�
 					hasAttachment: false,
 				},
 				{
+					reportId: "report_002",
 					kind: "imaging" as const,
 					title: "胸部影像",
 					reportedAt: "2026-08-18",
@@ -727,14 +769,6 @@ test("报告目录响应必须保持公开字段、详情引用和列表总数�
 				total: 2,
 			},
 		},
-		{
-			...valid,
-			data: {
-				...valid.data,
-				items: [{ ...valid.data.items[1], reportId: "image-report" }],
-				total: 1,
-			},
-		},
 	];
 
 	for (const invalid of invalidResponses) {
@@ -762,6 +796,7 @@ test("报告详情响应必须匹配请求引用并保持检测项 contract", ()
 				},
 			],
 			hasAttachment: false,
+			attachments: [],
 		},
 	};
 
@@ -798,6 +833,103 @@ test("报告详情响应必须匹配请求引用并保持检测项 contract", ()
 		expect(() => requireReportDetailResponse(invalid, "report_001")).toThrow(
 			"Report",
 		);
+	}
+});
+
+test("影像、心电和体检详情只接受通用字段、分节和不透明附件引用", () => {
+	const valid = {
+		success: true as const,
+		data: {
+			reportId: "report_imaging_001",
+			kind: "imaging" as const,
+			title: "胸部 CT",
+			reportedAt: "2026-08-19 10:30",
+			fields: [{ label: "检查部位", value: "胸部" }],
+			sections: [{ title: "检查结论", content: "未见明显异常" }],
+			hasAttachment: true,
+			attachments: [
+				{
+					attachmentId: "attachment_001",
+					kind: "pdf" as const,
+					label: "影像报告 PDF",
+				},
+			],
+		},
+	};
+	expect(requireReportDetailResponse(valid, valid.data.reportId)).toEqual(
+		valid,
+	);
+	expect(() =>
+		requireReportDetailResponse(
+			{
+				...valid,
+				data: {
+					...valid.data,
+					attachments: [
+						...valid.data.attachments,
+						{ ...valid.data.attachments[0] },
+					],
+				},
+			},
+			valid.data.reportId,
+		),
+	).toThrow("Report attachment");
+});
+
+test("报告附件下载只发送平台不透明引用和当前会话", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type DownloadOptions = {
+		url: string;
+		header?: Record<string, string>;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let requestUrl = "";
+	let authorization = "";
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "report-attachment-session-001",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: () => "",
+		downloadFile: (options: DownloadOptions) => {
+			requestUrl = options.url;
+			authorization = options.header?.Authorization ?? "";
+			options.success({
+				statusCode: 200,
+				tempFilePath: "wxfile://tmp/report.pdf",
+			});
+		},
+	};
+
+	try {
+		await expect(
+			downloadReportAttachment(
+				{
+					patientId: "patient/001",
+					reportId: "report_001",
+					attachmentId: "attachment_001",
+				},
+				getSessionGeneration(),
+			),
+		).resolves.toBe("wxfile://tmp/report.pdf");
+		expect(requestUrl).toBe(
+			"https://test-hp.meiyi.pro/api/v2/reports/report_001/attachments/attachment_001?patientId=patient%2F001",
+		);
+		expect(authorization).toBe("Bearer report-attachment-session-001");
+		expect(requestUrl).not.toContain("zhongyang");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
 	}
 });
 

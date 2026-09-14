@@ -66,6 +66,10 @@ import {
 } from "../modules/auth/service";
 import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
 import {
+	IntelligentGuideConversationExpiredError,
+	IntelligentGuideInputError,
+} from "../modules/intelligent-guide";
+import {
 	MedicalInsuranceAppointmentNotFoundError,
 	MedicalInsuranceAppointmentStaleError,
 	MedicalInsuranceOrderNotFoundError,
@@ -166,6 +170,8 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"my-doctor-query-invalid": 60300,
 	"my-doctor-not-found": 60310,
 	"my-doctor-already-followed": 60320,
+	"intelligent-guide-invalid": 60400,
+	"intelligent-guide-conversation-expired": 60410,
 } as const);
 
 export type ServerErrorStableCode = keyof typeof ERROR_NUMERIC_CODES;
@@ -300,6 +306,22 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"health-knowledge-not-found",
 					"未找到对应的健康知识内容",
+				);
+			}
+
+			if (error instanceof IntelligentGuideInputError) {
+				set.status = 400;
+				return errorPayload(
+					"intelligent-guide-invalid",
+					"导诊请求信息不完整，请重新输入",
+				);
+			}
+
+			if (error instanceof IntelligentGuideConversationExpiredError) {
+				set.status = 409;
+				return errorPayload(
+					"intelligent-guide-conversation-expired",
+					"本次导诊会话已失效，请重新开始",
 				);
 			}
 

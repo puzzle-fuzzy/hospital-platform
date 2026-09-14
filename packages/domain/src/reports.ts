@@ -2,8 +2,8 @@ import { parseIsoCalendarDate } from "./date-range";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
-/** 当前已取得安全查询边界的报告来源；体检报告需要额外身份证合同，暂不纳入。 */
-export type ReportKind = "laboratory" | "imaging" | "ecg";
+/** 小程序报告查询使用的四类众阳来源。 */
+export type ReportKind = "laboratory" | "imaging" | "ecg" | "peis";
 
 /**
  * 报告来源查询的运行时边界错误。
@@ -21,7 +21,12 @@ export class InvalidReportKindError extends Error {
 
 /** 供报告 service 与 adapter 共用的来源白名单守卫。 */
 export function isReportKind(value: unknown): value is ReportKind {
-	return value === "laboratory" || value === "imaging" || value === "ecg";
+	return (
+		value === "laboratory" ||
+		value === "imaging" ||
+		value === "ecg" ||
+		value === "peis"
+	);
 }
 
 /** 报告目录只返回患者端需要的最小摘要，不把 provider 原始报文带出 adapter。 */
@@ -33,14 +38,37 @@ export type ReportSummary = {
 	hasAttachment: boolean;
 };
 
+/** Provider 附件定位符只在 adapter/service 的单次调用帧内流转。 */
+export type ReportProviderAttachment = {
+	sourceUrl: string;
+	kind: "pdf" | "image";
+	label: string;
+};
+
+/** 附件二进制只在受控代理调用帧内存在，不落库也不进入 JSON contract。 */
+export type ReportAttachmentContent = {
+	body: Uint8Array;
+	contentType: "application/pdf" | `image/${string}`;
+};
+
+/** 非检验报告按旧小程序可见字段投影为通用标签和值。 */
+export type ReportDetailField = {
+	label: string;
+	value: string;
+};
+
+/** PACS/ECG 的长文本结果使用分节结构，避免把 Provider 原始对象交给页面。 */
+export type ReportDetailSection = {
+	title: string;
+	content: string;
+};
+
 /**
  * provider 目录项的服务端内部形态。
  *
- * 只有 LIS 当前取得了详情字段合同，因此只有检验摘要可以携带
- * providerReportId。影像/心电即使 provider 返回了报告号，也必须在 adapter
- * 边界丢弃；这样未来新增详情路由时，类型系统不会允许它们被误当成可查详情。
- * providerReportId 不能直接复用 ReportSummary 作为 HTTP response，避免报告
- * 详情凭证意外泄漏到小程序。
+ * PACS/ECG/PEIS 没有独立详情接口，旧端详情只是复用实时列表返回的当前行。
+ * adapter 因此同时投影安全详情和附件定位符；service 只持久化报告号与查询
+ * 窗口，详情请求会重新实时查询，不保存报告正文或附件 URL。
  */
 type ReportSummaryForKind<K extends ReportKind> = Omit<
 	ReportSummary,
@@ -49,15 +77,25 @@ type ReportSummaryForKind<K extends ReportKind> = Omit<
 	kind: K;
 };
 
+export type NonLaboratoryReportDetail = {
+	kind: "imaging" | "ecg" | "peis";
+	title: string;
+	reportedAt: string;
+	fields: readonly ReportDetailField[];
+	sections: readonly ReportDetailSection[];
+	hasAttachment: boolean;
+};
+
 export type ReportDirectoryEntry =
 	| {
 			summary: ReportSummaryForKind<"laboratory">;
 			providerReportId?: string;
 	  }
 	| {
-			summary: ReportSummaryForKind<"imaging" | "ecg">;
-			/** 非 LIS 来源禁止携带 provider 报告号。 */
-			providerReportId?: never;
+			summary: ReportSummaryForKind<"imaging" | "ecg" | "peis">;
+			providerReportId: string;
+			detail: NonLaboratoryReportDetail;
+			attachments: readonly ReportProviderAttachment[];
 	  };
 
 export type ReportDirectoryQuery = {
@@ -69,6 +107,10 @@ export type ReportDirectoryQuery = {
 /** 服务端先解析 provider 患者号，再把受限引用交给报告 adapter。 */
 export type ReportDirectoryInput = {
 	providerPatientId: string;
+	/** PEIS 专用；只允许由服务端实时患者档案解析器提供。 */
+	providerIdentityNumber?: string;
+	/** PEIS 专用静态医院 ID；来自部署配置，不接受客户端参数。 */
+	hospitalId?: number;
 	query: ReportDirectoryQuery;
 };
 
@@ -83,20 +125,29 @@ export const MAX_REPORT_DIRECTORY_ITEMS = 512;
 export const MAX_REPORT_DETAIL_ITEMS = 1024;
 
 /** 服务端短期报告引用；provider id 永远不进入客户端，也不是授权凭证。 */
-export type ReportReference = {
+type ReportReferenceBase = {
 	reportId: string;
 	ownerUserId: string;
 	patientId: string;
 	provider: "zhongyang";
-	kind: "laboratory";
 	providerReportId: string;
 	expiresAt: string;
 	createdAt: string;
 };
 
-export type ReportReferenceInput = Omit<ReportReference, "createdAt"> & {
-	createdAt?: string;
-};
+export type ReportReference =
+	| (ReportReferenceBase & { kind: "laboratory" })
+	| (ReportReferenceBase & {
+			kind: "imaging" | "ecg" | "peis";
+			startDate: string;
+			endDate: string;
+	  });
+
+export type ReportReferenceInput = ReportReference extends infer Reference
+	? Reference extends ReportReference
+		? Omit<Reference, "createdAt"> & { createdAt?: string }
+		: never
+	: never;
 
 /** 报告 provider 引用的持久化硬上限；业务服务使用更短的 10 分钟 TTL。 */
 export const REPORT_REFERENCE_MAX_TTL_MS = 15 * 60 * 1000;
@@ -149,7 +200,7 @@ export function validateReportReference(input: ReportReferenceInput): void {
 	// repository 查询与日志链路的下一层。
 	if (
 		input.provider !== "zhongyang" ||
-		input.kind !== "laboratory" ||
+		!isReportKind(input.kind) ||
 		!isBoundedOpaqueIdentifier(input.ownerUserId) ||
 		input.ownerUserId.length > 64
 	) {
@@ -164,6 +215,13 @@ export function validateReportReference(input: ReportReferenceInput): void {
 		expiresAt - createdAt > REPORT_REFERENCE_MAX_TTL_MS
 	) {
 		throw new ReportReferenceValidationError("invalid_window");
+	}
+	if (input.kind !== "laboratory") {
+		const start = parseIsoCalendarDate(input.startDate);
+		const end = parseIsoCalendarDate(input.endDate);
+		if (start === undefined || end === undefined || end < start) {
+			throw new ReportReferenceValidationError("invalid_reference");
+		}
 	}
 }
 
@@ -199,7 +257,7 @@ export type LaboratoryReportDetailItem = {
 	flag: ReportDetailFlag;
 };
 
-/** 当前只对 LIS 取得了可审计的详情字段合同，PACS/ECG 仍保持目录级别。 */
+/** LIS 详情由独立众阳详情接口实时返回。 */
 export type LaboratoryReportDetail = {
 	kind: "laboratory";
 	title: string;
@@ -207,6 +265,8 @@ export type LaboratoryReportDetail = {
 	items: readonly LaboratoryReportDetailItem[];
 	hasAttachment: boolean;
 };
+
+export type ReportDetail = LaboratoryReportDetail | NonLaboratoryReportDetail;
 
 /**
  * 报告网关读模型违反公共 contract 时使用的低敏原因。
@@ -229,17 +289,24 @@ export type ReportResultViolation =
 	| "status-invalid"
 	| "attachment-invalid"
 	| "provider-report-id-invalid"
-	| "provider-report-id-forbidden"
+	| "provider-report-id-missing"
 	| "provider-report-id-duplicate"
 	| "detail-not-object"
 	| "detail-kind-invalid"
+	| "detail-kind-mismatch"
 	| "detail-title-invalid"
 	| "detail-reported-at-invalid"
+	| "detail-fields-not-array"
+	| "detail-fields-too-many"
+	| "detail-sections-not-array"
+	| "detail-sections-too-many"
 	| "detail-items-not-array"
 	| "detail-items-too-many"
 	| "detail-item-not-object"
 	| "detail-field-invalid"
-	| "detail-attachment-invalid";
+	| "detail-attachment-invalid"
+	| "attachment-list-invalid"
+	| "attachment-too-many";
 
 /** Provider 返回的报告读模型不完整或越过了服务端安全边界。 */
 export class ReportResultValidationError extends Error {
@@ -280,6 +347,134 @@ function optionalReportText(
 		invalidReportResult("detail-field-invalid");
 	}
 	return value;
+}
+
+const MAX_REPORT_DETAIL_FIELDS = 64;
+const MAX_REPORT_DETAIL_SECTIONS = 16;
+const MAX_REPORT_ATTACHMENTS = 8;
+
+function normalizeNonLaboratoryReportDetail(
+	value: unknown,
+	expectedKind: "imaging" | "ecg" | "peis",
+): NonLaboratoryReportDetail {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidReportResult("detail-not-object");
+	}
+	const record = value as Record<string, unknown>;
+	if (!isReportKind(record.kind) || record.kind === "laboratory") {
+		invalidReportResult("detail-kind-invalid");
+	}
+	if (record.kind !== expectedKind) {
+		invalidReportResult("detail-kind-mismatch");
+	}
+	if (!hasSafeReportText(record.title, 256)) {
+		invalidReportResult("detail-title-invalid");
+	}
+	if (
+		!hasSafeReportText(record.reportedAt, 64) ||
+		parseReportTimestamp(record.reportedAt) === undefined
+	) {
+		invalidReportResult("detail-reported-at-invalid");
+	}
+	if (!Array.isArray(record.fields)) {
+		invalidReportResult("detail-fields-not-array");
+	}
+	if (record.fields.length > MAX_REPORT_DETAIL_FIELDS) {
+		invalidReportResult("detail-fields-too-many");
+	}
+	if (!Array.isArray(record.sections)) {
+		invalidReportResult("detail-sections-not-array");
+	}
+	if (record.sections.length > MAX_REPORT_DETAIL_SECTIONS) {
+		invalidReportResult("detail-sections-too-many");
+	}
+	if (typeof record.hasAttachment !== "boolean") {
+		invalidReportResult("detail-attachment-invalid");
+	}
+	const fields = record.fields.map((field) => {
+		if (typeof field !== "object" || field === null || Array.isArray(field)) {
+			invalidReportResult("detail-item-not-object");
+		}
+		const candidate = field as Record<string, unknown>;
+		if (
+			!hasSafeReportText(candidate.label, 64) ||
+			!hasSafeReportText(candidate.value, 2048)
+		) {
+			invalidReportResult("detail-field-invalid");
+		}
+		return { label: candidate.label, value: candidate.value };
+	});
+	const sections = record.sections.map((section) => {
+		if (
+			typeof section !== "object" ||
+			section === null ||
+			Array.isArray(section)
+		) {
+			invalidReportResult("detail-item-not-object");
+		}
+		const candidate = section as Record<string, unknown>;
+		if (
+			!hasSafeReportText(candidate.title, 64) ||
+			!hasSafeReportText(candidate.content, 10_000)
+		) {
+			invalidReportResult("detail-field-invalid");
+		}
+		return { title: candidate.title, content: candidate.content };
+	});
+	return {
+		kind: expectedKind,
+		title: record.title,
+		reportedAt: record.reportedAt,
+		fields,
+		sections,
+		hasAttachment: record.hasAttachment,
+	};
+}
+
+function normalizeProviderAttachments(
+	value: unknown,
+): ReportProviderAttachment[] {
+	if (!Array.isArray(value)) invalidReportResult("attachment-list-invalid");
+	if (value.length > MAX_REPORT_ATTACHMENTS) {
+		invalidReportResult("attachment-too-many");
+	}
+	return value.map((attachment) => {
+		if (
+			typeof attachment !== "object" ||
+			attachment === null ||
+			Array.isArray(attachment)
+		) {
+			invalidReportResult("attachment-invalid");
+		}
+		const record = attachment as Record<string, unknown>;
+		if (
+			(record.kind !== "pdf" && record.kind !== "image") ||
+			!hasSafeReportText(record.label, 64) ||
+			!hasSafeReportText(record.sourceUrl, 2048)
+		) {
+			invalidReportResult("attachment-invalid");
+		}
+		let url: URL;
+		try {
+			url = new URL(record.sourceUrl);
+		} catch {
+			invalidReportResult("attachment-invalid");
+		}
+		if (
+			(url as URL).protocol !== "http:" &&
+			(url as URL).protocol !== "https:"
+		) {
+			invalidReportResult("attachment-invalid");
+		}
+		if ((url as URL).username || (url as URL).password || (url as URL).hash) {
+			invalidReportResult("attachment-invalid");
+		}
+		return {
+			sourceUrl: record.sourceUrl,
+			kind: record.kind,
+			label: record.label,
+		};
+	});
 }
 
 /**
@@ -333,19 +528,18 @@ export function normalizeReportDirectoryResults(
 		}
 
 		const providerReportId = record.providerReportId;
-		if (kind !== "laboratory" && providerReportId !== undefined) {
-			// 影像和心电尚无详情字段合同，不能把 Provider 报告号留在
-			// 内部结果中等待未来页面“顺手”消费，必须在当前边界拒绝。
-			invalidReportResult("provider-report-id-forbidden");
+		if (kind !== "laboratory" && providerReportId === undefined) {
+			invalidReportResult("provider-report-id-missing");
 		}
 		if (providerReportId !== undefined) {
 			if (!hasSafeReportText(providerReportId, 256)) {
 				invalidReportResult("provider-report-id-invalid");
 			}
-			if (providerReportIds.has(providerReportId)) {
+			const providerReportKey = `${kind}\0${providerReportId}`;
+			if (providerReportIds.has(providerReportKey)) {
 				invalidReportResult("provider-report-id-duplicate");
 			}
-			providerReportIds.add(providerReportId);
+			providerReportIds.add(providerReportKey);
 		}
 
 		const safeSummary = {
@@ -360,7 +554,22 @@ export function normalizeReportDirectoryResults(
 				...(providerReportId !== undefined ? { providerReportId } : {}),
 			};
 		}
-		return { summary: { kind, ...safeSummary } };
+		const detail = normalizeNonLaboratoryReportDetail(record.detail, kind);
+		const attachments = normalizeProviderAttachments(record.attachments);
+		if (
+			detail.title !== summary.title ||
+			detail.reportedAt !== summary.reportedAt ||
+			detail.hasAttachment !== summary.hasAttachment ||
+			detail.hasAttachment !== attachments.length > 0
+		) {
+			invalidReportResult("detail-field-invalid");
+		}
+		return {
+			summary: { kind, ...safeSummary },
+			providerReportId: providerReportId as string,
+			detail,
+			attachments,
+		};
 	});
 }
 
@@ -540,8 +749,18 @@ export interface ReportDetailGateway {
 		context: AdapterCallContext,
 	): Promise<{
 		detail: LaboratoryReportDetail;
+		/** 兼容尚未提供附件定位符的详情 Provider；服务层统一收敛为空数组。 */
+		attachments?: readonly ReportProviderAttachment[];
 		trace: ExternalTrace;
 	}>;
+}
+
+/** 附件下载必须消费服务端刚刚重新解析出的定位符，不能接受客户端 URL。 */
+export interface ReportAttachmentGateway {
+	fetchAttachment(
+		attachment: ReportProviderAttachment,
+		context: AdapterCallContext,
+	): Promise<ReportAttachmentContent>;
 }
 
 /** 报告目录、详情、解读和下载分别建端口，避免目录接口顺手扩大权限。 */

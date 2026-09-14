@@ -266,6 +266,8 @@ type ReportReferenceRow = RowDataPacket & {
 	provider: string;
 	kind: string;
 	provider_report_id: string;
+	start_date: string | null;
+	end_date: string | null;
 	expires_at: string;
 	created_at: string;
 };
@@ -1868,19 +1870,39 @@ function myDoctor(row: MyDoctorRow): MyDoctor {
 }
 
 function reportReference(row: ReportReferenceRow): ReportReference {
-	if (row.provider !== "zhongyang" || row.kind !== "laboratory") {
+	if (
+		row.provider !== "zhongyang" ||
+		(row.kind !== "laboratory" &&
+			row.kind !== "imaging" &&
+			row.kind !== "ecg" &&
+			row.kind !== "peis")
+	) {
 		throw new Error("Persistence returned an unknown report reference kind");
 	}
-	const reference: ReportReference = {
+	const base = {
 		reportId: row.report_id,
 		ownerUserId: row.owner_user_id,
 		patientId: row.patient_id,
-		provider: "zhongyang",
-		kind: "laboratory",
+		provider: "zhongyang" as const,
 		providerReportId: row.provider_report_id,
 		expiresAt: row.expires_at,
 		createdAt: row.created_at,
 	};
+	const reference: ReportReference =
+		row.kind === "laboratory"
+			? { ...base, kind: "laboratory" }
+			: row.start_date && row.end_date
+				? {
+						...base,
+						kind: row.kind,
+						startDate: row.start_date,
+						endDate: row.end_date,
+					}
+				: (() => {
+						throw new Error(
+							"Persistence returned a report reference without query window",
+						);
+					})();
 	validateReportReference(reference);
 	return reference;
 }
@@ -3282,14 +3304,16 @@ export function createMySqlRepositories(
 				pool,
 				`INSERT INTO hp_report_references
 					(report_id, owner_user_id, patient_id, provider, kind,
-					 provider_report_id, expires_at, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					 provider_report_id, start_date, end_date, expires_at, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				 ON DUPLICATE KEY UPDATE
 					owner_user_id = VALUES(owner_user_id),
 					patient_id = VALUES(patient_id),
 					provider = VALUES(provider),
 					kind = VALUES(kind),
 					provider_report_id = VALUES(provider_report_id),
+					start_date = VALUES(start_date),
+					end_date = VALUES(end_date),
 					expires_at = VALUES(expires_at),
 					created_at = VALUES(created_at),
 					updated_at = VALUES(updated_at)`,
@@ -3300,6 +3324,8 @@ export function createMySqlRepositories(
 					input.provider,
 					input.kind,
 					input.providerReportId,
+					input.kind === "laboratory" ? null : input.startDate,
+					input.kind === "laboratory" ? null : input.endDate,
 					mysqlDateTime(input.expiresAt),
 					mysqlDateTime(createdAt),
 					mysqlDateTime(new Date()),
@@ -3314,7 +3340,7 @@ export function createMySqlRepositories(
 			const rows = await execute<ReportReferenceRow[]>(
 				pool,
 				`SELECT report_id, owner_user_id, patient_id, provider, kind,
-					provider_report_id, expires_at, created_at
+					provider_report_id, start_date, end_date, expires_at, created_at
 				 FROM hp_report_references
 					 WHERE owner_user_id = ? AND patient_id = ? AND report_id = ?
 					   AND expires_at > ? LIMIT 1`,

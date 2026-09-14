@@ -533,6 +533,7 @@ export const ReportKindSchema = Type.Union([
 	Type.Literal("laboratory"),
 	Type.Literal("imaging"),
 	Type.Literal("ecg"),
+	Type.Literal("peis"),
 ]);
 
 export const ReportSchema = Type.Object({
@@ -568,16 +569,56 @@ export const LaboratoryReportDetailItemSchema = Type.Object({
 	]),
 });
 
+export const ReportAttachmentSchema = Type.Object({
+	attachmentId: Type.String({ minLength: 1, maxLength: 128 }),
+	kind: Type.Union([Type.Literal("pdf"), Type.Literal("image")]),
+	label: Type.String({ minLength: 1, maxLength: 64 }),
+});
+
+const ReportDetailBaseSchema = Type.Object({
+	reportId: Type.String({ minLength: 1, maxLength: 128 }),
+	title: Type.String({ minLength: 1, maxLength: 256 }),
+	reportedAt: Type.String({ minLength: 1, maxLength: 64 }),
+	hasAttachment: Type.Boolean(),
+	/** 迁移期兼容旧客户端；新服务在成功详情响应中始终返回数组。 */
+	attachments: Type.Optional(
+		Type.Array(ReportAttachmentSchema, { maxItems: 8 }),
+	),
+});
+
+export const ReportDetailFieldSchema = Type.Object({
+	label: Type.String({ minLength: 1, maxLength: 64 }),
+	value: Type.String({ minLength: 1, maxLength: 2048 }),
+});
+
+export const ReportDetailSectionSchema = Type.Object({
+	title: Type.String({ minLength: 1, maxLength: 64 }),
+	content: Type.String({ minLength: 1, maxLength: 10_000 }),
+});
+
 export const ReportDetailResponse = Type.Object({
 	success: Type.Literal(true),
-	data: Type.Object({
-		reportId: Type.String({ minLength: 1, maxLength: 128 }),
-		kind: Type.Literal("laboratory"),
-		title: Type.String({ minLength: 1, maxLength: 256 }),
-		reportedAt: Type.String({ minLength: 1, maxLength: 64 }),
-		items: Type.Array(LaboratoryReportDetailItemSchema),
-		hasAttachment: Type.Boolean(),
-	}),
+	data: Type.Union([
+		Type.Intersect([
+			ReportDetailBaseSchema,
+			Type.Object({
+				kind: Type.Literal("laboratory"),
+				items: Type.Array(LaboratoryReportDetailItemSchema),
+			}),
+		]),
+		Type.Intersect([
+			ReportDetailBaseSchema,
+			Type.Object({
+				kind: Type.Union([
+					Type.Literal("imaging"),
+					Type.Literal("ecg"),
+					Type.Literal("peis"),
+				]),
+				fields: Type.Array(ReportDetailFieldSchema, { maxItems: 64 }),
+				sections: Type.Array(ReportDetailSectionSchema, { maxItems: 16 }),
+			}),
+		]),
+	]),
 });
 
 /** 健康知识发布元数据；患者端只看到来源和审核时间，不看到后台审核人。 */
@@ -707,6 +748,52 @@ export const HealthKnowledgeDrugDetailResponse = Type.Object({
 		publication: HealthKnowledgePublicationSchema,
 		item: HealthKnowledgeDrugDetailSchema,
 	}),
+});
+
+/**
+ * 智能导诊每次发送都使用新的 wx.login code，由平台服务端换取旧服务用户凭证。
+ * 小程序只提交平台会话引用，绝不接触旧 JWT 或旧 conversation_id。
+ */
+export const IntelligentGuideMessageRequest = Type.Object(
+	{
+		legacyLoginCode: Type.String({ minLength: 1, maxLength: 256 }),
+		message: Type.String({ minLength: 1, maxLength: 100 }),
+		conversationReference: Type.Optional(
+			Type.String({
+				minLength: 1,
+				maxLength: 128,
+				pattern: "^[A-Za-z0-9._:-]+$",
+			}),
+		),
+	},
+	{ additionalProperties: false },
+);
+
+export const IntelligentGuideDepartmentSchema = Type.Object(
+	{
+		departmentId: Type.String({ minLength: 1, maxLength: 128 }),
+		displayName: Type.String({ minLength: 1, maxLength: 128 }),
+	},
+	{ additionalProperties: false },
+);
+
+export const IntelligentGuideMessageResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object(
+		{
+			conversationReference: Type.String({ minLength: 1, maxLength: 128 }),
+			progress: Type.Integer({ minimum: 0, maximum: 100 }),
+			message: Type.Optional(Type.String({ minLength: 1, maxLength: 4_000 })),
+			userInput: Type.Optional(Type.String({ minLength: 1, maxLength: 4_000 })),
+			departments: Type.Array(IntelligentGuideDepartmentSchema, {
+				maxItems: 20,
+			}),
+			advice: Type.Optional(Type.String({ minLength: 1, maxLength: 4_000 })),
+			summary: Type.Optional(Type.String({ minLength: 1, maxLength: 4_000 })),
+			disclaimer: Type.String({ minLength: 1, maxLength: 512 }),
+		},
+		{ additionalProperties: false },
+	),
 });
 
 /** 创建订单只引用服务端报价，客户端不能提交医保金额或现金金额。 */
@@ -1193,6 +1280,12 @@ export type HealthKnowledgeDiseaseDetailResponsePayload = Static<
 >;
 export type HealthKnowledgeDrugDetailResponsePayload = Static<
 	typeof HealthKnowledgeDrugDetailResponse
+>;
+export type IntelligentGuideMessageRequestPayload = Static<
+	typeof IntelligentGuideMessageRequest
+>;
+export type IntelligentGuideMessageResponsePayload = Static<
+	typeof IntelligentGuideMessageResponse
 >;
 export type PaymentOrderCreatePayload = Static<
 	typeof PaymentOrderCreateRequest

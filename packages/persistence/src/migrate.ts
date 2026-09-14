@@ -226,6 +226,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		executionMode: "non_transactional_ddl",
 	},
 	{
+		id: "0041_report_reference_query_window",
+		file: "../migrations/0041_report_reference_query_window.sql",
+		executionMode: "non_transactional_ddl",
+	},
+	{
 		id: "0046_registration_self_pay_record_code_hash",
 		file: "../migrations/0046_registration_self_pay_record_code_hash.sql",
 		executionMode: "non_transactional_ddl",
@@ -578,6 +583,8 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"provider",
 			"kind",
 			"provider_report_id",
+			"start_date",
+			"end_date",
 			"expires_at",
 			"created_at",
 			"updated_at",

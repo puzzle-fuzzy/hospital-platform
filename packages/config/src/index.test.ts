@@ -379,6 +379,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		OUTPATIENT_PAYMENT_AUTH_SYS_CODE: "thirdSelfMachine",
 		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
 		ZHONGYANG_REPORT_DETAIL_READY: "true",
+		ZHONGYANG_PEIS_HOSPITAL_ID: "10389001",
 		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
 		ZHONGYANG_AUTHORIZATION_TOKEN: "provider-token",
 	});

@@ -167,6 +167,8 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/appointments/schedules",
 		"/api/v1/appointments/schedules/{scheduleId}/sources",
 		"/api/v1/auth/wechat",
+		"/api/v1/intelligent-guide/audio",
+		"/api/v1/intelligent-guide/messages",
 		"/api/v1/knowledge/health/crowd/list",
 		"/api/v1/knowledge/health/department/list",
 		"/api/v1/knowledge/health/disease/detail/{diseaseId}",
@@ -204,6 +206,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/payments/wechat/notifications",
 		"/api/v1/reports",
 		"/api/v1/reports/{reportId}",
+		"/api/v1/reports/{reportId}/attachments/{attachmentId}",
 		"/api/v1/system/ping",
 		"/health/live",
 		"/health/ready",
@@ -380,6 +383,8 @@ test("public API documentation lists every stable public error code", async () =
 		"my-doctor-query-invalid",
 		"my-doctor-not-found",
 		"my-doctor-already-followed",
+		"intelligent-guide-invalid",
+		"intelligent-guide-conversation-expired",
 	] as const;
 
 	for (const code of publicErrorCodes) {
@@ -1196,6 +1201,52 @@ test("default auth dependency fails closed instead of issuing a fake token", asy
 	});
 });
 
+test("intelligent guide text and audio routes fail closed when the provider bridge is not configured", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-user-0001");
+	const app = createApp({
+		services: { ...createDefaultApplicationServices(), sessions },
+	});
+	const textResponse = await app.handle(
+		new Request("http://localhost/api/v1/intelligent-guide/messages", {
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${issued.accessToken}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				legacyLoginCode: "fresh-wechat-code",
+				message: "头痛",
+			}),
+		}),
+	);
+	const audioForm = new FormData();
+	audioForm.append("legacyLoginCode", "fresh-wechat-code");
+	audioForm.append(
+		"audio",
+		new File([new Uint8Array(128)], "voice.mp3", { type: "audio/mpeg" }),
+	);
+	const audioResponse = await app.handle(
+		new Request("http://localhost/api/v1/intelligent-guide/audio", {
+			method: "POST",
+			headers: { authorization: `Bearer ${issued.accessToken}` },
+			body: audioForm,
+		}),
+	);
+
+	for (const response of [textResponse, audioResponse]) {
+		expect(response.status).toBe(503);
+		expect(await response.json()).toEqual({
+			success: false,
+			error: {
+				code: "dependency-not-configured",
+				numericCode: 10500,
+				message: "该服务暂未配置完成，请稍后重试",
+			},
+		});
+	}
+});
+
 test("wechat login rejects legacy identity fields before dependency access", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/api/v1/auth/wechat", {
@@ -1897,6 +1948,13 @@ test("report directory resolves internal patient ownership before provider looku
 				items: [{ name: "白细胞", result: "10.2", flag: "high" }],
 				hasAttachment: true,
 			},
+			attachments: [
+				{
+					sourceUrl: "https://zhongyang.example.test/private/report.pdf",
+					kind: "pdf",
+					label: "检验报告 PDF",
+				},
+			],
 			trace: {
 				provider: "zhongyang",
 				operation: "reports-laboratory-detail",
@@ -1917,6 +1975,12 @@ test("report directory resolves internal patient ownership before provider looku
 				repository: patientRepository,
 				directory,
 				detail,
+				attachment: {
+					fetchAttachment: async () => ({
+						body: new TextEncoder().encode("%PDF-1.7"),
+						contentType: "application/pdf",
+					}),
+				},
 				references: createInMemoryReportReferenceRepository(),
 			}),
 			paymentOrders,
@@ -1979,7 +2043,11 @@ test("report directory resolves internal patient ownership before provider looku
 		),
 	);
 	expect(detailResponse.status).toBe(200);
-	expect(await detailResponse.json()).toEqual({
+	const detailBody = (await detailResponse.json()) as {
+		success: true;
+		data: { attachments: Array<{ attachmentId: string }> };
+	};
+	expect(detailBody).toMatchObject({
 		success: true,
 		data: {
 			reportId,
@@ -1988,8 +2056,32 @@ test("report directory resolves internal patient ownership before provider looku
 			reportedAt: "2026-08-15 10:00:00",
 			items: [{ name: "白细胞", result: "10.2", flag: "high" }],
 			hasAttachment: true,
+			attachments: [
+				{
+					kind: "pdf",
+					label: "检验报告 PDF",
+				},
+			],
 		},
 	});
+	const attachmentId = detailBody.data.attachments[0]?.attachmentId;
+	expect(attachmentId).toMatch(/^attachment_[a-f0-9]{48}$/);
+	const attachmentResponse = await app.handle(
+		new Request(
+			`http://localhost/api/v1/reports/${reportId}/attachments/${attachmentId}?patientId=internal-patient-001`,
+			{
+				headers: {
+					authorization: `Bearer ${loginBody.data.accessToken}`,
+					"x-request-id": "report-attachment-query-trace",
+				},
+			},
+		),
+	);
+	expect(attachmentResponse.status).toBe(200);
+	expect(attachmentResponse.headers.get("content-type")).toBe(
+		"application/pdf",
+	);
+	expect(await attachmentResponse.text()).toBe("%PDF-1.7");
 	expect(directoryInput).toEqual({ providerPatientId: "his-patient-001" });
 	const wrongPatientDetailResponse = await app.handle(
 		new Request(

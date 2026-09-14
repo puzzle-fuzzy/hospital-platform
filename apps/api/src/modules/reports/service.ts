@@ -5,15 +5,21 @@ import type {
 } from "@hospital/contracts";
 import type {
 	AdapterCallContext,
-	LaboratoryReportDetail,
+	AppointmentPatientProfileGateway,
 	PatientRepository,
+	ReportAttachmentContent,
+	ReportAttachmentGateway,
+	ReportDetail,
 	ReportDetailGateway,
 	ReportDirectoryEntry,
 	ReportDirectoryGateway,
 	ReportDirectoryQuery,
+	ReportKind,
+	ReportProviderAttachment,
 	ReportReference,
 	ReportReferenceInput,
 	ReportReferenceRepository,
+	UserIdentityRepository,
 } from "@hospital/domain";
 import {
 	adapterContextTraceId,
@@ -24,6 +30,7 @@ import {
 	isReportKind,
 	normalizeAdapterCallContext,
 	normalizeExternalTrace,
+	normalizeIdentityUserReadModel,
 	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
 	parseIsoCalendarDate,
@@ -44,8 +51,15 @@ export type ReportServiceDependencies = {
 	directory: ReportDirectoryGateway;
 	/** 详情 gate 打开时才由组合根提供短期引用仓储。 */
 	references?: ReportReferenceRepository;
-	/** 当前只实现 LIS 详情；PACS/ECG 仍不通过此端口。 */
+	/** LIS 通过详情接口读取；PACS、ECG、PEIS 按原查询窗口实时回查详情。 */
 	detail?: ReportDetailGateway;
+	/** 附件必须经 API 代理读取，绝不向客户端下发 Provider URL。 */
+	attachment?: ReportAttachmentGateway;
+	/** PEIS 身份只通过服务端实时档案解析取得，不持久化身份证号。 */
+	identityUsers?: UserIdentityRepository;
+	patientProfile?: AppointmentPatientProfileGateway;
+	/** 单院区 PEIS 医院 ID；由部署配置显式提供。 */
+	peisHospitalId?: number;
 	logger?: AppLogger;
 	/**
 	 * 统一报告引用的观察时间；生产使用服务端时钟，测试注入固定时间。
@@ -92,6 +106,7 @@ const REPORT_REFERENCE_TTL_MS = Math.min(
  * 报告数量上限；所有报告仍会尝试创建引用，结果顺序也保持不变。
  */
 const REPORT_REFERENCE_CONCURRENCY = 4;
+const MAX_REPORT_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 /**
  * 报告目录 service 的 canonical 查询字段。
@@ -251,8 +266,7 @@ function validateStoredDetailReference(
 		reference.reportId !== reportId ||
 		reference.ownerUserId !== ownerUserId ||
 		reference.patientId !== patientId ||
-		reference.provider !== "zhongyang" ||
-		reference.kind !== "laboratory"
+		reference.provider !== "zhongyang"
 	) {
 		return "reference-scope-mismatch";
 	}
@@ -263,14 +277,48 @@ function validateStoredDetailReference(
 function reportReferenceId(
 	ownerUserId: string,
 	patientId: string,
+	kind: ReportKind,
 	providerReportId: string,
 ): string {
 	return `report_${createHash("sha256")
 		.update(
-			`${ownerUserId}\0${patientId}\0zhongyang\0laboratory\0${providerReportId}`,
+			`${ownerUserId}\0${patientId}\0zhongyang\0${kind}\0${providerReportId}`,
 		)
 		.digest("hex")
 		.slice(0, 48)}`;
+}
+
+/** 附件 ID 只定位同一次实时报告结果，不暴露 Provider URL。 */
+function reportAttachmentId(
+	ownerUserId: string,
+	patientId: string,
+	reportId: string,
+	attachment: ReportProviderAttachment,
+): string {
+	return `attachment_${createHash("sha256")
+		.update(
+			`${ownerUserId}\0${patientId}\0${reportId}\0${attachment.kind}\0${attachment.sourceUrl}`,
+		)
+		.digest("hex")
+		.slice(0, 48)}`;
+}
+
+function publicAttachments(
+	ownerUserId: string,
+	patientId: string,
+	reportId: string,
+	attachments: readonly ReportProviderAttachment[],
+) {
+	return attachments.map((attachment) => ({
+		attachmentId: reportAttachmentId(
+			ownerUserId,
+			patientId,
+			reportId,
+			attachment,
+		),
+		kind: attachment.kind,
+		label: attachment.label,
+	}));
 }
 
 function validateQuery(input: ReportDirectoryQuery): void {
@@ -324,6 +372,89 @@ export class ReportService {
 	constructor(private readonly dependencies: ReportServiceDependencies) {
 		this.logger = dependencies.logger ?? createNoopLogger();
 		this.now = dependencies.now ?? (() => new Date());
+	}
+
+	private async directoryInput(
+		ownerUserId: string,
+		patientId: string,
+		query: ReportDirectoryQuery,
+		context: AdapterCallContext,
+	) {
+		const reference =
+			await this.dependencies.repository.resolveProviderReference({
+				ownerUserId,
+				patientId,
+				provider: "zhongyang",
+				referenceKind: "his-patient",
+			});
+		if (!reference) throw new ReportPatientNotFoundError();
+		const referenceViolation = validatePatientProviderReference(
+			reference,
+			patientId,
+		);
+		if (referenceViolation) throw new ReportPatientNotFoundError();
+
+		if (query.kind !== "peis") {
+			return {
+				providerPatientId: reference.providerPatientId,
+				query,
+			};
+		}
+
+		if (
+			!this.dependencies.identityUsers ||
+			!this.dependencies.patientProfile ||
+			!Number.isSafeInteger(this.dependencies.peisHospitalId) ||
+			(this.dependencies.peisHospitalId ?? 0) <= 0
+		) {
+			throw new DependencyNotConfiguredError("report-peis");
+		}
+		const identityValue =
+			await this.dependencies.identityUsers.findByUserId(ownerUserId);
+		if (!identityValue) throw new ReportPatientNotFoundError();
+		const identity = normalizeIdentityUserReadModel(identityValue, {
+			expectedUserId: ownerUserId,
+		});
+		if (!identity.unionId) throw new ReportPatientNotFoundError();
+		const directoryReference =
+			await this.dependencies.repository.resolveProviderReference({
+				ownerUserId,
+				patientId,
+				provider: "zhongyang",
+				referenceKind: "directory",
+			});
+		if (!directoryReference) throw new ReportPatientNotFoundError();
+		const directoryReferenceViolation = validatePatientProviderReference(
+			directoryReference,
+			patientId,
+		);
+		if (directoryReferenceViolation) throw new ReportPatientNotFoundError();
+		const profile = await this.dependencies.patientProfile.resolve(
+			{
+				unionId: identity.unionId,
+				providerPatientId: directoryReference.providerPatientId,
+			},
+			context,
+		);
+		if (
+			profile.patient.providerPatientId !== reference.providerPatientId ||
+			typeof profile.patient.idNo !== "string" ||
+			!profile.patient.idNo.trim() ||
+			profile.patient.idNo !== profile.patient.idNo.trim() ||
+			profile.patient.idNo.length > 32 ||
+			Array.from(profile.patient.idNo).some((character) => {
+				const code = character.charCodeAt(0);
+				return code <= 0x1f || code === 0x7f;
+			})
+		) {
+			throw new ReportPatientNotFoundError();
+		}
+		return {
+			providerPatientId: reference.providerPatientId,
+			providerIdentityNumber: profile.patient.idNo,
+			hospitalId: this.dependencies.peisHospitalId as number,
+			query,
+		};
 	}
 
 	async list(
@@ -382,12 +513,21 @@ export class ReportService {
 				throw new ReportPatientNotFoundError();
 			}
 
+			const directoryInput =
+				normalizedQuery.kind === "peis"
+					? await this.directoryInput(
+							ownerUserId,
+							patientId,
+							normalizedQuery,
+							context,
+						)
+					: {
+							// 受限引用只存在此调用帧内；不得写入日志或 API payload。
+							providerPatientId: reference.providerPatientId,
+							query: normalizedQuery,
+						};
 			const result = await this.dependencies.directory.listReports(
-				{
-					// 受限引用只存在此调用帧内；不得写入日志或 API payload。
-					providerPatientId: reference.providerPatientId,
-					query: normalizedQuery,
-				},
+				directoryInput,
 				context,
 			);
 			const trace = normalizeExternalTrace(
@@ -420,10 +560,9 @@ export class ReportService {
 				REPORT_REFERENCE_CONCURRENCY,
 				async (entry) => {
 					if (
-						!this.dependencies.detail ||
-						entry.summary.kind !== "laboratory" ||
 						!entry.providerReportId ||
-						!this.dependencies.references
+						!this.dependencies.references ||
+						!this.dependencies.detail
 					) {
 						// 目录摘要和详情引用是两个独立能力：provider 没有稳定报告号、
 						// 详情 gate 未开启或引用仓储未注入时，仍应保留安全摘要，
@@ -431,22 +570,31 @@ export class ReportService {
 						return entry.summary;
 					}
 					try {
-						const referenceInput: ReportReferenceInput = {
+						const referenceBase = {
 							reportId: reportReferenceId(
 								ownerUserId,
 								patientId,
+								entry.summary.kind,
 								entry.providerReportId,
 							),
 							ownerUserId,
 							patientId,
-							provider: "zhongyang",
-							kind: "laboratory",
+							provider: "zhongyang" as const,
 							providerReportId: entry.providerReportId,
 							expiresAt: new Date(
 								observedNow.getTime() + REPORT_REFERENCE_TTL_MS,
 							).toISOString(),
 							createdAt: observedNow.toISOString(),
 						};
+						const referenceInput: ReportReferenceInput =
+							entry.summary.kind === "laboratory"
+								? { ...referenceBase, kind: "laboratory" }
+								: {
+										...referenceBase,
+										kind: entry.summary.kind,
+										startDate: normalizedQuery.startDate,
+										endDate: normalizedQuery.endDate,
+									};
 						const reference =
 							await this.dependencies.references.upsert(referenceInput);
 						// 仓储返回值仍是跨层边界，不能只相信 TypeScript 类型。若实现
@@ -570,9 +718,7 @@ export class ReportService {
 					reportId,
 					this.now().toISOString(),
 				);
-			if (reference?.kind !== "laboratory") {
-				throw new ReportNotFoundError();
-			}
+			if (!reference) throw new ReportNotFoundError();
 			// 仓储查询已经按 owner/patient/reportId 加了条件，但它仍是跨层返回值，
 			// 不能把 SQL 条件当成唯一授权证明。这里再次校验引用完整性和范围，
 			// 防止错误实现、历史脏数据或未来缓存层把别的患者 providerReportId
@@ -589,27 +735,58 @@ export class ReportService {
 				resultViolation = referenceViolation;
 				throw new ReportNotFoundError();
 			}
-			const result = await this.dependencies.detail.getLaboratoryDetail(
-				{ providerReportId: reference.providerReportId },
-				context,
-			);
-			const trace = normalizeExternalTrace(
-				(result as { trace?: unknown } | undefined)?.trace,
-				{ expectedProvider: "zhongyang" },
-			);
-			let normalizedDetail: LaboratoryReportDetail;
-			try {
-				normalizedDetail = normalizeLaboratoryReportDetail(
-					(result as { detail?: unknown } | undefined)?.detail,
+			let normalizedDetail: ReportDetail;
+			let attachments: readonly ReportProviderAttachment[];
+			let trace: ReturnType<typeof normalizeExternalTrace>;
+			if (reference.kind === "laboratory") {
+				const result = await this.dependencies.detail.getLaboratoryDetail(
+					{ providerReportId: reference.providerReportId },
+					context,
 				);
-			} catch (error) {
-				if (error instanceof ReportResultValidationError) {
-					resultViolation = error.violation;
+				trace = normalizeExternalTrace(
+					(result as { trace?: unknown } | undefined)?.trace,
+					{ expectedProvider: "zhongyang" },
+				);
+				try {
+					normalizedDetail = normalizeLaboratoryReportDetail(
+						(result as { detail?: unknown } | undefined)?.detail,
+					);
+					attachments = Array.isArray(result.attachments)
+						? result.attachments
+						: [];
+				} catch (error) {
+					if (error instanceof ReportResultValidationError) {
+						resultViolation = error.violation;
+					}
+					throw error;
 				}
-				if (error instanceof ExternalTraceReadModelValidationError) {
-					resultViolation = error.violation;
+			} else {
+				const query = {
+					startDate: reference.startDate,
+					endDate: reference.endDate,
+					kind: reference.kind,
+				} satisfies ReportDirectoryQuery;
+				const result = await this.dependencies.directory.listReports(
+					await this.directoryInput(ownerUserId, patientId, query, context),
+					context,
+				);
+				trace = normalizeExternalTrace(
+					(result as { trace?: unknown } | undefined)?.trace,
+					{ expectedProvider: "zhongyang" },
+				);
+				const reports = normalizeReportDirectoryResults(
+					(result as { reports?: unknown } | undefined)?.reports,
+				);
+				validateReportKindFilter(reports, query);
+				validateReportDirectoryResultWindow(reports, query);
+				const entry = reports.find(
+					(item) => item.providerReportId === reference.providerReportId,
+				);
+				if (!entry || !("detail" in entry)) {
+					throw new ReportNotFoundError();
 				}
-				throw error;
+				normalizedDetail = entry.detail;
+				attachments = entry.attachments;
 			}
 			this.logger.info(
 				{
@@ -618,15 +795,34 @@ export class ReportService {
 					patientId,
 					reportId,
 					...traceLogFields(trace),
-					itemCount: normalizedDetail.items.length,
+					itemCount:
+						normalizedDetail.kind === "laboratory"
+							? normalizedDetail.items.length
+							: normalizedDetail.fields.length +
+								normalizedDetail.sections.length,
 				},
 				"Report detail loaded",
 			);
-			return {
+			const attachmentEntries = publicAttachments(
+				ownerUserId,
+				patientId,
 				reportId,
-				...normalizedDetail,
-				items: [...normalizedDetail.items],
-			};
+				attachments,
+			);
+			return normalizedDetail.kind === "laboratory"
+				? {
+						reportId,
+						...normalizedDetail,
+						items: [...normalizedDetail.items],
+						attachments: attachmentEntries,
+					}
+				: {
+						reportId,
+						...normalizedDetail,
+						fields: [...normalizedDetail.fields],
+						sections: [...normalizedDetail.sections],
+						attachments: attachmentEntries,
+					};
 		} catch (error) {
 			this.logger.error(
 				{
@@ -644,6 +840,157 @@ export class ReportService {
 					...providerFailureMetadata(error),
 				},
 				"Report detail request failed",
+			);
+			throw error;
+		}
+	}
+
+	async attachment(
+		ownerUserId: string,
+		patientId: string,
+		reportId: string,
+		attachmentId: string,
+		context: AdapterCallContext,
+	): Promise<ReportAttachmentContent> {
+		try {
+			context = requireReportContext(context);
+			if (
+				!isBoundedOpaqueIdentifier(ownerUserId) ||
+				!isBoundedOpaqueIdentifier(patientId) ||
+				!isBoundedOpaqueIdentifier(reportId) ||
+				!isBoundedOpaqueIdentifier(attachmentId)
+			) {
+				throw new ReportQueryError("Report attachment scope is invalid");
+			}
+			this.logger.info(
+				{
+					event: "report.attachment.requested",
+					traceId: adapterContextTraceId(context),
+					patientId,
+					reportId,
+					attachmentId,
+				},
+				"Report attachment requested",
+			);
+			if (
+				!this.dependencies.references ||
+				!this.dependencies.detail ||
+				!this.dependencies.attachment
+			) {
+				throw new DependencyNotConfiguredError("report-attachment");
+			}
+			const reference =
+				await this.dependencies.references.findByOwnerPatientAndId(
+					ownerUserId,
+					patientId,
+					reportId,
+					this.now().toISOString(),
+				);
+			if (
+				!reference ||
+				validateStoredDetailReference(
+					reference,
+					ownerUserId,
+					patientId,
+					reportId,
+				)
+			) {
+				throw new ReportNotFoundError();
+			}
+
+			let attachments: readonly ReportProviderAttachment[];
+			if (reference.kind === "laboratory") {
+				const result = await this.dependencies.detail.getLaboratoryDetail(
+					{ providerReportId: reference.providerReportId },
+					context,
+				);
+				normalizeExternalTrace(
+					(result as { trace?: unknown } | undefined)?.trace,
+					{ expectedProvider: "zhongyang" },
+				);
+				normalizeLaboratoryReportDetail(
+					(result as { detail?: unknown } | undefined)?.detail,
+				);
+				attachments = Array.isArray(result.attachments)
+					? result.attachments
+					: [];
+			} else {
+				const query = {
+					startDate: reference.startDate,
+					endDate: reference.endDate,
+					kind: reference.kind,
+				} satisfies ReportDirectoryQuery;
+				const result = await this.dependencies.directory.listReports(
+					await this.directoryInput(ownerUserId, patientId, query, context),
+					context,
+				);
+				normalizeExternalTrace(
+					(result as { trace?: unknown } | undefined)?.trace,
+					{ expectedProvider: "zhongyang" },
+				);
+				const reports = normalizeReportDirectoryResults(
+					(result as { reports?: unknown } | undefined)?.reports,
+				);
+				validateReportKindFilter(reports, query);
+				validateReportDirectoryResultWindow(reports, query);
+				const entry = reports.find(
+					(item) => item.providerReportId === reference.providerReportId,
+				);
+				if (!entry || !("attachments" in entry)) {
+					throw new ReportNotFoundError();
+				}
+				attachments = entry.attachments;
+			}
+
+			const attachment = attachments.find(
+				(item) =>
+					reportAttachmentId(ownerUserId, patientId, reportId, item) ===
+					attachmentId,
+			);
+			if (!attachment) throw new ReportNotFoundError();
+			const result = await this.dependencies.attachment.fetchAttachment(
+				attachment,
+				context,
+			);
+			if (
+				!(result.body instanceof Uint8Array) ||
+				result.body.byteLength === 0 ||
+				result.body.byteLength > MAX_REPORT_ATTACHMENT_BYTES ||
+				(attachment.kind === "pdf"
+					? result.contentType !== "application/pdf"
+					: !result.contentType.startsWith("image/"))
+			) {
+				throw new ReportResultValidationError("attachment-invalid");
+			}
+			this.logger.info(
+				{
+					event: "report.attachment.synced",
+					traceId: adapterContextTraceId(context),
+					patientId,
+					reportId,
+					attachmentId,
+					kind: attachment.kind,
+					byteLength: result.body.byteLength,
+				},
+				"Report attachment loaded",
+			);
+			return { body: result.body, contentType: result.contentType };
+		} catch (error) {
+			this.logger.error(
+				{
+					event: "report.attachment.failed",
+					traceId: adapterContextTraceId(context),
+					patientId: isBoundedOpaqueIdentifier(patientId)
+						? patientId
+						: "invalid",
+					reportId: isBoundedOpaqueIdentifier(reportId) ? reportId : "invalid",
+					attachmentId: isBoundedOpaqueIdentifier(attachmentId)
+						? attachmentId
+						: "invalid",
+					errorType: error instanceof Error ? error.name : "unknown",
+					...providerFailureMetadata(error),
+				},
+				"Report attachment request failed",
 			);
 			throw error;
 		}

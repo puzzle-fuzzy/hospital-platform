@@ -96,6 +96,19 @@ export {
 	normalizeExternalEntrySession,
 	revokeExternalEntrySession,
 } from "./external-entry-session";
+export type {
+	IntelligentGuideConversationStore,
+	IntelligentGuideDepartment,
+	IntelligentGuideGateway,
+	IntelligentGuideProviderReply,
+} from "./intelligent-guide";
+export {
+	INTELLIGENT_GUIDE_AUDIO_CONTENT_TYPES,
+	INTELLIGENT_GUIDE_AUDIO_MAX_BYTES,
+	INTELLIGENT_GUIDE_AUDIO_MIN_BYTES,
+	INTELLIGENT_GUIDE_CONVERSATION_TTL_SECONDS,
+	INTELLIGENT_GUIDE_MESSAGE_MAX_CODE_POINTS,
+} from "./intelligent-guide";
 export type { ExternalTraceReadModelViolation } from "./external-trace";
 export {
 	ExternalTraceReadModelValidationError,
@@ -425,13 +438,20 @@ export {
 export type {
 	LaboratoryReportDetail,
 	LaboratoryReportDetailItem,
+	NonLaboratoryReportDetail,
+	ReportAttachmentContent,
+	ReportAttachmentGateway,
+	ReportDetail,
+	ReportDetailField,
 	ReportDetailFlag,
 	ReportDetailGateway,
+	ReportDetailSection,
 	ReportDirectoryEntry,
 	ReportDirectoryGateway,
 	ReportDirectoryInput,
 	ReportDirectoryQuery,
 	ReportKind,
+	ReportProviderAttachment,
 	ReportReference,
 	ReportReferenceInput,
 	ReportReferenceRepository,

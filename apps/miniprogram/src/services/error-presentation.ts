@@ -2,8 +2,7 @@
  * 错误展示组合层：把 ApiError 组合为"哪个部分 + 什么问题 + 怎么办 + 错误码"。
  *
  * 三层文案来源，优先级从高到低：
- * 1. surface 级原因覆盖（同一服务端原因在不同页面的既定文案，如
- *    dependency-not-configured 在报告页与知识页的"正在完善中"变体）；
+ * 1. surface 级原因覆盖（同一服务端原因在不同页面的既定文案）；
  * 2. 领域 mapper（挂号记录、便民等已有专门映射的 surface）；
  * 3. `contextualApiErrorMessage` + surface 兜底文案。
  *
@@ -14,12 +13,12 @@
 
 import { ApiError, contextualApiErrorMessage } from "./api-client";
 import { appointmentRecordsErrorMessage } from "./appointment-record-error";
+import { convenienceSurfaceErrorMessage } from "./convenience-surface";
 import {
 	CLIENT_ERROR_SURFACE_COPY,
-	resolveErrorNumericCode,
 	type ClientErrorSurface,
+	resolveErrorNumericCode,
 } from "./error-registry";
-import { convenienceSurfaceErrorMessage } from "./convenience-surface";
 
 /** surface 级原因覆盖：沿用各页面 showError 的既定文案，不新增措辞。 */
 const SURFACE_CAUSE_MESSAGES: Partial<
@@ -30,7 +29,7 @@ const SURFACE_CAUSE_MESSAGES: Partial<
 		"health-knowledge-not-found": "未找到相关健康内容",
 	}),
 	"report-directory": Object.freeze({
-		"dependency-not-configured": "报告服务正在完善中，暂时无法使用",
+		"dependency-not-configured": "报告服务暂时不可用，请稍后再试",
 	}),
 	"missed-appointments": Object.freeze({
 		"dependency-not-configured": "爽约记录功能正在完善中，暂时无法使用",

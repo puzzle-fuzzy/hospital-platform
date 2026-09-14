@@ -371,6 +371,8 @@ export type ProviderRequest = {
 	body?: unknown;
 	/** 已完成签名的 JSON；与 body 互斥，保证签名报文和线上 body 字节一致。 */
 	bodyText?: string;
+	/** 文件等 multipart 请求；由运行时生成 boundary，禁止手工设置 Content-Type。 */
+	bodyFormData?: FormData;
 	/** provider-specific response verifier；只在 HTTP 2xx 且解析 JSON 前执行。 */
 	verifyResponse?: (input: {
 		rawBody: Uint8Array;
@@ -380,6 +382,11 @@ export type ProviderRequest = {
 	}) => void | Promise<void>;
 	/** 仅供明确的内部审计存储场景保留 JSON 响应原文。 */
 	captureRawBody?: boolean;
+	/**
+	 * 医疗自由文本、音频等内容可显式禁止受控原文日志；支付/医保默认行为不变。
+	 * 关闭后仍保留结构、字节长度、摘要、状态和 requestId 审计事件。
+	 */
+	rawLogging?: boolean;
 	/** 单次调用覆盖；未传时使用组合根配置的统一 provider logger。 */
 	logger?: ProviderRequestLogger;
 };
@@ -445,6 +452,11 @@ export async function requestJson<T>(
 	if (input.body !== undefined || input.bodyText !== undefined) {
 		headers.set("content-type", "application/json");
 	}
+	const bodyInputCount = [
+		input.body !== undefined,
+		input.bodyText !== undefined,
+		input.bodyFormData !== undefined,
+	].filter(Boolean).length;
 	const auditBase = {
 		provider: input.provider,
 		operation: input.operation,
@@ -453,11 +465,14 @@ export async function requestJson<T>(
 		method: input.method,
 		url: safeUrlShape(input.url),
 		headers: safeHeaderShape(headers),
-		bodyShape: safeValueShape(
-			input.body !== undefined ? input.body : input.bodyText,
-		),
+		bodyShape: input.bodyFormData
+			? {
+					kind: "form-data",
+					fieldNames: [...new Set(input.bodyFormData.keys())].sort(),
+				}
+			: safeValueShape(input.body !== undefined ? input.body : input.bodyText),
 	};
-	if (input.body !== undefined && input.bodyText !== undefined) {
+	if (bodyInputCount > 1) {
 		emitProviderLog(
 			logger,
 			"error",
@@ -471,7 +486,7 @@ export async function requestJson<T>(
 		throw new ProviderRequestError({
 			provider: input.provider,
 			operation: input.operation,
-			message: "Provider request cannot define both body and bodyText",
+			message: "Provider request cannot define multiple body inputs",
 			retryable: false,
 			failureStage: "validation",
 			requestOutcome: "not_sent",
@@ -495,8 +510,13 @@ export async function requestJson<T>(
 		headers,
 		signal: controller.signal,
 	};
-	if (input.body !== undefined || input.bodyText !== undefined) {
-		init.body = input.bodyText ?? JSON.stringify(input.body);
+	if (
+		input.body !== undefined ||
+		input.bodyText !== undefined ||
+		input.bodyFormData !== undefined
+	) {
+		init.body =
+			input.bodyFormData ?? input.bodyText ?? JSON.stringify(input.body);
 	}
 
 	try {
@@ -513,7 +533,11 @@ export async function requestJson<T>(
 			});
 		}
 
-		if (providerRawLoggingEnabled()) {
+		if (
+			providerRawLoggingEnabled() &&
+			input.rawLogging !== false &&
+			input.bodyFormData === undefined
+		) {
 			const requestBody = rawBodyText(input.bodyText ?? input.body) ?? "";
 			emitRawBodyLog(
 				logger,
@@ -580,7 +604,7 @@ export async function requestJson<T>(
 			},
 			"Provider response observed",
 		);
-		if (providerRawLoggingEnabled()) {
+		if (providerRawLoggingEnabled() && input.rawLogging !== false) {
 			emitRawBodyLog(
 				logger,
 				{

@@ -3,7 +3,7 @@ import {
 	loadAppointmentClinicDepartments,
 	loadAppointmentDepartmentTree,
 } from "../../services/dashboard-service";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
+import { navigateToFeatureEntry } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -194,9 +194,9 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		void this.loadClinicDepartments(this.data.selectedDepartmentId);
 	},
 
-	/** 旧端顶部导诊入口保留位置，尚未开放的内容统一进入受控状态页。 */
+	/** 预约目录顶部与首页共用同一个智能导诊页面，不复制第二套会话。 */
 	onGuideTap(): void {
-		navigateToFeatureStatus("guide");
+		navigateToFeatureEntry("guide");
 	},
 
 	/** 输入只保留在当前目录，不把自由文本透传给 Provider。 */

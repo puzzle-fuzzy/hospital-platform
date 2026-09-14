@@ -1,9 +1,11 @@
-import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
+	createPastDateRange,
+	DASHBOARD_DATE_RANGE_DAYS,
 	loadCurrentPatientForOwner,
 	loadReports,
 } from "../../services/dashboard-service";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
@@ -41,11 +43,16 @@ import type {
  * 被描述为已经完成 provider 分页，也不能改变 `payload.total` 的服务端语义。
  */
 const REPORT_PAGE_SIZE = 10;
+const INITIAL_REPORT_RANGE = createPastDateRange(
+	DASHBOARD_DATE_RANGE_DAYS.reports,
+	new Date(),
+);
 
 const REPORT_KIND_LABELS = Object.freeze({
 	laboratory: "检验报告",
 	imaging: "影像报告",
 	ecg: "心电报告",
+	peis: "体检报告",
 } as const);
 
 const REPORT_STATUS_LABELS = Object.freeze({
@@ -66,10 +73,31 @@ function findVisibleReport(
 	return reports.find((report) => report.viewKey === viewKey);
 }
 
+function reportsForKind(
+	reports: readonly ReportDirectoryView[],
+	kind: "all" | Report["kind"],
+): ReportDirectoryView[] {
+	return kind === "all"
+		? [...reports]
+		: reports.filter((report) => report.kind === kind);
+}
+
+type ReportKindEvent = {
+	currentTarget?: { dataset?: { kind?: string } };
+};
+
+type ReportDateEvent = {
+	detail?: { value?: string };
+};
+
 type ReportDirectoryPageMethods = {
 	loadPage(): Promise<void>;
 	onRetry(): void;
 	onChangePatient(): void;
+	onKindChange(event: ReportKindEvent): void;
+	onStartDateChange(event: ReportDateEvent): void;
+	onEndDateChange(event: ReportDateEvent): void;
+	applyReportFilter(kind: "all" | Report["kind"]): void;
 	onReportTap(event: ViewKeyEvent): void;
 	onLoadMore(): void;
 	onPullDownRefresh(): void;
@@ -89,9 +117,14 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		sessionState: "checking",
 		selectedPatient: null,
 		patientSessionGeneration: -1,
+		startDate: INITIAL_REPORT_RANGE.startDate,
+		endDate: INITIAL_REPORT_RANGE.endDate,
+		today: INITIAL_REPORT_RANGE.endDate,
+		activeKind: "all",
 		reports: [],
 		visibleReports: [],
 		reportCount: 0,
+		filteredReportCount: 0,
 		hasMoreReports: false,
 		visibleReportCount: 0,
 		loading: true,
@@ -114,6 +147,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 					reports: [],
 					visibleReports: [],
 					reportCount: 0,
+					filteredReportCount: 0,
 					visibleReportCount: 0,
 					hasMoreReports: false,
 					loading: true,
@@ -139,6 +173,10 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	loadPage(): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "reports");
 		const requestToken = loadGuard.begin();
+		const queryRange = {
+			startDate: this.data.startDate,
+			endDate: this.data.endDate,
+		};
 		// 报告目录是 `/me`、患者和临床列表的组合读模型；所有阶段必须属于
 		// 同一会话代际，不能只依赖单个请求的 HTTP 成功状态。
 		let expectedSessionGeneration = -1;
@@ -157,6 +195,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			reports: [],
 			visibleReports: [],
 			reportCount: 0,
+			filteredReportCount: 0,
 			visibleReportCount: 0,
 			hasMoreReports: false,
 			canSelectPatient: false,
@@ -197,6 +236,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 					patient.id,
 					new Date(),
 					expectedSessionGeneration,
+					queryRange,
 				).then((payload) => {
 					assertSessionGeneration(
 						expectedSessionGeneration,
@@ -217,15 +257,20 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 				const reports = payload.items.map((report, index) =>
 					this.toView(report, index, requestToken),
 				);
-				const visibleReportCount = Math.min(REPORT_PAGE_SIZE, reports.length);
+				const filteredReports = reportsForKind(reports, this.data.activeKind);
+				const visibleReportCount = Math.min(
+					REPORT_PAGE_SIZE,
+					filteredReports.length,
+				);
 				this.setData({
 					selectedPatient: patient,
 					patientSessionGeneration: expectedSessionGeneration,
 					reports,
-					visibleReports: reports.slice(0, visibleReportCount),
+					visibleReports: filteredReports.slice(0, visibleReportCount),
 					reportCount: payload.total,
+					filteredReportCount: filteredReports.length,
 					visibleReportCount,
-					hasMoreReports: visibleReportCount < reports.length,
+					hasMoreReports: visibleReportCount < filteredReports.length,
 					error: "",
 					canSelectPatient: false,
 				});
@@ -251,6 +296,56 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector(this.data.sessionState);
+	},
+
+	onKindChange(event): void {
+		const kind = event.currentTarget?.dataset?.kind;
+		if (
+			kind !== "all" &&
+			kind !== "laboratory" &&
+			kind !== "imaging" &&
+			kind !== "ecg" &&
+			kind !== "peis"
+		) {
+			return;
+		}
+		this.applyReportFilter(kind);
+	},
+
+	applyReportFilter(kind): void {
+		const filteredReports = reportsForKind(this.data.reports, kind);
+		const visibleReportCount = Math.min(
+			REPORT_PAGE_SIZE,
+			filteredReports.length,
+		);
+		this.setData({
+			activeKind: kind,
+			filteredReportCount: filteredReports.length,
+			visibleReports: filteredReports.slice(0, visibleReportCount),
+			visibleReportCount,
+			hasMoreReports: visibleReportCount < filteredReports.length,
+		});
+	},
+
+	onStartDateChange(event): void {
+		const value = event.detail?.value;
+		if (typeof value !== "string" || !value || value > this.data.endDate)
+			return;
+		this.setData({ startDate: value });
+		void this.loadPage();
+	},
+
+	onEndDateChange(event): void {
+		const value = event.detail?.value;
+		if (
+			typeof value !== "string" ||
+			!value ||
+			value < this.data.startDate ||
+			value > this.data.today
+		)
+			return;
+		this.setData({ endDate: value });
+		void this.loadPage();
 	},
 
 	/**
@@ -313,15 +408,19 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			return;
 		}
 		if (!this.data.hasMoreReports) return;
+		const filteredReports = reportsForKind(
+			this.data.reports,
+			this.data.activeKind,
+		);
 		const nextCount = Math.min(
 			this.data.visibleReportCount + REPORT_PAGE_SIZE,
-			this.data.reports.length,
+			filteredReports.length,
 		);
 		if (nextCount <= this.data.visibleReportCount) return;
 		this.setData({
-			visibleReports: this.data.reports.slice(0, nextCount),
+			visibleReports: filteredReports.slice(0, nextCount),
 			visibleReportCount: nextCount,
-			hasMoreReports: nextCount < this.data.reports.length,
+			hasMoreReports: nextCount < filteredReports.length,
 		});
 	},
 
@@ -362,7 +461,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	showError(error: unknown, _fallback: string): void {
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
-				? "报告服务正在完善中，暂时无法使用"
+				? "报告服务暂时不可用，请稍后再试"
 				: patientContextErrorMessage(error, "检查报告暂时无法获取，请稍后再试");
 		const canSelectPatient = isPatientSelectionError(error);
 		const clearPatient =
@@ -385,6 +484,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			// 计数和分页标记都是同一份临床列表读模型的派生状态；请求失败
 			// 时必须与列表一起清空，避免页面显示旧总数或继续加载旧报告。
 			reportCount: 0,
+			filteredReportCount: 0,
 			visibleReportCount: 0,
 			hasMoreReports: false,
 		});

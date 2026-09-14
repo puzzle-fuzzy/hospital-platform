@@ -1410,19 +1410,27 @@ export function loadAppointmentRecords(
 	).then((payload) => requireAppointmentRecordListData(payload.data).items);
 }
 
-/** 读取当前内部患者的 LIS/PACS/ECG 报告目录摘要。 */
+/** 读取当前内部患者的 LIS/PACS/ECG/PEIS 实时报告目录。 */
 export function loadReports(
 	patientId: string,
 	now = new Date(),
 	expectedSessionGeneration: number,
+	rangeOverride?: Pick<ReportQuery, "startDate" | "endDate">,
 ): Promise<ReportListResponse["data"]> {
 	const range: ReportQuery = {
 		patientId: requirePatientId(patientId),
-		...createPastDateRange(DASHBOARD_DATE_RANGE_DAYS.reports, now),
+		...(rangeOverride ??
+			createPastDateRange(DASHBOARD_DATE_RANGE_DAYS.reports, now)),
 	};
-	// 报告响应在 API client 边界已经完成 canonical 校验和白名单投影；
-	// 这里仅取同一份已验证读模型，不再使用泛型把未知 JSON 当作临床事实。
-	return requestReports(range, expectedSessionGeneration).then(
-		(payload) => payload.data,
-	);
+	// PEIS 需要服务端额外实时解析身份证号，不能混入三路临床患者号聚合请求。
+	// 两次读取任一失败都拒绝整批，避免把部分成功误显示成“没有其它报告”。
+	return Promise.all([
+		requestReports(range, expectedSessionGeneration),
+		requestReports({ ...range, kind: "peis" }, expectedSessionGeneration),
+	]).then(([clinical, peis]) => {
+		const items = [...clinical.data.items, ...peis.data.items].sort(
+			(left, right) => right.reportedAt.localeCompare(left.reportedAt),
+		);
+		return { items, total: items.length };
+	});
 }

@@ -117,6 +117,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/health/ready` | 无 | 返回 database、redis、schema 的 `ok`/`not_configured`/`unavailable`；响应带 `Cache-Control: no-store`，不是 provider 验收 |
 | `GET` | `/api/v2/system/ping` | 无 | 返回服务名和 API 版本，不执行业务依赖探测 |
 | `POST` | `/api/v2/auth/wechat` | 无 | body 只有 `code`；服务端完成微信身份兑换并签发平台会话 |
+| `POST` | `/api/v2/intelligent-guide/messages` | Bearer | body 为 `{legacyLoginCode,message,conversationReference?}`；每条消息使用新的 `wx.login` code 在服务端换取旧导诊身份，小程序只持有 owner-scoped 平台会话引用，不接触旧 JWT 或旧 `conversation_id` |
+| `POST` | `/api/v2/intelligent-guide/audio` | Bearer | multipart body 为 `{legacyLoginCode,conversationReference?,audio}`；音频限制 2 MiB，当前原生录音固定 MP3/60 秒；服务端转发旧语音识别和导诊接口，音频及识别文本不进入原始日志 |
 | `GET` | `/api/v2/me` | Bearer | 恢复当前平台用户，只返回内部 `user.id` |
 | `GET` | `/api/v2/me/profile` | Bearer | 读取当前用户的普通展示资料；不存在时返回安全默认值，不隐式创建记录 |
 | `PUT` | `/api/v2/me/profile` | Bearer | 使用 `version` 更新昵称、性别、年龄、邮箱；不接收实名/微信/患者/头像字段 |
@@ -164,6 +166,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/knowledge/health/drug/detail/{drugId}` | Bearer | 返回指定审核药品详情；不构成个体化用药建议 |
 | `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg|peis`；未指定时只聚合 LIS、PACS、ECG，PEIS 由客户端显式查询 |
 | `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；按短期引用实时回查 LIS/PACS/ECG/PEIS 详情白名单，不返回文件 URL |
+| `GET` | `/api/v2/reports/{reportId}/attachments/{attachmentId}` | Bearer | 必填 query `patientId`；校验 owner、患者、短期报告引用和 opaque 附件引用后，由服务端受控代理 PDF/图片 |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
 | `GET` | `/api/v2/payments/outpatient/records/{recordId}` | Bearer；幂等键可选 | 必填 query `patientId`、`status=unpaid|paid`；返回当前用户/就诊人范围内已核对的单笔门诊费用摘要，不返回项目级费用明细 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
@@ -412,7 +415,7 @@ OpenAPI 仍保留路由是为了冻结公共契约，不代表当前支付已经
 | `GET /api/v2/appointments/clinic-departments` | 服务端先按 `parentDepartmentId` 回查一级/二级树，再以受控名称读取 `scheduling-depts` | 保留可预约门诊返回顺序；未知或过期二级 ID 不会退化为名称搜索 | 展开二级科室后显示蓝底三级门诊；选择三级门诊才读取医生和排班 |
 | `GET /api/v2/appointments/schedules` | 起止日期差值最多 31 天；当前小程序请求未来 7 天；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序；页面按 `workDate` 升序分组，同一天内保留返回顺序 | 右栏每次最多渲染 12 条；这是本地渲染分页，不减少 provider 请求量 |
 | `GET /api/v2/appointments/records` | `scope=online` 时起止日期差值最多 366 天；“我的挂号”请求当前日前后各 90 天，“爽约记录”请求过去 90 天；`scope=all` 不传日期；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取结果首批渲染 10 条，点击“加载更多”继续展示；这是本地渲染分批，不代表 provider 分页 |
-| `GET /api/v2/reports` | 起止日期差值最多 366 天；当前小程序请求近 30 天；Provider `endDate` 包含规则待确认；每条返回摘要的 `reportedAt` 必须可解析且落在本次请求的首尾自然日内 | 服务端仅对通过时间窗口校验的结果按 `reportedAt` 时间倒序；同时间再按 `reportedAt`、`kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |
+| `GET /api/v2/reports` | 起止日期差值最多 366 天；当前小程序默认查询近 30 天，可用日期选择器调整；Provider `endDate` 包含规则待确认；每条返回摘要的 `reportedAt` 必须可解析且落在本次请求的首尾自然日内 | 服务端仅对通过时间窗口校验的结果按 `reportedAt` 时间倒序；同时间再按 `reportedAt`、`kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |
 | `GET /api/v2/payments/outpatient/records` | 服务端固定最近 30 个中国标准时间日 | 保留 provider adapter 返回顺序；金额和状态已在服务端映射 | 当前完整读取结果首批渲染 10 条，点击“加载更多缴费记录”继续展示；这是本地渲染分批，不代表支付或 provider 分页 |
 
 服务端返回已确认的空结果时，接口仍返回 HTTP `200`、`items: []` 和 `total: 0`；空列表不能被
@@ -505,7 +508,9 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 20300 | `patient-sync-stale` | 本次患者目录结果早于已经提交的新快照，服务端拒绝旧结果回写 |
 | 409 | 60210 | `user-profile-conflict` | 普通个人资料版本已被其他设备更新 |
 | 400 | 60300 | `my-doctor-query-invalid` | 我的医生请求或医生标识不合法 |
+| 400 | 60400 | `intelligent-guide-invalid` | 导诊文本、录音、微信临时 code 或会话引用不合法 |
 | 404 | 60310 | `my-doctor-not-found` | 医生关系不存在或最新排班目录没有该医生 |
+| 404 | 60410 | `intelligent-guide-conversation-expired` | 平台导诊会话引用未知、已过期或不属于当前用户；需重新开始 |
 | 409 | 60320 | `my-doctor-already-followed` | 该医生已经被当前用户关注 |
 | 502 | 20400 | `patient-directory-snapshot-unsafe` | Provider 返回空患者目录但当前已有就诊人，服务端拒绝执行不确定的批量失效 |
 | 502 | 20500 | `patient-directory-reference-conflict` | 同一用户的医院档案映射与另一位就诊人冲突，本次就诊人未更新 |
@@ -525,7 +530,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 ## 5. 当前实现边界
 
 以下内容在旧服务中存在，但当前没有注册为通用患者端公共路由：医保 FSI、云健康结算/HIS
-回写、文件上传、健康自测、报告解读、AI 导诊、管理端 RBAC、监控
+回写、通用文件上传、健康自测、报告解读、管理端 RBAC、监控
 和任务管理。旧接口逐项来源和状态见
 [`迁移/旧接口清单.md`](迁移/旧接口清单.md)，
 完整前置条件见 [`迁移/API矩阵.md`](迁移/API矩阵.md)。
@@ -538,6 +543,10 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 3. 旧服务可返回某接口，不代表新服务可以安全转发该接口；缺少 contract 时必须保持未注册。
 4. 真实 provider 文档到达后，先进入 [`Provider文档接入流程.md`](Provider文档接入流程.md)
    做版本、来源、hash、字段和错误码冻结，再实现写入/支付/医保能力。
+
+智能导诊是明确收窄的例外：只注册文字和录音两个固定入口，复用旧端已存在的导诊模型服务。当前
+平台会话、旧微信身份、对话引用和科室跳挂号均已隔离；它不开放 `/intelligent/*` 万能代理、RAG
+文档管理、报告解读或智能客服 API。代码测试通过不代表旧模型、语音识别、真实账号和真机已验收。
 
 以下候选路径当前仍刻意保持 `404`，不是兼容入口，也不是“暂时返回空数据”：
 

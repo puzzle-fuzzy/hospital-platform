@@ -78,15 +78,28 @@
 				</swiper-item>
 			</swiper>
 			<view class="quick-entry-right">
-				<image
-					wx:for="{{rightList}}"
-					wx:key="image"
-					class="quick-right-image"
-					src="{{item.image}}"
-					mode="heightFix"
-					bindtap="onRightAction"
-					data-action="{{item.action}}"
-				/>
+				<block wx:for="{{rightList}}" wx:key="action">
+					<view
+						wx:if="{{item.text}}"
+						class="quick-right-card"
+						bindtap="onRightAction"
+						data-action="{{item.action}}"
+					>
+						<text class="quick-right-card-title">{{item.text}}</text>
+						<view class="quick-right-card-decoration">
+							<image class="quick-right-card-icon" src="{{item.icon}}" mode="aspectFit" />
+							<text class="quick-right-card-arrow">›</text>
+						</view>
+					</view>
+					<image
+						wx:else
+						class="quick-right-image"
+						src="{{item.image}}"
+						mode="heightFix"
+						bindtap="onRightAction"
+						data-action="{{item.action}}"
+					/>
+				</block>
 			</view>
 		</view>
 	</view>

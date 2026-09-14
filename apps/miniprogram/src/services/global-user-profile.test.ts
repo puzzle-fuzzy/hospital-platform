@@ -5,6 +5,7 @@ import {
 	clearGlobalUserProfile,
 	ensureGlobalUserProfile,
 	getGlobalUserProfile,
+	saveGlobalWechatProfileSelection,
 	subscribeGlobalUserProfile,
 	waitForGlobalUserProfile,
 } from "./global-user-profile";
@@ -127,6 +128,84 @@ describe("App 全局个人资料仓库", () => {
 
 		expect(getGlobalUserProfile().displayName).toBe("测试昵称");
 		expect(globalData.userProfileConsentPromise).toBeNull();
+	});
+
+	test("头像昵称填写组件结果立即显示并同步普通资料", async () => {
+		const storage = new Map<string, unknown>();
+		let updateBody: unknown;
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "profile-selection-token",
+			sessionStatus: "signed_in" as const,
+			userProfileConsentPromise: null as Promise<GlobalUserProfileState> | null,
+			userProfile: {
+				status: "ready" as const,
+				ownerId: "owner-profile-selection-test",
+				sessionGeneration: getSessionGeneration(),
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "",
+				error: "",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		runtime.wx = {
+			getStorageSync: (key: string) => storage.get(key),
+			setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+			removeStorageSync: (key: string) => storage.delete(key),
+			request: (options: WechatMiniprogram.RequestOption) => {
+				updateBody = options.data;
+				const success = options.success as
+					| ((result: unknown) => void)
+					| undefined;
+				success?.({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							displayName: "新昵称",
+							gender: "unknown",
+							age: null,
+							email: null,
+							version: 1,
+						},
+					},
+					header: {},
+				} as unknown);
+			},
+		} as unknown as typeof wx;
+
+		const state = await saveGlobalWechatProfileSelection({
+			nickName: "新昵称",
+			avatarUrl: "http://tmp/selected-avatar.png",
+		});
+
+		expect(state).toMatchObject({
+			displayName: "新昵称",
+			avatarUrl: "http://tmp/selected-avatar.png",
+			wechatProfileState: "ready",
+			wechatProfileHint: "头像和昵称已保存",
+		});
+		expect(updateBody).toEqual({
+			version: 0,
+			displayName: "新昵称",
+			gender: "unknown",
+		});
+		expect(
+			storage.get("wechat-user-profile:owner-profile-selection-test"),
+		).toEqual({
+			ownerId: "owner-profile-selection-test",
+			nickName: "新昵称",
+			avatarUrl: "http://tmp/selected-avatar.png",
+			gender: "unknown",
+		});
 	});
 
 	test("App.onLaunch 传入实例时不依赖 getApp()", async () => {
@@ -459,7 +538,7 @@ describe("App 全局个人资料仓库", () => {
 		expect(getGlobalUserProfile()).toMatchObject({
 			status: "error",
 			wechatProfileState: "declined",
-			wechatProfileHint: "未授权，可点击此处重新获取",
+			wechatProfileHint: "点击设置头像和昵称",
 		});
 	});
 

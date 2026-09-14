@@ -766,12 +766,128 @@ test("report details use a short-lived opaque reference with owner and patient s
 		reportedAt: "2026-08-15 10:00:00",
 		items: [{ name: "白细胞", result: "10.2", flag: "high" }],
 		hasAttachment: true,
+		attachments: [],
 	});
 	await expect(
 		service.detail("user-002", "patient-001", reportId, context),
 	).rejects.toBeInstanceOf(ReportNotFoundError);
 	await expect(
 		service.detail("user-001", "patient-002", reportId, context),
+	).rejects.toBeInstanceOf(ReportNotFoundError);
+});
+
+test("PACS 详情和附件按短期查询窗口实时回查且不暴露 Provider URL", async () => {
+	const sourceUrl = "https://zhongyang.example.test/private/pacs-report.pdf";
+	let directoryCalls = 0;
+	let fetchedSource = "";
+	const directory: ReportDirectoryGateway = {
+		listReports: async () => {
+			directoryCalls += 1;
+			return {
+				reports: [
+					{
+						summary: {
+							kind: "imaging",
+							title: "胸部 CT",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available",
+							hasAttachment: true,
+						},
+						providerReportId: "provider-pacs-001",
+						detail: {
+							kind: "imaging",
+							title: "胸部 CT",
+							reportedAt: "2026-08-15 10:00:00",
+							fields: [{ label: "检查部位", value: "胸部" }],
+							sections: [{ title: "检查结论", content: "未见明显异常" }],
+							hasAttachment: true,
+						},
+						attachments: [{ sourceUrl, kind: "pdf", label: "影像报告 PDF" }],
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-imaging",
+					requestId: `pacs-request-${directoryCalls}`,
+				},
+			};
+		},
+	};
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory,
+		detail: {
+			getLaboratoryDetail: async () => {
+				throw new Error("LIS detail must not be used for PACS");
+			},
+		},
+		attachment: {
+			fetchAttachment: async (attachment) => {
+				fetchedSource = attachment.sourceUrl;
+				return {
+					body: new TextEncoder().encode("%PDF-1.7"),
+					contentType: "application/pdf",
+				};
+			},
+		},
+		references: createInMemoryReportReferenceRepository(),
+		now: () => new Date("2026-08-16T00:00:00.000Z"),
+	});
+	const context = {
+		traceId: "trace-pacs-realtime",
+		idempotencyKey: "key-pacs-realtime",
+	};
+	const list = await service.list(
+		"user-001",
+		"patient-001",
+		{
+			startDate: "2026-08-01",
+			endDate: "2026-08-15",
+			kind: "imaging",
+		},
+		context,
+	);
+	const reportId = list.items[0]?.reportId;
+	if (!reportId) throw new Error("PACS report reference was not created");
+	const detail = await service.detail(
+		"user-001",
+		"patient-001",
+		reportId,
+		context,
+	);
+	expect(detail.kind).toBe("imaging");
+	expect(JSON.stringify(detail)).not.toContain(sourceUrl);
+	const attachmentId = detail.attachments?.[0]?.attachmentId;
+	if (!attachmentId)
+		throw new Error("PACS attachment reference was not created");
+	await expect(
+		service.attachment(
+			"user-001",
+			"patient-001",
+			reportId,
+			attachmentId,
+			context,
+		),
+	).resolves.toEqual({
+		body: new TextEncoder().encode("%PDF-1.7"),
+		contentType: "application/pdf",
+	});
+	expect(fetchedSource).toBe(sourceUrl);
+	expect(directoryCalls).toBe(3);
+	await expect(
+		service.attachment(
+			"user-001",
+			"patient-001",
+			reportId,
+			"attachment_unknown",
+			context,
+		),
 	).rejects.toBeInstanceOf(ReportNotFoundError);
 });
 
@@ -1284,6 +1400,87 @@ test("report directory keeps a summary when a provider detail reference is missi
 	).resolves.toEqual({ items: [summary], total: 1 });
 });
 
+test("报告详情 gate 关闭时不为非 LIS 摘要暴露不可用入口", async () => {
+	let referenceWriteCount = 0;
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "imaging",
+							title: "胸部 CT",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available",
+							hasAttachment: false,
+						},
+						providerReportId: "provider-imaging-no-detail-gate",
+						detail: {
+							kind: "imaging",
+							title: "胸部 CT",
+							reportedAt: "2026-08-15 10:00:00",
+							fields: [],
+							sections: [],
+							hasAttachment: false,
+						},
+						attachments: [],
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "directory-no-detail-gate",
+				},
+			}),
+		},
+		references: {
+			upsert: async (input) => {
+				referenceWriteCount += 1;
+				return {
+					...input,
+					createdAt: input.createdAt ?? new Date().toISOString(),
+				};
+			},
+			findByOwnerPatientAndId: async () => undefined,
+		},
+	});
+
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				kind: "imaging",
+			},
+			{
+				traceId: "trace-report-no-detail-gate",
+				idempotencyKey: "key-report-no-detail-gate",
+			},
+		),
+	).resolves.toEqual({
+		items: [
+			{
+				kind: "imaging",
+				title: "胸部 CT",
+				reportedAt: "2026-08-15 10:00:00",
+				status: "available",
+				hasAttachment: false,
+			},
+		],
+		total: 1,
+	});
+	expect(referenceWriteCount).toBe(0);
+});
+
 test("报告详情引用持久化失败时保留摘要并记录低敏告警", async () => {
 	const lines: string[] = [];
 	const providerReportId = "provider-report-secret-002";
@@ -1463,6 +1660,7 @@ test("报告 service 二次校验并重新投影目录和 LIS 详情", async () 
 			},
 		],
 		hasAttachment: true,
+		attachments: [],
 	});
 	expect(detailOutput).not.toContain("provider-item-secret");
 	expect(detailOutput).not.toContain("provider.invalid");
@@ -1712,6 +1910,22 @@ test("报告 service 绑定指定来源筛选并整批拒绝错配结果", async
 							status: "available",
 							hasAttachment: true,
 						},
+						providerReportId: "provider-imaging-kind-mismatch",
+						detail: {
+							kind: "imaging",
+							title: "胸部影像",
+							reportedAt: "2026-08-15 10:00:00",
+							fields: [],
+							sections: [],
+							hasAttachment: true,
+						},
+						attachments: [
+							{
+								sourceUrl: "https://zhongyang.example.test/report.pdf",
+								kind: "pdf",
+								label: "影像报告 PDF",
+							},
+						],
 					},
 				] as ReportDirectoryEntry[],
 				trace: {

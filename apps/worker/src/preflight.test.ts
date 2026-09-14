@@ -93,6 +93,7 @@ test("runtime preflight fails an explicitly opened but incomplete provider gate"
 			"zhongyang-medical-records:disabled",
 			"zhongyang-report-directory:incomplete",
 			"zhongyang-report-directory:missing=ZHONGYANG_BASE_URL(https)",
+			"zhongyang-report-directory:missing=ZHONGYANG_PEIS_HOSPITAL_ID",
 			"zhongyang-report-detail:disabled",
 			"yunhealth-registration-settlement:disabled",
 		],

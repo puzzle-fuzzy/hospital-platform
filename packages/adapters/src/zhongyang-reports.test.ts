@@ -138,6 +138,7 @@ test("众阳心电报告优先使用旧端展示的诊断时间", async () => {
 			new Response(
 				JSON.stringify([
 					{
+						ecgReportId: "ecg-report-time-priority",
 						diagnosis: "窦性心律",
 						diagnoseTime: "2026-08-15 10:00:00",
 						auditDocTime: "2026-08-15 11:00:00",
@@ -165,7 +166,129 @@ test("众阳心电报告优先使用旧端展示的诊断时间", async () => {
 	expect(result.reports[0]?.summary.reportedAt).toBe("2026-08-15 10:00:00");
 });
 
-test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () => {
+test("众阳 PEIS 使用服务端身份证与静态医院参数并映射体检详情和附件", async () => {
+	let requestUrl = "";
+	let requestBody = "";
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input, init) => {
+			requestUrl = String(input);
+			requestBody = String(init?.body ?? "");
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						report: [
+							{
+								peisRegInfoId: "peis-provider-001",
+								packageNames: "入职体检",
+								summaryTime: "2026-08-15 09:00:00",
+								doctor: "王医生",
+								pdfUrl: "https://zhongyang.example.test/private/peis-001.pdf",
+							},
+						],
+					},
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "peis-request-001" },
+				},
+			);
+		},
+	});
+
+	const result = await gateway.listReports(
+		{
+			providerPatientId: "his-patient-001",
+			providerIdentityNumber: "140581199001010001",
+			hospitalId: 10389001,
+			query: {
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				kind: "peis",
+			},
+		},
+		context,
+	);
+
+	expect(requestUrl).toBe(
+		"https://zhongyang.example.test/msun-peis-app-peis-new/v1/find-report-list-for-wechat",
+	);
+	expect(JSON.parse(requestBody)).toEqual({
+		idcard: "140581199001010001",
+		hospitalId: 10389001,
+		startTime: "2026-08-01 00:00:00",
+		endTime: "2026-08-15 23:59:59",
+	});
+	expect(result.reports[0]).toMatchObject({
+		providerReportId: "peis-provider-001",
+		summary: {
+			kind: "peis",
+			title: "入职体检",
+			hasAttachment: true,
+		},
+		detail: {
+			kind: "peis",
+			fields: expect.arrayContaining([
+				{ label: "体检套餐", value: "入职体检" },
+			]),
+		},
+	});
+	expect(JSON.stringify(result)).not.toContain("140581199001010001");
+});
+
+test("众阳附件代理只读取允许来源并限制为声明的 PDF 或图片类型", async () => {
+	let fetchCount = 0;
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authorizationToken: "provider-token",
+		fetcher: async (_input, init) => {
+			fetchCount += 1;
+			expect(init?.redirect).toBe("manual");
+			expect(new Headers(init?.headers).get("authorization")).toBe(
+				"Bearer provider-token",
+			);
+			return new Response(new TextEncoder().encode("%PDF-1.7"), {
+				status: 200,
+				headers: {
+					"content-type": "application/pdf",
+					"x-request-id": "attachment-request-001",
+				},
+			});
+		},
+	});
+
+	await expect(
+		gateway.fetchAttachment(
+			{
+				sourceUrl: "https://zhongyang.example.test/private/report.pdf",
+				kind: "pdf",
+				label: "报告 PDF",
+			},
+			context,
+		),
+	).resolves.toEqual({
+		body: new TextEncoder().encode("%PDF-1.7"),
+		contentType: "application/pdf",
+	});
+	await expect(
+		gateway.fetchAttachment(
+			{
+				sourceUrl: "https://untrusted.example.test/private/report.pdf",
+				kind: "pdf",
+				label: "报告 PDF",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-attachment",
+		responseInvalid: false,
+	});
+	expect(fetchCount).toBe(1);
+});
+
+test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源并仅在内部保留详情引用", async () => {
 	const requestUrls: string[] = [];
 	const gateway = createZhongyangReportGateway({
 		baseUrl: "https://zhongyang.example.test",
@@ -221,8 +344,98 @@ test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () 
 		"request-2",
 		"request-3",
 	]);
-	expect(JSON.stringify(result)).not.toContain("pacs-provider-secret");
-	expect(JSON.stringify(result)).not.toContain("ecg-provider-secret");
+	expect(
+		result.reports.find((report) => report.summary.kind === "imaging")
+			?.providerReportId,
+	).toBe("pacs-provider-secret");
+	expect(
+		result.reports.find((report) => report.summary.kind === "ecg")
+			?.providerReportId,
+	).toBe("ecg-provider-secret");
+	expect(
+		JSON.stringify(result.reports.map((report) => report.summary)),
+	).not.toContain("provider-secret");
+});
+
+test("众阳心电报告将已确认的 0001 未查询到数据包络映射为空列表", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.includes("ecg-reports")) {
+				return new Response(
+					JSON.stringify({
+						success: false,
+						code: "0001",
+						message: "未查询到数据",
+						data: null,
+					}),
+					{ status: 200, headers: { "x-request-id": "ecg-empty" } },
+				);
+			}
+			return new Response(
+				JSON.stringify({ success: true, code: "0000", data: [] }),
+				{
+					status: 200,
+					headers: {
+						"x-request-id": url.includes("lis-reports")
+							? "lis-empty"
+							: "pacs-empty",
+					},
+				},
+			);
+		},
+	});
+
+	const result = await gateway.listReports(
+		{
+			providerPatientId: "provider-patient-empty-ecg",
+			query: { startDate: "2026-08-15", endDate: "2026-09-14" },
+		},
+		context,
+	);
+
+	expect(result.reports).toEqual([]);
+	expect(result.trace.requestIds).toEqual([
+		"lis-empty",
+		"pacs-empty",
+		"ecg-empty",
+	]);
+});
+
+test("众阳心电报告不会把其它 0001 业务拒绝误判为空列表", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: false,
+					code: "0001",
+					message: "心电服务异常",
+					data: null,
+				}),
+				{ status: 200, headers: { "x-request-id": "ecg-rejected" } },
+			),
+	});
+
+	await expect(
+		gateway.listReports(
+			{
+				providerPatientId: "provider-patient-rejected-ecg",
+				query: {
+					startDate: "2026-08-15",
+					endDate: "2026-09-14",
+					kind: "ecg",
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-ecg",
+		requestId: "ecg-rejected",
+		responseInvalid: false,
+	});
 });
 
 test("众阳跨来源报告按严格可解析时间倒序，未知时间放在末尾", async () => {
@@ -233,8 +446,20 @@ test("众阳跨来源报告按严格可解析时间倒序，未知时间放在�
 			const data = url.includes("lis-reports")
 				? [{ reportTypeName: "检验", reportTime: "2026/9/30 10:00:00" }]
 				: url.includes("pacs")
-					? [{ modality: "CT", reportAuditTime: "2026-10-01" }]
-					: [{ diagnosis: "窦性心律", diagnoseTime: "未知时间" }];
+					? [
+							{
+								reportId: "pacs-order",
+								modality: "CT",
+								reportAuditTime: "2026-10-01",
+							},
+						]
+					: [
+							{
+								ecgReportId: "ecg-order",
+								diagnosis: "窦性心律",
+								diagnoseTime: "未知时间",
+							},
+						];
 			return new Response(JSON.stringify(data), {
 				status: 200,
 				headers: { "x-request-id": `order-${url}` },

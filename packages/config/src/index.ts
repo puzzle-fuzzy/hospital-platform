@@ -92,15 +92,19 @@ export type RuntimeConfig = {
 	outpatientPaymentAuthSysCode: string;
 	/** 门诊病历 out-visit-records 只读接口独立验收闸门。 */
 	outpatientMedicalRecordsReady: boolean;
-	/** LIS/PACS/ECG 报告目录独立验收，不能随患者目录一起隐式打开。 */
+	/** LIS/PACS/ECG/PEIS 报告目录独立验收，不能随患者目录一起隐式打开。 */
 	reportDirectoryReady: boolean;
 	/** LIS 详情独立验收；不会因为目录 gate 打开而自动暴露 provider 资源。 */
 	reportDetailReady: boolean;
+	/** 单院区 PEIS 查询使用的众阳医院 ID；不从小程序接收。 */
+	reportPeisHospitalId: number | undefined;
+	/** 附件代理额外允许的绝对 origin；众阳主地址 origin 始终自动允许。 */
+	reportAttachmentOrigins: string[];
 	/** 众阳共享上游地址；患者、预约和报告 gate 只控制能力，不复制连接配置。 */
 	zhongyangBaseUrl: string | undefined;
 	/** 可选的众阳服务端 token；不能下发小程序或写入日志。 */
 	zhongyangAuthorizationToken: string | undefined;
-	/** 旧服务微信登录接口地址；只用于服务端换取众阳绑卡用户 JWT。 */
+	/** 旧服务 API 根地址；用于换取绑卡/智能导诊所需的用户 JWT，并承载固定导诊接口。 */
 	legacyPatientAuthBaseUrl: string | undefined;
 	/** 旧服务自费插件 HIS 回写独立闸门；配置齐全也不等于真实联调通过。 */
 	yunhealthRegistrationSettlementReady: boolean;
@@ -691,10 +695,17 @@ export function outpatientMedicalRecordsConfigurationStatus(
 export function reportDirectoryConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
-	return zhongyangDirectoryConfigurationMissingFields(
+	const missing = zhongyangDirectoryConfigurationMissingFields(
 		runtimeConfig,
 		runtimeConfig.reportDirectoryReady,
 	);
+	if (
+		runtimeConfig.reportDirectoryReady &&
+		runtimeConfig.reportPeisHospitalId === undefined
+	) {
+		missing.push("ZHONGYANG_PEIS_HOSPITAL_ID");
+	}
+	return missing;
 }
 
 export function reportDirectoryConfigurationStatus(
@@ -1088,6 +1099,12 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		reportDirectoryReady: boolean(env.ZHONGYANG_REPORT_DIRECTORY_READY, false),
 		reportDetailReady: boolean(env.ZHONGYANG_REPORT_DETAIL_READY, false),
+		reportPeisHospitalId: optionalPositiveInteger(
+			env.ZHONGYANG_PEIS_HOSPITAL_ID,
+		),
+		reportAttachmentOrigins: configuredList(
+			env.ZHONGYANG_REPORT_ATTACHMENT_ORIGINS,
+		),
 		// 兼容早期草稿变量；新部署统一使用 ZHONGYANG_BASE_URL 与
 		// ZHONGYANG_AUTHORIZATION_TOKEN，避免把共享上游误命名为患者目录。
 		zhongyangBaseUrl: optional(

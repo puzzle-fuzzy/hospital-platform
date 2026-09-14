@@ -99,6 +99,11 @@ export {
 	type LegacyHospitalPatientAuthGatewayOptions,
 } from "./legacy-hospital-auth";
 export {
+	createLegacyIntelligentGuideGateway,
+	LegacyIntelligentGuideApiGateway,
+	type LegacyIntelligentGuideGatewayOptions,
+} from "./legacy-intelligent-guide";
+export {
 	createNotConfiguredGateways,
 	type NotConfiguredGateways,
 } from "./not-configured";

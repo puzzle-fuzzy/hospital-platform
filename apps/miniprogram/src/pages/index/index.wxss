@@ -185,6 +185,45 @@ page {
 	height: 94rpx;
 }
 
+.quick-right-card {
+	display: flex;
+	box-sizing: border-box;
+	width: 350rpx;
+	height: 94rpx;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 22rpx 0 28rpx;
+	overflow: hidden;
+	border-radius: 16rpx;
+	background: linear-gradient(102deg, #eef4ff 0%, #e2ecff 100%);
+}
+
+.quick-right-card-title {
+	color: #1f2937;
+	font-size: 28rpx;
+	font-weight: 600;
+	line-height: 40rpx;
+}
+
+.quick-right-card-decoration {
+	display: flex;
+	height: 100%;
+	align-items: center;
+	gap: 12rpx;
+}
+
+.quick-right-card-icon {
+	width: 54rpx;
+	height: 54rpx;
+}
+
+.quick-right-card-arrow {
+	color: #8da4cf;
+	font-size: 36rpx;
+	font-weight: 300;
+	line-height: 40rpx;
+}
+
 .service-con {
 	margin-top: 20rpx;
 }

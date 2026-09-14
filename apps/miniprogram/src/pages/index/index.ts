@@ -1,10 +1,10 @@
-import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError } from "../../services/api-client";
 import {
 	loadHealth,
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	navigateToFeatureEntry,
 	navigateToFeatureStatus,
@@ -51,6 +51,7 @@ import {
 } from "../../services/session-service";
 import type {
 	ActionEvent,
+	HomeQuickEntryItem,
 	IndexEvent,
 	IndexPageData,
 	Patient,
@@ -68,7 +69,7 @@ const SESSION_LABELS = Object.freeze({
 	signedIn: "已登录",
 } as const satisfies Record<string, SessionLabel>);
 
-/** 顶部四项沿用旧端的顺序、图标尺寸和文案；动作仅接入当前已开放的安全入口。 */
+/** 顶部四项保留现有顺序和图标尺寸；文案与动作按当前产品入口映射。 */
 const TOP_TAB_LIST = Object.freeze([
 	{
 		action: "appointments",
@@ -88,9 +89,9 @@ const TOP_TAB_LIST = Object.freeze([
 		text: "互联网医院",
 	},
 	{
-		action: "medical-record",
+		action: "reports",
 		icon: "/assets/legacy-home/top-record.svg",
-		text: "门诊病历",
+		text: "报告查询",
 	},
 ] satisfies ReadonlyArray<TopTabItem>);
 
@@ -101,14 +102,18 @@ const BANNER_LIST = Object.freeze([
 	{ action: "follow", image: "/assets/legacy-home/banner-follow.png" },
 ] satisfies ReadonlyArray<{ action: string; image: string }>);
 
-/** 右侧快捷图直接复用旧端图片；报告查询是当前原生端唯一已接入的入口。 */
+/** 右侧快捷入口保留旧端布局；门诊病历使用原生卡片，避免复用写死“报告查询”的旧位图。 */
 const RIGHT_LIST = Object.freeze([
 	{ action: "guide", image: "/assets/legacy-home/right-guide.png" },
 	{ action: "companion", image: "/assets/legacy-home/right-companion.png" },
-	{ action: "reports", image: "/assets/legacy-home/report.png" },
-] satisfies ReadonlyArray<{ action: string; image: string }>);
+	{
+		action: "medical-record",
+		icon: "/assets/legacy-home/service-record.svg",
+		text: "门诊病历",
+	},
+] satisfies ReadonlyArray<HomeQuickEntryItem>);
 
-/** 门诊/住院/便民服务清单按旧端原始顺序和图标复刻；未开放入口也保留
+/** 门诊/住院/便民服务清单基于旧端顺序按当前要求取舍；未开放入口也保留
  * 固定 action，点击后进入统一状态页，避免出现“看得见但点了没反应”。 */
 const SERVICE_TABS = Object.freeze([
 	{
@@ -128,11 +133,6 @@ const SERVICE_TABS = Object.freeze([
 				action: "consultation",
 				icon: "/assets/legacy-home/service-consultation.svg",
 				title: "我的问诊",
-			},
-			{
-				action: "medical-record",
-				icon: "/assets/legacy-home/service-record.svg",
-				title: "门诊病历",
 			},
 			{
 				action: "electronic-consultation",
@@ -676,10 +676,10 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureEntry("medical-record");
 				break;
 			case "guide":
-				navigateToFeatureStatus("guide");
+				navigateToFeatureEntry("guide");
 				break;
 			case "companion":
-				navigateToFeatureStatus("companion");
+				wx.switchTab({ url: "/pages/consult/consult" });
 				break;
 			case "consultation":
 				navigateToFeatureEntry("consultation");

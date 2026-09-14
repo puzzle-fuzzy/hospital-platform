@@ -1958,3 +1958,48 @@ test("MySQL report references persist provider ids but read them owner-scoped", 
 		"owner_user_id = ? AND patient_id = ? AND report_id = ?",
 	);
 });
+
+test("MySQL PACS 引用持久化查询窗口并按 owner 和患者读回", async () => {
+	const row = {
+		report_id: "report-pacs-001",
+		owner_user_id: "user-001",
+		patient_id: "patient-001",
+		provider: "zhongyang",
+		kind: "imaging",
+		provider_report_id: "provider-pacs-001",
+		start_date: "2026-08-01",
+		end_date: "2026-08-15",
+		expires_at: "2026-08-15 00:10:00.000",
+		created_at: "2026-08-15 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([{ affectedRows: 1 }, [row]]);
+	const repositories = createMySqlRepositories(pool);
+
+	await repositories.reportReferences.upsert({
+		reportId: "report-pacs-001",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		provider: "zhongyang",
+		kind: "imaging",
+		providerReportId: "provider-pacs-001",
+		startDate: "2026-08-01",
+		endDate: "2026-08-15",
+		createdAt: "2026-08-15T00:00:00.000Z",
+		expiresAt: "2026-08-15T00:10:00.000Z",
+	});
+	await expect(
+		repositories.reportReferences.findByOwnerPatientAndId(
+			"user-001",
+			"patient-001",
+			"report-pacs-001",
+			"2026-08-15T00:05:00.000Z",
+		),
+	).resolves.toMatchObject({
+		kind: "imaging",
+		startDate: "2026-08-01",
+		endDate: "2026-08-15",
+	});
+	expect(state.statements[0]).toContain("start_date, end_date");
+	expect(state.values[0]).toContain("2026-08-01");
+	expect(state.values[0]).toContain("2026-08-15");
+});

@@ -34,7 +34,7 @@
 					<text class="profile-name">{{userLabel || "微信用户"}}</text>
 					<view class="profile-auth-action" catchtap="onWechatProfileTap">
 						<text class="profile-auth-hint">
-							{{wechatProfileHint || (wechatProfileState === 'ready' ? '已授权头像和昵称' : '点击获取头像和昵称')}}
+							{{wechatProfileHint || (wechatProfileState === 'ready' ? '头像和昵称已设置' : '点击设置头像和昵称')}}
 						</text>
 					</view>
 				</view>
@@ -80,3 +80,55 @@
 		</view>
 	</view>
 </scroll-view>
+
+<!--
+	微信权限设置页不提供头像昵称资料。这里使用微信当前的 chooseAvatar 与
+	nickname 填写组件，由用户明确选择后再写回当前 owner 的展示资料。
+-->
+<view
+	wx:if="{{profileEditorVisible}}"
+	class="profile-editor-mask"
+	catchtap="onProfileEditorCancel"
+>
+	<view class="profile-editor" catchtap="onProfileEditorPanelTap">
+		<text class="profile-editor-title">设置头像和昵称</text>
+		<text class="profile-editor-copy">请选择头像并填写昵称，保存后会立即显示在个人中心。</text>
+
+		<button
+			class="profile-editor-avatar-button"
+			open-type="chooseAvatar"
+			bindchooseavatar="onProfileAvatarChosen"
+		>
+			<image
+				class="profile-editor-avatar"
+				src="{{profileDraftAvatarUrl || '/assets/legacy-user/default-avatar.svg'}}"
+				mode="aspectFill"
+			/>
+			<text>选择头像</text>
+		</button>
+
+		<input
+			class="profile-editor-nickname"
+			type="nickname"
+			value="{{profileDraftName}}"
+			maxlength="64"
+			placeholder="填写昵称"
+			confirm-type="done"
+			bindinput="onProfileNicknameInput"
+		/>
+
+		<view class="profile-editor-actions">
+			<button
+				class="profile-editor-cancel"
+				disabled="{{profileSaving}}"
+				bindtap="onProfileEditorCancel"
+			>取消</button>
+			<button
+				class="profile-editor-save"
+				loading="{{profileSaving}}"
+				disabled="{{profileSaving}}"
+				bindtap="onProfileEditorSave"
+			>保存并展示</button>
+		</view>
+	</view>
+</view>

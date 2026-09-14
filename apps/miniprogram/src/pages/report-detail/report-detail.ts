@@ -1,11 +1,11 @@
 import {
 	ApiError,
+	downloadReportAttachment,
 	getCurrentUser,
 	requestReportDetail,
 } from "../../services/api-client";
-import { errorMessageWithCode } from "../../services/error-presentation";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -21,15 +21,31 @@ import {
 	registerPageSessionResetListener,
 } from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
-import type { ReportDetailPageData, ReportTabEvent } from "../../types";
+import type {
+	ReportAttachment,
+	ReportDetailPageData,
+	ReportTabEvent,
+} from "../../types";
+
+const REPORT_KIND_LABELS = Object.freeze({
+	laboratory: "检验报告",
+	imaging: "影像报告",
+	ecg: "心电报告",
+	peis: "体检报告",
+} as const);
+
+type ReportAttachmentEvent = {
+	currentTarget?: { dataset?: { attachmentId?: string } };
+};
 
 /** 报告详情页只消费服务端白名单检测项，不保存 provider 原始响应。 */
 type ReportDetailPageMethods = {
 	loadDetail(patientId: string, reportId: string): Promise<void>;
+	openAttachment(attachment: ReportAttachment): Promise<void>;
+	onAttachmentTap(event: ReportAttachmentEvent): void;
 	onRetry(): void;
 	onTabChange(event: ReportTabEvent): void;
 	onDownloadCloudImage(): void;
-	onShareReport(): void;
 	onGotoConsultation(): void;
 	onUnload(): void;
 	showError(error: unknown): void;
@@ -59,9 +75,16 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 		title: "报告详情",
 		reportCount: 0,
 		activeTab: "report",
+		kind: "",
+		kindLabel: "",
 		reportedAt: "",
 		items: [],
 		hasItems: false,
+		fields: [],
+		sections: [],
+		hasGenericContent: false,
+		attachments: [],
+		openingAttachmentId: "",
 		hasAttachment: false,
 		error: "",
 		sourcePatientId: "",
@@ -77,9 +100,16 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 				title: "报告详情不可用",
 				reportCount: 0,
 				activeTab: "report",
+				kind: "",
+				kindLabel: "",
 				reportedAt: "",
 				items: [],
 				hasItems: false,
+				fields: [],
+				sections: [],
+				hasGenericContent: false,
+				attachments: [],
+				openingAttachmentId: "",
 				hasAttachment: false,
 				error: "登录状态已更新，请返回后重新选择就诊人",
 				sourcePatientId: "",
@@ -182,18 +212,28 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 					);
 					return;
 				}
-				// API client 已经校验 data、reportId、kind、检测项和附件字段；
-				// 这里不能把缺失检测项的损坏响应伪装成空报告。
+				// API client 已经按来源校验详情字段和附件；页面只转换展示模型。
 				const report = payload.data;
-				// API 只返回稳定枚举；页面在这里转换为患者可读的中文，
-				// 不把展示文案反向写回服务端事实。
-				const items = report.items.map(toLaboratoryReportItemView);
+				const items =
+					report.kind === "laboratory"
+						? report.items.map(toLaboratoryReportItemView)
+						: [];
+				const fields = report.kind === "laboratory" ? [] : [...report.fields];
+				const sections =
+					report.kind === "laboratory" ? [] : [...report.sections];
+				const attachments = [...(report.attachments ?? [])];
 				this.setData({
 					title: report.title,
+					kind: report.kind,
+					kindLabel: REPORT_KIND_LABELS[report.kind],
 					reportedAt: report.reportedAt,
 					items,
 					hasItems: items.length > 0,
-					hasAttachment: report.hasAttachment,
+					fields,
+					sections,
+					hasGenericContent: fields.length > 0 || sections.length > 0,
+					attachments,
+					hasAttachment: attachments.length > 0,
 					error: "",
 				});
 			})
@@ -235,16 +275,89 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 		this.setData({ activeTab: tab });
 	},
 
-	onDownloadCloudImage() {
-		navigateToFeatureStatus("report-cloud-image");
+	onAttachmentTap(event): void {
+		const attachmentId = event.currentTarget?.dataset?.attachmentId;
+		if (typeof attachmentId !== "string" || !attachmentId) return;
+		const attachment = this.data.attachments.find(
+			(item) => item.attachmentId === attachmentId,
+		);
+		if (!attachment || this.data.openingAttachmentId) return;
+		void this.openAttachment(attachment);
 	},
 
-	onShareReport() {
-		navigateToFeatureStatus("report-share");
+	async openAttachment(attachment): Promise<void> {
+		const { sourcePatientId, sourceReportId } = this.data;
+		if (
+			!sourcePatientId ||
+			!sourceReportId ||
+			!isCurrentSelectedPatient(sourcePatientId)
+		) {
+			this.showError(
+				new ApiError("当前就诊人已变更，请重新选择后查看报告", {
+					code: "patient-selection-required",
+				}),
+			);
+			return;
+		}
+		this.setData({ openingAttachmentId: attachment.attachmentId });
+		wx.showLoading({ title: "正在打开附件", mask: true });
+		try {
+			const filePath = await downloadReportAttachment(
+				{
+					patientId: sourcePatientId,
+					reportId: sourceReportId,
+					attachmentId: attachment.attachmentId,
+				},
+				getSessionGeneration(),
+			);
+			if (attachment.kind === "pdf") {
+				await new Promise<void>((resolve, reject) => {
+					wx.openDocument({
+						filePath,
+						fileType: "pdf",
+						showMenu: true,
+						success: () => resolve(),
+						fail: reject,
+					});
+				});
+			} else {
+				await new Promise<void>((resolve, reject) => {
+					wx.previewImage({
+						urls: [filePath],
+						current: filePath,
+						success: () => resolve(),
+						fail: reject,
+					});
+				});
+			}
+		} catch (error) {
+			const message = patientContextErrorMessage(
+				error,
+				"报告附件暂时无法打开，请稍后再试",
+			);
+			wx.showToast({
+				title: errorMessageWithCode(error, message),
+				icon: "none",
+			});
+		} finally {
+			wx.hideLoading();
+			if (this.data.openingAttachmentId === attachment.attachmentId) {
+				this.setData({ openingAttachmentId: "" });
+			}
+		}
+	},
+
+	onDownloadCloudImage(): void {
+		const attachment = this.data.attachments[0];
+		if (attachment) {
+			void this.openAttachment(attachment);
+		}
 	},
 
 	onGotoConsultation() {
-		navigateToFeatureStatus("report-follow-up");
+		wx.navigateTo({
+			url: "/pages/appointment-directory/appointment-directory",
+		});
 	},
 
 	showError(error: unknown): void {
@@ -260,9 +373,16 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 			error: errorMessageWithCode(error, message),
 			loading: false,
 			title: "报告详情不可用",
+			kind: "",
+			kindLabel: "",
 			reportedAt: "",
 			items: [],
 			hasItems: false,
+			fields: [],
+			sections: [],
+			hasGenericContent: false,
+			attachments: [],
+			openingAttachmentId: "",
 			hasAttachment: false,
 		});
 		wx.showToast({ title: message, icon: "none" });

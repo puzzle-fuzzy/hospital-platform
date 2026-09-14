@@ -201,9 +201,10 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "smart-guide",
 		name: "智能导诊",
 		featureKey: "guide",
-		readiness: "待外部入口 contract",
+		readiness: "全量替换进行中",
 		contractFamily: "external-session",
 		legacyPaths: [],
+		safeSurfaceTarget: "pages/smart-guide/smart-guide",
 		legacyActions: ["首页:guide"],
 		requiredMaterials: [
 			"model-and-knowledge-version",
@@ -308,7 +309,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "patient-binding",
 		name: "患者新增绑定",
 		featureKey: "patient-binding",
-		readiness: "待患者绑定 contract",
+		// 运行目录和页面已经标记为读写已实现；这里同步代码事实，真实
+		// Provider/真机验收仍由 requiredMaterials 与发布记录单独约束。
+		readiness: "读写已实现",
 		contractFamily: "patient-write",
 		legacyPaths: ["pagesB/patient/patientAdd.vue"],
 		safeSurfaceTarget: "pages/patient-binding/patient-binding",
@@ -764,7 +767,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "report-detail",
 		name: "报告详情入口",
 		featureKey: "report-detail",
-		readiness: "待 provider contract",
+		readiness: "代码已实现，待实证",
 		contractFamily: "provider-read-only",
 		legacyPaths: [],
 		legacyActions: ["报告目录:report-detail"],
