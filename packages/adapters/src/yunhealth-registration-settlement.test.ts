@@ -438,6 +438,113 @@ test("医保支付后置 .2 个人账户分项使用 payTypeId=5 和 H5", async 
 	expect(result.payTypeId).toBe("5");
 });
 
+test("医保 H5 分项接受上游 result=SUCCESS 且不解析为小程序支付参数", async () => {
+	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		paymentOrgId: "10756",
+		pluginPayTypeId: "31",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					code: "0000",
+					message: "成功",
+					data: {
+						success: true,
+						code: 3,
+						result: "SUCCESS",
+						payTypeId: null,
+						payTypes: [],
+						record: { tradingId: "8842387217352952448" },
+						payRecord: { payingId: "8842387217360816775" },
+					},
+				}),
+				{ status: 200, headers: { "x-request-id": "yunhealth-h5-success" } },
+			),
+	});
+
+	const result = await gatewayInstance.createPreOrder(
+		{
+			orderId: "medical-order-fund",
+			businessId: "settlement-business-001",
+			tradeCode: "REGISTRATION-001",
+			totalFen: 1000,
+			amountFen: 800,
+			hospitalId: "10389001",
+			patientId: "100001",
+			payTypeId: "2",
+			payModel: "H5",
+			payType: "CREDIT",
+			workStationId: "",
+			recordCode: "0123456789abcdef0123456789abcdef",
+			tradeTypeCode: "10",
+		},
+		context,
+	);
+
+	expect(result).toMatchObject({
+		payingId: "8842387217360816775",
+		tradingId: "8842387217352952448",
+		payTypeId: "2",
+		payType: "CREDIT",
+	});
+	expect(result.payParams).toBeUndefined();
+	expect(result.outTradeNo).toBeUndefined();
+});
+
+test("微信现金 MINI_PROGRAM 分项仍拒绝缺少 MD5 参数的 result=SUCCESS", async () => {
+	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		paymentOrgId: "10756",
+		pluginPayTypeId: "31",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					code: "0000",
+					data: {
+						success: true,
+						result: "SUCCESS",
+						payRecord: { payingId: 500001, tradingId: 500002 },
+					},
+				}),
+				{ status: 200, headers: { "x-request-id": "yunhealth-mp-invalid" } },
+			),
+	});
+
+	await expect(
+		gatewayInstance.createPreOrder(
+			{
+				orderId: "medical-order-wechat-cash",
+				businessId: "settlement-business-001",
+				tradeCode: "REGISTRATION-001",
+				totalFen: 1000,
+				amountFen: 200,
+				hospitalId: "10389001",
+				patientId: "100001",
+				payTypeId: "31",
+				payModel: "MINI_PROGRAM",
+				paymentSystemUserId: "openid-001",
+				payType: "CREDIT",
+				workStationId: "",
+				recordCode: "0123456789abcdef0123456789abcdef",
+				tradeTypeCode: "10",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		failureStage: "response",
+		responseInvalid: true,
+	});
+});
+
 test("旧服务允许 Token 为空时云健康请求不发送授权头", async () => {
 	let headers: Headers | undefined;
 	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({

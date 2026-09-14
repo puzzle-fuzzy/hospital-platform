@@ -6,7 +6,6 @@ import type {
 import {
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
-	type MedicalInsuranceAuthorizationContext,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsurancePostPaymentComponent,
@@ -74,12 +73,17 @@ function prePaymentComponents(input: {
 		orderType: input.order.orderType ?? "RegPay",
 		insuredAreaCode: input.insuredAreaCode,
 	});
+	const hospitalReduceFen = breakdown.cashReduceDetails.reduce(
+		(sum, detail) => sum + detail.cashReduceFen,
+		0,
+	);
+	const hospitalPaymentFen = (amounts.hospitalPartFen ?? 0) + hospitalReduceFen;
 	const definitions = [
-		...(amounts.hospitalPartFen && amounts.hospitalPartFen > 0
+		...(hospitalPaymentFen > 0
 			? [
 					{
 						kind: "hospital_reduce" as const,
-						amountFen: amounts.hospitalPartFen,
+						amountFen: hospitalPaymentFen,
 						payModel: "H5" as const,
 						payTypeId: "50" as const,
 					},
@@ -247,7 +251,6 @@ export class MedicalInsurancePluginPaymentService {
 		ownerUserId: string,
 		order: MedicalInsuranceOrder,
 	): Promise<{
-		authorization: MedicalInsuranceAuthorizationContext;
 		settlement: MedicalInsuranceSettlementContext;
 		openid: string;
 	}> {
@@ -256,24 +259,18 @@ export class MedicalInsurancePluginPaymentService {
 				"Medical insurance plugin payment is not allowed for the current order",
 			);
 		}
-		const authorization = await this.dependencies.authorizations.get({
-			authorizationId: order.authorizationId,
-			ownerUserId,
-			medicalOrderId: order.medicalOrderId,
-			now: this.now().toISOString(),
-		});
 		const settlement = await this.dependencies.orders.getSettlementContext(
 			ownerUserId,
 			order.medicalOrderId,
 		);
 		const identity =
 			await this.dependencies.identityUsers.findByUserId(ownerUserId);
-		if (!authorization || !settlement || !identity?.providerSubject) {
+		if (!settlement || !identity?.providerSubject) {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance plugin payment context is not available",
 			);
 		}
-		return { authorization, settlement, openid: identity.providerSubject };
+		return { settlement, openid: identity.providerSubject };
 	}
 
 	private async saveMedicalPaymentState(

@@ -196,6 +196,101 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 	).toBeTrue();
 });
 
+test("高平普通挂号授权过期后仍可补交医院优惠H5/50且不创建微信现金分项", async () => {
+	let currentSettlement: Record<string, unknown> = {
+		...settlement(),
+		insuredAreaCode: "140581",
+	};
+	const calls: Array<{
+		amountFen?: number;
+		payModel: string;
+		payTypeId: string;
+		paymentSystemUserId?: string;
+	}> = [];
+	const service = new MedicalInsurancePluginPaymentService({
+		orders: {
+			findByMedicalOrderId: async () => ({
+				...medicalOrder(),
+				orderType: "RegPay",
+				amounts: {
+					totalFen: 1000,
+					cashFen: 200,
+					personalAccountFen: 0,
+					fundFen: 800,
+				},
+			}),
+			getSettlementContext: async () => currentSettlement,
+			saveSettlementContext: async (
+				_owner: string,
+				_order: string,
+				value: unknown,
+			) => {
+				currentSettlement = value as Record<string, unknown>;
+			},
+		} as never,
+		authorizations: {
+			get: async () => {
+				throw new Error(
+					"expired authorization must not be read by .2 recovery",
+				);
+			},
+		} as never,
+		identityUsers: {
+			findByUserId: async () => ({ providerSubject: "openid-001" }),
+		} as never,
+		paymentOrders: {} as never,
+		wechatPrepay: {} as never,
+		pluginPayment: {
+			createPreOrder: async (input) => {
+				calls.push(input);
+				return {
+					payingId: `paying-${calls.length}`,
+					tradingId: `trading-${calls.length}`,
+					payTypeId: input.payTypeId,
+					payType: "CREDIT" as const,
+					workStationId: "",
+					tradeTypeCode: "10",
+					trace: {
+						provider: "yunhealth",
+						operation: "registration-self-pay.2.6.65.2.plugin",
+						requestId: `provider-${calls.length}`,
+					},
+				};
+			},
+		},
+		hospitalSettlement: {} as never,
+		pluginPayTypeId: "31",
+		pluginPayType: "CREDIT",
+		pluginWorkStationId: "",
+		pluginTradeTypeCode: "10",
+	});
+
+	await service.prepareSplitPaymentsBeforeOfficialWechatPayment({
+		ownerUserId: "user-001",
+		orderId: "medical-order-001",
+		context,
+	});
+
+	expect(
+		calls.map(({ amountFen, payModel, payTypeId, paymentSystemUserId }) => ({
+			amountFen,
+			payModel,
+			payTypeId,
+			...(paymentSystemUserId ? { paymentSystemUserId } : {}),
+		})),
+	).toEqual([
+		{ amountFen: 200, payModel: "H5", payTypeId: "50" },
+		{ amountFen: 800, payModel: "H5", payTypeId: "2" },
+	]);
+	expect(
+		(
+			currentSettlement.postPaymentComponents as Array<{
+				state: string;
+			}>
+		).every((component) => component.state === "succeeded"),
+	).toBeTrue();
+});
+
 test("fresh旧插件入口在付款和2.6.65.2前拒绝", async () => {
 	let paymentOrders = 0;
 	let wechatPrepays = 0;

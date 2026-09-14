@@ -64,12 +64,17 @@ function expectedPrePaymentComponents(input: {
 	if ((amounts.otherPaymentFen ?? 0) !== (amounts.hospitalPartFen ?? 0)) {
 		throw new Error("medical-insurance-med-ins-other-fee-unmapped");
 	}
+	const hospitalReduceFen = breakdown.cashReduceDetails.reduce(
+		(sum, detail) => sum + detail.cashReduceFen,
+		0,
+	);
+	const hospitalPaymentFen = (amounts.hospitalPartFen ?? 0) + hospitalReduceFen;
 	const definitions = [
-		...(amounts.hospitalPartFen && amounts.hospitalPartFen > 0
+		...(hospitalPaymentFen > 0
 			? [
 					{
 						kind: "hospital_reduce" as const,
-						amountFen: amounts.hospitalPartFen,
+						amountFen: hospitalPaymentFen,
 						payModel: "H5" as const,
 						payTypeId: "50" as const,
 					},

@@ -71,7 +71,7 @@ describe("医保金额四分项守恒", () => {
 		).not.toThrow();
 	});
 
-	test("只有高平普通挂号可承接6202医院负担且不重复扣减现金", () => {
+	test("高平普通挂号将现金自付映射为医院优惠且保留6202医院负担校验", () => {
 		const amounts = {
 			totalFen: 100,
 			cashFen: 20,
@@ -87,8 +87,10 @@ describe("医保金额四分项守恒", () => {
 				insuredAreaCode: "140581",
 			}),
 		).toEqual({
-			wechatCashFen: 20,
-			cashReduceDetails: [],
+			wechatCashFen: 0,
+			cashReduceDetails: [
+				{ cashReduceFen: 20, cashReduceType: "HOSPITAL_REDUCE" },
+			],
 		});
 		expect(() =>
 			medicalInsurancePaymentBreakdown({
@@ -118,6 +120,41 @@ describe("医保金额四分项守恒", () => {
 			InvalidMedicalInsurancePaymentBreakdownError,
 		);
 		expect(unmappedOtherPayment).toThrow("other_payment_unmapped");
+	});
+
+	test("高平普通挂号无6202医院负担时仍将现金自付全额映射为医院优惠", () => {
+		expect(
+			medicalInsurancePaymentBreakdown({
+				amounts: {
+					totalFen: 1000,
+					cashFen: 200,
+					personalAccountFen: 0,
+					fundFen: 800,
+				},
+				orderType: "RegPay",
+				insuredAreaCode: "140581",
+			}),
+		).toEqual({
+			wechatCashFen: 0,
+			cashReduceDetails: [
+				{ cashReduceFen: 200, cashReduceType: "HOSPITAL_REDUCE" },
+			],
+		});
+	});
+
+	test("非高平普通挂号继续保留微信现金支付", () => {
+		expect(
+			medicalInsurancePaymentBreakdown({
+				amounts: {
+					totalFen: 1000,
+					cashFen: 200,
+					personalAccountFen: 0,
+					fundFen: 800,
+				},
+				orderType: "RegPay",
+				insuredAreaCode: "140500",
+			}),
+		).toEqual({ wechatCashFen: 200, cashReduceDetails: [] });
 	});
 });
 

@@ -702,10 +702,9 @@ test("mixed payment does not create .2 after payment and calls .5 with pre-payme
 			upDetailList: [],
 			tradeOrderIds: ["trade-component-worker-001"],
 			postPaymentComponents: [
-				prePaymentComponent("hospital_reduce", 10, "H5", "50"),
+				prePaymentComponent("hospital_reduce", 30, "H5", "50"),
 				prePaymentComponent("fund", 50, "H5", "2"),
 				prePaymentComponent("personal_account", 20, "H5", "5"),
-				prePaymentComponent("wechat_cash", 20, "MINI_PROGRAM", "31"),
 			],
 		},
 	);
@@ -757,14 +756,16 @@ test("mixed payment does not create .2 after payment and calls .5 with pre-payme
 				cashState: "paid",
 				insuranceState: "paid",
 				medInsPayStatus: "MED_INS_PAY_SUCCESS",
-				cashFen: 20,
+				cashFen: 0,
 				totalFen: 100,
 				fundFen: 50,
 				personalAccountFen: 20,
 				otherPaymentFen: 10,
 				medicalCashFen: 20,
-				cashReduceDetails: [],
-				providerStatus: "MIX_PAY_SUCCESS/SELF_PAY_SUCCESS/MED_INS_PAY_SUCCESS",
+				cashReduceDetails: [
+					{ cashReduceFen: 20, cashReduceType: "HOSPITAL_REDUCE" },
+				],
+				providerStatus: "MIX_PAY_SUCCESS/NO_SELF_PAY/MED_INS_PAY_SUCCESS",
 				trace: {
 					provider: "wechat-pay",
 					operation: "medical-mix-query",

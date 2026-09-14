@@ -160,17 +160,15 @@ function medicalCreateInput(input: {
 					fundFen: 600,
 				}
 			: {
-					totalFen: 1100,
+					totalFen: 1000,
 					cashFen: 200,
 					personalAccountFen: 300,
 					fundFen: 500,
-					otherPaymentFen: 100,
-					hospitalPartFen: 100,
 				},
 		authorization: {
 			patient: { idNo: "140581199001010011", userName: "测试患者" },
 			payAuthNo: "pay-auth-001",
-			insuplcAdmdvs: "140581",
+			insuplcAdmdvs: pure ? "140581" : "140500",
 		} as never,
 		settlement: {} as never,
 		paymentIdentity: pure
@@ -207,10 +205,10 @@ function recoveredMedicalOrderBody(input: {
 		serial_no: pure ? "med-org-pure-001" : "med-org-001",
 		pay_order_id: pure ? "pay-ord-pure-001" : "pay-ord-001",
 		med_inst_no: "H14058101270",
-		total_fee: pure ? 900 : 1100,
+		total_fee: pure ? 900 : 1000,
 		med_ins_gov_fee: pure ? 600 : 500,
 		med_ins_self_fee: 300,
-		med_ins_other_fee: pure ? 0 : 100,
+		med_ins_other_fee: 0,
 		med_ins_cash_fee: pure ? 0 : 200,
 		...(pure
 			? {}
@@ -332,17 +330,15 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 			medOrgOrd: "med-org-001",
 			orderType: "RegPay",
 			amounts: {
-				totalFen: 1100,
+				totalFen: 1000,
 				cashFen: 200,
 				personalAccountFen: 300,
 				fundFen: 500,
-				otherPaymentFen: 100,
-				hospitalPartFen: 100,
 			},
 			authorization: {
 				patient: { idNo: "140581199001010011", userName: "测试患者" },
 				payAuthNo: "pay-auth-001",
-				insuplcAdmdvs: "140581",
+				insuplcAdmdvs: "140500",
 			} as never,
 			settlement: {} as never,
 			paymentIdentity: {
@@ -374,7 +370,7 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 		serial_no: "med-org-001",
 		med_inst_name: "高平市人民医院",
 		med_inst_no: "H14058101270",
-		total_fee: 1100,
+		total_fee: 1000,
 		appid: "wx-app-001",
 		openid: "openid-001",
 		city_id: "140500",
@@ -383,7 +379,7 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 		geo_location: "112.9236,35.7981",
 		med_ins_gov_fee: 500,
 		med_ins_self_fee: 300,
-		med_ins_other_fee: 100,
+		med_ins_other_fee: 0,
 		med_ins_cash_fee: 200,
 		wechat_pay_cash_fee: 200,
 		med_ins_order_create_time: "2026-08-14T12:00:00.000Z",
@@ -424,12 +420,9 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 	expect(result.payParams).not.toHaveProperty("appId");
 });
 
-test("高平普通挂号医院负担归入医保其他支付且不重复扣减微信现金", async () => {
+test("高平普通挂号现金自付全额优惠时直接创建INSURANCE_ONLY订单", async () => {
 	const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
-	const responses = [
-		JSON.stringify({ prepay_id: "wx-reduce-prepay-001" }),
-		JSON.stringify({ mix_trade_no: "mix-reduce-001" }),
-	];
+	const responses = [JSON.stringify({ mix_trade_no: "mix-reduce-001" })];
 	const gateway = createMedicalGateway(async (_input, init) => {
 		const path = new URL(String(_input)).pathname;
 		const rawBody = typeof init?.body === "string" ? init.body : "";
@@ -476,21 +469,26 @@ test("高平普通挂号医院负担归入医保其他支付且不重复扣减�
 		context,
 	);
 
-	expect(requests.map(({ path }) => path)).toEqual([
-		"/v3/pay/transactions/jsapi",
-		"/v3/med-ins/orders",
-	]);
-	expect(requests[0]?.body).toMatchObject({ amount: { total: 20 } });
-	expect(requests[1]?.body).toMatchObject({
+	expect(requests.map(({ path }) => path)).toEqual(["/v3/med-ins/orders"]);
+	expect(requests[0]?.body).toMatchObject({
+		mix_pay_type: "INSURANCE_ONLY",
 		total_fee: 100,
 		med_ins_gov_fee: 50,
 		med_ins_self_fee: 20,
 		med_ins_other_fee: 10,
 		med_ins_cash_fee: 20,
-		wechat_pay_cash_fee: 20,
+		cash_reduce_detail: [
+			{ cash_reduce_fee: 20, cash_reduce_type: "HOSPITAL_REDUCE" },
+		],
 	});
-	expect(requests[1]?.body).not.toHaveProperty("cash_reduce_detail");
-	expect(result.cashFen).toBe(20);
+	expect(requests[0]?.body).not.toHaveProperty("wechat_pay_cash_fee");
+	expect(requests[0]?.body).not.toHaveProperty("prepay_id");
+	expect(result).toMatchObject({
+		mixTradeNo: "mix-reduce-001",
+		cashFen: 0,
+		payParams: { mixTradeNo: "mix-reduce-001" },
+	});
+	expect(result).not.toHaveProperty("prepayId");
 });
 
 test("未映射的6202其他支付在发起微信请求前拒绝", async () => {
@@ -547,6 +545,7 @@ test("纯医保直接创建官方 INSURANCE_ONLY 订单且不创建 JSAPI 预支
 			authorization: {
 				patient: { idNo: "130503670401001", userName: "测试患者" },
 				payAuthNo: "pay-auth-pure-001",
+				insuplcAdmdvs: "140581",
 			} as never,
 			settlement: {} as never,
 			paymentIdentity: {
@@ -761,7 +760,7 @@ test("后台恢复入口只按 out_trade_no 查单且重建小程序调起参数
 			medOrgOrd: createInput.medOrgOrd,
 			orderType: createInput.orderType,
 			amounts: createInput.amounts,
-			insuredAreaCode: "140581",
+			insuredAreaCode: "140500",
 			expectedPayForRelatives: true,
 		},
 		context,

@@ -1172,11 +1172,18 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 				fetcher,
 			);
 			requireYunhealthSuccess(response, operation, context, options.logger);
-			const payParams = yunhealthMiniProgramPayParams(response.data, {
-				operation,
-				requestId: response.requestId,
-				...(expectedAppId ? { expectedAppId } : {}),
-			});
+			// H5 医保基金/个人账户分项成功时，众阳返回的是 `result: "SUCCESS"`
+			// 和流水信息，不是小程序 MD5 调起参数。只有微信现金分项才解析
+			// result 中的 prepay_id；否则会把已经成功创建的 H5 流水误判为
+			// provider-response-invalid。
+			const payParams =
+				payModel === "MINI_PROGRAM"
+					? yunhealthMiniProgramPayParams(response.data, {
+							operation,
+							requestId: response.requestId,
+							...(expectedAppId ? { expectedAppId } : {}),
+						})
+					: undefined;
 			const outTradeNo = payParams
 				? providerScalarText(
 						nestedValue(response.data, ["outTradeNo", "out_trade_no"]),

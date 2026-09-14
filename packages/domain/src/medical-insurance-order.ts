@@ -229,9 +229,10 @@ export class InvalidMedicalInsurancePaymentBreakdownError extends Error {
  * 校验 6202 的医院负担与其他支付拆分，并计算实际微信现金金额。
  *
  * V2.2.5 中 `hospPartAmt` 是 `othFeeAmt` 的医院负担明细，而不是
- * `ownPayAmt` 内的现金减免；因此它不能再次从现金金额中扣除，也不能
- * 重复写入微信 `cash_reduce_detail`。当前医院只确认了高平普通挂号的
- * 医院负担映射，其他未识别的 `othFeeAmt` 必须保持 fail-closed。
+ * `ownPayAmt` 内的现金减免；因此它不能再次从现金金额中扣除。高平普通
+ * 挂号优惠是独立的医院现金减免：把 `ownPayAmt` 全额映射为微信官方
+ * `HOSPITAL_REDUCE`，不再发起微信现金支付。其他未识别的 `othFeeAmt`
+ * 必须保持 fail-closed。
  */
 export function medicalInsurancePaymentBreakdown(input: {
 	amounts: MedicalInsuranceAmounts;
@@ -259,9 +260,22 @@ export function medicalInsurancePaymentBreakdown(input: {
 			"other_payment_unmapped",
 		);
 	}
+	const highpingRegistrationDiscount =
+		input.orderType === "RegPay" && input.insuredAreaCode.trim() === "140581";
+	const hospitalCashReduceFen = highpingRegistrationDiscount
+		? amounts.cashFen
+		: 0;
 	return {
-		wechatCashFen: amounts.cashFen,
-		cashReduceDetails: [],
+		wechatCashFen: amounts.cashFen - hospitalCashReduceFen,
+		cashReduceDetails:
+			hospitalCashReduceFen > 0
+				? [
+						{
+							cashReduceFen: hospitalCashReduceFen,
+							cashReduceType: "HOSPITAL_REDUCE",
+						},
+					]
+				: [],
 	};
 }
 
