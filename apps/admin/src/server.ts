@@ -28,6 +28,7 @@ const rateLimitMaximum = 30;
 const rateLimits = new Map<string, { count: number; expiresAt: number }>();
 const activeSessions = new Map<string, number>();
 const maxActiveSessions = 500;
+const maxSessionTokenLength = 4096;
 const rawLogWindowMs = 30 * 60 * 1_000;
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
@@ -130,16 +131,55 @@ function bearer(request: Request): string {
 }
 
 async function registerLoginSession(response: Response): Promise<void> {
-	if (!response.ok) return;
+	if (!response.ok) {
+		console.info(
+			JSON.stringify({
+				event: "admin.auth.login.session",
+				responseStatus: response.status,
+				registered: false,
+				reason: "upstream-not-ok",
+			}),
+		);
+		return;
+	}
 	try {
 		const payload = (await response.clone().json()) as unknown;
-		const data =
-			isObject(payload) && isObject(payload.data) ? payload.data : payload;
-		if (!isObject(data) || typeof data.access_token !== "string") return;
-		const accessToken = data.access_token.trim();
-		if (!accessToken || accessToken.length > 512) return;
+		const envelope = isObject(payload) ? payload : undefined;
+		const firstData = envelope && isObject(envelope.data) ? envelope.data : undefined;
+		const nestedData =
+			firstData && isObject(firstData.data) ? firstData.data : undefined;
+		const data = nestedData || firstData || envelope;
+		const tokenValue =
+			(data && typeof data.access_token === "string" && data.access_token) ||
+			(data && typeof data.accessToken === "string" && data.accessToken);
+		if (!tokenValue) {
+			console.info(
+				JSON.stringify({
+					event: "admin.auth.login.session",
+					responseStatus: response.status,
+					registered: false,
+					reason: "access-token-missing",
+					payloadKeys: envelope ? Object.keys(envelope).sort() : [],
+					dataKeys: data ? Object.keys(data).sort() : [],
+				}),
+			);
+			return;
+		}
+		const accessToken = tokenValue.trim();
+		if (!accessToken || accessToken.length > maxSessionTokenLength) {
+			console.info(
+				JSON.stringify({
+					event: "admin.auth.login.session",
+					responseStatus: response.status,
+					registered: false,
+					reason: "access-token-invalid",
+					tokenLength: accessToken.length,
+				}),
+			);
+			return;
+		}
 		const expiresIn =
-			typeof data.expires_in === "number" &&
+			typeof data?.expires_in === "number" &&
 			Number.isFinite(data.expires_in) &&
 			data.expires_in > 0
 				? data.expires_in * 1_000
@@ -153,8 +193,32 @@ async function registerLoginSession(response: Response): Promise<void> {
 			if (typeof oldest !== "string") break;
 			activeSessions.delete(oldest);
 		}
+		console.info(
+			JSON.stringify({
+				event: "admin.auth.login.session",
+				responseStatus: response.status,
+				registered: true,
+				tokenLength: accessToken.length,
+				expiresInMs: Math.min(
+					typeof data?.expires_in === "number" &&
+						Number.isFinite(data.expires_in) &&
+						data.expires_in > 0
+						? data.expires_in * 1_000
+						: 30 * 60 * 1_000,
+					24 * 60 * 60 * 1_000,
+				),
+			}),
+		);
 	} catch {
 		// 登录响应仍原样返回给浏览器；无法读出 token 时后续请求会要求重新登录。
+		console.info(
+			JSON.stringify({
+				event: "admin.auth.login.session",
+				responseStatus: response.status,
+				registered: false,
+				reason: "response-json-invalid",
+			}),
+		);
 	}
 }
 
