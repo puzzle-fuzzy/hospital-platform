@@ -279,8 +279,8 @@ test("高平普通挂号授权过期后仍可补交医院优惠H5/50且不创建
 			...(paymentSystemUserId ? { paymentSystemUserId } : {}),
 		})),
 	).toEqual([
-		{ amountFen: 200, payModel: "H5", payTypeId: "50" },
 		{ amountFen: 800, payModel: "H5", payTypeId: "2" },
+		{ amountFen: 200, payModel: "H5", payTypeId: "50" },
 	]);
 	expect(
 		(

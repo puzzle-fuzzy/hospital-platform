@@ -464,7 +464,8 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 		context,
 	);
 	expect(completed.state).toBe("insurance_settled");
-	expect(providerPaths).toContain(
+	expect(providerPaths.slice(-2)).toEqual([
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
 		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
-	);
+	]);
 });

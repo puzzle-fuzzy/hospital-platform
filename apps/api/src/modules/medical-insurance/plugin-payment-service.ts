@@ -78,7 +78,15 @@ function prePaymentComponents(input: {
 		0,
 	);
 	const hospitalPaymentFen = (amounts.hospitalPartFen ?? 0) + hospitalReduceFen;
+	// HIS 要求 2.6.65.2 严格按医保统筹、优惠挂号、个人账户、微信自费的顺序写入。
+	// 数组顺序就是实际调用顺序，不能把医院优惠提前到医保统筹之前。
 	const definitions = [
+		{
+			kind: "fund" as const,
+			amountFen: amounts.fundFen,
+			payModel: "H5" as const,
+			payTypeId: "2" as const,
+		},
 		...(hospitalPaymentFen > 0
 			? [
 					{
@@ -89,12 +97,6 @@ function prePaymentComponents(input: {
 					},
 				]
 			: []),
-		{
-			kind: "fund" as const,
-			amountFen: amounts.fundFen,
-			payModel: "H5" as const,
-			payTypeId: "2" as const,
-		},
 		{
 			kind: "personal_account" as const,
 			amountFen: amounts.personalAccountFen,
@@ -136,6 +138,20 @@ function samePrePaymentComponent(
 		left.payModel === right.payModel &&
 		left.payTypeId === right.payTypeId &&
 		left.recordCode === right.recordCode
+	);
+}
+
+function samePrePaymentPlan(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): boolean {
+	return (
+		saved.length === planned.length &&
+		planned.every((plannedComponent) =>
+			saved.some((savedComponent) =>
+				samePrePaymentComponent(savedComponent, plannedComponent),
+			),
+		)
 	);
 }
 
@@ -223,8 +239,8 @@ export type MedicalInsurancePluginPaymentServiceDependencies = {
 };
 
 /**
- * 云健康医保支付联调编排。当前临时顺序是在官方微信医保支付前按 6202
- * 分项调用 .2，支付成功后由 Worker 调用 .5；旧 plugin 上下文继续兼容。
+ * 云健康医保支付联调编排。当前顺序是在官方微信医保支付前按 6202
+ * 分项调用 .2；支付成功后由 Worker 依次调用 .32、.5，旧 plugin 上下文继续兼容。
  */
 export class MedicalInsurancePluginPaymentService {
 	private readonly logger: AppLogger;
@@ -413,14 +429,8 @@ export class MedicalInsurancePluginPaymentService {
 		let settlement = loadedSettlement;
 		const saved = settlement.postPaymentComponents;
 		if (saved) {
-			if (
-				saved.length !== planned.length ||
-				saved.some(
-					(component, index) =>
-						!planned[index] ||
-						!samePrePaymentComponent(component, planned[index]),
-				)
-			) {
+			// 兼容发布前按“优惠挂号、医保统筹”保存的在途计划；真正执行仍按 planned 新顺序。
+			if (!samePrePaymentPlan(saved, planned)) {
 				throw new Error("medical-insurance-pre-payment-plan-changed");
 			}
 		} else {

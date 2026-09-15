@@ -1,0 +1,27 @@
+{
+	"name": "@hospital/admin",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"build": "vite build && bun build src/server.ts --outfile dist/server.js --target bun",
+		"dev": "bun run build && bun dist/server.js",
+		"start": "bun dist/server.js",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@ant-design/icons": "6.3.4",
+		"antd": "6.6.4",
+		"react": "19.3.0",
+		"react-dom": "19.3.0"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
+		"@vitejs/plugin-react": "6.1.1",
+		"typescript": "catalog:",
+		"vite": "8.3.0"
+	}
+}

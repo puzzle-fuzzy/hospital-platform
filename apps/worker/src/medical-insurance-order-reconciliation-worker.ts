@@ -69,7 +69,14 @@ function expectedPrePaymentComponents(input: {
 		0,
 	);
 	const hospitalPaymentFen = (amounts.hospitalPartFen ?? 0) + hospitalReduceFen;
+	// 必须与 API 前置 2.6.65.2 计划保持一致：先医保统筹，再优惠挂号。
 	const definitions = [
+		{
+			kind: "fund" as const,
+			amountFen: amounts.fundFen,
+			payModel: "H5" as const,
+			payTypeId: "2" as const,
+		},
 		...(hospitalPaymentFen > 0
 			? [
 					{
@@ -80,12 +87,6 @@ function expectedPrePaymentComponents(input: {
 					},
 				]
 			: []),
-		{
-			kind: "fund" as const,
-			amountFen: amounts.fundFen,
-			payModel: "H5" as const,
-			payTypeId: "2" as const,
-		},
 		{
 			kind: "personal_account" as const,
 			amountFen: amounts.personalAccountFen,
@@ -127,6 +128,20 @@ function samePrePaymentComponent(
 		left.payModel === right.payModel &&
 		left.payTypeId === right.payTypeId &&
 		left.recordCode === right.recordCode
+	);
+}
+
+function samePrePaymentPlan(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): boolean {
+	return (
+		saved.length === planned.length &&
+		planned.every((plannedComponent) =>
+			saved.some((savedComponent) =>
+				samePrePaymentComponent(savedComponent, plannedComponent),
+			),
+		)
 	);
 }
 
@@ -447,8 +462,6 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			order.medicalOrderId,
 		);
 		if (!settlement?.insuredAreaCode || !settlement.businessCode) return false;
-		const businessId = settlement.businessId;
-		const hospitalId = settlement.hospitalId;
 		const expected = medicalInsurancePaymentBreakdown({
 			amounts: order.amounts,
 			orderType: order.orderType ?? "RegPay",
@@ -476,14 +489,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		if (!saved) {
 			throw new Error("medical-insurance-pre-payment-components-missing");
 		}
-		if (
-			saved.length !== planned.length ||
-			saved.some(
-				(component, index) =>
-					!planned[index] ||
-					!samePrePaymentComponent(component, planned[index]),
-			)
-		) {
+		// 兼容发布前以旧顺序保存的在途订单；这里只核验计划内容，不要求数组顺序一致。
+		if (!samePrePaymentPlan(saved, planned)) {
 			throw new Error("medical-insurance-pre-payment-plan-changed");
 		}
 		if (saved.some((component) => component.state !== "succeeded")) {
@@ -496,21 +503,6 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				order.medicalOrderId,
 			)) ?? settlement;
 		if (!settlement.postPaymentCompletedAt) {
-			if (!gateway.completeSettlement) {
-				throw new Error("yunhealth-complete-settlement-not-configured");
-			}
-			await gateway.completeSettlement(
-				{
-					businessId,
-					hospitalId,
-					workStationId: this.dependencies.postPaymentWorkStationId ?? "",
-					tradeTypeCode: this.dependencies.postPaymentTradeTypeCode ?? "10",
-				},
-				{
-					...context,
-					idempotencyKey: `medical-post-payment-complete:${order.medicalOrderId}`,
-				},
-			);
 			settlement = {
 				...settlement,
 				postPaymentCompletedAt: now.toISOString(),
@@ -522,6 +514,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 		}
 
+		// cashPaymentConfirmed=true 进入 legacy FSI 最终确认：先调用 2.27.2.32
+		// 回写医保支付结果，成功后才调用 2.6.65.5 完成 HIS 结算。
 		const completion = await this.dependencies.medicalInsurance.query(
 			{
 				orderId: order.medicalOrderId,
