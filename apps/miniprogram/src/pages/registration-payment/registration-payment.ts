@@ -409,7 +409,7 @@ Page<
 
 	onPaymentTap(event) {
 		const value = String(event.currentTarget?.dataset?.mode || "");
-		if (value !== "medical" && value !== "mixed" && value !== "self") return;
+		if (value !== "mixed" && value !== "self") return;
 		if (this.data.busy || !this.data.ready) return;
 		try {
 			assertSessionGeneration(
