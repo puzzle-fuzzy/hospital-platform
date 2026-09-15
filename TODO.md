@@ -34,6 +34,8 @@
 | pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
 | pnpm migration:fact:audit | 通过 | 当前住院页面已从 `surface-only` 进入 `partial`；已同步 64/47、partial=35、surface-only=17 和当前源码输入 revision |
 | Node 24.12.0 显式环境下 `pnpm toolchain:audit`、小程序 build/runtime verify | 通过 | Bun=1.4.0、Node=24.12.0、pnpm=11.9.0；release sourceRevision=`cba13c71a74022b756144b9c7a61965cd542b1af`、development source 为当前工作树快照、两者 pageCount=47；详见 [`工具链复现记录-2026-09-16.md`](docs/发布/工具链复现记录-2026-09-16.md) |
+| `pnpm --filter @hospital/worker test`、住院 domain/adapter/API/小程序定向回归 | 通过 | Worker 86 pass；住院 service 2、adapter 3、domain 2、miniprogram acceptance/dashboard 190 pass；未触碰支付/费用实现 |
+| `pnpm test` | 限定阻塞 | 其余测试通过；仅 `apps/api/src/modules/outpatient-payments/service.test.ts` 两个既有测试使用固定 `2026-08-16` 账单日期，在当前 2026-09-16 的服务端 30 天窗口校验中失败。该文件属于费用/账单支付范围，本轮不修改；不能把全 workspace 说成全绿 |
 | pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
 | pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、37 个字面导航调用 |
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
