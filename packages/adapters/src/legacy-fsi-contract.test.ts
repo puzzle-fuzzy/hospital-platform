@@ -243,6 +243,42 @@ test("6301 keeps intermediate statuses separate from final settlement evidence",
 	).toThrow(LegacyFsiContractError);
 });
 
+test("6301 accepts a completed settlement when the optional reversal token is omitted", () => {
+	const result = validate6301QueryResult(
+		{
+			data: {
+				payOrdId: "pay-order-actual-shape",
+				ordStas: "6",
+				setlType: "HI",
+				callType: "1",
+				medOrgOrd: "medical-order-actual-shape",
+				traceTime: "20260915102245",
+				feeSumamt: 10,
+				ownPayAmt: 2,
+				psnAcctPay: 0,
+				fundPay: 8,
+				acctMulaidPay: 0,
+				selfAcctPay: 0,
+			},
+		},
+		"pay-order-actual-shape",
+	);
+
+	expect(result).toEqual({
+		payOrdId: "pay-order-actual-shape",
+		ordStas: "6",
+		setlType: "HI",
+		amounts: {
+			totalFen: 1000,
+			cashFen: 200,
+			personalAccountFen: 0,
+			fundFen: 800,
+			personalAccountMutualAidFen: 0,
+			personalAccountSelfFen: 0,
+		},
+	});
+});
+
 test("classifies ordStas without calling any value payment success", () => {
 	for (const status of ["0", "1", "2"]) {
 		expect(classifyLegacyFsiOrderStatus(status)).toBe("processing");
