@@ -186,22 +186,36 @@ async function syncDirectoryAfterBinding(
 	context: AdapterCallContext,
 	delays: readonly number[],
 ): Promise<Awaited<ReturnType<PatientService["sync"]>>> {
-	let directory = await patients.sync(owner, syncContextForBinding(context));
-	for (const [index, delayMs] of delays.entries()) {
-		if (!Number.isSafeInteger(delayMs) || delayMs < 0) continue;
-		await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+	let directory: Awaited<ReturnType<PatientService["sync"]>> | undefined;
+	let lastError: unknown;
+	for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+		if (attempt > 0) {
+			const delayMs = delays[attempt - 1];
+			if (
+				delayMs !== undefined &&
+				Number.isSafeInteger(delayMs) &&
+				delayMs >= 0
+			) {
+				await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+			}
+		}
 		try {
-			directory = await patients.sync(
+			const candidate = await patients.sync(
 				owner,
-				syncContextForBinding(context, index + 1),
+				syncContextForBinding(context, attempt),
 			);
-		} catch {
-			// 绑卡已经收到 Provider 成功响应；确认窗口内某次目录读取
-			// 失败不能把已成立的绑定重新报告成失败。页面返回后仍会
-			// 触发一次显式 owner-scoped 同步，继续取得最新目录。
-			break;
+			directory = candidate;
+		} catch (error) {
+			lastError = error;
+			if (directory) {
+				// 绑卡已经收到 Provider 成功响应；确认窗口内某次目录读取
+				// 失败不能把已成立的绑定重新报告成失败。页面返回后仍会
+				// 触发一次显式 owner-scoped 同步，继续取得最新目录。
+				break;
+			}
 		}
 	}
+	if (!directory) throw lastError ?? new Error("Patient directory confirmation failed");
 	return directory;
 }
 

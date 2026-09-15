@@ -170,6 +170,109 @@ test("患者绑定服务迁移旧服务授权并把 JWT 只注入众阳上下文
 	).resolves.toMatchObject({ created: false, total: 0 });
 	expect(receivedInput).not.toHaveProperty("legacyLoginCode");
 	expect(receivedProviderContext).toEqual({
-		authorizationToken: "legacy-jwt-003",
+			authorizationToken: "legacy-jwt-003",
 	});
+});
+
+test("患者绑定后首次目录确认失败时仍使用确认窗口重试", async () => {
+	let syncCalls = 0;
+	const service = new PatientBindingService({
+		gateway: {
+			async bind() {
+				return {
+					created: false,
+					trace: {
+						provider: "zhongyang",
+						operation: "patient-binding",
+						requestId: "provider-binding-004",
+					},
+				};
+			},
+		},
+		patients: {
+			async sync(_owner: string, syncContext: { idempotencyKey: string }) {
+				syncCalls += 1;
+				if (syncCalls === 1) throw new Error("directory-not-yet-visible");
+				expect(syncContext.idempotencyKey).toBe(
+					syncCalls === 2
+						? "binding-sync-binding-service-key-004-retry-1"
+						: "binding-sync-binding-service-key-004-retry-2",
+				);
+				return { items: [], total: 0 };
+			},
+		} as unknown as PatientService,
+		directoryRetryDelaysMs: [0, 0],
+	});
+
+	await expect(
+		service.bind(
+			"fixture-owner-binding-004",
+			{
+				displayName: "张三",
+				mobile: "13812345678",
+				identityNumber: "11010519900101007X",
+				consent: true,
+			},
+			{ ...context, idempotencyKey: "binding-service-key-004" },
+		),
+	).resolves.toMatchObject({ created: false, total: 0 });
+	expect(syncCalls).toBe(3);
+});
+
+test("患者绑定服务拒绝旧服务 JWT 与当前 owner 的 unionId 不一致", async () => {
+	let gatewayCalls = 0;
+	const service = new PatientBindingService({
+		patients: {
+			async sync() {
+				throw new Error("should not be called");
+			},
+		} as unknown as PatientService,
+		identityUsers: {
+			async findOrCreateByWechat() {
+				throw new Error("not used");
+			},
+			async findByUserId() {
+				return {
+					userId: "fixture-owner-binding-005",
+					providerSubject: "openid-005",
+					unionId: "union-current-005",
+				};
+			},
+		},
+		providerAuthorizationGateway: {
+			async exchangeWechatCode() {
+				return {
+					authorizationToken: "legacy-jwt-005",
+					unionId: "union-other-005",
+					trace: {
+						provider: "hospital-his",
+						operation: "legacy-wechat-login",
+						requestId: "legacy-auth-005",
+					},
+				};
+			},
+		},
+		gateway: {
+			async bind() {
+				gatewayCalls += 1;
+				throw new Error("should not be called");
+			},
+		},
+		directoryRetryDelaysMs: [],
+	});
+
+	await expect(
+		service.bind(
+			"fixture-owner-binding-005",
+			{
+				displayName: "张三",
+				mobile: "13812345678",
+				identityNumber: "11010519900101007X",
+				consent: true,
+				legacyLoginCode: "wx-code-005",
+			},
+			{ ...context, idempotencyKey: "binding-service-key-005" },
+		),
+	).rejects.toBeInstanceOf(PatientBindingInputError);
+	expect(gatewayCalls).toBe(0);
 });

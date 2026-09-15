@@ -308,6 +308,20 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 			"ZHONGYANG_PATIENT_CARD_TYPE_ID",
 		]),
 	);
+	const patientBindingWithoutLegacyAuth = loadRuntimeConfig({
+		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
+		ZHONGYANG_PATIENT_BINDING_READY: "true",
+		ZHONGYANG_PATIENT_ORG_ID: "10756",
+		ZHONGYANG_PATIENT_HOSPITAL_ID: "10389001",
+		ZHONGYANG_PATIENT_CARD_TYPE_ID: "3",
+		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+	});
+	expect(
+		patientBindingConfigurationStatus(patientBindingWithoutLegacyAuth),
+	).toBe("incomplete");
+	expect(patientBindingConfigurationMissingFields(patientBindingWithoutLegacyAuth)).toEqual([
+		"LEGACY_PATIENT_AUTH_BASE_URL",
+	]);
 	const appointmentDirectoryIncomplete = loadRuntimeConfig({
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
 		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
@@ -398,6 +412,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		ZHONGYANG_PEIS_HOSPITAL_ID: "10389001",
 		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
 		ZHONGYANG_AUTHORIZATION_TOKEN: "provider-token",
+		LEGACY_PATIENT_AUTH_BASE_URL: "https://legacy.example.test/api/v1",
 	});
 	expect(patientDirectoryConfigurationStatus(configuredPatientDirectory)).toBe(
 		"configured",

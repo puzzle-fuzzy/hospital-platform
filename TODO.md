@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 5 项、未完成 32 项。
-另按标题优先级统计未完成项为：P0 0、P1 20、P2 9、P3 3。
+当前 TODO 复选框总数为 37 项，其中已完成 6 项、未完成 31 项。
+另按标题优先级统计未完成项为：P0 0、P1 19、P2 9、P3 3。
 
 ## 当前机器事实
 
@@ -113,11 +113,11 @@
 
 ### P1 患者身份和患者中心
 
-- [ ] P1-01 完成患者绑定的真实环境验收，不重新设计功能：当前小程序已经从 apps/miniprogram/src/pages/patient-binding/patient-binding.ts:130-163 调用 bindPatientToHospital，API 在 apps/api/src/modules/patients/index.ts:31-96，服务端按查档→建档→绑卡→同步执行，见 apps/api/src/modules/patients/binding-service.ts:220-309 和 packages/adapters/src/zhongyang-patient-binding.ts:205-295。对照旧 ZY.ts:17-75，确认 birthDate/sex/cardType/院区配置、unionId 一致性、幂等重试、Provider 请求号、目录最终可见和失败补偿；未有真实响应时保持关闭。
+- [ ] P1-01 完成患者绑定的真实环境验收，不重新设计功能：当前小程序已经从 apps/miniprogram/src/pages/patient-binding/patient-binding.ts:130-163 调用 bindPatientToHospital，API 在 apps/api/src/modules/patients/index.ts:31-96，服务端按查档→建档→绑卡→同步执行，见 apps/api/src/modules/patients/binding-service.ts:220-309 和 packages/adapters/src/zhongyang-patient-binding.ts:205-295。对照旧服务 `hospital-app/src/api/modules/ZY.ts:17-75`、`hospital-app/src/pagesB/patient/patientAdd.vue:81-111,199-256` 已静态确认：身份证派生 birthDate/sex 与旧逻辑一致；新端不再照搬旧端“查档异常即建档”、固定 `cardType=3` 或“身份证号当 cardNo”，而是要求 provider 返回真实 `cardNo`，并保持服务端 owner 隔离、幂等键、查档/建档/绑卡 requestId 和目录同步。新增 fail-closed 规则见 `packages/config/src/index.ts:568-603`：患者绑定还必须配置 HTTPS `LEGACY_PATIENT_AUTH_BASE_URL`，以旧服务用户 JWT/unionId 证明当前 owner，不能用静态众阳 token 代替。2026-09-16 又补齐了绑卡成功后“首次目录确认失败”的安全重试，见 `apps/api/src/modules/patients/binding-service.ts:183-220` 及其测试；重试只读目录，不重复建档/绑卡。当前仍缺当前机构 cardType 字典值、2.1.52 患者自助授权、查档无记录/重复/超时、建档后绑卡失败补偿/最终查询及真实 Provider/真机响应；因此此项保持未完成和关闭。
 
 - [ ] P1-02 补齐患者协议的真实同意、版本、撤回和审计 contract；旧端只有静态 agreement 页面，新端 apps/miniprogram/src/pages/patient-agreement/patient-agreement.ts:1-12 也明确不记录同意。只在确认患者绑定/实名业务确实需要时实现，不能把查看原文或勾选状态当作授权。
 
-- [ ] P1-03 对照旧 patientAdd.vue:258-264 的编辑 TODO，决定是否存在旧服务真实的患者资料更新接口；若旧服务没有可执行更新行为，就关闭该迁移项并保留“新增绑定已实现、编辑不是旧能力”的记录；若业务确实需要，另立 owner-scoped patient update contract，不把 profile PUT 当患者资料更新。
+- [x] P1-03 对照旧服务 `hospital-app/src/pagesB/patient/patientAdd.vue:258-264` 的编辑 TODO、`hospital-app/src/api/modules/ZY.ts:17-75` 的患者接口和 `hospital-app/src/api/modules/user.ts:113-135` 的普通用户资料 PUT，确认旧服务没有患者资料更新/编辑 API：编辑入口只改标题，回填和保存明确是 TODO；因此关闭“迁移旧编辑功能”这一项，不新增患者 update contract，也不把 profile PUT 当患者资料更新。结论已记录在 `docs/迁移/患者绑定契约草案.md` 的“编辑模式”审计补充中；患者新增/绑卡真实验收仍由 P1-01 单独负责。
 
 ### P1 预约目录和非支付预约动作
 

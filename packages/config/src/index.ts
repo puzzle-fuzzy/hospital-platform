@@ -577,8 +577,22 @@ export function patientBindingConfigurationMissingFields(
 		["ZHONGYANG_PATIENT_ORG_ID", runtimeConfig.patientBindingOrgId],
 		["ZHONGYANG_PATIENT_HOSPITAL_ID", runtimeConfig.patientBindingHospitalId],
 		["ZHONGYANG_PATIENT_CARD_TYPE_ID", runtimeConfig.patientBindingCardTypeId],
+		[
+			"LEGACY_PATIENT_AUTH_BASE_URL",
+			runtimeConfig.legacyPatientAuthBaseUrl,
+		],
 	] as const) {
 		if (value === undefined) missing.push(name);
+	}
+	// 旧端 patientAdd.vue 通过旧服务登录得到的用户 JWT 调用 patCards；
+	// 没有这条用户级认证链时，静态众阳 token 无法证明当前 owner，不能
+	// 因配置齐全而误开患者绑定写入。
+	if (
+		runtimeConfig.legacyPatientAuthBaseUrl &&
+		!isHttpsUrl(runtimeConfig.legacyPatientAuthBaseUrl) &&
+		!missing.includes("LEGACY_PATIENT_AUTH_BASE_URL")
+	) {
+		missing.push("LEGACY_PATIENT_AUTH_BASE_URL(https)");
 	}
 	// 绑定成功后必须返回服务端重新同步的患者目录；如果只打开绑定 gate，
 	// provider 可能已经建档/绑卡但平台无法生成最终读模型，形成“接口报错
