@@ -689,6 +689,11 @@ test("native payment boundaries always end with a user-actionable result", async
 	// 新入口隐藏纯医保按钮，但历史订单仍能由“医保支付”继续确认。
 	expect(paymentPage).toContain('mode === "medical" ? "mixed"');
 	expect(paymentPage).toContain('mode !== "medical" && mode !== "mixed"');
+	// 用户关闭微信/医保收银台只退出本次支付尝试，不能调用 payment-exit 取消预约。
+	expect(paymentPage).not.toContain("exitPayment");
+	expect(paymentPage).toContain("用户取消收银台只代表本次支付尝试退出");
+	expect(paymentPage).toContain("已取消支付，预约已保留");
+	expect(insurance).not.toContain("requestAppointmentPaymentExit");
 	expect(detailPage).toContain("请点击继续微信支付");
 });
 

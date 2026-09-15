@@ -7,7 +7,6 @@ import {
 	ApiError,
 	createIdempotencyKey,
 	queryAppointmentSelfPay,
-	requestAppointmentPaymentExit,
 	requestAppointmentSelfPay,
 	requestWithSession,
 	requireSuccessDataResponse,
@@ -1165,13 +1164,4 @@ export async function continueMedicalCashierPaymentFromPending(
 		"收银台已返回，医院结算仍在确认，请稍后点击医保支付继续；请勿重复付款",
 	);
 	return false;
-}
-
-/** 支付退出必须走服务端统一编排；成功后才清除本地 pending。 */
-export async function exitPayment(pending: PendingPayment): Promise<void> {
-	await requestAppointmentPaymentExit(
-		pending.appointmentId,
-		pending.mode ?? "mixed",
-	);
-	clearPendingPayment();
 }

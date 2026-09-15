@@ -13,7 +13,6 @@ import {
 	continueMedicalCashPayment,
 	continueMedicalPayment,
 	continueSelfPaymentFromPending,
-	exitPayment,
 	MedicalAuthNavigationCancelledError,
 	MedicalCashRequiredError,
 	MedicalInsurancePaymentFailureError,
@@ -587,24 +586,20 @@ Page<
 			if (!pending) {
 				this.setData({
 					hasPendingPayment: false,
-					message: "已取消支付，当前没有待处理支付；如需支付，请重新预约",
+					stage: "",
+					error: "",
+					message: "已取消支付，预约已保留；可返回上一页或稍后重新选择支付",
 				});
 				return;
 			}
-			try {
-				await exitPayment(pending);
-				this.setData({
-					hasPendingPayment: false,
-					message: "已取消支付，预约号源已释放；如需支付，请重新预约",
-				});
-			} catch (exitError) {
-				this.setData({
-					hasPendingPayment: true,
-					error: paymentError(exitError),
-					message:
-						"支付已取消，但订单或号源尚未释放，请继续处理原支付；请勿重复预约或付款",
-				});
-			}
+			// 用户取消收银台只代表本次支付尝试退出，不能取消已写入的预约。
+			// 保留 pending 让用户稍后从本页或返回详情继续原订单，避免 30440。
+			this.setData({
+				hasPendingPayment: true,
+				stage: "",
+				error: "",
+				message: "已取消支付，预约已保留；可稍后点击原支付方式继续",
+			});
 			return;
 		}
 		if (error instanceof MedicalCashRequiredError) {
