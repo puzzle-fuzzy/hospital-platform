@@ -70,6 +70,11 @@ function compactDateTime(value: string): string {
 	return value.replaceAll(/[- :]/g, "");
 }
 
+function messageIdSuffix(value: string): string {
+	const normalized = value.replaceAll(/[^A-Za-z0-9]/g, "").slice(0, 4);
+	return normalized.padEnd(4, "0");
+}
+
 /**
  * 新 API 的 Admin 只读查询服务。
  *
@@ -132,7 +137,8 @@ export class AdminInsuranceQueryService {
 		const result = await this.gateway.query1101(
 			{
 				infno: "1101",
-				msgid: `${this.institutionCode.slice(0, 12)}${compactDateTime(infTime)}${this.createId().replaceAll("-", "").slice(0, 8)}`,
+				// 医保通用 FSI 要求发送方报文 ID 固定 30 位：12 位机构号、14 位时间、4 位序号。
+				msgid: `${this.institutionCode.slice(0, 12)}${compactDateTime(infTime)}${messageIdSuffix(this.createId())}`,
 				// 管理端查询默认以医院所在的高平参保区划发起 1101；
 				// 最终险种参保地仍以医保平台返回为准。
 				insuplc_admdvs: "140581",

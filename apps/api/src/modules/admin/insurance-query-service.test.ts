@@ -57,5 +57,6 @@ test("新服务 Admin 查询固定组装 1101 通用 FSI 请求", async () => {
 	});
 	const msgid = request?.msgid;
 	expect(msgid).toBeString();
+	expect((msgid as string).length).toBe(30);
 	expect((msgid as string).startsWith("H1405810127020260915100304")).toBe(true);
 });
