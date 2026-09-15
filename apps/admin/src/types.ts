@@ -102,6 +102,45 @@ export type AdminLogPage = {
 	parameterPolicy: "safe-metadata-only";
 };
 
+export type RawLogEntry = {
+	timestamp: string;
+	unit: string;
+	event: string;
+	direction: "request" | "response";
+	provider?: string;
+	operation?: string;
+	traceId?: string;
+	requestId?: string;
+	providerRequestId?: string;
+	method?: string;
+	statusCode?: number;
+	url?: string;
+	headersText?: string;
+	bodyEncoding: "plain" | "json-string-v1";
+	chunkCount: number;
+	complete: boolean;
+	missingChunkIndexes?: number[];
+	integrity?: {
+		expectedByteLength?: number;
+		actualByteLength?: number;
+		expectedSha256?: string;
+		actualSha256?: string;
+	};
+	bodyText?: string;
+	error?: string;
+};
+
+export type RawLogTrace = {
+	entries: RawLogEntry[];
+	total: number;
+	truncated: boolean;
+	maxEntries: number;
+	identifiers: string[];
+	since: string;
+	until: string;
+	matchedJournalRecords: number;
+};
+
 export type AdminLogQuery = {
 	page?: number;
 	pageSize?: number;

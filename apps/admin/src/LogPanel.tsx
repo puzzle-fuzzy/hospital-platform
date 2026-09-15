@@ -1,6 +1,7 @@
 import {
 	ApiOutlined,
 	ClockCircleOutlined,
+	FileTextOutlined,
 	ReloadOutlined,
 	SearchOutlined,
 } from "@ant-design/icons";
@@ -9,6 +10,7 @@ import {
 	App as AntdApp,
 	Button,
 	Card,
+	Collapse,
 	Descriptions,
 	Drawer,
 	Empty,
@@ -16,18 +18,21 @@ import {
 	Input,
 	Select,
 	Space,
+	Spin,
 	Table,
 	Tag,
 	Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError, fetchLogDetail, fetchLogPage } from "./api";
+import { ApiError, fetchLogDetail, fetchLogPage, fetchLogRaw } from "./api";
 import type {
 	AdminLogLevel,
 	AdminLogPage,
 	AdminLogQuery,
 	AdminLogRecord,
+	RawLogEntry,
+	RawLogTrace,
 	Session,
 } from "./types";
 
@@ -64,6 +69,20 @@ function optionalText(value: string | undefined): string {
 	return value || "—";
 }
 
+function prettyText(value: string): string {
+	try {
+		return JSON.stringify(JSON.parse(value), null, 2);
+	} catch {
+		return value;
+	}
+}
+
+function rawEntryTitle(entry: RawLogEntry): string {
+	const direction = entry.direction === "request" ? "请求" : "返回";
+	const operation = entry.operation || entry.event;
+	return `${direction} · ${operation}`;
+}
+
 export function LogPanel({
 	session,
 	onExpired,
@@ -88,6 +107,8 @@ export function LogPanel({
 	});
 	const [detail, setDetail] = useState<AdminLogRecord>();
 	const [detailLoading, setDetailLoading] = useState(false);
+	const [rawTrace, setRawTrace] = useState<RawLogTrace>();
+	const [rawLoading, setRawLoading] = useState(false);
 
 	const filterQuery = useMemo<AdminLogQuery>(
 		() => ({
@@ -144,8 +165,19 @@ export function LogPanel({
 	const openDetail = useCallback(
 		async (record: AdminLogRecord) => {
 			setDetailLoading(true);
+			setRawLoading(true);
+			setRawTrace(undefined);
 			try {
-				setDetail(await fetchLogDetail(record.id, session));
+				const nextDetail = await fetchLogDetail(record.id, session);
+				setDetail(nextDetail);
+				try {
+					setRawTrace(await fetchLogRaw(nextDetail.id, session));
+				} catch (error) {
+					if (error instanceof ApiError && error.status === 401) onExpired();
+					void message.warning(
+						error instanceof Error ? error.message : "原始日志加载失败",
+					);
+				}
 			} catch (error) {
 				if (error instanceof ApiError && error.status === 401) onExpired();
 				void message.error(
@@ -153,6 +185,7 @@ export function LogPanel({
 				);
 			} finally {
 				setDetailLoading(false);
+				setRawLoading(false);
 			}
 		},
 		[message, onExpired, session],
@@ -248,7 +281,7 @@ export function LogPanel({
 				showIcon
 				icon={<ApiOutlined />}
 				title="安全日志视图"
-				description="此菜单只显示接口、时间、状态、耗时、trace/request ID 和错误元数据。请求参数与返回原文未写入浏览器读模型；需要原文核验时请按 traceId 使用受控日志导出。"
+				description="列表只显示安全元数据；点击带 trace/request/Provider 请求号的记录，可在服务器 journald 中受控查看已校验的原始请求与返回（单条最多 300 条）。"
 			/>
 			<Card
 				className="log-filter-card"
@@ -350,8 +383,11 @@ export function LogPanel({
 			<Drawer
 				title={detail ? `日志详情 · ${detail.id}` : "日志详情"}
 				open={Boolean(detail)}
-				onClose={() => setDetail(undefined)}
-				width={560}
+				onClose={() => {
+					setDetail(undefined);
+					setRawTrace(undefined);
+				}}
+				width={880}
 			>
 				{detail ? (
 					<Space orientation="vertical" size={16} style={{ width: "100%" }}>
@@ -419,18 +455,123 @@ export function LogPanel({
 								},
 							]}
 						/>
-						<Alert
-							type="info"
-							showIcon
-							title="请求参数"
-							description="原始请求参数未记录在此管理端读模型中。"
-						/>
-						<Alert
-							type="info"
-							showIcon
-							title="返回结果"
-							description="原始返回结果未记录在此管理端读模型中。请使用上面的 trace/request ID 进行受控原始日志导出。"
-						/>
+						<Card
+							size="small"
+							title={
+								<Space>
+									<FileTextOutlined />
+									受控原始请求/返回（最多 300 条）
+								</Space>
+							}
+						>
+							{rawLoading ? (
+								<Flex justify="center" style={{ padding: 24 }}>
+									<Spin />
+								</Flex>
+							) : rawTrace && rawTrace.entries.length > 0 ? (
+								<Space
+									orientation="vertical"
+									size={12}
+									style={{ width: "100%" }}
+								>
+									{rawTrace.truncated ? (
+										<Alert
+											type="warning"
+											showIcon
+											title={`匹配到 ${rawTrace.total} 条，当前展示前 ${rawTrace.maxEntries} 条`}
+											description="请缩小时间范围或使用更具体的 Provider 请求号继续查看。"
+										/>
+									) : null}
+									<Collapse
+										items={rawTrace.entries.map((entry, index) => ({
+											key: `${entry.timestamp}-${index}`,
+											label: rawEntryTitle(entry),
+											extra: entry.complete ? (
+												<Tag color="success">已校验</Tag>
+											) : (
+												<Tag color="warning">不完整</Tag>
+											),
+											children: (
+												<Space
+													orientation="vertical"
+													size={8}
+													style={{ width: "100%" }}
+												>
+													<Descriptions
+														bordered
+														size="small"
+														column={1}
+														items={[
+															{
+																key: "timestamp",
+																label: "时间",
+																children: formatTime(entry.timestamp),
+															},
+															{
+																key: "requestId",
+																label: "关联号",
+																children: optionalText(
+																	entry.traceId ||
+																		entry.requestId ||
+																		entry.providerRequestId,
+																),
+															},
+															{
+																key: "url",
+																label: "地址",
+																children: optionalText(entry.url),
+															},
+															{
+																key: "headers",
+																label: "请求/返回头",
+																children: entry.headersText ? (
+																	<pre className="raw-log-pre">
+																		{prettyText(entry.headersText)}
+																	</pre>
+																) : (
+																	"—"
+																),
+															},
+														]}
+													/>
+													{entry.bodyText !== undefined ? (
+														<>
+															<Text strong>
+																{entry.direction === "request"
+																	? "请求 Body"
+																	: "返回 Body"}
+															</Text>
+															<pre className="raw-log-pre">
+																{prettyText(entry.bodyText)}
+															</pre>
+														</>
+													) : (
+														<Alert
+															type="warning"
+															showIcon
+															title="原文未能完整还原"
+															description={entry.error || "缺少日志块"}
+														/>
+													)}
+												</Space>
+											),
+										}))}
+									/>
+									<Text type="secondary">
+										查询窗口：{formatTime(rawTrace.since)} —{" "}
+										{formatTime(rawTrace.until)}； 已匹配 journald{" "}
+										{rawTrace.matchedJournalRecords} 个原始块
+									</Text>
+								</Space>
+							) : (
+								<Alert
+									type="info"
+									showIcon
+									title="没有找到可关联的原始请求/返回"
+									description="请使用带 traceId、requestId 或 Provider 请求号的日志记录，并确认日志仍在 journald 保留窗口内。"
+								/>
+							)}
+						</Card>
 					</Space>
 				) : null}
 			</Drawer>

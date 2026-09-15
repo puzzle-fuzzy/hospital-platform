@@ -3,6 +3,7 @@ import type {
 	AdminLogPage,
 	AdminLogQuery,
 	AdminLogRecord,
+	RawLogTrace,
 	CaptchaState,
 	LoginValues,
 	Normalized1101Result,
@@ -203,6 +204,23 @@ export async function fetchLogDetail(
 	try {
 		return await request<AdminLogRecord>(
 			`/api/logs/${encodeURIComponent(id)}`,
+			{
+				headers: { Authorization: `Bearer ${session.accessToken}` },
+			},
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function fetchLogRaw(
+	id: string,
+	session: Session,
+): Promise<RawLogTrace> {
+	try {
+		return await request<RawLogTrace>(
+			`/api/logs/${encodeURIComponent(id)}/raw`,
 			{
 				headers: { Authorization: `Bearer ${session.accessToken}` },
 			},

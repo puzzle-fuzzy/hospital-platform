@@ -1,4 +1,5 @@
 import { extname, join, normalize } from "node:path";
+import { readRawLogTrace } from "./raw-logs";
 
 type JsonObject = Record<string, unknown>;
 
@@ -25,6 +26,9 @@ const bodyLimit = 16 * 1024;
 const rateLimitWindowMs = 60_000;
 const rateLimitMaximum = 30;
 const rateLimits = new Map<string, { count: number; expiresAt: number }>();
+const activeSessions = new Map<string, number>();
+const maxActiveSessions = 500;
+const rawLogWindowMs = 30 * 60 * 1_000;
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 	throw new Error("INSURANCE_QUERY_PORT must be a valid TCP port");
@@ -116,7 +120,42 @@ function bearer(request: Request): string {
 	if (!/^Bearer [A-Za-z0-9._~+/-]+=*$/u.test(authorization)) {
 		throw new Error("UNAUTHORIZED");
 	}
+	const token = authorization.slice("Bearer ".length);
+	const expiresAt = activeSessions.get(token);
+	if (!expiresAt || expiresAt <= Date.now()) {
+		activeSessions.delete(token);
+		throw new Error("UNAUTHORIZED");
+	}
 	return authorization;
+}
+
+async function registerLoginSession(response: Response): Promise<void> {
+	if (!response.ok) return;
+	try {
+		const payload = (await response.clone().json()) as unknown;
+		const data =
+			isObject(payload) && isObject(payload.data) ? payload.data : payload;
+		if (!isObject(data) || typeof data.access_token !== "string") return;
+		const accessToken = data.access_token.trim();
+		if (!accessToken || accessToken.length > 512) return;
+		const expiresIn =
+			typeof data.expires_in === "number" &&
+			Number.isFinite(data.expires_in) &&
+			data.expires_in > 0
+				? data.expires_in * 1_000
+				: 30 * 60 * 1_000;
+		activeSessions.set(
+			accessToken,
+			Date.now() + Math.min(Math.max(expiresIn, 60_000), 24 * 60 * 60 * 1_000),
+		);
+		while (activeSessions.size > maxActiveSessions) {
+			const oldest = activeSessions.keys().next().value;
+			if (typeof oldest !== "string") break;
+			activeSessions.delete(oldest);
+		}
+	} catch {
+		// 登录响应仍原样返回给浏览器；无法读出 token 时后续请求会要求重新登录。
+	}
 }
 
 function checkRateLimit(clientAddress: string): void {
@@ -178,7 +217,7 @@ async function loginRequest(request: Request): Promise<Response> {
 		captcha_key: captchaKey,
 		captcha,
 	});
-	return upstreamRequest(
+	const response = await upstreamRequest(
 		legacyUpstream,
 		"/system/auth/login",
 		{
@@ -188,6 +227,8 @@ async function loginRequest(request: Request): Promise<Response> {
 		},
 		"旧服务暂时不可用，请稍后重试",
 	);
+	await registerLoginSession(response);
+	return response;
 }
 
 async function insuranceRequest(request: Request): Promise<Response> {
@@ -302,10 +343,117 @@ async function logDetailRequest(
 	);
 }
 
+function validDetailIdentifier(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const normalized = value.trim();
+	if (
+		!normalized ||
+		normalized.length > 256 ||
+		[...normalized].some((character) => {
+			const code = character.charCodeAt(0);
+			return code < 32 || code === 127;
+		})
+	) {
+		return undefined;
+	}
+	return normalized;
+}
+
+async function logRawDetailRequest(
+	request: Request,
+	id: string,
+): Promise<Response> {
+	bearer(request);
+	if (!/^log-[1-9][0-9]*$/u.test(id) || id.length > 32) {
+		return errorResponse("请求参数不合法", 400);
+	}
+	if (!adminLogsUpstream || !adminLogsToken) {
+		return errorResponse("新服务日志接口尚未配置", 503);
+	}
+	const detailResponse = await upstreamRequest(
+		adminLogsUpstream,
+		`/admin/logs/${id}`,
+		{
+			method: "GET",
+			headers: {
+				"X-Admin-Token": adminLogsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务日志接口暂时不可用，请稍后重试",
+	);
+	const detailText = await detailResponse.text();
+	if (!detailResponse.ok) {
+		return new Response(detailText, {
+			status: detailResponse.status,
+			headers: {
+				"Content-Type":
+					detailResponse.headers.get("content-type") ||
+					"application/json; charset=utf-8",
+				"Cache-Control": "no-store",
+			},
+		});
+	}
+	let detailPayload: unknown;
+	try {
+		detailPayload = JSON.parse(detailText) as unknown;
+	} catch {
+		return errorResponse("日志详情格式异常", 502);
+	}
+	const detail =
+		isObject(detailPayload) && isObject(detailPayload.data)
+			? detailPayload.data
+			: detailPayload;
+	if (!isObject(detail)) return errorResponse("日志详情格式异常", 502);
+	const identifiers = [
+		validDetailIdentifier(detail.traceId),
+		validDetailIdentifier(detail.requestId),
+		validDetailIdentifier(detail.providerRequestId),
+	].filter((value): value is string => Boolean(value));
+	if (identifiers.length === 0) {
+		return errorResponse(
+			"该日志没有可关联的 trace/request/Provider 请求号",
+			422,
+		);
+	}
+	const detailTimestamp = validDetailIdentifier(detail.timestamp);
+	const center = detailTimestamp ? Date.parse(detailTimestamp) : Number.NaN;
+	if (Number.isNaN(center)) return errorResponse("日志时间格式异常", 502);
+	try {
+		const trace = await readRawLogTrace({
+			identifiers,
+			since: new Date(center - rawLogWindowMs).toISOString(),
+			until: new Date(center + rawLogWindowMs).toISOString(),
+			maxEntries: 300,
+		});
+		console.info(
+			JSON.stringify({
+				event: "admin.raw_log.read",
+				logId: id,
+				entryCount: trace.entries.length,
+				matchedJournalRecords: trace.matchedJournalRecords,
+				truncated: trace.truncated,
+				completeEntryCount: trace.entries.filter((entry) => entry.complete)
+					.length,
+			}),
+		);
+		return json({ code: 0, data: trace });
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : "UNKNOWN";
+		if (
+			reason === "raw-log-identifier-required" ||
+			reason === "raw-log-window-invalid"
+		) {
+			return errorResponse("原始日志查询条件不合法", 422);
+		}
+		return errorResponse("服务器原始日志暂时不可用，请稍后重试", 502);
+	}
+}
+
 async function logoutRequest(request: Request): Promise<Response> {
 	const authorization = bearer(request);
 	const token = authorization.slice("Bearer ".length);
-	return upstreamRequest(
+	const response = await upstreamRequest(
 		legacyUpstream,
 		"/system/auth/logout",
 		{
@@ -318,6 +466,8 @@ async function logoutRequest(request: Request): Promise<Response> {
 		},
 		"旧服务暂时不可用，请稍后重试",
 	);
+	activeSessions.delete(token);
+	return response;
 }
 
 const contentTypes: Record<string, string> = {
@@ -388,6 +538,12 @@ const server = Bun.serve({
 			}
 			if (url.pathname === "/api/logs" && request.method === "GET") {
 				return await logsRequest(request, url);
+			}
+			const rawLogDetailMatch = url.pathname.match(
+				/^\/api\/logs\/(log-[1-9][0-9]*)\/raw$/u,
+			);
+			if (rawLogDetailMatch && request.method === "GET") {
+				return await logRawDetailRequest(request, rawLogDetailMatch[1] ?? "");
 			}
 			const logDetailMatch = url.pathname.match(
 				/^\/api\/logs\/(log-[1-9][0-9]*)$/u,
