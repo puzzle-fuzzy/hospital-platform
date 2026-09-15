@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { AppointmentRecord } from "../types";
 import {
 	APPOINTMENT_RECORD_STATUS_LABELS,
+	appointmentRecordScopeForTab,
 	filterAppointmentRecords,
 	isAppointmentRecordTabAvailable,
 	isMissedAppointment,
@@ -46,6 +47,11 @@ test("我的挂号在线标签只排除服务端明确的已取消记录", () =>
 	expect(isOnlineAppointmentRecord(cancelled)).toBe(false);
 	expect(isOnlineAppointmentRecord(unknown)).toBe(true);
 	expect(filterAppointmentRecords(records, "online")).toHaveLength(3);
+});
+
+test("我的挂号标签保留旧端 online/all 查询范围", () => {
+	expect(appointmentRecordScopeForTab("online")).toBe("online");
+	expect(appointmentRecordScopeForTab("all")).toBe("all");
 });
 
 test("在线挂号展示边界拒绝绕过响应校验的未知状态", () => {

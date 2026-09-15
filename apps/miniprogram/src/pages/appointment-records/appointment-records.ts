@@ -3,6 +3,7 @@ import { errorMessageWithCode } from "../../services/error-presentation";
 import { getCurrentUser } from "../../services/api-client";
 import { appointmentRecordsErrorMessage } from "../../services/appointment-record-error";
 import {
+	appointmentRecordScopeForTab,
 	filterAppointmentRecords,
 	isAppointmentRecordTabAvailable,
 	toAppointmentRecordView,
@@ -282,15 +283,15 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					patientSessionGeneration: expectedSessionGeneration,
 					canSelectPatient: false,
 				});
-				// “在线挂号”和“全部挂号”必须来自同一份完整记录快照。
-				// 在线标签只是当前已归一化记录的展示筛选，不能再次请求另一条
-				// Provider 渠道后与全部标签产生两套事实。
+				// 旧端“在线挂号”和“全部挂号”分别请求 requestChannel=3/4；
+				// 页面只传递已经由展示边界确认的 online/all 语义，渠道数字由
+				// 服务端 adapter 统一映射。在线结果再排除明确取消，全部结果保留取消。
 				return loadAppointmentRecords(
 					patient.id,
 					new Date(),
 					"history",
 					expectedSessionGeneration,
-					"all",
+					appointmentRecordScopeForTab(requestedTab),
 				).then((records) => {
 					assertSessionGeneration(
 						expectedSessionGeneration,
@@ -365,9 +366,9 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	/**
-	 * 旧端双标签现在共用一份完整挂号读模型；页面不接触渠道数字，只表达
-	 * 当前展示筛选。服务端仍保留 `online` 查询能力供爽约等有限窗口页面使用，
-	 * 但“我的挂号”不会让两种标签各自形成一套 Provider 事实。
+	 * 旧端双标签分别对应 online/all 读取范围；页面不接触渠道数字，只表达
+	 * 当前标签语义。查询范围由服务端 adapter 映射，结果再由本地边界做取消
+	 * 记录的展示筛选。
 	 */
 	onTabTap(event: WechatMiniprogram.TouchEvent): void {
 		const tab = event.currentTarget?.dataset?.tab;
@@ -388,7 +389,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			return;
 		}
 		this.setData({ activeTab });
-		// 切换标签重新建立同一份完整读模型，不能让标签切换改变 Provider 事实。
+		// 切换标签按旧端语义重新读取对应范围，不能把在线结果伪装成全部结果。
 		void this.loadRecords(activeTab);
 	},
 

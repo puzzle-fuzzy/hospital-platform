@@ -49,9 +49,20 @@ export function isAppointmentRecordTabAvailable(
 }
 
 /**
- * 标签切换只影响当前已取得的完整读模型。
- * 页面可以重新加载这份快照，但不能把在线结果复制成全部结果，也不能把
- * 两条 Provider 查询拼接后再对外展示。
+ * 保留旧端“我的挂号”两个标签对应的查询范围：在线使用 online，全部使用
+ * all。范围只表达旧端已确认的 Provider 读取意图，实际渠道数字仍由服务端
+ * adapter 统一映射；页面不得自行拼接 requestChannel。
+ */
+export function appointmentRecordScopeForTab(
+	tab: "online" | "all",
+): "online" | "all" {
+	return tab;
+}
+
+/**
+ * 标签切换决定旧端对应的读取范围，并在该范围的结果上做展示筛选。
+ * 页面不能把在线结果复制成全部结果，也不能把两条 Provider 查询拼接后再
+ * 对外展示；全部标签保留 Provider 返回的取消记录，在线标签才排除取消。
  */
 export function filterAppointmentRecords<T extends AppointmentRecord>(
 	records: readonly T[],
