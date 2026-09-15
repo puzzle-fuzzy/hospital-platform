@@ -245,15 +245,29 @@ function addDays(value: Date, days: number): Date {
 	return result;
 }
 
+/** 按中国标准时间自然日执行与旧“我的挂号”页面一致的日历月平移。 */
+function addCalendarMonths(value: Date, months: number): Date {
+	const shifted = new Date(value.getTime() + PLATFORM_TIME_ZONE_OFFSET_MS);
+	const calendar = new Date(
+		Date.UTC(
+			shifted.getUTCFullYear(),
+			shifted.getUTCMonth() + months,
+			shifted.getUTCDate(),
+		),
+	);
+	return new Date(calendar.getTime() - PLATFORM_TIME_ZONE_OFFSET_MS);
+}
+
 /**
  * “我的挂号”与小程序 dashboard-service 共用同一业务窗口：当前中国标准时间
- * 前后各 90 天。Smoke 也必须覆盖未来预约，否则即使 Provider 查询漏掉未来记录，
+ * 前后各三个月。Smoke 也必须覆盖未来预约，否则即使 Provider 查询漏掉未来记录，
  * 验收仍会错误通过；这里的日期只用于构造平台 API 查询，不是 provider 参数透传。
  */
-const APPOINTMENT_RECORDS_PAST_DAYS = 90;
-const APPOINTMENT_RECORDS_FUTURE_DAYS = 90;
 /** 中国标准时间没有夏令时；验收窗口不能依赖运行 smoke 的机器时区。 */
 const PLATFORM_TIME_ZONE_OFFSET_MS = 8 * 60 * 60 * 1000;
+const APPOINTMENT_RECORDS_PAST_MONTHS = 3;
+const APPOINTMENT_RECORDS_FUTURE_MONTHS = 3;
+const APPOINTMENT_MISSED_PAST_DAYS = 90;
 
 function requirePatientId(patientId: string | undefined): string {
 	if (patientId === undefined || patientId.length === 0) {
@@ -415,9 +429,14 @@ export async function runProviderDirectorySmoke(
 	const startDate = dateOnly(addDays(now, -7));
 	const scheduleEndDate = dateOnly(addDays(now, 7));
 	const recordStartDate = dateOnly(
-		addDays(now, -APPOINTMENT_RECORDS_PAST_DAYS),
+		addCalendarMonths(now, -APPOINTMENT_RECORDS_PAST_MONTHS),
 	);
-	const recordEndDate = dateOnly(addDays(now, APPOINTMENT_RECORDS_FUTURE_DAYS));
+	const recordEndDate = dateOnly(
+		addCalendarMonths(now, APPOINTMENT_RECORDS_FUTURE_MONTHS),
+	);
+	const missedRecordStartDate = dateOnly(
+		addDays(now, -APPOINTMENT_MISSED_PAST_DAYS),
+	);
 	const reportStartDate = dateOnly(addDays(now, -30));
 	const today = dateOnly(now);
 	const patientId = options.patientId;
@@ -958,7 +977,7 @@ export async function runProviderDirectorySmoke(
 		if (capability === "appointment-records") {
 			/**
 			 * 在线范围和全部范围虽然共用一条 HTTP 路由，但属于两个不同的
-			 * 服务端读取 contract：在线范围必须带前后 90 天日期并省略 scope
+			 * 服务端读取 contract：在线范围必须带前后三个月日期并省略 scope
 			 *（与小程序真实请求一致），全部范围必须显式使用 all 且不能带
 			 * 日期，爽约范围只能带过去 90 天日期。smoke 不能只请求一次默认
 			 * 范围，否则“全部挂号”或“爽约记录”可能一直没有真实链路证据，
@@ -977,7 +996,7 @@ export async function runProviderDirectorySmoke(
 			await check("appointment-records-missed", async () => {
 				const query = new URLSearchParams({
 					patientId: scopedPatientId,
-					startDate: recordStartDate,
+					startDate: missedRecordStartDate,
 					endDate: today,
 				});
 				return readSafe(

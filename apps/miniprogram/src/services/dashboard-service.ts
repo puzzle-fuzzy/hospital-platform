@@ -1192,12 +1192,15 @@ export const DASHBOARD_DATE_RANGE_DAYS = Object.freeze({
 	appointmentDirectory: 7,
 	/** 旧项目“按日期挂号”的日历最多展示未来 30 天。 */
 	appointmentScheduleCalendar: 30,
-	/** 我的挂号需要同时覆盖近期历史和即将到来的预约。 */
-	appointmentRecordsPast: 90,
-	appointmentRecordsFuture: 90,
 	/** 爽约只能从已经发生的日期中派生，不能把未来预约误算成爽约。 */
 	missedAppointmentsPast: 90,
 	reports: 30,
+});
+
+/** 旧“我的挂号”页面按当前日历日向前、向后各取三个月。 */
+export const DASHBOARD_DATE_RANGE_MONTHS = Object.freeze({
+	appointmentRecordsPast: 3,
+	appointmentRecordsFuture: 3,
 });
 
 /**
@@ -1262,6 +1265,27 @@ function shiftCalendarDate(
 	};
 }
 
+/**
+ * 按旧服务的 JavaScript 日历月规则平移自然日。
+ *
+ * 这里故意保留月底溢出语义：例如 8 月 31 日向前 3 个月得到 5 月 31 日，
+ * 向后 3 个月则得到 12 月 1 日。不能用固定天数近似，否则会与旧页面的
+ * `new Date(year, month ± 3, day)` 查询边界产生实际差异。
+ */
+function shiftCalendarDateByMonths(
+	value: PlatformCalendarDate,
+	months: number,
+): PlatformCalendarDate {
+	const shifted = new Date(
+		Date.UTC(value.year, value.month - 1 + months, value.day),
+	);
+	return {
+		year: shifted.getUTCFullYear(),
+		month: shifted.getUTCMonth() + 1,
+		day: shifted.getUTCDate(),
+	};
+}
+
 function formatCalendarDate(value: PlatformCalendarDate): string {
 	const padDatePart = (part: number) => String(part).padStart(2, "0");
 	return `${value.year}-${padDatePart(value.month)}-${padDatePart(value.day)}`;
@@ -1287,7 +1311,7 @@ export function createPastDateRange(
 }
 
 /**
- * 创建“我的挂号”查询窗口：当前中国标准时间日前后各覆盖 90 天。
+ * 创建“我的挂号”查询窗口：当前中国标准时间日前后各覆盖三个月。
  *
  * 预约历史既包含已完成/已爽约的过去记录，也包含患者尚未就诊的未来
  * 预约。过去窗口和未来窗口必须在服务层明确表达，不能复用只适用于报告
@@ -1300,15 +1324,15 @@ export function createAppointmentRecordDateRange(now = new Date()): {
 	const today = platformCalendarDate(now);
 	return {
 		startDate: formatCalendarDate(
-			shiftCalendarDate(
+			shiftCalendarDateByMonths(
 				today,
-				-DASHBOARD_DATE_RANGE_DAYS.appointmentRecordsPast,
+				-DASHBOARD_DATE_RANGE_MONTHS.appointmentRecordsPast,
 			),
 		),
 		endDate: formatCalendarDate(
-			shiftCalendarDate(
+			shiftCalendarDateByMonths(
 				today,
-				DASHBOARD_DATE_RANGE_DAYS.appointmentRecordsFuture,
+				DASHBOARD_DATE_RANGE_MONTHS.appointmentRecordsFuture,
 			),
 		),
 	};

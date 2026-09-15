@@ -4377,10 +4377,11 @@ test("dashboard service owns bounded date windows and internal patient inputs", 
 	const service = await source("services/dashboard-service.ts");
 
 	expect(service).toContain("DASHBOARD_DATE_RANGE_DAYS");
+	expect(service).toContain("DASHBOARD_DATE_RANGE_MONTHS");
 	expect(service).toContain("appointmentDirectory: 7");
 	expect(service).toContain("appointmentScheduleCalendar: 30");
-	expect(service).toContain("appointmentRecordsPast: 90");
-	expect(service).toContain("appointmentRecordsFuture: 90");
+	expect(service).toContain("appointmentRecordsPast: 3");
+	expect(service).toContain("appointmentRecordsFuture: 3");
 	expect(service).toContain(
 		'AppointmentRecordQueryWindow = "history" | "missed"',
 	);
@@ -4400,8 +4401,8 @@ test("dashboard service calculates China Standard Time calendar windows", () => 
 		endDate: "2026-08-15",
 	});
 	expect(createAppointmentRecordDateRange(now)).toEqual({
-		startDate: "2026-05-17",
-		endDate: "2026-11-13",
+		startDate: "2026-05-15",
+		endDate: "2026-11-15",
 	});
 	expect(createUpcomingDateRange(7, now)).toEqual({
 		startDate: "2026-08-15",

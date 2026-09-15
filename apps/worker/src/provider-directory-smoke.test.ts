@@ -550,8 +550,9 @@ test("预约历史 smoke 覆盖在线、全部和爽约范围", async () => {
 		accessToken: "platform-access-token",
 		patientId: "patient-001",
 		capabilities: ["appointment-records"],
-		// UTC 16:30 已经是中国标准时间次日 00:30，用它覆盖日期边界。
-		date: new Date("2026-08-14T16:30:00.000Z"),
+		// UTC 16:30 已经是中国标准时间次日 00:30；8 月 31 日还覆盖
+		// 旧服务前后各三个月的月底日历月溢出规则。
+		date: new Date("2026-08-30T16:30:00.000Z"),
 		fetcher: async (input) => {
 			const url = String(input);
 			requests.push(url);
@@ -588,12 +589,12 @@ test("预约历史 smoke 覆盖在线、全部和爽约范围", async () => {
 	const onlineRecordsUrl = requests.find(
 		(url) =>
 			url.includes("/api/v1/appointments/records?") &&
-			url.includes("endDate=2026-11-13"),
+			url.includes("endDate=2026-12-01"),
 	);
 	const missedRecordsUrl = requests.find(
 		(url) =>
 			url.includes("/api/v1/appointments/records?") &&
-			url.includes("endDate=2026-08-15"),
+			url.includes("endDate=2026-08-31"),
 	);
 	const allRecordsUrl = requests.find(
 		(url) =>
@@ -607,15 +608,15 @@ test("预约历史 smoke 覆盖在线、全部和爽约范围", async () => {
 		.searchParams;
 	expect(query.get("patientId")).toBe("patient-001");
 	expect(query.has("scope")).toBe(false);
-	expect(query.get("startDate")).toBe("2026-05-17");
-	expect(query.get("endDate")).toBe("2026-11-13");
+	expect(query.get("startDate")).toBe("2026-05-31");
+	expect(query.get("endDate")).toBe("2026-12-01");
 	const missedQuery = new URL(
 		missedRecordsUrl ?? "https://hospital.example.test",
 	).searchParams;
 	expect(missedQuery.get("patientId")).toBe("patient-001");
 	expect(missedQuery.has("scope")).toBe(false);
-	expect(missedQuery.get("startDate")).toBe("2026-05-17");
-	expect(missedQuery.get("endDate")).toBe("2026-08-15");
+	expect(missedQuery.get("startDate")).toBe("2026-06-02");
+	expect(missedQuery.get("endDate")).toBe("2026-08-31");
 	const allQuery = new URL(allRecordsUrl ?? "https://hospital.example.test")
 		.searchParams;
 	expect(allQuery.get("patientId")).toBe("patient-001");

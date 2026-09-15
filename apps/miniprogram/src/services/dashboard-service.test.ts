@@ -41,14 +41,25 @@ import { getSessionGeneration } from "./session-generation";
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
 const BEIJING_MIDNIGHT = new Date("2026-08-14T16:00:00.000Z");
 
-test("预约历史查询使用中国标准时间前后各 90 天", () => {
+test("预约历史查询使用中国标准时间前后各三个月", () => {
 	expect(
 		createAppointmentRecordQuery("patient-internal-001", BEIJING_MIDNIGHT),
 	).toEqual({
 		patientId: "patient-internal-001",
 		scope: "online",
-		startDate: "2026-05-17",
-		endDate: "2026-11-13",
+		startDate: "2026-05-15",
+		endDate: "2026-11-15",
+	});
+});
+
+test("预约历史保留旧服务的月底日历月溢出语义", () => {
+	// 2026-08-31 Asia/Shanghai；旧页面 new Date(year, month ± 3, day)
+	// 的结果分别是 2026-05-31 和 2026-12-01。
+	const beijingMonthEnd = new Date("2026-08-30T16:00:00.000Z");
+
+	expect(createAppointmentRecordDateRange(beijingMonthEnd)).toEqual({
+		startDate: "2026-05-31",
+		endDate: "2026-12-01",
 	});
 });
 
@@ -1213,7 +1224,7 @@ test("历史和爽约窗口使用同一中国标准时间自然日基准", () =>
 
 	// 两个查询都必须以 2026-08-15 为今天；区别只能是业务窗口长度，
 	// 不能因为调用页面不同而落回设备或服务器本地时区。
-	expect(history.startDate).toBe("2026-05-17");
-	expect(history.endDate).toBe("2026-11-13");
+	expect(history.startDate).toBe("2026-05-15");
+	expect(history.endDate).toBe("2026-11-15");
 	expect(missed.endDate).toBe("2026-08-15");
 });

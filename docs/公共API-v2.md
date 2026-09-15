@@ -259,7 +259,7 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 服务端拒绝整批结果；没有预约号的摘要不会被服务端根据数组位置伪造业务 ID。
 
 预约历史有两个服务端拥有的读取范围：省略 `scope` 或传 `scope=online` 时使用旧端在线渠道，
-必须带起止日期，默认由小程序计算当前中国标准时间前后各 90 天；传 `scope=all` 时使用已核实的
+必须带起止日期，默认由小程序计算当前中国标准时间前后各三个月；传 `scope=all` 时使用已核实的
 完整历史渠道，不传日期，服务端不会把在线结果复制或拼接成全部记录。Provider 渠道码不进入公共
 请求参数，客户端只能选择这两个业务范围。
 
@@ -270,7 +270,7 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 返回的 `status=missed`，当前查询窗口为中国标准时间过去 90 天；`unknown`、空列表或 provider
 未返回不能被客户端推断为爽约。
 
-原生“我的挂号”调用该接口时使用当前中国标准时间日前后各 90 天，保证未来已预约记录
+原生“我的挂号”调用该接口时使用当前中国标准时间日前后各三个月，月底遵循旧服务日历月溢出语义，保证未来已预约记录
 不会因为只查询过去而静默消失；原生“爽约记录”调用同一接口时只使用过去 90 天，并且只筛选
 服务端明确返回的 `status=missed`。
 
@@ -416,7 +416,7 @@ OpenAPI 仍保留路由是为了冻结公共契约，不代表当前支付已经
 | `GET /api/v2/appointments/department-tree` | Provider `first-depts` 的受控一级/二级目录 | 保留 Provider 已给出的排序；一级 ID 和二级 ID 均必须唯一 | 左栏显示一级、右栏显示二级；不预读三级或医生 |
 | `GET /api/v2/appointments/clinic-departments` | 服务端先按 `parentDepartmentId` 回查一级/二级树，再以受控名称读取 `scheduling-depts` | 保留可预约门诊返回顺序；未知或过期二级 ID 不会退化为名称搜索 | 展开二级科室后显示蓝底三级门诊；选择三级门诊才读取医生和排班 |
 | `GET /api/v2/appointments/schedules` | 起止日期差值最多 31 天；当前小程序请求未来 7 天；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序；页面按 `workDate` 升序分组，同一天内保留返回顺序 | 右栏每次最多渲染 12 条；这是本地渲染分页，不减少 provider 请求量 |
-| `GET /api/v2/appointments/records` | `scope=online` 时起止日期差值最多 366 天；“我的挂号”请求当前日前后各 90 天，“爽约记录”请求过去 90 天；`scope=all` 不传日期；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取结果首批渲染 10 条，点击“加载更多”继续展示；这是本地渲染分批，不代表 provider 分页 |
+| `GET /api/v2/appointments/records` | `scope=online` 时起止日期差值最多 366 天；“我的挂号”请求当前日前后各三个月并遵循旧服务月底日历月溢出规则，“爽约记录”请求过去 90 天；`scope=all` 不传日期；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取结果首批渲染 10 条，点击“加载更多”继续展示；这是本地渲染分批，不代表 provider 分页 |
 | `GET /api/v2/reports` | 起止日期差值最多 366 天；当前小程序默认查询近 30 天，可用日期选择器调整；Provider `endDate` 包含规则待确认；每条返回摘要的 `reportedAt` 必须可解析且落在本次请求的首尾自然日内 | 服务端仅对通过时间窗口校验的结果按 `reportedAt` 时间倒序；同时间再按 `reportedAt`、`kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |
 | `GET /api/v2/inpatient/episodes` | 当前 owner 明确选择的患者；Provider 仅接收服务端 `his-patient` 引用映射出的 `patId`；费用、账单和支付不在查询范围 | 保留旧服务住院摘要顺序；未知住院/床位状态、重复项和未脱敏卡号整批拒绝 | 当前完整读取并按住院记录卡片展示，不宣称 Provider 分页 |
 | `GET /api/v2/payments/outpatient/records` | 服务端固定最近 30 个中国标准时间日 | 保留 provider adapter 返回顺序；金额和状态已在服务端映射 | 当前完整读取结果首批渲染 10 条，点击“加载更多缴费记录”继续展示；这是本地渲染分批，不代表支付或 provider 分页 |
