@@ -39,9 +39,18 @@ function requiredConfig(value: string): string {
 	return normalized;
 }
 
-function safeText(value: unknown, maxLength: number): string | undefined {
+function safeText(
+	value: unknown,
+	maxLength: number,
+	requestId: string,
+): string | undefined {
 	if (value === undefined || value === null || value === "") return undefined;
-	if (typeof value !== "string" && typeof value !== "number") return undefined;
+	if (typeof value !== "string" && typeof value !== "number") {
+		throw providerError(
+			"Zhongyang outpatient medical record display field was invalid",
+			requestId,
+		);
+	}
 	const normalized = String(value).trim();
 	if (
 		!normalized ||
@@ -51,7 +60,10 @@ function safeText(value: unknown, maxLength: number): string | undefined {
 			return code <= 0x1f || code === 0x7f;
 		})
 	) {
-		return undefined;
+		throw providerError(
+			"Zhongyang outpatient medical record display field was invalid",
+			requestId,
+		);
 	}
 	return normalized;
 }
@@ -133,6 +145,7 @@ function mapRecord(
 	const visitTime = safeText(
 		value.visitDate ?? value.visitTime ?? value.visitDateTime,
 		64,
+		requestId,
 	);
 	if (!visitTime) {
 		throw providerError(
@@ -140,14 +153,19 @@ function mapRecord(
 			requestId,
 		);
 	}
-	const departmentName = safeText(value.deptName, 128);
-	const doctorName = safeText(value.doctorName ?? value.docName, 128);
-	const hospitalName = safeText(value.hospitalName, 128);
-	const clinicTypeName = safeText(value.clinicTypeName, 128);
-	const chargeClassName = safeText(value.chargeClassName, 128);
+	const departmentName = safeText(value.deptName, 128, requestId);
+	const doctorName = safeText(
+		value.doctorName ?? value.docName,
+		128,
+		requestId,
+	);
+	const hospitalName = safeText(value.hospitalName, 128, requestId);
+	const clinicTypeName = safeText(value.clinicTypeName, 128, requestId);
+	const chargeClassName = safeText(value.chargeClassName, 128, requestId);
 	const diagnosis = safeText(
 		value.diagnosisName ?? value.diagnosis ?? value.diagnosisContent,
 		4096,
+		requestId,
 	);
 	return {
 		visitTime,

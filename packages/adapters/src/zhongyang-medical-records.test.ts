@@ -139,3 +139,40 @@ test("众阳门诊病历请求参数不完整时不触网", async () => {
 	).rejects.toBeInstanceOf(ProviderRequestError);
 	expect(fetchCalls).toBe(0);
 });
+
+test("众阳门诊病历拒绝可选展示字段的异常类型而不是静默丢弃", async () => {
+	const gateway = createZhongyangMedicalRecordGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							visitDate: "2026-08-28 09:30:00",
+							deptName: { value: "心内科" },
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "invalid-medical-record-field" },
+				},
+			),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-invalid-field",
+				query: { startDate: "2026-08-01", endDate: "2026-08-28" },
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "outpatient-medical-records",
+		requestId: "invalid-medical-record-field",
+		responseInvalid: true,
+	});
+});
