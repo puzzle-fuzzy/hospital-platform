@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 14 项、未完成 23 项。
-另按标题优先级统计未完成项为：P0 0、P1 18、P2 2、P3 3。
+当前 TODO 复选框总数为 37 项，其中已完成 15 项、未完成 22 项。
+另按标题优先级统计未完成项为：P0 0、P1 18、P2 1、P3 3。
 
 ## 当前机器事实
 
@@ -33,16 +33,15 @@
 | LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 通过 | 证明旧页面和迁移矩阵逐项可对照，不证明业务验收 |
 | pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
 | pnpm migration:fact:audit | 通过 | 当前文档事实已同步 64/47、partial=34、blocked-provider=0 和当前源码输入 revision |
-| pnpm --filter @hospital/miniprogram runtime:verify | 通过 | release dist sourceRevision=82d5e4213c4a419eb49420f244b377990adfec5e、pageCount=47、generatedAt=2026-09-15T18:11:51.048Z |
-| pnpm --filter @hospital/miniprogram runtime:verify:dev | 通过 | development sourceRevision=workspace-sha256:218cf023e2f58e438619c2152a4fd18757faa2e0a0d9212d0672002d1ff96986、baseSourceRevision=82d5e4213c4a419eb49420f244b377990adfec5e、pageCount=47、generatedAt=2026-09-15T18:11:56.176Z |
+| Node 24.12.0 显式环境下 `pnpm toolchain:audit`、小程序 build/runtime verify | 通过 | Bun=1.4.0、Node=24.12.0、pnpm=11.9.0；release sourceRevision=`cba13c71a74022b756144b9c7a61965cd542b1af`、development source 为当前工作树快照、两者 pageCount=47；详见 [`工具链复现记录-2026-09-16.md`](docs/发布/工具链复现记录-2026-09-16.md) |
 | pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
 | pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、37 个字面导航调用 |
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
 | pnpm clinical:contract:audit | 通过但保持关闭 | 门诊记录、住院信息、电子导诊单仍 contract-pending |
 | pnpm readonly:audit | 通过 | 6 个低风险业务域的结构闭环通过，不替代 Provider/真机证据 |
-| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 14、未完成 23；P0 已清零 |
+| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 15、未完成 22；P0 已清零 |
 
-仓库所有 pnpm 命令还报告 Node engine wanted 24.12.0、当前 v26.8.1。这是可复现性问题，不是业务已完成证据。
+默认 shell 下的 pnpm 命令仍报告 Node engine wanted 24.12.0、当前 v26.8.1；本轮已用显式 Node 24.12.0 完成工具链和小程序运行包复现。外部 Provider、DevTools、真机和生产证据仍不因本地复现而成立。
 
 ## 64 个旧页面逐项落点
 
@@ -179,9 +178,9 @@
 
 - [ ] P2-06 给已存在代码的低风险域补真实证据包：患者目录、普通资料、预约目录/历史、我的医生、报告目录、门诊摘要目前都有 TypeScript/API/测试落点，但 apps/api/src/index.ts:92-118,186-295 明确按配置状态 fail-closed。本轮已整理六个域的代码测试结果、当前 dist/source 候选漂移和待采集字段，见 [`P2-06低风险域证据包状态-2026-09-16.md`](docs/迁移/P2-06低风险域证据包状态-2026-09-16.md)；每个域仍需同一候选版本的客户端 requestId、服务端 requestId/traceId、Provider 结果摘要、空/拒绝/超时、会话切换和真机截图。没有真实证据时状态保持代码已实现/待实证。
 
-- [ ] P2-07 固定 Node/Bun/pnpm 运行环境并补发布复现记录：仓库声明和 CI 已统一为 Bun 1.4.0、Node 24.12.0、pnpm 11.9.0，`pnpm toolchain:audit` 通过；本机实际 Node 仍为 v26.8.1，且 dist 来源仍为旧候选 82d5。已记录 47 页、release/development 文件树 SHA-256、当前源码 revision、构建顺序和阻塞，见 [`工具链复现记录-2026-09-16.md`](docs/发布/工具链复现记录-2026-09-16.md)。待 Node 24.12.0 环境重新执行 build:dev/release、runtime:verify 并更新候选来源后再关闭，不把当前错误版本下的运行包当作复现完成。
+- [x] P2-07 固定 Node/Bun/pnpm 运行环境并补发布复现记录：仓库声明和 CI 已统一为 Bun 1.4.0、Node 24.12.0、pnpm 11.9.0；已显式使用机器上安装的 Node 24.12.0（默认 shell 仍为 v26.8.1）执行 `pnpm toolchain:audit`、`build:dev`、`runtime:verify:dev`、release `build` 和 `runtime:verify`，均通过。release/development 均为 47 页、453 个文件，release 来源为 `cba13c71a74022b756144b9c7a61965cd542b1af`，文件树指纹和构建输出见 [`工具链复现记录-2026-09-16.md`](docs/发布/工具链复现记录-2026-09-16.md)。本项完成的是本地工具链/运行包复现，不代表 DevTools、Provider、真机或生产验收完成；这些继续按独立证据包处理。
 
-- [x] P2-08 为 94 个小程序页面源文件建立按业务域的真机回归矩阵：已逐项覆盖 `app.json` 的 47 页及其 `.ts/.wxml` 源文件，区分 `代码具备/待实证`、`安全静态/关闭`、`写入前受控` 和范围排除；固定 S0-S9 场景覆盖登录/退出、无患者、换患者、会话失效、Provider 503、空列表、超时、页面返回和 `dist` 实际加载。矩阵见 [`小程序页面回归矩阵-2026-09-16.md`](docs/迁移/小程序页面回归矩阵-2026-09-16.md)，并明确临床、外部、患者绑定、报告附件的 `600` 受控证据边界。`pnpm miniprogram:navigation:audit`（47 页）、`pnpm miniprogram:patient-display:audit`（94 个源文件）和 `pnpm migration:breadth:audit` 均通过；但当前 dist 来源仍为 82d5、Node 仍为 v26.8.1，且没有本文候选的 DevTools/真机/Provider/生产同链证据，因此矩阵内业务行保持 pending，不把矩阵建立误写成业务验收完成。本轮未触碰支付/医保/收银台/费用页面或相关代码。
+- [x] P2-08 为 94 个小程序页面源文件建立按业务域的真机回归矩阵：已逐项覆盖 `app.json` 的 47 页及其 `.ts/.wxml` 源文件，区分 `代码具备/待实证`、`安全静态/关闭`、`写入前受控` 和范围排除；固定 S0-S9 场景覆盖登录/退出、无患者、换患者、会话失效、Provider 503、空列表、超时、页面返回和 `dist` 实际加载。矩阵见 [`小程序页面回归矩阵-2026-09-16.md`](docs/迁移/小程序页面回归矩阵-2026-09-16.md)，并明确临床、外部、患者绑定、报告附件的 `600` 受控证据边界。`pnpm miniprogram:navigation:audit`（47 页）、`pnpm miniprogram:patient-display:audit`（94 个源文件）和 `pnpm migration:breadth:audit` 均通过；本次已用 Node 24.12.0 重建当前运行输入对应的 dist，release 来源为 `cba13c71`，但仍没有本文候选的 DevTools/真机/Provider/生产同链证据，因此矩阵内业务行保持 pending，不把矩阵建立或运行包复现误写成业务验收完成。本轮未触碰支付/医保/收银台/费用页面或相关代码。
 
 - [x] P2-09 复核健康知识中的 `knowledge_tips`：二次核对确认旧 Python 确实存在 `knowledge_tips` 表和认证后的 `GET /knowledge/tips/{id}`，字段为 `id/title/content/status`，见旧服务 `/Users/yxswy/Documents/GitHub/hospital/app/api/v1/module_knowledge/tips/model.py:11-21`、`controller.py:13-29`；但旧小程序“指标解读”实际在 `hospital-app/src/pagesB/health/health_test.vue:154-271` 使用 10 项本地硬编码内容，没有发现调用该接口，不能把两个对象强行关联。新端导出器仍在 `packages/persistence/scripts/health-knowledge-source-export.ts:91-99,516` 将其列为 `ignoredLegacySources`，bundle/API 没有 `tip` 类型或路由。结论、数据范围/内容责任/临床审核/版本发布阻塞和未来输入已记录在 [`健康贴士来源与范围复核-2026-09-16.md`](docs/迁移/健康贴士来源与范围复核-2026-09-16.md)；在取得真实使用关系、脱敏数据指纹、责任人、审核和撤回 contract 前不实现、不导入、不塞入疾病/药品正文，也不因此开放健康内容。
 
