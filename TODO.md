@@ -32,7 +32,7 @@
 | --- | --- | --- |
 | LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 通过 | 证明旧页面和迁移矩阵逐项可对照，不证明业务验收 |
 | pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
-| pnpm migration:fact:audit | 待提交后重跑 | 当前住院页面已从 `surface-only` 进入 `partial`；提交后同步 64/47、partial=35、surface-only=17 和当前源码输入 revision |
+| pnpm migration:fact:audit | 通过 | 当前住院页面已从 `surface-only` 进入 `partial`；已同步 64/47、partial=35、surface-only=17 和当前源码输入 revision |
 | Node 24.12.0 显式环境下 `pnpm toolchain:audit`、小程序 build/runtime verify | 通过 | Bun=1.4.0、Node=24.12.0、pnpm=11.9.0；release sourceRevision=`cba13c71a74022b756144b9c7a61965cd542b1af`、development source 为当前工作树快照、两者 pageCount=47；详见 [`工具链复现记录-2026-09-16.md`](docs/发布/工具链复现记录-2026-09-16.md) |
 | pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
 | pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、37 个字面导航调用 |
@@ -98,11 +98,11 @@
 
 ### P0 发布事实文档不能继续引用旧候选
 
-- [x] P0-03 更新 docs/发布/广度优先页面覆盖-2026-08-25.md:1-10 以及引用同一数字的迁移就绪报告/旧页面矩阵：统一写入当前 64 个旧页面、47 个原生页面、partial=34、blocked-provider=0 和源码 revision 82d5e4213c4a419eb49420f244b377990adfec5e；`pnpm migration:fact:audit` 已通过，入口覆盖仍明确不等于业务完成。
+- [x] P0-03 更新 docs/发布/广度优先页面覆盖-2026-08-25.md:1-10 以及引用同一数字的迁移就绪报告/旧页面矩阵：统一写入当前 64 个旧页面、47 个原生页面、partial=35、blocked-provider=0 和当前小程序源码运行输入 revision `fc632b1d6aecb29c101c020fad84897efc673544`；`pnpm migration:fact:audit` 已通过，入口覆盖仍明确不等于业务完成。
 
 ### P0 DevTools 实际运行包必须和当前源码一致
 
-- [x] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；本次预约历史标签范围修正后 development 与 release 均重新生成并校验 47 页运行包，release sourceRevision=`82d5e4213c4a419eb49420f244b377990adfec5e`、generatedAt=`2026-09-15T18:11:51.048Z`，development snapshot=`workspace-sha256:218cf023e2f58e438619c2152a4fd18757faa2e0a0d9212d0672002d1ff96986`、baseSourceRevision=`82d5e4213c4a419eb49420f244b377990adfec5e`；确认 project.config.json 继续指向 dist/。
+- [x] P0-04 在修改任何开放状态前，执行 `pnpm --filter @hospital/miniprogram build:dev` 和 release build，分别通过 `runtime:verify:dev`、`runtime:verify`；最近一次已验证的 development 与 release 运行包均为 47 页，release sourceRevision=`cba13c71a74022b756144b9c7a61965cd542b1af`、generatedAt=`2026-09-15T19:28:46.660Z`，development snapshot=`workspace-sha256:0d85ea72c0b1518dcdff49d87a0c0ef076e4fc529735ae9430f94573b9dd3eaa`、baseSourceRevision=`cba13c71a74022b756144b9c7a61965cd542b1af`；当前住院候选源码为后续 `fc632b1d6aecb29c101c020fad84897efc673544`，尚未用该候选重建运行包，因此不能把本次运行包当作住院候选的 DevTools/真机证据；确认 `project.config.json` 继续指向 `dist/`。
 
 ### P0 状态语义要统一为“安全子集/关闭态/待实证”
 
