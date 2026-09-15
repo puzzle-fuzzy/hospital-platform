@@ -13,9 +13,10 @@ import type {
  * 医保订单域（F 批次）。
  *
  * 事实模型对应旧链路：6201 费用上传发放 payOrdId/payToken，6202 下单返回
- * ordStas 与四项金额，6301 查单/6302 回调提供终态证据。payToken/revsToken
- * 是 provider 凭证：只允许在 adapter→持久化窄边界内出现，落库仅存 SHA-256，
- * 日志、outbox 与小程序响应禁止原文。
+ * ordStas 与四项金额，6301 查单/6302 回调提供终态证据。payToken 是 provider
+ * 凭证：只允许在 adapter→持久化窄边界内出现，落库仅存 SHA-256，日志、outbox
+ * 与小程序响应禁止原文。历史版本遗留的 revsToken 哈希列保持 nullable，仅为兼容
+ * 已有数据库结构，不属于 V2.2.5 当前支付协议。
  */
 
 export type MedicalInsuranceOrderStatus =
@@ -485,7 +486,6 @@ export type MedicalInsuranceSettlementNotification = {
 	deposit?: number;
 	delvFee?: number;
 	setlType: "ALL" | "CASH" | "HI";
-	revsToken: string;
 };
 
 export class InvalidMedicalInsuranceNotificationError extends Error {
@@ -578,7 +578,6 @@ export function normalizeMedicalInsuranceSettlementNotification(
 		...(deposit === undefined ? {} : { deposit }),
 		...(delvFee === undefined ? {} : { delvFee }),
 		setlType: setlTypeRaw,
-		revsToken: text("revsToken", 64),
 	};
 	if (notification.callType !== "02") {
 		throw new InvalidMedicalInsuranceNotificationError(

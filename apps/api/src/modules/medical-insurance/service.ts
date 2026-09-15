@@ -124,8 +124,9 @@ export class MedicalInsuranceNotificationService {
 						: { deliveryFeeFen: notification.delvFee }),
 				},
 				setlType: notification.setlType,
-				revsTokenHash: sha256Short(notification.revsToken),
-				revsTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+				// V2.2.5 的 6302 入参没有 revsToken；历史 nullable 列不再生成或续期凭证。
+				revsTokenHash: null,
+				revsTokenExpiresAt: null,
 			},
 		);
 		if (!updated) {

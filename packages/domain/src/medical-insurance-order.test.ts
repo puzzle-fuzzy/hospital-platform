@@ -170,7 +170,6 @@ describe("6302 结算通知归一化", () => {
 			psnAcctPay: 20,
 			fundPay: 50,
 			setlType: "ALL",
-			revsToken: "REV-1",
 		});
 		expect(notification.feeSumamt).toBe(10001);
 		expect(notification.ownPayAmt).toBe(3001);
@@ -186,7 +185,6 @@ describe("6302 结算通知归一化", () => {
 				psnAcctPay: "6.00",
 				fundPay: "0",
 				setlType: "ALL",
-				revsToken: "R",
 			}),
 		).toThrow();
 		expect(() =>
@@ -200,7 +198,6 @@ describe("6302 结算通知归一化", () => {
 				psnAcctPay: "0",
 				fundPay: "1.00",
 				setlType: "HI",
-				revsToken: "R",
 			}),
 		).toThrow();
 	});
@@ -222,7 +219,6 @@ describe("6302 结算通知归一化", () => {
 			psnAcctPay: "0.40",
 			fundPay: "0.60",
 			setlType: "ALL",
-			revsToken: "R",
 		});
 		expect(medicalInsuranceStatusForNotification(full, amounts)).toBe(
 			"cash_pending",
@@ -245,7 +241,6 @@ describe("6302 结算通知归一化", () => {
 			psnAcctPay: "0.20",
 			fundPay: "0.50",
 			setlType: "ALL",
-			revsToken: "R",
 		});
 		expect(medicalInsuranceStatusForNotification(withCash, null)).toBe(
 			"cash_pending",

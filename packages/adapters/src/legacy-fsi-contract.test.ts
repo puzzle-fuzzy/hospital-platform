@@ -205,7 +205,6 @@ test("6202 and 6301 make settlement decomposition authoritative", () => {
 					callType: "02",
 					medOrgOrd: "med-order-001",
 					traceTime: "20260815000000",
-					revsToken: "reversal-token-001",
 				},
 			},
 			"pay-order-001",
@@ -243,7 +242,7 @@ test("6301 keeps intermediate statuses separate from final settlement evidence",
 	).toThrow(LegacyFsiContractError);
 });
 
-test("6301 accepts a completed settlement when the optional reversal token is omitted", () => {
+test("6301 accepts a completed settlement without an unsupported reversal token", () => {
 	const result = validate6301QueryResult(
 		{
 			data: {

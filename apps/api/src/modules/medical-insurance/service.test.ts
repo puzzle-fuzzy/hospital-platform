@@ -83,13 +83,14 @@ describe("医保 6302 结算通知", () => {
 			psnAcctPay: "0.40",
 			fundPay: "0.60",
 			setlType: "ALL",
-			revsToken: "REV-001",
 		});
 		const ack = await service.receive({ payload: sealed, context });
 		expect(ack.success).toBeTrue();
 		const updated = await repo.findByPayOrdId("PO-001");
 		expect(updated?.status).toBe("cash_pending");
 		expect(updated?.version).toBe(2);
+		expect(updated?.revsTokenHash).toBeNull();
+		expect(updated?.revsTokenExpiresAt).toBeNull();
 	});
 
 	test("有自费差额推进到 cash_pending", async () => {
@@ -114,7 +115,6 @@ describe("医保 6302 结算通知", () => {
 			psnAcctPay: "0.20",
 			fundPay: "0.50",
 			setlType: "ALL",
-			revsToken: "REV",
 		});
 		const ack = await service.receive({ payload: sealed, context });
 		expect(ack.success).toBeTrue();
@@ -134,7 +134,6 @@ describe("医保 6302 结算通知", () => {
 			psnAcctPay: "4.00",
 			fundPay: "5.99",
 			setlType: "ALL",
-			revsToken: "REV",
 		});
 		await service.receive({ payload: sealed, context });
 		expect((await repo.findByPayOrdId("PO-001"))?.status).toBe(
@@ -154,7 +153,6 @@ describe("医保 6302 结算通知", () => {
 			psnAcctPay: "1.00",
 			fundPay: "0",
 			setlType: "HI",
-			revsToken: "R",
 		});
 		const ack = await service.receive({ payload: sealed, context });
 		expect(ack.success).toBeFalse();
@@ -173,7 +171,6 @@ describe("医保 6302 结算通知", () => {
 			psnAcctPay: "0.40",
 			fundPay: "0.60",
 			setlType: "ALL",
-			revsToken: "R",
 		});
 		const tampered = { ...sealed, signData: `XX${sealed.signData.slice(2)}` };
 		await expect(

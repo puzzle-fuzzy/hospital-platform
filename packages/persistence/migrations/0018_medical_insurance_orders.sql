@@ -1,5 +1,6 @@
 -- 医保订单域（F 批次）：6201/6202/6301/6302 的事实聚合与查单任务。
--- payToken/revsToken 只保存 SHA-256 指纹；金额一律分；终态语义见 domain 状态机。
+-- payToken 只保存 SHA-256 指纹；历史 revsToken 列仅为数据库兼容而保留且不再写入；
+-- 金额一律分；终态语义见 domain 状态机。
 CREATE TABLE IF NOT EXISTS hp_medical_insurance_orders (
 	medical_order_id VARCHAR(64) NOT NULL,
 	owner_user_id VARCHAR(64) NOT NULL,
@@ -16,8 +17,8 @@ CREATE TABLE IF NOT EXISTS hp_medical_insurance_orders (
 	personal_account_fen BIGINT UNSIGNED NOT NULL DEFAULT 0,
 	fund_fen BIGINT UNSIGNED NOT NULL DEFAULT 0,
 	setl_type VARCHAR(8) NULL COMMENT 'ALL/CASH/HI',
-	revs_token_hash CHAR(64) NULL,
-	revs_token_expires_at DATETIME(3) NULL COMMENT '冲正授权 1 小时窗口',
+	revs_token_hash CHAR(64) NULL COMMENT '历史兼容列，当前 V2.2.5 不使用',
+	revs_token_expires_at DATETIME(3) NULL COMMENT '历史兼容列，当前 V2.2.5 不使用',
 	last_error VARCHAR(512) NULL,
 	version INT UNSIGNED NOT NULL,
 	created_at DATETIME(3) NOT NULL,

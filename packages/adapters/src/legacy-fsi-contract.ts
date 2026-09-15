@@ -443,16 +443,6 @@ export function validate6301Settlement(
 	for (const fieldName of ["callType", "medOrgOrd", "traceTime"]) {
 		requiredText(payload, fieldName, infno);
 	}
-	// 6301 的真实查单回包可能没有 revsToken。它是后续冲正/退费使用的
-	// 可选凭证，不应阻断当前支付结算事实（ordStas、金额）的解析；
-	// 如果上游返回该字段，仍校验其类型，避免静默接受错误结构。
-	if (
-		payload.revsToken !== undefined &&
-		payload.revsToken !== null &&
-		payload.revsToken !== ""
-	) {
-		requiredText(payload, "revsToken", infno);
-	}
 	return settlement;
 }
 
