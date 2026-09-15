@@ -115,8 +115,9 @@ page {
 
 /* 扩大授权提示的可点击区域，避免用户必须精准点中文字才触发微信弹窗。 */
 .profile-auth-action {
-	margin-top: 10rpx;
-	padding: 8rpx 12rpx;
+	/* 让昵称与授权提示保持紧凑，同时保留足够的点击热区。 */
+	margin-top: 0;
+	padding: 4rpx 12rpx;
 	margin-left: -12rpx;
 	border-radius: 10rpx;
 }
