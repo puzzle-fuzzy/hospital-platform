@@ -9,7 +9,7 @@ import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
  * 广度迁移边界审计。
  *
  * 旧端页面必须先全部有明确落点，但临床、患者绑定、外部会话和支付入口
- * 不能为了增加“已迁移”数量而猜测 Provider 协议。这个工具把当前已经
+	 * 不能为了增加“已完成”数量而猜测 Provider 协议。这个工具把当前已经
  * 识别出的高风险页面逐一绑定到 feature-status、固定 FeatureKey 或明确的
  * `surface-only` 页面外壳，后续若有人新增路由或把占位页改成半成品，提交门禁会立即提醒。
  *
@@ -70,7 +70,8 @@ const requiredCommonMaterials = new Set([
 const legacyStatusByReadiness = new Map([
 	["待 provider contract", "blocked-provider"],
 	["待临床审核", "blocked-clinical"],
-	["全量替换进行中", "partial"],
+	["代码已实现，待实证", "partial"],
+	["待支付与回写 contract", "partial"],
 	["待患者绑定 contract", "blocked-patient-contract"],
 	["待外部入口 contract", "blocked-external"],
 ]);
@@ -204,7 +205,7 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			}
 			continue;
 		}
-		// 页面外壳已经迁移，但真实读取仍关闭。它必须明确标记为
+		// 页面外壳已经有安全落点，但真实读取仍关闭。它必须明确标记为
 		// surface-only；只有 gate 显式列出的安全子集才允许是 partial，
 		// 不能因为同一页面还存在未确认能力就整体宣称已完成。
 		if (gate.safeSurfaceTarget) {
@@ -364,11 +365,9 @@ for await (const file of miniprogramGlob.scan({
 for (const gate of FROZEN_DOMAIN_GATES) {
 	const failureCount = gateFailureCounts.get(gate.name) ?? 1;
 	const targetDescription = gate.safeReadOnlyTarget
-		? `${gate.safeReadOnlyTarget}（安全只读入口已迁移，独立写入能力仍按 contract 管理）`
+		? `${gate.safeReadOnlyTarget}（${gate.readiness}；独立写入能力仍按 contract 管理）`
 		: gate.safeSurfaceTarget
-			? gate.readiness === "读写已实现"
-				? `${gate.safeSurfaceTarget}（普通读写已迁移，剩余支付分支按独立 contract 管理）`
-				: `${gate.safeSurfaceTarget}（页面外壳/安全子集已迁移，真实 contract 仍关闭）`
+			? `${gate.safeSurfaceTarget}（${gate.readiness}；真实 contract 仍关闭）`
 			: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;
 	console.log(
 		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧页面 + ${(gate.legacyActions ?? []).length} 个 action-only 入口 -> ${targetDescription}`,

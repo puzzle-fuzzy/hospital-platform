@@ -144,7 +144,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "inpatient-payment",
 		name: "住院支付",
 		featureKey: "inpatient-payment",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/health/inpatient_payment.vue"],
 		safeSurfaceTarget: "pages/feature-status/feature-status",
@@ -167,7 +167,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "insurance",
 		name: "医保电子凭证与挂号医保支付",
 		featureKey: "insurance",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		contractFamily: "payment-write",
 		legacyPaths: [
 			"pagesB/health/medical_insurance_pay.vue",
@@ -203,7 +203,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "smart-guide",
 		name: "智能导诊",
 		featureKey: "guide",
-		readiness: "全量替换进行中",
+		readiness: "代码已实现，待实证",
 		contractFamily: "external-session",
 		legacyPaths: [],
 		safeSurfaceTarget: "pages/smart-guide/smart-guide",
@@ -311,9 +311,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "patient-binding",
 		name: "患者新增绑定",
 		featureKey: "patient-binding",
-		// 运行目录和页面已经标记为读写已实现；这里同步代码事实，真实
-		// Provider/真机验收仍由 requiredMaterials 与发布记录单独约束。
-		readiness: "读写已实现",
+		// 运行目录和页面只代表代码链路已具备；真实 Provider/真机验收仍由
+		// requiredMaterials 与发布记录单独约束。
+		readiness: "代码已实现，待实证",
 		contractFamily: "patient-write",
 		legacyPaths: ["pagesB/patient/patientAdd.vue"],
 		safeSurfaceTarget: "pages/patient-binding/patient-binding",
@@ -509,7 +509,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "appointment-detail",
 		name: "挂号详情",
 		featureKey: "appointment-detail",
-		readiness: "已迁移",
+		readiness: "代码已实现，待实证",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/hospital/registration_detail.vue"],
 		// 详情读取和平台预约引用校验已完成；取消预约是独立的本地写入
@@ -530,7 +530,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "appointment-write",
 		name: "预约下单",
 		featureKey: "appointment-write",
-		readiness: "读写已实现",
+		readiness: "代码已实现，待实证",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/hospital/confirm_registration.vue"],
 		// 普通预约写入和挂号自费支付已经进入原生流程；医保/混合支付、
@@ -571,7 +571,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "cashier",
 		name: "支付收银台",
 		featureKey: "cashier",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/health/payment_cashier.vue"],
 		legacyActions: [],
@@ -593,7 +593,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "electronic-bill",
 		name: "电子账单",
 		featureKey: "electronic-bill",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/health/electronic_bill.vue"],
 		legacyActions: [],
@@ -745,7 +745,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "outpatient-payment-write",
 		name: "门诊缴费",
 		featureKey: "outpatient-payment-write",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		contractFamily: "payment-write",
 		// 旧门诊缴费页同时承载费用列表和支付入口；新端只迁移了列表
 		// 安全子集，支付 action 已明确移除，因此由同一个旧页面作为

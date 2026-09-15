@@ -54,10 +54,7 @@ export type FeatureStatus = {
 	 * 按域批量替换，不会把医疗审核、支付回写和普通 provider 读取混成一类。
 	 */
 	readiness:
-		| "已迁移"
-		| "读写已实现"
 		| "已接入安全子集"
-		| "全量替换进行中"
 		| "代码已实现，待实证"
 		| "待 provider contract"
 		| "待临床审核"
@@ -104,7 +101,6 @@ export function getFeatureUserFacingCopy(
 					"我们正在完成内容版本、适用范围和安全检查，开放后会及时更新。",
 			};
 		case "待支付与回写 contract":
-		case "全量替换进行中":
 			return {
 				badge: "支付服务准备中",
 				description: `${feature.title}涉及支付或结算，当前暂时无法使用。`,
@@ -118,9 +114,9 @@ export function getFeatureUserFacingCopy(
 			};
 		case "代码已实现，待实证":
 			return {
-				badge: "服务联调中",
-				description: `${feature.title}已接入医院服务，本次数据暂时无法打开。`,
-				progress: "请返回列表重新查询；我们正在完成真实环境和设备验证。",
+				badge: "代码已具备，待实证",
+				description: `${feature.title}的代码链路已具备，本次不展示未经真实验收的业务结果。`,
+				progress: "还需完成真实环境、权限和设备验证后再开放。",
 			};
 		case "待外部入口 contract":
 			return {
@@ -137,16 +133,9 @@ export function getFeatureUserFacingCopy(
 			};
 		case "已接入安全子集":
 			return {
-				badge: "部分服务已接入",
+				badge: "安全子集已接入",
 				description: `${feature.title}已接入受控的只读服务。`,
 				progress: "当前仅展示已核对信息，未开放的支付或扩展能力不会被调用。",
-			};
-		case "已迁移":
-		case "读写已实现":
-			return {
-				badge: "服务已接入",
-				description: `${feature.title}已接入平台服务。`,
-				progress: "可直接查看服务端返回的受控信息。",
 			};
 	}
 }
@@ -168,18 +157,18 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"appointment-detail": {
 		title: "挂号详情",
-		readiness: "已迁移",
+		readiness: "代码已实现，待实证",
 		description:
-			"挂号详情已接入平台服务，可查看预约信息、就诊人和预约状态，并完成微信支付。",
+			"挂号详情代码链路已具备，可查看受控的预约信息、就诊人和预约状态；支付动作按独立流程处理。",
 		contractHint:
 			"详情引用、患者归属、状态映射和敏感字段白名单已由服务端校验；微信支付金额和订单由服务端生成并查单确认。",
 		icon: "/assets/legacy-user/appointment-status.svg",
 	},
 	"appointment-write": {
 		title: "预约下单",
-		readiness: "读写已实现",
+		readiness: "代码已实现，待实证",
 		description:
-			"预约下单已接入服务端占位、预约写入、挂号详情、医保支付、微信支付和取消。",
+			"预约下单的代码链路已具备；支付、医保和 HIS 回写按独立流程处理，真实业务结果仍待实证。",
 		contractHint:
 			"小程序只提交 opaque 排班、号源和就诊人引用；支付金额、医保订单、微信调起参数和最终回写由服务端生成并查单确认。",
 		icon: "/assets/legacy-home/service-registration.svg",
@@ -193,7 +182,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	cashier: {
 		title: "支付收银台",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		description: "收银台正在迁移中，当前不会打开旧端 WebView 或任意外部地址。",
 		contractHint:
 			"等待 HTTPS allowlist、订单 owner、回调、查单和失败回退规则确认。",
@@ -224,8 +213,8 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	doctor: {
 		title: "我的医生",
-		readiness: "已迁移",
-		description: "我的医生列表、医生名片、关注关系和未来排班已接入平台服务。",
+		readiness: "代码已实现，待实证",
+		description: "我的医生列表、医生名片、关注关系和未来排班的代码链路已具备，真实数据仍待实证。",
 		contractHint: "关注关系按当前平台用户隔离，医生信息由服务端排班目录确认。",
 		icon: "/assets/legacy-user/doctor.svg",
 	},
@@ -245,7 +234,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"electronic-bill": {
 		title: "电子账单",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		description: "电子账单正在迁移中，当前不会展示未经引用校验的账单文件。",
 		contractHint:
 			"等待账单资源授权、金额单位、患者归属、短期链接和过期规则确认。",
@@ -256,7 +245,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		readiness: "待患者绑定 contract",
 		description: "协议原文已可查看；当前不会接受未确认版本的实名或授权操作。",
 		contractHint:
-			"阅读页已迁移，仍等待协议版本、展示主体、用户同意记录、撤回和审计规则确认。",
+			"阅读页代码已具备，仍等待协议版本、展示主体、用户同意记录、撤回和审计规则确认。",
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"patient-address": {
@@ -311,9 +300,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	guide: {
 		title: "智能导诊",
-		readiness: "全量替换进行中",
+		readiness: "代码已实现，待实证",
 		description:
-			"智能导诊已恢复文字、语音问答和科室推荐，可从推荐结果继续进入挂号。",
+			"智能导诊的文字、语音问答和科室推荐代码链路已具备，真实模型和语音结果仍待实证。",
 		contractHint:
 			"平台按当前用户隔离会话，不向小程序暴露旧服务凭证或旧会话标识；导诊结果不能替代医生诊断。",
 		icon: "/assets/legacy-home/right-guide.png",
@@ -350,14 +339,14 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"inpatient-payment": {
 		title: "住院预缴",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		description: "住院预缴正在迁移中，当前不会发起支付或医保授权。",
 		contractHint: "等待住院费用、金额单位、支付状态机、查单和回写规则确认。",
 		icon: "/assets/legacy-home/service-inpatient-payment.svg",
 	},
 	insurance: {
 		title: "医保支付",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		description: "医保支付流程需要独立授权和结算回写，当前按支付入口单独处理。",
 		contractHint: "等待医保授权、1101/6201/6202 等协议、查单和 HIS 回写验收。",
 		icon: "/assets/legacy-user/insurance.svg",
@@ -382,7 +371,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"outpatient-payment-write": {
 		title: "门诊缴费",
-		readiness: "全量替换进行中",
+		readiness: "待支付与回写 contract",
 		description:
 			"门诊缴费流程正在迁移中，当前不会创建订单或发起微信/医保支付。",
 		contractHint:
@@ -391,9 +380,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"patient-binding": {
 		title: "添加就诊人",
-		readiness: "读写已实现",
+		readiness: "代码已实现，待实证",
 		description:
-			"姓名、手机号和身份证号表单已接入，提交后由服务端直查众阳并完成患者档案关联。",
+			"姓名、手机号和身份证号表单的代码链路已具备，真实查档、建档、绑卡和患者档案关联仍待实证。",
 		contractHint:
 			"服务端负责旧服务授权、众阳查档、建档、绑卡、幂等和完成后的患者目录同步。",
 		icon: "/assets/legacy-home/service-patient.svg",
@@ -525,10 +514,11 @@ export const FEATURE_SURFACE_TARGETS: Readonly<
 	doctor: "/pages/my-doctor/my-doctor",
 	"electronic-consultation":
 		"/pages/electronic-consultation/electronic-consultation",
-	// 患者绑定已完成服务端准入，入口直接进入实名表单；旧服务 JWT 由 API
-	// 服务端换取并注入众阳请求上下文，小程序不会接触旧 JWT 或众阳地址。
+	// 患者绑定表单代码已具备，入口直接进入实名表单；真实服务端准入仍受
+	// Provider/真机证据约束。旧服务 JWT 由 API 服务端换取并注入众阳请求上下文，
+	// 小程序不会接触旧 JWT 或众阳地址。
 	"patient-binding": "/pages/patient-binding/patient-binding",
-	// 协议原文是已迁移的静态只读页面；查看协议不会写入同意状态，
+	// 协议原文是安全静态只读页面；查看协议不会写入同意状态，
 	// 也不会把“看过协议”误判为实名绑定或授权完成。
 	"patient-agreement": "/pages/patient-agreement/patient-agreement",
 	"patient-signature": "/pages/patient-signature/patient-signature",

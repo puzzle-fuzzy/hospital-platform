@@ -928,7 +928,7 @@ test("native patient selection routes to the live patient binding page", async (
 	expect(selection).toContain("onAddPatient");
 	expect(selection).toContain("navigateToFeatureEntry");
 	expect(selection).toContain('"patient-binding"');
-	expect(featureNavigation).toContain('readiness: "读写已实现"');
+	expect(featureNavigation).toContain('readiness: "代码已实现，待实证"');
 	expect(featureNavigation).toContain(
 		'"patient-binding": "/pages/patient-binding/patient-binding"',
 	);

@@ -40,7 +40,7 @@ describe("迁移入口覆盖聚合", () => {
 	test("健康自测只开放安全数值子集，不因多个旧入口共用 key 而误开放临床能力", () => {
 		const coverage = getFeatureMigrationCoverage("health-test");
 		expect(coverage.stage as MigrationCoverageStage).toBe("partial");
-		expect(coverage.stageLabel).toBe("已接入安全子集");
+		expect(coverage.stageLabel).toBe("安全子集已登记，待实证");
 		expect(coverage.feature.contractHint).toContain("临床审核");
 	});
 

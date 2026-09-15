@@ -149,7 +149,7 @@ describe("旧端页面全量迁移台账", () => {
 
 	test("智能导诊 action-only 入口迁为原生文字和语音会话", async () => {
 		expect(FEATURE_STATUS_CATALOG.guide).toMatchObject({
-			readiness: "全量替换进行中",
+			readiness: "代码已实现，待实证",
 		});
 		const pageWxml = await Bun.file(
 			new URL("../pages/smart-guide/smart-guide.wxml", import.meta.url),
@@ -216,6 +216,42 @@ describe("旧端页面全量迁移台账", () => {
 		expect(consultation.description).toContain("不会复制");
 		expect(consultation.contractHint).toContain("外部主体");
 		expect(consultation.contractHint).toContain("短期会话");
+	});
+
+	test("页面外壳、静态入口和代码链路不冒充业务已完成", () => {
+		const completionStatuses = new Set([
+			"已迁移",
+			"读写已实现",
+			"全量替换进行中",
+		]);
+
+		for (const feature of Object.values(FEATURE_STATUS_CATALOG)) {
+			expect(completionStatuses.has(feature.readiness)).toBe(false);
+		}
+		expect(getFeatureUserFacingCopy(FEATURE_STATUS_CATALOG.doctor)).toMatchObject({
+			badge: "代码已具备，待实证",
+		});
+		expect(
+			getFeatureUserFacingCopy(FEATURE_STATUS_CATALOG.doctor).description,
+		).toContain("未经真实验收");
+	});
+
+	test("当前页面台账只使用证据感知状态名称", async () => {
+		const ledger = await Bun.file(
+			new URL("../../../../docs/迁移/原生页面迁移状态.md", import.meta.url),
+		).text();
+
+		for (const deprecatedStatus of [
+			"静态已迁移",
+			"只读已实现",
+			"读写已实现",
+			"页面外壳已迁移",
+		]) {
+			expect(ledger).not.toContain(`| \`${deprecatedStatus}\` |`);
+		}
+		expect(ledger).toContain("安全静态子集");
+		expect(ledger).toContain("只读代码已具备，待实证");
+		expect(ledger).toContain("页面外壳与关闭态");
 	});
 
 	test("状态页面按业务分类提供用户文案，不泄漏内部门禁术语", () => {

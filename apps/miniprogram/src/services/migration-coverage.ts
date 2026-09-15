@@ -74,10 +74,10 @@ export type MigrationCoverage = {
 
 const STAGE_LABELS: Readonly<Record<MigrationCoverageStage, string>> =
 	Object.freeze({
-		"new-entry": "新端入口已接入",
-		replaced: "已接入原生页面",
-		partial: "已接入安全子集",
-		"surface-only": "页面外壳已迁移，业务仍关闭",
+		"new-entry": "新端入口已登记，业务待实证",
+		replaced: "原生落点已登记，业务待实证",
+		partial: "安全子集已登记，待实证",
+		"surface-only": "页面外壳与关闭态，业务仍关闭",
 		"blocked-provider": "等待 provider contract",
 		"blocked-clinical": "等待临床审核",
 		"blocked-payment": "等待支付与回写 contract",

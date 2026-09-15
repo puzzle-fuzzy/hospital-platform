@@ -7,7 +7,8 @@ import { FEATURE_STATUS_CATALOG, type FeatureKey } from "./feature-navigation";
  * 旧页面的全部功能已经完成；`blocked-*` 则表示入口已经有稳定状态页，
  * 但因为外部协议、临床审核或支付回写尚未确认，不能继续猜测实现。
  * `surface-only` 表示页面外壳和关闭态已经迁移，但真实业务读取仍未开放；
- * 它是入口覆盖阶段，不得计入 `replaced`。
+ * 它是入口覆盖阶段，不得计入 `replaced`。`replaced` 只表示旧入口已有
+ * 原生落点，不表示 Provider、真实数据、公网、真机或业务结果已经验收。
  */
 export type LegacyPageMigrationStatus =
 	| "replaced"
@@ -15,9 +16,7 @@ export type LegacyPageMigrationStatus =
 	| "blocked-provider"
 	| "blocked-clinical"
 	| "blocked-external"
-	| "partial"
 	| "blocked-patient-contract"
-	| "partial"
 	| "surface-only"
 	| "excluded";
 

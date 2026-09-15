@@ -693,7 +693,7 @@ Page<IndexPageData, IndexPageMethods>({
 				this.onLoadReports();
 				break;
 			case "medical-record":
-				// 报告目录不能冒充门诊病历；页面外壳已迁移，数据 contract 仍关闭。
+				// 报告目录不能冒充门诊病历；页面外壳与关闭态已登记，数据 contract 仍关闭。
 				navigateToFeatureEntry("medical-record");
 				break;
 			case "guide":
