@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 6 项、未完成 31 项。
-另按标题优先级统计未完成项为：P0 0、P1 19、P2 9、P3 3。
+当前 TODO 复选框总数为 37 项，其中已完成 7 项、未完成 30 项。
+另按标题优先级统计未完成项为：P0 0、P1 18、P2 9、P3 3。
 
 ## 当前机器事实
 
@@ -149,7 +149,7 @@
 
 - [ ] P1-15 分开处理风险评估、自测题库和结果（静态二次对照见 [`风险评估与健康自测对照审计-2026-09-16.md`](docs/迁移/风险评估与健康自测对照审计-2026-09-16.md)）：旧风险入口有跌倒/压力性损伤/疼痛 3 类表单，跌倒表单实际组装答案并调用 `createRiskAssessment`，见 `/Users/yxswy/Documents/GitHub/hospital/hospital-app/src/pagesB/health/risk_self_evaluation.vue:72-103`、`/Users/yxswy/Documents/GitHub/hospital/hospital-app/src/pagesB/health/risk_form_fall.vue:18-95,106-177,214-300`、`/Users/yxswy/Documents/GitHub/hospital/hospital-app/src/api/modules/health.ts:205-312`；旧 Python 服务按 `user_id + pat_id` 覆盖风险记录，见 `/Users/yxswy/Documents/GitHub/hospital/app/api/v1/module_convenience/risk_assessment/service.py:13-62`、`model.py:10-18`。旧健康自测入口展示 9 项，其中 7 项走题库、2 项走计算器，见 `/Users/yxswy/Documents/GitHub/hospital/hospital-app/src/pagesB/health/health_test.vue:79-151,258-290`；题目和评分实际来自 7 套 Python 配置，见 `/Users/yxswy/Documents/GitHub/hospital/app/api/v1/module_knowledge/selftest/config/list.py:1-35`、`controller.py:16-99`。新端风险页关闭，见 `apps/miniprogram/src/pages/risk-evaluation/risk-evaluation.ts:1-4`；健康自测只开放 `local-non-diagnostic-v1` 的 BMI/血压安全子集，见 `apps/miniprogram/src/pages/health-test/health-test.ts:39-43,88-124`、`apps/miniprogram/src/services/health-safe-calculators.ts:1-6,21-29`。题目 ID、答案范围、评分/结果区间、适用人群、免责声明、版本撤回、历史解释和隐私保留须先经临床确认，不能直接复制旧题库或旧覆盖写入。
 
-- [ ] P1-16 对 BMI/血压计算器做临床决策而非盲目照搬：旧矩阵明确指出旧 BMI 分类和血压阈值有版本差异，旧端规则不能自动升级为医学结论；新端只做 local-non-diagnostic-v1 的数值工具，见 apps/miniprogram/src/pages/health-test/health-test.ts:39-43,88-124 和 apps/miniprogram/src/services/health-safe-calculators.ts:1-6,21-29。若业务只需要参考计算，保留当前非诊断实现并补 golden cases/免责声明；若需要分级或建议，必须走独立临床规则 contract，禁止把计算结果存入病历、报告或风险记录。
+- [x] P1-16 收口 BMI/血压计算器的安全参考范围（静态二次对照见 [`健康计算器安全子集审计-2026-09-16.md`](docs/迁移/健康计算器安全子集审计-2026-09-16.md)）：旧 BMI 分类/WHO-亚洲-中国参考表和血压分级/“1998 年标准”存在多套规则与适用范围缺口，见 `/Users/yxswy/Documents/GitHub/hospital/hospital-app/src/pagesB/health/bmi_calc.vue:80-145`、`blood_pressure_calc.vue:80-181`；新端明确只做 `local-non-diagnostic-v1` 的 BMI 公式和血压读数校验，见 `apps/miniprogram/src/pages/health-test/health-test.ts:39-43,88-124`、`apps/miniprogram/src/services/health-safe-calculators.ts:1-6,10-18,46-115`，本轮补齐公式/范围/golden cases 和临床字段隔离测试。参考计算子集已完成；临床分级、危险值提示或建议如未来需要，必须另行冻结临床规则 contract，禁止把结果写入病历、报告或风险记录。
 
 ### P1 便民服务和外部能力
 

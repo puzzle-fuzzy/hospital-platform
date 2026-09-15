@@ -27,6 +27,19 @@ describe("健康自测安全数值工具", () => {
 		expect(calculateBmi(170, 301)).toBeNull();
 	});
 
+	test("BMI 工程范围边界保持可复核的公式结果", () => {
+		expect(calculateBmi(50, 10)).toMatchObject({
+			ruleSetVersion: HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
+			bmi: 40,
+			display: "40.0",
+		});
+		expect(calculateBmi(250, 300)).toMatchObject({
+			ruleSetVersion: HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
+			bmi: 48,
+			display: "48.0",
+		});
+	});
+
 	test("血压只记录有效读数，不推断正常或异常", () => {
 		const result = recordBloodPressure(120, 80);
 
@@ -43,5 +56,17 @@ describe("健康自测安全数值工具", () => {
 		expect(recordBloodPressure(80, 120)).toBeNull();
 		expect(recordBloodPressure(49, 30)).toBeNull();
 		expect(recordBloodPressure(301, 80)).toBeNull();
+		expect(recordBloodPressure(120, 120)).toBeNull();
+	});
+
+	test("血压工程范围边界只返回读数和规则版本", () => {
+		expect(recordBloodPressure(50, 30)).toMatchObject({
+			ruleSetVersion: HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
+			display: "50/30 mmHg",
+		});
+		expect(recordBloodPressure(300, 200)).toMatchObject({
+			ruleSetVersion: HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
+			display: "300/200 mmHg",
+		});
 	});
 });
