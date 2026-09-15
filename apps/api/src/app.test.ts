@@ -30,7 +30,10 @@ import {
 	createInMemoryWechatPaymentNotificationRepository,
 } from "@hospital/persistence";
 import { createApp } from "./app";
-import { createDefaultApplicationServices } from "./application";
+import {
+	type ApplicationServices,
+	createDefaultApplicationServices,
+} from "./application";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AppointmentService } from "./modules/appointments";
 import {
@@ -137,7 +140,9 @@ test("独立 Admin 1101 路由位于新服务 v1 命名空间且先校验服务�
 	const app = createApp({
 		services: {
 			...base,
-			adminInsuranceQuery: { query: async () => ({ infcode: "0" }) },
+			adminInsuranceQuery: {
+				query: async () => ({ infcode: "0" }),
+			} as unknown as NonNullable<ApplicationServices["adminInsuranceQuery"]>,
 		},
 		adminQueryToken: "admin-query-test-token",
 	});
