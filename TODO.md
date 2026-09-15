@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 18 项、未完成 19 项。
-另按标题优先级统计未完成项为：P0 0、P1 18、P2 1、P3 0。
+当前 TODO 复选框总数为 37 项，其中已完成 19 项、未完成 18 项。
+另按标题优先级统计未完成项为：P0 0、P1 17、P2 1、P3 0。
 
 ## 当前机器事实
 
@@ -39,7 +39,7 @@
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
 | pnpm clinical:contract:audit | 通过但保持关闭 | 门诊记录、住院信息、电子导诊单仍 contract-pending |
 | pnpm readonly:audit | 通过 | 6 个低风险业务域的结构闭环通过，不替代 Provider/真机证据 |
-| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 18、未完成 19；P0 已清零 |
+| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 19、未完成 18；P0 已清零 |
 
 默认 shell 下的 pnpm 命令仍报告 Node engine wanted 24.12.0、当前 v26.8.1；本轮已用显式 Node 24.12.0 完成工具链和小程序运行包复现。外部 Provider、DevTools、真机和生产证据仍不因本地复现而成立。
 
@@ -114,7 +114,7 @@
 
 - [ ] P1-01 完成患者绑定的真实环境验收，不重新设计功能：当前小程序已经从 apps/miniprogram/src/pages/patient-binding/patient-binding.ts:130-163 调用 bindPatientToHospital，API 在 apps/api/src/modules/patients/index.ts:31-96，服务端按查档→建档→绑卡→同步执行，见 apps/api/src/modules/patients/binding-service.ts:220-309 和 packages/adapters/src/zhongyang-patient-binding.ts:205-295。对照旧服务 `hospital-app/src/api/modules/ZY.ts:17-75`、`hospital-app/src/pagesB/patient/patientAdd.vue:81-111,199-256` 已静态确认：身份证派生 birthDate/sex 与旧逻辑一致；新端不再照搬旧端“查档异常即建档”、固定 `cardType=3` 或“身份证号当 cardNo”，而是要求 provider 返回真实 `cardNo`，并保持服务端 owner 隔离、幂等键、查档/建档/绑卡 requestId 和目录同步。新增 fail-closed 规则见 `packages/config/src/index.ts:568-603`：患者绑定还必须配置 HTTPS `LEGACY_PATIENT_AUTH_BASE_URL`，以旧服务用户 JWT/unionId 证明当前 owner，不能用静态众阳 token 代替。2026-09-16 又补齐了绑卡成功后“首次目录确认失败”的安全重试，见 `apps/api/src/modules/patients/binding-service.ts:183-220` 及其测试；重试只读目录，不重复建档/绑卡。本次二次验证记录在 `docs/迁移/患者绑定真实验收复核-2026-09-16.md`，并重新执行绑定服务/Provider adapter 7 项测试（7 pass、0 fail）。当前仍缺当前机构 cardType 字典值、2.1.52 患者自助授权、查档无记录/重复/超时、建档后绑卡失败补偿/最终查询及真实 Provider/真机响应；因此此项保持未完成和关闭。
 
-- [ ] P1-02 补齐患者协议的真实同意、版本、撤回和审计 contract；旧端只有静态 agreement 页面，新端 apps/miniprogram/src/pages/patient-agreement/patient-agreement.ts:1-12 也明确不记录同意。二次对照复核见 `docs/迁移/患者协议同意对照复核-2026-09-16.md`：绑定页的布尔 `consent` 只是当前请求准入字段，不能替代版本化同意记录。只在确认患者绑定/实名业务确实需要时实现，不能把查看原文或勾选状态当作授权。
+- [x] P1-02 完成患者协议旧服务行为核对并收口为只读迁移：旧端只有静态 agreement 页面，新端 `apps/miniprogram/src/pages/patient-agreement/patient-agreement.ts:1-12` 已覆盖原文展示且明确不记录同意。二次对照复核见 `docs/迁移/患者协议同意对照复核-2026-09-16.md`；旧服务没有可迁移的协议版本、同意主体、撤回或审计接口，绑定页布尔 `consent` 只是当前请求准入字段。因此本轮不凭空新增 consent contract、数据库写入或“同意成功”状态；若法律/业务未来确实要求版本化同意，应另立需求并提供责任人、发布版本、授权主体和验收规则。
 
 - [x] P1-03 对照旧服务 `hospital-app/src/pagesB/patient/patientAdd.vue:258-264` 的编辑 TODO、`hospital-app/src/api/modules/ZY.ts:17-75` 的患者接口和 `hospital-app/src/api/modules/user.ts:113-135` 的普通用户资料 PUT，确认旧服务没有患者资料更新/编辑 API：编辑入口只改标题，回填和保存明确是 TODO；因此关闭“迁移旧编辑功能”这一项，不新增患者 update contract，也不把 profile PUT 当患者资料更新。结论已记录在 `docs/迁移/患者绑定契约草案.md` 的“编辑模式”审计补充中；患者新增/绑卡真实验收仍由 P1-01 单独负责。
 
