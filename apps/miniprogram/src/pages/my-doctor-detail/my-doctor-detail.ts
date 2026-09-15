@@ -3,12 +3,13 @@ import {
 	contextualApiErrorMessage,
 	requestAppointmentSchedules,
 	requestMyDoctorFollow,
-	requestMyDoctorUnfollow,
 	requestMyDoctors,
+	requestMyDoctorUnfollow,
 } from "../../services/api-client";
 import {
 	createUpcomingDateRange,
 	DASHBOARD_DATE_RANGE_DAYS,
+	requireAppointmentScheduleListData,
 } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
@@ -160,9 +161,9 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 		])
 			.then(([followedPayload, schedulePayload]) => {
 				if (!guard.isCurrent(token)) return;
-				const schedules = schedulePayload.data.items.filter(
-					(schedule) => schedule.doctorId === this.data.doctorId,
-				);
+				const schedules = requireAppointmentScheduleListData(
+					schedulePayload.data,
+				).items.filter((schedule) => schedule.doctorId === this.data.doctorId);
 				const followedDoctor = followedPayload.data.items.find(
 					(doctor) => doctor.doctorId === this.data.doctorId,
 				);

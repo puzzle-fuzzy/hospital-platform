@@ -28,6 +28,7 @@ import {
 	requireAppointmentDepartmentTreeData,
 	requireAppointmentRecordListData,
 	requireAppointmentScheduleListData,
+	requireAppointmentScheduleSourceListData,
 	requireExactListData,
 	requireInpatientEpisodeListData,
 	requireOutpatientMedicalRecordListData,
@@ -967,6 +968,63 @@ test("预约排班响应必须绑定请求科室并保持号源语义", () => {
 		expect(() =>
 			requireAppointmentScheduleListData(invalid, "dept-001"),
 		).toThrow("Appointment");
+	}
+});
+
+test("预约号源响应必须保留排班上下文并拒绝重复或坏时段", () => {
+	const schedule = {
+		scheduleId: "schedule-001",
+		departmentId: "dept-001",
+		departmentName: "内科",
+		titleName: "主任医师",
+		introduction: "擅长常见内科疾病诊疗",
+		expertise: "心血管疾病",
+		departmentLocation: "门诊二楼",
+		doctorId: "doctor-001",
+		doctorName: "医生甲",
+		doctorPhotoUrl: "https://cdn.example.test/doctor-001.jpg",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		startTime: "08:00",
+		endTime: "12:00",
+		totalSlots: 20,
+		availableSlots: 8,
+		timeGroup: "range" as const,
+	};
+	const valid = {
+		schedule,
+		items: [
+			{
+				serialNumber: "1",
+				timeLabel: "08:00-08:30",
+				timeGroup: "range" as const,
+			},
+			{ serialNumber: "2", timeLabel: "09:00", timeGroup: "point" as const },
+		],
+		total: 2,
+	};
+
+	expect(requireAppointmentScheduleSourceListData(valid)).toEqual(valid);
+	for (const invalid of [
+		{
+			...valid,
+			items: [...valid.items, { ...valid.items[0] }],
+			total: 3,
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], timeLabel: "上午" }],
+			total: 1,
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], timeGroup: "unknown" }],
+			total: 1,
+		},
+	]) {
+		expect(() => requireAppointmentScheduleSourceListData(invalid)).toThrow(
+			"Appointment schedule source response",
+		);
 	}
 });
 

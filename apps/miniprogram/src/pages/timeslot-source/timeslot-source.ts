@@ -3,6 +3,7 @@ import {
 	contextualApiErrorMessage,
 	requestAppointmentScheduleSources,
 } from "../../services/api-client";
+import { requireAppointmentScheduleSourceListData } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -59,9 +60,12 @@ Page<TimeslotSourcePageData, TimeslotSourcePageMethods>({
 		return requestAppointmentScheduleSources(this.data.scheduleId)
 			.then((payload) => {
 				if (!guard.isCurrent(token)) return;
+				const sourceData = requireAppointmentScheduleSourceListData(
+					payload.data,
+				);
 				this.setData({
-					schedule: payload.data.schedule,
-					slots: payload.data.items,
+					schedule: sourceData.schedule,
+					slots: sourceData.items,
 				});
 			})
 			.catch((error: unknown) => {

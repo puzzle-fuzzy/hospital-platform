@@ -582,9 +582,12 @@ export function requireAppointmentDepartmentTreeData(
  */
 export function requireAppointmentScheduleListData(
 	value: unknown,
-	expectedDepartmentId: string,
+	expectedDepartmentId?: string,
 ): ExactListData<AppointmentSchedule> {
-	if (!isBoundedAppointmentIdentifier(expectedDepartmentId)) {
+	if (
+		expectedDepartmentId !== undefined &&
+		!isBoundedAppointmentIdentifier(expectedDepartmentId)
+	) {
 		return invalidAppointmentResponse(
 			"Appointment department request context is invalid",
 		);
@@ -620,7 +623,8 @@ export function requireAppointmentScheduleListData(
 		if (
 			!isBoundedAppointmentIdentifier(scheduleId) ||
 			seenScheduleIds.has(scheduleId) ||
-			departmentId !== expectedDepartmentId ||
+			(expectedDepartmentId !== undefined &&
+				departmentId !== expectedDepartmentId) ||
 			!isIsoCalendarDate(workDate) ||
 			typeof totalSlots !== "number" ||
 			!Number.isSafeInteger(totalSlots) ||
@@ -726,6 +730,65 @@ export function requireOutpatientPaymentListData(
 		items,
 		total: list.total,
 	};
+}
+
+/** 号源页直接消费的排班上下文和号源也必须通过同一公开字段边界。 */
+export function requireAppointmentScheduleSourceListData(value: unknown): {
+	schedule: AppointmentSchedule;
+	items: Array<{
+		serialNumber: string;
+		timeLabel: string;
+		timeGroup: "point" | "range";
+	}>;
+	total: number;
+} {
+	if (!isRecord(value) || !isRecord(value.schedule)) {
+		return invalidAppointmentResponse(
+			"Appointment schedule source response is invalid",
+		);
+	}
+	const scheduleData = requireAppointmentScheduleListData({
+		items: [value.schedule],
+		total: 1,
+	});
+	const schedule = scheduleData.items[0];
+	if (!schedule) {
+		return invalidAppointmentResponse(
+			"Appointment schedule source response is invalid",
+		);
+	}
+	const list = requireExactListData<unknown>(value);
+	const seenSerialNumbers = new Set<string>();
+	const items: Array<{
+		serialNumber: string;
+		timeLabel: string;
+		timeGroup: "point" | "range";
+	}> = [];
+	for (const item of list.items) {
+		if (!isRecord(item)) {
+			return invalidAppointmentResponse(
+				"Appointment schedule source response item is invalid",
+			);
+		}
+		const serialNumber = requiredAppointmentText(item.serialNumber, 64);
+		const timeLabel = requiredAppointmentText(item.timeLabel, 32);
+		if (
+			seenSerialNumbers.has(serialNumber) ||
+			!isAppointmentRecordWorkTime(timeLabel) ||
+			(item.timeGroup !== "point" && item.timeGroup !== "range")
+		) {
+			return invalidAppointmentResponse(
+				"Appointment schedule source response item is invalid",
+			);
+		}
+		seenSerialNumbers.add(serialNumber);
+		items.push({
+			serialNumber,
+			timeLabel,
+			timeGroup: item.timeGroup,
+		});
+	}
+	return { schedule, items, total: list.total };
 }
 
 const MEDICAL_RECORD_FIELDS = new Set([
