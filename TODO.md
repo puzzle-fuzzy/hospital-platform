@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 7 项、未完成 30 项。
-另按标题优先级统计未完成项为：P0 0、P1 18、P2 9、P3 3。
+当前 TODO 复选框总数为 37 项，其中已完成 11 项、未完成 26 项。
+另按标题优先级统计未完成项为：P0 0、P1 18、P2 5、P3 3。
 
 ## 当前机器事实
 
@@ -40,7 +40,7 @@
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
 | pnpm clinical:contract:audit | 通过但保持关闭 | 门诊记录、住院信息、电子导诊单仍 contract-pending |
 | pnpm readonly:audit | 通过 | 6 个低风险业务域的结构闭环通过，不替代 Provider/真机证据 |
-| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；P0 已清零 |
+| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 11、未完成 26；P0 已清零 |
 
 仓库所有 pnpm 命令还报告 Node engine wanted 24.12.0、当前 v26.8.1。这是可复现性问题，不是业务已完成证据。
 
@@ -165,13 +165,13 @@
 
 ### P2 不把旧端占位误写成待迁移业务
 
-- [ ] P2-01 对 patient-express 做结论性收口：旧端只有本地 BOUND_PATIENTS/CURRENT_PATIENT、固定假患者和空数组，查询位置是 TODO，见 hospital-app/src/pagesB/patient/express.vue:55-85；新端对此已正确保持不发请求。除非业务方提供真实物流 Provider、患者归属、状态字段和保留策略，否则不要实现快递接口；拿到材料后再从 status-only 改为真实只读。
+- [x] P2-01 对 patient-express 做结论性收口：旧端只有本地 BOUND_PATIENTS/CURRENT_PATIENT、固定假患者和空数组，查询位置是 TODO，见 hospital-app/src/pagesB/patient/express.vue:55-85；新端对此已正确保持不发请求。二次验证已记录在 `docs/迁移/P2占位能力结论性收口-2026-09-16.md`。除非业务方提供真实物流 Provider、患者归属、状态字段和保留策略，否则不要实现快递接口；拿到材料后再从 status-only 改为真实只读。
 
-- [ ] P2-02 对 patient-subscription 做产品决策：旧端“确定修改”只 Toast 并返回，没有微信订阅授权或服务端保存，见 hospital-app/src/pagesB/user/subscription_message.vue:203-214；新端 enabled 固定 false 是正确防伪。只有拿到模板 ID、授权时机、业务事件、发送回执、撤销状态和 owner 规则后才新建 contract，否则将其标记为旧端假功能而非迁移缺口。
+- [x] P2-02 对 patient-subscription 做产品决策：旧端“确定修改”只 Toast 并返回，没有微信订阅授权或服务端保存，见 hospital-app/src/pagesB/user/subscription_message.vue:203-214；新端 enabled 固定 false 是正确防伪。二次验证已记录在 `docs/迁移/P2占位能力结论性收口-2026-09-16.md`。只有拿到模板 ID、授权时机、业务事件、发送回执、撤销状态和 owner 规则后才新建 contract，否则将其标记为旧端假功能而非迁移缺口。
 
-- [ ] P2-03 清理 patient-address 的迁移假象：当前 FeatureKey 在 apps/miniprogram/src/services/feature-navigation.ts:21-25、migration-coverage.ts:126-130 中存在，但旧 64 页面和旧 action inventory 中没有 patient-address；旧仓库也没有患者地址管理 API/页面。应从“旧服务迁移 TODO”中删除或明确标为未来新需求，不得因为有 FeatureKey 就实现地址业务。
+- [x] P2-03 清理 patient-address 的迁移假象：当前 FeatureKey 在 apps/miniprogram/src/services/feature-navigation.ts:21-25、migration-coverage.ts:126-130 中存在，但旧 64 页面和旧 action inventory 中没有 patient-address；旧仓库也没有患者地址管理 API/页面。已在 `apps/miniprogram/src/services/feature-navigation.ts:251-259` 明确标为“未来新需求”，并由 `apps/miniprogram/src/services/migration-coverage.test.ts` 锁定无旧来源断言；详见 `docs/迁移/P2占位能力结论性收口-2026-09-16.md`，不得因为有 FeatureKey 就实现地址业务。
 
-- [ ] P2-04 对 bloodAppointment 做同样的事实收口：旧页只有硬编码患者、固定院区、空态和“功能开发中”，见 hospital-app/src/pagesB/hospital/bloodAppointment.vue:45-101；当前页也只读取患者并进入状态页，见 apps/miniprogram/src/pages/blood-appointment/blood-appointment.ts:103-150。没有旧 Provider 号源/预约行为时不凭空实现；如果医院确有采血业务，另行取得业务来源和 contract。
+- [x] P2-04 对 bloodAppointment 做同样的事实收口：旧页只有硬编码患者、固定院区、空态和“功能开发中”，见 hospital-app/src/pagesB/hospital/bloodAppointment.vue:45-101；当前页也只读取患者并进入状态页，见 apps/miniprogram/src/pages/blood-appointment/blood-appointment.ts:103-150。结论和二次验证已记录在 `docs/迁移/P2占位能力结论性收口-2026-09-16.md`；没有旧 Provider 号源/预约行为时不凭空实现；如果医院确有采血业务，另行取得业务来源和 contract。
 
 ### P2 工程和数据连续性
 

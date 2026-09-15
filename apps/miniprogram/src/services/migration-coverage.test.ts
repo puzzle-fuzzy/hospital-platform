@@ -26,6 +26,15 @@ describe("迁移入口覆盖聚合", () => {
 		expect(coverage.coverageLabel).toContain("新端新增入口");
 	});
 
+	test("没有旧端来源的患者地址明确标记为未来新需求", () => {
+		const coverage = getFeatureMigrationCoverage("patient-address");
+		expect(coverage.stage).toBe("new-entry");
+		expect(coverage.legacyPaths).toHaveLength(0);
+		expect(coverage.feature.title).toContain("未来新需求");
+		expect(coverage.feature.description).toContain("旧服务没有对应");
+		expect(coverage.feature.contractHint).toContain("不属于旧服务迁移");
+	});
+
 	test("协议静态页保留未来 contract 关联但不被误报为新入口", () => {
 		const coverage = getFeatureMigrationCoverage("patient-agreement");
 		expect(coverage.stage).toBe("replaced");

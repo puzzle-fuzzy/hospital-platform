@@ -249,12 +249,12 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"patient-address": {
-		title: "就诊人联系地址",
+		title: "就诊人联系地址（未来新需求）",
 		readiness: "待患者绑定 contract",
 		description:
-			"联系地址正在迁移中，当前不会保存或展示未经归属校验的地址信息。",
+			"旧服务没有对应的患者地址页面或接口；这是未来新需求，当前不会保存或展示地址信息。",
 		contractHint:
-			"等待字段白名单、owner/患者归属、版本并发、脱敏和删除规则确认。",
+			"若未来立项，另行确认字段白名单、owner/患者归属、版本并发、脱敏和删除规则；不属于旧服务迁移。",
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"patient-express": {
