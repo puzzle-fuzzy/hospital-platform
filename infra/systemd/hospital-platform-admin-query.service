@@ -26,4 +26,4 @@ ProtectHome=read-only
 ReadWritePaths=/home/ps/code/hospital-platform
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
