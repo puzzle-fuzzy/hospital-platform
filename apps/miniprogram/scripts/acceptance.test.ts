@@ -2687,14 +2687,14 @@ test("native appointment tabs use server-owned read scopes", async () => {
 	const view = await source("services/appointment-record-view.ts");
 	const client = await source("services/api-client.ts");
 
-	// 页面不接触 Provider 数字渠道；两个标签共用服务端完整记录快照，
-	// 在线标签只在已归一化读模型上筛选，避免两套渠道结果互相漂移。
+	// 页面不接触 Provider 数字渠道；两个标签按旧端语义选择服务端
+	// online/all 范围，在线标签再在已归一化结果上筛选取消记录。
 	expect(records).toContain("filterAppointmentRecords");
 	expect(records).toContain("isAppointmentRecordTabAvailable");
 	expect(records).toContain("loadRecords(tab?: AppointmentRecordTab)");
 	expect(records).toContain("const requestedTab = tab ?? this.data.activeTab");
 	expect(records).toContain("this.loadRecords(activeTab)");
-	expect(records).toContain('"all",');
+	expect(records).toContain("appointmentRecordScopeForTab(requestedTab)");
 	expect(view).toContain('record.status !== "cancelled"');
 	expect(records).not.toContain("requestChannel");
 	// 底层请求必须先经过 canonical union 归一化，再编码最终 scope；

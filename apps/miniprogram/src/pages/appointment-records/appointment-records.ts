@@ -283,8 +283,8 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					patientSessionGeneration: expectedSessionGeneration,
 					canSelectPatient: false,
 				});
-				// 旧端“在线挂号”和“全部挂号”分别请求 requestChannel=3/4；
-				// 页面只传递已经由展示边界确认的 online/all 语义，渠道数字由
+				// 旧端“在线挂号”和“全部挂号”分别对应 online/all 读取范围；
+				// 页面只传递已经由展示边界确认的语义，渠道数字由
 				// 服务端 adapter 统一映射。在线结果再排除明确取消，全部结果保留取消。
 				return loadAppointmentRecords(
 					patient.id,

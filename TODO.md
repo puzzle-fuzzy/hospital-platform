@@ -33,8 +33,8 @@
 | LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 通过 | 证明旧页面和迁移矩阵逐项可对照，不证明业务验收 |
 | pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
 | pnpm migration:fact:audit | 通过 | 当前文档事实已同步 64/47、partial=34、blocked-provider=0 和当前源码输入 revision |
-| pnpm --filter @hospital/miniprogram runtime:verify | 通过 | release dist sourceRevision=fe2bf000dd3fbf29abed8c14295350d2afb46f27、pageCount=47、generatedAt=2026-09-15T17:45:24.163Z |
-| pnpm --filter @hospital/miniprogram runtime:verify:dev | 通过 | development sourceRevision=workspace-sha256:377d92415b8951d9aafd37c319029f4f413bd8f28c8f61cc3b6f3010493113cd、baseSourceRevision=fe2bf000dd3fbf29abed8c14295350d2afb46f27、pageCount=47、generatedAt=2026-09-15T17:45:20.742Z |
+| pnpm --filter @hospital/miniprogram runtime:verify | 通过 | release dist sourceRevision=64167fd7bfbaa012ff4e008382c54b578ce0bb8b、pageCount=47、generatedAt=2026-09-15T18:09:22.289Z |
+| pnpm --filter @hospital/miniprogram runtime:verify:dev | 通过 | development sourceRevision=workspace-sha256:c00e54a2f17b72aa9a0fbea472f1592da4a1b1591436d17cbe2c38728457e44b、baseSourceRevision=64167fd7bfbaa012ff4e008382c54b578ce0bb8b、pageCount=47、generatedAt=2026-09-15T18:09:45.858Z |
 | pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
 | pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、37 个字面导航调用 |
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
@@ -99,11 +99,11 @@
 
 ### P0 发布事实文档不能继续引用旧候选
 
-- [x] P0-03 更新 docs/发布/广度优先页面覆盖-2026-08-25.md:1-10 以及引用同一数字的迁移就绪报告/旧页面矩阵：统一写入当前 64 个旧页面、47 个原生页面、partial=34、blocked-provider=0 和源码 revision 47574b9acbe79203d23a7acbfe034ffd5fee3c31；`pnpm migration:fact:audit` 已通过，入口覆盖仍明确不等于业务完成。
+- [x] P0-03 更新 docs/发布/广度优先页面覆盖-2026-08-25.md:1-10 以及引用同一数字的迁移就绪报告/旧页面矩阵：统一写入当前 64 个旧页面、47 个原生页面、partial=34、blocked-provider=0 和源码 revision 64167fd7bfbaa012ff4e008382c54b578ce0bb8b；`pnpm migration:fact:audit` 已通过，入口覆盖仍明确不等于业务完成。
 
 ### P0 DevTools 实际运行包必须和当前源码一致
 
-- [x] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；本次状态语义收口后 development 与 release 均重新生成并校验 47 页运行包，release sourceRevision=`fe2bf000dd3fbf29abed8c14295350d2afb46f27`、generatedAt=`2026-09-15T17:45:24.163Z`，development snapshot=`workspace-sha256:377d92415b8951d9aafd37c319029f4f413bd8f28c8f61cc3b6f3010493113cd`、baseSourceRevision=`fe2bf000dd3fbf29abed8c14295350d2afb46f27`；确认 project.config.json 继续指向 dist/。
+- [x] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；本次预约历史标签范围修正后 development 与 release 均重新生成并校验 47 页运行包，release sourceRevision=`64167fd7bfbaa012ff4e008382c54b578ce0bb8b`、generatedAt=`2026-09-15T18:09:22.289Z`，development snapshot=`workspace-sha256:c00e54a2f17b72aa9a0fbea472f1592da4a1b1591436d17cbe2c38728457e44b`、baseSourceRevision=`64167fd7bfbaa012ff4e008382c54b578ce0bb8b`；确认 project.config.json 继续指向 dist/。
 
 ### P0 状态语义要统一为“安全子集/关闭态/待实证”
 
