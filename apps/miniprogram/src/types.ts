@@ -471,7 +471,7 @@ export type AppointmentDetailPageData = {
 	statusLabel: string;
 	canCancel: boolean;
 	canceling: boolean;
-	/** 挂号详情内的普通微信自费支付状态；不表示医保或门诊支付状态。 */
+	/** 挂号详情内的微信支付状态；不表示医保或门诊支付状态。 */
 	selfPayBusy: boolean;
 	selfPayStatus: "idle" | "awaiting_confirmation" | "cash_paid" | "failed";
 	selfPayMessage: string;

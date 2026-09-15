@@ -670,7 +670,7 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentPage).toContain(
 		"当前就诊人没有可用于本次支付的有效医保参保信息",
 	);
-	expect(paymentPage).toContain('confirmText: "改用自费"');
+	expect(paymentPage).toContain('confirmText: "改用微信支付"');
 	expect(paymentPage).toContain('cancelText: "暂不支付"');
 	expect(paymentTemplate).not.toContain('class="footnote"');
 	expect(paymentTemplate).toContain('class="payment-actions"');
@@ -679,7 +679,17 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentStyles).toContain(".mixed-button");
 	expect(paymentStyles).toContain("background: #3d6df6");
 	expect(detailPage).toContain('selfPayStatus: "awaiting_confirmation"');
-	expect(detailPage).toContain("请点击继续自费支付");
+	expect(paymentTemplate).not.toContain('data-mode="medical"');
+	expect(paymentTemplate).toContain('data-mode="mixed"');
+	expect(paymentTemplate).toContain("'医保支付'");
+	expect(paymentTemplate).toContain("'微信支付'");
+	expect(paymentTemplate).not.toContain("纯医保支付");
+	expect(paymentTemplate).not.toContain("医保混合支付");
+	expect(paymentTemplate).not.toContain("普通自费支付");
+	// 新入口隐藏纯医保按钮，但历史订单仍能由“医保支付”继续确认。
+	expect(paymentPage).toContain('mode === "medical" ? "mixed"');
+	expect(paymentPage).toContain('mode !== "medical" && mode !== "mixed"');
+	expect(detailPage).toContain("请点击继续微信支付");
 });
 
 test("native registration migration preserves duplicate-appointment safety", async () => {

@@ -68,16 +68,21 @@ type MedicalApp = {
 
 let resumingPayment = false;
 
+/** 纯医保订单仅保留历史恢复能力，当前入口统一展示为“医保支付”。 */
+function paymentButtonMode(mode: PaymentMode | undefined): PaymentMode | "" {
+	return mode === "medical" ? "mixed" : (mode ?? "");
+}
+
 const STAGE_TEXT: Record<string, string> = {
 	preparing: "正在准备支付订单，请勿重复点击或重新预约",
 	authorizing: "请在医保小程序完成授权，返回后请等待页面继续处理",
 	insuring: "正在上传医保费用，请勿重复提交",
 	settling: "正在进行医保结算，请勿重复授权或付款",
 	polling: "正在确认医保结算结果，请勿重复操作",
-	"cash-paying": "正在打开医保自费收银台，请勿重复点击",
+	"cash-paying": "正在打开医保收银台，请勿重复点击",
 	"cash-confirming": "正在确认医保支付并回写医院，请勿重复付款",
-	"self-paying": "正在打开微信自费收银台，请勿重复点击",
-	"self-confirming": "正在确认微信自费支付结果，请勿重复付款",
+	"self-paying": "正在打开微信支付收银台，请勿重复点击",
+	"self-confirming": "正在确认微信支付结果，请勿重复付款",
 	success: "支付和医院结算已确认",
 };
 
@@ -86,8 +91,8 @@ function confirmSelfPayAfterInsutypeUnavailable(): Promise<boolean> {
 		wx.showModal({
 			title: "当前无法使用医保",
 			content:
-				"当前就诊人没有可用于本次支付的有效医保参保信息，无法继续医保支付。预约已保留，是否改用普通自费支付？",
-			confirmText: "改用自费",
+				"当前就诊人没有可用于本次支付的有效医保参保信息，无法继续医保支付。预约已保留，是否改用微信支付？",
+			confirmText: "改用微信支付",
 			cancelText: "暂不支付",
 			success: (result) => resolve(result.confirm),
 			fail: () => resolve(false),
@@ -111,7 +116,7 @@ function paymentError(error: unknown): string {
 	)
 		return "";
 	if (error instanceof MedicalCashRequiredError)
-		return "当前医保结算包含自费金额，请选择医保混合支付";
+		return "当前医保支付包含微信支付金额，请继续医保支付";
 	if (error instanceof MedicalInsurancePaymentFailureError)
 		return error.userMessage;
 	return errorMessageWithCode(
@@ -125,7 +130,7 @@ function paymentActionMessage(error: unknown): string {
 		return "医保扣款失败，系统已停止继续结算；退款状态需医院核实，请勿重复付款，并联系医院确认";
 	}
 	if (error instanceof MedicalCashRequiredError) {
-		return "当前医保结算包含自费金额，请选择医保混合支付";
+		return "当前医保支付包含微信支付金额，请继续医保支付";
 	}
 	if (error instanceof ApiError) {
 		if (
@@ -312,7 +317,7 @@ Page<
 		}
 		this.setData({
 			hasPendingPayment: true,
-			selectedMode: pending.mode ?? "mixed",
+			selectedMode: paymentButtonMode(pending.mode),
 		});
 		if (!authCode && pending.phase === "cash_payment" && !resumingPayment) {
 			resumingPayment = true;
@@ -330,8 +335,8 @@ Page<
 						hasPendingPayment: !completed,
 						completed,
 						message: completed
-							? "挂号和医保混合支付成功"
-							: "微信医保支付仍在确认，请稍后点击医保混合支付继续确认；请勿重复付款",
+							? "挂号和医保支付成功"
+							: "微信医保支付仍在确认，请稍后点击医保支付继续确认；请勿重复付款",
 					});
 				})
 				.catch((error: unknown) => {
@@ -359,19 +364,19 @@ Page<
 				this.setData({
 					stage: "cash-confirming",
 					message:
-						"检测到未完成的医保混合支付，请点击医保混合支付继续；请勿重复付款或重新预约",
+						"检测到未完成的医保支付，请点击医保支付继续；请勿重复付款或重新预约",
 				});
 			} else if (pending.phase === "medical_cash_required") {
 				this.setData({
 					stage: "settling",
 					message:
-						"当前医保订单包含自费金额，请选择医保混合支付；请勿重复付款或重新预约",
+						"当前医保订单包含微信支付金额，请继续医保支付；请勿重复付款或重新预约",
 				});
 			} else {
 				this.setData({
 					stage: "self-confirming",
 					message:
-						"检测到未完成的微信自费支付，请点击自费支付继续；请勿重复付款或重新预约",
+						"检测到未完成的微信支付，请点击微信支付继续；请勿重复付款或重新预约",
 				});
 			}
 			return;
@@ -428,9 +433,9 @@ Page<
 			stage: "preparing",
 			message:
 				mode === "self"
-					? "正在准备自费支付，请勿重复点击或重新预约"
+					? "正在准备微信支付，请勿重复点击或重新预约"
 					: mode === "mixed"
-						? "正在准备医保混合支付，请勿重复点击"
+						? "正在准备医保支付，请勿重复点击"
 						: "正在准备医保支付，请勿重复点击",
 		});
 		try {
@@ -472,10 +477,10 @@ Page<
 		mode: PaymentMode,
 	): Promise<void> {
 		if (pending.phase === "medical_cashier") {
-			if (mode !== "medical") {
+			if (mode !== "medical" && mode !== "mixed") {
 				this.setData({
 					message:
-						"当前是纯医保收银台订单，请选择医保支付继续确认；请勿重复付款",
+						"当前是历史医保收银台订单，请选择医保支付继续确认；请勿重复付款",
 				});
 				return;
 			}
@@ -491,7 +496,7 @@ Page<
 			if (mode !== "self") {
 				this.setData({
 					message:
-						"当前已有自费支付订单，请继续自费支付；请勿重复付款或重新预约",
+						"当前已有微信支付订单，请继续微信支付；请勿重复付款或重新预约",
 				});
 				return;
 			}
@@ -505,7 +510,7 @@ Page<
 			if (mode !== "mixed") {
 				this.setData({
 					message:
-						"当前医保订单包含自费金额，请选择医保混合支付；请勿重复付款或重新预约",
+						"当前医保订单包含微信支付金额，请继续医保支付；请勿重复付款或重新预约",
 				});
 				return;
 			}
@@ -528,13 +533,9 @@ Page<
 			return;
 		}
 		if (pending.phase === "cash_payment") {
-			const expectedMode = pending.mode === "medical" ? "medical" : "mixed";
-			if (mode !== expectedMode) {
+			if (mode !== "mixed" && mode !== "medical") {
 				this.setData({
-					message:
-						expectedMode === "medical"
-							? "当前是纯医保订单，请选择纯医保支付继续确认；请勿重复付款"
-							: "当前是医保混合订单，请选择医保混合支付继续确认；请勿重复付款",
+					message: "当前是医保支付订单，请选择医保支付继续确认；请勿重复付款",
 				});
 				return;
 			}
@@ -565,7 +566,7 @@ Page<
 			}
 			this.setData({
 				message:
-					"当前预约已进入医保流程，不能切换为自费支付；请先继续原医保支付，请勿重复付款或重新预约",
+					"当前预约已进入医保流程，不能切换为微信支付；请先继续原医保支付，请勿重复付款或重新预约",
 			});
 			return;
 		}
@@ -610,7 +611,7 @@ Page<
 			this.setData({
 				hasPendingPayment: true,
 				message:
-					"当前医保结算包含自费金额，请选择医保混合支付；请勿重复付款或重新预约",
+					"当前医保支付包含微信支付金额，请继续医保支付；请勿重复付款或重新预约",
 				error: "",
 			});
 			return;
@@ -630,7 +631,7 @@ Page<
 			const confirmed = await confirmSelfPayAfterInsutypeUnavailable();
 			if (!confirmed) {
 				this.setData({
-					message: "已暂不支付，可稍后点击“普通自费支付”继续，无需重新挂号",
+					message: "已暂不支付，可稍后点击“微信支付”继续，无需重新挂号",
 				});
 				return;
 			}
@@ -646,7 +647,7 @@ Page<
 				this.setData({
 					hasPendingPayment: false,
 					completed: true,
-					message: "挂号和自费支付成功",
+					message: "挂号和微信支付成功",
 				});
 			} catch (selfPayError) {
 				await this.handlePaymentError(selfPayError);

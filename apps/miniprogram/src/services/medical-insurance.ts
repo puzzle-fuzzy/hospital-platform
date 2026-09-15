@@ -148,7 +148,7 @@ export class WechatPaymentCancelledError extends Error {
 
 export class MedicalCashRequiredError extends Error {
 	constructor() {
-		super("当前医保结算包含自费金额，请选择医保混合支付");
+		super("当前医保支付包含微信支付金额，请继续医保支付");
 		this.name = "MedicalCashRequiredError";
 	}
 }
@@ -436,7 +436,7 @@ export function readPendingPayment(): PendingPayment | null {
 }
 
 /**
- * 医保授权尚未形成服务端医保订单时，允许同一预约改走普通自费。
+ * 医保授权尚未形成服务端医保订单时，允许同一预约改走微信支付。
  * 一旦已有 orderId，就必须继续原医保订单或由服务端安全关单，不能并行
  * 创建自费订单，避免重复扣款。
  */
@@ -845,7 +845,7 @@ export function resumeMedicalCashPaymentFromPending(
 	maxAttempts: number = MEDICAL_INSURANCE_CONFIG.insurancePollDelaysMs.length,
 ): Promise<boolean> {
 	if (pending.phase !== "cash_payment") {
-		throw new ApiError("医保混合支付上下文不完整，无法确认", {
+		throw new ApiError("医保支付上下文不完整，无法确认", {
 			code: "payment-order-invalid",
 		});
 	}
@@ -896,7 +896,7 @@ export async function continueMedicalCashPayment(
 	}
 	if (await confirmMedicalCashPayment(current, onProgress)) return;
 	throw new ApiError(
-		"微信医保支付仍在确认，请稍后点击原支付方式继续，勿重复付款",
+		"微信医保支付仍在确认，请稍后点击医保支付继续，勿重复付款",
 		{ code: "payment-prepay-in-progress" },
 	);
 }
@@ -1025,7 +1025,7 @@ async function continueSelfPayment(
 	onProgress: Progress,
 ): Promise<void> {
 	if (!pending.selfPayIdempotencyKey || !pending.selfQueryIdempotencyKey) {
-		throw new ApiError("自费支付上下文不完整", {
+		throw new ApiError("微信支付上下文不完整", {
 			code: "payment-order-invalid",
 		});
 	}
@@ -1044,13 +1044,13 @@ async function continueSelfPayment(
 			current,
 			onProgress,
 			payment.data.orderId,
-			"挂号和自费支付成功",
+			"挂号和微信支付成功",
 		);
 		return;
 	}
 	const launch = toWechatPaymentLaunch(payment);
 	if (launch) {
-		onProgress("self-paying", "正在打开微信自费支付收银台，请勿重复点击");
+		onProgress("self-paying", "正在打开微信支付收银台，请勿重复点击");
 		await requestWechatSelfPayment(launch.params);
 	}
 	for (
@@ -1058,19 +1058,19 @@ async function continueSelfPayment(
 		index < MEDICAL_INSURANCE_CONFIG.insurancePollDelaysMs.length;
 		index += 1
 	) {
-		onProgress("self-confirming", "正在确认微信自费支付结果，请勿重复付款");
+		onProgress("self-confirming", "正在确认微信支付结果，请勿重复付款");
 		const result = await queryAppointmentSelfPay(current.appointmentId);
 		if (result.data.status === "cash_paid") {
 			finishMedicalPayment(
 				current,
 				onProgress,
 				result.data.orderId,
-				"挂号和自费支付成功",
+				"挂号和微信支付成功",
 			);
 			return;
 		}
 		if (result.data.status === "failed") {
-			throw new ApiError("微信自费支付已失败", {
+			throw new ApiError("微信支付已失败", {
 				code: "payment-order-conflict",
 			});
 		}
@@ -1082,7 +1082,7 @@ async function continueSelfPayment(
 		);
 	}
 	throw new ApiError(
-		"微信自费支付仍在确认，请稍后点击自费支付继续，勿重复付款或预约",
+		"微信支付仍在确认，请稍后点击微信支付继续，勿重复付款或预约",
 		{ code: "payment-prepay-in-progress" },
 	);
 }
@@ -1114,7 +1114,7 @@ export async function continueSelfPaymentFromPending(
 	onProgress: Progress,
 ): Promise<void> {
 	if (pending.phase !== "self_payment" || !pending.orderId) {
-		throw new ApiError("自费支付上下文不完整", {
+		throw new ApiError("微信支付上下文不完整", {
 			code: "payment-order-invalid",
 		});
 	}

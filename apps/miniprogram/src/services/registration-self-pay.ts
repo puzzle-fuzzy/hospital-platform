@@ -10,7 +10,7 @@ export type RegistrationSelfPayProgress = "creating" | "paying" | "confirming";
 /** 用户取消微信收银台时，预约仍保留，页面可以继续支付。 */
 export class RegistrationSelfPayCancelledError extends Error {
 	constructor() {
-		super("用户已取消自费支付");
+		super("用户已取消微信支付");
 		this.name = "RegistrationSelfPayCancelledError";
 	}
 }
@@ -18,7 +18,7 @@ export class RegistrationSelfPayCancelledError extends Error {
 /** 微信已调起但服务端尚未拿到最终结果；不能把它显示成支付失败。 */
 export class RegistrationSelfPayPendingError extends Error {
 	constructor() {
-		super("微信自费支付仍在确认");
+		super("微信支付仍在确认");
 		this.name = "RegistrationSelfPayPendingError";
 	}
 }
@@ -32,7 +32,7 @@ function wait(delayMs: number): Promise<void> {
 }
 
 function paymentFailed(): ApiError {
-	return new ApiError("微信自费支付已失败，请稍后重试", {
+	return new ApiError("微信支付已失败，请稍后重试", {
 		code: "payment-order-conflict",
 	});
 }
@@ -43,7 +43,7 @@ async function queryUntilSettled(
 ): Promise<{ status: "cash_paid"; orderId: string } | { status: "pending" }> {
 	for (const delayMs of QUERY_DELAYS_MS) {
 		await wait(delayMs);
-		onProgress("confirming", "正在确认微信自费支付结果，请勿重复付款");
+		onProgress("confirming", "正在确认微信支付结果，请勿重复付款");
 		const result = await queryAppointmentSelfPay(appointmentId);
 		if (result.data.status === "cash_paid") {
 			return { status: "cash_paid", orderId: result.data.orderId };
@@ -54,7 +54,7 @@ async function queryUntilSettled(
 }
 
 /**
- * 挂号自费支付的最小真实流程：创建/重放订单 → 调起微信 → 服务端查单。
+ * 挂号微信支付的最小真实流程：创建/重放订单 → 调起微信 → 服务端查单。
  * 这里不把 wx.requestPayment 的 success 当成支付完成，也不在客户端保存金额
  * 或支付凭证；用户取消后只抛出可识别的本地错误，预约和服务端订单都保留。
  */
@@ -62,7 +62,7 @@ export async function startRegistrationSelfPay(
 	appointmentId: string,
 	onProgress: (stage: RegistrationSelfPayProgress, message: string) => void,
 ): Promise<{ status: "cash_paid"; orderId: string }> {
-	onProgress("creating", "正在创建自费支付订单，请勿重复点击或重新预约");
+	onProgress("creating", "正在创建微信支付订单，请勿重复点击或重新预约");
 	const payment = await requestAppointmentSelfPay(appointmentId);
 	if (payment.data.status === "cash_paid") {
 		return { status: "cash_paid", orderId: payment.data.orderId };
@@ -76,7 +76,7 @@ export async function startRegistrationSelfPay(
 		throw new RegistrationSelfPayPendingError();
 	}
 
-	onProgress("paying", "正在打开微信自费支付收银台，请勿重复点击");
+	onProgress("paying", "正在打开微信支付收银台，请勿重复点击");
 	let cancelled = false;
 	await new Promise<void>((resolve, reject) => {
 		let settled = false;

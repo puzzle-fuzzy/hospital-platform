@@ -175,7 +175,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"appointment-medical-payment-active":
 			"该预约已有医保支付流水，不能直接取消，请先完成或由收费端处理",
 		"appointment-payment-active":
-			"该预约已有自费支付流水，不能直接取消，请先完成或继续支付",
+			"该预约已有微信支付流水，不能直接取消，请先完成或继续支付",
 		"appointment-source-unavailable": "指定号源刚刚发生变化，请刷新后重试",
 		"medical-insurance-invalid": "医保请求参数或流程状态不合法，请稍后再试",
 		"medical-insurance-appointment-not-found": "未找到可进行医保支付的预约",
@@ -187,7 +187,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"medical-insurance-cancellation-context-missing":
 			"当前医保订单需要人工处理，请联系工作人员",
 		"medical-insurance-insutype-unavailable":
-			"当前就诊人未查询到可用于本次支付的有效医保参保信息，可确认改用普通自费支付",
+			"当前就诊人未查询到可用于本次支付的有效医保参保信息，可确认改用微信支付",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
 		"report-query-invalid": "暂时无法查询检查报告，请稍后再试",
 		"report-patient-not-found": "未查询到检查报告",
@@ -801,7 +801,7 @@ function registrationSelfPayResponse(
 	expectedAppointmentId: string,
 ): RegistrationSelfPayResponse {
 	if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
-		throw new ApiError("自费支付响应不可用", {
+		throw new ApiError("微信支付响应不可用", {
 			code: "provider-response-invalid",
 		});
 	}
@@ -819,7 +819,7 @@ function registrationSelfPayResponse(
 		!Number.isSafeInteger(data.totalFen) ||
 		(data.totalFen as number) <= 0
 	) {
-		throw new ApiError("自费支付响应不可用", {
+		throw new ApiError("微信支付响应不可用", {
 			code: "provider-response-invalid",
 		});
 	}
@@ -3067,7 +3067,7 @@ export function requestAppointmentPaymentExit(
 }
 
 /**
- * 挂号详情内的纯自费支付入口。
+ * 挂号详情内的微信支付入口。
  * 金额、订单和微信预支付参数全部由服务端根据 appointmentId 生成；小程序
  * 不提交金额，也不把医保授权字段混入普通微信支付请求。
  */
@@ -3092,7 +3092,7 @@ export function requestAppointmentSelfPay(
 	}).then((payload) => registrationSelfPayResponse(payload, appointmentId));
 }
 
-/** 查询挂号自费支付的最终状态；微信调起成功不等于现金订单已支付。 */
+/** 查询挂号微信支付的最终状态；微信调起成功不等于现金订单已支付。 */
 export function queryAppointmentSelfPay(
 	appointmentId: string,
 ): Promise<RegistrationSelfPayResponse> {

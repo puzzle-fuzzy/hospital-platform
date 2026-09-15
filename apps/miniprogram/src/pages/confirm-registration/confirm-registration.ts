@@ -156,7 +156,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	 * 两个幂等键和 holdId 只保留在当前页面实例：注册请求超时后再次点击会
 	 * 复用同一占位和同一注册幂等键，避免 Provider 已成功但客户端未收到响应
 	 * 时产生第二次挂号。预约写入成功后进入正式小程序的挂号支付页；医保授权、
-	 * 纯医保/混合支付、普通自费支付和最终回写都由该页继续处理。
+	 * 医保支付、微信支付和最终回写都由后续支付页继续处理。
 	 */
 	onConfirmTap(): void {
 		if (this.data.submitting) return;

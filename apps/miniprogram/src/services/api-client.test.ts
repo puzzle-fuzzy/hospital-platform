@@ -99,7 +99,7 @@ test("预约记录请求显式编码 online 范围和日期窗口", () => {
 	);
 });
 
-test("自费支付响应接受众阳 MD5 参数并兼容历史 APIv3 RSA 参数", () => {
+test("微信支付响应接受众阳 MD5 参数并兼容历史 APIv3 RSA 参数", () => {
 	expect(
 		toWechatPaymentLaunch({
 			data: {
@@ -152,7 +152,7 @@ test("自费支付响应接受众阳 MD5 参数并兼容历史 APIv3 RSA 参数"
 	expect(toWechatPaymentLaunch({ data: { payParams: {} } })).toBeNull();
 });
 
-test("医保混合支付接受服务端返回的 MD5 调起参数", () => {
+test("医保支付接受服务端返回的 MD5 调起参数", () => {
 	expect(
 		readMedicalWechatPayment({
 			success: true,

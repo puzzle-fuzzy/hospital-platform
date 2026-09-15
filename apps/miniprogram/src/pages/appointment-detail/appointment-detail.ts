@@ -412,7 +412,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				this.data.selfPayStatus !== "failed")
 		) {
 			wx.showToast({
-				title: "当前有自费支付在确认，请先完成或继续支付",
+				title: "当前有微信支付在确认，请先完成或继续支付",
 				icon: "none",
 			});
 			return;
@@ -449,7 +449,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		});
 	},
 
-	/** 挂号自费只允许从服务端已确认的本地预约详情发起。 */
+	/** 挂号微信支付只允许从服务端已确认的本地预约详情发起。 */
 	onSelfPay(): void {
 		if (
 			!this.data.localDetail ||
@@ -473,7 +473,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		this.setData({
 			selfPayBusy: true,
 			selfPayStatus: "idle",
-			selfPayMessage: "正在创建自费支付订单，请勿重复点击或重新预约",
+			selfPayMessage: "正在创建微信支付订单，请勿重复点击或重新预约",
 			selfPayError: "",
 		});
 		void startRegistrationSelfPay(this.data.appointmentId, (stage, message) => {
@@ -486,7 +486,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				this.setData({
 					selfPayBusy: false,
 					selfPayStatus: "cash_paid",
-					selfPayMessage: "挂号和自费支付成功",
+					selfPayMessage: "挂号和微信支付成功",
 					selfPayError: "",
 					canCancel: false,
 				});
@@ -499,7 +499,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						selfPayBusy: false,
 						selfPayStatus: "awaiting_confirmation",
 						selfPayMessage:
-							"已退出微信收银台，预约已保留；支付结果可能仍在确认，请点击继续自费支付，勿重复付款",
+							"已退出微信收银台，预约已保留；支付结果可能仍在确认，请点击继续微信支付，勿重复付款",
 						selfPayError: "",
 					});
 					return;
@@ -509,7 +509,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						selfPayBusy: false,
 						selfPayStatus: "awaiting_confirmation",
 						selfPayMessage:
-							"支付结果仍在确认，预约已保留，请稍后点击继续自费支付；请勿重复付款或重新预约",
+							"支付结果仍在确认，预约已保留，请稍后点击继续微信支付；请勿重复付款或重新预约",
 						selfPayError: "",
 					});
 					return;
@@ -522,8 +522,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						? "failed"
 						: "awaiting_confirmation",
 					selfPayMessage: definitivelyFailed
-						? "自费支付未完成，预约已保留，请稍后重新发起支付；请勿重复预约"
-						: "支付结果暂时无法确认，预约已保留，请点击继续自费支付；请勿重复付款或重新预约",
+						? "微信支付未完成，预约已保留，请稍后重新发起支付；请勿重复预约"
+						: "支付结果暂时无法确认，预约已保留，请点击继续微信支付；请勿重复付款或重新预约",
 					selfPayError: presented.displayText,
 				});
 			});

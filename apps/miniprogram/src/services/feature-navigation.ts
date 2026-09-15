@@ -170,16 +170,16 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		title: "挂号详情",
 		readiness: "已迁移",
 		description:
-			"挂号详情已接入平台服务，可查看预约信息、就诊人和预约状态，并完成挂号自费支付。",
+			"挂号详情已接入平台服务，可查看预约信息、就诊人和预约状态，并完成微信支付。",
 		contractHint:
-			"详情引用、患者归属、状态映射和敏感字段白名单已由服务端校验；自费支付金额和订单由服务端生成并查单确认。",
+			"详情引用、患者归属、状态映射和敏感字段白名单已由服务端校验；微信支付金额和订单由服务端生成并查单确认。",
 		icon: "/assets/legacy-user/appointment-status.svg",
 	},
 	"appointment-write": {
 		title: "预约下单",
 		readiness: "读写已实现",
 		description:
-			"预约下单已接入服务端占位、预约写入、挂号详情、纯医保/混合支付、普通自费支付和取消。",
+			"预约下单已接入服务端占位、预约写入、挂号详情、医保支付、微信支付和取消。",
 		contractHint:
 			"小程序只提交 opaque 排班、号源和就诊人引用；支付金额、医保订单、微信调起参数和最终回写由服务端生成并查单确认。",
 		icon: "/assets/legacy-home/service-registration.svg",
