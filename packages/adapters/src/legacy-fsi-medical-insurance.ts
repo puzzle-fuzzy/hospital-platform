@@ -1770,6 +1770,23 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"支付后置分项尚未全部成功",
 			);
 		}
+		// `.32` 必须严格位于 6301 之后。6202 的 ordStas=3/4/5/6
+		// 只是结算候选，只有 6301 候选事实落库后才允许回写 HIS。
+		if (
+			settlementContext.settlementQuery6301?.statusClass !==
+			"settlement_candidate"
+		) {
+			throw responseError(
+				"medical-insurance.2.27.2.32",
+				"6301 尚未返回可后置结算状态，不能提交医院结算",
+				undefined,
+				{
+					failureStage: "validation",
+					responseInvalid: false,
+					requestOutcome: "not_sent",
+				},
+			);
+		}
 		if (
 			!settlementContext.settlementDetailsFetchedAt &&
 			(Object.keys(settlementContext.outNetworkSettleMain).length === 0 ||
@@ -1894,6 +1911,23 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			tradingId: finalTradingId,
 			upDetailList: settlementContext.upDetailList,
 		};
+		options.logger?.info(
+			{
+				event: "medical-insurance.2.27.2.32.requested",
+				traceId: context.traceId,
+				orderId: input.orderId,
+				settlementQueryProviderRequestId:
+					settlementContext.settlementQuery6301?.providerRequestId,
+				postPaymentComponentCount:
+					settlementContext.postPaymentComponents?.length ?? 0,
+				upDetailCount: settlementContext.upDetailList.length,
+				hasSettlementMain:
+					Object.keys(settlementContext.outNetworkSettleMain).length > 0,
+				hasPayingId: Boolean(finalPayingId),
+				hasTradingId: Boolean(finalTradingId),
+			},
+			"Medical insurance HIS settlement writeback requested after 6301",
+		);
 		const notifyResponse = await zhongyangPost(
 			"medical-insurance.2.27.2.32",
 			"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
@@ -1910,6 +1944,17 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		)
 			.trim()
 			.toUpperCase();
+		options.logger?.info(
+			{
+				event: "medical-insurance.2.27.2.32.completed",
+				traceId: context.traceId,
+				orderId: input.orderId,
+				providerRequestId: notifyResponse.requestId,
+				insur: insur || "UNKNOWN",
+				settle: settle || "UNKNOWN",
+			},
+			"Medical insurance HIS settlement writeback completed",
+		);
 		const notifyTrace = trace(
 			"medical-insurance.2.27.2.32",
 			context,
@@ -3307,6 +3352,18 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					},
 					"Medical insurance 6202 settlement main mapped for .32",
 				);
+			} else {
+				options.logger?.warn(
+					{
+						event: "medical-insurance.6202.settlement-main-missing",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						providerRequestId: result.trace.requestId,
+						statusClass: result.statusClass,
+						hasSettlementSource: Boolean(result.settlementSource),
+					},
+					"Medical insurance 6202 did not provide settlement main facts for .32",
+				);
 			}
 			options.logger?.info(
 				{
@@ -3322,23 +3379,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			);
 			const amounts = mapMedicalAmounts(result.settlement);
 			const mapping = statusMapping(result);
-			if (result.statusClass === "settlement_candidate") {
-				try {
-					return await finalizeStoredSettlement(
-						{ orderId: input.orderId, ownerUserId: input.ownerUserId, amounts },
-						context,
-					);
-				} catch (error) {
-					if (!(error instanceof ProviderRequestError)) throw error;
-					return {
-						...mapping,
-						amounts,
-						trace: result.trace,
-						source: "6202",
-						providerStatus: result.settlement.ordStas,
-					};
-				}
-			}
+			// 6202 只确认医保结算候选并保存其 preSetl 主单事实；
+			// `.32` 必须等待后续 6301 候选查询完成后，由 query() 统一调用。
 			return {
 				...mapping,
 				amounts,
@@ -3768,6 +3810,23 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					};
 				} catch (error) {
 					if (!(error instanceof ProviderRequestError)) throw error;
+					options.logger?.warn(
+						{
+							event: "medical-insurance.post-payment-finalize.failed",
+							traceId: context.traceId,
+							orderId: input.orderId,
+							operation: error.operation,
+							providerRequestId: error.requestId,
+							failureStage: error.failureStage,
+							requestOutcome: error.requestOutcome,
+							responseInvalid: error.responseInvalid,
+							...(error.providerErrorCode
+								? { providerErrorCode: error.providerErrorCode }
+								: {}),
+							providerErrorMessage: error.providerErrorMessage,
+						},
+						"Medical insurance post-payment HIS finalization failed or is waiting",
+					);
 				}
 			}
 			return {

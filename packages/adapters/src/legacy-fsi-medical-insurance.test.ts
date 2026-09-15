@@ -493,3 +493,204 @@ test("纯医保零元订单在 .32 成功后不调用 .5", async () => {
 	).resolves.toMatchObject({ state: "insurance_settled" });
 	expect(querySettlementCalls).toBe(1);
 });
+
+test("6202 后先落库 6301 候选，再调用 .32", async () => {
+	const medicalOrder = {
+		medicalOrderId: "medical-order-sequence-001",
+		ownerUserId: "user-sequence-001",
+		authorizationId: "authorization-sequence-001",
+		feeUploadId: "fee-upload-sequence-001",
+		payOrdId: "pay-order-sequence-001",
+		businessType: "registration",
+		orderType: "RegPay",
+		amounts: {
+			totalFen: 1000,
+			cashFen: 200,
+			personalAccountFen: 0,
+			fundFen: 800,
+		},
+	} as MedicalInsuranceOrder;
+	let settlementContext: MedicalInsuranceSettlementContext = {
+		businessId: "business-sequence-001",
+		businessCode: "trade-sequence-001",
+		hospitalId: "10389001",
+		patientId: "provider-patient-sequence-001",
+		chrgBchno: "batch-sequence-001",
+		insuredAreaCode: "140581",
+		networkRegister: { memberNo: "psn-sequence-001" },
+		outNetworkSettleMain: {
+			chargeClassId: "charge-class-sequence-001",
+			networkPatClassId: "network-class-sequence-001",
+			outVisitRecordId: "visit-sequence-001",
+		},
+		nationalUpDetailList: [],
+		upDetailList: [
+			{
+				amount: "10.00",
+				chargeCode: "CHARGE-001",
+				chargeId: "CHARGE-ID-001",
+				chargeName: "挂号费",
+				networkItemCode: "ITEM-001",
+				networkItemName: "挂号费",
+				orderId: "ORDER-001",
+				outBillId: "BILL-001",
+				price: "10.00",
+				quantity: 1,
+				selfBurdenRatio: "0",
+				createTime: "2026-09-15 19:00:00",
+			},
+		],
+		tradeOrderIds: ["trade-sequence-001"],
+		postPaymentCompletedAt: "2026-09-15T19:01:00.000Z",
+		payingId: "paying-sequence-001",
+		tradingId: "trading-sequence-001",
+		postPaymentComponents: [
+			{
+				componentId: "medical-order-sequence-001:fund",
+				kind: "fund",
+				totalFen: 1000,
+				amountFen: 800,
+				payModel: "H5",
+				payTypeId: "2",
+				recordCode: "record-sequence-001",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "paying-sequence-001",
+				tradingId: "trading-sequence-001",
+				updatedAt: "2026-09-15T19:01:00.000Z",
+			},
+		],
+	};
+	const providerPaths: string[] = [];
+	let querySettlementCalls = 0;
+	const settlement = {
+		payOrdId: medicalOrder.payOrdId,
+		ordStas: "6",
+		totalFen: 1000,
+		cashFen: 200,
+		personalAccountFen: 0,
+		fundFen: 800,
+	};
+	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		legacyFsi: {
+			createPaymentOrder: async () => ({
+				settlement,
+				statusClass: "settlement_candidate",
+				settlementSource: {
+					root: {
+						feeSumamt: 10,
+						fundPay: 8,
+						psnAcctPay: 0,
+						ownPayAmt: 2,
+					},
+					preSetl: {
+						mdtrt_id: "mdtrt-sequence-001",
+						medfee_sumamt: "10.00",
+						psn_no: "psn-sequence-001",
+						psn_name: "顺序测试人",
+						insutype: "310",
+						clr_optins: "140581",
+						exp_content: "{}",
+					},
+				},
+				trace: {
+					provider: "medical-insurance",
+					operation: "medical-insurance.6202",
+					requestId: "fsi-6202-sequence-001",
+				},
+			}),
+			querySettlement: async () => {
+				querySettlementCalls += 1;
+				return {
+					settlement: { ...settlement, amounts: settlement },
+					statusClass: "settlement_candidate",
+					trace: {
+						provider: "medical-insurance",
+						operation: "medical-insurance.6301",
+						requestId: "fsi-6301-sequence-001",
+					},
+				};
+			},
+		} as never,
+		orders: {
+			findByMedicalOrderId: async () => medicalOrder,
+			getSettlementContext: async () => settlementContext,
+			saveSettlementContext: async (
+				_owner: string,
+				_orderId: string,
+				next: MedicalInsuranceSettlementContext,
+			) => {
+				settlementContext = next;
+			},
+		} as never,
+		authorizations: {
+			get: async () => ({
+				payAuthNo: "AUTH-SEQUENCE-001",
+				insuplcAdmdvs: "140581",
+				insutype: "310",
+				patient: { idNo: "140581199001010011", userName: "顺序测试人" },
+			}),
+		} as never,
+		credentials: {
+			get: async () => ({
+				payOrdId: medicalOrder.payOrdId,
+				payToken: "pay-token-sequence-001",
+			}),
+			getActiveForOrder: async () => ({
+				payOrdId: medicalOrder.payOrdId,
+				payToken: "pay-token-sequence-001",
+				providerQueryIdentity: {},
+			}),
+		} as never,
+		relayUrl: "https://relay.example",
+		relayAuthorizationToken: "synthetic-token",
+		foundationBaseUrl: "https://foundation.example",
+		zhongyangBaseUrl: "https://zhongyang.example",
+		fetcher: async (input) => {
+			providerPaths.push(new URL(String(input)).pathname);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: { insur: "SUCCESS", settle: "SUCCESS" },
+				}),
+				{ status: 200, headers: { "content-type": "application/json" } },
+			);
+		},
+	});
+
+	const pending = await gateway.settle(
+		{
+			orderId: medicalOrder.medicalOrderId,
+			ownerUserId: medicalOrder.ownerUserId,
+			authorizationId: medicalOrder.authorizationId as string,
+			feeUploadId: medicalOrder.feeUploadId as string,
+			mdtrtId: "mdtrt-sequence-001",
+			acctUsedFlag: "0",
+		},
+		context,
+	);
+	expect(pending.state).toBe("cash_pending");
+	expect(providerPaths).toEqual([]);
+	expect(settlementContext.outNetworkSettleMain).toMatchObject({
+		mdtrtId: "mdtrt-sequence-001",
+		insutype: "310",
+	});
+
+	const completed = await gateway.query(
+		{
+			orderId: medicalOrder.medicalOrderId,
+			ownerUserId: medicalOrder.ownerUserId,
+		},
+		context,
+	);
+	expect(completed.state).toBe("cash_pending");
+	expect(completed.authoritative).toBeTrue();
+	expect(providerPaths).toEqual([
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+	]);
+	expect(querySettlementCalls).toBe(1);
+	expect(settlementContext.settlementQuery6301).toMatchObject({
+		ordStas: "6",
+		statusClass: "settlement_candidate",
+	});
+});

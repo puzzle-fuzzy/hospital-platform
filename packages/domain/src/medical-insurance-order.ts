@@ -76,8 +76,8 @@ const ALLOWED_TRANSITIONS: Record<
 	],
 	fee_uploaded: [
 		"order_placed",
-		// 6202 may return a final candidate in the same command; the adapter
-		// then completes 2.27.2.32; only orders with a cash amount continue to .5.
+		// 6202 only records the settlement candidate; 6301 must be queried before
+		// the adapter completes 2.27.2.32. Only orders with a cash amount continue to .5.
 		"insurance_settled",
 		"cash_pending",
 		"awaiting_confirmation",
