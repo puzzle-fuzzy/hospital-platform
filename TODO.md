@@ -33,8 +33,8 @@
 | LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 通过 | 证明旧页面和迁移矩阵逐项可对照，不证明业务验收 |
 | pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
 | pnpm migration:fact:audit | 通过 | 当前文档事实已同步 64/47、partial=34、blocked-provider=0 和当前源码输入 revision |
-| pnpm --filter @hospital/miniprogram runtime:verify | 通过 | release dist sourceRevision=64167fd7bfbaa012ff4e008382c54b578ce0bb8b、pageCount=47、generatedAt=2026-09-15T18:09:22.289Z |
-| pnpm --filter @hospital/miniprogram runtime:verify:dev | 通过 | development sourceRevision=workspace-sha256:c00e54a2f17b72aa9a0fbea472f1592da4a1b1591436d17cbe2c38728457e44b、baseSourceRevision=64167fd7bfbaa012ff4e008382c54b578ce0bb8b、pageCount=47、generatedAt=2026-09-15T18:09:45.858Z |
+| pnpm --filter @hospital/miniprogram runtime:verify | 通过 | release dist sourceRevision=82d5e4213c4a419eb49420f244b377990adfec5e、pageCount=47、generatedAt=2026-09-15T18:11:51.048Z |
+| pnpm --filter @hospital/miniprogram runtime:verify:dev | 通过 | development sourceRevision=workspace-sha256:218cf023e2f58e438619c2152a4fd18757faa2e0a0d9212d0672002d1ff96986、baseSourceRevision=82d5e4213c4a419eb49420f244b377990adfec5e、pageCount=47、generatedAt=2026-09-15T18:11:56.176Z |
 | pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
 | pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、37 个字面导航调用 |
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
@@ -99,11 +99,11 @@
 
 ### P0 发布事实文档不能继续引用旧候选
 
-- [x] P0-03 更新 docs/发布/广度优先页面覆盖-2026-08-25.md:1-10 以及引用同一数字的迁移就绪报告/旧页面矩阵：统一写入当前 64 个旧页面、47 个原生页面、partial=34、blocked-provider=0 和源码 revision 64167fd7bfbaa012ff4e008382c54b578ce0bb8b；`pnpm migration:fact:audit` 已通过，入口覆盖仍明确不等于业务完成。
+- [x] P0-03 更新 docs/发布/广度优先页面覆盖-2026-08-25.md:1-10 以及引用同一数字的迁移就绪报告/旧页面矩阵：统一写入当前 64 个旧页面、47 个原生页面、partial=34、blocked-provider=0 和源码 revision 82d5e4213c4a419eb49420f244b377990adfec5e；`pnpm migration:fact:audit` 已通过，入口覆盖仍明确不等于业务完成。
 
 ### P0 DevTools 实际运行包必须和当前源码一致
 
-- [x] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；本次预约历史标签范围修正后 development 与 release 均重新生成并校验 47 页运行包，release sourceRevision=`64167fd7bfbaa012ff4e008382c54b578ce0bb8b`、generatedAt=`2026-09-15T18:09:22.289Z`，development snapshot=`workspace-sha256:c00e54a2f17b72aa9a0fbea472f1592da4a1b1591436d17cbe2c38728457e44b`、baseSourceRevision=`64167fd7bfbaa012ff4e008382c54b578ce0bb8b`；确认 project.config.json 继续指向 dist/。
+- [x] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；本次预约历史标签范围修正后 development 与 release 均重新生成并校验 47 页运行包，release sourceRevision=`82d5e4213c4a419eb49420f244b377990adfec5e`、generatedAt=`2026-09-15T18:11:51.048Z`，development snapshot=`workspace-sha256:218cf023e2f58e438619c2152a4fd18757faa2e0a0d9212d0672002d1ff96986`、baseSourceRevision=`82d5e4213c4a419eb49420f244b377990adfec5e`；确认 project.config.json 继续指向 dist/。
 
 ### P0 状态语义要统一为“安全子集/关闭态/待实证”
 
@@ -125,7 +125,7 @@
 
 - [ ] P1-05 完成非支付预约写入闭环（静态边界审计见 [`预约写入非支付边界审计-2026-09-16.md`](docs/迁移/预约写入非支付边界审计-2026-09-16.md)）：旧端锁号接口声明、费用/执行预约/取消/记录/详情见 `hospital-app/src/api/modules/appointment.ts:355-393,395-517`，实际确认页提交 Provider 患者号、身份、金额、排班号和号源号见 `hospital-app/src/pagesB/hospital/confirm_registration.vue:199-215,237-272`，旧详情取消见 `registration_detail.vue:380-423`；本次检索未发现旧页面实际调用 `lockSourcesApi`。新端已有 POST `/appointments/holds`、`/registrations`、`/registrations/:id/cancel` 和详情 GET，见 `apps/api/src/modules/appointments/index.ts:100-160,234-255`、`apps/miniprogram/src/services/api-client.ts:2786-2831,3014-3066`，服务层/adapter/持久化见 `apps/api/src/modules/appointments/write-service.ts:343-838`、`packages/adapters/src/zhongyang-appointment-writes.ts:448-842`、`packages/persistence/migrations/0024_appointment_writes.sql:1-55`。静态代码已核对 owner/患者/opaque 引用/幂等/过期/条件更新和 Provider ID 不外泄；但 `hold` 必经未确认 `registerSource` 的实际费用合同，旧费用请求实际传渠道 4 而新写入 adapter 固定渠道 3，锁号 TTL/释放、Provider 超时最终状态、重复预约匹配范围均缺当前证据，且写入 gate 默认关闭、独立 adapter 测试不足。故不修改渠道、不猜字段、不打开 gate，保持未完成；支付、医保、退费、HIS 支付回写不在此项。
 
-- [ ] P1-06 完成预约历史和爽约的真实状态对照（静态二次审计见 [`预约历史与爽约记录对照审计-2026-09-16.md`](docs/迁移/预约历史与爽约记录对照审计-2026-09-16.md)）：新端 my-registration/missed-appointments 读取 `/appointments/records`，见 `apps/miniprogram/src/services/api-client.ts:2900-2911`、`apps/miniprogram/src/pages/appointment-records/appointment-records.ts:213-318,367-393`、`apps/miniprogram/src/pages/missed-appointments/missed-appointments.ts:106-236`；旧端记录入口与真实标签请求见 `hospital-app/src/api/modules/appointment.ts:395-517`、`hospital-app/src/pagesB/user/my_registration.vue:186-220`、`miss_appointment.vue:208-233`。本轮已修正新端此前两个标签固定 `scope=all` 的偏差，当前按旧语义选择 `online/all`，并确认取消保留、`unknown` 不推断为 `missed`、跨患者/会话守卫的静态实现；但旧端前后各三个月与新端前后 90 天、旧爽约无日期与新端过去 90 天的窗口差异，以及 Provider 状态样例、当前候选版本公网/DevTools/真机/生产证据仍未完成，故保持未勾选。
+- [ ] P1-06 完成预约历史和爽约的真实状态对照（静态二次审计见 [`预约历史与爽约记录对照审计-2026-09-16.md`](docs/迁移/预约历史与爽约记录对照审计-2026-09-16.md)）：新端 my-registration/missed-appointments 读取 `/appointments/records`，见 `apps/miniprogram/src/services/api-client.ts:2900-2911`、`apps/miniprogram/src/pages/appointment-records/appointment-records.ts:213-318,367-393`、`apps/miniprogram/src/pages/missed-appointments/missed-appointments.ts:106-236`；旧端记录入口与真实标签请求见 `hospital-app/src/api/modules/appointment.ts:395-517`、`hospital-app/src/pagesB/user/my_registration.vue:186-220`、`hospital-app/src/pagesB/user/miss_appointment.vue:208-233`。本轮已修正新端此前两个标签固定 `scope=all` 的偏差，当前按旧语义选择 `online/all`，并确认取消保留、`unknown` 不推断为 `missed`、跨患者/会话守卫的静态实现；但旧端前后各三个月与新端前后 90 天、旧爽约无日期与新端过去 90 天的窗口差异，以及 Provider 状态样例、当前候选版本公网/DevTools/真机/生产证据仍未完成，故保持未勾选。
 
 - [ ] P1-07 完成我的医生关系迁移验收：旧服务把 MyDoctorRouter 挂在 app/api/v1/module_convenience/__init__.py:14-19，新端有 owner-scoped GET/POST/DELETE /my/doctors，见 apps/api/src/modules/my-doctors/index.ts:26-107 和客户端 apps/miniprogram/src/services/api-client.ts:2834-2878。核对旧存量 21 条关系的导入/不导入决定、医生目录失效、关注幂等、排班来源和真机结果；不把状态页文案当关系数据。
 
