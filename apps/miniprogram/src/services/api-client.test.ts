@@ -19,6 +19,7 @@ import {
 	requestHealthSymptomsByPart,
 	requestWithSession,
 	requestWithStableSession,
+	requireAppointmentCancellationResponse,
 	requireAuthSessionResponse,
 	requireCanonicalUserProfileResponse,
 	requireCurrentUserResponse,
@@ -49,6 +50,52 @@ import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 } from "./session-generation";
+
+test("非支付取消预约响应必须回显引用并确认 cancelled", () => {
+	const valid = {
+		success: true,
+		data: {
+			appointmentId: "appointment-001",
+			status: "cancelled",
+		},
+	} as const;
+
+	expect(
+		requireAppointmentCancellationResponse(valid, "appointment-001"),
+	).toEqual(valid);
+	expect(
+		requireAppointmentCancellationResponse(
+			{
+				...valid,
+				data: { ...valid.data, unexpected: "drop" },
+			},
+			"appointment-001",
+		),
+	).toEqual(valid);
+
+	for (const invalid of [
+		{
+			...valid,
+			data: { ...valid.data, appointmentId: "appointment-002" },
+		},
+		{ ...valid, data: { ...valid.data, status: "booked" } },
+		{ ...valid, data: { ...valid.data, appointmentId: " appointment-001" } },
+	]) {
+		expect(() =>
+			requireAppointmentCancellationResponse(invalid, "appointment-001"),
+		).toThrow("预约服务返回数据异常");
+	}
+	expect(() =>
+		requireAppointmentCancellationResponse(
+			{ ...valid, success: false },
+			"appointment-001",
+		),
+	).toThrow("API success response is invalid");
+
+	expect(() =>
+		requireAppointmentCancellationResponse(valid, " appointment-001"),
+	).toThrow("预约服务返回数据异常");
+});
 
 test("智能导诊响应只接受平台会话引用和白名单结果字段", () => {
 	expect(

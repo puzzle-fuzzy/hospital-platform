@@ -481,6 +481,32 @@ function requireAppointmentRegistrationResponse(
 	};
 }
 
+/** 取消响应必须回显本次预约引用并确认 cancelled，避免通用成功信封掩盖状态漂移。 */
+export function requireAppointmentCancellationResponse(
+	value: unknown,
+	expectedAppointmentId: string,
+): AppointmentCancellationResponse {
+	const payload =
+		requireSuccessDataResponse<AppointmentCancellationResponse["data"]>(value);
+	const data = payload.data;
+	if (
+		!isBoundedAppointmentRequestIdentifier(expectedAppointmentId) ||
+		expectedAppointmentId.length > 64 ||
+		!isSafeAppointmentWriteText(data.appointmentId, 64) ||
+		data.appointmentId !== expectedAppointmentId ||
+		data.status !== "cancelled"
+	) {
+		return invalidAppointmentWriteResponse();
+	}
+	return {
+		success: true,
+		data: {
+			appointmentId: data.appointmentId,
+			status: "cancelled",
+		},
+	};
+}
+
 function invalidAppointmentRecordRequest(message: string): never {
 	throw new ApiError(message, {
 		code: "appointment-record-query-invalid",
@@ -3193,9 +3219,7 @@ export function requestAppointmentCancellation(
 		data: {},
 		idempotencyKey: createIdempotencyKey("appointment-cancel"),
 	}).then((payload) =>
-		requireSuccessDataResponse<AppointmentCancellationResponse["data"]>(
-			payload,
-		),
+		requireAppointmentCancellationResponse(payload, appointmentId),
 	);
 }
 
