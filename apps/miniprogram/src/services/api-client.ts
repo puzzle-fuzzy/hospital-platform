@@ -16,9 +16,9 @@ import type {
 	HealthKnowledgeDiseaseListResponse,
 	HealthKnowledgeDrugDetailResponse,
 	HealthKnowledgeSymptomListResponse,
+	InpatientEpisodeListResponse,
 	IntelligentGuideMessageRequest,
 	IntelligentGuideMessageResponse,
-	InpatientEpisodeListResponse,
 	LaboratoryReportItem,
 	MyDoctorDeleteResponse,
 	MyDoctorListResponse,
@@ -494,6 +494,142 @@ function requireMyDoctorIdentifier(value: unknown): string {
 		});
 	}
 	return value;
+}
+
+/** 小程序网络边界再次投影 owner-scoped 的我的医生公共读模型。 */
+function invalidMyDoctorResponse(): never {
+	throw new ApiError("My doctor response is invalid", {
+		code: "provider-response-invalid",
+	});
+}
+
+function hasSafeMyDoctorText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function optionalMyDoctorText(
+	value: unknown,
+	maxLength: number,
+): string | undefined {
+	if (value === undefined) return undefined;
+	if (!hasSafeMyDoctorText(value, maxLength)) return invalidMyDoctorResponse();
+	return value;
+}
+
+function requireMyDoctorItem(
+	value: unknown,
+): MyDoctorListResponse["data"]["items"][number] {
+	if (!isRecord(value)) return invalidMyDoctorResponse();
+	const doctorId = requireMyDoctorIdentifierForResponse(value.doctorId);
+	const doctorName = value.doctorName;
+	const departmentName = value.departmentName;
+	const createdAt = value.createdAt;
+	if (
+		!hasSafeMyDoctorText(doctorName, 128) ||
+		!hasSafeMyDoctorText(departmentName, 128) ||
+		!hasSafeMyDoctorText(createdAt, 64) ||
+		Number.isNaN(Date.parse(createdAt))
+	) {
+		return invalidMyDoctorResponse();
+	}
+	const titleName = optionalMyDoctorText(value.titleName, 128);
+	const introduction = optionalMyDoctorText(value.introduction, 512);
+	const expertise = optionalMyDoctorText(value.expertise, 255);
+	const departmentLocation = optionalMyDoctorText(
+		value.departmentLocation,
+		256,
+	);
+	const doctorAvatarUrl = optionalMyDoctorText(value.doctorAvatarUrl, 512);
+	if (
+		doctorAvatarUrl !== undefined &&
+		!/^https?:\/\/[^\s]+$/u.test(doctorAvatarUrl)
+	) {
+		return invalidMyDoctorResponse();
+	}
+	return {
+		doctorId,
+		doctorName,
+		...(titleName === undefined ? {} : { titleName }),
+		...(introduction === undefined ? {} : { introduction }),
+		...(expertise === undefined ? {} : { expertise }),
+		...(departmentLocation === undefined ? {} : { departmentLocation }),
+		departmentName,
+		...(doctorAvatarUrl === undefined ? {} : { doctorAvatarUrl }),
+		createdAt,
+	};
+}
+
+function requireMyDoctorIdentifierForResponse(value: unknown): string {
+	if (!isBoundedAppointmentRequestIdentifier(value)) {
+		return invalidMyDoctorResponse();
+	}
+	return value;
+}
+
+/** 医生列表响应不能依赖 TypeScript 泛型，且必须拒绝重复关系。 */
+export function requireMyDoctorListResponse(
+	value: unknown,
+): MyDoctorListResponse {
+	const payload =
+		requireSuccessDataResponse<MyDoctorListResponse["data"]>(value);
+	const data = payload.data;
+	if (
+		!isRecord(data) ||
+		!Array.isArray(data.items) ||
+		!Number.isSafeInteger(data.total) ||
+		(data.total as number) < 0 ||
+		(data.total as number) !== data.items.length
+	) {
+		return invalidMyDoctorResponse();
+	}
+	const items = data.items.map(requireMyDoctorItem);
+	const ids = new Set<string>();
+	for (const item of items) {
+		if (ids.has(item.doctorId)) return invalidMyDoctorResponse();
+		ids.add(item.doctorId);
+	}
+	return {
+		success: true,
+		data: { items, total: data.total as number },
+	};
+}
+
+/** 单个关系详情和列表使用同一套白名单，避免详情页绕过列表校验。 */
+export function requireMyDoctorResponse(value: unknown): MyDoctorResponse {
+	const payload = requireSuccessDataResponse<MyDoctorResponse["data"]>(value);
+	return { success: true, data: requireMyDoctorItem(payload.data) };
+}
+
+/** 取消关注响应只接受服务端确认的 false，不把任意 truthy 值当作成功。 */
+export function requireMyDoctorDeleteResponse(
+	value: unknown,
+): MyDoctorDeleteResponse {
+	const payload =
+		requireSuccessDataResponse<MyDoctorDeleteResponse["data"]>(value);
+	const data = payload.data;
+	if (
+		!isRecord(data) ||
+		!isBoundedAppointmentRequestIdentifier(data.doctorId) ||
+		data.followed !== false
+	) {
+		return invalidMyDoctorResponse();
+	}
+	return {
+		success: true,
+		data: { doctorId: data.doctorId, followed: false },
+	};
 }
 
 /** 底层排班请求只允许已经登记的 query 字段，禁止静默丢弃调用方意图。 */
@@ -2837,7 +2973,7 @@ export function requestAppointmentRegistration(
 /** 读取当前平台用户关注的医生；关系按服务端会话 owner 隔离。 */
 export function requestMyDoctors(): Promise<MyDoctorListResponse> {
 	return requestWithSession<unknown>({ url: "/my/doctors" }).then((payload) =>
-		requireSuccessDataResponse<MyDoctorListResponse["data"]>(payload),
+		requireMyDoctorListResponse(payload),
 	);
 }
 
@@ -2846,9 +2982,7 @@ export function requestMyDoctor(doctorId: string): Promise<MyDoctorResponse> {
 	const normalizedDoctorId = requireMyDoctorIdentifier(doctorId);
 	return requestWithSession<unknown>({
 		url: `/my/doctors/${encodeURIComponent(normalizedDoctorId)}`,
-	}).then((payload) =>
-		requireSuccessDataResponse<MyDoctorResponse["data"]>(payload),
-	);
+	}).then((payload) => requireMyDoctorResponse(payload));
 }
 
 /**
@@ -2864,9 +2998,7 @@ export function requestMyDoctorFollow(
 		method: "POST",
 		data: { doctorId: normalizedDoctorId },
 		idempotencyKey: createIdempotencyKey("my-doctor-follow"),
-	}).then((payload) =>
-		requireSuccessDataResponse<MyDoctorResponse["data"]>(payload),
-	);
+	}).then((payload) => requireMyDoctorResponse(payload));
 }
 
 /** 取消关注是幂等删除；即使关系已经不存在也返回 followed=false。 */
@@ -2878,9 +3010,7 @@ export function requestMyDoctorUnfollow(
 		url: `/my/doctors/${encodeURIComponent(normalizedDoctorId)}`,
 		method: "DELETE",
 		idempotencyKey: createIdempotencyKey("my-doctor-unfollow"),
-	}).then((payload) =>
-		requireSuccessDataResponse<MyDoctorDeleteResponse["data"]>(payload),
-	);
+	}).then((payload) => requireMyDoctorDeleteResponse(payload));
 }
 
 /** 将预约记录契约编码为 HTTP query；这里不允许省略 scope 或混入错误范围的日期。 */

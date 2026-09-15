@@ -28,6 +28,9 @@ import {
 	requireHealthKnowledgeDrugDetailResponse,
 	requireHealthKnowledgeSymptomListResponse,
 	requireIntelligentGuideMessageResponse,
+	requireMyDoctorDeleteResponse,
+	requireMyDoctorListResponse,
+	requireMyDoctorResponse,
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
@@ -41,11 +44,11 @@ import {
 	getGlobalUserProfile,
 	subscribeGlobalUserProfile,
 } from "./global-user-profile";
+import { readMedicalWechatPayment } from "./medical-insurance";
 import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 } from "./session-generation";
-import { readMedicalWechatPayment } from "./medical-insurance";
 
 test("智能导诊响应只接受平台会话引用和白名单结果字段", () => {
 	expect(
@@ -97,6 +100,83 @@ test("预约记录请求显式编码 online 范围和日期窗口", () => {
 	).toBe(
 		"patientId=patient%2F001&scope=online&startDate=2026-08-01&endDate=2026-08-31",
 	);
+});
+
+function validMyDoctor() {
+	return {
+		doctorId: "doctor-001",
+		doctorName: "李医生",
+		titleName: "主任医师",
+		introduction: "心血管疾病诊疗",
+		expertise: "高血压管理",
+		departmentLocation: "门诊二楼",
+		departmentName: "心内科",
+		doctorAvatarUrl: "https://cdn.example.test/doctor-001.png",
+		createdAt: "2026-09-03T00:00:00.000Z",
+	};
+}
+
+test("我的医生响应在小程序边界只保留 owner-scoped 公共字段", () => {
+	const doctor = {
+		...validMyDoctor(),
+		ownerUserId: "must-not-enter-client",
+		providerDoctorId: "must-not-enter-client",
+	};
+	const list = requireMyDoctorListResponse({
+		success: true,
+		data: { items: [doctor], total: 1 },
+	});
+
+	expect(list).toEqual({
+		success: true,
+		data: { items: [validMyDoctor()], total: 1 },
+	});
+	expect(requireMyDoctorResponse({ success: true, data: doctor })).toEqual({
+		success: true,
+		data: validMyDoctor(),
+	});
+	expect(
+		requireMyDoctorDeleteResponse({
+			success: true,
+			data: { doctorId: "doctor-001", followed: false },
+		}),
+	).toEqual({
+		success: true,
+		data: { doctorId: "doctor-001", followed: false },
+	});
+});
+
+test("我的医生响应拒绝重复关系、坏字段和非确认的取消结果", () => {
+	const doctor = validMyDoctor();
+	for (const invalid of [
+		{ items: [doctor, doctor], total: 2 },
+		{ items: [doctor], total: 2 },
+		{
+			items: [{ ...doctor, doctorName: " 李医生" }],
+			total: 1,
+		},
+		{
+			items: [{ ...doctor, createdAt: "not-an-instant" }],
+			total: 1,
+		},
+		{
+			items: [{ ...doctor, doctorAvatarUrl: "javascript:alert(1)" }],
+			total: 1,
+		},
+	]) {
+		expect(() =>
+			requireMyDoctorListResponse({ success: true, data: invalid }),
+		).toThrow("My doctor response");
+	}
+
+	for (const invalid of [
+		{ doctorId: "doctor-001", followed: true },
+		{ doctorId: " doctor-001", followed: false },
+	]) {
+		expect(() =>
+			requireMyDoctorDeleteResponse({ success: true, data: invalid }),
+		).toThrow("My doctor response");
+	}
 });
 
 test("微信支付响应接受众阳 MD5 参数并兼容历史 APIv3 RSA 参数", () => {
