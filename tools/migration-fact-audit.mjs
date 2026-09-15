@@ -127,7 +127,7 @@ function requiredDocumentFragments(facts) {
 				formatLegacyPageStatus("blocked-provider"),
 				formatLegacyPageStatus("blocked-external"),
 				formatLegacyPageStatus("excluded"),
-				`当前小程序源码与 live 运行输入为 \`${miniProgramSourceRevision}\``,
+				`当前小程序运行输入的最近一次相关提交为 \`${miniProgramSourceRevision}\``,
 			],
 		},
 	];

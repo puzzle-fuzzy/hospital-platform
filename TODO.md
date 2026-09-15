@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 2 项、未完成 35 项。
-另按标题优先级统计未完成项为：P0 3、P1 20、P2 9、P3 3。
+当前 TODO 复选框总数为 37 项，其中已完成 3 项、未完成 34 项。
+另按标题优先级统计未完成项为：P0 2、P1 20、P2 9、P3 3。
 
 ## 当前机器事实
 
@@ -31,12 +31,12 @@
 | 命令 | 结果 | 说明 |
 | --- | --- | --- |
 | LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 通过 | 证明旧页面和迁移矩阵逐项可对照，不证明业务验收 |
-| pnpm migration:boundary:audit | 失败，5 条规则 | 陪诊 action 映射、报告 action-only 映射、生产源码冻结字段 |
-| pnpm migration:fact:audit | 失败 | 发布覆盖文档仍写 43 个原生页面和旧 revision |
-| pnpm --filter @hospital/miniprogram runtime:verify | 失败 | dist revision=751546da，当前源码期望=0cd711f9 |
+| pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
+| pnpm migration:fact:audit | 通过 | 当前文档事实已同步 64/47、partial=34、blocked-provider=0 和当前源码输入 revision |
+| pnpm --filter @hospital/miniprogram runtime:verify | 失败 | dist revision=751546da，当前源码期望=47574b9a |
 | pnpm --filter @hospital/miniprogram runtime:verify:dev | 失败 | development runtime snapshot 不再匹配当前输入 |
 | pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
-| pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、38 个字面导航调用 |
+| pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、37 个字面导航调用 |
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
 | pnpm clinical:contract:audit | 通过但保持关闭 | 门诊记录、住院信息、电子导诊单仍 contract-pending |
 | pnpm readonly:audit | 通过 | 6 个低风险业务域的结构闭环通过，不替代 Provider/真机证据 |
@@ -99,7 +99,7 @@
 
 ### P0 发布事实文档不能继续引用旧候选
 
-- [ ] P0-03 更新 docs/发布/广度优先页面覆盖-2026-08-25.md:1-10 以及引用同一数字的迁移就绪报告/旧页面矩阵：统一写入当前 64 个旧页面、47 个原生页面、partial=34、blocked-provider=0 和源码 revision 0cd711f9aff5c03ef256822b83552d2a795e27c7；以 pnpm migration:fact:audit 为门禁，禁止“入口覆盖”被写成“业务完成”。
+- [x] P0-03 更新 docs/发布/广度优先页面覆盖-2026-08-25.md:1-10 以及引用同一数字的迁移就绪报告/旧页面矩阵：统一写入当前 64 个旧页面、47 个原生页面、partial=34、blocked-provider=0 和源码 revision 47574b9acbe79203d23a7acbfe034ffd5fee3c31；`pnpm migration:fact:audit` 已通过，入口覆盖仍明确不等于业务完成。
 
 ### P0 DevTools 实际运行包必须和当前源码一致
 
