@@ -624,9 +624,9 @@ function Console() {
 						<SafetyCertificateOutlined />
 					</div>
 					<div>
-						<Text strong>Admin 管理端</Text>
+						<Text strong>高平市人民医院</Text>
 						<Text type="secondary" className="header-subtitle">
-							高平市人民医院
+							医保参保余额查询
 						</Text>
 					</div>
 				</div>
