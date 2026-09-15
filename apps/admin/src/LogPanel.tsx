@@ -24,7 +24,7 @@ import {
 	Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, fetchLogDetail, fetchLogPage, fetchLogRaw } from "./api";
 import type {
 	AdminLogLevel,
@@ -106,9 +106,10 @@ export function LogPanel({
 		pageSize: 50,
 	});
 	const [detail, setDetail] = useState<AdminLogRecord>();
-	const [detailLoading, setDetailLoading] = useState(false);
+	const [detailLoadingId, setDetailLoadingId] = useState<string>();
 	const [rawTrace, setRawTrace] = useState<RawLogTrace>();
 	const [rawLoading, setRawLoading] = useState(false);
+	const detailRequestRef = useRef(0);
 
 	const filterQuery = useMemo<AdminLogQuery>(
 		() => ({
@@ -164,32 +165,51 @@ export function LogPanel({
 
 	const openDetail = useCallback(
 		async (record: AdminLogRecord) => {
-			setDetailLoading(true);
+			const requestId = detailRequestRef.current + 1;
+			detailRequestRef.current = requestId;
+			setDetailLoadingId(record.id);
 			setRawLoading(true);
 			setRawTrace(undefined);
 			try {
 				const nextDetail = await fetchLogDetail(record.id, session);
+				if (detailRequestRef.current !== requestId) return;
 				setDetail(nextDetail);
 				try {
-					setRawTrace(await fetchLogRaw(nextDetail.id, session));
+					const nextRawTrace = await fetchLogRaw(nextDetail.id, session);
+					if (detailRequestRef.current === requestId) {
+						setRawTrace(nextRawTrace);
+					}
 				} catch (error) {
+					if (detailRequestRef.current !== requestId) return;
 					if (error instanceof ApiError && error.status === 401) onExpired();
 					void message.warning(
 						error instanceof Error ? error.message : "原始日志加载失败",
 					);
 				}
 			} catch (error) {
+				if (detailRequestRef.current !== requestId) return;
 				if (error instanceof ApiError && error.status === 401) onExpired();
 				void message.error(
 					error instanceof Error ? error.message : "日志详情加载失败",
 				);
 			} finally {
-				setDetailLoading(false);
-				setRawLoading(false);
+				if (detailRequestRef.current === requestId) {
+					setDetailLoadingId(undefined);
+					setRawLoading(false);
+				}
 			}
 		},
 		[message, onExpired, session],
 	);
+
+	const closeDetail = useCallback(() => {
+		// 使尚未返回的详情/原始日志请求失效，避免关闭抽屉后继续占用 loading 状态。
+		detailRequestRef.current += 1;
+		setDetail(undefined);
+		setRawTrace(undefined);
+		setDetailLoadingId(undefined);
+		setRawLoading(false);
+	}, []);
 
 	const columns = useMemo<ColumnsType<AdminLogRecord>>(
 		() => [
@@ -247,7 +267,7 @@ export function LogPanel({
 				render: (_, record) => (
 					<Button
 						type="link"
-						loading={detailLoading}
+						loading={detailLoadingId === record.id}
 						onClick={() => void openDetail(record)}
 					>
 						查看
@@ -255,7 +275,7 @@ export function LogPanel({
 				),
 			},
 		],
-		[detailLoading, openDetail],
+		[detailLoadingId, openDetail],
 	);
 
 	return (
@@ -383,10 +403,7 @@ export function LogPanel({
 			<Drawer
 				title={detail ? `日志详情 · ${detail.id}` : "日志详情"}
 				open={Boolean(detail)}
-				onClose={() => {
-					setDetail(undefined);
-					setRawTrace(undefined);
-				}}
+				onClose={closeDetail}
 				width={880}
 			>
 				{detail ? (

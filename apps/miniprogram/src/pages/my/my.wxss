@@ -96,7 +96,7 @@ page {
 	max-width: 560rpx;
 	color: #222222;
 	font-size: 45rpx;
-	line-height: 1.25;
+	line-height: 1.1;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -107,7 +107,7 @@ page {
 	max-width: 560rpx;
 	color: #5570a8;
 	font-size: 23rpx;
-	line-height: 1.4;
+	line-height: 1.25;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -115,9 +115,9 @@ page {
 
 /* 扩大授权提示的可点击区域，避免用户必须精准点中文字才触发微信弹窗。 */
 .profile-auth-action {
-	/* 让昵称与授权提示保持紧凑，同时保留足够的点击热区。 */
-	margin-top: 0;
-	padding: 4rpx 12rpx;
+	/* 让提示紧贴昵称，同时保留横向点击热区。 */
+	margin-top: -8rpx;
+	padding: 0 12rpx 2rpx;
 	margin-left: -12rpx;
 	border-radius: 10rpx;
 }
