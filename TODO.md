@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 17 项、未完成 20 项。
-另按标题优先级统计未完成项为：P0 0、P1 18、P2 1、P3 1。
+当前 TODO 复选框总数为 37 项，其中已完成 18 项、未完成 19 项。
+另按标题优先级统计未完成项为：P0 0、P1 18、P2 1、P3 0。
 
 ## 当前机器事实
 
@@ -39,7 +39,7 @@
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
 | pnpm clinical:contract:audit | 通过但保持关闭 | 门诊记录、住院信息、电子导诊单仍 contract-pending |
 | pnpm readonly:audit | 通过 | 6 个低风险业务域的结构闭环通过，不替代 Provider/真机证据 |
-| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 17、未完成 20；P0 已清零 |
+| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 18、未完成 19；P0 已清零 |
 
 默认 shell 下的 pnpm 命令仍报告 Node engine wanted 24.12.0、当前 v26.8.1；本轮已用显式 Node 24.12.0 完成工具链和小程序运行包复现。外部 Provider、DevTools、真机和生产证据仍不因本地复现而成立。
 
@@ -192,7 +192,7 @@
 
 - [x] P3-02 补齐后台监控、任务、文件和便民运营闭环，或形成明确不迁移记录：旧 monitor/application/common/convenience 的真实路由、当前新管理端缺口、旧服务保留边界、非支付文件/便民处置、删除与数据保留规则及解锁条件已记录在 [`后台监控任务文件与便民运营不迁移记录-2026-09-16.md`](docs/迁移/后台监控任务文件与便民运营不迁移记录-2026-09-16.md)。本项完成的是当前范围内的“不迁移记录”，不代表后台运营闭环已实现；若确认仍在生产使用，必须另行补 RBAC、审计、列表/详情/处理状态、失败重试和 staging/生产验收。支付/医保/结算 common 路由继续排除。
 
-- [ ] P3-03 建立迁移清单和实际代码的持续一致性门禁：将 migration:audit、migration:boundary:audit、migration:fact:audit、runtime:verify、clinical:contract:audit、readonly:audit、miniprogram-patient-display-audit 纳入同一 CI 报告；每次页面、FeatureKey、旧接口矩阵或 dist 变化都必须更新来源 revision、旧页面状态和未验证项，保留“代码完成、运行环境、Provider、真机、生产接受”五类状态。
+- [x] P3-03 建立迁移清单和实际代码的持续一致性门禁：已将 migration:audit、migration:boundary:audit、migration:contract:audit、migration:fact:audit、todo:audit、runtime:verify、clinical:contract:audit、readonly:audit、provider:audit、页面/患者显示审计、文档和工具链检查纳入根 `pnpm check:candidate`，GitHub CI 统一执行该命令；并在 [`迁移一致性持续门禁-2026-09-16.md`](docs/发布/迁移一致性持续门禁-2026-09-16.md) 记录每次页面、FeatureKey、旧接口矩阵或 dist 变化需同步来源 revision、旧页面状态、五类验收状态和未验证项。本项完成门禁配置，不把门禁通过写成 Provider、真机、生产或支付验收。
 
 ## 已确认不作为本次 TODO 的事项
 
