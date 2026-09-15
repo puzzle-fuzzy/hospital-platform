@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 13 项、未完成 24 项。
-另按标题优先级统计未完成项为：P0 0、P1 18、P2 3、P3 3。
+当前 TODO 复选框总数为 37 项，其中已完成 14 项、未完成 23 项。
+另按标题优先级统计未完成项为：P0 0、P1 18、P2 2、P3 3。
 
 ## 当前机器事实
 
@@ -40,7 +40,7 @@
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
 | pnpm clinical:contract:audit | 通过但保持关闭 | 门诊记录、住院信息、电子导诊单仍 contract-pending |
 | pnpm readonly:audit | 通过 | 6 个低风险业务域的结构闭环通过，不替代 Provider/真机证据 |
-| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 13、未完成 24；P0 已清零 |
+| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 14、未完成 23；P0 已清零 |
 
 仓库所有 pnpm 命令还报告 Node engine wanted 24.12.0、当前 v26.8.1。这是可复现性问题，不是业务已完成证据。
 
@@ -183,7 +183,7 @@
 
 - [x] P2-08 为 94 个小程序页面源文件建立按业务域的真机回归矩阵：已逐项覆盖 `app.json` 的 47 页及其 `.ts/.wxml` 源文件，区分 `代码具备/待实证`、`安全静态/关闭`、`写入前受控` 和范围排除；固定 S0-S9 场景覆盖登录/退出、无患者、换患者、会话失效、Provider 503、空列表、超时、页面返回和 `dist` 实际加载。矩阵见 [`小程序页面回归矩阵-2026-09-16.md`](docs/迁移/小程序页面回归矩阵-2026-09-16.md)，并明确临床、外部、患者绑定、报告附件的 `600` 受控证据边界。`pnpm miniprogram:navigation:audit`（47 页）、`pnpm miniprogram:patient-display:audit`（94 个源文件）和 `pnpm migration:breadth:audit` 均通过；但当前 dist 来源仍为 82d5、Node 仍为 v26.8.1，且没有本文候选的 DevTools/真机/Provider/生产同链证据，因此矩阵内业务行保持 pending，不把矩阵建立误写成业务验收完成。本轮未触碰支付/医保/收银台/费用页面或相关代码。
 
-- [ ] P2-09 处理健康知识中未定义的 knowledge_tips：旧快照审计把它列为未定义来源，见 docs/迁移/健康知识来源审计-2026-08-25.md:57-80；当前新 API 只建 part/crowd/department/symptom/disease/drug 版本化读模型。先确认它是否属于业务范围并取得来源/审核责任，不能塞入疾病正文、药品说明或通用提示字段后宣称健康内容已迁移。
+- [x] P2-09 复核健康知识中的 `knowledge_tips`：二次核对确认旧 Python 确实存在 `knowledge_tips` 表和认证后的 `GET /knowledge/tips/{id}`，字段为 `id/title/content/status`，见旧服务 `/Users/yxswy/Documents/GitHub/hospital/app/api/v1/module_knowledge/tips/model.py:11-21`、`controller.py:13-29`；但旧小程序“指标解读”实际在 `hospital-app/src/pagesB/health/health_test.vue:154-271` 使用 10 项本地硬编码内容，没有发现调用该接口，不能把两个对象强行关联。新端导出器仍在 `packages/persistence/scripts/health-knowledge-source-export.ts:91-99,516` 将其列为 `ignoredLegacySources`，bundle/API 没有 `tip` 类型或路由。结论、数据范围/内容责任/临床审核/版本发布阻塞和未来输入已记录在 [`健康贴士来源与范围复核-2026-09-16.md`](docs/迁移/健康贴士来源与范围复核-2026-09-16.md)；在取得真实使用关系、脱敏数据指纹、责任人、审核和撤回 contract 前不实现、不导入、不塞入疾病/药品正文，也不因此开放健康内容。
 
 ## P3：后台运营和长期维护
 
