@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 3 项、未完成 34 项。
-另按标题优先级统计未完成项为：P0 2、P1 20、P2 9、P3 3。
+当前 TODO 复选框总数为 37 项，其中已完成 4 项、未完成 33 项。
+另按标题优先级统计未完成项为：P0 1、P1 20、P2 9、P3 3。
 
 ## 当前机器事实
 
@@ -33,8 +33,8 @@
 | LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 通过 | 证明旧页面和迁移矩阵逐项可对照，不证明业务验收 |
 | pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
 | pnpm migration:fact:audit | 通过 | 当前文档事实已同步 64/47、partial=34、blocked-provider=0 和当前源码输入 revision |
-| pnpm --filter @hospital/miniprogram runtime:verify | 失败 | dist revision=751546da，当前源码期望=47574b9a |
-| pnpm --filter @hospital/miniprogram runtime:verify:dev | 失败 | development runtime snapshot 不再匹配当前输入 |
+| pnpm --filter @hospital/miniprogram runtime:verify | 通过 | release dist sourceRevision=47574b9acbe79203d23a7acbfe034ffd5fee3c31、pageCount=47、generatedAt=2026-09-15T17:30:45.482Z |
+| pnpm --filter @hospital/miniprogram runtime:verify:dev | 通过 | development sourceRevision=workspace-sha256:e720d27f6cfedcc6e608722fba56f33031fc7cfd248b2b745ffdfefe150e315c、pageCount=47 |
 | pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
 | pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、37 个字面导航调用 |
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
@@ -103,7 +103,7 @@
 
 ### P0 DevTools 实际运行包必须和当前源码一致
 
-- [ ] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；当前失败证据是 apps/miniprogram/scripts/verify-runtime.ts:271-302 报 development snapshot mismatch，以及 dist revision=751546da5db179a10cde7af3a83f92572f5f2ea4 与当前期望 revision 不一致。确认 project.config.json 继续指向 dist，并把构建 revision、pageCount=47、构建时间写入发布记录。
+- [x] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；development 与 release 均已生成并校验 47 页运行包，release sourceRevision=`47574b9acbe79203d23a7acbfe034ffd5fee3c31`、generatedAt=`2026-09-15T17:30:45.482Z`，development snapshot 与 base revision 已写入 docs/发布/广度优先页面覆盖-2026-08-25.md；确认 project.config.json 继续指向 dist/。
 
 ### P0 状态语义要统一为“安全子集/关闭态/待实证”
 
