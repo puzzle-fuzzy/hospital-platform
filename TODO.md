@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 4 项、未完成 33 项。
-另按标题优先级统计未完成项为：P0 1、P1 20、P2 9、P3 3。
+当前 TODO 复选框总数为 37 项，其中已完成 5 项、未完成 32 项。
+另按标题优先级统计未完成项为：P0 0、P1 20、P2 9、P3 3。
 
 ## 当前机器事实
 
@@ -33,14 +33,14 @@
 | LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 通过 | 证明旧页面和迁移矩阵逐项可对照，不证明业务验收 |
 | pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
 | pnpm migration:fact:audit | 通过 | 当前文档事实已同步 64/47、partial=34、blocked-provider=0 和当前源码输入 revision |
-| pnpm --filter @hospital/miniprogram runtime:verify | 通过 | release dist sourceRevision=47574b9acbe79203d23a7acbfe034ffd5fee3c31、pageCount=47、generatedAt=2026-09-15T17:30:45.482Z |
-| pnpm --filter @hospital/miniprogram runtime:verify:dev | 通过 | development sourceRevision=workspace-sha256:e720d27f6cfedcc6e608722fba56f33031fc7cfd248b2b745ffdfefe150e315c、pageCount=47 |
+| pnpm --filter @hospital/miniprogram runtime:verify | 通过 | release dist sourceRevision=fe2bf000dd3fbf29abed8c14295350d2afb46f27、pageCount=47、generatedAt=2026-09-15T17:45:24.163Z |
+| pnpm --filter @hospital/miniprogram runtime:verify:dev | 通过 | development sourceRevision=workspace-sha256:377d92415b8951d9aafd37c319029f4f413bd8f28c8f61cc3b6f3010493113cd、baseSourceRevision=fe2bf000dd3fbf29abed8c14295350d2afb46f27、pageCount=47、generatedAt=2026-09-15T17:45:20.742Z |
 | pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
 | pnpm miniprogram:navigation:audit | 通过 | 47 页面、4 主 Tab、37 个字面导航调用 |
 | pnpm miniprogram:patient-display:audit | 通过 | 扫描 94 个页面源文件 |
 | pnpm clinical:contract:audit | 通过但保持关闭 | 门诊记录、住院信息、电子导诊单仍 contract-pending |
 | pnpm readonly:audit | 通过 | 6 个低风险业务域的结构闭环通过，不替代 Provider/真机证据 |
-| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验 |
+| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；P0 已清零 |
 
 仓库所有 pnpm 命令还报告 Node engine wanted 24.12.0、当前 v26.8.1。这是可复现性问题，不是业务已完成证据。
 
@@ -95,7 +95,7 @@
 
 ### P0 入口 gate 必须与实际导航和生产源码一致
 
-- [x] P0-02 修复 pnpm migration:boundary:audit 的 5 条失败规则：陪诊入口改为 companion 状态 gate；报告详情的 report-cloud-image、report-share、report-follow-up 均绑定到真实页面事件，其中分享保持明确关闭态；boundary 审计同时校验 TS 方法和 WXML bindtap；移除生产源码中的冻结字段文字命中。已通过 boundary、breadth、navigation、typecheck 与小程序全量测试（414 pass、0 fail）。
+- [x] P0-02 修复 pnpm migration:boundary:audit 的 5 条失败规则：陪诊入口改为 companion 状态 gate；报告详情的 report-cloud-image、report-share、report-follow-up 均绑定到真实页面事件，其中分享保持明确关闭态；boundary 审计同时校验 TS 方法和 WXML bindtap；移除生产源码中的冻结字段文字命中。已通过 boundary、breadth、navigation、typecheck 与小程序全量测试（416 pass、0 fail）。
 
 ### P0 发布事实文档不能继续引用旧候选
 
@@ -103,11 +103,11 @@
 
 ### P0 DevTools 实际运行包必须和当前源码一致
 
-- [x] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；development 与 release 均已生成并校验 47 页运行包，release sourceRevision=`47574b9acbe79203d23a7acbfe034ffd5fee3c31`、generatedAt=`2026-09-15T17:30:45.482Z`，development snapshot 与 base revision 已写入 docs/发布/广度优先页面覆盖-2026-08-25.md；确认 project.config.json 继续指向 dist/。
+- [x] P0-04 在修改任何开放状态前，执行 pnpm --filter @hospital/miniprogram build:dev 和 release build，分别通过 runtime:verify:dev、runtime:verify；本次状态语义收口后 development 与 release 均重新生成并校验 47 页运行包，release sourceRevision=`fe2bf000dd3fbf29abed8c14295350d2afb46f27`、generatedAt=`2026-09-15T17:45:24.163Z`，development snapshot=`workspace-sha256:377d92415b8951d9aafd37c319029f4f413bd8f28c8f61cc3b6f3010493113cd`、baseSourceRevision=`fe2bf000dd3fbf29abed8c14295350d2afb46f27`；确认 project.config.json 继续指向 dist/。
 
 ### P0 状态语义要统一为“安全子集/关闭态/待实证”
 
-- [ ] P0-05 清理所有把页面壳、测试 fixture、Provider adapter 或静态页面描述成“已完成”的旧文档和状态文案；以 apps/miniprogram/src/services/legacy-page-catalog.ts:1-12、apps/miniprogram/src/services/feature-navigation.ts:154-157 为统一语义。每一个页面开放前都要补上实际请求、成功/空/拒绝/超时、归属、日志和真机证据，不能只删掉 feature-status 跳转。
+- [x] P0-05 清理所有把页面壳、测试 fixture、Provider adapter 或静态页面描述成“已完成”的旧文档和状态文案；以 apps/miniprogram/src/services/legacy-page-catalog.ts:1-12、apps/miniprogram/src/services/feature-navigation.ts:154-157 为统一语义。当前统一目录已移除 `已迁移`/`读写已实现`/`全量替换进行中` completion readiness，状态页改为“代码已具备，待实证/安全子集/明确 contract 阻塞”；原生页面台账改为“安全静态子集/只读代码已具备，待实证/读写代码已具备，待实证/页面外壳与关闭态”；`replaced` 机器状态明确只代表原生落点，不代表业务完成。已同步 boundary、coverage、测试 fixture 与迁移文档，并通过 416 项小程序回归、typecheck、boundary、breadth、navigation、catalog 和 diff check。实际请求、成功/空/拒绝/超时、归属、日志、Provider、公网、真机证据仍是后续 P1 放行条件，未因本项放开任何业务；支付保持独立关闭。
 
 ## P1：优先迁移旧服务确实存在且新端尚未闭环的业务
 
