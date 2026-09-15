@@ -937,6 +937,11 @@ test("native patient selection routes to the live patient binding page", async (
 	expect(selection).not.toContain("bindCardApi");
 	expect(template).toContain("添加就诊人");
 	expect(bindingPage).toContain("bindPatientToHospital");
+	expect(bindingPage).toContain("getWechatLoginCode");
+	expect(bindingPage).toContain("wx.login");
+	expect(bindingPage).toContain("legacyLoginCode");
+	expect(bindingPage).not.toContain("legacy-jwt");
+	expect(bindingPage).not.toContain("providerPatientId");
 	expect(bindingPage).toContain("请输入正确的手机号");
 	expect(bindingPage).toContain("请输入正确的身份证号");
 	expect(bindingTemplate).toContain('data-field="displayName"');
