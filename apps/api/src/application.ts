@@ -34,6 +34,10 @@ import type {
 	RedisSessionStore,
 } from "@hospital/persistence";
 import { createNotConfiguredRepositories } from "@hospital/persistence";
+import {
+	type AdminInsuranceQueryGateway,
+	AdminInsuranceQueryService,
+} from "./modules/admin";
 import { AppointmentService } from "./modules/appointments";
 import { AppointmentWriteService } from "./modules/appointments/write-service";
 import {
@@ -42,8 +46,8 @@ import {
 	createRedisSessionTokenService,
 	type SessionTokenService,
 } from "./modules/auth";
-import { HealthKnowledgeService } from "./modules/knowledge";
 import { IntelligentGuideService } from "./modules/intelligent-guide";
+import { HealthKnowledgeService } from "./modules/knowledge";
 import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment-core";
 import { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
@@ -93,6 +97,8 @@ export type ApplicationServices = {
 	wechatPaymentNotifications: WechatPaymentNotificationService;
 	/** 普通资料模块在默认组合根启用；自定义测试组合根可省略以保持 fail-closed。 */
 	profile?: UserProfileService;
+	/** 新服务独立 Admin 1101 只读查询；未配置时保持不可用。 */
+	adminInsuranceQuery?: AdminInsuranceQueryService;
 	sessions: SessionTokenService;
 };
 
@@ -141,6 +147,10 @@ export type ApplicationServiceOptions = {
 	reportAttachmentGateway?: ReportAttachmentGateway;
 	/** 单院区 PEIS 查询的众阳医院 ID；不接受客户端覆盖。 */
 	reportPeisHospitalId?: number;
+	/** 新服务独立 Admin 1101 查询网关；不复用旧服务管理端 token。 */
+	adminInsuranceQueryGateway?: AdminInsuranceQueryGateway;
+	adminInsuranceQueryInstitutionCode?: string;
+	adminInsuranceQueryInstitutionName?: string;
 	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
 	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
 	/** 医保授权、费用上传、结算和查单的真实 adapter；未配置时 fail-closed。 */
@@ -305,7 +315,7 @@ function resolveRegistrationSelfPayContext(
  * 普通挂号自费若复用云健康插件上下文，也必须把 .29 原文保存到同一份密文
  * settlement context。日志只记录长度和哈希，便于排查而不暴露 Provider 报文。
  */
-function persistThirdPartPayResponse(
+function _persistThirdPartPayResponse(
 	repositories: Pick<
 		MySqlRepositories,
 		"medicalInsuranceOrders" | "paymentOrders"
@@ -567,6 +577,17 @@ export function createDefaultApplicationServices(
 			gateways.medicalInsuranceWechatPayment,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const adminInsuranceQuery = options.adminInsuranceQueryGateway
+		? new AdminInsuranceQueryService({
+				gateway: options.adminInsuranceQueryGateway,
+				...(options.adminInsuranceQueryInstitutionCode
+					? { institutionCode: options.adminInsuranceQueryInstitutionCode }
+					: {}),
+				...(options.adminInsuranceQueryInstitutionName
+					? { institutionName: options.adminInsuranceQueryInstitutionName }
+					: {}),
+			})
+		: undefined;
 	const patients = new PatientService(repositories.patients, {
 		identityUsers: repositories.identityUsers,
 		directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
@@ -677,6 +698,7 @@ export function createDefaultApplicationServices(
 		profile: new UserProfileService(repositories.userProfiles, {
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
+		...(adminInsuranceQuery ? { adminInsuranceQuery } : {}),
 		sessions,
 	};
 }

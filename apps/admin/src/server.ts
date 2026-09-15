@@ -4,10 +4,15 @@ type JsonObject = Record<string, unknown>;
 
 const host = Bun.env.INSURANCE_QUERY_HOST?.trim() || "127.0.0.1";
 const port = Number(Bun.env.INSURANCE_QUERY_PORT || "18083");
-const upstream = new URL(
+const legacyUpstream = new URL(
 	Bun.env.LEGACY_HOSPITAL_API_BASE_URL?.trim() ||
 		"https://test-hp.meiyi.pro/api/v1",
 );
+const adminQueryUpstreamValue = Bun.env.ADMIN_QUERY_API_BASE_URL?.trim() || "";
+const adminQueryUpstream = adminQueryUpstreamValue
+	? new URL(adminQueryUpstreamValue)
+	: undefined;
+const adminQueryToken = Bun.env.ADMIN_QUERY_API_TOKEN?.trim() || "";
 const allowHttpUpstream =
 	Bun.env.INSURANCE_QUERY_ALLOW_HTTP_UPSTREAM === "true";
 const clientRoot = join(import.meta.dir, "client");
@@ -19,11 +24,17 @@ const rateLimits = new Map<string, { count: number; expiresAt: number }>();
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 	throw new Error("INSURANCE_QUERY_PORT must be a valid TCP port");
 }
-if (
-	upstream.protocol !== "https:" &&
-	!(allowHttpUpstream && upstream.protocol === "http:")
-) {
+if (legacyUpstream.protocol !== "https:") {
 	throw new Error("Legacy hospital API must use HTTPS");
+}
+if (
+	adminQueryUpstream &&
+	adminQueryUpstream.protocol !== "https:" &&
+	!(allowHttpUpstream && adminQueryUpstream.protocol === "http:")
+) {
+	throw new Error(
+		"Admin query API must use HTTPS unless HTTP is explicitly enabled",
+	);
 }
 
 function json(value: unknown, status = 200): Response {
@@ -86,23 +97,6 @@ function identityNumber(value: unknown): string {
 	return normalized;
 }
 
-function beijingDateTime(now = new Date()): string {
-	const parts = new Intl.DateTimeFormat("zh-CN", {
-		timeZone: "Asia/Shanghai",
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		hour12: false,
-	}).formatToParts(now);
-	const value = Object.fromEntries(
-		parts.map((part) => [part.type, part.value]),
-	);
-	return `${value.year}-${value.month}-${value.day} ${value.hour}:${value.minute}:${value.second}`;
-}
-
 function bearer(request: Request): string {
 	const authorization = request.headers.get("authorization")?.trim() || "";
 	if (!/^Bearer [A-Za-z0-9._~+/-]+=*$/u.test(authorization)) {
@@ -126,12 +120,14 @@ function checkRateLimit(clientAddress: string): void {
 }
 
 async function upstreamRequest(
+	base: URL,
 	path: string,
 	init: RequestInit,
+	unavailableMessage: string,
 ): Promise<Response> {
 	const target = new URL(
-		`${upstream.pathname.replace(/\/$/u, "")}/${path.replace(/^\//u, "")}`,
-		upstream.origin,
+		`${base.pathname.replace(/\/$/u, "")}/${path.replace(/^\//u, "")}`,
+		base.origin,
 	);
 	try {
 		const response = await fetch(target, {
@@ -151,7 +147,7 @@ async function upstreamRequest(
 			},
 		});
 	} catch {
-		return errorResponse("旧服务暂时不可用，请稍后重试", 502);
+		return errorResponse(unavailableMessage, 502);
 	}
 }
 
@@ -168,15 +164,20 @@ async function loginRequest(request: Request): Promise<Response> {
 		captcha_key: captchaKey,
 		captcha,
 	});
-	return upstreamRequest("/system/auth/login", {
-		method: "POST",
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		body,
-	});
+	return upstreamRequest(
+		legacyUpstream,
+		"/system/auth/login",
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body,
+		},
+		"旧服务暂时不可用，请稍后重试",
+	);
 }
 
 async function insuranceRequest(request: Request): Promise<Response> {
-	const authorization = bearer(request);
+	bearer(request);
 	const input = await requestJson(request);
 	const mode = requiredText(input.mode, "MODE", 32);
 	if (
@@ -196,42 +197,47 @@ async function insuranceRequest(request: Request): Promise<Response> {
 		mode === "social-security-card"
 			? requiredText(input.cardSerialNumber, "CARD_SERIAL_NUMBER", 64)
 			: "";
-	const mdtrtCertType =
-		mode === "identity-card"
-			? "02"
-			: mode === "electronic-credential"
-				? "01"
-				: "03";
-	return upstreamRequest("/common/mbs-fsi/1101", {
-		method: "POST",
-		headers: {
-			Authorization: authorization,
-			"Content-Type": "application/json",
-			"X-Request-Id": crypto.randomUUID(),
+	if (!adminQueryUpstream || !adminQueryToken) {
+		return errorResponse("新服务查询接口尚未配置", 503);
+	}
+	return upstreamRequest(
+		adminQueryUpstream,
+		"/admin/insurance/1101",
+		{
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Admin-Query-Token": adminQueryToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+			body: JSON.stringify({
+				mode,
+				identityNumber: certno,
+				name: psnName,
+				...(mode === "identity-card" ? {} : { credentialNumber }),
+				...(mode === "social-security-card" ? { cardSerialNumber } : {}),
+			}),
 		},
-		body: JSON.stringify({
-			mdtrt_cert_type: mdtrtCertType,
-			mdtrt_cert_no: credentialNumber,
-			card_sn: cardSerialNumber,
-			begntime: beijingDateTime(),
-			psn_cert_type: "01",
-			certno,
-			psn_name: psnName,
-		}),
-	});
+		"新服务医保查询暂时不可用，请稍后重试",
+	);
 }
 
 async function logoutRequest(request: Request): Promise<Response> {
 	const authorization = bearer(request);
 	const token = authorization.slice("Bearer ".length);
-	return upstreamRequest("/system/auth/logout", {
-		method: "POST",
-		headers: {
-			Authorization: authorization,
-			"Content-Type": "application/json",
+	return upstreamRequest(
+		legacyUpstream,
+		"/system/auth/logout",
+		{
+			method: "POST",
+			headers: {
+				Authorization: authorization,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ token }),
 		},
-		body: JSON.stringify({ token }),
-	});
+		"旧服务暂时不可用，请稍后重试",
+	);
 }
 
 const contentTypes: Record<string, string> = {
@@ -282,9 +288,14 @@ const server = Bun.serve({
 			}
 			if (url.pathname.startsWith("/api/")) checkRateLimit(clientAddress);
 			if (url.pathname === "/api/auth/captcha" && request.method === "GET") {
-				return await upstreamRequest("/system/auth/captcha/get", {
-					method: "GET",
-				});
+				return await upstreamRequest(
+					legacyUpstream,
+					"/system/auth/captcha/get",
+					{
+						method: "GET",
+					},
+					"旧服务暂时不可用，请稍后重试",
+				);
 			}
 			if (url.pathname === "/api/auth/login" && request.method === "POST") {
 				return await loginRequest(request);
@@ -319,6 +330,7 @@ console.info(
 		event: "admin.started",
 		host: server.hostname,
 		port: server.port,
-		upstreamProtocol: upstream.protocol,
+		legacyUpstreamProtocol: legacyUpstream.protocol,
+		adminQueryConfigured: Boolean(adminQueryUpstream && adminQueryToken),
 	}),
 );

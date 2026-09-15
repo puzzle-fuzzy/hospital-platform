@@ -47,6 +47,37 @@ function gateway(
 	});
 }
 
+test("legacy FSI gateway sends standalone 1101 through configured foundation route", async () => {
+	let requestBody: Record<string, unknown> | undefined;
+	const api = createLegacyFsiGateway({
+		relayUrl: "https://relay.example.test/forward",
+		directBaseUrl: "https://medical.example.test",
+		foundationBaseUrl: "http://124.164.248.83:51000",
+		foundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
+		relayAuthorizationToken: "relay-token-for-test",
+		crypto: createCrypto(),
+		fetcher: async (_input, init) => {
+			requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+			return new Response(
+				JSON.stringify({ data: { infcode: "0", baseinfo: {}, insuinfo: [] } }),
+				{ status: 200, headers: { "x-request-id": "relay-1101-001" } },
+			);
+		},
+	});
+
+	const result = await api.query1101({ infno: "1101" }, context);
+	const relayBody = requestBody?.body as Record<string, unknown>;
+	expect(result).toMatchObject({
+		data: { infcode: "0", baseinfo: {}, insuinfo: [] },
+		trace: { operation: "legacy-fsi.1101", requestId: "relay-1101-001" },
+	});
+	expect(requestBody).toMatchObject({
+		base_url: "http://124.164.248.83:51000",
+		path: "/mbs-fsi-jc/web/api/fsi/callService",
+	});
+	expect(relayBody).not.toHaveProperty("data");
+});
+
 function feeUploadData(): Record<string, unknown> {
 	return {
 		ecToken: "ec-token-001",

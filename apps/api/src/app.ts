@@ -13,15 +13,16 @@ import {
 	createReadinessService,
 	type ReadinessService,
 } from "./infrastructure/readiness";
+import { adminInsuranceQueryModule } from "./modules/admin";
 import type { AppointmentWriteService } from "./modules/appointments";
 import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
-import { healthKnowledgeModule } from "./modules/knowledge";
 import {
-	intelligentGuideModule,
 	type IntelligentGuideService,
+	intelligentGuideModule,
 } from "./modules/intelligent-guide";
+import { healthKnowledgeModule } from "./modules/knowledge";
 import type { MedicalInsuranceRegistrationService } from "./modules/medical-insurance";
 import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
@@ -69,6 +70,8 @@ export type AppOptions = {
 		headers: Headers;
 		receivedAt: string;
 	}) => Promise<void>;
+	/** 新服务独立 Admin 1101 查询的服务间令牌。 */
+	adminQueryToken?: string;
 };
 
 function openApiPlugin() {
@@ -236,6 +239,15 @@ export function createApp(options: AppOptions = {}) {
 		)
 		.group("/api/v1", (api) =>
 			api
+				// 管理端查询沿用新服务的内部 v1 命名空间，但不挂患者会话中间件。
+				.use(
+					services.adminInsuranceQuery && options.adminQueryToken?.trim()
+						? adminInsuranceQueryModule(
+								services.adminInsuranceQuery,
+								options.adminQueryToken,
+							)
+						: new Elysia({ name: "admin-insurance-query-not-configured" }),
+				)
 				.use(systemModule())
 				.use(authModule(services.auth, services.sessions))
 				.use(

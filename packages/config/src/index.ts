@@ -106,6 +106,8 @@ export type RuntimeConfig = {
 	zhongyangAuthorizationToken: string | undefined;
 	/** 旧服务 API 根地址；用于换取绑卡/智能导诊所需的用户 JWT，并承载固定导诊接口。 */
 	legacyPatientAuthBaseUrl: string | undefined;
+	/** 新服务独立 Admin 查询接口的服务间令牌；不下发浏览器或小程序。 */
+	adminQueryToken: string | undefined;
 	/** 旧服务自费插件 HIS 回写独立闸门；配置齐全也不等于真实联调通过。 */
 	yunhealthRegistrationSettlementReady: boolean;
 	/** 云健康插件 .29/.15/.5 地址；缺失时不安装真实回写 adapter。 */
@@ -1115,6 +1117,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 				env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,
 		),
 		legacyPatientAuthBaseUrl: optional(env.LEGACY_PATIENT_AUTH_BASE_URL),
+		adminQueryToken: optional(env.ADMIN_QUERY_TOKEN),
 		yunhealthRegistrationSettlementReady: boolean(
 			env.YUNHEALTH_REGISTRATION_SETTLEMENT_READY,
 			false,

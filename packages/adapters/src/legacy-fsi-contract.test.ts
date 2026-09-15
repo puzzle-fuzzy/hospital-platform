@@ -19,6 +19,10 @@ import {
 
 test("legacy FSI route map keeps mobile payment endpoints explicit", () => {
 	expect(LEGACY_FSI_ROUTES).toEqual({
+		"1101": {
+			name: "insurance-information",
+			path: "/mbs-fsi/web/api/fsi/callService",
+		},
 		"6201": {
 			name: "fee-upload",
 			path: "/org/local/api/hos/uldFeeInfo",

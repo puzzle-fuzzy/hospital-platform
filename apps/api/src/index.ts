@@ -428,6 +428,8 @@ const legacyFsiGateway =
 		? createLegacyFsiGateway({
 				relayUrl: config.medicalInsuranceRelayUrl ?? "",
 				directBaseUrl: config.medicalInsuranceDirectBaseUrl ?? "",
+				foundationBaseUrl: config.medicalInsuranceFoundationBaseUrl ?? "",
+				foundationPath: config.medicalInsuranceFoundationPath,
 				relayAuthorizationToken:
 					config.medicalInsuranceRelayAuthorizationToken ?? "",
 				crypto: medicalInsuranceCrypto,
@@ -515,6 +517,23 @@ const services = createDefaultApplicationServices({
 		: {}),
 	...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
 	...(medicalInsuranceGateway ? { medicalInsuranceGateway } : {}),
+	...(legacyFsiGateway
+		? {
+				adminInsuranceQueryGateway: legacyFsiGateway,
+				...(config.medicalInsuranceOrgCode
+					? {
+							adminInsuranceQueryInstitutionCode:
+								config.medicalInsuranceOrgCode,
+						}
+					: {}),
+				...(config.wechatMedicalInsuranceInstitutionName
+					? {
+							adminInsuranceQueryInstitutionName:
+								config.wechatMedicalInsuranceInstitutionName,
+						}
+					: {}),
+			}
+		: {}),
 	...(hospitalSettlementGateway ? { hospitalSettlementGateway } : {}),
 	...(registrationSelfPayPreparationGateway
 		? { registrationSelfPayPreparationGateway }
@@ -590,6 +609,9 @@ const wechatMedicalInsurancePaymentNotification =
 const app = createApp({
 	logger,
 	services,
+	...(config.adminQueryToken
+		? { adminQueryToken: config.adminQueryToken }
+		: {}),
 	wechatPaymentEnabled,
 	registrationSelfPayEnabled: wechatPaymentEnabled,
 	// 临时联调：只验证 `.2 -> 支付 -> .5`，暂停 .9。

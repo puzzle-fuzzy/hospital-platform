@@ -132,6 +132,37 @@ test("versioned ping endpoint is available", async () => {
 	expect((await response.json()).success).toBe(true);
 });
 
+test("独立 Admin 1101 路由位于新服务 v1 命名空间且先校验服务令牌", async () => {
+	const base = createDefaultApplicationServices();
+	const app = createApp({
+		services: {
+			...base,
+			adminInsuranceQuery: { query: async () => ({ infcode: "0" }) },
+		},
+		adminQueryToken: "admin-query-test-token",
+	});
+	const response = await app.handle(
+		new Request("http://localhost/api/v1/admin/insurance/1101", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-query-token": "wrong-token",
+			},
+			body: JSON.stringify({
+				mode: "identity-card",
+				identityNumber: "11010519900101007X",
+				name: "测试人",
+			}),
+		}),
+	);
+
+	expect(response.status).toBe(401);
+	expect(await response.json()).toMatchObject({
+		success: false,
+		error: { code: "unauthorized" },
+	});
+});
+
 test("临时联调关闭众阳 2.6.65.9 反向查询路由", async () => {
 	const response = await createApp({
 		yunhealthPaymentQueryEnabled: false,

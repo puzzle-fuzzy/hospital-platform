@@ -7,6 +7,11 @@
  */
 
 export const LEGACY_FSI_ROUTES = {
+	/** 通用 FSI（1101）的默认路径；实际 base_url/path 由组合根显式配置。 */
+	"1101": {
+		name: "insurance-information",
+		path: "/mbs-fsi/web/api/fsi/callService",
+	},
 	"6201": {
 		name: "fee-upload",
 		path: "/org/local/api/hos/uldFeeInfo",

@@ -39,6 +39,10 @@ export type LegacyFsiGatewayOptions = {
 	relayUrl: string;
 	/** 6201/6202/6203/6301/6401 共用的移动支付中心 base_url。 */
 	directBaseUrl: string;
+	/** 可选的通用 FSI（1101）base_url；未配置时 query1101 保持不可用。 */
+	foundationBaseUrl?: string;
+	/** 通用 FSI（1101）路径；切换医保渠道时必须与 base_url 同步确认。 */
+	foundationPath?: string;
 	/** 旧服务曾硬编码该 Bearer；新实现必须由部署密钥显式注入。 */
 	relayAuthorizationToken: string;
 	/** 真实 SM2/SM4 实现通过该边界注入，未配置时必须失败。 */
@@ -92,6 +96,11 @@ export type LegacyFsiRevokeResult = {
 };
 
 export type LegacyFsiGateway = {
+	/** 独立 Admin 参保查询；仅允许调用固定的 1101 通用 FSI。 */
+	query1101(
+		data: Record<string, unknown>,
+		context: AdapterCallContext,
+	): Promise<{ data: Record<string, unknown>; trace: ExternalTrace }>;
 	uploadFees(
 		data: Record<string, unknown>,
 		context: AdapterCallContext,
@@ -257,6 +266,20 @@ export function createLegacyFsiGateway(
 ): LegacyFsiGateway {
 	const relayUrl = assertUrl(options.relayUrl, "relayUrl");
 	const directBaseUrl = assertUrl(options.directBaseUrl, "directBaseUrl");
+	const foundationBaseUrl = options.foundationBaseUrl
+		? assertUrl(options.foundationBaseUrl, "foundationBaseUrl")
+		: undefined;
+	const foundationPath =
+		options.foundationPath?.trim() || "/mbs-fsi/web/api/fsi/callService";
+	if (
+		!foundationPath.startsWith("/") ||
+		foundationPath.startsWith("//") ||
+		foundationPath.includes("?") ||
+		foundationPath.includes("#") ||
+		/\s/u.test(foundationPath)
+	) {
+		throw new Error("foundationPath must be an absolute path without query");
+	}
 	if (!options.relayAuthorizationToken.trim()) {
 		throw new AdapterNotConfiguredError("legacy-fsi");
 	}
@@ -267,6 +290,10 @@ export function createLegacyFsiGateway(
 		data: Record<string, unknown>,
 		context: AdapterCallContext,
 	): Promise<{ data: Record<string, unknown>; requestId: string }> => {
+		const routeBaseUrl = infno === "1101" ? foundationBaseUrl : directBaseUrl;
+		if (!routeBaseUrl) throw new AdapterNotConfiguredError("legacy-fsi");
+		const routePath =
+			infno === "1101" ? foundationPath : LEGACY_FSI_ROUTES[infno].path;
 		if (providerRawLoggingEnabled()) {
 			options.logger?.info(
 				{
@@ -276,10 +303,7 @@ export function createLegacyFsiGateway(
 					traceId: context.traceId,
 					providerRequestId: context.traceId,
 					method: "POST",
-					providerRequestUrl: new URL(
-						LEGACY_FSI_ROUTES[infno].path,
-						directBaseUrl,
-					).toString(),
+					providerRequestUrl: new URL(routePath, routeBaseUrl).toString(),
 					providerRequestBodyText: rawBodyText(data),
 				},
 				"Legacy FSI logical request captured for test diagnostics",
@@ -308,8 +332,8 @@ export function createLegacyFsiGateway(
 				},
 				body: {
 					method: "POST",
-					base_url: directBaseUrl,
-					path: LEGACY_FSI_ROUTES[infno].path,
+					base_url: routeBaseUrl,
+					path: routePath,
 					headers: { "content-type": "application/json" },
 					body: envelope,
 				},
@@ -426,6 +450,13 @@ export function createLegacyFsiGateway(
 	};
 
 	return {
+		async query1101(data, context) {
+			const response = await call("1101", data, context);
+			return {
+				data: response.data,
+				trace: trace("1101", response.requestId),
+			};
+		},
 		async uploadFees(data, context) {
 			const { totalFen } = validate6201FeeUpload(data);
 			const response = await call("6201", data, context);

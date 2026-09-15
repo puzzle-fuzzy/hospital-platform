@@ -27,8 +27,13 @@ function isObject(value: unknown): value is JsonObject {
 
 function messageOf(value: unknown): string {
 	if (!isObject(value)) return "请求失败，请稍后重试";
+	const nestedError = isObject(value.error) ? value.error : undefined;
 	return String(
-		value.msg || value.message || value.err_msg || "请求失败，请稍后重试",
+		value.msg ||
+			value.message ||
+			value.err_msg ||
+			nestedError?.message ||
+			"请求失败，请稍后重试",
 	);
 }
 
