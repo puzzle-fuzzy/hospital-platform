@@ -916,8 +916,13 @@ test("预约排班响应必须绑定请求科室并保持号源语义", () => {
 				scheduleId: "schedule-001",
 				departmentId: "dept-001",
 				departmentName: "内科",
+				titleName: "主任医师",
+				introduction: "擅长常见内科疾病诊疗",
+				expertise: "心血管疾病",
+				departmentLocation: "门诊二楼",
 				doctorId: "doctor-001",
 				doctorName: "医生甲",
+				doctorPhotoUrl: "https://cdn.example.test/doctor-001.jpg",
 				workDate: "2026-08-20",
 				shiftName: "上午",
 				startTime: "08:00",
@@ -948,6 +953,10 @@ test("预约排班响应必须绑定请求科室并保持号源语义", () => {
 		{
 			...valid,
 			items: [{ ...valid.items[0], timeGroup: "unknown-value" }],
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], doctorPhotoUrl: "javascript:alert(1)" }],
 		},
 		{
 			...valid,

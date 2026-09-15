@@ -28,8 +28,8 @@ import {
 	requestAppointmentDepartmentTree,
 	requestAppointmentRecords,
 	requestAppointmentSchedules,
-	requestOutpatientMedicalRecords,
 	requestInpatientEpisodes,
+	requestOutpatientMedicalRecords,
 	requestOutpatientPaymentDetail,
 	requestOutpatientPaymentRecords,
 	requestReports,
@@ -364,6 +364,17 @@ function optionalAppointmentText(
 	return requiredAppointmentText(value, maxLength);
 }
 
+function optionalAppointmentPhotoUrl(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	const photoUrl = requiredAppointmentText(value, 512);
+	if (!/^https?:\/\/[^\s]+$/u.test(photoUrl)) {
+		return invalidAppointmentResponse(
+			"Appointment schedule response item is invalid",
+		);
+	}
+	return photoUrl;
+}
+
 const APPOINTMENT_RECORD_STATUSES = new Set<AppointmentRecord["status"]>([
 	"scheduled",
 	"cancelled",
@@ -590,8 +601,16 @@ export function requireAppointmentScheduleListData(
 		const scheduleId = requiredAppointmentText(item.scheduleId, 128);
 		const departmentId = requiredAppointmentText(item.departmentId, 128);
 		const departmentName = requiredAppointmentText(item.departmentName, 256);
+		const titleName = optionalAppointmentText(item.titleName, 128);
+		const introduction = optionalAppointmentText(item.introduction, 512);
+		const expertise = optionalAppointmentText(item.expertise, 255);
+		const departmentLocation = optionalAppointmentText(
+			item.departmentLocation,
+			256,
+		);
 		const doctorId = requiredAppointmentText(item.doctorId, 128);
 		const doctorName = requiredAppointmentText(item.doctorName, 256);
+		const doctorPhotoUrl = optionalAppointmentPhotoUrl(item.doctorPhotoUrl);
 		const workDate = item.workDate;
 		const shiftName = requiredAppointmentText(item.shiftName, 128);
 		const startTime = optionalAppointmentText(item.startTime, 32);
@@ -621,8 +640,13 @@ export function requireAppointmentScheduleListData(
 			scheduleId,
 			departmentId,
 			departmentName,
+			...(titleName === undefined ? {} : { titleName }),
+			...(introduction === undefined ? {} : { introduction }),
+			...(expertise === undefined ? {} : { expertise }),
+			...(departmentLocation === undefined ? {} : { departmentLocation }),
 			doctorId,
 			doctorName,
+			...(doctorPhotoUrl === undefined ? {} : { doctorPhotoUrl }),
 			workDate,
 			shiftName,
 			...(startTime === undefined ? {} : { startTime }),
