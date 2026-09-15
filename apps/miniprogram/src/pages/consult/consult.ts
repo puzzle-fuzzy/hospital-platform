@@ -15,6 +15,7 @@ import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	patientSelectionResolutionMessage,
 	preservedPatientForReload,
+	registerPatientSelectionChangedListener,
 	resolveStoredPatientSelection,
 	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
@@ -24,7 +25,10 @@ import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
-import { getSessionGeneration } from "../../services/session-generation";
+import {
+	getSessionGeneration,
+	isCurrentSessionGeneration,
+} from "../../services/session-generation";
 import {
 	hasPlatformSession,
 	sessionStateAfterAuthenticatedReadError,
@@ -46,6 +50,9 @@ type ConsultTabId = (typeof CONSULT_TABS)[number]["id"];
 
 /** 就诊页只分批展开已取得的摘要，避免历史记录过多时一次性创建大量 WXML 节点。 */
 const CONSULT_RECORD_PAGE_SIZE = 8;
+
+/** 就诊页实例订阅全局患者切换，立即撤销旧患者的记录摘要。 */
+const consultPatientSelectionSubscriptions = new WeakMap<object, () => void>();
 
 type ConsultPageData = {
 	hasShown: boolean;
@@ -130,6 +137,24 @@ Page<ConsultPageData, ConsultPageMethods>({
 			},
 			() => this.loadContext(),
 		);
+		const unsubscribePatientSelection = registerPatientSelectionChangedListener(
+			(event) => {
+				if (!isCurrentSessionGeneration(event.sessionGeneration)) return;
+				const selectedPatient =
+					event.patient && event.patient.id === event.patientId
+						? event.patient
+						: null;
+				applyPatientContext(this, selectedPatient);
+				this.setData({
+					records: [],
+					visibleRecords: [],
+					visibleRecordCount: 0,
+					hasMoreRecords: false,
+					error: "",
+				});
+			},
+		);
+		consultPatientSelectionSubscriptions.set(this, unsubscribePatientSelection);
 		void this.loadContext();
 	},
 
@@ -340,6 +365,8 @@ Page<ConsultPageData, ConsultPageMethods>({
 
 	onUnload(): void {
 		disposePageSessionResetListener(this);
+		consultPatientSelectionSubscriptions.get(this)?.();
+		consultPatientSelectionSubscriptions.delete(this);
 		disposePageInstance(this);
 	},
 });

@@ -1086,7 +1086,7 @@ test("patient selection does not silently sync the provider on page entry", asyn
 	// 进入选择页只读取已经落库的 owner-scoped 目录；没有 ready 映射时，
 	// 只能展示明确提示，不能因为一次页面导航自动发起 Provider POST。
 	expect(selection).toContain(
-		'loading: true,\n\t\t\tsyncing: false,\n\t\t\tselectionReady: false,\n\t\t\tselectedPatientId: "",',
+		"loading: true,\n\t\t\tsyncing: false,\n\t\t\tselectionReady: false,",
 	);
 	expect(selection).toContain("this.setPatientList(patients, true);");
 	expect(selection).toContain(
@@ -4105,7 +4105,7 @@ test("native homepage keeps the confirmed patient during temporary sync failures
 	const home = await source("pages/index/index.ts");
 	const pageStart = home.indexOf("Page<IndexPageData");
 	const loadStart = home.indexOf(
-		"loadPatients(restoreSelection = true): Promise<PatientDirectoryLoadResult>",
+		"loadPatients(\n\t\trestoreSelection = true,\n\t\tforceRefresh = false,\n\t): Promise<PatientDirectoryLoadResult>",
 		pageStart,
 	);
 	const loadEnd = home.indexOf("\n\t},", loadStart);

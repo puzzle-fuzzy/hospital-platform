@@ -24,6 +24,7 @@ import {
 import {
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
+	registerPatientSelectionChangedListener,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
 import {
@@ -57,6 +58,7 @@ type MyPageMethods = {
 
 /** 页面实例只保存取消订阅函数；资料事实归 App 全局仓库所有。 */
 const myPageProfileSubscriptions = new WeakMap<object, () => void>();
+const myPagePatientSelectionSubscriptions = new WeakMap<object, () => void>();
 
 function applyGlobalProfileToPage(
 	page: WechatMiniprogram.Page.Instance<MyPageData, MyPageMethods>,
@@ -209,6 +211,18 @@ Page<MyPageData, MyPageMethods>({
 			applyGlobalProfileToPage(this, state),
 		);
 		myPageProfileSubscriptions.set(this, unsubscribe);
+		const unsubscribePatientSelection = registerPatientSelectionChangedListener(
+			(event) => {
+				if (!isCurrentSessionGeneration(event.sessionGeneration)) return;
+				this.setData({
+					selectedPatient:
+						event.patient && event.patient.id === event.patientId
+							? event.patient
+							: null,
+				});
+			},
+		);
+		myPagePatientSelectionSubscriptions.set(this, unsubscribePatientSelection);
 		this.loadPage();
 	},
 
@@ -233,10 +247,8 @@ Page<MyPageData, MyPageMethods>({
 			loading: true,
 			error: "",
 			sessionState: "checking",
-			// 患者目录必须和本轮会话重新绑定；在新目录完成前不能保留
-			// 上一轮患者卡片或数量，避免资料/患者读取失败时出现混合快照。
-			selectedPatient: null,
-			patientCount: 0,
+			// 同一会话的目录快照由 dashboard service 复用；账号/代际变化已经
+			// 由全局会话监听器清理，普通 onShow 不再先清空患者卡片和数量。
 		});
 		const profilePromise = forceProfileRefresh
 			? refreshGlobalUserProfile()
@@ -511,6 +523,8 @@ Page<MyPageData, MyPageMethods>({
 		disposePageSessionResetListener(this);
 		myPageProfileSubscriptions.get(this)?.();
 		myPageProfileSubscriptions.delete(this);
+		myPagePatientSelectionSubscriptions.get(this)?.();
+		myPagePatientSelectionSubscriptions.delete(this);
 		disposePageInstance(this);
 	},
 

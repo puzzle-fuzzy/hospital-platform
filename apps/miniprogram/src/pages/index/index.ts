@@ -1,5 +1,6 @@
 import { ApiError } from "../../services/api-client";
 import {
+	hasCachedPatientDirectory,
 	loadHealth,
 	loadPatients,
 	syncPatientsFromHospital,
@@ -36,6 +37,7 @@ import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
+	registerPatientSelectionChangedListener,
 	resolveStoredPatientSelection,
 	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
@@ -43,7 +45,10 @@ import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
-import { getSessionGeneration } from "../../services/session-generation";
+import {
+	getSessionGeneration,
+	isCurrentSessionGeneration,
+} from "../../services/session-generation";
 import {
 	hasPlatformSession,
 	sessionVerificationStateFromError,
@@ -218,7 +223,10 @@ type IndexPageMethods = {
 	executeQuickAction(action?: string): void;
 	onServiceTabChange(event: IndexEvent): void;
 	onServiceItemTap(event: ActionEvent): void;
-	loadPatients(restoreSelection?: boolean): Promise<PatientDirectoryLoadResult>;
+	loadPatients(
+		restoreSelection?: boolean,
+		forceRefresh?: boolean,
+	): Promise<PatientDirectoryLoadResult>;
 	onSyncPatients(): Promise<
 		Exclude<PatientBootstrapResult, "skipped" | "directory-loaded">
 	>;
@@ -247,6 +255,9 @@ type LoginOptions = {
 	/** 患者范围页面必须等当前轮次确认出患者后才能继续。 */
 	requiresPatient?: boolean;
 };
+
+/** 首页实例订阅全局就诊人切换，避免返回首页前仍显示旧患者卡片。 */
+const indexPatientSelectionSubscriptions = new WeakMap<object, () => void>();
 
 /**
  * 首页可能同时发生会话恢复、下拉刷新和用户明确发起的目录同步。各类 guard 使用固定
@@ -301,6 +312,23 @@ Page<IndexPageData, IndexPageMethods>({
 			},
 			() => this.loadPatients().then(() => undefined),
 		);
+		const unsubscribePatientSelection = registerPatientSelectionChangedListener(
+			(event) => {
+				if (!isCurrentSessionGeneration(event.sessionGeneration)) return;
+				const selectedPatient =
+					event.patient && event.patient.id === event.patientId
+						? event.patient
+						: null;
+				this.setData({
+					selectedPatient,
+					selectedPatientId: event.patientId,
+					showPatientQr: false,
+					patientQrName: "",
+					patientQrCardNumber: "",
+				});
+			},
+		);
+		indexPatientSelectionSubscriptions.set(this, unsubscribePatientSelection);
 		this.checkHealth();
 		const selectedPatientId = getSelectedPatientId();
 		if (selectedPatientId) this.setData({ selectedPatientId });
@@ -362,13 +390,14 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	/**
-	 * 从子页面返回时重新读取 owner-scoped 目录，而不是只比较本地 patientId。
+	 * 从子页面返回时重新解析 owner-scoped 共享目录，而不是只比较本地 patientId。
 	 *
 	 * 患者选择页可能刚完成一次完整同步：旧患者会变成 inactive，或者目录
 	 * 直接变为空。此时本地缓存中的旧 ID 可能仍然存在（stale 分支故意保留，
 	 * 等待用户显式重选），所以“ID 没变化”不能证明首页仍然可以展示旧患者。
 	 * 首次 onShow 由 onLoad 发起的读取负责，避免微信生命周期造成重复请求；
-	 * 之后每次返回都读取最新目录，确保首页不会保留过期的患者上下文。
+	 * 之后每次返回都会经过共享目录边界；普通曝光复用快照，显式同步才会
+	 * 替换目录，确保首页不会保留跨会话或跨账号的患者上下文。
 	 */
 	onShow() {
 		if (!this.data.hasShown) {
@@ -389,20 +418,12 @@ Page<IndexPageData, IndexPageMethods>({
 		}
 
 		// onShow 可能发生在其他页面收到 401 但全局 token 尚未清理、或 token
-		// 即将被 requestWithSession 自动轮换的窗口内。目录请求完成前不能沿用
-		// 旧卡片；否则页面会同时出现“旧患者 + 新会话验证中”的不一致快照。
+		// 即将被 requestWithSession 自动轮换的窗口内。账号/代际变化由全局
+		// 监听器清理旧卡片；同一会话命中共享快照时保留当前卡片，避免空态闪动。
 		const sessionGuard = getPageLatestRequestGuard(this, "session");
 		const sessionToken = sessionGuard.begin();
-		this.setData({
-			// 和首次恢复一样，在同一次更新中撤销旧患者并进入验证态；否则
-			// 共享 Tab 切回首页时会先绘制一帧空卡片，再绘制加载状态。
-			patients: [],
-			selectedPatient: null,
-			selectedPatientId: "",
-			hasPatients: false,
-			sessionStatus: SESSION_LABELS.restoring,
-			error: "",
-		});
+		if (!hasCachedPatientDirectory()) this.clearDisplayedPatientContext();
+		this.setData({ sessionStatus: SESSION_LABELS.restoring, error: "" });
 		const pageLifecycle = getPageLifecycle(this);
 		this.loadPatients()
 			.then((patientLoadResult) => {
@@ -746,10 +767,13 @@ Page<IndexPageData, IndexPageMethods>({
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
 	},
 
-	loadPatients(restoreSelection = true): Promise<PatientDirectoryLoadResult> {
+	loadPatients(
+		restoreSelection = true,
+		forceRefresh = false,
+	): Promise<PatientDirectoryLoadResult> {
 		const patientDataGuard = getPageLatestRequestGuard(this, "patients");
 		const requestToken = patientDataGuard.begin();
-		return loadPatients()
+		return loadPatients({ force: forceRefresh })
 			.then((patients) => {
 				if (!patientDataGuard.isCurrent(requestToken)) {
 					// 成功响应也可能在回调执行前被新一轮读取淘汰；不能因为
@@ -869,7 +893,7 @@ Page<IndexPageData, IndexPageMethods>({
 			this.setData({ sessionStatus: SESSION_LABELS.restoring });
 		}
 		const patientRefresh = sessionAvailable
-			? this.loadPatients()
+			? this.loadPatients(true, true)
 					.then((patientLoadResult) => {
 						if (
 							!sessionGuard ||
@@ -926,6 +950,8 @@ Page<IndexPageData, IndexPageMethods>({
 	/** 页面卸载后让首页的健康、患者目录和显式同步请求失去回写资格。 */
 	onUnload(): void {
 		disposePageSessionResetListener(this);
+		indexPatientSelectionSubscriptions.get(this)?.();
+		indexPatientSelectionSubscriptions.delete(this);
 		disposePageInstance(this);
 	},
 

@@ -11,8 +11,10 @@ import {
 	patientSelectionResolutionError,
 	patientSelectionResolutionMessage,
 	preservedPatientForReload,
+	registerPatientSelectionChangedListener,
 	requirePatientFromResolution,
 	resolvePatientSelection,
+	setSelectedPatientId,
 	shouldClearPatientContextAfterError,
 } from "./patient-selection-service";
 
@@ -352,4 +354,47 @@ test("损坏的 storage 值不能伪装成首次进入并默认切换患者", ()
 		state: "stale",
 		storedPatientId: corruptedPatientId,
 	});
+});
+
+test("明确切换患者会广播给所有页面并携带同一份脱敏快照", () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const storage: Record<string, unknown> = {};
+	const globalData = { sessionGeneration: 41 };
+	const selected = patient("patient-global-selection");
+	const events: Array<unknown> = [];
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) => storage[key],
+		setStorageSync: (key: string, value: unknown) => {
+			storage[key] = value;
+		},
+		removeStorageSync: (key: string) => {
+			delete storage[key];
+		},
+	};
+
+	const unsubscribe = registerPatientSelectionChangedListener((event) => {
+		events.push(event);
+	});
+	try {
+		setSelectedPatientId(selected.id, selected);
+		expect(events).toEqual([
+			{
+				patientId: selected.id,
+				patient: selected,
+				sessionGeneration: 41,
+			},
+		]);
+		expect(storage.selected_patient_id).toBe(selected.id);
+	} finally {
+		unsubscribe();
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
 });

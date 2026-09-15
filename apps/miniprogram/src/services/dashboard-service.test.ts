@@ -18,6 +18,7 @@ import {
 	loadCurrentPatientForOwner,
 	loadOutpatientMedicalRecords,
 	loadOutpatientPaymentRecords,
+	loadPatients,
 	loadPatientsForOwner,
 	requireAppointmentDepartmentListData,
 	requireAppointmentDepartmentTreeData,
@@ -254,6 +255,66 @@ test("完整患者目录 owner helper 缺少 owner 证明时在网络请求前 f
 	await expect(loadPatientsForOwner("")).rejects.toMatchObject({
 		code: "session-changed",
 	});
+});
+
+test("患者目录在同一会话跨页面复用已完成快照", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "session-directory-cache",
+		sessionStatus: "signed_in",
+		sessionGeneration: getSessionGeneration(),
+		sessionOwnerId: "user-directory-cache",
+	};
+	const directoryPatient = {
+		id: "patient-directory-cache-001",
+		displayName: "缓存患者",
+		relationship: "self" as const,
+		cardNumberMasked: "12345******0003",
+		source: "hospital-his" as const,
+		clinicalAccess: "ready" as const,
+	};
+	let patientRequestCount = 0;
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		request: (options: RequestOptions) => {
+			patientRequestCount += 1;
+			options.success({
+				statusCode: 200,
+				data: {
+					success: true,
+					data: { items: [directoryPatient], total: 1 },
+				},
+			});
+		},
+	};
+
+	try {
+		const firstRead = loadPatients();
+		const secondRead = loadPatients();
+		const [first, second] = await Promise.all([firstRead, secondRead]);
+		expect(first).toEqual([directoryPatient]);
+		expect(second).toEqual([directoryPatient]);
+		expect(patientRequestCount).toBe(1);
+		expect(await loadPatients()).toEqual([directoryPatient]);
+		expect(patientRequestCount).toBe(1);
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
 });
 
 test("患者目录响应必须保持脱敏读模型和唯一患者标识", () => {

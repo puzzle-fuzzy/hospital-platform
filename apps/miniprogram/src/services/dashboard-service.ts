@@ -34,18 +34,120 @@ import {
 	requireSuccessDataResponse,
 	syncPatients,
 } from "./api-client";
+import { getRegisteredApp } from "./app-runtime-context";
 import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import {
 	isBoundedPatientId,
 	requireStoredPatientSelection,
 } from "./patient-selection-service";
 import { runPatientSync } from "./patient-sync-coordinator";
+import { registerSessionChangedListener } from "./session-events";
 import { getSessionGeneration } from "./session-generation";
 
 type ExactListData<T> = {
 	items: Array<T>;
 	total: number;
 };
+
+/**
+ * 小程序进程级患者目录快照。
+ *
+ * 微信会把每个页面脚本打成相互独立的 bundle，模块级变量无法在首页、
+ * “我的”和患者范围页面之间共享。因此快照放在 App.globalData 的非持久
+ * 属性中：同一会话只请求一次 `/patients`，切换页面直接复用；会话代际或
+ * 账号变化时立即清空，不能把旧账号的目录带给新账号。
+ */
+type PatientDirectoryCache = {
+	sessionGeneration: number;
+	ownerId: string;
+	ownerValidatedGeneration: number;
+	patients: Array<Patient> | null;
+	inFlight: Promise<Array<Patient>> | null;
+	inFlightGeneration: number;
+};
+
+type SharedAppData = {
+	globalData?: Record<string, unknown>;
+};
+
+const PATIENT_DIRECTORY_CACHE_KEY = "__hospitalPatientDirectoryCache";
+
+function getPatientDirectoryCache(): PatientDirectoryCache | null {
+	const app = getRegisteredApp<SharedAppData>();
+	const appData = app?.globalData;
+	if (!appData) return null;
+
+	let cache = appData[PATIENT_DIRECTORY_CACHE_KEY] as
+		| PatientDirectoryCache
+		| undefined;
+	if (
+		!cache ||
+		typeof cache !== "object" ||
+		(cache.patients !== null && !Array.isArray(cache.patients)) ||
+		typeof cache.sessionGeneration !== "number" ||
+		typeof cache.ownerId !== "string" ||
+		typeof cache.ownerValidatedGeneration !== "number"
+	) {
+		cache = {
+			sessionGeneration: getSessionGeneration(),
+			ownerId: "",
+			ownerValidatedGeneration: -1,
+			patients: null,
+			inFlight: null,
+			inFlightGeneration: -1,
+		};
+		appData[PATIENT_DIRECTORY_CACHE_KEY] = cache;
+	}
+
+	const sessionGeneration = getSessionGeneration();
+	if (cache.sessionGeneration !== sessionGeneration) {
+		cache.sessionGeneration = sessionGeneration;
+		cache.ownerId = "";
+		cache.ownerValidatedGeneration = -1;
+		cache.patients = null;
+		cache.inFlight = null;
+		cache.inFlightGeneration = -1;
+	}
+	if (!cache.ownerId && typeof appData.sessionOwnerId === "string") {
+		cache.ownerId = appData.sessionOwnerId;
+	}
+	return cache;
+}
+
+/** 将一次成功的同步/绑定结果写回会话级目录，避免成功后各页面再 GET 一次。 */
+function storePatientDirectorySnapshot(
+	patients: readonly Patient[],
+	ownerId = "",
+): void {
+	const cache = getPatientDirectoryCache();
+	if (!cache) return;
+	cache.patients = [...patients];
+	cache.inFlight = null;
+	cache.inFlightGeneration = -1;
+	if (ownerId) {
+		cache.ownerId = ownerId;
+		cache.ownerValidatedGeneration = cache.sessionGeneration;
+	}
+}
+
+/** 会话/账号边界发生变化时撤销患者目录，页面下次进入再取当前 owner。 */
+export function invalidatePatientDirectoryCache(): void {
+	const cache = getPatientDirectoryCache();
+	if (!cache) return;
+	cache.ownerId = "";
+	cache.ownerValidatedGeneration = -1;
+	cache.patients = null;
+	cache.inFlight = null;
+	cache.inFlightGeneration = -1;
+}
+
+/** 页面切换前判断是否已有同会话目录；仅用于避免缓存命中时清空患者卡片。 */
+export function hasCachedPatientDirectory(): boolean {
+	return getPatientDirectoryCache()?.patients !== null;
+}
+
+// 每个页面 bundle 都可能加载一次本模块；监听器是幂等清理，不影响请求。
+registerSessionChangedListener(() => invalidatePatientDirectoryCache());
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -973,15 +1075,64 @@ export function loadHealth(): Promise<HealthResponse> {
 	return request<HealthResponse>({ url: "/health/live" });
 }
 
-/** 读取当前会话归属的脱敏患者读模型。 */
-export function loadPatients(): Promise<Array<Patient>> {
-	return requestWithSession<unknown>({
+/**
+ * 读取当前会话归属的脱敏患者读模型。
+ *
+ * 默认先复用 App.globalData 中本会话已经确认的目录；多个页面同时进入时
+ * 也共享同一条在途 Promise，因此不会因为 `onShow` 分别触发而重复请求。
+ * 下拉刷新、显式“刷新就诊人”和绑定成功后的更新必须传 `force: true`，普通
+ * 页面曝光不能绕过这条缓存边界。
+ */
+export function loadPatients(
+	options: { force?: boolean } = {},
+): Promise<Array<Patient>> {
+	const cache = getPatientDirectoryCache();
+	const sessionGeneration = getSessionGeneration();
+	if (cache) {
+		if (cache.inFlight && cache.inFlightGeneration === sessionGeneration) {
+			return cache.inFlight.then((patients) => [...patients]);
+		}
+		if (!options.force && cache.patients !== null) {
+			return Promise.resolve([...cache.patients]);
+		}
+	}
+
+	const requestPromise = requestWithSession<unknown>({
 		url: "/patients",
 	})
 		.then((payload) =>
 			requireSuccessDataResponse<PatientListResponse["data"]>(payload),
 		)
-		.then((payload) => requirePatientListData(payload.data).items);
+		.then((payload) => requirePatientListData(payload.data).items)
+		.then((patients) => {
+			if (cache && getSessionGeneration() === sessionGeneration) {
+				cache.sessionGeneration = sessionGeneration;
+				cache.patients = [...patients];
+				const app = getRegisteredApp<SharedAppData>();
+				const ownerId = app?.globalData?.sessionOwnerId;
+				if (typeof ownerId === "string" && ownerId) cache.ownerId = ownerId;
+			}
+			return [...patients];
+		});
+
+	if (!cache) return requestPromise;
+	cache.inFlight = requestPromise;
+	cache.inFlightGeneration = sessionGeneration;
+	void requestPromise.then(
+		() => {
+			if (cache.inFlight === requestPromise) {
+				cache.inFlight = null;
+				cache.inFlightGeneration = -1;
+			}
+		},
+		() => {
+			if (cache.inFlight === requestPromise) {
+				cache.inFlight = null;
+				cache.inFlightGeneration = -1;
+			}
+		},
+	);
+	return requestPromise;
 }
 
 /**
@@ -1053,23 +1204,37 @@ export function loadPatientsForOwner(expectedOwnerId: string): Promise<{
 		return Promise.reject(error);
 	}
 
-	return loadPatients().then((patients) =>
-		revalidateCurrentOwner(expectedOwnerId).then((sessionGeneration) => ({
-			patients,
-			sessionGeneration,
-		})),
+	const cache = getPatientDirectoryCache();
+	const forceRefresh = Boolean(
+		cache?.patients && (!cache.ownerId || cache.ownerId !== expectedOwnerId),
 	);
+	return loadPatients({ force: forceRefresh }).then((patients) => {
+		const currentGeneration = getSessionGeneration();
+		if (
+			cache &&
+			cache.ownerId === expectedOwnerId &&
+			cache.ownerValidatedGeneration === currentGeneration
+		) {
+			return { patients, sessionGeneration: currentGeneration };
+		}
+		return revalidateCurrentOwner(expectedOwnerId).then((sessionGeneration) => {
+			if (cache && sessionGeneration === getSessionGeneration()) {
+				cache.ownerId = expectedOwnerId;
+				cache.ownerValidatedGeneration = sessionGeneration;
+			}
+			return { patients, sessionGeneration };
+		});
+	});
 }
 
 /**
  * 在当前 owner 证明下读取可用于只读临床查询的患者上下文。
  *
- * 患者范围页面通常先请求 `/me`，再请求 `/patients`。中间的 GET 可能因
- * token 过期触发一次安全会话恢复；此时 token 和会话代际会变化，但只要
- * `/me` 最终仍属于同一平台用户，就不应该把正常恢复误判成混合快照。
- * 这里先完成完整目录的 owner 重验证，再解析本地显式选择，最后把最新代际
- * 交给页面。业务列表请求前仍必须再调用 `assertSessionGeneration`，防止
- * helper 返回后页面才发现会话已经漂移。
+ * 首次进入患者范围页面时先请求 `/me` 建立 owner 证明，再读取 `/patients`；
+ * 同一会话已经完成 owner 验证后，后续页面直接复用共享目录和验证代际。若
+ * 首次 GET 因 token 过期触发一次安全会话恢复，只要 `/me` 最终仍属于同一平台
+ * 用户，就不应该把正常恢复误判成混合快照。业务列表请求前仍必须再调用
+ * `assertSessionGeneration`，防止 helper 返回后页面才发现会话已经漂移。
  *
  * `expectedOwnerId` 只能来自调用方刚刚通过 canonical `/me` 校验的结果；本
  * 函数不会接受 provider 患者号，也不会把 owner 标识写入小程序存储或页面。
@@ -1098,11 +1263,13 @@ export function loadCurrentPatientForOwner(
 export function syncPatientsFromHospital(
 	operationPrefix: string,
 ): Promise<Array<Patient>> {
-	return getCurrentUser().then(() =>
+	return getCurrentUser().then((currentUser) =>
 		runPatientSync(() =>
-			syncPatients(createIdempotencyKey(operationPrefix)).then(
-				(payload) => requirePatientListData(payload.data).items,
-			),
+			syncPatients(createIdempotencyKey(operationPrefix)).then((payload) => {
+				const patients = requirePatientListData(payload.data).items;
+				storePatientDirectorySnapshot(patients, currentUser.data.user.id);
+				return patients;
+			}),
 		),
 	);
 }
@@ -1111,13 +1278,17 @@ export function syncPatientsFromHospital(
 export function bindPatientToHospital(
 	input: PatientBindingRequest,
 ): Promise<{ created: boolean; patients: Array<Patient> }> {
-	return getCurrentUser().then(() =>
+	return getCurrentUser().then((currentUser) =>
 		bindPatient(input, createIdempotencyKey("patient-binding")).then(
 			(payload) => {
 				const directory = requirePatientListData({
 					items: payload.data.items,
 					total: payload.data.total,
 				});
+				storePatientDirectorySnapshot(
+					directory.items,
+					currentUser.data.user.id,
+				);
 				return { created: payload.data.created, patients: directory.items };
 			},
 		),

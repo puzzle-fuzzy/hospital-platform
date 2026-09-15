@@ -1,9 +1,9 @@
-import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError } from "../../services/api-client";
 import {
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { navigateToFeatureEntry } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
@@ -184,8 +184,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	 *
 	 * 选择页可能在页面栈中停留期间发生 token 轮换、账号切换或其它页面
 	 * 收到 401。仅在点击患者时检查会话代际太晚：用户在此之前已经能看到
-	 * 上一轮姓名、关系和脱敏卡号。因此每次从其它页面返回都先清空当前
-	 * 派生目录，再以最新平台会话读取 owner 目录；Provider 同步必须由用户
+	 * 上一轮姓名、关系和脱敏卡号。因此每次从其它页面返回都经过共享目录
+	 * 读取；同一会话复用快照，账号/代际变化由会话监听器先清空；Provider 同步必须由用户
 	 * 点击“刷新就诊人”明确触发，避免生命周期回调偷偷发起同步；
 	 * 只有这个明确动作才会自动发起 POST /patients/sync。
 	 */
@@ -207,10 +207,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		}
 
 		const shouldSyncAfterBinding = patientBindingReturnPending.delete(this);
-		// loadPatientList 会把 loading 置为 true，使旧列表在请求期间不再
-		// 进入 WXML；这里提前清空，避免 setData 尚未完成时出现旧卡片闪现。
-		this.clearDisplayedPatientDirectory();
 		if (shouldSyncAfterBinding) {
+			this.clearDisplayedPatientDirectory();
 			// 新增页返回是一次明确的写入后刷新，不是普通的页面曝光；
 			// 这里必须走 Provider 同步，不能只读刚才可能尚未更新的本地快照。
 			this.setData({ loading: false });
@@ -221,13 +219,12 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	/**
-	 * 进入页面读取当前众阳目录；服务端 GET /patients 会实时请求 Provider，
-	 * 并返回本次已经完成临床映射的最小读模型。用户点击“刷新就诊人”时仍可
-	 * 显式发起 POST 同步，但页面不再依赖旧的本地目录判断当前患者是否存在。
+	 * 进入页面读取当前 owner 的共享目录快照；同一会话内由 dashboard service
+	 * 复用已经完成的 `/patients` 结果，避免每次返回选择页都重复请求。用户点击
+	 * “刷新就诊人”时仍可显式发起 POST 同步，成功结果会原子替换这份共享快照。
 	 *
-	 * `/patients` 返回的是服务端按 owner 隔离、已完成映射的实时读模型，
-	 * 预约/报告等业务仍会在服务端再次校验患者引用。若众阳当前不可用，
-	 * 页面显示加载失败，不把本地旧数据伪装成实时结果。
+	 * `/patients` 返回的是服务端按 owner 隔离、已完成映射的只读模型；会话代际或
+	 * 账号变化会自动撤销快照，预约/报告等业务仍会在服务端再次校验患者引用。
 	 */
 	loadPatientList(): Promise<void> {
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
@@ -238,7 +235,6 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			loading: true,
 			syncing: false,
 			selectionReady: false,
-			selectedPatientId: "",
 			error: "",
 		});
 		return loadPatients()
@@ -278,9 +274,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	/**
-	 * 错误态重试重新读取当前 owner 的实时目录；“刷新就诊人”按钮仍可作为
+	 * 错误态重试重新读取当前 owner 的共享目录；“刷新就诊人”按钮仍可作为
 	 * 显式临床映射同步命令。不能只清除 error 或无条件复用上一轮 patients，
-	 * 也不能因 Provider 短暂不可用把旧目录伪装成当前结果。
+	 * 也不能因会话已变化把旧账号目录伪装成当前结果。
 	 */
 	onRetry(): void {
 		void this.loadPatientList();
@@ -358,7 +354,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			return;
 		}
 
-		setSelectedPatientId(patient.id);
+		setSelectedPatientId(patient.id, patient);
 		this.setData({ navigationPending: true });
 		wx.showToast({ title: "已切换就诊人", icon: "success" });
 		const navigationTimer = setTimeout(() => {

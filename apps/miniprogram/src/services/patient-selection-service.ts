@@ -1,6 +1,8 @@
 import type { Patient } from "../types";
 import { ApiError, contextualApiErrorMessage } from "./api-client";
+import { getRegisteredApp } from "./app-runtime-context";
 import { isBoundedPatientId } from "./patient-identifiers";
+import { getSessionGeneration } from "./session-generation";
 
 // 保留原有导出路径，避免页面和历史测试重新定义患者标识边界。
 export {
@@ -15,6 +17,73 @@ export {
  * 医疗隐私字段；患者详情始终以服务端最新目录为准，避免本地缓存过期数据。
  */
 export const SELECTED_PATIENT_ID_KEY = "selected_patient_id";
+
+/**
+ * 当前就诊人切换事件。
+ *
+ * 选择状态仍只持久化 opaque patientId；完整的脱敏患者对象仅作为本次进程内
+ * 的同步载荷，帮助已经打开的页面立即替换患者卡片，不需要再次请求 `/patients`。
+ */
+export type PatientSelectionChangedEvent = {
+	patientId: string;
+	patient: Patient | null;
+	sessionGeneration: number;
+};
+export type PatientSelectionChangedListener = (
+	event: PatientSelectionChangedEvent,
+) => void;
+
+type SharedAppData = {
+	globalData?: Record<string, unknown>;
+};
+
+const PATIENT_SELECTION_LISTENERS_KEY = "__hospitalPatientSelectionListeners";
+const fallbackPatientSelectionListeners =
+	new Set<PatientSelectionChangedListener>();
+
+function getPatientSelectionListeners(): Set<PatientSelectionChangedListener> {
+	try {
+		const appData = getRegisteredApp<SharedAppData>()?.globalData;
+		if (!appData) return fallbackPatientSelectionListeners;
+		const existing = appData[PATIENT_SELECTION_LISTENERS_KEY];
+		if (existing instanceof Set) {
+			return existing as Set<PatientSelectionChangedListener>;
+		}
+		const listeners = new Set<PatientSelectionChangedListener>();
+		appData[PATIENT_SELECTION_LISTENERS_KEY] = listeners;
+		return listeners;
+	} catch {
+		// App 尚未注册或测试替身不完整时，不阻断本地选择写入。
+		return fallbackPatientSelectionListeners;
+	}
+}
+
+/** 订阅全局就诊人切换；页面卸载时必须调用返回的取消函数。 */
+export function registerPatientSelectionChangedListener(
+	listener: PatientSelectionChangedListener,
+): () => void {
+	const listeners = getPatientSelectionListeners();
+	listeners.add(listener);
+	return () => listeners.delete(listener);
+}
+
+function notifyPatientSelectionChanged(
+	patientId: string,
+	patient: Patient | null,
+): void {
+	const event: PatientSelectionChangedEvent = {
+		patientId,
+		patient,
+		sessionGeneration: getSessionGeneration(),
+	};
+	for (const listener of [...getPatientSelectionListeners()]) {
+		try {
+			listener(event);
+		} catch {
+			// 单个页面的 setData 异常不能阻断其它页面同步选择状态。
+		}
+	}
+}
 
 /**
  * 仅供损坏缓存进入 `stale` 分支的内部占位值。
@@ -298,7 +367,7 @@ export function resolveStoredPatientSelection(
 		),
 	);
 	if (resolution.state === "defaulted") {
-		setSelectedPatientId(resolution.patient.id);
+		setSelectedPatientId(resolution.patient.id, resolution.patient);
 	}
 	return resolution;
 }
@@ -321,15 +390,20 @@ export function requireStoredPatientSelection(
  * 空值会清理明确要求清除的选择；目录发现旧 ID 失效时不会自动写入新患者，
  * 由选择页的显式点击完成替换，避免把失效状态伪装成另一位患者。
  */
-export function setSelectedPatientId(patientId: string): void {
+export function setSelectedPatientId(
+	patientId: string,
+	patient: Patient | null = null,
+): void {
 	if (isBoundedPatientId(patientId)) {
 		wx.setStorageSync(SELECTED_PATIENT_ID_KEY, patientId);
+		notifyPatientSelectionChanged(patientId, patient);
 		return;
 	}
 	if (patientId === "") {
 		// 空值表示明确清除；其它非法值不能覆盖一个仍可能有效的选择，避免
 		// 页面事件或损坏的服务端读模型把坏字符串持久化成当前患者。
 		wx.removeStorageSync(SELECTED_PATIENT_ID_KEY);
+		notifyPatientSelectionChanged("", null);
 	}
 }
 
