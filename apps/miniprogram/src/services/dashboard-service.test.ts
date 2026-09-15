@@ -15,6 +15,8 @@ import {
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
 	formatPlatformDate,
+	loadAppointmentClinicDepartments,
+	loadAppointmentDepartmentTree,
 	loadAppointmentSchedules,
 	loadCurrentPatientForOwner,
 	loadInpatientEpisodes,
@@ -230,6 +232,190 @@ test("预约排班查询在网络请求前拒绝损坏的科室标识", async ()
 	await expect(
 		loadAppointmentSchedules("x".repeat(129), BEIJING_MIDNIGHT),
 	).rejects.toMatchObject({ code: "appointment-query-invalid" });
+});
+
+test("预约目录树和三级门诊读取使用专用只读路径并保留白名单字段", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		method?: string;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const calls: Array<{ method: string; path: string; parent: string | null }> =
+		[];
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "session-appointment-directory",
+		sessionStatus: "signed_in",
+	};
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		request: (options: RequestOptions) => {
+			const url = new URL(options.url);
+			calls.push({
+				method: options.method ?? "GET",
+				path: url.pathname,
+				parent: url.searchParams.get("parentDepartmentId"),
+			});
+			if (url.pathname.endsWith("/department-tree")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							items: [
+								{
+									groupId: "group-outpatient",
+									displayName: "门诊",
+									departments: [
+										{
+											departmentId: "dept-internal",
+											displayName: "内科",
+										},
+									],
+								},
+							],
+							total: 1,
+						},
+					},
+				});
+				return;
+			}
+			options.success({
+				statusCode: 200,
+				data: {
+					success: true,
+					data: {
+						items:
+							url.searchParams.get("parentDepartmentId") === "dept-empty"
+								? []
+								: [
+										{
+											departmentId: "clinic-cardiology",
+											departmentCode: "CARD",
+											displayName: "心内科门诊",
+											location: "门诊二楼",
+											providerOnlyField: "discard-me",
+										},
+									],
+						total:
+							url.searchParams.get("parentDepartmentId") === "dept-empty"
+								? 0
+								: 1,
+					},
+				},
+			});
+		},
+	};
+
+	try {
+		expect(await loadAppointmentDepartmentTree()).toEqual([
+			{
+				groupId: "group-outpatient",
+				displayName: "门诊",
+				departments: [{ departmentId: "dept-internal", displayName: "内科" }],
+			},
+		]);
+		expect(await loadAppointmentClinicDepartments("dept-parent-1")).toEqual([
+			{
+				departmentId: "clinic-cardiology",
+				departmentCode: "CARD",
+				displayName: "心内科门诊",
+				location: "门诊二楼",
+			},
+		]);
+		expect(await loadAppointmentClinicDepartments("dept-empty")).toEqual([]);
+		expect(calls).toEqual([
+			{
+				method: "GET",
+				path: "/api/v2/appointments/department-tree",
+				parent: null,
+			},
+			{
+				method: "GET",
+				path: "/api/v2/appointments/clinic-departments",
+				parent: "dept-parent-1",
+			},
+			{
+				method: "GET",
+				path: "/api/v2/appointments/clinic-departments",
+				parent: "dept-empty",
+			},
+		]);
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
+test("预约目录树和三级门诊读取拒绝无效输入与损坏回包", async () => {
+	await expect(loadAppointmentClinicDepartments(" ")).rejects.toMatchObject({
+		code: "appointment-query-invalid",
+	});
+
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	testGlobal.getApp = () => ({
+		globalData: {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "session-appointment-directory-invalid",
+			sessionStatus: "signed_in",
+		},
+	});
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? "session-appointment-directory-invalid" : "",
+		request: (options: RequestOptions) =>
+			options.success({
+				statusCode: 200,
+				data: {
+					success: true,
+					data: {
+						items: [
+							{
+								groupId: "duplicate-group",
+								displayName: "门诊",
+								departments: [],
+							},
+							{
+								groupId: "duplicate-group",
+								displayName: "其它",
+								departments: [],
+							},
+						],
+						total: 2,
+					},
+				},
+			}),
+	};
+
+	try {
+		await expect(loadAppointmentDepartmentTree()).rejects.toMatchObject({
+			code: "provider-response-invalid",
+		});
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
 });
 
 test("患者端列表响应要求 total 与完整 items 数量一致", () => {
