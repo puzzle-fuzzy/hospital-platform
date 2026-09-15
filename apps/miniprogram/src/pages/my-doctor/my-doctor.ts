@@ -7,6 +7,10 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import type { MyDoctorPageData } from "../../types";
 
 type MyDoctorPageMethods = {
@@ -32,6 +36,15 @@ Page<MyDoctorPageData, MyDoctorPageMethods>({
 	},
 
 	onLoad() {
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 我的医生是当前 owner 的关系读模型。账号切换后必须先清空
+				// 旧关系，再由新会话重新读取，不能把旧 owner 的医生卡片留在页面。
+				this.setData({ items: [], loading: true, error: "" });
+			},
+			() => this.loadDoctors(),
+		);
 		void this.loadDoctors();
 	},
 
@@ -84,6 +97,7 @@ Page<MyDoctorPageData, MyDoctorPageMethods>({
 	},
 
 	onUnload(): void {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 });

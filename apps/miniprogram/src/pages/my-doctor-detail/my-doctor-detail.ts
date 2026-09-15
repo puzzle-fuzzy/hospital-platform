@@ -15,6 +15,10 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import type {
 	AppointmentSchedule,
 	MyDoctorDetailPageData,
@@ -140,6 +144,26 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 			return;
 		}
 		this.setData({ doctorId });
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 医生关系和排班都属于当前 owner 的页面快照。账号切换时
+				// 先淘汰旧关系、排班与关注态，再以新会话重新读取同一医生引用。
+				this.setData({
+					doctor: null,
+					schedules: [],
+					visibleSchedules: [],
+					dateOptions: [],
+					selectedDate: "",
+					followed: false,
+					loading: true,
+					scheduleLoading: true,
+					actionLoading: false,
+					error: "",
+				});
+			},
+			() => this.loadDetail(),
+		);
 		void this.loadDetail();
 	},
 
@@ -276,6 +300,7 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 	},
 
 	onUnload(): void {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 });

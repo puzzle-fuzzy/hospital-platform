@@ -2138,9 +2138,16 @@ test("native clinical shells keep the shared style and my-doctor is a real page"
 	expect(inpatientPage).not.toContain("wx.request");
 	const doctorTemplate = await source("pages/my-doctor/my-doctor.wxml");
 	const doctorScript = await source("pages/my-doctor/my-doctor.ts");
+	const doctorDetailScript = await source(
+		"pages/my-doctor-detail/my-doctor-detail.ts",
+	);
 	expect(doctorTemplate).toContain('class="my-doctor-scroll"');
 	expect(doctorTemplate).toContain('bindtap="onDoctorTap"');
 	expect(doctorScript).toContain("requestMyDoctors");
+	expect(doctorScript).toContain("registerPageSessionResetListener");
+	expect(doctorScript).toContain("disposePageSessionResetListener");
+	expect(doctorDetailScript).toContain("registerPageSessionResetListener");
+	expect(doctorDetailScript).toContain("disposePageSessionResetListener");
 	expect(doctorScript).not.toContain("registerClinicalSurfacePage");
 
 	const myStyle = await source("pages/my/my.wxss");
