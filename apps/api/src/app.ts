@@ -33,6 +33,7 @@ import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
+import { inpatientEpisodesModule } from "./modules/inpatient";
 import { medicalRecordsModule } from "./modules/medical-records";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
@@ -108,6 +109,7 @@ function openApiPlugin() {
 				{ name: "knowledge", description: "审核后的健康百科只读内容" },
 				{ name: "reports", description: "检查检验报告目录" },
 				{ name: "medical-records", description: "门诊就诊摘要只读目录" },
+				{ name: "inpatient-episodes", description: "住院摘要只读目录" },
 				{ name: "payments", description: "支付订单" },
 			],
 		},
@@ -302,6 +304,14 @@ export function createApp(options: AppOptions = {}) {
 					services.medicalRecords
 						? medicalRecordsModule(services.medicalRecords, services.sessions)
 						: new Elysia({ name: "medical-records-not-configured" }),
+				)
+				.use(
+					services.inpatientEpisodes
+						? inpatientEpisodesModule(
+								services.inpatientEpisodes,
+								services.sessions,
+							)
+						: new Elysia({ name: "inpatient-episodes-not-configured" }),
 				)
 				.use(
 					services.outpatientPayments

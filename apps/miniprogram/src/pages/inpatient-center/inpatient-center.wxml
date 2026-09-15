@@ -1,56 +1,86 @@
-<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="migration-surface-page">
-		<view class="migration-surface-hero">
-			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="migration-surface-hero-copy">
-				<text class="migration-surface-title">{{title}}</text>
-				<text class="migration-surface-label">{{surfaceLabel}}</text>
+<scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+	<view class="inpatient-page">
+		<view class="inpatient-selector-card">
+			<view class="inpatient-selector-row inpatient-selector-row-border" bindtap="onChangePatient">
+				<text class="inpatient-selector-label">就诊人</text>
+				<view class="inpatient-selector-value">
+					<text wx:if="{{selectedPatient}}" class="inpatient-selector-name">{{selectedPatient.displayName}}</text>
+					<text wx:elif="{{loading}}" class="inpatient-selector-name">正在加载就诊人...</text>
+					<text wx:else class="inpatient-selector-name">请先选择就诊人</text>
+					<text wx:if="{{selectedPatient}}" class="inpatient-selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>
+					<image class="inpatient-selector-arrow" src="/assets/legacy-user/selector-arrow-right.svg" mode="aspectFit" />
+				</view>
 			</view>
-		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">{{scopeTitle}}</text>
-			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
+			<view class="inpatient-selector-row">
+				<text class="inpatient-selector-label">当前院区</text>
+				<view class="inpatient-selector-value"><text>高平市人民医院</text></view>
+			</view>
 		</view>
 
-		<view class="migration-surface-patient-card">
-			<view class="migration-surface-patient-copy">
-				<text class="migration-surface-patient-label">当前就诊人</text>
-				<block wx:if="{{patientContextLoading && !patientContextLoaded}}">
-					<text class="migration-surface-patient-name">正在获取就诊人...</text>
-					<text class="migration-surface-patient-meta">当前只读取已确认的患者目录</text>
+		<view class="inpatient-boundary">
+			当前展示旧服务住院信息摘要；住院费用、账单和支付不在本页面处理。
+		</view>
+
+		<view class="inpatient-content">
+			<view wx:if="{{loading || error || !episodes.length}}" class="inpatient-state">
+				<block wx:if="{{loading}}">
+					<view class="inpatient-loading-icon" aria-hidden="true"></view>
+					<text class="inpatient-state-title">加载中...</text>
 				</block>
-				<block wx:elif="{{patientContextError}}">
-					<text wx:if="{{currentPatient}}" class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text wx:if="{{currentPatient}}" class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-					<text class="migration-surface-patient-error">{{patientContextError}}</text>
-					<button class="migration-surface-patient-retry" bindtap="onRetry">重新读取</button>
+				<block wx:elif="{{error}}">
+					<image class="inpatient-state-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
+					<text class="inpatient-state-title">住院信息未加载成功</text>
+					<text class="inpatient-state-hint">{{error}}</text>
+					<view wx:if="{{canSelectPatient}}" class="inpatient-state-action inpatient-state-action-secondary" bindtap="onChangePatient">选择就诊人</view>
+					<view class="inpatient-state-action" bindtap="onRetry">重新加载</view>
 				</block>
 				<block wx:else>
-					<text class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
+					<image class="inpatient-state-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
+					<text class="inpatient-state-title">未查询到住院信息</text>
+					<text class="inpatient-state-hint">如已办理入院，请稍后重新查询</text>
 				</block>
 			</view>
-			<button class="migration-surface-patient-action" bindtap="onOpenPatientSelector">{{patientActionLabel}}</button>
-		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">服务状态</text>
-			<text class="migration-surface-card-copy">{{description}}</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text><text class="migration-surface-list-text">{{item}}</text>
+
+			<view wx:elif="{{episodes.length}}" class="inpatient-list">
+				<view wx:for="{{episodes}}" wx:key="viewKey" class="inpatient-card">
+					<view class="inpatient-card-header">
+						<view class="inpatient-card-title-wrap">
+							<text class="inpatient-card-title">{{item.patientName}}</text>
+							<text wx:if="{{item.inpatientNumber}}" class="inpatient-card-number">住院号：{{item.inpatientNumber}}</text>
+						</view>
+						<text class="inpatient-status inpatient-status-{{item.status}}">{{item.statusLabel}}</text>
+					</view>
+					<view class="inpatient-card-grid">
+						<view class="inpatient-card-field"><text class="inpatient-card-label">入院时间</text><text class="inpatient-card-value">{{item.admittedAt}}</text></view>
+						<view wx:if="{{item.dischargedAt}}" class="inpatient-card-field"><text class="inpatient-card-label">出院时间</text><text class="inpatient-card-value">{{item.dischargedAt}}</text></view>
+						<view wx:if="{{item.departmentName}}" class="inpatient-card-field"><text class="inpatient-card-label">科室</text><text class="inpatient-card-value">{{item.departmentName}}</text></view>
+						<view wx:if="{{item.wardName || item.admissionWardName}}" class="inpatient-card-field"><text class="inpatient-card-label">病区</text><text class="inpatient-card-value">{{item.wardName || item.admissionWardName}}</text></view>
+						<view wx:if="{{item.bedNumber || item.roomNumber}}" class="inpatient-card-field"><text class="inpatient-card-label">床位</text><text class="inpatient-card-value">{{item.roomNumber}} {{item.bedNumber}}</text></view>
+							<view wx:if="{{item.bedStatusLabel}}" class="inpatient-card-field"><text class="inpatient-card-label">床位状态</text><text class="inpatient-card-value">{{item.bedStatusLabel}}</text></view>
+							<view wx:if="{{item.primaryDoctorName}}" class="inpatient-card-field"><text class="inpatient-card-label">主治医生</text><text class="inpatient-card-value">{{item.primaryDoctorName}}</text></view>
+							<view wx:if="{{item.attendingDoctorName}}" class="inpatient-card-field"><text class="inpatient-card-label">主管医生</text><text class="inpatient-card-value">{{item.attendingDoctorName}}</text></view>
+							<view wx:if="{{item.responsibleNurseName}}" class="inpatient-card-field"><text class="inpatient-card-label">责任护士</text><text class="inpatient-card-value">{{item.responsibleNurseName}}</text></view>
+							<view wx:if="{{item.outpatientDoctorName}}" class="inpatient-card-field"><text class="inpatient-card-label">门诊医生</text><text class="inpatient-card-value">{{item.outpatientDoctorName}}</text></view>
+					</view>
+						<view wx:if="{{item.admissionDiagnosis || item.dischargeDiagnosis || item.diagnoses || item.condition || item.nursingLevel}}" class="inpatient-card-summary">
+						<text wx:if="{{item.admissionDiagnosis}}" class="inpatient-card-summary-row"><text class="inpatient-card-label">入院诊断：</text>{{item.admissionDiagnosis}}</text>
+						<text wx:if="{{item.dischargeDiagnosis}}" class="inpatient-card-summary-row"><text class="inpatient-card-label">出院诊断：</text>{{item.dischargeDiagnosis}}</text>
+						<text wx:if="{{item.condition}}" class="inpatient-card-summary-row"><text class="inpatient-card-label">病情：</text>{{item.condition}}</text>
+							<text wx:if="{{item.nursingLevel}}" class="inpatient-card-summary-row"><text class="inpatient-card-label">护理：</text>{{item.nursingLevel}}</text>
+							<view wx:if="{{item.diagnoses && item.diagnoses.length}}" class="inpatient-diagnoses">
+								<text class="inpatient-card-summary-row"><text class="inpatient-card-label">诊断信息：</text></text>
+								<text wx:for="{{item.diagnoses}}" wx:for-item="diagnosis" wx:key="name" class="inpatient-card-summary-row">{{diagnosis.isPrimary ? '【主诊断】' : ''}}{{diagnosis.name}}</text>
+							</view>
+					</view>
+					<view wx:if="{{item.babies && item.babies.length}}" class="inpatient-babies">
+						<text class="inpatient-babies-title">婴儿信息</text>
+						<view wx:for="{{item.babies}}" wx:for-item="baby" wx:key="name" class="inpatient-baby-row">
+							<text class="inpatient-baby-name">{{baby.name}}</text>
+							<text class="inpatient-baby-meta">{{baby.sex}} {{baby.birthDate}} {{baby.heightCm ? baby.heightCm + 'cm' : ''}} {{baby.weightKg ? baby.weightKg + 'kg' : ''}}</text>
+						</view>
+					</view>
 				</view>
 			</view>
 		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">使用说明</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text><text class="migration-surface-list-text">{{item}}</text>
-				</view>
-			</view>
-			<text class="migration-surface-coverage">{{coverageLabel}}</text>
-		</view>
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
-		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

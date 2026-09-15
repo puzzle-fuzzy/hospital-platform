@@ -243,6 +243,21 @@ export {
 	validateMedicalRecordProviderReference,
 } from "./medical-records";
 export type {
+	InpatientBaby,
+	InpatientBedStatus,
+	InpatientDiagnosis,
+	InpatientEpisode,
+	InpatientEpisodeGateway,
+	InpatientEpisodeResultViolation,
+	InpatientEpisodeStatus,
+} from "./inpatient";
+export {
+	InpatientEpisodeResultValidationError,
+	MAX_INPATIENT_EPISODES,
+	normalizeInpatientEpisodes,
+	validateInpatientProviderReference,
+} from "./inpatient";
+export type {
 	MyDoctor,
 	MyDoctorCreateInput,
 	MyDoctorReadModelViolation,

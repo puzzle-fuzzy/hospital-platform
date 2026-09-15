@@ -12,6 +12,7 @@ import {
 	type AppointmentRecordDirectoryGateway,
 	HealthKnowledgeContentUnavailableError,
 	type HealthKnowledgeRepository,
+	type InpatientEpisodeGateway,
 	type OutpatientMedicalRecordGateway,
 	type OutpatientPaymentGateway,
 	type PatientDirectoryGateway,
@@ -43,6 +44,7 @@ import {
 	createInMemorySessionTokenService,
 } from "./modules/auth";
 import { HealthKnowledgeService } from "./modules/knowledge";
+import { InpatientEpisodeService } from "./modules/inpatient";
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
@@ -350,6 +352,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/knowledge/health/symptoms/list/part/{partId}",
 		"/api/v1/me",
 		"/api/v1/me/profile",
+		"/api/v1/inpatient/episodes",
 		"/api/v1/medical-records",
 		"/api/v1/my/doctors",
 		"/api/v1/my/doctors/{doctorId}",
@@ -520,6 +523,8 @@ test("public API documentation lists every stable public error code", async () =
 		"report-not-found",
 		"medical-record-query-invalid",
 		"medical-record-patient-not-found",
+		"inpatient-episode-query-invalid",
+		"inpatient-episode-patient-not-found",
 		"outpatient-payment-patient-not-found",
 		"outpatient-payment-record-not-found",
 		"provider-request-rejected",
@@ -2156,6 +2161,100 @@ test("medical-record route resolves the owner-scoped patient and returns only sa
 					visitTime: "2026-09-15 09:30:00",
 					departmentName: "心内科",
 					diagnosis: "高血压",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(JSON.stringify(body)).not.toContain("his-patient-001");
+});
+
+test("inpatient episode route resolves the owner-scoped HIS patient and returns only summaries", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const patientRepository = createInMemoryPatientRepository();
+	await patientRepository.upsertFromDirectory({
+		ownerUserId: "fixture-user-0001",
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-001",
+			providerReferences: { "his-patient": "his-patient-001" },
+			displayName: "张三",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+		},
+	});
+	let providerPatientId = "";
+	const directory: InpatientEpisodeGateway = {
+		listEpisodes: async (input, context) => {
+			providerPatientId = input.providerPatientId;
+			return {
+				episodes: [
+					{
+						patientName: "张三",
+						admittedAt: "2026-09-15 09:30:00",
+						status: "inpatient",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "inpatient-episodes",
+					requestId: context.traceId,
+				},
+			};
+		},
+	};
+	const base = createDefaultApplicationServices();
+	const app = createApp({
+		services: {
+			...base,
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(patientRepository),
+			inpatientEpisodes: new InpatientEpisodeService({
+				repository: patientRepository,
+				directory,
+			}),
+			sessions,
+		},
+	});
+	const loginResponse = await app.handle(
+		new Request("http://localhost/api/v1/auth/wechat", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ code: "fixture-code" }),
+		}),
+	);
+	const loginBody = (await loginResponse.json()) as {
+		data: { accessToken: string };
+	};
+	const response = await app.handle(
+		new Request(
+			"http://localhost/api/v1/inpatient/episodes?patientId=internal-patient-001",
+			{
+				headers: {
+					authorization: `Bearer ${loginBody.data.accessToken}`,
+					"x-request-id": "inpatient-query-trace",
+				},
+			},
+		),
+	);
+
+	expect(response.status).toBe(200);
+	expect(providerPatientId).toBe("his-patient-001");
+	const body = await response.json();
+	expect(body).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					patientName: "张三",
+					admittedAt: "2026-09-15 09:30:00",
+					status: "inpatient",
 				},
 			],
 			total: 1,

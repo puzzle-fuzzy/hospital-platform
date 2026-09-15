@@ -38,27 +38,30 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 	{
 		id: "inpatient",
 		name: "住院信息",
-		expectedReadiness: "待 provider contract",
-		implementationStatus: "unregistered",
+		expectedReadiness: "代码已实现，待实证",
+		implementationStatus: "registered-fail-closed",
 		legacyEntries: [
 			{
 				path: "pagesB/health/inpatient_center.vue",
 				featureKey: "inpatient-center",
-				status: "blocked-provider",
-				surfaceOnlyTarget: "pages/inpatient-center/inpatient-center",
+				status: "partial",
+				safeSurfaceTarget: "pages/inpatient-center/inpatient-center",
+				readiness: "代码已实现，待实证",
 			},
 		],
 		documents: [
 			"docs/提供商接入/临床读模型-2026-08-25.md",
 			"docs/迁移/临床域批次契约门禁-2026-08-25.md",
 			"docs/迁移/病案与医院边界.md",
+			"docs/迁移/住院episode二次验证-2026-09-16.md",
 		],
-		requiredMarkers: ["episode", "patInHosId", "住院患者标识", "未注册"],
-		forbiddenApiTokens: [
-			"/inpatient",
-			"/inpatient-records",
-			"/hospitalization",
+		requiredMarkers: [
+			"episode",
+			"patInHosId",
+			"住院患者标识",
+			"implemented-pending-acceptance",
 		],
+		forbiddenApiTokens: ["/inpatient-records", "/hospitalization"],
 	},
 	{
 		id: "electronic-consultation",

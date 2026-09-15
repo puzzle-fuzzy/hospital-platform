@@ -15,6 +15,7 @@ import {
 	createZhongyangAppointmentGateway,
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
+	createZhongyangInpatientEpisodeGateway,
 	createZhongyangMedicalRecordGateway,
 	createZhongyangOutpatientPaymentGateway,
 	createZhongyangPatientBindingGateway,
@@ -28,6 +29,8 @@ import {
 	appointmentRecordsConfigurationStatus,
 	appointmentWritesConfigurationMissingFields,
 	appointmentWritesConfigurationStatus,
+	inpatientEpisodesConfigurationMissingFields,
+	inpatientEpisodesConfigurationStatus,
 	medicalInsuranceConfigurationMissingFields,
 	medicalInsuranceConfigurationStatus,
 	outpatientMedicalRecordsConfigurationMissingFields,
@@ -108,6 +111,9 @@ const medicalRecordsStatus =
 	outpatientMedicalRecordsConfigurationStatus(config);
 const medicalRecordsMissing =
 	outpatientMedicalRecordsConfigurationMissingFields(config);
+const inpatientEpisodesStatus = inpatientEpisodesConfigurationStatus(config);
+const inpatientEpisodesMissing =
+	inpatientEpisodesConfigurationMissingFields(config);
 const outpatientPaymentStatus = outpatientPaymentConfigurationStatus(config);
 const outpatientPaymentMissing =
 	outpatientPaymentConfigurationMissingFields(config);
@@ -268,6 +274,15 @@ const outpatientPaymentGateway =
 const outpatientMedicalRecordGateway =
 	medicalRecordsStatus === "configured" && config.zhongyangBaseUrl
 		? createZhongyangMedicalRecordGateway({
+				baseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
+					? { authorizationToken: config.zhongyangAuthorizationToken }
+					: {}),
+			})
+		: undefined;
+const inpatientEpisodeGateway =
+	inpatientEpisodesStatus === "configured" && config.zhongyangBaseUrl
+		? createZhongyangInpatientEpisodeGateway({
 				baseUrl: config.zhongyangBaseUrl,
 				...(config.zhongyangAuthorizationToken
 					? { authorizationToken: config.zhongyangAuthorizationToken }
@@ -528,6 +543,7 @@ const services = createDefaultApplicationServices({
 	...(appointmentWriteGateway ? { appointmentWriteGateway } : {}),
 	...(outpatientPaymentGateway ? { outpatientPaymentGateway } : {}),
 	...(outpatientMedicalRecordGateway ? { outpatientMedicalRecordGateway } : {}),
+	...(inpatientEpisodeGateway ? { inpatientEpisodeGateway } : {}),
 	outpatientPaymentAuthSysCode: config.outpatientPaymentAuthSysCode,
 	...(reportDirectoryGateway ? { reportDirectoryGateway } : {}),
 	...(reportDetailGateway ? { reportDetailGateway } : {}),
@@ -750,6 +766,7 @@ logger.info(
 		appointmentWritesConfiguration: appointmentWritesStatus,
 		outpatientPaymentConfiguration: outpatientPaymentStatus,
 		outpatientMedicalRecordsConfiguration: medicalRecordsStatus,
+		inpatientEpisodesConfiguration: inpatientEpisodesStatus,
 		reportDirectoryConfiguration: reportDirectoryStatus,
 		reportDetailConfiguration: reportDetailStatus,
 		...(wechatIdentityMissing.length > 0 ? { wechatIdentityMissing } : {}),
@@ -774,6 +791,9 @@ logger.info(
 			: {}),
 		...(medicalRecordsMissing.length > 0
 			? { outpatientMedicalRecordsMissing: medicalRecordsMissing }
+			: {}),
+		...(inpatientEpisodesMissing.length > 0
+			? { inpatientEpisodesMissing }
 			: {}),
 		...(reportDirectoryMissing.length > 0 ? { reportDirectoryMissing } : {}),
 		...(reportDetailMissing.length > 0 ? { reportDetailMissing } : {}),

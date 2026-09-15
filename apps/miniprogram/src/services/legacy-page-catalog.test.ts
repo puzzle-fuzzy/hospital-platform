@@ -228,7 +228,9 @@ describe("旧端页面全量迁移台账", () => {
 		for (const feature of Object.values(FEATURE_STATUS_CATALOG)) {
 			expect(completionStatuses.has(feature.readiness)).toBe(false);
 		}
-		expect(getFeatureUserFacingCopy(FEATURE_STATUS_CATALOG.doctor)).toMatchObject({
+		expect(
+			getFeatureUserFacingCopy(FEATURE_STATUS_CATALOG.doctor),
+		).toMatchObject({
 			badge: "代码已具备，待实证",
 		});
 		expect(
@@ -256,6 +258,9 @@ describe("旧端页面全量迁移台账", () => {
 
 	test("状态页面按业务分类提供用户文案，不泄漏内部门禁术语", () => {
 		const providerCopy = getFeatureUserFacingCopy(
+			FEATURE_STATUS_CATALOG["blood-appointment"],
+		);
+		const inpatientCopy = getFeatureUserFacingCopy(
 			FEATURE_STATUS_CATALOG["inpatient-center"],
 		);
 		const paymentCopy = getFeatureUserFacingCopy(
@@ -268,6 +273,7 @@ describe("旧端页面全量迁移台账", () => {
 		// Provider、支付和临床审核必须让用户看到不同的原因，不能再统一
 		// 显示“外部服务不可用”或“功能正在完善”。
 		expect(providerCopy.badge).toBe("数据服务接入中");
+		expect(inpatientCopy.badge).toBe("代码已具备，待实证");
 		expect(paymentCopy.badge).toBe("支付服务准备中");
 		expect(clinicalCopy.badge).toBe("专业内容审核中");
 		expect(

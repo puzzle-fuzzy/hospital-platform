@@ -528,6 +528,86 @@ export const OutpatientMedicalRecordListResponse = Type.Object({
 	}),
 });
 
+/** 住院首页只读摘要；住院费用、支付和账单字段不属于本 contract。 */
+export const InpatientBabySchema = Type.Object({
+	name: Type.String({ minLength: 1, maxLength: 128 }),
+	inpatientNumber: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	sex: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	birthDate: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	heightCm: Type.Optional(Type.Number({ minimum: 0, maximum: 300 })),
+	weightKg: Type.Optional(Type.Number({ minimum: 0, maximum: 500 })),
+});
+
+export const InpatientEpisodeSchema = Type.Object({
+	patientName: Type.String({ minLength: 1, maxLength: 128 }),
+	inpatientNumber: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	cardNumberMasked: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	sex: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	age: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	admittedAt: Type.String({ minLength: 1, maxLength: 64 }),
+	dischargedAt: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	admissionType: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	status: Type.Union([
+		Type.Literal("inpatient"),
+		Type.Literal("discharged"),
+		Type.Literal("cancelled"),
+	]),
+	bedStatus: Type.Optional(
+		Type.Union([
+			Type.Literal("in_bed"),
+			Type.Literal("shared_bed"),
+			Type.Literal("out_of_bed"),
+		]),
+	),
+	wardName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	admissionWardName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	bedNumber: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	roomNumber: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	primaryDoctorName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	attendingDoctorName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	responsibleNurseName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	outpatientDoctorName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	admissionDiagnosis: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 4096 }),
+	),
+	dischargeDiagnosis: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 4096 }),
+	),
+	diagnoses: Type.Optional(
+		Type.Array(
+			Type.Object({
+				name: Type.String({ minLength: 1, maxLength: 4096 }),
+				isPrimary: Type.Optional(Type.Boolean()),
+			}),
+			{ maxItems: 32 },
+		),
+	),
+	nursingLevel: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	condition: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 })),
+	babies: Type.Optional(Type.Array(InpatientBabySchema, { maxItems: 16 })),
+});
+
+export const InpatientEpisodeListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(InpatientEpisodeSchema, { maxItems: 128 }),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
 /** 报告目录的来源枚举；provider 原始数据和资源 URL 不在公开 contract。 */
 export const ReportKindSchema = Type.Union([
 	Type.Literal("laboratory"),
@@ -1253,6 +1333,11 @@ export type OutpatientMedicalRecordPayload = Static<
 >;
 export type OutpatientMedicalRecordListPayload = Static<
 	typeof OutpatientMedicalRecordListResponse
+>;
+export type InpatientBabyPayload = Static<typeof InpatientBabySchema>;
+export type InpatientEpisodePayload = Static<typeof InpatientEpisodeSchema>;
+export type InpatientEpisodeListPayload = Static<
+	typeof InpatientEpisodeListResponse
 >;
 export type ReportPayload = Static<typeof ReportSchema>;
 export type ReportListPayload = Static<typeof ReportListResponse>;

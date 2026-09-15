@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	requestInpatientEpisodes,
 	requestOutpatientMedicalRecords,
 	requestOutpatientPaymentRecords,
 	requestReportDetail,
@@ -16,6 +17,7 @@ import {
 	formatPlatformDate,
 	loadAppointmentSchedules,
 	loadCurrentPatientForOwner,
+	loadInpatientEpisodes,
 	loadOutpatientMedicalRecords,
 	loadOutpatientPaymentRecords,
 	loadPatients,
@@ -25,6 +27,7 @@ import {
 	requireAppointmentRecordListData,
 	requireAppointmentScheduleListData,
 	requireExactListData,
+	requireInpatientEpisodeListData,
 	requireOutpatientMedicalRecordListData,
 	requireOutpatientPaymentListData,
 	requirePatientListData,
@@ -849,6 +852,56 @@ test("门诊病历查询先拒绝空患者标识", () => {
 	expect(() =>
 		loadOutpatientMedicalRecords("", BEIJING_MIDNIGHT, getSessionGeneration()),
 	).toThrow("请先登录并选择就诊人");
+});
+
+test("住院摘要响应只接受脱敏白名单字段并保留婴儿测量值", () => {
+	const valid = {
+		items: [
+			{
+				patientName: "张三",
+				inpatientNumber: "ZY-001",
+				cardNumberMasked: "A1234*6789",
+				sex: "男",
+				age: "42岁",
+				admittedAt: "2026-08-28 09:30:00",
+				status: "inpatient" as const,
+				bedStatus: "in_bed" as const,
+				wardName: "一病区",
+				departmentName: "心内科",
+				bedNumber: "01床",
+				primaryDoctorName: "主治医生",
+				outpatientDoctorName: "赵医生",
+				diagnoses: [{ name: "胸痛", isPrimary: true }],
+				babies: [{ name: "张小三", heightCm: 48.5, weightKg: 3.2 }],
+			},
+		],
+		total: 1,
+	};
+	expect(requireInpatientEpisodeListData(valid)).toEqual(valid);
+	for (const invalid of [
+		{ ...valid, total: 2 },
+		{ ...valid, items: [{ ...valid.items[0], patId: "provider-patient" }] },
+		{ ...valid, items: [{ ...valid.items[0], cardNumberMasked: "12345678" }] },
+		{
+			...valid,
+			items: [{ ...valid.items[0], status: "unknown" }],
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], babies: [{ name: "" }] }],
+		},
+	]) {
+		expect(() => requireInpatientEpisodeListData(invalid)).toThrow();
+	}
+});
+
+test("住院摘要查询先拒绝空患者标识，不产生网络请求", () => {
+	expect(() => loadInpatientEpisodes("", getSessionGeneration())).toThrow(
+		"请先登录并选择就诊人",
+	);
+	expect(() => requestInpatientEpisodes("", getSessionGeneration())).toThrow(
+		"请先登录并选择就诊人",
+	);
 });
 
 test("门诊费用列表展示旧端日期粒度但保留完整账单事实", () => {

@@ -125,10 +125,11 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "inpatient",
 		name: "住院信息",
 		featureKey: "inpatient-center",
-		readiness: "待 provider contract",
+		readiness: "代码已实现，待实证",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/health/inpatient_center.vue"],
 		safeSurfaceTarget: "pages/inpatient-center/inpatient-center",
+		safePartialPaths: ["pagesB/health/inpatient_center.vue"],
 		requiredMaterials: [
 			"episode-identity",
 			"patInHosId-mapping",

@@ -5,6 +5,8 @@ import type {
 	AppointmentRecord,
 	AppointmentSchedule,
 	HealthResponse,
+	InpatientEpisode,
+	InpatientEpisodeListResponse,
 	OutpatientMedicalRecord,
 	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentDetail,
@@ -27,6 +29,7 @@ import {
 	requestAppointmentRecords,
 	requestAppointmentSchedules,
 	requestOutpatientMedicalRecords,
+	requestInpatientEpisodes,
 	requestOutpatientPaymentDetail,
 	requestOutpatientPaymentRecords,
 	requestReports,
@@ -753,6 +756,237 @@ export function requireOutpatientMedicalRecordListData(
 	return { items, total: list.total };
 }
 
+const INPATIENT_EPISODE_FIELDS = new Set([
+	"patientName",
+	"inpatientNumber",
+	"cardNumberMasked",
+	"sex",
+	"age",
+	"admittedAt",
+	"dischargedAt",
+	"admissionType",
+	"status",
+	"bedStatus",
+	"wardName",
+	"admissionWardName",
+	"departmentName",
+	"bedNumber",
+	"roomNumber",
+	"primaryDoctorName",
+	"attendingDoctorName",
+	"responsibleNurseName",
+	"outpatientDoctorName",
+	"admissionDiagnosis",
+	"dischargeDiagnosis",
+	"diagnoses",
+	"nursingLevel",
+	"condition",
+	"babies",
+]);
+
+const INPATIENT_EPISODE_STATUSES = new Set<InpatientEpisode["status"]>([
+	"inpatient",
+	"discharged",
+	"cancelled",
+]);
+
+const INPATIENT_BED_STATUSES = new Set<
+	NonNullable<InpatientEpisode["bedStatus"]>
+>(["in_bed", "shared_bed", "out_of_bed"]);
+
+function requireInpatientBaby(
+	value: unknown,
+): NonNullable<InpatientEpisode["babies"]>[number] {
+	if (
+		!isRecord(value) ||
+		Object.keys(value).some(
+			(field) =>
+				![
+					"name",
+					"inpatientNumber",
+					"sex",
+					"birthDate",
+					"heightCm",
+					"weightKg",
+				].includes(field),
+		)
+	) {
+		throw new ApiError("Inpatient baby response item is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	if (!hasBoundedDisplayText(value.name, 128)) {
+		throw new ApiError("Inpatient baby response item is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	const inpatientNumber = optionalDisplayText(value.inpatientNumber, 64);
+	const sex = optionalDisplayText(value.sex, 64);
+	const birthDate = optionalDisplayText(value.birthDate, 64);
+	const heightCm = value.heightCm;
+	const weightKg = value.weightKg;
+	if (
+		(heightCm !== undefined &&
+			(typeof heightCm !== "number" ||
+				!Number.isFinite(heightCm) ||
+				heightCm < 0 ||
+				heightCm > 300)) ||
+		(weightKg !== undefined &&
+			(typeof weightKg !== "number" ||
+				!Number.isFinite(weightKg) ||
+				weightKg < 0 ||
+				weightKg > 500))
+	) {
+		throw new ApiError("Inpatient baby measurement is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	return {
+		name: value.name,
+		...(inpatientNumber ? { inpatientNumber } : {}),
+		...(sex ? { sex } : {}),
+		...(birthDate ? { birthDate } : {}),
+		...(heightCm === undefined ? {} : { heightCm }),
+		...(weightKg === undefined ? {} : { weightKg }),
+	};
+}
+
+function requireInpatientDiagnosis(
+	value: unknown,
+): NonNullable<InpatientEpisode["diagnoses"]>[number] {
+	if (
+		!isRecord(value) ||
+		Object.keys(value).some(
+			(field) => !["name", "isPrimary"].includes(field),
+		) ||
+		!hasBoundedDisplayText(value.name, 4096) ||
+		(value.isPrimary !== undefined && typeof value.isPrimary !== "boolean")
+	) {
+		throw new ApiError("Inpatient diagnosis response item is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	return {
+		name: value.name,
+		...(value.isPrimary === undefined ? {} : { isPrimary: value.isPrimary }),
+	};
+}
+
+/** 住院摘要在小程序响应边界再次白名单校验，严禁把费用/支付字段混入。 */
+export function requireInpatientEpisodeListData(
+	value: unknown,
+): ExactListData<InpatientEpisode> {
+	const list = requireExactListData<unknown>(value);
+	if (list.items.length > 128) {
+		throw new ApiError("Inpatient episode response is too large", {
+			code: "provider-response-invalid",
+		});
+	}
+	const items: InpatientEpisode[] = list.items.map((item) => {
+		if (
+			!isRecord(item) ||
+			Object.keys(item).some((field) => !INPATIENT_EPISODE_FIELDS.has(field)) ||
+			!hasBoundedDisplayText(item.patientName, 128) ||
+			!hasBoundedDisplayText(item.admittedAt, 64) ||
+			!INPATIENT_EPISODE_STATUSES.has(
+				item.status as InpatientEpisode["status"],
+			) ||
+			(item.bedStatus !== undefined &&
+				!INPATIENT_BED_STATUSES.has(
+					item.bedStatus as NonNullable<InpatientEpisode["bedStatus"]>,
+				))
+		) {
+			throw new ApiError("Inpatient episode response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+		const cardNumberMasked = optionalDisplayText(item.cardNumberMasked, 128);
+		if (
+			cardNumberMasked &&
+			!/^[A-Za-z0-9]{0,5}\*+[A-Za-z0-9]{0,4}$/u.test(cardNumberMasked)
+		) {
+			throw new ApiError("Inpatient card number is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+		const fieldNames = [
+			"inpatientNumber",
+			"sex",
+			"age",
+			"dischargedAt",
+			"admissionType",
+			"wardName",
+			"admissionWardName",
+			"departmentName",
+			"bedNumber",
+			"roomNumber",
+			"primaryDoctorName",
+			"attendingDoctorName",
+			"responsibleNurseName",
+			"outpatientDoctorName",
+			"admissionDiagnosis",
+			"dischargeDiagnosis",
+			"nursingLevel",
+			"condition",
+		] as const;
+		const displayValues = Object.fromEntries(
+			fieldNames.map((field) => [
+				field,
+				optionalDisplayText(
+					item[field],
+					field.endsWith("Diagnosis") ? 4096 : 128,
+				),
+			]),
+		) as Partial<Record<(typeof fieldNames)[number], string | undefined>>;
+		if (item.babies !== undefined) {
+			if (!Array.isArray(item.babies) || item.babies.length > 16) {
+				throw new ApiError("Inpatient baby response is invalid", {
+					code: "provider-response-invalid",
+				});
+			}
+		}
+		const babies = item.babies?.map(requireInpatientBaby);
+		if (item.diagnoses !== undefined) {
+			if (!Array.isArray(item.diagnoses) || item.diagnoses.length > 32) {
+				throw new ApiError("Inpatient diagnosis response is invalid", {
+					code: "provider-response-invalid",
+				});
+			}
+		}
+		const diagnoses = item.diagnoses?.map(requireInpatientDiagnosis);
+		return {
+			patientName: item.patientName,
+			...(item.inpatientNumber
+				? { inpatientNumber: displayValues.inpatientNumber }
+				: {}),
+			...(cardNumberMasked ? { cardNumberMasked } : {}),
+			...(item.sex ? { sex: displayValues.sex } : {}),
+			...(item.age ? { age: displayValues.age } : {}),
+			admittedAt: item.admittedAt,
+			...(item.dischargedAt
+				? { dischargedAt: displayValues.dischargedAt }
+				: {}),
+			...(item.admissionType
+				? { admissionType: displayValues.admissionType }
+				: {}),
+			status: item.status as InpatientEpisode["status"],
+			...(item.bedStatus
+				? { bedStatus: item.bedStatus as InpatientEpisode["bedStatus"] }
+				: {}),
+			...Object.fromEntries(
+				fieldNames
+					.slice(5)
+					.map((field) =>
+						displayValues[field] ? [field, displayValues[field]] : [],
+					),
+			),
+			...(diagnoses && diagnoses.length > 0 ? { diagnoses } : {}),
+			...(babies && babies.length > 0 ? { babies } : {}),
+		} as InpatientEpisode;
+	});
+	return { items, total: list.total };
+}
+
 /** 门诊详情沿用列表摘要的运行时校验，不允许网络响应带入未确认明细字段。 */
 export function requireOutpatientPaymentDetailData(
 	value: unknown,
@@ -1466,6 +1700,17 @@ export function loadOutpatientMedicalRecords(
 		},
 		expectedSessionGeneration,
 	).then((payload) => requireOutpatientMedicalRecordListData(payload.data));
+}
+
+/** 读取旧服务住院摘要；费用、账单和支付仍保持在其它独立入口之外。 */
+export function loadInpatientEpisodes(
+	patientId: string,
+	expectedSessionGeneration: number,
+): Promise<InpatientEpisodeListResponse["data"]> {
+	return requestInpatientEpisodes(
+		requirePatientId(patientId),
+		expectedSessionGeneration,
+	).then((payload) => requireInpatientEpisodeListData(payload.data));
 }
 
 /** 读取单笔已核对的门诊费用摘要；项目级明细仍按 Provider contract 关闭。 */

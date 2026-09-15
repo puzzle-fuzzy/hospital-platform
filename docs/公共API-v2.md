@@ -136,6 +136,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射调用取消接口；重复取消返回已取消，不接收 provider 预约号 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
 | `GET` | `/api/v2/medical-records` | Bearer | 必填内部 `patientId`、`startDate`、`endDate`，跨度最多 30 天；只返回门诊就诊摘要，生产 Provider gate 默认关闭 |
+| `GET` | `/api/v2/inpatient/episodes` | Bearer | 必填内部 `patientId`；只返回旧服务住院摘要，费用、账单和支付不属于此路由，生产 Provider gate 默认关闭 |
 | `POST` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 必填幂等键 | 从已写入预约读取服务端挂号费，按 HIS 收款顺序完成 `.1 → .27 → .2`，返回 `.2.result` 中经校验的 APIv2/MD5 小程序调起参数；不会进入医保授权 |
 | `POST` | `/api/v2/payments/appointments/{appointmentId}/payment-exit` | Bearer + 必填幂等键 | 用户明确退出医保、医保混合或自费支付；服务端查单/关单并作废未支付订单，再取消预约释放号源；已支付或未知状态 fail-closed |
 | `GET` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 幂等键可选 | 服务端幂等调用 HIS `.5` 并返回 `awaiting_confirmation`、`cash_paid` 或 `failed`；只有 `isSettle=1` 才完成，调起成功不代表支付完成 |
@@ -417,6 +418,7 @@ OpenAPI 仍保留路由是为了冻结公共契约，不代表当前支付已经
 | `GET /api/v2/appointments/schedules` | 起止日期差值最多 31 天；当前小程序请求未来 7 天；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序；页面按 `workDate` 升序分组，同一天内保留返回顺序 | 右栏每次最多渲染 12 条；这是本地渲染分页，不减少 provider 请求量 |
 | `GET /api/v2/appointments/records` | `scope=online` 时起止日期差值最多 366 天；“我的挂号”请求当前日前后各 90 天，“爽约记录”请求过去 90 天；`scope=all` 不传日期；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取结果首批渲染 10 条，点击“加载更多”继续展示；这是本地渲染分批，不代表 provider 分页 |
 | `GET /api/v2/reports` | 起止日期差值最多 366 天；当前小程序默认查询近 30 天，可用日期选择器调整；Provider `endDate` 包含规则待确认；每条返回摘要的 `reportedAt` 必须可解析且落在本次请求的首尾自然日内 | 服务端仅对通过时间窗口校验的结果按 `reportedAt` 时间倒序；同时间再按 `reportedAt`、`kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |
+| `GET /api/v2/inpatient/episodes` | 当前 owner 明确选择的患者；Provider 仅接收服务端 `his-patient` 引用映射出的 `patId`；费用、账单和支付不在查询范围 | 保留旧服务住院摘要顺序；未知住院/床位状态、重复项和未脱敏卡号整批拒绝 | 当前完整读取并按住院记录卡片展示，不宣称 Provider 分页 |
 | `GET /api/v2/payments/outpatient/records` | 服务端固定最近 30 个中国标准时间日 | 保留 provider adapter 返回顺序；金额和状态已在服务端映射 | 当前完整读取结果首批渲染 10 条，点击“加载更多缴费记录”继续展示；这是本地渲染分批，不代表支付或 provider 分页 |
 
 服务端返回已确认的空结果时，接口仍返回 HTTP `200`、`items: []` 和 `total: 0`；空列表不能被
@@ -466,6 +468,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 400 | 50300 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
 | 400 | 40100 | `report-query-invalid` | 报告查询条件不合法 |
 | 400 | 40200 | `medical-record-query-invalid` | 门诊病历 patientId 或日期窗口不合法 |
+| 400 | 40300 | `inpatient-episode-query-invalid` | 住院信息查询上下文不合法 |
 | 400 | 60100 | `health-knowledge-query-invalid` | 健康知识查询参数不符合公开 contract |
 | 400 | 20100 | `patient-query-invalid` | 就诊人查询上下文不合法 |
 | 400 | 20600 | `patient-binding-invalid` | 添加就诊人的姓名、手机号、身份证号或授权确认不合法 |
@@ -496,6 +499,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
 | 404 | 40120 | `report-not-found` | 报告详情或附件不可用、短期引用已过期，或尚未通过 gate |
 | 404 | 40210 | `medical-record-patient-not-found` | 当前用户没有该就诊人的有效门诊病历映射 |
+| 404 | 40310 | `inpatient-episode-patient-not-found` | 当前用户没有该就诊人的有效住院查询映射 |
 | 404 | 60110 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |
 | 404 | 50110 | `payment-order-not-found` | 订单不存在或不属于当前用户 |
 | 404 | 50120 | `payment-quote-not-found` | 服务端报价不存在 |

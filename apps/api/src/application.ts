@@ -10,6 +10,7 @@ import type {
 	HospitalSettlementGateway,
 	IntelligentGuideConversationStore,
 	IntelligentGuideGateway,
+	InpatientEpisodeGateway,
 	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
@@ -48,6 +49,7 @@ import {
 	type SessionTokenService,
 } from "./modules/auth";
 import { IntelligentGuideService } from "./modules/intelligent-guide";
+import { InpatientEpisodeService } from "./modules/inpatient";
 import { HealthKnowledgeService } from "./modules/knowledge";
 import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment-core";
 import { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
@@ -90,6 +92,8 @@ export type ApplicationServices = {
 	reports: ReportService;
 	/** 仅提供门诊就诊摘要；病历正文、附件和住院病历不复用此服务。 */
 	medicalRecords?: OutpatientMedicalRecordService;
+	/** 仅提供旧服务住院摘要；费用、账单和支付由独立模块负责。 */
+	inpatientEpisodes?: InpatientEpisodeService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
 	/** 挂号自费与其他普通自费共用官方微信 APIv3 收银台。 */
@@ -144,6 +148,8 @@ export type ApplicationServiceOptions = {
 	outpatientPaymentGateway?: OutpatientPaymentGateway;
 	/** 门诊就诊摘要 Provider；独立配置并默认 fail-closed。 */
 	outpatientMedicalRecordGateway?: OutpatientMedicalRecordGateway;
+	/** 住院摘要 Provider；独立配置并默认 fail-closed。 */
+	inpatientEpisodeGateway?: InpatientEpisodeGateway;
 	outpatientPaymentAuthSysCode?: string;
 	/** 只有完成众阳 LIS/PACS/ECG/PEIS 只读合同和真实环境验收后才打开。 */
 	reportDirectoryGateway?: ReportDirectoryGateway;
@@ -675,6 +681,11 @@ export function createDefaultApplicationServices(
 			directory:
 				options.outpatientMedicalRecordGateway ??
 				gateways.outpatientMedicalRecords,
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		inpatientEpisodes: new InpatientEpisodeService({
+			repository: repositories.patients,
+			directory: options.inpatientEpisodeGateway ?? gateways.inpatientEpisodes,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		outpatientPayments: new OutpatientPaymentService({

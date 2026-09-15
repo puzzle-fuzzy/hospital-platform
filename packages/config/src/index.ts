@@ -92,6 +92,8 @@ export type RuntimeConfig = {
 	outpatientPaymentAuthSysCode: string;
 	/** 门诊病历 out-visit-records 只读接口独立验收闸门。 */
 	outpatientMedicalRecordsReady: boolean;
+	/** 住院 patients 只读接口独立验收闸门；不包含费用或支付。 */
+	inpatientEpisodesReady: boolean;
 	/** LIS/PACS/ECG/PEIS 报告目录独立验收，不能随患者目录一起隐式打开。 */
 	reportDirectoryReady: boolean;
 	/** LIS 详情独立验收；不会因为目录 gate 打开而自动暴露 provider 资源。 */
@@ -161,6 +163,7 @@ export type ProviderConfigurationDiagnostic = {
 		| "zhongyang-appointment-writes"
 		| "zhongyang-outpatient-payments"
 		| "zhongyang-medical-records"
+		| "zhongyang-inpatient-episodes"
 		| "zhongyang-report-directory"
 		| "zhongyang-report-detail"
 		| "yunhealth-registration-settlement";
@@ -577,10 +580,7 @@ export function patientBindingConfigurationMissingFields(
 		["ZHONGYANG_PATIENT_ORG_ID", runtimeConfig.patientBindingOrgId],
 		["ZHONGYANG_PATIENT_HOSPITAL_ID", runtimeConfig.patientBindingHospitalId],
 		["ZHONGYANG_PATIENT_CARD_TYPE_ID", runtimeConfig.patientBindingCardTypeId],
-		[
-			"LEGACY_PATIENT_AUTH_BASE_URL",
-			runtimeConfig.legacyPatientAuthBaseUrl,
-		],
+		["LEGACY_PATIENT_AUTH_BASE_URL", runtimeConfig.legacyPatientAuthBaseUrl],
 	] as const) {
 		if (value === undefined) missing.push(name);
 	}
@@ -714,6 +714,24 @@ export function outpatientMedicalRecordsConfigurationStatus(
 		: "incomplete";
 }
 
+export function inpatientEpisodesConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.inpatientEpisodesReady,
+	);
+}
+
+export function inpatientEpisodesConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.inpatientEpisodesReady) return "disabled";
+	return inpatientEpisodesConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
 export function reportDirectoryConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
@@ -823,6 +841,11 @@ export function providerConfigurationDiagnostics(
 			status: outpatientMedicalRecordsConfigurationStatus(runtimeConfig),
 			missingFields:
 				outpatientMedicalRecordsConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-inpatient-episodes" as const,
+			status: inpatientEpisodesConfigurationStatus(runtimeConfig),
+			missingFields: inpatientEpisodesConfigurationMissingFields(runtimeConfig),
 		},
 		{
 			name: "zhongyang-report-directory" as const,
@@ -1117,6 +1140,10 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			optional(env.OUTPATIENT_PAYMENT_AUTH_SYS_CODE) ?? "",
 		outpatientMedicalRecordsReady: boolean(
 			env.ZHONGYANG_MEDICAL_RECORDS_READY,
+			false,
+		),
+		inpatientEpisodesReady: boolean(
+			env.ZHONGYANG_INPATIENT_EPISODES_READY,
 			false,
 		),
 		reportDirectoryReady: boolean(env.ZHONGYANG_REPORT_DIRECTORY_READY, false),

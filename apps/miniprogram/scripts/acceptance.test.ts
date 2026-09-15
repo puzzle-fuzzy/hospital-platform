@@ -2103,7 +2103,6 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 test("native clinical shells keep the shared style and my-doctor is a real page", async () => {
 	const clinicalPages = [
 		"pages/electronic-consultation/electronic-consultation",
-		"pages/inpatient-center/inpatient-center",
 	];
 	for (const pagePath of clinicalPages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2114,6 +2113,24 @@ test("native clinical shells keep the shared style and my-doctor is a real page"
 		expect(template).toContain('class="migration-surface-scroll"');
 		expect(template).not.toContain("clinical-surface-");
 	}
+	const inpatientTemplate = await source(
+		"pages/inpatient-center/inpatient-center.wxml",
+	);
+	const inpatientStyle = await source(
+		"pages/inpatient-center/inpatient-center.wxss",
+	);
+	const inpatientPage = await source(
+		"pages/inpatient-center/inpatient-center.ts",
+	);
+	// 住院摘要已经有独立的只读页面，但仍保留费用/支付在此范围之外的边界。
+	expect(inpatientTemplate).toContain('class="inpatient-page"');
+	expect(inpatientTemplate).toContain("item.admittedAt");
+	expect(inpatientTemplate).toContain("item.statusLabel");
+	expect(inpatientStyle).toContain(".inpatient-card");
+	expect(inpatientPage).toContain("loadInpatientEpisodes");
+	expect(inpatientPage).toContain("loadCurrentPatientForOwner");
+	expect(inpatientPage).not.toContain("loadOutpatientPayment");
+	expect(inpatientPage).not.toContain("wx.request");
 	const doctorTemplate = await source("pages/my-doctor/my-doctor.wxml");
 	const doctorScript = await source("pages/my-doctor/my-doctor.ts");
 	expect(doctorTemplate).toContain('class="my-doctor-scroll"');
@@ -3487,6 +3504,27 @@ test("native client reads only the safe outpatient medical-record summary", asyn
 	expect(template).toContain("病历正文、附件和住院病历尚未开放");
 	for (const sourceText of [client, service, page]) {
 		expect(sourceText).not.toContain("/out-emrs");
+		expect(sourceText).not.toContain("providerPatientId=");
+	}
+});
+
+test("native client reads only the safe inpatient episode summary", async () => {
+	const client = await source("services/api-client.ts");
+	const service = await source("services/dashboard-service.ts");
+	const page = await source("pages/inpatient-center/inpatient-center.ts");
+	const template = await source("pages/inpatient-center/inpatient-center.wxml");
+
+	expect(client).toContain("requestInpatientEpisodes");
+	expect(client).toContain("/inpatient/episodes?");
+	expect(client).toContain("patientId=");
+	expect(service).toContain("requireInpatientEpisodeListData");
+	expect(service).toContain("INPATIENT_EPISODE_FIELDS");
+	expect(page).toContain("loadCurrentPatientForOwner");
+	expect(page).toContain("loadInpatientEpisodes");
+	expect(template).toContain("住院信息摘要");
+	expect(template).toContain("住院费用、账单和支付不在本页面处理");
+	for (const sourceText of [client, service, page]) {
+		expect(sourceText).not.toContain("/msun-middle-aggregate-hsz");
 		expect(sourceText).not.toContain("providerPatientId=");
 	}
 });

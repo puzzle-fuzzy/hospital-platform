@@ -1,1 +1,279 @@
-@import "../../styles/migration-surface.wxss";
+page {
+	background: #f8f8f8;
+}
+
+.inpatient-page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+	background: #f5f5f5;
+}
+
+.inpatient-selector-card,
+.inpatient-boundary,
+.inpatient-content {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+.inpatient-selector-card {
+	overflow: hidden;
+	background: #fff;
+}
+
+.inpatient-selector-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 92rpx;
+	padding: 26rpx 30rpx;
+	color: #333;
+}
+
+.inpatient-selector-row-border {
+	border-bottom: 1rpx solid #f0f0f0;
+}
+
+.inpatient-selector-label {
+	flex: 0 0 150rpx;
+	font-size: 28rpx;
+}
+
+.inpatient-selector-value {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex: 1;
+	min-width: 0;
+	font-size: 30rpx;
+	text-align: right;
+}
+
+.inpatient-selector-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.inpatient-selector-card-number {
+	margin-left: 10rpx;
+	color: #999;
+	font-size: 23rpx;
+}
+
+.inpatient-selector-arrow {
+	display: block;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
+	margin-left: 14rpx;
+}
+
+.inpatient-boundary {
+	padding: 18rpx 30rpx;
+	background: #eef4ff;
+	color: #56709e;
+	font-size: 23rpx;
+	line-height: 1.55;
+}
+
+.inpatient-content {
+	box-sizing: border-box;
+	padding: 32rpx 32rpx 160rpx;
+	background: #f5f5f5;
+}
+
+.inpatient-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	box-sizing: border-box;
+	min-height: 420rpx;
+	padding: 40rpx 30rpx;
+	border-radius: 16rpx;
+	background: #fff;
+	color: #777;
+	text-align: center;
+}
+
+.inpatient-state-image {
+	display: block;
+	width: 150rpx;
+	height: 150rpx;
+	margin-bottom: 18rpx;
+}
+
+.inpatient-loading-icon {
+	box-sizing: border-box;
+	width: 48rpx;
+	height: 48rpx;
+	margin-bottom: 20rpx;
+	border: 6rpx solid #e5e7eb;
+	border-top-color: #9ca3af;
+	border-radius: 50%;
+	animation: inpatient-loading 900ms linear infinite;
+}
+
+@keyframes inpatient-loading {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.inpatient-state-title,
+.inpatient-state-hint,
+.inpatient-card-title,
+.inpatient-card-number,
+.inpatient-card-label,
+.inpatient-card-value,
+.inpatient-card-summary-row,
+.inpatient-babies-title,
+.inpatient-baby-name,
+.inpatient-baby-meta {
+	display: block;
+}
+
+.inpatient-state-title {
+	font-size: 28rpx;
+}
+
+.inpatient-state-hint {
+	margin-top: 12rpx;
+	color: #aaa;
+	font-size: 23rpx;
+}
+
+.inpatient-state-action {
+	margin-top: 24rpx;
+	padding: 12rpx 34rpx;
+	border-radius: 999rpx;
+	background: #3d6df6;
+	color: #fff;
+	font-size: 25rpx;
+}
+
+.inpatient-state-action-secondary {
+	background: #eef4ff;
+	color: #3d6df6;
+}
+
+.inpatient-card {
+	box-sizing: border-box;
+	margin-bottom: 24rpx;
+	padding: 30rpx;
+	border: 1rpx solid #f0f0f0;
+	border-radius: 16rpx;
+	background: #fff;
+	box-shadow: 0 4rpx 16rpx rgba(35, 55, 95, 0.04);
+}
+
+.inpatient-card-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 20rpx;
+}
+
+.inpatient-card-title-wrap {
+	min-width: 0;
+	flex: 1;
+}
+
+.inpatient-card-title {
+	color: #222;
+	font-size: 32rpx;
+	font-weight: 600;
+}
+
+.inpatient-card-number {
+	margin-top: 8rpx;
+	color: #888;
+	font-size: 23rpx;
+}
+
+.inpatient-status {
+	flex: 0 0 auto;
+	padding: 6rpx 14rpx;
+	border-radius: 999rpx;
+	background: #edf7ef;
+	color: #28834a;
+	font-size: 23rpx;
+}
+
+.inpatient-status-discharged {
+	background: #f2f3f5;
+	color: #777;
+}
+
+.inpatient-status-cancelled {
+	background: #fff1f1;
+	color: #c34d4d;
+}
+
+.inpatient-card-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 22rpx 24rpx;
+	margin-top: 28rpx;
+	padding-top: 24rpx;
+	border-top: 1rpx solid #f0f0f0;
+}
+
+.inpatient-card-label {
+	color: #999;
+	font-size: 22rpx;
+}
+
+.inpatient-card-value {
+	margin-top: 6rpx;
+	color: #333;
+	font-size: 25rpx;
+	line-height: 1.45;
+}
+
+.inpatient-card-summary,
+.inpatient-babies {
+	margin-top: 24rpx;
+	padding: 18rpx 20rpx;
+	border-radius: 12rpx;
+	background: #f7f8fa;
+}
+
+.inpatient-card-summary-row {
+	color: #333;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.inpatient-card-summary-row + .inpatient-card-summary-row {
+	margin-top: 6rpx;
+}
+
+.inpatient-babies-title {
+	margin-bottom: 12rpx;
+	color: #555;
+	font-size: 24rpx;
+	font-weight: 600;
+}
+
+.inpatient-baby-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 16rpx;
+	padding: 8rpx 0;
+}
+
+.inpatient-baby-name {
+	color: #333;
+	font-size: 24rpx;
+}
+
+.inpatient-baby-meta {
+	flex: 1;
+	color: #888;
+	font-size: 22rpx;
+	text-align: right;
+}

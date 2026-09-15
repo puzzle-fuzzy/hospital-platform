@@ -20,7 +20,7 @@
 		{
 			"id": "inpatient",
 			"contractStatus": "pending",
-			"implementationStatus": "unregistered",
+			"implementationStatus": "registered-fail-closed",
 			"requestSample": "missing",
 			"successSample": "missing",
 			"emptySample": "missing",
@@ -29,7 +29,7 @@
 			"ownerMapping": "pending",
 			"fieldAllowlist": "pending",
 			"redactionRule": "pending",
-			"nextAction": "确认住院 episode 权威来源、患者映射、状态枚举和费用边界"
+			"nextAction": "补齐住院 Provider contract、owner 映射、字段白名单和真机证据，继续保持 gate false；费用边界另行处理"
 		},
 		{
 			"id": "electronic-consultation",

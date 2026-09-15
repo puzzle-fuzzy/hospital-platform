@@ -204,10 +204,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/inpatient_center.vue",
 			domain: "健康",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/inpatient-center/inpatient-center",
 			featureKey: "inpatient-center",
-			note: "已迁移住院信息页面外壳、独立 episode 提示和关闭态；不复用门诊 patientId，真实住院标识仍待 contract。",
+			note: "已迁移住院摘要只读页面和独立 episode 查询链；不复用门诊 patientId，Provider 合同、权限和真机数据仍待验收。",
 		},
 		{
 			legacyPath: "pagesB/health/inpatient_payment.vue",

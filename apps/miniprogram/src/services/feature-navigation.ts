@@ -214,7 +214,8 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	doctor: {
 		title: "我的医生",
 		readiness: "代码已实现，待实证",
-		description: "我的医生列表、医生名片、关注关系和未来排班的代码链路已具备，真实数据仍待实证。",
+		description:
+			"我的医生列表、医生名片、关注关系和未来排班的代码链路已具备，真实数据仍待实证。",
 		contractHint: "关注关系按当前平台用户隔离，医生信息由服务端排班目录确认。",
 		icon: "/assets/legacy-user/doctor.svg",
 	},
@@ -332,9 +333,10 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"inpatient-center": {
 		title: "住院信息查询",
-		readiness: "待 provider contract",
-		description: "住院信息正在迁移中，当前不会复用门诊患者标识查询住院数据。",
-		contractHint: "等待住院登记、住院患者标识、权限和脱敏字段确认。",
+		readiness: "代码已实现，待实证",
+		description:
+			"住院摘要已按旧服务只读接口接入，当前仍等待 Provider 合同、权限和真机数据验收。",
+		contractHint: "需确认住院登记患者号、权限、状态字典、空结果和脱敏字段。",
 		icon: "/assets/legacy-home/service-inpatient.svg",
 	},
 	"inpatient-payment": {

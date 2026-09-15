@@ -9,6 +9,7 @@ import {
 	HealthKnowledgeResultValidationError,
 	HealthKnowledgeValidationError,
 	IdentityUserReadModelValidationError,
+	InpatientEpisodeResultValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
 	MyDoctorAlreadyExistsError,
@@ -82,6 +83,10 @@ import {
 	MedicalInsuranceWechatPrepayExpiredError,
 } from "../modules/medical-insurance/wechat-payment-service";
 import {
+	InpatientEpisodePatientNotFoundError,
+	InpatientEpisodeQueryError,
+} from "../modules/inpatient/service";
+import {
 	MedicalRecordPatientNotFoundError,
 	MedicalRecordQueryError,
 } from "../modules/medical-records/service";
@@ -154,6 +159,8 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"report-not-found": 40120,
 	"medical-record-query-invalid": 40200,
 	"medical-record-patient-not-found": 40210,
+	"inpatient-episode-query-invalid": 40300,
+	"inpatient-episode-patient-not-found": 40310,
 	"payment-order-invalid": 50100,
 	"payment-order-not-found": 50110,
 	"payment-quote-not-found": 50120,
@@ -402,9 +409,26 @@ export function errorHandlerPlugin() {
 				);
 			}
 
+			if (error instanceof InpatientEpisodeQueryError) {
+				set.status = 400;
+				return errorPayload(
+					"inpatient-episode-query-invalid",
+					"住院信息查询条件不合法",
+				);
+			}
+
+			if (error instanceof InpatientEpisodePatientNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"inpatient-episode-patient-not-found",
+					"当前就诊人暂无可查询的住院信息",
+				);
+			}
+
 			if (
 				error instanceof OutpatientPaymentResultValidationError ||
 				error instanceof OutpatientMedicalRecordResultValidationError ||
+				error instanceof InpatientEpisodeResultValidationError ||
 				error instanceof AppointmentDirectoryResultValidationError ||
 				error instanceof AppointmentRecordResultValidationError ||
 				error instanceof ReportResultValidationError ||

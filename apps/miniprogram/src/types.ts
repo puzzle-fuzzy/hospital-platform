@@ -18,6 +18,7 @@ import type {
 	HealthPayload,
 	IntelligentGuideMessageRequestPayload,
 	IntelligentGuideMessageResponsePayload,
+	InpatientEpisodeListPayload,
 	MyDoctorDeletePayload,
 	MyDoctorListPayload,
 	MyDoctorResponsePayload,
@@ -98,6 +99,7 @@ export type RegistrationSelfPayResponse = RegistrationSelfPayPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
 export type OutpatientMedicalRecordListResponse =
 	OutpatientMedicalRecordListPayload;
+export type InpatientEpisodeListResponse = InpatientEpisodeListPayload;
 export type OutpatientPaymentDetailResponse = OutpatientPaymentDetailPayload;
 export type ReportListResponse = ReportListPayload;
 export type ReportDetailResponse = ReportDetailPayload;
@@ -155,6 +157,8 @@ export type OutpatientPaymentRecord =
 	OutpatientPaymentListResponse["data"]["items"][number];
 export type OutpatientMedicalRecord =
 	OutpatientMedicalRecordListResponse["data"]["items"][number];
+export type InpatientEpisode =
+	InpatientEpisodeListResponse["data"]["items"][number];
 export type OutpatientPaymentDetail = OutpatientPaymentDetailResponse["data"];
 /** 门诊费用详情页只展示服务端核对后的单笔摘要。 */
 export type OutpatientPaymentDetailPageData = {
@@ -690,6 +694,24 @@ export type MedicalRecordPageData = {
 /** 页面键仅用于 WXML diff，不是病历号或 Provider 标识。 */
 export type MedicalRecordView = OutpatientMedicalRecord & {
 	viewKey: string;
+};
+
+/** 住院摘要页的本地渲染模型；viewKey 不是住院号或 Provider 引用。 */
+export type InpatientEpisodeView = InpatientEpisode & {
+	viewKey: string;
+	statusLabel: string;
+	bedStatusLabel: string;
+};
+
+export type InpatientEpisodePageData = {
+	hasShown: boolean;
+	sessionState: SessionVerificationState;
+	selectedPatient: Patient | null;
+	patientSessionGeneration: number;
+	episodes: Array<InpatientEpisodeView>;
+	loading: boolean;
+	error: string;
+	canSelectPatient: boolean;
 };
 
 /** 门诊缴费页只读状态；支付写入仍需独立医保/微信结算契约。 */

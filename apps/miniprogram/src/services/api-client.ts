@@ -18,6 +18,7 @@ import type {
 	HealthKnowledgeSymptomListResponse,
 	IntelligentGuideMessageRequest,
 	IntelligentGuideMessageResponse,
+	InpatientEpisodeListResponse,
 	LaboratoryReportItem,
 	MyDoctorDeleteResponse,
 	MyDoctorListResponse,
@@ -197,6 +198,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"outpatient-payment-record-not-found": "未找到对应的门诊缴费记录",
 		"medical-record-query-invalid": "暂时无法查询门诊病历，请稍后再试",
 		"medical-record-patient-not-found": "未查询到门诊病历",
+		"inpatient-episode-query-invalid": "暂时无法查询住院信息，请稍后再试",
+		"inpatient-episode-patient-not-found": "未查询到住院信息",
 		"payment-order-invalid": "暂时无法发起支付，请稍后再试",
 		"payment-order-not-found": "未找到这笔支付记录",
 		"payment-quote-not-found": "暂时无法获取费用信息，请稍后再试",
@@ -3195,6 +3198,22 @@ export function requestOutpatientMedicalRecords(
 		requireSuccessDataResponse<OutpatientMedicalRecordListResponse["data"]>(
 			payload,
 		),
+	);
+}
+
+/** 读取当前用户所选就诊人的住院摘要；费用、账单和支付不在此请求中。 */
+export function requestInpatientEpisodes(
+	patientId: string,
+	expectedSessionGeneration: number,
+): Promise<InpatientEpisodeListResponse> {
+	const normalizedPatientId = requirePatientScopedId(patientId);
+	return requestWithStableSession<unknown>(
+		{
+			url: `/inpatient/episodes?patientId=${encodeURIComponent(normalizedPatientId)}`,
+		},
+		expectedSessionGeneration,
+	).then((payload) =>
+		requireSuccessDataResponse<InpatientEpisodeListResponse["data"]>(payload),
 	);
 }
 

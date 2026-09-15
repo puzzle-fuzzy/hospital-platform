@@ -57,6 +57,8 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"report-not-found": 40120,
 	"medical-record-query-invalid": 40200,
 	"medical-record-patient-not-found": 40210,
+	"inpatient-episode-query-invalid": 40300,
+	"inpatient-episode-patient-not-found": 40310,
 	"payment-order-invalid": 50100,
 	"payment-order-not-found": 50110,
 	"payment-quote-not-found": 50120,
