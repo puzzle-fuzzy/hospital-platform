@@ -179,7 +179,7 @@
 
 - [ ] P2-06 给已存在代码的低风险域补真实证据包：患者目录、普通资料、预约目录/历史、我的医生、报告目录、门诊摘要目前都有 TypeScript/API/测试落点，但 apps/api/src/index.ts:92-118,186-295 明确按配置状态 fail-closed。本轮已整理六个域的代码测试结果、当前 dist/source 候选漂移和待采集字段，见 [`P2-06低风险域证据包状态-2026-09-16.md`](docs/迁移/P2-06低风险域证据包状态-2026-09-16.md)；每个域仍需同一候选版本的客户端 requestId、服务端 requestId/traceId、Provider 结果摘要、空/拒绝/超时、会话切换和真机截图。没有真实证据时状态保持代码已实现/待实证。
 
-- [ ] P2-07 固定 Node/Bun/pnpm 运行环境并补发布复现记录：package engine 要求 Node 24.12.0，而本轮是 v26.8.1；统一 CI、开发者工具构建和发布机版本，记录 build:dev/release、app.json pageCount、source revision、dist hash 和 runtime verify 输出，避免源码和 DevTools dist 再次分离。
+- [ ] P2-07 固定 Node/Bun/pnpm 运行环境并补发布复现记录：仓库声明和 CI 已统一为 Bun 1.4.0、Node 24.12.0、pnpm 11.9.0，`pnpm toolchain:audit` 通过；本机实际 Node 仍为 v26.8.1，且 dist 来源仍为旧候选 82d5。已记录 47 页、release/development 文件树 SHA-256、当前源码 revision、构建顺序和阻塞，见 [`工具链复现记录-2026-09-16.md`](docs/发布/工具链复现记录-2026-09-16.md)。待 Node 24.12.0 环境重新执行 build:dev/release、runtime:verify 并更新候选来源后再关闭，不把当前错误版本下的运行包当作复现完成。
 
 - [ ] P2-08 为 94 个小程序页面源文件建立按业务域的真机回归矩阵：结构审计已通过不等于页面业务完成。至少覆盖登录/退出、无患者、换患者、会话失效、Provider 503、空列表、超时、页面返回和 dist 实际加载；临床、外部、患者绑定、报告附件必须另存受控证据，不把控制台内部错误栈当业务结果。
 
