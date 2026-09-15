@@ -153,7 +153,7 @@
 
 ### P1 便民服务和外部能力
 
-- [ ] P1-17 对照旧电子锦旗和表扬信真实接口，决定是否迁移：旧服务路由明确包含 CommendatoryLetter/SilkBanner，见旧 app/api/v1/module_convenience/__init__.py:5-19；旧客户端有 create/list 和患者/医生/就诊快照入参，见 hospital-app/src/api/modules/commendatoryLetter.ts:1-68、hospital-app/src/pagesB/health/gift_health_praise.vue:333-391。新端只有 convenience surface，见 apps/miniprogram/src/pages/gift-banner/gift-banner.ts:1-4 和 apps/miniprogram/src/pages/health-praise/health-praise.ts:1-4。若继续迁移，必须改为服务端就诊引用，补文字/文件审核、公开脱敏、幂等、撤回和管理端权限；如果业务决定不迁移，删除开放入口并记录原因。
+- [ ] P1-17 对照旧电子锦旗和表扬信真实接口，决定是否迁移（静态二次对照见 [`电子锦旗与表扬信反馈对照审计-2026-09-16.md`](docs/迁移/电子锦旗与表扬信反馈对照审计-2026-09-16.md)）：旧服务真实挂载 `CommendatoryLetter/SilkBanner`，旧客户端有 create/list 和患者/医生/就诊快照入参，见 `/Users/yxswy/Documents/GitHub/hospital/app/api/v1/module_convenience/__init__.py:3-19`、`/Users/yxswy/Documents/GitHub/hospital/hospital-app/src/api/modules/commendatoryLetter.ts:1-68`、`silkBanner.ts:1-73`、`/Users/yxswy/Documents/GitHub/hospital/hospital-app/src/pagesB/health/gift_health_praise.vue:147-239,333-430`。旧服务只校验 `auth.user.id == data.user_id` 后直接新增，患者/就诊/医护快照和 `display_type` 由客户端提供，见旧 `commendatory_letter/service.py:30-76`、`silk_banner/service.py:24-68`、`base.py:7-28`，无审核、公开脱敏、撤回或幂等。新端仅有明确未开放的 convenience surface，见 `apps/miniprogram/src/pages/gift-banner/gift-banner.ts:1-4`、`health-praise.ts:1-4`、`apps/miniprogram/src/services/convenience-surface.ts:21-30,117-177`；若继续迁移必须改为服务端就诊引用并补内容审核、公开脱敏、幂等、撤回和管理端权限，当前不接旧 API、不导入旧历史。
 
 - [ ] P1-18 完成患者签名的外部主体和授权核对：旧端直接 navigateToMiniProgram，并把 patientId/patientName 放进 extraData，见 hospital-app/src/pagesB/patient/patient_signature.vue:104-128；新端只显示平台脱敏患者并在 apps/miniprogram/src/pages/patient-signature/patient-signature.ts:132-142 提示未开放。必须取得目标小程序主体、path、数据字段、短期会话、回跳、失败/撤回和审计协议后再实现，不能恢复硬编码 appId 或把内部患者标识外发。
 
