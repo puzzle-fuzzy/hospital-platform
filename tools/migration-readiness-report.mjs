@@ -22,6 +22,36 @@ import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
+/**
+ * action-only 入口如果不是首页/“我的”的状态页调用，也必须能在真实页面
+ * 的 TS 方法和 WXML bindtap 中找到对应事件；否则 readiness 会把一个
+ * 已存在的页面动作误报成“无效入口”，与 boundary 审计产生分歧。
+ */
+const ACTION_EVENT_SOURCES = new Map([
+	[
+		"报告详情",
+		{
+			script: await Bun.file(
+				resolve(repositoryRoot, "apps/miniprogram/src/pages/report-detail/report-detail.ts"),
+			).text(),
+			template: await Bun.file(
+				resolve(repositoryRoot, "apps/miniprogram/src/pages/report-detail/report-detail.wxml"),
+			).text(),
+		},
+	],
+]);
+
+function hasConcreteActionEvent(actionReference, methodName) {
+	const [pageId] = actionReference.split(":");
+	const source = ACTION_EVENT_SOURCES.get(pageId);
+	if (!source || typeof methodName !== "string" || methodName.length === 0) {
+		return false;
+	}
+	const methodPattern = new RegExp(`\\b${methodName}\\s*\\(`, "u");
+	const eventPattern = new RegExp(`\\bbindtap=["']${methodName}["']`, "u");
+	return methodPattern.test(source.script) && eventPattern.test(source.template);
+}
+
 /** 读取 JSON 文件；缺失的运行包元数据必须进入报告，而不是被默认为当前候选。 */
 async function readJsonIfExists(filePath) {
 	const file = Bun.file(filePath);
@@ -324,6 +354,15 @@ function frozenBoundaryCoverage(migrationBreadth) {
 			if (batch) batch.legacyActionCount += 1;
 			if (typeof actionReference !== "string") {
 				failures.push(`${gate.id}: action-only 入口必须是字符串`);
+				continue;
+			}
+			const boundMethod = gate.legacyActionBindings?.[actionReference];
+			if (boundMethod) {
+				if (!hasConcreteActionEvent(actionReference, boundMethod)) {
+					failures.push(
+						`${gate.id}: action-only 入口未绑定实际页面事件：${actionReference} -> ${boundMethod}`,
+					);
+				}
 				continue;
 			}
 			if (featureStatusActions.has(actionReference)) {

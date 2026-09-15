@@ -6,6 +6,7 @@ import {
 } from "../../services/api-client";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -46,6 +47,7 @@ type ReportDetailPageMethods = {
 	onRetry(): void;
 	onTabChange(event: ReportTabEvent): void;
 	onDownloadCloudImage(): void;
+	onShareReport(): void;
 	onGotoConsultation(): void;
 	onUnload(): void;
 	showError(error: unknown): void;
@@ -352,6 +354,11 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 		if (attachment) {
 			void this.openAttachment(attachment);
 		}
+	},
+
+	/** 旧端有分享入口，但真实分享 contract 尚未确认；保持明确关闭态。 */
+	onShareReport(): void {
+		navigateToFeatureStatus("report-share");
 	},
 
 	onGotoConsultation() {

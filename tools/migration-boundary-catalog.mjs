@@ -793,6 +793,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "provider-read-only",
 		legacyPaths: [],
 		legacyActions: ["报告详情:report-cloud-image"],
+		legacyActionBindings: {
+			"报告详情:report-cloud-image": "onDownloadCloudImage",
+		},
 		requiredMaterials: [
 			"resource-allowlist",
 			"short-session",
@@ -813,6 +816,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "external-session",
 		legacyPaths: [],
 		legacyActions: ["报告详情:report-share"],
+		legacyActionBindings: {
+			"报告详情:report-share": "onShareReport",
+		},
 		requiredMaterials: [
 			"audience",
 			"redaction",
@@ -830,6 +836,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "provider-read-only",
 		legacyPaths: [],
 		legacyActions: ["报告详情:report-follow-up"],
+		legacyActionBindings: {
+			"报告详情:report-follow-up": "onGotoConsultation",
+		},
 		requiredMaterials: [
 			"patient-context",
 			"appointment-relation",

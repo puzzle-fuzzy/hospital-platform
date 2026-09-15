@@ -3173,7 +3173,7 @@ export function requestOutpatientPaymentRecords(
 	);
 }
 
-/** 读取当前用户所选就诊人的门诊就诊摘要；Provider patId 只由服务端解析。 */
+/** 读取当前用户所选就诊人的门诊就诊摘要；Provider 患者标识只由服务端解析。 */
 export function requestOutpatientMedicalRecords(
 	options: {
 		patientId: string;

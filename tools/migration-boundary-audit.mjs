@@ -87,6 +87,31 @@ const actionFeatureKeys = new Set(
 );
 const featureStatusActions = new Set(migrationBreadth.featureStatusActions);
 
+const ACTION_EVENT_SOURCES = new Map([
+	["报告详情", {
+		script: await readSource(
+			"apps/miniprogram/src/pages/report-detail/report-detail.ts",
+		),
+		template: await readSource(
+			"apps/miniprogram/src/pages/report-detail/report-detail.wxml",
+		),
+	}],
+]);
+
+function hasConcreteActionEvent(actionReference, methodName) {
+	const [pageId] = actionReference.split(":");
+	const source = ACTION_EVENT_SOURCES.get(pageId);
+	if (!source || typeof methodName !== "string" || methodName.length === 0) {
+		return false;
+	}
+	const methodPattern = new RegExp("\\b" + methodName + "\\s*\\(", "u");
+	const eventPattern = new RegExp(
+		"\\bbindtap=[\"']" + methodName + "[\"']",
+		"u",
+	);
+	return methodPattern.test(source.script) && eventPattern.test(source.template);
+}
+
 function fail(message) {
 	failures.push(message);
 }
@@ -218,6 +243,15 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 		const calledFeatureKey = actionReference.slice(
 			actionReference.indexOf(":") + 1,
 		);
+		const boundMethod = gate.legacyActionBindings?.[actionReference];
+		if (boundMethod) {
+			if (!hasConcreteActionEvent(actionReference, boundMethod)) {
+				fail(
+					`${gate.name} 的 action 未绑定到实际页面事件：${actionReference} -> ${boundMethod}`,
+				);
+			}
+			continue;
+		}
 		if (featureStatusActions.has(actionReference)) {
 			if (calledFeatureKey !== gate.featureKey) {
 				fail(

@@ -3844,7 +3844,8 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	expect(reportDetail).toContain(
 		'url: "/pages/appointment-directory/appointment-directory"',
 	);
-	expect(reportDetail).not.toContain("navigateToFeatureStatus");
+	expect(reportDetail).toContain('navigateToFeatureStatus("report-share")');
+	expect(reportDetail).toContain("onShareReport");
 	expect(reportDirectory).toContain('navigateToFeatureStatus("report-detail")');
 	expect(outpatientPayment).toContain(
 		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
@@ -3904,17 +3905,17 @@ test("native homepage places report query and outpatient medical records in thei
 	expect(serviceEntries).not.toContain('action: "medical-record"');
 });
 
-test("native homepage companion entry opens the bottom consultation tab", async () => {
+test("native homepage companion entry uses the explicit companion status gate", async () => {
 	const home = await source("pages/index/index.ts");
 	const companionBranch = home.slice(
 		home.indexOf('case "companion":'),
 		home.indexOf('case "consultation":'),
 	);
 
-	expect(companionBranch).toContain(
+	expect(companionBranch).toContain('navigateToFeatureStatus("companion")');
+	expect(companionBranch).not.toContain(
 		'wx.switchTab({ url: "/pages/consult/consult" })',
 	);
-	expect(companionBranch).not.toContain('navigateToFeatureStatus("companion")');
 });
 
 test("native homepage and my page reject stale patient directory responses", async () => {

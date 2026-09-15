@@ -65,18 +65,23 @@ if (missingPages.length === 0 && stalePages.length === 0) {
 
 /**
  * 旧端页面清单是迁移范围的事实输入。旧仓库通常与新仓库并列存在，
- * 但不会被提交到新仓库，因此这里使用可选的外部根目录做交叉核对：
+ * 但不会被提交到新仓库，因此这里必须使用显式的外部根目录做交叉核对：
  * - 当前机器存在旧仓库时，实际 `.vue` 文件必须全部出现在迁移矩阵；
- * - CI 或新会话没有旧仓库时，只跳过这项外部检查，不伪造“已核对”。
- */
-const legacyRoot =
-	process.env.LEGACY_HOSPITAL_ROOT?.trim() || "G:\\fuck\\hospital";
+ * - 没有显式路径或事实文件缺失时，审计必须失败，不能静默跳过并让
+ *   CI/发布流程看起来像已经完成旧端核对。
+*/
+const legacyRoot = process.env.LEGACY_HOSPITAL_ROOT?.trim();
+if (!legacyRoot) {
+	throw new Error(
+		"Legacy repository input is required: set LEGACY_HOSPITAL_ROOT to the old repository root before running migration:audit",
+	);
+}
 const legacySourceRoot = join(legacyRoot, "hospital-app", "src");
 const legacySentinel = join(legacySourceRoot, "pages", "index", "index.vue");
 
 if (!(await Bun.file(legacySentinel).exists())) {
-	console.log(
-		`Legacy page inventory skipped: old repository is not available at ${legacyRoot}`,
+	throw new Error(
+		`Legacy page inventory unavailable: missing ${legacySentinel}; verify LEGACY_HOSPITAL_ROOT points to the old repository`,
 	);
 } else {
 	const legacyMatrix = await readText("docs/迁移/旧页面矩阵.md");
@@ -184,8 +189,8 @@ if (!(await Bun.file(legacySentinel).exists())) {
 const legacyApiRoot = join(legacyRoot, "app", "api", "v1");
 const legacyApiSentinel = join(legacyApiRoot, "__init__.py");
 if (!(await Bun.file(legacyApiSentinel).exists())) {
-	console.log(
-		`Legacy API inventory skipped: old API repository is not available at ${legacyApiRoot}`,
+	throw new Error(
+		`Legacy API inventory unavailable: missing ${legacyApiSentinel}; verify LEGACY_HOSPITAL_ROOT points to the old repository`,
 	);
 } else {
 	const legacyApiInventory = await readText("docs/迁移/旧接口清单.md");
@@ -318,8 +323,8 @@ if (!(await Bun.file(legacyApiSentinel).exists())) {
  */
 const legacyClientSentinel = join(legacySourceRoot, "api", "http.ts");
 if (!(await Bun.file(legacyClientSentinel).exists())) {
-	console.log(
-		`Legacy client infrastructure inventory skipped: old client is not available at ${legacySourceRoot}`,
+	throw new Error(
+		`Legacy client infrastructure inventory unavailable: missing ${legacyClientSentinel}; verify LEGACY_HOSPITAL_ROOT points to the old repository`,
 	);
 } else {
 	const legacyClientInventory = await readText(
@@ -409,8 +414,8 @@ const legacyClientApiModulesSentinel = join(
 	"ZY.ts",
 );
 if (!(await Bun.file(legacyClientApiModulesSentinel).exists())) {
-	console.log(
-		`Legacy client endpoint inventory skipped: old API modules are not available at ${legacyClientApiModulesRoot}`,
+	throw new Error(
+		`Legacy client endpoint inventory unavailable: missing ${legacyClientApiModulesSentinel}; verify LEGACY_HOSPITAL_ROOT points to the old repository`,
 	);
 } else {
 	const endpointPattern =
@@ -455,9 +460,10 @@ if (!(await Bun.file(legacyClientApiModulesSentinel).exists())) {
  */
 const legacyBehaviorSentinel = join(legacySourceRoot, "api", "ws.ts");
 if (!(await Bun.file(legacyBehaviorSentinel).exists())) {
-	console.log(
-		"Legacy client behavior inventory skipped: old client is not available at " +
-			legacySourceRoot,
+	throw new Error(
+		"Legacy client behavior inventory unavailable: missing " +
+			legacyBehaviorSentinel +
+			"; verify LEGACY_HOSPITAL_ROOT points to the old repository",
 	);
 } else {
 	const legacyBehaviorInventory = await readText(

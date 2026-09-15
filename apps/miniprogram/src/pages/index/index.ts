@@ -700,7 +700,7 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureEntry("guide");
 				break;
 			case "companion":
-				wx.switchTab({ url: "/pages/consult/consult" });
+				navigateToFeatureStatus("companion");
 				break;
 			case "consultation":
 				navigateToFeatureEntry("consultation");

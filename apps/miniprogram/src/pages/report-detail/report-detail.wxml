@@ -25,10 +25,14 @@
 			<view wx:if="{{reportCount > 0}}" class="report-count">您共有{{reportCount}}份检查报告</view>
 			<view class="report-card">
 				<view class="report-title">{{title}}</view>
-				<view wx:if="{{hasAttachment}}" class="report-actions">
-					<view class="report-action" bindtap="onDownloadCloudImage">
+				<view class="report-actions">
+					<view wx:if="{{hasAttachment}}" class="report-action" bindtap="onDownloadCloudImage">
 						<image src="/assets/legacy-home/report-download.svg" mode="heightFix" class="report-download-icon" />
 						<text>打开报告附件</text>
+					</view>
+					<view class="report-action" bindtap="onShareReport">
+						<image src="/assets/legacy-home/report-share.svg" mode="heightFix" class="report-share-icon" />
+						<text>分享报告</text>
 					</view>
 				</view>
 			</view>

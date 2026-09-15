@@ -22,8 +22,8 @@ describe("全项目迁移 readiness 报告", () => {
 			coveredEntryCount: 47,
 			actionFeatureKeyCount: 15,
 			uncoveredActionFeatureKeys: [],
-			featureStatusCallCount: 10,
-			featureStatusFeatureKeyCount: 9,
+			featureStatusCallCount: 6,
+			featureStatusFeatureKeyCount: 6,
 			uncoveredFeatureStatusKeys: [],
 			passed: true,
 		});
@@ -72,12 +72,12 @@ describe("全项目迁移 readiness 报告", () => {
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "健康",
 			),
-		).toMatchObject({ pageCount: 34, blockedPageCount: 1 });
+		).toMatchObject({ pageCount: 34, blockedPageCount: 0 });
 		expect(
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "健康",
 			),
-		).toMatchObject({ stage: "并行补齐 contract" });
+		).toMatchObject({ stage: "入口已覆盖，能力待契约/证据" });
 		expect(
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "首页",
@@ -271,7 +271,7 @@ describe("全项目迁移 readiness 报告", () => {
 			contractImplementationStepCount: 6,
 		});
 		expect(report.migrationQueue[5].frozenGateCount).toBe(6);
-		expect(report.businessCompletion.codeReadyDomainCount).toBe(5);
+		expect(report.businessCompletion.codeReadyDomainCount).toBe(6);
 		expect(report.businessCompletion.realEvidenceReadyDomainCount).toBe(0);
 		expect(report.businessCompletion.passed).toBe(false);
 		expect(report.structuralAuditPassed).toBe(true);
