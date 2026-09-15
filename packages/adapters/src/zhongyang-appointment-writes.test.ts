@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { createZhongyangAppointmentWriteGateway } from "./zhongyang-appointment-writes";
+import {
+	createZhongyangAppointmentPatientProfileGateway,
+	createZhongyangAppointmentWriteGateway,
+} from "./zhongyang-appointment-writes";
 
 const context = {
 	traceId: "appointment-write-trace-001",
@@ -196,6 +199,72 @@ test("预约取消只向 Provider 发送服务端映射后的标识并返回关�
 			provider: "zhongyang",
 			operation: "appointment-cancellation",
 			requestId: "cancel-request-001",
+		},
+	});
+});
+
+test("预约患者资料先按 unionId 绑定再查档，并保留长患者号关联", async () => {
+	const requestUrls: string[] = [];
+	let callCount = 0;
+	const gateway = createZhongyangAppointmentPatientProfileGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrls.push(String(input));
+			callCount += 1;
+			if (callCount === 1) {
+				return jsonResponse(
+					{
+						success: true,
+						data: [
+							{
+								thirdPatientId: "9007199254740993002",
+								patientName: "测试患者",
+								medicalCardNo: "CARD-001",
+								mobile: "13800000000",
+							},
+						],
+					},
+					"binding-request-001",
+				);
+			}
+			return jsonResponse(
+				{
+					success: true,
+					data: {
+						patId: "9007199254740993555",
+						idCardNo: "11010519900101007X",
+					},
+				},
+				"archive-request-001",
+			);
+		},
+	});
+
+	const result = await gateway.resolve(
+		{
+			unionId: "union-001",
+			providerPatientId: "9007199254740993002",
+		},
+		context,
+	);
+
+	expect(requestUrls).toEqual([
+		"https://zhongyang.example.test/api/public/patientInfoByUnionId?unionId=union-001",
+		"https://zhongyang.example.test/msun-middle-aggregate-patient/v1/patInfosFind?type=3&cardNo=CARD-001&patName=%E6%B5%8B%E8%AF%95%E6%82%A3%E8%80%85",
+	]);
+	expect(result).toEqual({
+		patient: {
+			providerPatientId: "9007199254740993555",
+			name: "测试患者",
+			cardNo: "CARD-001",
+			idNo: "11010519900101007X",
+			phone: "13800000000",
+		},
+		trace: {
+			provider: "zhongyang",
+			operation: "appointment-patient-profile",
+			requestId: "archive-request-001",
+			requestIds: ["binding-request-001", "archive-request-001"],
 		},
 	});
 });
