@@ -8,6 +8,7 @@ import {
 } from "./http";
 import {
 	classifyLegacyFsiOrderStatus,
+	extract6202SettlementSource,
 	LEGACY_FSI_ROUTES,
 	type LegacyFsiAmountBreakdown,
 	LegacyFsiContractError,
@@ -72,6 +73,8 @@ export type LegacyFsiFeeUploadResult = {
 
 export type LegacyFsiPaymentOrderResult = {
 	settlement: LegacyFsiSettlement;
+	/** 6202 原始结算来源；上层据此构造 HIS outNetworkSettleMain。 */
+	settlementSource?: import("./legacy-fsi-contract").LegacyFsi6202SettlementSource;
 	/** 3/4/5/6 仅是后置结算候选，不是业务最终成功。 */
 	statusClass: ReturnType<typeof classifyLegacyFsiOrderStatus>;
 	trace: ExternalTrace;
@@ -556,8 +559,10 @@ export function createLegacyFsiGateway(
 				response.data,
 				String(data.payOrdId),
 			);
+			const settlementSource = extract6202SettlementSource(response.data);
 			return {
 				settlement,
+				...(settlementSource ? { settlementSource } : {}),
 				statusClass: classifyLegacyFsiOrderStatus(settlement.ordStas),
 				trace: {
 					...trace("6202", response.requestId),

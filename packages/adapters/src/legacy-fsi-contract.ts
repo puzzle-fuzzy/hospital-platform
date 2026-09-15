@@ -67,6 +67,12 @@ export type LegacyFsiSettlement = LegacyFsiAmountBreakdown & {
 	ordStas: string;
 };
 
+/** 6202 回包中用于构造 HIS outNetworkSettleMain 的真实来源。 */
+export type LegacyFsi6202SettlementSource = {
+	root: Record<string, unknown>;
+	preSetl: Record<string, unknown>;
+};
+
 /**
  * 6301 在 0/1/2 等处理中状态下可能只返回订单号和状态，不返回金额。
  * 这类结果只能驱动“等待确认”，不能被强行填成一笔已结算金额。
@@ -349,6 +355,36 @@ export function validate6201Response(
 	return {
 		payOrdId: requiredText(payload, "payOrdId", infno),
 		payToken: requiredText(payload, "payToken", infno),
+	};
+}
+
+/**
+ * 保留 6202 的根回包和 extData.preSetl。
+ * 标准化金额不能替代这份来源：.32 需要把 preSetl 映射成 HIS 主单对象。
+ */
+export function extract6202SettlementSource(
+	result: unknown,
+): LegacyFsi6202SettlementSource | undefined {
+	const payload = unwrapLegacyFsiData(result, "6202");
+	const extData = payload.extData;
+	if (
+		typeof extData !== "object" ||
+		extData === null ||
+		Array.isArray(extData)
+	) {
+		return undefined;
+	}
+	const preSetl = (extData as Record<string, unknown>).preSetl;
+	if (
+		typeof preSetl !== "object" ||
+		preSetl === null ||
+		Array.isArray(preSetl)
+	) {
+		return undefined;
+	}
+	return {
+		root: payload,
+		preSetl: preSetl as Record<string, unknown>,
 	};
 }
 

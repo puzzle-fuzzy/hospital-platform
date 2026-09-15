@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	classifyLegacyFsiOrderStatus,
+	extract6202SettlementSource,
 	LEGACY_FSI_ROUTES,
 	LegacyFsiContractError,
 	validate6201FeeUpload,
@@ -16,6 +17,26 @@ import {
 	validate6401Response,
 	yuanToFen,
 } from "./legacy-fsi-contract";
+
+test("6202 preserves extData.preSetl for HIS settlement-main mapping", () => {
+	const result = extract6202SettlementSource({
+		data: {
+			feeSumamt: 10,
+			fundPay: 8,
+			extData: {
+				preSetl: {
+					medins_setl_id: "settlement-001",
+					psn_cash_pay: 2,
+				},
+			},
+		},
+	});
+
+	expect(result).toEqual({
+		root: expect.objectContaining({ feeSumamt: 10, fundPay: 8 }),
+		preSetl: { medins_setl_id: "settlement-001", psn_cash_pay: 2 },
+	});
+});
 
 test("legacy FSI route map keeps mobile payment endpoints explicit", () => {
 	expect(LEGACY_FSI_ROUTES).toEqual({

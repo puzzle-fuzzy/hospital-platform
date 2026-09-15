@@ -7,10 +7,10 @@ import type {
 	MedicalInsuranceAmounts,
 	MedicalInsuranceAuthorizationContext,
 	MedicalInsuranceAuthorizationRepository,
+	MedicalInsuranceBusinessType,
 	MedicalInsuranceCancellationEvidence,
 	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceGateway,
-	MedicalInsuranceBusinessType,
 	MedicalInsuranceOrderRepository,
 	MedicalInsuranceSettlementContext,
 	MedicalInsuranceSettlementEvidence,
@@ -30,6 +30,7 @@ import {
 import { type ProviderFetcher, requestJson } from "./http";
 import {
 	type classifyLegacyFsiOrderStatus,
+	type LegacyFsi6202SettlementSource,
 	yuanToFen,
 } from "./legacy-fsi-contract";
 import type {
@@ -1089,6 +1090,201 @@ function providerField(
 	return undefined;
 }
 
+function settlementPatientIdentifiers(
+	settleInfo: ProviderRecord,
+): ProviderRecord {
+	const outSettlePat = findRecordDeep(settleInfo, [
+		"outSettlePat",
+		"out_settle_pat",
+	]);
+	return pickSettlementPatientIdentifiers(outSettlePat);
+}
+
+function pickSettlementPatientIdentifiers(
+	source: ProviderRecord | undefined,
+): ProviderRecord {
+	const identifiers: ProviderRecord = {};
+	for (const [key, keys] of [
+		["chargeClassId", ["chargeClassId", "charge_class_id"]],
+		[
+			"networkPatClassId",
+			["netWorkingPatClassId", "networkPatClassId", "network_pat_class_id"],
+		],
+		["outVisitRecordId", ["outVisitRecordId", "out_visit_record_id"]],
+	] as const) {
+		const value = providerField(source ?? {}, undefined, keys);
+		if (value !== undefined && value !== null && value !== "") {
+			identifiers[key] = value;
+		}
+	}
+	return identifiers;
+}
+
+function parsedProviderRecord(value: unknown): ProviderRecord | undefined {
+	if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+		return value as ProviderRecord;
+	}
+	if (typeof value !== "string" || !value.trim()) return undefined;
+	try {
+		const parsed: unknown = JSON.parse(value);
+		return typeof parsed === "object" &&
+			parsed !== null &&
+			!Array.isArray(parsed)
+			? (parsed as ProviderRecord)
+			: undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function numberValue(value: unknown): number | undefined {
+	if (typeof value === "number")
+		return Number.isFinite(value) ? value : undefined;
+	if (typeof value !== "string" || !value.trim()) return undefined;
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * 6202 国家版回包的 extData.preSetl 是 2.27.2.32 主单的主体来源。
+ * 这里刻意不展开 .27 返回的 outNetworkSettleMain，只取其 outSettlePat
+ * 三个 ID（已在前置阶段以同名窄对象保存）。
+ */
+function buildOutNetworkSettleMainFrom6202(
+	source: LegacyFsi6202SettlementSource | undefined,
+	settlementContext: MedicalInsuranceSettlementContext,
+	auth: MedicalInsuranceAuthorizationContext,
+	orgCode: string,
+	settlementTime: Date,
+): ProviderRecord {
+	if (!source) return {};
+	const root = source.root;
+	const preSetl = source.preSetl;
+	const expContent = parsedProviderRecord(preSetl.exp_content);
+	const rootValue = (keys: readonly string[]) =>
+		providerField(root, preSetl, keys);
+	const preValue = (keys: readonly string[]) =>
+		providerField(preSetl, root, keys);
+	const expValue = (keys: readonly string[]) =>
+		providerField(expContent ?? {}, undefined, keys);
+	const main: ProviderRecord = {};
+	const set = (key: string, value: unknown) => {
+		if (value !== undefined && value !== null && value !== "")
+			main[key] = value;
+	};
+
+	set("acctMulaidPay", preValue(["acct_mulaid_pay", "acctMulaidPay"]));
+	set(
+		"actPayDedc",
+		expValue(["bkst_amt"]) ?? preValue(["act_pay_dedc", "actPayDedc"]),
+	);
+	set("amount", rootValue(["feeSumamt"]) ?? preValue(["medfee_sumamt"]));
+	set("amountPos", 0);
+	set("balc", preValue(["balc"]));
+	set("certNo", preValue(["certno", "certNo"]));
+	set(
+		"chargeClassId",
+		providerField(settlementContext.outNetworkSettleMain, undefined, [
+			"chargeClassId",
+			"charge_class_id",
+		]),
+	);
+	set("clrOptins", preValue(["clr_optins", "clrOptins"]) ?? auth.insuplcAdmdvs);
+	set("clrType", preValue(["clr_type", "clrType"]));
+	set("clrWay", preValue(["clr_way", "clrWay"]));
+	set("customClrOptins", auth.insuplcAdmdvs || preValue(["clr_optins"]));
+	// 按当前 HIS 联调映射保留 hifmi_pay；真实样本中该值为 0。
+	set("cvlservPay", preValue(["hifmi_pay", "cvlserv_pay"]));
+	set("flagOffsite", auth.insuplcAdmdvs.trim().startsWith("14") ? "0" : "1");
+	set("fulamtOwnpayAmt", preValue(["fulamt_ownpay_amt"]));
+	set("getAmount", preValue(["psn_cash_pay"]));
+	set("hifesPay", preValue(["hifes_pay"]));
+	set("hifmiPay", preValue(["hifdm_pay", "hifmi_pay"]));
+	set("hifobPay", preValue(["hifes_pay", "hifob_pay"]));
+	set("hifpPay", preValue(["hifp_pay"]));
+	set("hospPartAmt", rootValue(["hospPartAmt"]) ?? preValue(["hosp_part_amt"]));
+	set("inscpScpAmt", preValue(["inscp_scp_amt"]));
+	set("insuplcAdmdvs", auth.insuplcAdmdvs);
+	set("insurOrgId", orgCode);
+	set("insutype", preValue(["insutype"]));
+	const numericValues = [
+		...Object.values(root),
+		...Object.values(preSetl),
+		...(expContent ? Object.values(expContent) : []),
+	];
+	set(
+		"invalidFlag",
+		numericValues.some((value) => (numberValue(value) ?? 0) < 0) ? "1" : "0",
+	);
+	const fundPay = numberValue(rootValue(["fundPay"]));
+	const hifpPay = numberValue(preValue(["hifp_pay"]));
+	set(
+		"joinMedInsurance",
+		(fundPay !== undefined && fundPay > 0) ||
+			(hifpPay !== undefined && hifpPay > 0)
+			? "1"
+			: "0",
+	);
+	set("mafPay", preValue(["maf_pay"]));
+	set("mdtrtId", preValue(["mdtrt_id"]));
+	set("medAmountBz", preValue(["maf_pay"]));
+	set("medAmountDb", preValue(["hifdm_pay", "hifmi_pay"]));
+	set("medAmountDbbz", preValue(["hifes_pay"]));
+	set("medAmountGwy", preValue(["cvlserv_pay"]));
+	set("medAmountJm", preValue(["hifob_pay"]));
+	set("medAmountQfx", expValue(["bkst_amt"]));
+	set("medAmountQt", preValue(["oth_pay"]));
+	set("medAmountTc", preValue(["hifp_pay"]));
+	set("medAmountTotal", rootValue(["fundPay"]));
+	set("medAmountZhye", preValue(["balc"]));
+	set("medAmountZhzf", rootValue(["psnAcctPay"]));
+	set("medinsSetlId", preValue(["medins_setl_id"]));
+	set("netPatName", preValue(["psn_name"]));
+	set("netPatType", preValue(["psn_type"]));
+	set(
+		"networkPatClassId",
+		providerField(settlementContext.outNetworkSettleMain, undefined, [
+			"networkPatClassId",
+			"netWorkingPatClassId",
+			"network_pat_class_id",
+		]),
+	);
+	set("netType", preValue(["med_type"]));
+	set("othPay", preValue(["oth_pay"]));
+	set(
+		"outVisitRecordId",
+		providerField(settlementContext.outNetworkSettleMain, undefined, [
+			"outVisitRecordId",
+			"out_visit_record_id",
+		]),
+	);
+	set(
+		"overlmtSelfpay",
+		rootValue(["othFeeAmt"]) ?? preValue(["overlmt_selfpay"]),
+	);
+	set("poolPropSelfpay", preValue(["pool_prop_selfpay"]));
+	set("preselfpayAmt", preValue(["preselfpay_amt"]));
+	set("psnCertType", preValue(["psn_cert_type"]));
+	set("psnName", preValue(["psn_name"]));
+	set("psnNo", preValue(["psn_no"]));
+	set("psnPartAmt", preValue(["psn_part_amt"]));
+	set("setlId", preValue(["medins_setl_id"]));
+	set(
+		"setlTime",
+		legacyFsiDateTime(
+			settlementContext.postPaymentCompletedAt,
+			"medical-insurance.2.27.2.32",
+			undefined,
+			"setlTime",
+			settlementTime,
+		),
+	);
+	set("settleNo", preValue(["medins_setl_id"]));
+	set("settleSource", 3002);
+	set("settleType", "1");
+	return main;
+}
+
 function requiredProviderField(
 	primary: ProviderRecord,
 	secondary: ProviderRecord | undefined,
@@ -1393,7 +1589,7 @@ export function medicalTypeForBusiness(
 
 /**
  * 真实医保编排：授权解析 → 1101 → 2.6.65.1/2.27.2.27 → 2.1.9/2.1.13/2.6.33
- * → 6201 → 6202 → 6301。`.27` 的主单/明细在前置阶段持久化并复用，
+ * → 6201 → 6202 → 6301。`.27` 的费用明细及 outSettlePat 三个 ID 在前置阶段持久化并复用，
  * 6301 候选结果也只查询一次；6201/6202 仍通过严格加密 FSI gateway，
  * 前端既不能提交费用明细，也不能提交医保人员或科室编码。
  */
@@ -1609,11 +1805,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				},
 				"Medical insurance stored settlement detail inputs inspected",
 			);
-			const outNetworkSettleMain =
-				findRecordDeep(settleInfo, [
-					"outNetworkSettleMain",
-					"out_network_settle_main",
-				]) ?? settlementContext.outNetworkSettleMain;
+			// 旧上下文没有前置快照时仍需补读 .27，但只取文档明确要求的
+			// outSettlePat 三个 ID；绝不把 .27 的 outNetworkSettleMain 当主单。
+			const outNetworkSettleMain = settlementPatientIdentifiers(settleInfo);
 			const fetchedAt = now().toISOString();
 			settlementContext = {
 				...settlementContext,
@@ -2480,11 +2674,18 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"真实费用明细为空",
 					detailResponse.requestId,
 				);
+			const outSettlePat = findRecordDeep(settleInfo, [
+				"outSettlePat",
+				"out_settle_pat",
+			]);
+			// .32 的 outNetworkSettleMain 主体来自 6202；.27 这里只保留
+			// 文档明确要求的患者费别/就诊 ID，不读取 .27 的主单对象。
 			const preOutNetworkSettleMain =
-				findRecordDeep(settleInfo, [
-					"outNetworkSettleMain",
-					"out_network_settle_main",
-				]) ?? {};
+				priorSettlementContext?.settlementDetailsFetchedAt
+					? pickSettlementPatientIdentifiers(
+							priorSettlementContext.outNetworkSettleMain,
+						)
+					: settlementPatientIdentifiers(settleInfo);
 			const preSettlementDetailsFetchedAt =
 				priorSettlementContext?.settlementDetailsFetchedAt ??
 				now().toISOString();
@@ -2756,7 +2957,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"Medical insurance settlement detail mapping inputs inspected",
 			);
 			const acctUsedFlag = accountFlag(auth.insuplcAdmdvs);
-			// .27 在 6201 前已经返回后置回写所需的主单和明细；
+			// .27 在 6201 前已经返回后置回写所需的费用明细和患者 ID；
 			// 这里一次性规范化并持久化，6202/6301 后直接复用，不能再次查询 .27。
 			const upDetailList = preUpDetailList;
 			options.logger?.info(
@@ -2771,10 +2972,6 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"Medical insurance settlement details persisted for post-payment reuse",
 			);
 			const outNetworkSettleMain = preOutNetworkSettleMain;
-			const outSettlePat = findRecordDeep(settleInfo, [
-				"outSettlePat",
-				"out_settle_pat",
-			]);
 			const networkRegister: Record<string, unknown> = {
 				cantonCode: auth.insuplcAdmdvs,
 				cardNo: auth.payAuthNo,
@@ -3039,16 +3236,17 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.6202",
 					"payOrdId does not match the order",
 				);
-			const settlementContext = await options.orders.getSettlementContext(
+			let settlementContext = await options.orders.getSettlementContext(
 				input.ownerUserId,
 				input.orderId,
 			);
 			const chrgBchno = settlementContext?.chrgBchno;
-			if (!chrgBchno)
+			if (!settlementContext || !chrgBchno)
 				throw responseError(
 					"medical-insurance.6202",
 					"6201 charge batch is unavailable",
 				);
+			const settlementTime = now();
 			const mdtrtId = input.mdtrtId || order.mdtrtId;
 			if (!mdtrtId)
 				throw responseError("medical-insurance.6202", "mdtrtId is unavailable");
@@ -3081,6 +3279,35 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				},
 				context,
 			);
+			const mappedOutNetworkSettleMain = buildOutNetworkSettleMainFrom6202(
+				result.settlementSource,
+				settlementContext,
+				auth,
+				orgCode,
+				settlementTime,
+			);
+			if (Object.keys(mappedOutNetworkSettleMain).length > 0) {
+				settlementContext = {
+					...settlementContext,
+					outNetworkSettleMain: mappedOutNetworkSettleMain,
+				};
+				await options.orders.saveSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+					settlementContext,
+				);
+				options.logger?.info(
+					{
+						event: "medical-insurance.6202.settlement-main-mapped",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						providerRequestId: result.trace.requestId,
+						fieldCount: Object.keys(mappedOutNetworkSettleMain).length,
+						fields: Object.keys(mappedOutNetworkSettleMain).sort(),
+					},
+					"Medical insurance 6202 settlement main mapped for .32",
+				);
+			}
 			options.logger?.info(
 				{
 					event: "medical-insurance.6202.completed",

@@ -28,7 +28,9 @@ export {
 } from "./http";
 export {
 	classifyLegacyFsiOrderStatus,
+	extract6202SettlementSource,
 	LEGACY_FSI_ROUTES,
+	type LegacyFsi6202SettlementSource,
 	type LegacyFsiAmountBreakdown,
 	LegacyFsiContractError,
 	type LegacyFsiFeeUploadCredential,
