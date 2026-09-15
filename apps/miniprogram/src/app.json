@@ -14,6 +14,7 @@
 		"pages/missed-appointments/missed-appointments",
 		"pages/report-directory/report-directory",
 		"pages/report-detail/report-detail",
+		"pages/medical-record/medical-record",
 		"pages/outpatient-payment/outpatient-payment",
 		"pages/outpatient-payment-detail/outpatient-payment-detail",
 		"pages/profile/profile",

@@ -1310,6 +1310,7 @@ test("patient-scoped API reads pin the session generation at the request boundar
 	for (const functionName of [
 		"requestAppointmentRecords",
 		"requestOutpatientPaymentRecords",
+		"requestOutpatientMedicalRecords",
 		"requestReports",
 		"requestReportDetail",
 	] as const) {
@@ -1328,6 +1329,7 @@ test("患者范围页面区分会话失效与业务读取失败", async () => {
 		"pages/missed-appointments/missed-appointments.ts",
 		"pages/report-directory/report-directory.ts",
 		"pages/outpatient-payment/outpatient-payment.ts",
+		"pages/medical-record/medical-record.ts",
 		"pages/my/my.ts",
 	] as const;
 
@@ -2068,7 +2070,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(46);
+	expect(app.pages).toHaveLength(47);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -3113,21 +3115,24 @@ test("native blocked domains keep one explicit current-patient context", async (
 	}
 });
 
-test("未确认的问诊与门诊病历入口统一进入状态页", async () => {
+test("门诊病历安全摘要进入原生页，未确认的问诊仍进入状态页", async () => {
 	const app = JSON.parse(await source("app.json")) as { pages: string[] };
 	const catalog = await source("services/legacy-page-catalog.ts");
 	const navigation = await source("services/feature-navigation.ts");
 
-	// 旧端问诊历史与门诊病历分别依赖独立外部/临床 contract。没有正式
-	// contract 前，页面不能通过预约记录或报告目录“拼出”一个看似可用的结果。
+	// 门诊病历只恢复旧端实际调用的近 30 天就诊摘要；问诊和病历正文仍
+	// 依赖独立 contract，不能用预约或报告数据拼装。
 	expect(app.pages).not.toContain("pages/consultation/consultation");
-	expect(app.pages).not.toContain("pages/medical-record/medical-record");
-	expect(catalog).toContain('status: "blocked-provider"');
+	expect(app.pages).toContain("pages/medical-record/medical-record");
+	expect(catalog).toContain(
+		'nativeTarget: "pages/medical-record/medical-record"',
+	);
+	expect(catalog).toContain("已迁移近 30 天门诊就诊摘要");
 	expect(catalog).toContain('featureKey: "consultation"');
 	expect(catalog).toContain(
 		'nativeTarget: "pages/feature-status/feature-status"',
 	);
-	expect(navigation).not.toContain(
+	expect(navigation).toContain(
 		'"medical-record": "/pages/medical-record/medical-record"',
 	);
 	expect(navigation).not.toContain(
@@ -3465,6 +3470,27 @@ test("native client reads report directories by internal patient id through the 
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native client reads only the safe outpatient medical-record summary", async () => {
+	const client = await source("services/api-client.ts");
+	const service = await source("services/dashboard-service.ts");
+	const page = await source("pages/medical-record/medical-record.ts");
+	const template = await source("pages/medical-record/medical-record.wxml");
+
+	expect(client).toContain("requestOutpatientMedicalRecords");
+	expect(client).toContain("/medical-records?");
+	expect(client).toContain("patientId=");
+	expect(service).toContain("requireOutpatientMedicalRecordListData");
+	expect(service).toContain("MEDICAL_RECORD_FIELDS");
+	expect(page).toContain("loadCurrentPatientForOwner");
+	expect(page).toContain("loadOutpatientMedicalRecords");
+	expect(template).toContain("近 30 天门诊就诊摘要");
+	expect(template).toContain("病历正文、附件和住院病历尚未开放");
+	for (const sourceText of [client, service, page]) {
+		expect(sourceText).not.toContain("/out-emrs");
+		expect(sourceText).not.toContain("providerPatientId=");
+	}
+});
+
 test("native report count comes from the report directory total", async () => {
 	const service = await source("services/dashboard-service.ts");
 	const page = await source("pages/report-directory/report-directory.ts");
@@ -3535,22 +3561,16 @@ test("native report detail actions reject stale directory events", async () => {
 	expect(detail).not.toContain("items || []");
 });
 
-test("native report directory reserves the patient strip during loading", async () => {
+test("native report directory keeps only the central loading state", async () => {
 	const template = await source("pages/report-directory/report-directory.wxml");
 	const style = await source("pages/report-directory/report-directory.wxss");
 
-	// 报告页的患者上下文要等报告目录读模型确认后才能提交；加载期间必须
-	// 预留同等高度，但占位块不能绑定更换患者事件或误导成选择模块。
-	expect(template).toContain(
-		'class="patient-strip patient-strip-loading" aria-hidden="true"',
-	);
-	expect(template).toContain('wx:elif="{{loading}}"');
-	expect(template).not.toContain(
-		'class="patient-strip patient-strip-loading" bindtap="onChangePatient"',
-	);
-	expect(style).toContain(".patient-strip-loading {");
-	expect(style).toContain("min-height: 92rpx;");
-	expect(style).toContain(".patient-strip-loading-icon {");
+	// 顶部不再渲染患者条带加载骨架；查询区中部保留唯一的
+	// 报告目录 loading，错误和空结果仍复用同一状态外壳。
+	expect(template).not.toContain("patient-strip-loading");
+	expect(style).not.toContain(".patient-strip-loading");
+	expect(template).toContain('class="state-loading-icon" aria-hidden="true"');
+	expect(template).toContain("正在加载报告目录...");
 });
 
 test("native report detail errors clear the previous clinical read model", async () => {

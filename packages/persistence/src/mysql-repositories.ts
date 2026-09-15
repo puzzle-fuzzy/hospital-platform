@@ -495,6 +495,52 @@ function deserializeMedicalInsuranceSettlementContext(
 			undefined
 			? (parsed as { postPaymentComponents: unknown }).postPaymentComponents
 			: undefined;
+	const settlementQuery6301 =
+		typeof parsed === "object" &&
+		parsed !== null &&
+		!Array.isArray(parsed) &&
+		(parsed as { settlementQuery6301?: unknown }).settlementQuery6301 !==
+			undefined
+			? (parsed as { settlementQuery6301: unknown }).settlementQuery6301
+			: undefined;
+	const invalidSettlementQuery6301 = (() => {
+		if (settlementQuery6301 === undefined) return false;
+		if (
+			!settlementQuery6301 ||
+			typeof settlementQuery6301 !== "object" ||
+			Array.isArray(settlementQuery6301)
+		)
+			return true;
+		const value = settlementQuery6301 as Record<string, unknown>;
+		if (
+			!["queriedAt", "providerRequestId", "payOrdId", "ordStas"].every(
+				(field) =>
+					typeof value[field] === "string" &&
+					Boolean((value[field] as string).trim()),
+			) ||
+			!new Set([
+				"processing",
+				"settlement_candidate",
+				"cancelled",
+				"failed",
+				"unknown",
+			]).has(String(value.statusClass))
+		)
+			return true;
+		if (value.amounts === undefined) return false;
+		if (
+			!value.amounts ||
+			typeof value.amounts !== "object" ||
+			Array.isArray(value.amounts)
+		)
+			return true;
+		const amounts = value.amounts as Record<string, unknown>;
+		return (
+			!["totalFen", "cashFen", "personalAccountFen", "fundFen"].every((field) =>
+				Number.isSafeInteger(amounts[field]),
+			) || Number(amounts.totalFen) <= 0
+		);
+	})();
 	const invalidPostPaymentComponents =
 		postPaymentComponents !== undefined &&
 		(!Array.isArray(postPaymentComponents) ||
@@ -567,6 +613,15 @@ function deserializeMedicalInsuranceSettlementContext(
 			undefined &&
 			typeof (parsed as { postPaymentCompletedAt?: unknown })
 				.postPaymentCompletedAt !== "string") ||
+		((parsed as { settlementDetailsFetchedAt?: unknown })
+			.settlementDetailsFetchedAt !== undefined &&
+			typeof (parsed as { settlementDetailsFetchedAt?: unknown })
+				.settlementDetailsFetchedAt !== "string") ||
+		((parsed as { settlementDetailsProviderRequestId?: unknown })
+			.settlementDetailsProviderRequestId !== undefined &&
+			typeof (parsed as { settlementDetailsProviderRequestId?: unknown })
+				.settlementDetailsProviderRequestId !== "string") ||
+		invalidSettlementQuery6301 ||
 		invalidPostPaymentComponents ||
 		typeof (parsed as { networkRegister?: unknown }).networkRegister !==
 			"object" ||
@@ -593,6 +648,8 @@ function deserializeMedicalInsuranceSettlementContext(
 				Number(
 					(parsed as { settlementAmountFen?: unknown }).settlementAmountFen,
 				) <= 0)) ||
+		((parsed as { mdtrtId?: unknown }).mdtrtId !== undefined &&
+			typeof (parsed as { mdtrtId?: unknown }).mdtrtId !== "string") ||
 		(plugin !== undefined &&
 			[
 				"paymentOrderId",

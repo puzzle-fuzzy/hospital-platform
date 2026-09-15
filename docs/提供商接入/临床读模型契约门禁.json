@@ -1,11 +1,12 @@
 {
-	"schemaVersion": 1,
+	"schemaVersion": 2,
 	"status": "normalized",
-	"registration": "unregistered",
+	"registration": "partial-fail-closed",
 	"domains": [
 		{
 			"id": "outpatient-records",
 			"contractStatus": "pending",
+			"implementationStatus": "registered-fail-closed",
 			"requestSample": "missing",
 			"successSample": "missing",
 			"emptySample": "missing",
@@ -19,6 +20,7 @@
 		{
 			"id": "inpatient",
 			"contractStatus": "pending",
+			"implementationStatus": "unregistered",
 			"requestSample": "missing",
 			"successSample": "missing",
 			"emptySample": "missing",
@@ -32,6 +34,7 @@
 		{
 			"id": "electronic-consultation",
 			"contractStatus": "pending",
+			"implementationStatus": "unregistered",
 			"requestSample": "missing",
 			"successSample": "missing",
 			"emptySample": "missing",

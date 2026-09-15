@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+	createAdminLogForwardingDestination,
+	createAdminLogStore,
 	createLogger,
 	providerFailureMetadata,
 	redactSerializedLogLine,
@@ -191,6 +193,129 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 		credentials: { appSecret: "[REDACTED]", privateKey: "[REDACTED]" },
 		msg: "request completed",
 	});
+});
+
+test("管理端日志读模型只保留安全元数据，不接收请求或返回原文", () => {
+	const store = createAdminLogStore(2);
+	store.append(
+		JSON.stringify({
+			level: 30,
+			time: "2026-09-15T08:00:00.000Z",
+			service: "hospital-api",
+			environment: "production",
+			event: "http.request.failed",
+			method: "POST",
+			path: "/api/v1/payments",
+			statusCode: 502,
+			durationMs: 83,
+			requestId: "request-001",
+			traceId: "trace-001",
+			providerOperation: "medical-insurance-6202",
+			requestBody: { certno: "synthetic-cert" },
+			responseBody: { secret: "synthetic-response" },
+		}),
+	);
+	const page = store.query();
+	expect(page.total).toBe(1);
+	expect(page.items[0]).toMatchObject({
+		id: "log-1",
+		event: "http.request.failed",
+		statusCode: 502,
+		providerOperation: "medical-insurance-6202",
+		parameterVisibility: "not-recorded",
+	});
+	expect(page.items[0]).not.toHaveProperty("requestBody");
+	expect(page.items[0]).not.toHaveProperty("responseBody");
+	expect(JSON.stringify(page)).not.toContain("synthetic-cert");
+	expect(JSON.stringify(page)).not.toContain("synthetic-response");
+});
+
+test("管理端日志读模型有界保留并支持条件分页", () => {
+	const store = createAdminLogStore(2);
+	for (const [index, level] of (["info", "warn", "error"] as const).entries()) {
+		store.append(
+			JSON.stringify({
+				level: level === "info" ? 30 : level === "warn" ? 40 : 50,
+				time: `2026-09-15T08:0${index}:00.000Z`,
+				service: "hospital-api",
+				environment: "test",
+				event: "http.request.completed",
+				path: "/api/v1/demo",
+			}),
+		);
+	}
+	const page = store.query({ level: "error", page: 1, pageSize: 1 });
+	expect(page.total).toBe(1);
+	expect(page.items[0]?.level).toBe("error");
+	expect(store.query().total).toBe(2);
+});
+
+test("管理端日志可按支付链路关联号和服务筛选", () => {
+	const store = createAdminLogStore();
+	for (const [service, traceId] of [
+		["hospital-api", "trace-api"],
+		["hospital-worker", "trace-worker"],
+	] as const) {
+		store.append(
+			JSON.stringify({
+				level: 30,
+				time: "2026-09-15T08:00:00.000Z",
+				service,
+				environment: "test",
+				event: "provider.response.observed",
+				traceId,
+				requestId: traceId,
+				providerRequestId: `${traceId}-provider`,
+				providerOperation: "medical-insurance-6202",
+			}),
+		);
+	}
+	expect(store.query({ service: "hospital-worker" }).items[0]?.traceId).toBe(
+		"trace-worker",
+	);
+	expect(store.query({ traceId: "trace-api" }).total).toBe(1);
+	expect(
+		store.query({ providerRequestId: "trace-worker-provider" }).total,
+	).toBe(1);
+});
+
+test("Worker 日志转发只发送安全元数据，不发送 raw body", async () => {
+	const forwarded: string[] = [];
+	const destination = createAdminLogForwardingDestination(
+		{ write: () => undefined },
+		{
+			url: "http://127.0.0.1:3000/api/v1/admin/logs/ingest",
+			token: "ingest-token",
+			fetcher: async (_input, init) => {
+				forwarded.push(String(init?.body ?? ""));
+				return new Response(null, { status: 202 });
+			},
+		},
+	);
+	destination.write(
+		`${JSON.stringify({
+			level: 30,
+			time: "2026-09-15T08:00:00.000Z",
+			service: "hospital-worker",
+			environment: "test",
+			event: "provider.response.observed",
+			traceId: "trace-worker",
+			providerResponseCode: "0",
+			providerResponseBodySha256: "0123456789abcdef",
+			providerResponseBody: "must-not-forward",
+		})}\n${JSON.stringify({
+			level: 50,
+			time: "2026-09-15T08:00:01.000Z",
+			service: "hospital-worker",
+			environment: "test",
+			event: "provider.request.failed",
+			traceId: "trace-worker",
+		})}`,
+	);
+	await new Promise<void>((resolve) => setTimeout(resolve, 0));
+	expect(forwarded).toHaveLength(2);
+	expect(forwarded.join("\n")).not.toContain("must-not-forward");
+	expect(forwarded[0]).toContain('"providerResponseCode":"0"');
 });
 
 test("pino 在多层 Provider 结构和 child binding 中递归脱敏", () => {

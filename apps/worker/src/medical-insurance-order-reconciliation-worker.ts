@@ -250,8 +250,8 @@ function candidateState(
 		evidence.authoritative &&
 		evidence.source === "yunhealth"
 	) {
-		// .32 成功只允许进入微信官方医保订单阶段；纯医保也不能绕过
-		// INSURANCE_ONLY 查单和后续 .5 完成回写。
+		// .32 成功后仍由微信官方订单阶段确认；有微信自费金额时才
+		// 继续执行 .5 完成 HIS 回写，纯医保不调用 .5。
 		return "cash_pending";
 	}
 	return "awaiting_confirmation";

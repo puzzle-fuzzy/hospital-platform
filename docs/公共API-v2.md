@@ -135,6 +135,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/appointments/registrations/{appointmentId}` | Bearer | 必填 query `patientId`；仅返回当前账号、当前就诊人对应的挂号详情和脱敏就诊卡；Provider 历史记录没有平台详情引用时由小程序按已核实摘要展示 |
 | `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射调用取消接口；重复取消返回已取消，不接收 provider 预约号 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
+| `GET` | `/api/v2/medical-records` | Bearer | 必填内部 `patientId`、`startDate`、`endDate`，跨度最多 30 天；只返回门诊就诊摘要，生产 Provider gate 默认关闭 |
 | `POST` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 必填幂等键 | 从已写入预约读取服务端挂号费，按 HIS 收款顺序完成 `.1 → .27 → .2`，返回 `.2.result` 中经校验的 APIv2/MD5 小程序调起参数；不会进入医保授权 |
 | `POST` | `/api/v2/payments/appointments/{appointmentId}/payment-exit` | Bearer + 必填幂等键 | 用户明确退出医保、医保混合或自费支付；服务端查单/关单并作废未支付订单，再取消预约释放号源；已支付或未知状态 fail-closed |
 | `GET` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 幂等键可选 | 服务端幂等调用 HIS `.5` 并返回 `awaiting_confirmation`、`cash_paid` 或 `failed`；只有 `isSettle=1` 才完成，调起成功不代表支付完成 |
@@ -464,6 +465,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 400 | 30200 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
 | 400 | 50300 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
 | 400 | 40100 | `report-query-invalid` | 报告查询条件不合法 |
+| 400 | 40200 | `medical-record-query-invalid` | 门诊病历 patientId 或日期窗口不合法 |
 | 400 | 60100 | `health-knowledge-query-invalid` | 健康知识查询参数不符合公开 contract |
 | 400 | 20100 | `patient-query-invalid` | 就诊人查询上下文不合法 |
 | 400 | 20600 | `patient-binding-invalid` | 添加就诊人的姓名、手机号、身份证号或授权确认不合法 |
@@ -493,6 +495,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | 50320 | `outpatient-payment-record-not-found` | 当前用户/就诊人范围内未找到对应门诊缴费记录 |
 | 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
 | 404 | 40120 | `report-not-found` | 报告详情或附件不可用、短期引用已过期，或尚未通过 gate |
+| 404 | 40210 | `medical-record-patient-not-found` | 当前用户没有该就诊人的有效门诊病历映射 |
 | 404 | 60110 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |
 | 404 | 50110 | `payment-order-not-found` | 订单不存在或不属于当前用户 |
 | 404 | 50120 | `payment-quote-not-found` | 服务端报价不存在 |

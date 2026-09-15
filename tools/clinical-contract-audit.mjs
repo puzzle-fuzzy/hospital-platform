@@ -60,14 +60,16 @@ function buildStructuredGateAudit(value) {
 			passed: false,
 		};
 	}
-	if (value.schemaVersion !== 1) {
-		failures.push("结构化临床准入记录 schemaVersion 必须为 1");
+	if (value.schemaVersion !== 2) {
+		failures.push("结构化临床准入记录 schemaVersion 必须为 2");
 	}
 	if (value.status !== "normalized") {
 		failures.push("结构化临床准入记录 status 必须保持 normalized");
 	}
-	if (value.registration !== "unregistered") {
-		failures.push("结构化临床准入记录 registration 必须保持 unregistered");
+	if (value.registration !== "partial-fail-closed") {
+		failures.push(
+			"结构化临床准入记录 registration 必须保持 partial-fail-closed",
+		);
 	}
 	if (!Array.isArray(value.domains)) {
 		return {
@@ -97,6 +99,17 @@ function buildStructuredGateAudit(value) {
 		if (domain.contractStatus !== "pending") {
 			failures.push(`${domain.id}.contractStatus 必须保持 pending`);
 		}
+		const expectedDomain = CLINICAL_DOMAIN_CATALOG.find(
+			(candidate) => candidate.id === domain.id,
+		);
+		if (
+			expectedDomain &&
+			domain.implementationStatus !== expectedDomain.implementationStatus
+		) {
+			failures.push(
+				`${domain.id}.implementationStatus 必须是 ${expectedDomain.implementationStatus}`,
+			);
+		}
 		for (const field of REQUIRED_GATE_FIELDS.slice(1)) {
 			if (domain[field] !== "missing" && domain[field] !== "pending") {
 				failures.push(`${domain.id}.${field} 必须是 missing 或 pending`);
@@ -117,6 +130,7 @@ function buildStructuredGateAudit(value) {
 		domains: value.domains.filter(isPlainObject).map((domain) => ({
 			id: domain.id,
 			contractStatus: domain.contractStatus,
+			implementationStatus: domain.implementationStatus,
 			nextAction: domain.nextAction,
 		})),
 		failures,
@@ -131,7 +145,7 @@ function findLegacyEntry(catalog, path) {
 }
 
 /**
- * 检查四个临床域当前是否仍停留在“材料已登记、业务未注册”状态。
+ * 检查三个临床域的正式材料与代码注册状态是否保持各自边界。
  *
  * 这不是 Provider contract 解析器：正式材料到达后，域应进入独立的
  * contracts/adapter/domain/API 实现流程，并同步更新本目录和测试，而不是
@@ -204,13 +218,29 @@ export async function buildClinicalContractAudit(root = repositoryRoot) {
 			const isDeclaredSurfaceOnlyEntry =
 				entry.status === "surface-only" &&
 				expected.surfaceOnlyTarget === entry.nativeTarget;
-			if (!isExpectedBlockedEntry && !isDeclaredSurfaceOnlyEntry) {
+			const isDeclaredSafePartialEntry =
+				isExpectedBlockedEntry &&
+				expected.safeSurfaceTarget === entry.nativeTarget;
+			if (
+				expected.safeSurfaceTarget &&
+				entry.nativeTarget !== expected.safeSurfaceTarget
+			) {
+				domainFailures.push(
+					`${expected.path} 安全子集落点漂移：期望 ${expected.safeSurfaceTarget}，实际 ${entry.nativeTarget}`,
+				);
+			}
+			if (
+				!isExpectedBlockedEntry &&
+				!isDeclaredSurfaceOnlyEntry &&
+				!isDeclaredSafePartialEntry
+			) {
 				domainFailures.push(
 					`${expected.path} 状态漂移：期望 ${expected.status} 或声明的 surface-only 外壳，实际 ${entry.status}`,
 				);
 			}
 			if (
 				!isDeclaredSurfaceOnlyEntry &&
+				!isDeclaredSafePartialEntry &&
 				entry.nativeTarget !== "pages/feature-status/feature-status"
 			) {
 				domainFailures.push(
@@ -247,7 +277,7 @@ export async function buildClinicalContractAudit(root = repositoryRoot) {
 		domains.push({
 			id: domain.id,
 			name: domain.name,
-			status: "normalized / unregistered",
+			status: `contract-pending / ${domain.implementationStatus}`,
 			forbiddenApiTokens: domain.forbiddenApiTokens,
 			passed: domainFailures.length === 0,
 			failures: domainFailures,
@@ -277,7 +307,7 @@ export async function buildClinicalContractAudit(root = repositoryRoot) {
 	}
 
 	return {
-		schemaVersion: 1,
+		schemaVersion: 2,
 		domainCount: CLINICAL_DOMAIN_CATALOG.length,
 		intakeStatus: intakeDocument ? "normalized" : "missing",
 		structuredGate,
@@ -303,7 +333,7 @@ if (import.meta.main) {
 		process.exitCode = 1;
 	} else {
 		console.log(
-			`Clinical contract audit passed: ${report.domainCount} domain(s) remain unregistered until formal Provider contract arrives`,
+			`Clinical contract audit passed: ${report.domainCount} domain(s) remain contract-pending; implemented subsets stay fail-closed`,
 		);
 	}
 }

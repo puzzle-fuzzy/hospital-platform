@@ -2,7 +2,12 @@ import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
 import { configureProviderRequestLogger } from "@hospital/adapters";
 import { DependencyNotConfiguredError } from "@hospital/domain";
-import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import {
+	type AdminLogStore,
+	type AppLogger,
+	createAdminLogStore,
+	createNoopLogger,
+} from "@hospital/observability";
 import { Elysia } from "elysia";
 import {
 	type ApplicationServices,
@@ -13,7 +18,7 @@ import {
 	createReadinessService,
 	type ReadinessService,
 } from "./infrastructure/readiness";
-import { adminInsuranceQueryModule } from "./modules/admin";
+import { adminInsuranceQueryModule, adminLogsModule } from "./modules/admin";
 import type { AppointmentWriteService } from "./modules/appointments";
 import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
@@ -28,6 +33,7 @@ import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
+import { medicalRecordsModule } from "./modules/medical-records";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { PatientBindingService, patientsModule } from "./modules/patients";
@@ -72,6 +78,12 @@ export type AppOptions = {
 	}) => Promise<void>;
 	/** 新服务独立 Admin 1101 查询的服务间令牌。 */
 	adminQueryToken?: string;
+	/** 新服务独立 Admin 日志读模型；默认使用有界进程内窗口。 */
+	adminLogStore?: AdminLogStore;
+	/** 管理端日志读模型的独立服务间令牌。 */
+	adminLogsToken?: string;
+	/** Worker 上送安全日志元数据的独立服务间令牌。 */
+	adminLogsIngestToken?: string;
 };
 
 function openApiPlugin() {
@@ -95,6 +107,7 @@ function openApiPlugin() {
 				{ name: "my-doctors", description: "我的医生" },
 				{ name: "knowledge", description: "审核后的健康百科只读内容" },
 				{ name: "reports", description: "检查检验报告目录" },
+				{ name: "medical-records", description: "门诊就诊摘要只读目录" },
 				{ name: "payments", description: "支付订单" },
 			],
 		},
@@ -103,6 +116,7 @@ function openApiPlugin() {
 
 export function createApp(options: AppOptions = {}) {
 	const logger = options.logger ?? createNoopLogger();
+	const adminLogStore = options.adminLogStore ?? createAdminLogStore();
 	// 所有 adapter 的 provider 请求都经过 requestJson；在组合根注册统一
 	// logger 后，预约、就诊人、门诊费用、医保和微信接口会共享同一套审计事件。
 	configureProviderRequestLogger(logger);
@@ -248,6 +262,13 @@ export function createApp(options: AppOptions = {}) {
 							)
 						: new Elysia({ name: "admin-insurance-query-not-configured" }),
 				)
+				.use(
+					adminLogsModule(
+						adminLogStore,
+						options.adminLogsToken,
+						options.adminLogsIngestToken,
+					),
+				)
 				.use(systemModule())
 				.use(authModule(services.auth, services.sessions))
 				.use(
@@ -277,6 +298,11 @@ export function createApp(options: AppOptions = {}) {
 						: new Elysia({ name: "my-doctors-not-configured" }),
 				)
 				.use(reportsModule(services.reports, services.sessions))
+				.use(
+					services.medicalRecords
+						? medicalRecordsModule(services.medicalRecords, services.sessions)
+						: new Elysia({ name: "medical-records-not-configured" }),
+				)
 				.use(
 					services.outpatientPayments
 						? outpatientPaymentsModule(

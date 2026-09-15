@@ -59,23 +59,71 @@ test("legacy FSI gateway sends standalone 1101 through configured foundation rou
 		fetcher: async (_input, init) => {
 			requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
 			return new Response(
-				JSON.stringify({ data: { infcode: "0", baseinfo: {}, insuinfo: [] } }),
+				JSON.stringify({
+					infcode: "0",
+					output: { baseinfo: {}, insuinfo: [] },
+				}),
 				{ status: 200, headers: { "x-request-id": "relay-1101-001" } },
 			);
 		},
 	});
 
-	const result = await api.query1101({ infno: "1101" }, context);
+	const result = await api.query1101(
+		{
+			infno: "1101",
+			msgid: "H14058101270202609151000000000001",
+			insuplc_admdvs: "140581",
+			mdtrtarea_admvs: "140581",
+			input: { data: { mdtrt_cert_type: "02" } },
+		},
+		context,
+	);
 	const relayBody = requestBody?.body as Record<string, unknown>;
 	expect(result).toMatchObject({
-		data: { infcode: "0", baseinfo: {}, insuinfo: [] },
+		data: { infcode: "0", output: { baseinfo: {}, insuinfo: [] } },
 		trace: { operation: "legacy-fsi.1101", requestId: "relay-1101-001" },
 	});
 	expect(requestBody).toMatchObject({
 		base_url: "http://124.164.248.83:51000",
 		path: "/mbs-fsi-jc/web/api/fsi/callService",
 	});
-	expect(relayBody).not.toHaveProperty("data");
+	expect(relayBody).toMatchObject({
+		infno: "1101",
+		insuplc_admdvs: "140581",
+		mdtrtarea_admvs: "140581",
+	});
+	expect(relayBody).not.toHaveProperty("appId");
+	expect(relayBody).not.toHaveProperty("encData");
+});
+
+test("1101 foundation rejection is reported as an upstream business rejection", async () => {
+	const api = createLegacyFsiGateway({
+		relayUrl: "https://relay.example.test/forward",
+		directBaseUrl: "https://medical.example.test",
+		foundationBaseUrl: "http://124.164.248.83:51000",
+		foundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
+		relayAuthorizationToken: "relay-token-for-test",
+		crypto: createCrypto(),
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					infcode: -1,
+					err_msg: "测试参数错误",
+					output: null,
+				}),
+				{ status: 200, headers: { "x-request-id": "relay-1101-rejected" } },
+			),
+	});
+
+	await expect(api.query1101({ infno: "1101" }, context)).rejects.toMatchObject(
+		{
+			name: "ProviderRequestError",
+			providerErrorCode: "-1",
+			providerErrorMessage: "测试参数错误",
+			requestOutcome: "rejected",
+			responseInvalid: false,
+		},
+	);
 });
 
 function feeUploadData(): Record<string, unknown> {

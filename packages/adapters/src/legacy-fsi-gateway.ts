@@ -191,6 +191,34 @@ function providerRejectedError(
 	});
 }
 
+/** 通用 FSI（1101）使用 infcode/err_msg 表示业务结果，不走移动支付中心
+ * 的 code/success 封套；把该拒绝保留为上游业务错误，避免误报为密文回包非法。 */
+function foundationRejectedError(
+	response: { requestId: string },
+	body: Record<string, unknown>,
+): ProviderRequestError | undefined {
+	const rawInfcode = body.infcode;
+	if (rawInfcode === undefined || rawInfcode === null) return undefined;
+	const infcode = String(rawInfcode).trim();
+	if (infcode === "0" || infcode === "1") return undefined;
+	const providerMessage =
+		optionalTextField(body, "err_msg") ??
+		optionalTextField(body, "errmsg") ??
+		optionalTextField(body, "message");
+	return new ProviderRequestError({
+		provider: "legacy-fsi",
+		operation: "legacy-fsi.1101",
+		message: "Legacy FSI foundation provider rejected the request",
+		requestId: response.requestId,
+		retryable: false,
+		failureStage: "response",
+		responseInvalid: false,
+		providerErrorCode: infcode,
+		...(providerMessage ? { providerErrorMessage: providerMessage } : {}),
+		requestOutcome: "rejected",
+	});
+}
+
 function providerResponseCode(
 	body: Record<string, unknown>,
 ): string | undefined {
@@ -318,8 +346,15 @@ export function createLegacyFsiGateway(
 			},
 			"Legacy FSI request dispatched",
 		);
-		const sealed = await options.crypto.seal({ infno, data }, context);
-		const envelope = validateLegacyFsiSealedEnvelope(sealed, infno);
+		// 1101 是通用 FSI 通道，必须保留 infno/msgid/input 等顶层字段；
+		// 6201/6202/6301 等移动支付接口才使用 appId/encData/signData 封套。
+		const relayBody =
+			infno === "1101"
+				? data
+				: validateLegacyFsiSealedEnvelope(
+						await options.crypto.seal({ infno, data }, context),
+						infno,
+					);
 		const response = await requestJson<unknown>(
 			{
 				provider: "legacy-fsi",
@@ -335,7 +370,7 @@ export function createLegacyFsiGateway(
 					base_url: routeBaseUrl,
 					path: routePath,
 					headers: { "content-type": "application/json" },
-					body: envelope,
+					body: relayBody,
 				},
 				// FSI 的拒绝响应会在 crypto.open 前结束；显式传入 logger，
 				// 让受控 PROVIDER_RAW_LOGGING 窗口仍能记录 relay 返回原文。
@@ -374,6 +409,26 @@ export function createLegacyFsiGateway(
 				},
 				"Legacy FSI response received with safe envelope summary",
 			);
+			if (infno === "1101") {
+				const rejected = foundationRejectedError(response, responseBody);
+				if (rejected) throw rejected;
+				if (providerRawLoggingEnabled()) {
+					options.logger?.info(
+						{
+							event: "provider.response.logical.raw",
+							provider: "legacy-fsi",
+							operation: "legacy-fsi.1101",
+							traceId: context.traceId,
+							providerRequestId: response.requestId,
+							providerStatusCode: response.statusCode,
+							providerResponseBodyText: rawBodyText(responseBody),
+							providerResponseSignVerified: false,
+						},
+						"Legacy FSI foundation response captured for test diagnostics",
+					);
+				}
+				return { data: responseBody, requestId: response.requestId };
+			}
 			const rejected = providerRejectedError(infno, response, responseBody);
 			if (rejected) throw rejected;
 			const opened = await options.crypto.open(

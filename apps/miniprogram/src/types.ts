@@ -21,6 +21,7 @@ import type {
 	MyDoctorDeletePayload,
 	MyDoctorListPayload,
 	MyDoctorResponsePayload,
+	OutpatientMedicalRecordListPayload,
 	OutpatientPaymentDetailPayload,
 	OutpatientPaymentListPayload,
 	PatientBindingPayload,
@@ -95,6 +96,8 @@ export type AppointmentHoldResponse = AppointmentHoldPayload;
 export type AppointmentRegistrationResponse = AppointmentRegistrationPayload;
 export type RegistrationSelfPayResponse = RegistrationSelfPayPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
+export type OutpatientMedicalRecordListResponse =
+	OutpatientMedicalRecordListPayload;
 export type OutpatientPaymentDetailResponse = OutpatientPaymentDetailPayload;
 export type ReportListResponse = ReportListPayload;
 export type ReportDetailResponse = ReportDetailPayload;
@@ -150,6 +153,8 @@ export type AppointmentRecord =
 export type AppointmentDetail = AppointmentDetailResponse["data"];
 export type OutpatientPaymentRecord =
 	OutpatientPaymentListResponse["data"]["items"][number];
+export type OutpatientMedicalRecord =
+	OutpatientMedicalRecordListResponse["data"]["items"][number];
 export type OutpatientPaymentDetail = OutpatientPaymentDetailResponse["data"];
 /** 门诊费用详情页只展示服务端核对后的单笔摘要。 */
 export type OutpatientPaymentDetailPageData = {
@@ -663,6 +668,28 @@ export type ReportDirectoryPageData = {
 	error: string;
 	/** 只有明确的患者上下文错误才允许错误态引导用户重新选择。 */
 	canSelectPatient: boolean;
+};
+
+/** 门诊病历页只消费归属校验后的就诊摘要，不包含病历正文或 Provider 主键。 */
+export type MedicalRecordPageData = {
+	hasShown: boolean;
+	sessionState: SessionVerificationState;
+	queryState: ClinicalQueryState;
+	selectedPatient: Patient | null;
+	patientSessionGeneration: number;
+	records: Array<MedicalRecordView>;
+	visibleRecords: Array<MedicalRecordView>;
+	visibleRecordCount: number;
+	hasMoreRecords: boolean;
+	loading: boolean;
+	error: string;
+	/** 只有明确的患者上下文错误才允许引导重新选择。 */
+	canSelectPatient: boolean;
+};
+
+/** 页面键仅用于 WXML diff，不是病历号或 Provider 标识。 */
+export type MedicalRecordView = OutpatientMedicalRecord & {
+	viewKey: string;
 };
 
 /** 门诊缴费页只读状态；支付写入仍需独立医保/微信结算契约。 */

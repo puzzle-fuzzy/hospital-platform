@@ -13,6 +13,12 @@
 
 环境文件必须通过受控 SSH 传输，权限设置为 `0600`，不能提交到 Git。
 
+日志菜单的三个令牌必须分离：`ADMIN_QUERY_TOKEN` 用于 1101，
+`ADMIN_LOGS_TOKEN` 用于 Admin 读取，`ADMIN_LOGS_INGEST_TOKEN` 仅用于 Worker
+向 API 上送安全日志元数据。`shared/worker.env` 还应配置
+`ADMIN_LOGS_INGEST_URL=http://127.0.0.1:18081/api/v1/admin/logs/ingest`；
+不能把任何 Provider 请求/响应原文通过 ingest 转发，原文仍只从 journald 受控取证。
+
 微信登录启用前，`api.env` 必须完成 `WECHAT_IDENTITY_READY`、AppID/AppSecret、MySQL、Redis 和 schema
 的分阶段验收；详细步骤见 [`docs/微信授权登录.md`](../../docs/微信授权登录.md)。没有真实凭据时保持
 fail-closed，不允许为了验证页面而写入假的 AppID、openid 或 token。
@@ -38,6 +44,10 @@ sudo systemctl enable --now hospital-platform-worker-v2.service
 journalctl -u hospital-platform-api-v2.service -n 100 --no-pager
 journalctl -u hospital-platform-worker-v2.service -n 100 --no-pager
 ```
+
+日志菜单发布前必须分别重启 API 和 Worker，确认 API 的日志读取接口不再返回
+`admin-not-configured`，并在一次合成 Worker 日志后能按 `service=hospital-worker`
+和 `traceId` 查询到记录。Worker 上送失败不能阻断 journald，因此仍需核对两侧日志。
 
 API 启动日志必须包含 `runtimeMode`、`authRuntimeStatus`、`authIdentityGateway`、`authSessionStore` 和
 `persistenceSchemaProbe`；业务登录日志使用 `auth.wechat.login.*` 事件，禁止通过原始请求体排障。

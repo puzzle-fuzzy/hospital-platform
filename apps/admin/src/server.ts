@@ -13,6 +13,11 @@ const adminQueryUpstream = adminQueryUpstreamValue
 	? new URL(adminQueryUpstreamValue)
 	: undefined;
 const adminQueryToken = Bun.env.ADMIN_QUERY_API_TOKEN?.trim() || "";
+const adminLogsUpstreamValue = Bun.env.ADMIN_LOGS_API_BASE_URL?.trim() || "";
+const adminLogsUpstream = adminLogsUpstreamValue
+	? new URL(adminLogsUpstreamValue)
+	: undefined;
+const adminLogsToken = Bun.env.ADMIN_LOGS_API_TOKEN?.trim() || "";
 const allowHttpUpstream =
 	Bun.env.INSURANCE_QUERY_ALLOW_HTTP_UPSTREAM === "true";
 const clientRoot = join(import.meta.dir, "client");
@@ -34,6 +39,15 @@ if (
 ) {
 	throw new Error(
 		"Admin query API must use HTTPS unless HTTP is explicitly enabled",
+	);
+}
+if (
+	adminLogsUpstream &&
+	adminLogsUpstream.protocol !== "https:" &&
+	!(allowHttpUpstream && adminLogsUpstream.protocol === "http:")
+) {
+	throw new Error(
+		"Admin logs API must use HTTPS unless HTTP is explicitly enabled",
 	);
 }
 
@@ -222,6 +236,72 @@ async function insuranceRequest(request: Request): Promise<Response> {
 	);
 }
 
+async function logsRequest(request: Request, url: URL): Promise<Response> {
+	bearer(request);
+	if (!adminLogsUpstream || !adminLogsToken) {
+		return errorResponse("新服务日志接口尚未配置", 503);
+	}
+	const forwarded = new URLSearchParams();
+	for (const key of [
+		"page",
+		"pageSize",
+		"level",
+		"event",
+		"path",
+		"traceId",
+		"requestId",
+		"providerRequestId",
+		"providerOperation",
+		"service",
+		"startTime",
+		"endTime",
+	] as const) {
+		const value = url.searchParams.get(key);
+		if (value) {
+			if (value.length > 256) return errorResponse("请求参数不合法", 400);
+			forwarded.set(key, value);
+		}
+	}
+	const query = forwarded.toString();
+	return upstreamRequest(
+		adminLogsUpstream,
+		`/admin/logs${query ? `?${query}` : ""}`,
+		{
+			method: "GET",
+			headers: {
+				"X-Admin-Token": adminLogsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务日志接口暂时不可用，请稍后重试",
+	);
+}
+
+async function logDetailRequest(
+	request: Request,
+	id: string,
+): Promise<Response> {
+	bearer(request);
+	if (!/^log-[1-9][0-9]*$/u.test(id) || id.length > 32) {
+		return errorResponse("请求参数不合法", 400);
+	}
+	if (!adminLogsUpstream || !adminLogsToken) {
+		return errorResponse("新服务日志接口尚未配置", 503);
+	}
+	return upstreamRequest(
+		adminLogsUpstream,
+		`/admin/logs/${id}`,
+		{
+			method: "GET",
+			headers: {
+				"X-Admin-Token": adminLogsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务日志接口暂时不可用，请稍后重试",
+	);
+}
+
 async function logoutRequest(request: Request): Promise<Response> {
 	const authorization = bearer(request);
 	const token = authorization.slice("Bearer ".length);
@@ -306,6 +386,15 @@ const server = Bun.serve({
 			if (url.pathname === "/api/insurance/1101" && request.method === "POST") {
 				return await insuranceRequest(request);
 			}
+			if (url.pathname === "/api/logs" && request.method === "GET") {
+				return await logsRequest(request, url);
+			}
+			const logDetailMatch = url.pathname.match(
+				/^\/api\/logs\/(log-[1-9][0-9]*)$/u,
+			);
+			if (logDetailMatch && request.method === "GET") {
+				return await logDetailRequest(request, logDetailMatch[1] ?? "");
+			}
 			if (url.pathname.startsWith("/api/")) {
 				return errorResponse("接口不存在", 404);
 			}
@@ -332,5 +421,6 @@ console.info(
 		port: server.port,
 		legacyUpstreamProtocol: legacyUpstream.protocol,
 		adminQueryConfigured: Boolean(adminQueryUpstream && adminQueryToken),
+		adminLogsConfigured: Boolean(adminLogsUpstream && adminLogsToken),
 	}),
 );

@@ -364,9 +364,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"medical-record": {
 		title: "门诊病历",
-		readiness: "待 provider contract",
+		readiness: "已接入安全子集",
 		description:
-			"门诊病历正在迁移中，当前不会读取未经确认的病历目录或用预约、报告数据替代。",
+			"当前已接入近 30 天门诊就诊摘要；病历正文、详情和附件仍未开放。",
 		contractHint:
 			"病历正文、详情引用、住院记录和附件仍需独立 HIS/EMR contract。",
 		icon: "/assets/legacy-user/medical-record.svg",
@@ -520,6 +520,7 @@ export function navigateToFeatureStatus(feature: FeatureKey): void {
 export const FEATURE_SURFACE_TARGETS: Readonly<
 	Partial<Record<FeatureKey, string>>
 > = Object.freeze({
+	"medical-record": "/pages/medical-record/medical-record",
 	"inpatient-center": "/pages/inpatient-center/inpatient-center",
 	doctor: "/pages/my-doctor/my-doctor",
 	"electronic-consultation":

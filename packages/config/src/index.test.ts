@@ -42,7 +42,21 @@ test("runtime config defaults to safe development gates", () => {
 		yunhealthRegistrationAuthSysCode: "thirdSelfMachine",
 		yunhealthRegistrationTradeTypeCode: "10",
 		workerPollIntervalMs: 1000,
+		adminLogsIngestUrl: undefined,
+		adminLogsIngestToken: undefined,
 	});
+});
+
+test("Worker 日志上送地址和令牌使用独立配置并去除空白", () => {
+	const config = loadRuntimeConfig({
+		ADMIN_LOGS_INGEST_URL: "  http://127.0.0.1:3000/api/v1/admin/logs/ingest  ",
+		ADMIN_LOGS_INGEST_TOKEN: "  ingest-token  ",
+	});
+
+	expect(config.adminLogsIngestUrl).toBe(
+		"http://127.0.0.1:3000/api/v1/admin/logs/ingest",
+	);
+	expect(config.adminLogsIngestToken).toBe("ingest-token");
 });
 
 test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", () => {
@@ -125,6 +139,7 @@ test("runtime config trims secrets and parses explicit worker settings", () => {
 		WECHAT_PAYMENT_READY: "1",
 		WECHAT_PAY_API_V3_KEY: " api-v3-key ",
 		MBS_FORWARD_PATH: " /mbs-fsi-jc/web/api/fsi/callService ",
+		ADMIN_LOGS_TOKEN: " admin-logs-token ",
 	});
 
 	expect(config).toMatchObject({
@@ -135,6 +150,7 @@ test("runtime config trims secrets and parses explicit worker settings", () => {
 		databaseUrl: "mysql://localhost/hospital",
 		wechatPayApiV3Key: "api-v3-key",
 		medicalInsuranceFoundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
+		adminLogsToken: "admin-logs-token",
 	});
 });
 

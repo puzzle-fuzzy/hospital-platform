@@ -16,6 +16,367 @@ export type AppLogger = PinoLogger;
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 
 /**
+ * 管理端日志只读视图的安全元数据。
+ *
+ * 这个模型故意没有 request/response body 字段。医保、身份和支付报文可能
+ * 包含证件号、令牌和资金信息，不能通过浏览器管理菜单批量暴露；需要核验
+ * 原文时仍应按受控 trace 导出规范从 journald 取证。
+ */
+export type AdminLogLevel = "debug" | "info" | "warn" | "error";
+export type AdminLogSource = "process" | "database";
+export type AdminLogRecord = {
+	id: string;
+	timestamp: string;
+	level: AdminLogLevel;
+	source: AdminLogSource;
+	service: string;
+	environment: string;
+	event?: string;
+	method?: string;
+	path?: string;
+	statusCode?: number;
+	durationMs?: number;
+	requestId?: string;
+	traceId?: string;
+	errorName?: string;
+	errorCode?: string;
+	dependency?: string;
+	provider?: string;
+	providerOperation?: string;
+	providerRequestId?: string;
+	providerStatusCode?: number;
+	providerFailureStage?: string;
+	providerRequestOutcome?: string;
+	providerRetryable?: boolean;
+	providerErrorCode?: string;
+	providerErrorMessageLength?: number;
+	providerErrorMessageSha256?: string;
+	providerTransportErrorCode?: string;
+	providerResponseBusinessSuccess?: boolean;
+	providerResponseCode?: string;
+	providerResponseBodyByteLength?: number;
+	providerResponseBodySha256?: string;
+	providerResponseMessageLength?: number;
+	persistenceOperation?: string;
+	/** 固定值：本读模型不记录请求或返回原文。 */
+	parameterVisibility: "not-recorded";
+};
+
+/** 进程之间转发时允许携带的安全日志字段；不包含 id/source 或任何原文。 */
+export type AdminLogRecordPayload = Omit<AdminLogRecord, "id" | "source">;
+
+export type AdminLogQuery = {
+	page?: number;
+	pageSize?: number;
+	level?: AdminLogLevel;
+	event?: string;
+	path?: string;
+	traceId?: string;
+	requestId?: string;
+	providerRequestId?: string;
+	providerOperation?: string;
+	service?: string;
+	startTime?: string;
+	endTime?: string;
+};
+
+export type AdminLogPage = {
+	items: readonly AdminLogRecord[];
+	total: number;
+	page: number;
+	pageSize: number;
+	source: AdminLogSource;
+	parameterPolicy: "safe-metadata-only";
+};
+
+export type AdminLogStore = {
+	append(serialized: string): void;
+	query(query?: AdminLogQuery): AdminLogPage;
+	getById(id: string): AdminLogRecord | undefined;
+};
+
+const ADMIN_LOG_MAX_TEXT = 256;
+
+function adminLogText(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const normalized = value.trim();
+	if (
+		!normalized ||
+		normalized.length > ADMIN_LOG_MAX_TEXT ||
+		[...normalized].some((character) => {
+			const code = character.charCodeAt(0);
+			return code < 32 || code === 127;
+		})
+	) {
+		return undefined;
+	}
+	return normalized;
+}
+
+function adminLogNumber(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value)
+		? value
+		: undefined;
+}
+
+function adminLogLevel(value: unknown): AdminLogLevel | undefined {
+	if (
+		value === "debug" ||
+		value === "info" ||
+		value === "warn" ||
+		value === "error"
+	) {
+		return value;
+	}
+	if (typeof value !== "number") return undefined;
+	if (value >= 50) return "error";
+	if (value >= 40) return "warn";
+	if (value >= 30) return "info";
+	if (value >= 10) return "debug";
+	return undefined;
+}
+
+function adminLogTimestamp(value: unknown): string | undefined {
+	const candidate =
+		typeof value === "number"
+			? new Date(value).toISOString()
+			: adminLogText(value);
+	if (!candidate) return undefined;
+	const parsed = Date.parse(candidate);
+	return Number.isNaN(parsed) ? undefined : new Date(parsed).toISOString();
+}
+
+export function parseAdminLogLine(
+	serialized: string,
+): AdminLogRecordPayload | undefined {
+	let parsed: Record<string, unknown>;
+	try {
+		const value = JSON.parse(serialized) as unknown;
+		if (!value || typeof value !== "object" || Array.isArray(value))
+			return undefined;
+		parsed = value as Record<string, unknown>;
+	} catch {
+		return undefined;
+	}
+	const level = adminLogLevel(parsed.level);
+	const timestamp = adminLogTimestamp(parsed.time ?? parsed.timestamp);
+	const service = adminLogText(parsed.service);
+	const environment = adminLogText(parsed.environment);
+	if (!level || !timestamp || !service || !environment) return undefined;
+	const textFields = [
+		"event",
+		"method",
+		"path",
+		"requestId",
+		"traceId",
+		"errorName",
+		"errorCode",
+		"dependency",
+		"provider",
+		"providerOperation",
+		"providerRequestId",
+		"providerFailureStage",
+		"providerRequestOutcome",
+		"providerErrorCode",
+		"providerErrorMessageSha256",
+		"providerTransportErrorCode",
+		"providerResponseCode",
+		"persistenceOperation",
+	] as const;
+	const fields: Partial<AdminLogRecord> = {};
+	for (const field of textFields) {
+		const value = adminLogText(parsed[field]);
+		if (value) fields[field] = value;
+	}
+	for (const field of [
+		"statusCode",
+		"providerStatusCode",
+		"providerErrorMessageLength",
+		"providerResponseBodyByteLength",
+		"providerResponseMessageLength",
+	] as const) {
+		const value = adminLogNumber(parsed[field]);
+		if (value !== undefined && Number.isInteger(value)) fields[field] = value;
+	}
+	for (const field of [
+		"providerRetryable",
+		"providerResponseBusinessSuccess",
+	] as const) {
+		const value = parsed[field];
+		if (typeof value === "boolean") fields[field] = value;
+	}
+	const durationMs = adminLogNumber(parsed.durationMs);
+	if (durationMs !== undefined && durationMs >= 0)
+		fields.durationMs = durationMs;
+	return {
+		timestamp,
+		level,
+		service,
+		environment,
+		...fields,
+		parameterVisibility: "not-recorded",
+	};
+}
+
+function adminLogRecordFromLine(
+	serialized: string,
+	id: string,
+): AdminLogRecord | undefined {
+	const payload = parseAdminLogLine(serialized);
+	return payload ? { id, source: "process", ...payload } : undefined;
+}
+
+/** 进程内有界日志窗口；不会持久化，也不会把原始报文写入读模型。 */
+export function createAdminLogStore(maxEntries = 500): AdminLogStore {
+	const entries: AdminLogRecord[] = [];
+	let sequence = 0;
+	const capacity =
+		Number.isInteger(maxEntries) && maxEntries > 0 ? maxEntries : 500;
+	return {
+		append(serialized) {
+			const record = adminLogRecordFromLine(serialized, `log-${++sequence}`);
+			if (!record) return;
+			entries.unshift(record);
+			if (entries.length > capacity) entries.length = capacity;
+		},
+		query(query = {}) {
+			const page =
+				Number.isInteger(query.page) && (query.page ?? 0) > 0
+					? (query.page ?? 1)
+					: 1;
+			const pageSize =
+				Number.isInteger(query.pageSize) && (query.pageSize ?? 0) > 0
+					? Math.min(query.pageSize ?? 50, 100)
+					: 50;
+			const start = query.startTime ? Date.parse(query.startTime) : undefined;
+			const end = query.endTime ? Date.parse(query.endTime) : undefined;
+			const filtered = entries.filter((entry) => {
+				if (query.level && entry.level !== query.level) return false;
+				if (query.event && entry.event !== query.event) return false;
+				if (query.path && !entry.path?.includes(query.path)) return false;
+				if (query.traceId && entry.traceId !== query.traceId) return false;
+				if (query.requestId && entry.requestId !== query.requestId)
+					return false;
+				if (
+					query.providerRequestId &&
+					entry.providerRequestId !== query.providerRequestId
+				)
+					return false;
+				if (
+					query.providerOperation &&
+					entry.providerOperation !== query.providerOperation
+				)
+					return false;
+				if (query.service && entry.service !== query.service) return false;
+				const timestamp = Date.parse(entry.timestamp);
+				if (start !== undefined && !Number.isNaN(start) && timestamp < start)
+					return false;
+				if (end !== undefined && !Number.isNaN(end) && timestamp > end)
+					return false;
+				return true;
+			});
+			const offset = (page - 1) * pageSize;
+			return {
+				items: filtered.slice(offset, offset + pageSize),
+				total: filtered.length,
+				page,
+				pageSize,
+				source: "process",
+				parameterPolicy: "safe-metadata-only",
+			};
+		},
+		getById(id) {
+			return entries.find((entry) => entry.id === id);
+		},
+	};
+}
+
+/** 把同一行同时送入有界读模型和原有 stdout/journald 目的地。 */
+export function createAdminLogDestination(
+	store: AdminLogStore,
+	destination: DestinationStream,
+): DestinationStream {
+	return {
+		write(chunk: string) {
+			store.append(chunk);
+			destination.write(chunk);
+		},
+	};
+}
+
+/**
+ * 将 Worker 的安全日志元数据转发到 API 的内部 ingest 路由。
+ *
+ * 先解析并投影白名单字段，再发起 HTTP 请求；即使 PROVIDER_RAW_LOGGING 打开，
+ * 也不会把 provider.request.raw/provider.response.raw 原文跨进程转发。转发失败
+ * 不影响 stdout/journald，后台原始取证仍以 journald 为准。
+ */
+export function createAdminLogForwardingDestination(
+	destination: DestinationStream,
+	options: {
+		url: string;
+		token: string;
+		timeoutMs?: number;
+		fetcher?: (input: string, init: RequestInit) => Promise<Response>;
+	},
+): DestinationStream {
+	const url = options.url.trim();
+	const token = options.token.trim();
+	if (!url || !token) return destination;
+	const target = new URL(url);
+	if (target.protocol !== "http:" && target.protocol !== "https:") {
+		throw new Error("ADMIN_LOGS_INGEST_URL must use HTTP or HTTPS");
+	}
+	const fetcher = options.fetcher ?? fetch;
+	const timeoutMs =
+		Number.isInteger(options.timeoutMs) && (options.timeoutMs ?? 0) > 0
+			? Math.min(options.timeoutMs ?? 2_000, 10_000)
+			: 2_000;
+	let forwarding = Promise.resolve();
+	let pendingForwardCount = 0;
+
+	return {
+		write(chunk: string) {
+			destination.write(chunk);
+			for (const line of chunk.split("\n")) {
+				const payload = parseAdminLogLine(line.trim());
+				if (!payload) continue;
+				// 原始日志的 body 在 journald 受控保留，但不应跨进程转发；
+				// 即使这里只发送元数据，也跳过 raw 事件对应的 chunk。
+				if (payload.event?.includes(".raw")) continue;
+				// API 暂时不可用或 Worker 突发大量日志时不无限堆积 Promise；
+				// 被丢弃的只是菜单副本，stdout/journald 仍保留完整证据。
+				if (pendingForwardCount >= 256) continue;
+				pendingForwardCount += 1;
+				forwarding = forwarding
+					.catch(() => undefined)
+					.then(async () => {
+						const controller = new AbortController();
+						const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+						try {
+							await fetcher(url, {
+								method: "POST",
+								headers: {
+									"content-type": "application/json",
+									"x-admin-token": token,
+								},
+								body: JSON.stringify(payload),
+								signal: controller.signal,
+							});
+						} finally {
+							clearTimeout(timeoutId);
+						}
+					})
+					.catch(() => undefined)
+					.finally(() => {
+						pendingForwardCount -= 1;
+					});
+			}
+		},
+	};
+}
+
+/**
  * Provider 失败事件允许记录的低敏诊断字段。
  *
  * 这些字段只用于把平台日志与 Provider 网关日志关联起来；Provider 原始

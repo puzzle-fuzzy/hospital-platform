@@ -77,7 +77,7 @@ const ALLOWED_TRANSITIONS: Record<
 	fee_uploaded: [
 		"order_placed",
 		// 6202 may return a final candidate in the same command; the adapter
-		// then completes 2.27.2.32 → 2.6.65.5 before the service persists it.
+		// then completes 2.27.2.32; only orders with a cash amount continue to .5.
 		"insurance_settled",
 		"cash_pending",
 		"awaiting_confirmation",
@@ -370,6 +370,8 @@ export type MedicalInsuranceSettlementContext = {
 	feeUploadStage?: "pre_6201" | "fee_uploaded";
 	/** .1 已校验通过的真实结算金额，供 6201 安全续跑使用。 */
 	settlementAmountFen?: number;
+	/** .1/.27 返回的就诊结算号，供 6201 重试时复用。 */
+	mdtrtId?: string;
 	/**
 	 * 历史版本在 6202 ownPayAmt>0 后创建的云健康插件自费上下文。
 	 *
@@ -382,6 +384,29 @@ export type MedicalInsuranceSettlementContext = {
 	postPaymentCompletedAt?: string;
 	/** 6201 返回的独立医保收银台地址；短期保存，仅通过专用接口返回给支付小程序。 */
 	cashierUrl?: string;
+	/**
+	 * 前置 2.27.2.27 已读取的时间和请求引用。后置阶段必须复用该事实，
+	 * 不能因为 6301 重试再次请求 .27。
+	 */
+	settlementDetailsFetchedAt?: string;
+	settlementDetailsProviderRequestId?: string;
+	/** 6301 已返回候选状态后的可重放查单快照；仅保存规范化金额和状态。 */
+	settlementQuery6301?: MedicalInsuranceSettlementQuerySnapshot;
+};
+
+export type MedicalInsuranceSettlementQuerySnapshot = {
+	queriedAt: string;
+	providerRequestId: string;
+	payOrdId: string;
+	ordStas: string;
+	statusClass:
+		| "processing"
+		| "settlement_candidate"
+		| "cancelled"
+		| "failed"
+		| "unknown";
+	amounts?: MedicalInsuranceAmounts;
+	setlType?: "ALL" | "CASH" | "HI";
 };
 
 export type MedicalInsurancePostPaymentComponentKind =
@@ -613,8 +638,9 @@ export function normalizeMedicalInsuranceSettlementNotification(
 
 /**
  * 依据 6302 通知推导订单目标状态。6302 只证明医保侧产生了结算结果，纯医保
- * 和混合支付都必须继续走微信官方医保订单查单，并在医院 .5 回写成功后才能
- * 进入 insurance_settled；因此金额一致时统一停在 cash_pending。
+ * 和混合支付都必须继续走微信官方医保订单查单；有微信自费金额时还需医院
+ * .5 回写，纯医保在 .32 成功后即可进入 insurance_settled。金额一致时先停在
+ * cash_pending，等待官方订单终态。
  * 通知金额与订单已落库 6202 金额不一致时进入 awaiting_confirmation，
  * 不允许直接覆盖（权威差异必须人工对账）。
  */

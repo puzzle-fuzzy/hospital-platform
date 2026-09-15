@@ -6,6 +6,7 @@ import {
 	ExternalTraceReadModelValidationError,
 	HealthKnowledgeResultValidationError,
 	IdentityUserReadModelValidationError,
+	OutpatientMedicalRecordResultValidationError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
@@ -174,6 +175,7 @@ export function safeErrorMetadata(
 		error instanceof ExternalTraceReadModelValidationError ||
 		error instanceof HealthKnowledgeResultValidationError ||
 		error instanceof IdentityUserReadModelValidationError ||
+		error instanceof OutpatientMedicalRecordResultValidationError ||
 		error instanceof OutpatientPaymentResultValidationError ||
 		error instanceof PaymentOrderReadModelValidationError ||
 		error instanceof PaymentQuoteReadModelValidationError ||

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildMigrationReadinessReport } from "./migration-readiness-report.mjs";
 
 describe("全项目迁移 readiness 报告", () => {
-	// 报告会扫描旧端台账、43 个原生页面、迁移合同和 pending/live 运行包；
+	// 报告会扫描旧端台账、47 个原生页面、迁移合同和 pending/live 运行包；
 	// Windows 下单独执行已经超过 Bun 默认 5 秒，但这不是放宽业务断言。
 	test("区分入口结构完成、运行包发布和真实业务完成", {
 		timeout: 30_000,
@@ -13,8 +13,8 @@ describe("全项目迁移 readiness 报告", () => {
 		);
 
 		expect(report.entryCoverage.legacy.legacyPageCount).toBe(64);
-		expect(report.entryCoverage.nativePageCount).toBe(43);
-		expect(report.entryCoverage.legacy.blockedPageCount).toBe(2);
+		expect(report.entryCoverage.nativePageCount).toBe(47);
+		expect(report.entryCoverage.legacy.blockedPageCount).toBe(1);
 		expect(report.entryCoverage.frozenBoundary).toMatchObject({
 			domainCount: 33,
 			legacyEntryCount: 39,
@@ -101,10 +101,10 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationBreadth.passed).toBe(true);
 		expect(report.migrationBreadth.pages).toHaveLength(2);
 		expect(report.migrationBreadth.tabBarPageCount).toBe(4);
-		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(43);
+		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(47);
 		expect(report.migrationBreadth.interactionAudit.failures).toEqual([]);
-		expect(report.readOnly.domainCount).toBe(5);
-		expect(report.readOnly.semanticStateCount).toBe(35);
+		expect(report.readOnly.domainCount).toBe(6);
+		expect(report.readOnly.semanticStateCount).toBe(42);
 		expect(report.readOnly.semanticFailures).toEqual([]);
 		expect(report.readOnly.passed).toBe(true);
 		expect(report.providerIntake.documentCount).toBe(7);

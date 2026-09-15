@@ -26,6 +26,22 @@ grep '^PROVIDER_RAW_LOGGING=' shared/api.env
 原始日志可能包含医保凭证、患者信息、请求头和 Provider 完整报文，只能在 3090 受控环境内查看，禁止复制
 到聊天、普通文档、Git 或公共工单。
 
+## 0.1 管理端日志菜单的跨进程配置
+
+管理端读取与 Worker 上送必须使用不同令牌：`ADMIN_LOGS_TOKEN` 只放在
+`shared/api.env` 和 `shared/admin-query.env` 的读取链路，
+`ADMIN_LOGS_INGEST_TOKEN` 只放在 `shared/api.env` 与 `shared/worker.env` 的
+Worker ingest 链路。`shared/worker.env` 还必须配置：
+
+```dotenv
+ADMIN_LOGS_INGEST_URL=http://127.0.0.1:18081/api/v1/admin/logs/ingest
+```
+
+Worker ingest 只发送安全元数据；请求/响应原文仍只保留在 Worker/API 各自的 journald 中。
+本手册默认不启动 Worker；如果 Worker 已获准运行，配置变更后必须与 API 分别重启并以
+`service=hospital-worker`、`traceId` 查询到合成日志作为验收条件。ingest 暂时不可用时不得
+影响 Worker 的 journald 输出。
+
 ## 1. 一次性配置窄权限
 
 `current`、`releases` 和 `shared` 目录由 `ps` 自己管理，因此不需要为文件上传和软链接切换授予 root 权限。

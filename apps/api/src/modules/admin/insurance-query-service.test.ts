@@ -39,7 +39,7 @@ test("新服务 Admin 查询固定组装 1101 通用 FSI 请求", async () => {
 
 	expect(request).toMatchObject({
 		infno: "1101",
-		insuplc_admdvs: "",
+		insuplc_admdvs: "140581",
 		mdtrtarea_admvs: "140581",
 		fixmedins_code: "H14058101270",
 		fixmedins_name: "高平市人民医院",

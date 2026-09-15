@@ -1,5 +1,8 @@
 import { config } from "@hospital/config";
-import { createLogger } from "@hospital/observability";
+import {
+	createAdminLogForwardingDestination,
+	createLogger,
+} from "@hospital/observability";
 import {
 	createWorkerRuntime,
 	runWorkerLoop,
@@ -8,6 +11,11 @@ import {
 
 export type WorkerStatus = WorkerRuntimeStatus;
 
+export type {
+	MedicalInsuranceQueryTask,
+	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceQueryTaskStatus,
+} from "@hospital/domain";
 export {
 	type RuntimeSmokeCheck,
 	type RuntimeSmokeFetcher,
@@ -15,6 +23,17 @@ export {
 	type RuntimeSmokeResult,
 	runApiRuntimeSmoke,
 } from "./api-runtime-smoke";
+export {
+	type MedicalInsuranceOrderQueryGateway,
+	MedicalInsuranceOrderReconciliationWorker,
+	type MedicalInsuranceOrderReconciliationWorkerResult,
+} from "./medical-insurance-order-reconciliation-worker";
+export {
+	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+	type MedicalInsuranceQueryGateway,
+	MedicalInsuranceReconciliationWorker,
+	type MedicalInsuranceReconciliationWorkerResult,
+} from "./medical-insurance-reconciliation-worker";
 export type { OutboxWorkerResult } from "./outbox-worker";
 export { OutboxWorker } from "./outbox-worker";
 export {
@@ -25,22 +44,6 @@ export {
 	PaymentReconciliationWorker,
 	type PaymentReconciliationWorkerResult,
 } from "./payment-reconciliation-worker";
-export {
-	MedicalInsuranceReconciliationWorker,
-	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
-	type MedicalInsuranceReconciliationWorkerResult,
-	type MedicalInsuranceQueryGateway,
-} from "./medical-insurance-reconciliation-worker";
-export {
-	MedicalInsuranceOrderReconciliationWorker,
-	type MedicalInsuranceOrderQueryGateway,
-	type MedicalInsuranceOrderReconciliationWorkerResult,
-} from "./medical-insurance-order-reconciliation-worker";
-export type {
-	MedicalInsuranceQueryTask,
-	MedicalInsuranceQueryTaskRepository,
-	MedicalInsuranceQueryTaskStatus,
-} from "@hospital/domain";
 export {
 	type PreflightCheck,
 	runWorkerPreflight,
@@ -79,11 +82,28 @@ export async function workerStatus(): Promise<WorkerStatus> {
 }
 
 if (import.meta.main) {
+	const adminLogsIngestUrl = config.adminLogsIngestUrl;
+	const adminLogsIngestToken = config.adminLogsIngestToken;
+	const hasAdminLogsIngestUrl = Boolean(adminLogsIngestUrl);
+	const hasAdminLogsIngestToken = Boolean(adminLogsIngestToken);
+	if (hasAdminLogsIngestUrl !== hasAdminLogsIngestToken) {
+		throw new Error(
+			"ADMIN_LOGS_INGEST_URL and ADMIN_LOGS_INGEST_TOKEN must be configured together",
+		);
+	}
+	const destination =
+		adminLogsIngestUrl && adminLogsIngestToken
+			? createAdminLogForwardingDestination(process.stdout, {
+					url: adminLogsIngestUrl,
+					token: adminLogsIngestToken,
+				})
+			: process.stdout;
 	const logger = createLogger({
 		service: "hospital-worker",
 		// 与 API 共享同一份解析后的配置，避免 worker 日志与 API 日志出现模式漂移。
 		environment: config.environment,
 		level: (Bun.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") ?? "info",
+		destination,
 	});
 	const runtime = createWorkerRuntime({ logger });
 	await runWorkerLoop(runtime, {

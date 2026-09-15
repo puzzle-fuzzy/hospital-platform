@@ -15,6 +15,7 @@ import {
 	MyDoctorInputError,
 	MyDoctorNotFoundError,
 	MyDoctorReadModelValidationError,
+	OutpatientMedicalRecordResultValidationError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryReferenceConflictError,
@@ -64,11 +65,11 @@ import {
 	SessionPrincipalReadModelValidationError,
 	WechatLoginInputError,
 } from "../modules/auth/service";
-import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
 import {
 	IntelligentGuideConversationExpiredError,
 	IntelligentGuideInputError,
 } from "../modules/intelligent-guide";
+import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
 import {
 	MedicalInsuranceAppointmentNotFoundError,
 	MedicalInsuranceAppointmentStaleError,
@@ -80,6 +81,10 @@ import {
 	MedicalInsuranceWechatPaymentNotAllowedError,
 	MedicalInsuranceWechatPrepayExpiredError,
 } from "../modules/medical-insurance/wechat-payment-service";
+import {
+	MedicalRecordPatientNotFoundError,
+	MedicalRecordQueryError,
+} from "../modules/medical-records/service";
 import {
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
@@ -147,6 +152,8 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
+	"medical-record-query-invalid": 40200,
+	"medical-record-patient-not-found": 40210,
 	"payment-order-invalid": 50100,
 	"payment-order-not-found": 50110,
 	"payment-quote-not-found": 50120,
@@ -379,8 +386,25 @@ export function errorHandlerPlugin() {
 				return errorPayload(providerCode, providerMessage);
 			}
 
+			if (error instanceof MedicalRecordQueryError) {
+				set.status = 400;
+				return errorPayload(
+					"medical-record-query-invalid",
+					"门诊病历查询条件不合法",
+				);
+			}
+
+			if (error instanceof MedicalRecordPatientNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"medical-record-patient-not-found",
+					"当前就诊人暂无可查询的门诊病历",
+				);
+			}
+
 			if (
 				error instanceof OutpatientPaymentResultValidationError ||
+				error instanceof OutpatientMedicalRecordResultValidationError ||
 				error instanceof AppointmentDirectoryResultValidationError ||
 				error instanceof AppointmentRecordResultValidationError ||
 				error instanceof ReportResultValidationError ||

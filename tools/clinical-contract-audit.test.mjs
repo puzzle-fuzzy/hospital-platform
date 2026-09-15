@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
 
 describe("临床三域合同门禁", () => {
-	test("三个临床域保持独立、未注册且没有误加 API 路由", async () => {
+	test("门诊摘要以关闭闸门注册，其余临床域保持独立未注册", async () => {
 		const report = await buildClinicalContractAudit(process.cwd());
 
 		expect(report.domainCount).toBe(3);
@@ -24,6 +24,11 @@ describe("临床三域合同门禁", () => {
 				(domain) => domain.contractStatus === "pending",
 			),
 		).toBe(true);
+		expect(
+			report.structuredGate.domains.find(
+				(domain) => domain.id === "outpatient-records",
+			)?.implementationStatus,
+		).toBe("registered-fail-closed");
 		expect(report.structuredGate.passed).toBe(true);
 		expect(report.domains.every((domain) => domain.passed)).toBe(true);
 		expect(report.forbiddenRuntimeEntries).toEqual([]);

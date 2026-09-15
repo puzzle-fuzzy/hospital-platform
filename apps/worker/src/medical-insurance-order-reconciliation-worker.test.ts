@@ -555,7 +555,7 @@ test("医院负担不让 Worker 把过期微信现金预支付误判为可用", 
 	).toMatchObject({ wechatPaymentState: "unknown" });
 });
 
-test("pure insurance finalizes HIS through .32 then .5 without an early direct .5", async () => {
+test("pure insurance finalizes HIS through .32 without calling .5", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({

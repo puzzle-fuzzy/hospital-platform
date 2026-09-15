@@ -133,7 +133,9 @@ export class AdminInsuranceQueryService {
 			{
 				infno: "1101",
 				msgid: `${this.institutionCode.slice(0, 12)}${compactDateTime(infTime)}${this.createId().replaceAll("-", "").slice(0, 8)}`,
-				insuplc_admdvs: "",
+				// 管理端查询默认以医院所在的高平参保区划发起 1101；
+				// 最终险种参保地仍以医保平台返回为准。
+				insuplc_admdvs: "140581",
 				mdtrtarea_admvs: "140581",
 				dev_no: "",
 				dev_safe_info: "",

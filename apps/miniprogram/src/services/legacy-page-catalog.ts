@@ -163,10 +163,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/electronic_record.vue",
 			domain: "健康",
-			status: "blocked-provider",
-			nativeTarget: "pages/feature-status/feature-status",
+			status: "partial",
+			nativeTarget: "pages/medical-record/medical-record",
 			featureKey: "medical-record",
-			note: "旧端只能证明存在门诊记录调用线索；尚无正式 Provider 请求/响应、患者映射和字段白名单，因此统一进入状态页，不读取预约或报告数据冒充病历。",
+			note: "已迁移近 30 天门诊就诊摘要列表、患者切换和稳定状态；病历正文、详情、住院病历和附件仍独立关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/gift_electronic_banner.vue",

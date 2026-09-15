@@ -12,13 +12,14 @@ import {
 	type AppointmentRecordDirectoryGateway,
 	HealthKnowledgeContentUnavailableError,
 	type HealthKnowledgeRepository,
+	type OutpatientMedicalRecordGateway,
 	type OutpatientPaymentGateway,
 	type PatientDirectoryGateway,
 	PaymentOrderService,
 	type ReportDetailGateway,
 	type ReportDirectoryGateway,
 } from "@hospital/domain";
-import { createLogger } from "@hospital/observability";
+import { createAdminLogStore, createLogger } from "@hospital/observability";
 import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
@@ -42,6 +43,7 @@ import {
 	createInMemorySessionTokenService,
 } from "./modules/auth";
 import { HealthKnowledgeService } from "./modules/knowledge";
+import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
 import {
@@ -168,6 +170,137 @@ test("独立 Admin 1101 路由位于新服务 v1 命名空间且先校验服务�
 	});
 });
 
+test("独立 Admin 日志菜单只返回安全元数据并校验独立令牌", async () => {
+	const store = createAdminLogStore();
+	store.append(
+		JSON.stringify({
+			level: 30,
+			time: "2026-09-15T08:00:00.000Z",
+			service: "hospital-api",
+			environment: "test",
+			event: "http.request.completed",
+			method: "GET",
+			path: "/api/v1/demo",
+			statusCode: 200,
+			requestBody: { secret: "must-not-return" },
+			responseBody: { secret: "must-not-return" },
+		}),
+	);
+	const app = createApp({
+		adminLogStore: store,
+		adminLogsToken: "logs-token",
+		adminLogsIngestToken: "ingest-token",
+	});
+	const response = await app.handle(
+		new Request("http://localhost/api/v1/admin/logs", {
+			headers: { "x-admin-token": "logs-token" },
+		}),
+	);
+	const body = (await response.json()) as { data: { items: unknown[] } };
+	expect(response.status).toBe(200);
+	expect(body.data.items).toHaveLength(1);
+	expect(JSON.stringify(body)).not.toContain("must-not-return");
+	const detail = await app.handle(
+		new Request("http://localhost/api/v1/admin/logs/log-1", {
+			headers: { "x-admin-token": "logs-token" },
+		}),
+	);
+	expect(detail.status).toBe(200);
+	expect((await detail.json()).data).toMatchObject({
+		id: "log-1",
+		parameterVisibility: "not-recorded",
+	});
+	const ingest = await app.handle(
+		new Request("http://localhost/api/v1/admin/logs/ingest", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-token": "ingest-token",
+			},
+			body: JSON.stringify({
+				timestamp: "2026-09-15T08:01:00.000Z",
+				level: "warn",
+				service: "hospital-worker",
+				environment: "test",
+				event: "provider.request.failed",
+				traceId: "worker-trace-001",
+				providerRequestId: "provider-001",
+				providerErrorCode: "ORDER_NOT_EXIST",
+				parameterVisibility: "not-recorded",
+				responseBody: { secret: "must-not-store" },
+			}),
+		}),
+	);
+	expect(ingest.status).toBe(400);
+	const readTokenIngest = await app.handle(
+		new Request("http://localhost/api/v1/admin/logs/ingest", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-token": "logs-token",
+			},
+			body: JSON.stringify({
+				timestamp: "2026-09-15T08:01:00.000Z",
+				level: "warn",
+				service: "hospital-worker",
+				environment: "test",
+				parameterVisibility: "not-recorded",
+			}),
+		}),
+	);
+	expect(readTokenIngest.status).toBe(401);
+	const ingested = await app.handle(
+		new Request("http://localhost/api/v1/admin/logs/ingest", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-token": "ingest-token",
+			},
+			body: JSON.stringify({
+				timestamp: "2026-09-15T08:01:00.000Z",
+				level: "warn",
+				service: "hospital-worker",
+				environment: "test",
+				event: "provider.request.failed",
+				traceId: "worker-trace-001",
+				providerRequestId: "provider-001",
+				providerErrorCode: "ORDER_NOT_EXIST",
+				parameterVisibility: "not-recorded",
+			}),
+		}),
+	);
+	expect(ingested.status).toBe(200);
+	expect((await ingested.json()).data).toEqual({ accepted: true });
+	const workerLogs = await app.handle(
+		new Request(
+			"http://localhost/api/v1/admin/logs?service=hospital-worker&traceId=worker-trace-001",
+			{ headers: { "x-admin-token": "logs-token" } },
+		),
+	);
+	expect((await workerLogs.json()).data.items).toHaveLength(1);
+
+	const unauthorized = await app.handle(
+		new Request("http://localhost/api/v1/admin/logs", {
+			headers: { "x-admin-token": "wrong-token" },
+		}),
+	);
+	expect(unauthorized.status).toBe(401);
+});
+
+test("Admin 日志未配置令牌时保持 fail-closed", async () => {
+	const app = createApp({ adminLogStore: createAdminLogStore() });
+	const response = await app.handle(
+		new Request("http://localhost/api/v1/admin/logs", {
+			headers: { "x-admin-token": "any-token" },
+		}),
+	);
+	expect(response.status).toBe(503);
+	expect(await response.json()).toMatchObject({
+		success: false,
+		error: { code: "admin-not-configured" },
+	});
+});
+
 test("临时联调关闭众阳 2.6.65.9 反向查询路由", async () => {
 	const response = await createApp({
 		yunhealthPaymentQueryEnabled: false,
@@ -217,6 +350,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/knowledge/health/symptoms/list/part/{partId}",
 		"/api/v1/me",
 		"/api/v1/me/profile",
+		"/api/v1/medical-records",
 		"/api/v1/my/doctors",
 		"/api/v1/my/doctors/{doctorId}",
 		"/api/v1/patients",
@@ -384,6 +518,8 @@ test("public API documentation lists every stable public error code", async () =
 		"report-query-invalid",
 		"report-patient-not-found",
 		"report-not-found",
+		"medical-record-query-invalid",
+		"medical-record-patient-not-found",
 		"outpatient-payment-patient-not-found",
 		"outpatient-payment-record-not-found",
 		"provider-request-rejected",
@@ -591,6 +727,7 @@ test("protected routes authenticate before query validation", async () => {
 	const protectedRequests = [
 		"/api/v1/appointments/records",
 		"/api/v1/payments/outpatient/records?status=unpaid",
+		"/api/v1/medical-records",
 		"/api/v1/reports",
 		"/api/v1/me/profile",
 	] as const;
@@ -1931,6 +2068,100 @@ test("appointment directory keeps provider fields behind a server read model", a
 			message: "外部服务拒绝了本次请求，请联系工作人员核实后再试",
 		},
 	});
+});
+
+test("medical-record route resolves the owner-scoped patient and returns only safe summaries", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const patientRepository = createInMemoryPatientRepository();
+	await patientRepository.upsertFromDirectory({
+		ownerUserId: "fixture-user-0001",
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-001",
+			providerReferences: { "his-patient": "his-patient-001" },
+			displayName: "张三",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+		},
+	});
+	let providerPatientId = "";
+	const directory: OutpatientMedicalRecordGateway = {
+		listRecords: async (input, context) => {
+			providerPatientId = input.providerPatientId;
+			return {
+				records: [
+					{
+						visitTime: "2026-09-15 09:30:00",
+						departmentName: "心内科",
+						diagnosis: "高血压",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-medical-records",
+					requestId: context.traceId,
+				},
+			};
+		},
+	};
+	const base = createDefaultApplicationServices();
+	const app = createApp({
+		services: {
+			...base,
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(patientRepository),
+			medicalRecords: new OutpatientMedicalRecordService({
+				repository: patientRepository,
+				directory,
+			}),
+			sessions,
+		},
+	});
+	const loginResponse = await app.handle(
+		new Request("http://localhost/api/v1/auth/wechat", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ code: "fixture-code" }),
+		}),
+	);
+	const loginBody = (await loginResponse.json()) as {
+		data: { accessToken: string };
+	};
+	const response = await app.handle(
+		new Request(
+			"http://localhost/api/v1/medical-records?patientId=internal-patient-001&startDate=2026-08-16&endDate=2026-09-15",
+			{
+				headers: {
+					authorization: `Bearer ${loginBody.data.accessToken}`,
+					"x-request-id": "medical-record-query-trace",
+				},
+			},
+		),
+	);
+
+	expect(response.status).toBe(200);
+	expect(providerPatientId).toBe("his-patient-001");
+	const body = await response.json();
+	expect(body).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					visitTime: "2026-09-15 09:30:00",
+					departmentName: "心内科",
+					diagnosis: "高血压",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(JSON.stringify(body)).not.toContain("his-patient-001");
 });
 
 test("report directory resolves internal patient ownership before provider lookup", async () => {

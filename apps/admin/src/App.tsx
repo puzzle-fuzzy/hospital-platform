@@ -2,6 +2,7 @@ import {
 	CheckCircleFilled,
 	CopyOutlined,
 	DatabaseOutlined,
+	FileSearchOutlined,
 	IdcardOutlined,
 	LockOutlined,
 	LogoutOutlined,
@@ -24,6 +25,7 @@ import {
 	Form,
 	Input,
 	Layout,
+	Menu,
 	Radio,
 	Row,
 	Space,
@@ -49,6 +51,7 @@ import {
 	maskIdentity,
 	text,
 } from "./insurance";
+import { LogPanel } from "./LogPanel";
 import type {
 	CaptchaState,
 	InsuranceRecord,
@@ -59,7 +62,7 @@ import type {
 	Session,
 } from "./types";
 
-const { Header, Content } = Layout;
+const { Header, Content, Sider } = Layout;
 const { Text, Title } = Typography;
 
 const EMPTY_CAPTCHA: CaptchaState = { enabled: true, key: "", image: "" };
@@ -606,6 +609,9 @@ function Console() {
 	const [session, setSession] = useState<Session | undefined>(() =>
 		loadSession(),
 	);
+	const [activeMenu, setActiveMenu] = useState<"insurance" | "logs">(
+		"insurance",
+	);
 
 	const signOut = async () => {
 		if (session) await logout(session).catch(() => undefined);
@@ -626,7 +632,7 @@ function Console() {
 					<div>
 						<Text strong>高平市人民医院</Text>
 						<Text type="secondary" className="header-subtitle">
-							医保参保余额查询
+							{activeMenu === "logs" ? "接口调用日志" : "医保参保余额查询"}
 						</Text>
 					</div>
 				</div>
@@ -639,7 +645,51 @@ function Console() {
 					</Button>
 				</Space>
 			</Header>
-			<QueryPanel session={session} onExpired={() => setSession(undefined)} />
+			<Layout>
+				<Sider
+					className="console-sider"
+					width={224}
+					theme="light"
+					breakpoint="lg"
+					collapsedWidth={0}
+				>
+					<div className="sider-title">管理菜单</div>
+					<Menu
+						mode="inline"
+						selectedKeys={[activeMenu]}
+						onClick={({ key }) => setActiveMenu(key as "insurance" | "logs")}
+						items={[
+							{
+								key: "insurance",
+								icon: <IdcardOutlined />,
+								label: "医保参保查询",
+							},
+							{
+								key: "logs",
+								icon: <FileSearchOutlined />,
+								label: "接口调用日志",
+							},
+						]}
+					/>
+				</Sider>
+				{activeMenu === "logs" ? (
+					<LogPanel
+						session={session}
+						onExpired={() => {
+							clearSession();
+							setSession(undefined);
+						}}
+					/>
+				) : (
+					<QueryPanel
+						session={session}
+						onExpired={() => {
+							clearSession();
+							setSession(undefined);
+						}}
+					/>
+				)}
+			</Layout>
 		</Layout>
 	);
 }

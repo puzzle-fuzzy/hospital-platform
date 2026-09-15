@@ -329,7 +329,7 @@ test("缺少关单上下文时在 Provider 边界前返回可识别错误", asyn
 	expect(providerCalled).toBe(false);
 });
 
-test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算", async () => {
+test("纯医保零元订单在 .32 成功后不调用 .5", async () => {
 	const providerPaths: string[] = [];
 	const medicalOrder = {
 		medicalOrderId: "medical-order-zero-cash-001",
@@ -356,6 +356,7 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 		cashierUrl: "https://cashier.example/zero-cash",
 	};
 	let paymentOrderInput: Record<string, unknown> | undefined;
+	let querySettlementCalls = 0;
 	const settlement = {
 		payOrdId: medicalOrder.payOrdId,
 		ordStas: "6",
@@ -378,23 +379,33 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 					},
 				};
 			},
-			querySettlement: async () => ({
-				settlement: {
-					payOrdId: medicalOrder.payOrdId,
-					ordStas: "6",
-					amounts: settlement,
-				},
-				statusClass: "settlement_candidate",
-				trace: {
-					provider: "medical-insurance",
-					operation: "medical-insurance.6301",
-					requestId: "fsi-6301-zero-cash",
-				},
-			}),
+			querySettlement: async () => {
+				querySettlementCalls += 1;
+				return {
+					settlement: {
+						payOrdId: medicalOrder.payOrdId,
+						ordStas: "6",
+						amounts: settlement,
+					},
+					statusClass: "settlement_candidate",
+					trace: {
+						provider: "medical-insurance",
+						operation: "medical-insurance.6301",
+						requestId: "fsi-6301-zero-cash",
+					},
+				};
+			},
 		} as never,
 		orders: {
 			findByMedicalOrderId: async () => medicalOrder,
 			getSettlementContext: async () => settlementContext,
+			saveSettlementContext: async (
+				_owner: string,
+				_orderId: string,
+				next: MedicalInsuranceSettlementContext,
+			) => {
+				settlementContext = next;
+			},
 		} as never,
 		authorizations: {
 			get: async () => ({ payAuthNo: "AUTH-ZERO-CASH" }),
@@ -464,8 +475,21 @@ test("纯医保零元订单必须经过 cashier-confirm 后才执行最终结算
 		context,
 	);
 	expect(completed.state).toBe("insurance_settled");
-	expect(providerPaths.slice(-2)).toEqual([
+	expect(providerPaths.slice(-1)).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
+	expect(providerPaths).not.toContain(
+		"/msun-yb-app-miop/v1/out-insur-settle-infos",
+	);
+	await expect(
+		gateway.query(
+			{
+				orderId: medicalOrder.medicalOrderId,
+				ownerUserId: medicalOrder.ownerUserId,
+				cashPaymentConfirmed: true,
+			},
+			context,
+		),
+	).resolves.toMatchObject({ state: "insurance_settled" });
+	expect(querySettlementCalls).toBe(1);
 });

@@ -5,8 +5,10 @@ import type {
 	AppointmentRecord,
 	AppointmentSchedule,
 	HealthResponse,
-	OutpatientPaymentRecord,
+	OutpatientMedicalRecord,
+	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentDetail,
+	OutpatientPaymentRecord,
 	Patient,
 	PatientBindingRequest,
 	PatientListResponse,
@@ -24,8 +26,9 @@ import {
 	requestAppointmentDepartmentTree,
 	requestAppointmentRecords,
 	requestAppointmentSchedules,
-	requestOutpatientPaymentRecords,
+	requestOutpatientMedicalRecords,
 	requestOutpatientPaymentDetail,
+	requestOutpatientPaymentRecords,
 	requestReports,
 	requestWithSession,
 	requireSuccessDataResponse,
@@ -594,6 +597,58 @@ export function requireOutpatientPaymentListData(
 		items,
 		total: list.total,
 	};
+}
+
+const MEDICAL_RECORD_FIELDS = new Set([
+	"departmentName",
+	"doctorName",
+	"hospitalName",
+	"clinicTypeName",
+	"chargeClassName",
+	"visitTime",
+	"diagnosis",
+]);
+
+/**
+ * 微信响应再次按门诊摘要白名单重投影，Provider 主键或患者身份字段一律拒绝。
+ * 空数组只在响应 contract 完整时才表示真实空结果，错误不能降级成空态。
+ */
+export function requireOutpatientMedicalRecordListData(
+	value: unknown,
+): ExactListData<OutpatientMedicalRecord> {
+	const list = requireExactListData<unknown>(value);
+	if (list.items.length > 512) {
+		throw new ApiError("Medical record response is too large", {
+			code: "provider-response-invalid",
+		});
+	}
+	const items: OutpatientMedicalRecord[] = list.items.map((item) => {
+		if (
+			!isRecord(item) ||
+			Object.keys(item).some((field) => !MEDICAL_RECORD_FIELDS.has(field)) ||
+			!hasBoundedDisplayText(item.visitTime, 64)
+		) {
+			throw new ApiError("Medical record response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+		const departmentName = optionalDisplayText(item.departmentName, 128);
+		const doctorName = optionalDisplayText(item.doctorName, 128);
+		const hospitalName = optionalDisplayText(item.hospitalName, 128);
+		const clinicTypeName = optionalDisplayText(item.clinicTypeName, 128);
+		const chargeClassName = optionalDisplayText(item.chargeClassName, 128);
+		const diagnosis = optionalDisplayText(item.diagnosis, 4096);
+		return {
+			visitTime: item.visitTime,
+			...(departmentName ? { departmentName } : {}),
+			...(doctorName ? { doctorName } : {}),
+			...(hospitalName ? { hospitalName } : {}),
+			...(clinicTypeName ? { clinicTypeName } : {}),
+			...(chargeClassName ? { chargeClassName } : {}),
+			...(diagnosis ? { diagnosis } : {}),
+		};
+	});
+	return { items, total: list.total };
 }
 
 /** 门诊详情沿用列表摘要的运行时校验，不允许网络响应带入未确认明细字段。 */
@@ -1225,6 +1280,21 @@ export function loadOutpatientPaymentRecords(
 	).then(
 		(payload) => requireOutpatientPaymentListData(payload.data, status).items,
 	);
+}
+
+/** 读取近 30 天门诊就诊摘要，日期窗口由客户端和服务端双重限制。 */
+export function loadOutpatientMedicalRecords(
+	patientId: string,
+	now = new Date(),
+	expectedSessionGeneration: number,
+): Promise<OutpatientMedicalRecordListResponse["data"]> {
+	return requestOutpatientMedicalRecords(
+		{
+			patientId: requirePatientId(patientId),
+			...createPastDateRange(30, now),
+		},
+		expectedSessionGeneration,
+	).then((payload) => requireOutpatientMedicalRecordListData(payload.data));
 }
 
 /** 读取单笔已核对的门诊费用摘要；项目级明细仍按 Provider contract 关闭。 */

@@ -10,6 +10,7 @@ import type {
 	HospitalSettlementGateway,
 	IntelligentGuideConversationStore,
 	IntelligentGuideGateway,
+	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
@@ -52,6 +53,7 @@ import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment
 import { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
 import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
+import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
@@ -86,6 +88,8 @@ export type ApplicationServices = {
 	/** 智能导诊通过服务端身份桥接旧 AI，不向小程序下发旧 JWT 或会话 ID。 */
 	intelligentGuide?: IntelligentGuideService;
 	reports: ReportService;
+	/** 仅提供门诊就诊摘要；病历正文、附件和住院病历不复用此服务。 */
+	medicalRecords?: OutpatientMedicalRecordService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
 	/** 挂号自费与其他普通自费共用官方微信 APIv3 收银台。 */
@@ -138,6 +142,8 @@ export type ApplicationServiceOptions = {
 	appointmentWriteGateway?: AppointmentWriteGateway;
 	/** 门诊费用只读目录；支付和医保结算不由该网关隐式开启。 */
 	outpatientPaymentGateway?: OutpatientPaymentGateway;
+	/** 门诊就诊摘要 Provider；独立配置并默认 fail-closed。 */
+	outpatientMedicalRecordGateway?: OutpatientMedicalRecordGateway;
 	outpatientPaymentAuthSysCode?: string;
 	/** 只有完成众阳 LIS/PACS/ECG/PEIS 只读合同和真实环境验收后才打开。 */
 	reportDirectoryGateway?: ReportDirectoryGateway;
@@ -662,6 +668,13 @@ export function createDefaultApplicationServices(
 			...(options.reportAttachmentGateway
 				? { attachment: options.reportAttachmentGateway }
 				: {}),
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		medicalRecords: new OutpatientMedicalRecordService({
+			repository: repositories.patients,
+			directory:
+				options.outpatientMedicalRecordGateway ??
+				gateways.outpatientMedicalRecords,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		outpatientPayments: new OutpatientPaymentService({

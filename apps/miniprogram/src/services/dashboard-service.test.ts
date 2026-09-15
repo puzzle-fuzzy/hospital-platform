@@ -1,13 +1,14 @@
 import { expect, test } from "bun:test";
 import {
+	requestOutpatientMedicalRecords,
 	requestOutpatientPaymentRecords,
 	requestReportDetail,
 	requestReports,
 } from "./api-client";
 import {
-	createAppointmentScheduleDayRange,
 	createAppointmentRecordDateRange,
 	createAppointmentRecordQuery,
+	createAppointmentScheduleDayRange,
 	createPastDateRange,
 	createUpcomingDateRange,
 	formatOutpatientAmountLabel,
@@ -15,6 +16,7 @@ import {
 	formatPlatformDate,
 	loadAppointmentSchedules,
 	loadCurrentPatientForOwner,
+	loadOutpatientMedicalRecords,
 	loadOutpatientPaymentRecords,
 	loadPatientsForOwner,
 	requireAppointmentDepartmentListData,
@@ -22,6 +24,7 @@ import {
 	requireAppointmentRecordListData,
 	requireAppointmentScheduleListData,
 	requireExactListData,
+	requireOutpatientMedicalRecordListData,
 	requireOutpatientPaymentListData,
 	requirePatientListData,
 	syncPatientsFromHospital,
@@ -166,7 +169,7 @@ test("门诊费用查询在网络请求前拒绝未知状态", async () => {
 	).rejects.toMatchObject({ code: "outpatient-payment-query-invalid" });
 });
 
-test("报告和门诊费用底层请求在网络请求前拒绝非法患者范围参数", () => {
+test("报告、门诊费用和门诊病历在网络请求前拒绝非法患者范围参数", () => {
 	const generation = getSessionGeneration();
 
 	expect(() =>
@@ -175,6 +178,16 @@ test("报告和门诊费用底层请求在网络请求前拒绝非法患者范�
 			generation,
 		),
 	).toThrow("请先登录并选择就诊人");
+	expect(() =>
+		requestOutpatientMedicalRecords(
+			{
+				patientId: "patient-001",
+				startDate: "2026-02-30",
+				endDate: "2026-03-01",
+			},
+			generation,
+		),
+	).toThrow("门诊病历查询条件不合法");
 	expect(() =>
 		requestReports(
 			{
@@ -745,6 +758,36 @@ test("门诊费用列表必须保持查询状态和公共记录字段一致", ()
 			"Outpatient payment response",
 		);
 	}
+});
+
+test("门诊病历响应只接受无 Provider 主键的安全摘要", () => {
+	const valid = {
+		items: [
+			{
+				visitTime: "2026-08-15 10:20:30",
+				departmentName: "心内科",
+				doctorName: "张医生",
+				diagnosis: "高血压",
+			},
+		],
+		total: 1,
+	};
+	expect(requireOutpatientMedicalRecordListData(valid)).toEqual(valid);
+	for (const invalid of [
+		{ ...valid, total: 2 },
+		{ ...valid, items: [{ ...valid.items[0], visitTime: "" }] },
+		{ ...valid, items: [{ ...valid.items[0], diagnosis: null }] },
+		{ ...valid, items: [{ ...valid.items[0], patId: "provider-patient" }] },
+		{ ...valid, items: [{ ...valid.items[0], regId: "provider-visit" }] },
+	]) {
+		expect(() => requireOutpatientMedicalRecordListData(invalid)).toThrow();
+	}
+});
+
+test("门诊病历查询先拒绝空患者标识", () => {
+	expect(() =>
+		loadOutpatientMedicalRecords("", BEIJING_MIDNIGHT, getSessionGeneration()),
+	).toThrow("请先登录并选择就诊人");
 });
 
 test("门诊费用列表展示旧端日期粒度但保留完整账单事实", () => {

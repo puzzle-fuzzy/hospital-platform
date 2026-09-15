@@ -214,6 +214,7 @@ export type {
 	MedicalInsuranceQueryTaskRepository,
 	MedicalInsuranceQueryTaskStatus,
 	MedicalInsuranceSettlementContext,
+	MedicalInsuranceSettlementQuerySnapshot,
 	MedicalInsuranceSettlementNotification,
 } from "./medical-insurance-order";
 export {

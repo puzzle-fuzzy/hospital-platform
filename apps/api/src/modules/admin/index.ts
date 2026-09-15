@@ -7,6 +7,8 @@ import {
 	type AdminInsuranceQueryService,
 } from "./insurance-query-service";
 
+export { adminLogsModule } from "./logs";
+
 const AdminInsuranceQueryHeaders = t.Object({
 	"x-admin-query-token": t.String({ minLength: 1, maxLength: 512 }),
 	"x-request-id": t.Optional(t.String({ maxLength: 128 })),

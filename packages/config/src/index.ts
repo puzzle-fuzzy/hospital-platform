@@ -108,6 +108,12 @@ export type RuntimeConfig = {
 	legacyPatientAuthBaseUrl: string | undefined;
 	/** 新服务独立 Admin 查询接口的服务间令牌；不下发浏览器或小程序。 */
 	adminQueryToken: string | undefined;
+	/** 新服务独立 Admin 日志查看令牌；与 1101 查询令牌分离。 */
+	adminLogsToken: string | undefined;
+	/** Worker 上送安全日志元数据的内部地址；不向浏览器暴露。 */
+	adminLogsIngestUrl: string | undefined;
+	/** Worker 上送日志使用的独立服务间令牌；不复用读令牌。 */
+	adminLogsIngestToken: string | undefined;
 	/** 旧服务自费插件 HIS 回写独立闸门；配置齐全也不等于真实联调通过。 */
 	yunhealthRegistrationSettlementReady: boolean;
 	/** 云健康插件 .29/.15/.5 地址；缺失时不安装真实回写 adapter。 */
@@ -1118,6 +1124,9 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		legacyPatientAuthBaseUrl: optional(env.LEGACY_PATIENT_AUTH_BASE_URL),
 		adminQueryToken: optional(env.ADMIN_QUERY_TOKEN),
+		adminLogsToken: optional(env.ADMIN_LOGS_TOKEN),
+		adminLogsIngestUrl: optional(env.ADMIN_LOGS_INGEST_URL),
+		adminLogsIngestToken: optional(env.ADMIN_LOGS_INGEST_TOKEN),
 		yunhealthRegistrationSettlementReady: boolean(
 			env.YUNHEALTH_REGISTRATION_SETTLEMENT_READY,
 			false,

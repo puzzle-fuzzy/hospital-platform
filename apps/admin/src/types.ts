@@ -53,3 +53,66 @@ export type Normalized1101Result = {
 	identityRecords: ProviderRecord[];
 	raw: unknown;
 };
+
+export type AdminLogLevel = "debug" | "info" | "warn" | "error";
+
+export type AdminLogRecord = {
+	id: string;
+	timestamp: string;
+	level: AdminLogLevel;
+	source: "process" | "database";
+	service: string;
+	environment: string;
+	event?: string;
+	method?: string;
+	path?: string;
+	statusCode?: number;
+	durationMs?: number;
+	requestId?: string;
+	traceId?: string;
+	errorName?: string;
+	errorCode?: string;
+	dependency?: string;
+	provider?: string;
+	providerOperation?: string;
+	providerRequestId?: string;
+	providerStatusCode?: number;
+	providerFailureStage?: string;
+	providerRequestOutcome?: string;
+	providerRetryable?: boolean;
+	providerErrorCode?: string;
+	providerErrorMessageLength?: number;
+	providerErrorMessageSha256?: string;
+	providerTransportErrorCode?: string;
+	providerResponseBusinessSuccess?: boolean;
+	providerResponseCode?: string;
+	providerResponseBodyByteLength?: number;
+	providerResponseBodySha256?: string;
+	providerResponseMessageLength?: number;
+	persistenceOperation?: string;
+	parameterVisibility: "not-recorded";
+};
+
+export type AdminLogPage = {
+	items: AdminLogRecord[];
+	total: number;
+	page: number;
+	pageSize: number;
+	source: "process" | "database";
+	parameterPolicy: "safe-metadata-only";
+};
+
+export type AdminLogQuery = {
+	page?: number;
+	pageSize?: number;
+	level?: AdminLogLevel;
+	event?: string;
+	path?: string;
+	traceId?: string;
+	requestId?: string;
+	providerRequestId?: string;
+	providerOperation?: string;
+	service?: string;
+	startTime?: string;
+	endTime?: string;
+};

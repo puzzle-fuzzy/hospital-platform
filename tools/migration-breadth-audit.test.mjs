@@ -20,7 +20,7 @@ describe("跨业务域入口广度审计", () => {
 		expect(result.tabBarPageCount).toBe(4);
 		expect(result.featureStatusActions).toHaveLength(10);
 		expect(result.featureStatusActions).toContain("首页:patient-qr");
-		expect(result.interactionAudit.pageCount).toBe(43);
+		expect(result.interactionAudit.pageCount).toBe(47);
 		expect(result.interactionAudit.failures).toEqual([]);
 		expect(result.interactionAudit.pages.every((page) => page.passed)).toBe(
 			true,

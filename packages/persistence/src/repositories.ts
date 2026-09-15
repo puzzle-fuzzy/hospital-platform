@@ -1891,6 +1891,16 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 							),
 						}
 					: {}),
+				...(context.settlementQuery6301
+					? {
+							settlementQuery6301: {
+								...context.settlementQuery6301,
+								...(context.settlementQuery6301.amounts
+									? { amounts: { ...context.settlementQuery6301.amounts } }
+									: {}),
+							},
+						}
+					: {}),
 				networkRegister: { ...context.networkRegister },
 				outNetworkSettleMain: { ...context.outNetworkSettleMain },
 				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({
@@ -1918,6 +1928,16 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 							),
 						}
 					: {}),
+				...(context.settlementQuery6301
+					? {
+							settlementQuery6301: {
+								...context.settlementQuery6301,
+								...(context.settlementQuery6301.amounts
+									? { amounts: { ...context.settlementQuery6301.amounts } }
+									: {}),
+							},
+						}
+					: {}),
 				networkRegister: { ...context.networkRegister },
 				outNetworkSettleMain: { ...context.outNetworkSettleMain },
 				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({
@@ -1941,6 +1961,16 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 							postPaymentComponents: context.postPaymentComponents.map(
 								(component) => ({ ...component }),
 							),
+						}
+					: {}),
+				...(context.settlementQuery6301
+					? {
+							settlementQuery6301: {
+								...context.settlementQuery6301,
+								...(context.settlementQuery6301.amounts
+									? { amounts: { ...context.settlementQuery6301.amounts } }
+									: {}),
+							},
 						}
 					: {}),
 				networkRegister: { ...context.networkRegister },
@@ -2007,6 +2037,18 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 					postPaymentComponents: postPaymentComponents.map((candidate) => ({
 						...candidate,
 					})),
+					...(context.settlementQuery6301
+						? {
+								settlementQuery6301: {
+									...context.settlementQuery6301,
+									...(context.settlementQuery6301.amounts
+										? {
+												amounts: { ...context.settlementQuery6301.amounts },
+											}
+										: {}),
+								},
+							}
+						: {}),
 					networkRegister: { ...context.networkRegister },
 					outNetworkSettleMain: { ...context.outNetworkSettleMain },
 					nationalUpDetailList: context.nationalUpDetailList.map((item) => ({

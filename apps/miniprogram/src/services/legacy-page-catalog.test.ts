@@ -220,7 +220,7 @@ describe("旧端页面全量迁移台账", () => {
 
 	test("状态页面按业务分类提供用户文案，不泄漏内部门禁术语", () => {
 		const providerCopy = getFeatureUserFacingCopy(
-			FEATURE_STATUS_CATALOG["medical-record"],
+			FEATURE_STATUS_CATALOG["inpatient-center"],
 		);
 		const paymentCopy = getFeatureUserFacingCopy(
 			FEATURE_STATUS_CATALOG.insurance,

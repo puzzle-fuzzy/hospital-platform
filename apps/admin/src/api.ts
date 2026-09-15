@@ -1,5 +1,8 @@
 import { normalize1101Result, queryPayload } from "./insurance";
 import type {
+	AdminLogPage,
+	AdminLogQuery,
+	AdminLogRecord,
 	CaptchaState,
 	LoginValues,
 	Normalized1101Result,
@@ -164,6 +167,46 @@ export async function queryInsurance(
 			body: JSON.stringify(queryPayload(values)),
 		});
 		return normalize1101Result(result);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+function logQueryString(query: AdminLogQuery): string {
+	const params = new URLSearchParams();
+	for (const [key, value] of Object.entries(query)) {
+		if (value !== undefined && value !== "") params.set(key, String(value));
+	}
+	const encoded = params.toString();
+	return encoded ? `?${encoded}` : "";
+}
+
+export async function fetchLogPage(
+	query: AdminLogQuery,
+	session: Session,
+): Promise<AdminLogPage> {
+	try {
+		return await request<AdminLogPage>(`/api/logs${logQueryString(query)}`, {
+			headers: { Authorization: `Bearer ${session.accessToken}` },
+		});
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function fetchLogDetail(
+	id: string,
+	session: Session,
+): Promise<AdminLogRecord> {
+	try {
+		return await request<AdminLogRecord>(
+			`/api/logs/${encodeURIComponent(id)}`,
+			{
+				headers: { Authorization: `Bearer ${session.accessToken}` },
+			},
+		);
 	} catch (error) {
 		if (error instanceof ApiError && error.status === 401) clearSession();
 		throw error;

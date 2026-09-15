@@ -15,6 +15,7 @@ import {
 	createZhongyangAppointmentGateway,
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
+	createZhongyangMedicalRecordGateway,
 	createZhongyangOutpatientPaymentGateway,
 	createZhongyangPatientBindingGateway,
 	createZhongyangPatientGateway,
@@ -29,6 +30,8 @@ import {
 	appointmentWritesConfigurationStatus,
 	medicalInsuranceConfigurationMissingFields,
 	medicalInsuranceConfigurationStatus,
+	outpatientMedicalRecordsConfigurationMissingFields,
+	outpatientMedicalRecordsConfigurationStatus,
 	outpatientPaymentConfigurationMissingFields,
 	outpatientPaymentConfigurationStatus,
 	patientBindingConfigurationMissingFields,
@@ -48,7 +51,11 @@ import {
 	yunhealthRegistrationSettlementConfigurationMissingFields,
 	yunhealthRegistrationSettlementConfigurationStatus,
 } from "@hospital/config";
-import { createLogger } from "@hospital/observability";
+import {
+	createAdminLogDestination,
+	createAdminLogStore,
+	createLogger,
+} from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
 import { createApp } from "./app";
 import {
@@ -66,10 +73,12 @@ import { withShutdownDeadline } from "./shutdown";
  */
 const API_SHUTDOWN_DEADLINE_MS = 10_000;
 
+const adminLogStore = createAdminLogStore();
 const logger = createLogger({
 	service: "hospital-api",
 	environment: config.environment,
 	level: config.logLevel,
+	destination: createAdminLogDestination(adminLogStore, process.stdout),
 });
 configureProviderRequestLogger(logger);
 const wechatIdentityStatus = wechatIdentityConfigurationStatus(config);
@@ -95,6 +104,10 @@ const appointmentRecordsMissing =
 const appointmentWritesStatus = appointmentWritesConfigurationStatus(config);
 const appointmentWritesMissing =
 	appointmentWritesConfigurationMissingFields(config);
+const medicalRecordsStatus =
+	outpatientMedicalRecordsConfigurationStatus(config);
+const medicalRecordsMissing =
+	outpatientMedicalRecordsConfigurationMissingFields(config);
 const outpatientPaymentStatus = outpatientPaymentConfigurationStatus(config);
 const outpatientPaymentMissing =
 	outpatientPaymentConfigurationMissingFields(config);
@@ -247,6 +260,15 @@ const outpatientPaymentGateway =
 		? createZhongyangOutpatientPaymentGateway({
 				baseUrl: config.zhongyangBaseUrl,
 				authSysCode: config.outpatientPaymentAuthSysCode,
+				...(config.zhongyangAuthorizationToken
+					? { authorizationToken: config.zhongyangAuthorizationToken }
+					: {}),
+			})
+		: undefined;
+const outpatientMedicalRecordGateway =
+	medicalRecordsStatus === "configured" && config.zhongyangBaseUrl
+		? createZhongyangMedicalRecordGateway({
+				baseUrl: config.zhongyangBaseUrl,
 				...(config.zhongyangAuthorizationToken
 					? { authorizationToken: config.zhongyangAuthorizationToken }
 					: {}),
@@ -505,6 +527,7 @@ const services = createDefaultApplicationServices({
 		: {}),
 	...(appointmentWriteGateway ? { appointmentWriteGateway } : {}),
 	...(outpatientPaymentGateway ? { outpatientPaymentGateway } : {}),
+	...(outpatientMedicalRecordGateway ? { outpatientMedicalRecordGateway } : {}),
 	outpatientPaymentAuthSysCode: config.outpatientPaymentAuthSysCode,
 	...(reportDirectoryGateway ? { reportDirectoryGateway } : {}),
 	...(reportDetailGateway ? { reportDetailGateway } : {}),
@@ -612,6 +635,11 @@ const app = createApp({
 	...(config.adminQueryToken
 		? { adminQueryToken: config.adminQueryToken }
 		: {}),
+	adminLogStore,
+	...(config.adminLogsToken ? { adminLogsToken: config.adminLogsToken } : {}),
+	...(config.adminLogsIngestToken
+		? { adminLogsIngestToken: config.adminLogsIngestToken }
+		: {}),
 	wechatPaymentEnabled,
 	registrationSelfPayEnabled: wechatPaymentEnabled,
 	// 临时联调：只验证 `.2 -> 支付 -> .5`，暂停 .9。
@@ -681,6 +709,10 @@ logger.info(
 		persistenceRedisProbe: startupRedisProbe,
 		persistenceSchemaProbe: startupSchemaProbe,
 		persistenceRepositories: readyRepositories ? "enabled" : "fail_closed",
+		adminLogsReadRuntime: config.adminLogsToken ? "configured" : "fail_closed",
+		adminLogsIngestRuntime: config.adminLogsIngestToken
+			? "configured"
+			: "fail_closed",
 		authRuntimeStatus,
 		authIdentityGateway: identityGateway ? "injected" : "fail_closed",
 		authSessionStore: persistence.sessions ? "injected" : "fail_closed",
@@ -717,6 +749,7 @@ logger.info(
 		appointmentRecordsConfiguration: appointmentRecordsStatus,
 		appointmentWritesConfiguration: appointmentWritesStatus,
 		outpatientPaymentConfiguration: outpatientPaymentStatus,
+		outpatientMedicalRecordsConfiguration: medicalRecordsStatus,
 		reportDirectoryConfiguration: reportDirectoryStatus,
 		reportDetailConfiguration: reportDetailStatus,
 		...(wechatIdentityMissing.length > 0 ? { wechatIdentityMissing } : {}),
@@ -738,6 +771,9 @@ logger.info(
 			: {}),
 		...(outpatientPaymentMissing.length > 0
 			? { outpatientPaymentMissing }
+			: {}),
+		...(medicalRecordsMissing.length > 0
+			? { outpatientMedicalRecordsMissing: medicalRecordsMissing }
 			: {}),
 		...(reportDirectoryMissing.length > 0 ? { reportDirectoryMissing } : {}),
 		...(reportDetailMissing.length > 0 ? { reportDetailMissing } : {}),

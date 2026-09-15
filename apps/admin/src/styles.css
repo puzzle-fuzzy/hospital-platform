@@ -110,6 +110,17 @@ body {
 	background: var(--ant-color-bg-layout);
 }
 
+.console-sider {
+	min-height: calc(100vh - 64px);
+	border-right: 1px solid var(--ant-color-border-secondary);
+}
+
+.sider-title {
+	padding: 24px 24px 12px;
+	color: var(--ant-color-text-secondary);
+	font-size: 12px;
+}
+
 .console-header {
 	position: sticky;
 	top: 0;
@@ -168,6 +179,11 @@ body {
 	margin-top: 16px;
 }
 
+.log-policy-alert,
+.log-filter-card {
+	margin-bottom: 16px;
+}
+
 .raw-result {
 	display: flex;
 	flex-direction: column;
@@ -203,6 +219,12 @@ body {
 
 	.console-content {
 		padding: 24px 16px;
+	}
+
+	.console-sider {
+		position: fixed;
+		z-index: 20;
+		height: calc(100vh - 64px);
 	}
 
 	.content-heading {

@@ -1,7 +1,7 @@
 /**
  * 临床只读三域的独立准入目录。
  *
- * 这里描述的是“尚未注册时必须保持的边界”，不是运行时业务配置。
+ * 这里同时描述正式合同准入和代码注册边界，不是运行时业务配置。
  * 门诊记录、住院和电子导诊的 Provider 身份、患者映射、权限
  * 和保留周期不同，不能因为它们都从“我的”入口进入就共用一个接口。
  * “我的问诊”虽然和电子导诊一起出现在旧端临床材料快照中，但它属于
@@ -12,12 +12,14 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 	{
 		id: "outpatient-records",
 		name: "门诊就诊记录",
-		expectedReadiness: "待 provider contract",
+		expectedReadiness: "已接入安全子集",
+		implementationStatus: "registered-fail-closed",
 		legacyEntries: [
 			{
 				path: "pagesB/health/electronic_record.vue",
 				featureKey: "medical-record",
-				status: "blocked-provider",
+				status: "partial",
+				safeSurfaceTarget: "pages/medical-record/medical-record",
 			},
 		],
 		documents: [
@@ -25,13 +27,19 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 			"docs/迁移/病案目录契约草案.md",
 			"docs/迁移/病案与医院边界.md",
 		],
-		requiredMarkers: ["out-visit-records", "patId", "字段白名单", "未注册"],
-		forbiddenApiTokens: ["/out-visit-records", "/out-emrs", "/medical-records"],
+		requiredMarkers: [
+			"out-visit-records",
+			"patId",
+			"字段白名单",
+			"implemented-pending-acceptance",
+		],
+		forbiddenApiTokens: ["/out-emrs"],
 	},
 	{
 		id: "inpatient",
 		name: "住院信息",
 		expectedReadiness: "待 provider contract",
+		implementationStatus: "unregistered",
 		legacyEntries: [
 			{
 				path: "pagesB/health/inpatient_center.vue",
@@ -56,6 +64,7 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 		id: "electronic-consultation",
 		name: "电子导诊单",
 		expectedReadiness: "待 provider contract",
+		implementationStatus: "unregistered",
 		legacyEntries: [
 			{
 				path: "pagesB/health/electronic_consultation.vue",
