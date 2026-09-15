@@ -11,6 +11,7 @@ import {
 	createAppointmentRecordQuery,
 	createAppointmentScheduleDayRange,
 	createPastDateRange,
+	createReportDateRange,
 	createUpcomingDateRange,
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
@@ -60,6 +61,22 @@ test("预约历史保留旧服务的月底日历月溢出语义", () => {
 	expect(createAppointmentRecordDateRange(beijingMonthEnd)).toEqual({
 		startDate: "2026-05-31",
 		endDate: "2026-12-01",
+	});
+});
+
+test("报告默认查询使用旧服务的前一个日历月", () => {
+	const now = new Date("2026-08-15T15:59:59.000Z");
+	expect(createReportDateRange(now)).toEqual({
+		startDate: "2026-07-15",
+		endDate: "2026-08-15",
+	});
+});
+
+test("报告默认查询保留旧服务的月底日历月溢出语义", () => {
+	const monthEnd = new Date("2026-08-30T16:00:00.000Z");
+	expect(createReportDateRange(monthEnd)).toEqual({
+		startDate: "2026-07-31",
+		endDate: "2026-08-31",
 	});
 });
 

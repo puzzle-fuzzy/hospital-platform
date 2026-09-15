@@ -1,7 +1,6 @@
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
-	createPastDateRange,
-	DASHBOARD_DATE_RANGE_DAYS,
+	createReportDateRange,
 	loadCurrentPatientForOwner,
 	loadReports,
 } from "../../services/dashboard-service";
@@ -43,10 +42,7 @@ import type {
  * 被描述为已经完成 provider 分页，也不能改变 `payload.total` 的服务端语义。
  */
 const REPORT_PAGE_SIZE = 10;
-const INITIAL_REPORT_RANGE = createPastDateRange(
-	DASHBOARD_DATE_RANGE_DAYS.reports,
-	new Date(),
-);
+const INITIAL_REPORT_RANGE = createReportDateRange(new Date());
 
 const REPORT_KIND_LABELS = Object.freeze({
 	laboratory: "检验报告",

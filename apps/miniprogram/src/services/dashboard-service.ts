@@ -1194,13 +1194,14 @@ export const DASHBOARD_DATE_RANGE_DAYS = Object.freeze({
 	appointmentScheduleCalendar: 30,
 	/** 爽约只能从已经发生的日期中派生，不能把未来预约误算成爽约。 */
 	missedAppointmentsPast: 90,
-	reports: 30,
 });
 
 /** 旧“我的挂号”页面按当前日历日向前、向后各取三个月。 */
 export const DASHBOARD_DATE_RANGE_MONTHS = Object.freeze({
 	appointmentRecordsPast: 3,
 	appointmentRecordsFuture: 3,
+	/** 旧报告查询选择器默认按当前日向前一个日历月。 */
+	reportsPast: 1,
 });
 
 /**
@@ -1335,6 +1336,29 @@ export function createAppointmentRecordDateRange(now = new Date()): {
 				DASHBOARD_DATE_RANGE_MONTHS.appointmentRecordsFuture,
 			),
 		),
+	};
+}
+
+/**
+ * 创建报告查询的默认窗口：当前中国标准时间日向前一个日历月。
+ *
+ * 旧端 `patient-hospital-selector.vue` 使用
+ * `new Date(year, month - 1, day)`，月底的溢出属于其实际查询语义；这里
+ * 复用同一套中国标准时间日历运算，不能用固定 30 天近似替代。
+ */
+export function createReportDateRange(now = new Date()): {
+	startDate: string;
+	endDate: string;
+} {
+	const today = platformCalendarDate(now);
+	return {
+		startDate: formatCalendarDate(
+			shiftCalendarDateByMonths(
+				today,
+				-DASHBOARD_DATE_RANGE_MONTHS.reportsPast,
+			),
+		),
+		endDate: formatCalendarDate(today),
 	};
 }
 
@@ -2016,8 +2040,7 @@ export function loadReports(
 ): Promise<ReportListResponse["data"]> {
 	const range: ReportQuery = {
 		patientId: requirePatientId(patientId),
-		...(rangeOverride ??
-			createPastDateRange(DASHBOARD_DATE_RANGE_DAYS.reports, now)),
+		...(rangeOverride ?? createReportDateRange(now)),
 	};
 	// PEIS 需要服务端额外实时解析身份证号，不能混入三路临床患者号聚合请求。
 	// 两次读取任一失败都拒绝整批，避免把部分成功误显示成“没有其它报告”。

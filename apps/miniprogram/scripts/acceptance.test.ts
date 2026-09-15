@@ -16,6 +16,7 @@ import { formatAppointmentDateLabel } from "../src/services/appointment-director
 import {
 	createAppointmentRecordDateRange,
 	createPastDateRange,
+	createReportDateRange,
 	createUpcomingDateRange,
 	formatPlatformDate,
 } from "../src/services/dashboard-service";
@@ -4389,10 +4390,10 @@ test("dashboard service owns bounded date windows and internal patient inputs", 
 	expect(service).toContain("appointmentScheduleCalendar: 30");
 	expect(service).toContain("appointmentRecordsPast: 3");
 	expect(service).toContain("appointmentRecordsFuture: 3");
+	expect(service).toContain("reportsPast: 1");
 	expect(service).toContain(
 		'AppointmentRecordQueryWindow = "history" | "missed"',
 	);
-	expect(service).toContain("reports: 30");
 	expect(service).toContain("requirePatientId");
 	expect(service).not.toContain("providerPatientId");
 	expect(service).not.toContain("msun-middle-business");
@@ -4410,6 +4411,10 @@ test("dashboard service calculates China Standard Time calendar windows", () => 
 	expect(createAppointmentRecordDateRange(now)).toEqual({
 		startDate: "2026-05-15",
 		endDate: "2026-11-15",
+	});
+	expect(createReportDateRange(now)).toEqual({
+		startDate: "2026-07-15",
+		endDate: "2026-08-15",
 	});
 	expect(createUpcomingDateRange(7, now)).toEqual({
 		startDate: "2026-08-15",
