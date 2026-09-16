@@ -3117,8 +3117,8 @@ test("native convenience pages keep patient context without fake public records"
 	const giftScript = await source("pages/gift-banner/gift-banner.ts");
 	const praiseScript = await source("pages/health-praise/health-praise.ts");
 
-	// 锦旗和表扬信都要先绑定当前就诊人，但真实记录能力未确认前，
-	// “公开记录暂未开放”不能降级成“暂无记录”，也不能出现提交成功。
+	// 锦旗和表扬信都要先绑定当前就诊人；列表、月份筛选和两个旧操作入口
+	// 先恢复，真实记录 contract 未确认前不能出现提交成功。
 	expect(service).toContain("loadCurrentPatient");
 	expect(service).toContain("resolveConvenienceSurfaceRecordState");
 	expect(service).toContain("USER_FACING_SURFACE_COPY");
@@ -3132,8 +3132,16 @@ test("native convenience pages keep patient context without fake public records"
 	expect(praise).toContain("recordState === 'loading'");
 	expect(gift).toContain("暂时无法展示记录");
 	expect(praise).toContain("暂时无法展示记录");
-	expect(gift).toContain("公开记录暂未开放");
-	expect(praise).toContain("公开记录暂未开放");
+	expect(gift).toContain("暂无电子锦旗");
+	expect(praise).toContain("暂无表扬信");
+	expect(service).toContain("我的电子锦旗");
+	expect(service).toContain("我要送锦旗");
+	expect(service).toContain("我的表扬信");
+	expect(service).toContain("我要表扬");
+	expect(gift).toContain("myRecordsLabel");
+	expect(gift).toContain("createLabel");
+	expect(praise).toContain("myRecordsLabel");
+	expect(praise).toContain("createLabel");
 	expect(giftScript).toContain('registerConvenienceSurfacePage("gift-banner")');
 	expect(praiseScript).toContain(
 		'registerConvenienceSurfacePage("health-praise")',
@@ -3167,11 +3175,8 @@ test("native blocked domains keep one explicit current-patient context", async (
 			"services/provider-entry-surface.ts",
 		].map((file) => source(file)),
 	);
-	const templates = await Promise.all(
-		["pages/admission-preconsultation/admission-preconsultation.wxml"].map(
-			(file) => source(file),
-		),
-	);
+	const admissionPage = await source("pages/admission-preconsultation/admission-preconsultation.ts");
+	const admissionTemplate = await source("pages/admission-preconsultation/admission-preconsultation.wxml");
 
 	// 这个页面还没有正式 Provider/临床 contract，但用户从选择页返回后
 	// 必须能看到当前上下文、失败原因和重试入口；不能只有一个“选择就诊人”
@@ -3192,12 +3197,11 @@ test("native blocked domains keep one explicit current-patient context", async (
 		expect(factory).toContain("onRetry");
 		expect(factory).toContain("onUnload");
 	}
-	for (const template of templates) {
-		expect(template).toContain("当前就诊人");
-		expect(template).toContain("currentPatientName");
-		expect(template).toContain('bindtap="onRetry"');
-		expect(template).toContain('bindtap="onOpenPatientSelector"');
-	}
+	expect(admissionPage).toContain("loadCurrentPatient");
+	expect(admissionPage).toContain("ADMISSION_PRECONSULTATION_QUESTIONS");
+	expect(admissionTemplate).toContain("当前就诊人");
+	expect(admissionPage).toContain("请问患者是否有高血压");
+	expect(admissionTemplate).toContain('bindtap="onChangePatient"');
 });
 
 test("门诊病历和首页我的问诊安全摘要进入各自原生页", async () => {
@@ -3586,8 +3590,8 @@ test("native client reads only the safe inpatient episode summary", async () => 
 	expect(service).toContain("INPATIENT_EPISODE_FIELDS");
 	expect(page).toContain("loadCurrentPatientForOwner");
 	expect(page).toContain("loadInpatientEpisodes");
-	expect(template).toContain("住院信息摘要");
-	expect(template).toContain("住院费用、账单和支付不在本页面处理");
+	expect(template).toContain("住院信息与日费用清单入口");
+	expect(template).toContain("日费用清单");
 	for (const sourceText of [client, service, page]) {
 		expect(sourceText).not.toContain("/msun-middle-aggregate-hsz");
 		expect(sourceText).not.toContain("providerPatientId=");
@@ -4022,6 +4026,19 @@ test("native homepage places report query and outpatient medical records in thei
 		expect(outpatientEntries).not.toContain(`title: "${title}"`);
 	}
 	expect(outpatientEntries).not.toContain('action: "medical-record"');
+
+	const inpatientEntries = serviceEntries.slice(
+		serviceEntries.indexOf('title: "住院"'),
+		serviceEntries.indexOf('title: "便民"'),
+	);
+	for (const title of ["住院信息查询", "住院预缴", "入院预问诊", "出院随访", "风险自评"]) {
+		expect(inpatientEntries).toContain(`title: "${title}"`);
+	}
+
+	const convenienceEntries = serviceEntries.slice(serviceEntries.indexOf('title: "便民"'));
+	for (const title of ["院内导航", "健康自测", "健康百科", "电子锦旗", "表扬信"]) {
+		expect(convenienceEntries).toContain(`title: "${title}"`);
+	}
 });
 
 test("native homepage companion entry uses the explicit companion status gate", async () => {

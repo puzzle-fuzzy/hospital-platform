@@ -78,7 +78,46 @@ page {
 	line-height: 1.55;
 }
 
+.inpatient-tabs {
+	display: flex;
+	margin-top: 12rpx;
+	background: #fff;
+	border-bottom: 1rpx solid #f0f0f0;
+}
+
+.inpatient-tab {
+	position: relative;
+	flex: 1;
+	padding: 26rpx 0 22rpx;
+	color: #333;
+	font-size: 28rpx;
+	text-align: center;
+}
+
+.inpatient-tab.is-active {
+	color: #3d6df6;
+	font-weight: 600;
+}
+
+.inpatient-tab.is-active::after {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	width: 160rpx;
+	height: 6rpx;
+	border-radius: 6rpx;
+	background: #3d6df6;
+	content: "";
+	transform: translateX(-50%);
+}
+
 .inpatient-content {
+	box-sizing: border-box;
+	padding: 32rpx 32rpx 160rpx;
+	background: #f5f5f5;
+}
+
+.inpatient-bill-content {
 	box-sizing: border-box;
 	padding: 32rpx 32rpx 160rpx;
 	background: #f5f5f5;

@@ -1,60 +1,62 @@
-<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="migration-surface-page">
-		<view class="migration-surface-hero">
-			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="migration-surface-hero-copy">
-				<text class="migration-surface-title">{{title}}</text>
-				<text class="migration-surface-label">{{surfaceLabel}}</text>
+<scroll-view class="risk-scroll" scroll-y="true" enhanced="true">
+	<view class="risk-page">
+		<view class="risk-patient" bindtap="onChangePatient">
+			<view class="risk-patient-copy">
+				<text class="risk-patient-label">当前就诊人</text>
+				<text wx:if="{{patient}}" class="risk-patient-name">{{patient.displayName}}</text>
+				<text wx:elif="{{loading}}" class="risk-muted">正在获取就诊人...</text>
+				<text wx:else class="risk-muted">请选择就诊人</text>
+				<text wx:if="{{patient}}" class="risk-patient-card">{{patient.cardNumberMasked}}</text>
+				<text wx:if="{{patientError}}" class="risk-error">{{patientError}}</text>
+			</view>
+			<text class="risk-arrow">›</text>
+		</view>
+
+		<view class="risk-form-list">
+			<view wx:for="{{formItems}}" wx:key="key" class="risk-form-item {{selectedForm === item.key ? 'is-selected' : ''}}" data-key="{{item.key}}" bindtap="onFormTap">
+				<view class="risk-form-icon">{{index + 1}}</view>
+				<view class="risk-form-copy">
+					<text class="risk-form-title">{{item.title}}</text>
+					<text class="risk-form-subtitle">{{item.subtitle}}</text>
+				</view>
+				<text class="risk-form-action">{{selectedForm === item.key ? '已选择' : '去评估'}}</text>
 			</view>
 		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">{{scopeTitle}}</text>
-			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
-		</view>
-
-		<view class="migration-surface-patient-card">
-			<view class="migration-surface-patient-copy">
-				<text class="migration-surface-patient-label">当前就诊人</text>
-				<block wx:if="{{patientContextLoading}}">
-					<text class="migration-surface-patient-name">正在获取就诊人...</text>
-					<text class="migration-surface-patient-meta">当前只读取已确认的患者目录</text>
-				</block>
-				<block wx:elif="{{patientContextError}}">
-					<text class="migration-surface-patient-error">{{patientContextError}}</text>
-					<button class="migration-surface-patient-retry" bindtap="onRetry">重新读取</button>
-				</block>
-				<block wx:else>
-					<text class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-				</block>
-			</view>
-			<button class="migration-surface-patient-action" bindtap="onOpenPatientSelector">{{patientActionLabel}}</button>
-		</view>
-
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">服务状态</text>
-			<text class="migration-surface-card-copy">{{description}}</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
+		<view wx:if="{{selectedForm === 'fall'}}" class="risk-editor">
+			<view wx:for="{{fallGroups}}" wx:key="key" class="risk-group">
+				<text class="risk-group-title">{{item.title}}</text>
+				<view wx:for="{{item.options}}" wx:for-item="option" wx:key="value" class="risk-option {{selections[item.key].indexOf(option.value) >= 0 ? 'is-selected' : ''}}" data-group-key="{{item.key}}" data-value="{{option.value}}" bindtap="onOptionTap">
+					<view class="risk-check">{{selections[item.key].indexOf(option.value) >= 0 ? '✓' : ''}}</view>
+					<text>{{option.label}}</text>
 				</view>
 			</view>
+			<button class="risk-submit" bindtap="onSubmit">提交评估</button>
 		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">使用说明</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
+		<view wx:if="{{selectedForm === 'pressure'}}" class="risk-editor">
+			<view wx:for="{{pressureGroups}}" wx:key="key" class="risk-group">
+				<text class="risk-group-title">{{item.title}}</text>
+				<view wx:for="{{item.options}}" wx:for-item="option" wx:key="value" class="risk-option {{selections[item.key].indexOf(option.value) >= 0 ? 'is-selected' : ''}}" data-group-key="{{item.key}}" data-value="{{option.value}}" bindtap="onOptionTap">
+					<view class="risk-check">{{selections[item.key].indexOf(option.value) >= 0 ? '✓' : ''}}</view>
+					<text>{{option.label}}</text>
 				</view>
 			</view>
-			<text class="migration-surface-coverage">{{coverageLabel}}</text>
+			<button class="risk-submit" bindtap="onSubmit">提交评估</button>
 		</view>
 
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
-		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
+		<view wx:if="{{selectedForm === 'pain'}}" class="risk-editor">
+			<view wx:for="{{painGroups}}" wx:key="key" class="risk-group">
+				<text class="risk-group-title">{{item.title}}</text>
+				<view class="risk-pain-grid">
+					<view wx:for="{{item.options}}" wx:for-item="option" wx:key="value" class="risk-pain-option {{selections[item.key].indexOf(option.value) >= 0 ? 'is-selected' : ''}}" data-group-key="{{item.key}}" data-value="{{option.value}}" bindtap="onOptionTap">{{option.label}}</view>
+				</view>
+			</view>
+			<button class="risk-submit" bindtap="onSubmit">提交评估</button>
+		</view>
+
+		<view wx:if="{{message}}" class="risk-message">{{message}}</view>
+		<text class="risk-note">评估量表与题目名称按旧服务迁移。当前客户端不计算风险等级，提交接口开放前不会保存答案。</text>
+		<button class="risk-back" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

@@ -1,1 +1,36 @@
-@import "../../styles/migration-surface.wxss";
+.risk-scroll { height: 100vh; background: #f8f8f8; }
+.risk-page { box-sizing: border-box; min-height: 100%; padding: 20rpx 24rpx 48rpx; }
+.risk-patient, .risk-form-list, .risk-editor, .risk-message { border-radius: 16rpx; background: #fff; }
+.risk-patient { display: flex; align-items: center; justify-content: space-between; padding: 24rpx; }
+.risk-patient-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.risk-patient-label { color: #8791a5; font-size: 23rpx; }
+.risk-patient-name, .risk-muted { margin-top: 8rpx; color: #222b45; font-size: 29rpx; font-weight: 600; }
+.risk-muted { color: #9aa3b4; font-weight: 400; }
+.risk-patient-card { margin-top: 6rpx; color: #8791a5; font-size: 23rpx; }
+.risk-error { margin-top: 6rpx; color: #c53b3b; font-size: 23rpx; }
+.risk-arrow { color: #9aa3b4; font-size: 42rpx; font-weight: 300; }
+.risk-form-list { margin-top: 18rpx; overflow: hidden; }
+.risk-form-item { display: flex; align-items: center; gap: 16rpx; min-height: 120rpx; padding: 0 24rpx; border-bottom: 1rpx solid #f0f0f0; }
+.risk-form-item:last-child { border-bottom: 0; }
+.risk-form-item.is-selected { background: #f6f9ff; }
+.risk-form-icon { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; border-radius: 50%; background: #eff2ff; color: #3d6df6; font-size: 25rpx; }
+.risk-form-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.risk-form-title { color: #222; font-size: 28rpx; line-height: 1.5; }
+.risk-form-subtitle { margin-top: 6rpx; color: #999; font-size: 22rpx; }
+.risk-form-action { flex: 0 0 auto; padding: 12rpx 22rpx; border-radius: 100rpx; background: #3d6df6; color: #fff; font-size: 23rpx; }
+.risk-editor { margin-top: 18rpx; padding: 0 24rpx 24rpx; }
+.risk-group { padding: 24rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+.risk-group:last-of-type { border-bottom: 0; }
+.risk-group-title { display: block; color: #222; font-size: 27rpx; font-weight: 600; line-height: 1.5; }
+.risk-option { display: flex; align-items: flex-start; gap: 12rpx; padding: 16rpx 0 0; color: #555; font-size: 25rpx; line-height: 1.6; }
+.risk-option.is-selected { color: #3d6df6; }
+.risk-check { flex: 0 0 auto; width: 36rpx; height: 36rpx; border: 1rpx solid #cfd6e5; border-radius: 50%; color: #fff; font-size: 23rpx; line-height: 36rpx; text-align: center; }
+.risk-option.is-selected .risk-check { border-color: #3d6df6; background: #3d6df6; }
+.risk-pain-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14rpx; margin-top: 18rpx; }
+.risk-pain-option { padding: 16rpx 0; border: 1rpx solid #dfe5f2; border-radius: 10rpx; color: #555; font-size: 26rpx; text-align: center; }
+.risk-pain-option.is-selected { border-color: #3d6df6; background: #3d6df6; color: #fff; }
+.risk-submit, .risk-back { width: 100%; margin-top: 24rpx; border-radius: 14rpx; font-size: 28rpx; line-height: 84rpx; }
+.risk-submit { background: #3d6df6; color: #fff; }
+.risk-message { margin-top: 18rpx; padding: 18rpx 22rpx; background: #fff8e8; color: #a66b00; font-size: 24rpx; line-height: 1.6; }
+.risk-note { display: block; margin-top: 18rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
+.risk-back { background: transparent; color: #68738a; }

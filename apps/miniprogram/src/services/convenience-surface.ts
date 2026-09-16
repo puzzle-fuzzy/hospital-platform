@@ -43,6 +43,8 @@ type ConvenienceSurfaceDefinition = {
 	title: string;
 	recordTitle: string;
 	recordNote: string;
+	myRecordsLabel: string;
+	createLabel: string;
 	contractItems: ReadonlyArray<string>;
 };
 
@@ -50,15 +52,19 @@ const DEFINITIONS: Readonly<
 	Record<ConvenienceSurfaceFeature, ConvenienceSurfaceDefinition>
 > = Object.freeze({
 	"gift-banner": {
-		title: "电子锦旗",
+		 title: "电子锦旗",
 		recordTitle: "电子锦旗记录",
 		recordNote: USER_FACING_SURFACE_COPY.description,
+		myRecordsLabel: "我的电子锦旗",
+		createLabel: "我要送锦旗",
 		contractItems: USER_FACING_SURFACE_COPY.contractItems,
 	},
 	"health-praise": {
 		title: "表扬信",
 		recordTitle: "表扬信记录",
 		recordNote: USER_FACING_SURFACE_COPY.description,
+		myRecordsLabel: "我的表扬信",
+		createLabel: "我要表扬",
 		contractItems: USER_FACING_SURFACE_COPY.contractItems,
 	},
 });
@@ -71,8 +77,12 @@ type ConvenienceSurfacePageData = {
 	recordState: ConvenienceSurfaceRecordState;
 	recordTitle: string;
 	recordNote: string;
+	myRecordsLabel: string;
+	createLabel: string;
 	contractItems: ReadonlyArray<string>;
 	coverageLabel: string;
+	monthLabel: string;
+	records: ReadonlyArray<never>;
 };
 
 type ConvenienceSurfacePageMethods = {
@@ -81,8 +91,16 @@ type ConvenienceSurfacePageMethods = {
 	onOpenMigrationStatus(): void;
 	onRetry(): void;
 	onBackHome(): void;
+	onMonthChange(event: WechatMiniprogram.TouchEvent): void;
+	onConvenienceAction(event: WechatMiniprogram.TouchEvent): void;
+	onRecordTap(): void;
 	onUnload(): void;
 };
+
+function currentMonthLabel(): string {
+	const now = new Date();
+	return `${now.getFullYear()}年${String(now.getMonth() + 1).padStart(2, "0")}月`;
+}
 
 /**
  * 将便民页面的患者读取异常转换成稳定文案。
@@ -108,8 +126,12 @@ function toPageData(
 		recordState: "loading",
 		recordTitle: definition.recordTitle,
 		recordNote: definition.recordNote,
+		myRecordsLabel: definition.myRecordsLabel,
+		createLabel: definition.createLabel,
 		contractItems: definition.contractItems,
 		coverageLabel: getFeatureMigrationCoverage(feature).coverageLabel,
+		monthLabel: currentMonthLabel(),
+		records: [],
 	};
 }
 
@@ -196,6 +218,26 @@ export function registerConvenienceSurfacePage(
 
 		onBackHome() {
 			wx.switchTab({ url: "/pages/index/index" });
+		},
+
+		onMonthChange(event) {
+		const delta = String(event.currentTarget.dataset.delta ?? "") === "next" ? 1 : -1;
+		const [yearText, monthText] = this.data.monthLabel.replace("月", "").split("年");
+		const date = new Date(Number(yearText), Number(monthText) - 1 + delta, 1);
+		this.setData({ monthLabel: `${date.getFullYear()}年${String(date.getMonth() + 1).padStart(2, "0")}月` });
+		// 没有当前 contract 时，切换月份仍然只改变筛选上下文，不能把
+		// 未查询的列表渲染成空成功结果。
+		wx.showToast({ title: "公开记录服务尚未开放", icon: "none" });
+		},
+
+		onConvenienceAction(event) {
+		const action = String(event.currentTarget.dataset.action ?? "");
+		if (!action) return;
+		wx.showToast({ title: `${action}功能正在接入中`, icon: "none" });
+		},
+
+		onRecordTap() {
+		wx.showToast({ title: "公开记录服务尚未开放", icon: "none" });
 		},
 
 		onUnload() {

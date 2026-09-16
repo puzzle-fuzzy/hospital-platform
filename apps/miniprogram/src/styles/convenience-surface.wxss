@@ -117,6 +117,28 @@ page {
 	font-weight: 650;
 }
 
+.convenience-surface-card-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.convenience-surface-month {
+	display: flex;
+	align-items: center;
+	gap: 20rpx;
+	color: #687184;
+	font-size: 24rpx;
+}
+
+.convenience-surface-month text:first-child,
+.convenience-surface-month text:last-child {
+	padding: 0 8rpx;
+	color: #3d6df6;
+	font-size: 38rpx;
+	line-height: 1;
+}
+
 .convenience-surface-empty {
 	display: flex;
 	align-items: center;
@@ -178,6 +200,52 @@ page {
 	line-height: 1.6;
 	text-align: center;
 }
+
+.convenience-surface-record-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16rpx;
+	margin-top: 24rpx;
+}
+
+.convenience-surface-record {
+	min-height: 220rpx;
+	padding: 20rpx;
+	border-radius: 12rpx;
+	background: #fff7e8;
+	color: #6b4d27;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.convenience-surface-actions {
+	display: flex;
+	gap: 16rpx;
+	margin: 24rpx;
+}
+
+.convenience-surface-action-secondary,
+.convenience-surface-action-primary {
+	flex: 1;
+	margin: 0;
+	padding: 0 8rpx;
+	border-radius: 14rpx;
+	font-size: 25rpx;
+	line-height: 82rpx;
+}
+
+.convenience-surface-action-secondary {
+	border: 1rpx solid #3d6df6;
+	background: #fff;
+	color: #3d6df6;
+}
+
+.convenience-surface-action-primary {
+	background: #3d6df6;
+	color: #fff;
+}
+
+.convenience-surface-help { margin-top: 0; }
 
 .convenience-surface-row {
 	display: flex;

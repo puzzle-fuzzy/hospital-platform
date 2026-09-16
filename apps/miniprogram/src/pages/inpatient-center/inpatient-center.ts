@@ -45,6 +45,7 @@ const INPATIENT_BED_STATUS_LABELS = Object.freeze({
 
 type InpatientEpisodePageMethods = {
 	loadPage(): Promise<void>;
+	onTabChange(event: WechatMiniprogram.TouchEvent): void;
 	onChangePatient(): void;
 	onRetry(): void;
 	onPullDownRefresh(): void;
@@ -53,6 +54,9 @@ type InpatientEpisodePageMethods = {
 
 Page<InpatientEpisodePageData, InpatientEpisodePageMethods>({
 	data: {
+		activeTab: "info" as "info" | "bill",
+		billLoading: false,
+		billMessage: "住院日费用清单接口正在接入中，本次未发起查询。",
 		hasShown: false,
 		sessionState: "checking",
 		selectedPatient: null,
@@ -91,7 +95,7 @@ Page<InpatientEpisodePageData, InpatientEpisodePageMethods>({
 		void this.loadPage();
 	},
 
-	/** 只读取旧服务的住院摘要；住院费用、账单和支付不在本页。 */
+	/** 住院信息沿用当前已确认的住院摘要，账单 tab 保留旧服务入口。 */
 	loadPage(): Promise<void> {
 		const guard = getPageLatestRequestGuard(this, "inpatient-episodes");
 		const token = guard.begin();
@@ -195,6 +199,11 @@ Page<InpatientEpisodePageData, InpatientEpisodePageMethods>({
 			return;
 		}
 		navigateToPatientSelector(this.data.sessionState);
+	},
+
+	onTabChange(event): void {
+		const activeTab = String(event.currentTarget.dataset.tab ?? "") === "bill" ? "bill" : "info";
+		this.setData({ activeTab });
 	},
 
 	onRetry(): void {

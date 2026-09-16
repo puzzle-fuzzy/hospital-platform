@@ -700,6 +700,9 @@ export type InpatientEpisodeView = InpatientEpisode & {
 };
 
 export type InpatientEpisodePageData = {
+	activeTab: "info" | "bill";
+	billLoading: boolean;
+	billMessage: string;
 	hasShown: boolean;
 	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;

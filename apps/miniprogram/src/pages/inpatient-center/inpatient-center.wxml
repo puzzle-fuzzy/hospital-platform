@@ -18,10 +18,15 @@
 		</view>
 
 		<view class="inpatient-boundary">
-			当前展示旧服务住院信息摘要；住院费用、账单和支付不在本页面处理。
+			当前展示旧服务的住院信息与日费用清单入口；费用查询和支付仍由住院支付 contract 控制。
 		</view>
 
-		<view class="inpatient-content">
+		<view class="inpatient-tabs">
+			<view class="inpatient-tab {{activeTab === 'info' ? 'is-active' : ''}}" data-tab="info" bindtap="onTabChange">住院信息</view>
+			<view class="inpatient-tab {{activeTab === 'bill' ? 'is-active' : ''}}" data-tab="bill" bindtap="onTabChange">日费用清单</view>
+		</view>
+
+		<view wx:if="{{activeTab === 'info'}}" class="inpatient-content">
 			<view wx:if="{{loading || error || !episodes.length}}" class="inpatient-state">
 				<block wx:if="{{loading}}">
 					<view class="inpatient-loading-icon" aria-hidden="true"></view>
@@ -80,6 +85,18 @@
 						</view>
 					</view>
 				</view>
+			</view>
+		</view>
+
+		<view wx:else class="inpatient-bill-content">
+			<view wx:if="{{billLoading}}" class="inpatient-state">
+				<view class="inpatient-loading-icon" aria-hidden="true"></view>
+				<text class="inpatient-state-title">加载中...</text>
+			</view>
+			<view wx:else class="inpatient-state">
+				<image class="inpatient-state-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
+				<text class="inpatient-state-title">日费用清单暂未开放</text>
+				<text class="inpatient-state-hint">{{billMessage}}</text>
 			</view>
 		</view>
 	</view>
