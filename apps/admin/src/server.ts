@@ -9,11 +9,6 @@ const legacyUpstream = new URL(
 	Bun.env.LEGACY_HOSPITAL_API_BASE_URL?.trim() ||
 		"https://test-hp.meiyi.pro/api/v1",
 );
-const adminQueryUpstreamValue = Bun.env.ADMIN_QUERY_API_BASE_URL?.trim() || "";
-const adminQueryUpstream = adminQueryUpstreamValue
-	? new URL(adminQueryUpstreamValue)
-	: undefined;
-const adminQueryToken = Bun.env.ADMIN_QUERY_API_TOKEN?.trim() || "";
 const adminLogsUpstreamValue = Bun.env.ADMIN_LOGS_API_BASE_URL?.trim() || "";
 const adminLogsUpstream = adminLogsUpstreamValue
 	? new URL(adminLogsUpstreamValue)
@@ -36,15 +31,6 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 }
 if (legacyUpstream.protocol !== "https:") {
 	throw new Error("Legacy hospital API must use HTTPS");
-}
-if (
-	adminQueryUpstream &&
-	adminQueryUpstream.protocol !== "https:" &&
-	!(allowHttpUpstream && adminQueryUpstream.protocol === "http:")
-) {
-	throw new Error(
-		"Admin query API must use HTTPS unless HTTP is explicitly enabled",
-	);
 }
 if (
 	adminLogsUpstream &&
@@ -103,16 +89,6 @@ function optionalText(value: unknown, maxLength: number): string {
 	if (typeof value !== "string") throw new Error("INVALID_OPTIONAL_TEXT");
 	const normalized = value.trim();
 	if (normalized.length > maxLength) throw new Error("INVALID_OPTIONAL_TEXT");
-	return normalized;
-}
-
-function identityNumber(value: unknown): string {
-	const normalized = requiredText(value, "IDENTITY_NUMBER", 18)
-		.replaceAll(/\s/g, "")
-		.toUpperCase();
-	if (!/^\d{15}$|^\d{17}[0-9X]$/u.test(normalized)) {
-		throw new Error("INVALID_IDENTITY_NUMBER");
-	}
 	return normalized;
 }
 
@@ -294,52 +270,6 @@ async function loginRequest(request: Request): Promise<Response> {
 	);
 	await registerLoginSession(response);
 	return response;
-}
-
-async function insuranceRequest(request: Request): Promise<Response> {
-	bearer(request);
-	const input = await requestJson(request);
-	const mode = requiredText(input.mode, "MODE", 32);
-	if (
-		mode !== "identity-card" &&
-		mode !== "electronic-credential" &&
-		mode !== "social-security-card"
-	) {
-		throw new Error("INVALID_MODE");
-	}
-	const certno = identityNumber(input.identityNumber);
-	const psnName = requiredText(input.name, "NAME", 50);
-	const credentialNumber =
-		mode === "identity-card"
-			? certno
-			: requiredText(input.credentialNumber, "CREDENTIAL_NUMBER", 512);
-	const cardSerialNumber =
-		mode === "social-security-card"
-			? requiredText(input.cardSerialNumber, "CARD_SERIAL_NUMBER", 64)
-			: "";
-	if (!adminQueryUpstream || !adminQueryToken) {
-		return errorResponse("新服务查询接口尚未配置", 503);
-	}
-	return upstreamRequest(
-		adminQueryUpstream,
-		"/admin/insurance/1101",
-		{
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Admin-Query-Token": adminQueryToken,
-				"X-Request-Id": crypto.randomUUID(),
-			},
-			body: JSON.stringify({
-				mode,
-				identityNumber: certno,
-				name: psnName,
-				...(mode === "identity-card" ? {} : { credentialNumber }),
-				...(mode === "social-security-card" ? { cardSerialNumber } : {}),
-			}),
-		},
-		"新服务医保查询暂时不可用，请稍后重试",
-	);
 }
 
 async function logsRequest(request: Request, url: URL): Promise<Response> {
@@ -598,9 +528,6 @@ const server = Bun.serve({
 			if (url.pathname === "/api/auth/logout" && request.method === "POST") {
 				return await logoutRequest(request);
 			}
-			if (url.pathname === "/api/insurance/1101" && request.method === "POST") {
-				return await insuranceRequest(request);
-			}
 			if (url.pathname === "/api/logs" && request.method === "GET") {
 				return await logsRequest(request, url);
 			}
@@ -641,7 +568,6 @@ console.info(
 		host: server.hostname,
 		port: server.port,
 		legacyUpstreamProtocol: legacyUpstream.protocol,
-		adminQueryConfigured: Boolean(adminQueryUpstream && adminQueryToken),
 		adminLogsConfigured: Boolean(adminLogsUpstream && adminLogsToken),
 	}),
 );

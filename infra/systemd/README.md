@@ -13,9 +13,8 @@
 
 环境文件必须通过受控 SSH 传输，权限设置为 `0600`，不能提交到 Git。
 
-日志菜单的三个令牌必须分离：`ADMIN_QUERY_TOKEN` 用于 1101，
-`ADMIN_LOGS_TOKEN` 用于 Admin 读取，`ADMIN_LOGS_INGEST_TOKEN` 仅用于 Worker
-向 API 上送安全日志元数据。`shared/worker.env` 还应配置
+日志菜单使用独立的 `ADMIN_LOGS_TOKEN`，`ADMIN_LOGS_INGEST_TOKEN` 仅用于 Worker
+向 API 上送安全日志元数据。管理端不发起医保参保查询或支付请求。`shared/worker.env` 还应配置
 `ADMIN_LOGS_INGEST_URL=http://127.0.0.1:18081/api/v1/admin/logs/ingest`；
 不能把任何 Provider 请求/响应原文通过 ingest 转发，原文仍只从 journald 受控取证。
 

@@ -190,41 +190,9 @@ body {
 	margin-top: 0;
 }
 
-.result-stack {
-	width: 100%;
-	margin-top: 16px;
-}
-
-.empty-card {
-	margin-top: 16px;
-}
-
 .log-policy-alert,
 .log-filter-card {
 	margin-bottom: 16px;
-}
-
-.raw-result {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 12px;
-}
-
-.raw-result pre {
-	width: 100%;
-	max-height: 480px;
-	margin: 0;
-	overflow: auto;
-	padding: 16px;
-	color: var(--ant-color-text);
-	font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-	font-size: 12px;
-	line-height: 1.7;
-	white-space: pre-wrap;
-	word-break: break-word;
-	background: var(--ant-color-fill-tertiary);
-	border-radius: var(--ant-border-radius);
 }
 
 .raw-log-pre {

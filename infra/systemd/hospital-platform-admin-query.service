@@ -1,15 +1,15 @@
 [Unit]
-Description=Hospital Platform insurance query admin
+Description=Hospital Platform admin log viewer
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/ps/code/hospital-platform/current/apps/admin
+WorkingDirectory=/home/ps/code/hospital-platform/admin-query/current
 EnvironmentFile=/home/ps/code/hospital-platform/shared/admin-query.env
 
 # The admin bundle is built locally and only served from the selected release.
-ExecStart=/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/admin/dist/server.js
+ExecStart=/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/admin-query/current/dist/server.js
 Restart=on-failure
 RestartSec=5s
 KillSignal=SIGTERM
@@ -23,7 +23,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/ps/code/hospital-platform
+ReadWritePaths=/home/ps/code/hospital-platform/admin-query
 
 [Install]
 WantedBy=default.target
