@@ -69,6 +69,14 @@ type MedicalApp = {
 };
 
 let resumingPayment = false;
+let paymentCompletionRedirecting = false;
+
+function appointmentDetailUrl(
+	appointmentId: string,
+	patientId: string,
+): string {
+	return `/pages/appointment-detail/appointment-detail?patientId=${encodeURIComponent(patientId)}&appointmentId=${encodeURIComponent(appointmentId)}`;
+}
 
 /** 纯医保订单和混合医保订单共用“医保支付”入口，每次点击都是新的尝试。 */
 function paymentButtonMode(mode: PaymentMode | undefined): PaymentMode | "" {
@@ -125,6 +133,14 @@ function paymentError(error: unknown): string {
 		return "当前医保支付包含微信支付金额，请继续医保支付";
 	if (error instanceof MedicalInsurancePaymentFailureError)
 		return error.userMessage;
+	// 50240 只表示前端确认窗口结束，不是用户需要看到的内部数字码。
+	// .32 成功并形成最终订单状态时会进入成功分支；未确认时保留普通提示。
+	if (
+		error instanceof ApiError &&
+		error.code === "payment-prepay-in-progress"
+	) {
+		return "支付结果正在确认，请稍后查看挂号详情";
+	}
 	return errorMessageWithCode(
 		error,
 		contextualApiErrorMessage(error, "支付流程未完成，请稍后重试"),
@@ -139,11 +155,13 @@ function paymentActionMessage(error: unknown): string {
 		return "当前医保支付包含微信支付金额，请继续医保支付";
 	}
 	if (error instanceof ApiError) {
+		if (error.code === "payment-prepay-in-progress") {
+			return "支付结果正在确认，预约已保留，请稍后查看挂号详情；如已扣款请联系医院核实";
+		}
 		if (
 			[
 				"network-failed",
 				"request-timeout",
-				"payment-prepay-in-progress",
 				"payment-prepay-unknown",
 				"payment-notification-conflict",
 			].includes(error.code)
@@ -181,6 +199,7 @@ Page<
 			mode: PaymentMode,
 		): Promise<void>;
 		handlePaymentError(error: unknown): Promise<void>;
+		completePayment(message?: string): void;
 		onOpenDetail(): void;
 		onBack(): void;
 		onUnload(): void;
@@ -215,6 +234,7 @@ Page<
 	},
 
 	onLoad(options) {
+		paymentCompletionRedirecting = false;
 		registerPageSessionResetListener(this, () => {
 			const app = getApp<MedicalApp>();
 			if (app?.globalData) app.globalData.medicalInsuranceAuthCode = "";
@@ -357,12 +377,14 @@ Page<
 				this.setData({ stage, message, error: "" }),
 			)
 				.then((completed) => {
+					if (completed) {
+						this.completePayment();
+						return;
+					}
 					this.setData({
 						hasPendingPayment: false,
-						completed,
-						message: completed
-							? "挂号和医保支付成功"
-							: "上次医保支付未确认，支付上下文已清除，请重新点击医保支付",
+						completed: false,
+						message: "上次医保支付未确认，支付上下文已清除，请重新点击医保支付",
 					});
 				})
 				.catch((error: unknown) => {
@@ -422,10 +444,11 @@ Page<
 				this.setData({ stage, message, error: "" }),
 			);
 			const remaining = readPendingPayment();
-			this.setData({
-				hasPendingPayment: Boolean(remaining),
-				completed: !remaining,
-			});
+			if (!remaining) {
+				this.completePayment();
+			} else {
+				this.setData({ hasPendingPayment: true, completed: false });
+			}
 		} catch (error) {
 			await this.handlePaymentError(error);
 		} finally {
@@ -510,7 +533,7 @@ Page<
 				await startSelfPayment(appointment, (stage, message) =>
 					this.setData({ stage, message, error: "" }),
 				);
-				this.setData({ hasPendingPayment: false, completed: true });
+				this.completePayment("挂号和微信支付成功");
 			} else {
 				await startMedicalPayment(
 					appointment,
@@ -541,8 +564,7 @@ Page<
 				pending,
 				(stage, message) => this.setData({ stage, message, error: "" }),
 			);
-			if (completed)
-				this.setData({ hasPendingPayment: false, completed: true });
+			if (completed) this.completePayment();
 			return;
 		}
 		if (pending.phase === "self_payment") {
@@ -556,7 +578,7 @@ Page<
 			await continueSelfPaymentFromPending(pending, (stage, message) =>
 				this.setData({ stage, message, error: "" }),
 			);
-			this.setData({ hasPendingPayment: false, completed: true });
+			this.completePayment("挂号和微信支付成功");
 			return;
 		}
 		if (pending.phase === "medical_cash_required") {
@@ -585,7 +607,7 @@ Page<
 				});
 				return;
 			}
-			this.setData({ hasPendingPayment: false, completed: true });
+			this.completePayment();
 			return;
 		}
 		if (pending.phase === "cash_payment") {
@@ -601,10 +623,7 @@ Page<
 				1,
 			);
 			if (confirmed) {
-				this.setData({
-					hasPendingPayment: false,
-					completed: true,
-				});
+				this.completePayment();
 				return;
 			}
 			this.setData({
@@ -623,7 +642,7 @@ Page<
 					},
 					(stage, message) => this.setData({ stage, message, error: "" }),
 				);
-				this.setData({ hasPendingPayment: false, completed: true });
+				this.completePayment("挂号和微信支付成功");
 				return;
 			}
 			this.setData({
@@ -702,11 +721,7 @@ Page<
 					},
 					(stage, message) => this.setData({ stage, message, error: "" }),
 				);
-				this.setData({
-					hasPendingPayment: false,
-					completed: true,
-					message: "挂号和微信支付成功",
-				});
+				this.completePayment("挂号和微信支付成功");
 			} catch (selfPayError) {
 				await this.handlePaymentError(selfPayError);
 			}
@@ -732,10 +747,36 @@ Page<
 		});
 	},
 
+	completePayment(message = "挂号和医保支付成功"): void {
+		if (paymentCompletionRedirecting) return;
+		paymentCompletionRedirecting = true;
+		const { appointmentId, patientId } = this.data;
+		this.setData({
+			hasPendingPayment: false,
+			completed: true,
+			busy: false,
+			stage: "success",
+			error: "",
+			message,
+		});
+		if (!appointmentId || !patientId) {
+			paymentCompletionRedirecting = false;
+			return;
+		}
+		wx.redirectTo({
+			url: appointmentDetailUrl(appointmentId, patientId),
+			fail: () => {
+				paymentCompletionRedirecting = false;
+				// 跳转失败时保留成功页和“查看挂号详情”按钮，不能把已完成支付误报为失败。
+				this.setData({ completed: true, busy: false, error: "" });
+			},
+		});
+	},
+
 	onOpenDetail() {
 		if (!this.data.appointmentId || !this.data.patientId) return;
 		wx.navigateTo({
-			url: `/pages/appointment-detail/appointment-detail?patientId=${encodeURIComponent(this.data.patientId)}&appointmentId=${encodeURIComponent(this.data.appointmentId)}`,
+			url: appointmentDetailUrl(this.data.appointmentId, this.data.patientId),
 		});
 	},
 
@@ -744,6 +785,7 @@ Page<
 	},
 
 	onUnload() {
+		paymentCompletionRedirecting = false;
 		disposePageSessionResetListener(this);
 	},
 });
