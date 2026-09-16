@@ -346,7 +346,8 @@ export interface MedicalInsuranceGateway {
 			ownerUserId: string;
 			patientId: string;
 			authorizationId: string;
-			appointment: AppointmentMedicalInsuranceContext;
+			/** 挂号和门诊共用 6201 编排，业务入口只提供不同的事实上下文。 */
+			appointment: MedicalInsuranceBusinessContext;
 		},
 		context: AdapterCallContext,
 	): Promise<{
@@ -623,6 +624,33 @@ export type AppointmentMedicalInsuranceContext = {
 	sourceSerialNumber: string;
 	totalFen: number;
 };
+
+/**
+ * 门诊 6201 所需的服务端事实。
+ *
+ * 门诊没有预约号源上下文；2.6.65.1 的 requestParam 必须使用同一次
+ * 2.6.33 查询得到的 outTradeOrderIds 集合。其余科室/医生字段由 .27
+ * 明细或服务端映射补齐，不能从小程序提交。
+ */
+export type OutpatientMedicalInsuranceContext = {
+	businessType: "outpatient";
+	recordId: string;
+	providerPatientId: string;
+	outTradeOrderIds: readonly string[];
+	totalFen: number;
+	departmentId?: string;
+	departmentName?: string;
+	doctorId?: string;
+	doctorName?: string;
+	workDate?: string;
+	shiftName?: string;
+	sourceSerialNumber?: string;
+};
+
+/** 统一医保编排的业务上下文；底层支付核心不区分页面入口。 */
+export type MedicalInsuranceBusinessContext =
+	| AppointmentMedicalInsuranceContext
+	| OutpatientMedicalInsuranceContext;
 
 export interface WechatPaymentGateway {
 	createJsapiOrder(

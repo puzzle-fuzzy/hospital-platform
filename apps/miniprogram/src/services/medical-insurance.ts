@@ -27,8 +27,11 @@ export type PaymentProgress =
 	| "success";
 
 export type PendingPayment = {
+	/** 旧版本默认 registration；门诊支付显式使用 outpatient。 */
+	businessType?: "registration" | "outpatient";
 	appointmentId: string;
 	patientId: string;
+	recordId?: string;
 	createdAt: number;
 	orderId?: string;
 	authorizeIdempotencyKey: string;
@@ -389,6 +392,9 @@ function readPending(value: unknown): value is PendingPayment {
 		isOpaque(value.feesIdempotencyKey) &&
 		isOpaque(value.settleIdempotencyKey) &&
 		(value.orderId === undefined || isOpaque(value.orderId)) &&
+		(value.businessType === undefined ||
+			value.businessType === "registration" ||
+			(value.businessType === "outpatient" && isOpaque(value.recordId))) &&
 		(value.mode === undefined ||
 			value.mode === "medical" ||
 			value.mode === "mixed" ||
@@ -426,7 +432,7 @@ export function readPendingPayment(): PendingPayment | null {
 		return null;
 	}
 	// 旧版本的恢复状态不再参与支付流程，清掉后由下一次点击重新开始。
-	if (Object.prototype.hasOwnProperty.call(value, "recoveryState")) {
+	if (Object.hasOwn(value, "recoveryState")) {
 		clearPendingPayment();
 		return null;
 	}
@@ -463,8 +469,10 @@ export function prepareFreshMedicalAuthorization(
 	mode: Exclude<PaymentMode, "self">,
 ): PendingPayment {
 	const next: PendingPayment = {
+		...(pending.businessType ? { businessType: pending.businessType } : {}),
 		appointmentId: pending.appointmentId,
 		patientId: pending.patientId,
+		...(pending.recordId ? { recordId: pending.recordId } : {}),
 		createdAt: pending.createdAt,
 		authorizeIdempotencyKey: createIdempotencyKey("medical-authorize-restart"),
 		feesIdempotencyKey: createIdempotencyKey("medical-fees-restart"),
@@ -524,6 +532,35 @@ async function medicalAuthorizationContext(
 	return { payForRelatives: true, familyId: response.familyId };
 }
 
+async function outpatientMedicalAuthorizationContext(
+	recordId: string,
+	patientId: string,
+): Promise<MedicalAuthorizationContext> {
+	const response = requireSuccessDataResponse<unknown>(
+		await requestWithSession<unknown>({
+			url: `/payments/medical-insurance/outpatient-records/${encodeURIComponent(recordId)}/authorization-context?patientId=${encodeURIComponent(patientId)}`,
+			idempotencyKey: createIdempotencyKey(
+				"medical-outpatient-authorization-context",
+			),
+		}),
+	).data;
+	if (!isRecord(response) || typeof response.payForRelatives !== "boolean") {
+		throw new ApiError("医保亲情付授权上下文不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	if (!response.payForRelatives) return { payForRelatives: false };
+	if (
+		typeof response.familyId !== "string" ||
+		!/^[a-f0-9]{32}$/u.test(response.familyId)
+	) {
+		throw new ApiError("医保亲情付授权标识不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	return { payForRelatives: true, familyId: response.familyId };
+}
+
 export async function navigateToMedicalAuth(
 	appointmentId: string,
 ): Promise<void> {
@@ -535,6 +572,43 @@ export async function navigateToMedicalAuth(
 		`&channel=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalChannel)}` +
 		`&sourceapp=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalSourceApp)}` +
 		// 机构渠道凭证按医保授权页约定原样传递，不在这里二次编码。
+		`&orgChnlCrtfCodg=${MEDICAL_INSURANCE_CONFIG.medicalOrgChannelCredential}` +
+		`&orgCodg=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalOrgCode)}` +
+		`&bizType=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalBizType)}` +
+		`&orgAppId=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalOrgAppId)}` +
+		(authorizationContext.payForRelatives
+			? `&familyid=${encodeURIComponent(authorizationContext.familyId)}`
+			: "");
+	await new Promise<void>((resolve, reject) => {
+		wx.navigateToMiniProgram({
+			appId: MEDICAL_INSURANCE_CONFIG.medicalAppId,
+			path,
+			envVersion: MEDICAL_INSURANCE_CONFIG.medicalEnvVersion,
+			success: () => resolve(),
+			fail: (error) =>
+				reject(
+					isNavigationCancelled(error)
+						? new MedicalAuthNavigationCancelledError()
+						: error,
+				),
+		});
+	});
+}
+
+export async function navigateToOutpatientMedicalAuth(
+	recordId: string,
+	patientId: string,
+): Promise<void> {
+	assertMedicalConfig();
+	const authorizationContext = await outpatientMedicalAuthorizationContext(
+		recordId,
+		patientId,
+	);
+	const path =
+		`auth/pages/bindcard/auth/index?openType=getAuthCode` +
+		`&cityCode=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalCityCode)}` +
+		`&channel=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalChannel)}` +
+		`&sourceapp=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalSourceApp)}` +
 		`&orgChnlCrtfCodg=${MEDICAL_INSURANCE_CONFIG.medicalOrgChannelCredential}` +
 		`&orgCodg=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalOrgCode)}` +
 		`&bizType=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalBizType)}` +
@@ -576,6 +650,31 @@ export async function startMedicalPayment(
 	savePendingPayment(pending);
 	onProgress("authorizing", "请在医保小程序完成授权，返回后请等待页面继续处理");
 	await navigateToMedicalAuth(appointment.appointmentId);
+	return pending;
+}
+
+export async function startOutpatientMedicalPayment(
+	recordId: string,
+	patientId: string,
+	onProgress: Progress,
+	mode: Exclude<PaymentMode, "self"> = "mixed",
+): Promise<PendingPayment> {
+	const pending: PendingPayment = {
+		businessType: "outpatient",
+		// 保留字段用于兼容旧页面/存储校验；门诊分支始终以 recordId 为业务键。
+		appointmentId: recordId,
+		recordId,
+		patientId,
+		createdAt: Date.now(),
+		authorizeIdempotencyKey: createIdempotencyKey("medical-authorize"),
+		feesIdempotencyKey: createIdempotencyKey("medical-fees"),
+		settleIdempotencyKey: createIdempotencyKey("medical-settle"),
+		mode,
+		phase: "authorization",
+	};
+	savePendingPayment(pending);
+	onProgress("authorizing", "请在医保小程序完成授权，返回后请等待页面继续处理");
+	await navigateToOutpatientMedicalAuth(recordId, patientId);
 	return pending;
 }
 
@@ -721,11 +820,18 @@ function finishMedicalPayment(
 ): void {
 	clearPendingPayment();
 	wx.setStorageSync(MINIPROGRAM_STORAGE_KEYS.lastMedicalPaymentResult, {
+		...(pending.businessType ? { businessType: pending.businessType } : {}),
 		appointmentId: pending.appointmentId,
+		...(pending.recordId ? { recordId: pending.recordId } : {}),
 		orderId,
 		completedAt: Date.now(),
 	});
-	onProgress("success", message);
+	onProgress(
+		"success",
+		pending.businessType === "outpatient"
+			? message.replaceAll("挂号", "门诊")
+			: message,
+	);
 }
 
 function saveCashPaymentPhase(pending: PendingPayment): PendingPayment & {
@@ -944,10 +1050,19 @@ export async function continueMedicalPayment(
 		throw new ApiError("医保授权结果为空", {
 			code: "medical-insurance-invalid",
 		});
+	const outpatient = pending.businessType === "outpatient";
 	const authorizeResponse = await requestWithSession<unknown>({
-		url: "/payments/medical-insurance/authorize",
+		url: outpatient
+			? "/payments/medical-insurance/outpatient/authorize"
+			: "/payments/medical-insurance/authorize",
 		method: "POST",
-		data: { appointmentId: pending.appointmentId, authCode },
+		data: outpatient
+			? {
+					recordId: pending.recordId ?? pending.appointmentId,
+					patientId: pending.patientId,
+					authCode,
+				}
+			: { appointmentId: pending.appointmentId, authCode },
 		idempotencyKey: pending.authorizeIdempotencyKey,
 	});
 	const authorize = requireSuccessDataResponse<unknown>(authorizeResponse).data;
@@ -963,7 +1078,12 @@ export async function continueMedicalPayment(
 	const orderId = authorize.orderId;
 	const current = { ...pending, orderId };
 	savePendingPayment(current);
-	onProgress("insuring", "医保授权成功，正在上传挂号费用，请勿重复提交");
+	onProgress(
+		"insuring",
+		outpatient
+			? "医保授权成功，正在上传门诊费用，请勿重复提交"
+			: "医保授权成功，正在上传挂号费用，请勿重复提交",
+	);
 	try {
 		const fees = await orderCommand(
 			`/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/fees`,
@@ -991,7 +1111,14 @@ export async function continueMedicalPayment(
 				"authorizing",
 				"旧支付已关闭，请重新完成医保授权；请勿重复付款或重新预约",
 			);
-			await navigateToMedicalAuth(replacement.appointmentId);
+			if (replacement.businessType === "outpatient") {
+				await navigateToOutpatientMedicalAuth(
+					replacement.recordId ?? replacement.appointmentId,
+					replacement.patientId,
+				);
+			} else {
+				await navigateToMedicalAuth(replacement.appointmentId);
+			}
 			return;
 		}
 		clearPendingPayment();

@@ -5,6 +5,7 @@ import {
 	MedicalInsuranceCancellationResponse,
 	MedicalInsuranceCancelRequest,
 	MedicalInsuranceOrderResponse,
+	MedicalInsuranceOutpatientAuthorizeRequest,
 	MedicalInsurancePluginPayResponse,
 	MedicalInsuranceWechatPayResponse,
 	success,
@@ -49,6 +50,14 @@ const MedicalInsuranceOrderParams = t.Object({
 
 const MedicalInsuranceAppointmentParams = t.Object({
 	appointmentId: t.String({ minLength: 1, maxLength: 64 }),
+});
+
+const MedicalInsuranceOutpatientRecordParams = t.Object({
+	recordId: t.String({ minLength: 1, maxLength: 128 }),
+});
+
+const MedicalInsuranceOutpatientAuthorizationQuery = t.Object({
+	patientId: t.String({ minLength: 1, maxLength: 128 }),
 });
 
 /**
@@ -105,6 +114,48 @@ export function medicalInsuranceModule(
 			{
 				headers: MedicalInsuranceCommandHeaders,
 				body: MedicalInsuranceAuthorizeRequest,
+				response: { 200: MedicalInsuranceAuthorizeResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.get(
+			"/payments/medical-insurance/outpatient-records/:recordId/authorization-context",
+			async ({ request, headers, params, query }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await registrationService.outpatientAuthorizationContext({
+						ownerUserId: principal.userId,
+						recordId: params.recordId,
+						patientId: query.patientId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceQueryHeaders,
+				params: MedicalInsuranceOutpatientRecordParams,
+				query: MedicalInsuranceOutpatientAuthorizationQuery,
+				response: { 200: MedicalInsuranceAuthorizationContextResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.post(
+			"/payments/medical-insurance/outpatient/authorize",
+			async ({ request, headers, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await registrationService.authorizeOutpatient({
+						ownerUserId: principal.userId,
+						recordId: body.recordId,
+						patientId: body.patientId,
+						authCode: body.authCode,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceCommandHeaders,
+				body: MedicalInsuranceOutpatientAuthorizeRequest,
 				response: { 200: MedicalInsuranceAuthorizeResponse },
 				tags: ["medical-insurance"],
 			},

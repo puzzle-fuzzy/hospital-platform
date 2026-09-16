@@ -921,6 +921,16 @@ export const MedicalInsuranceAuthorizeRequest = Type.Object(
 	{ additionalProperties: false },
 );
 
+/** 门诊医保专用命令；recordId 只引用服务端门诊待缴记录，Provider 订单号由后端重查。 */
+export const MedicalInsuranceOutpatientAuthorizeRequest = Type.Object(
+	{
+		recordId: Type.String({ minLength: 1, maxLength: 128 }),
+		patientId: Type.String({ minLength: 1, maxLength: 128 }),
+		authCode: Type.String({ minLength: 1, maxLength: 512 }),
+	},
+	{ additionalProperties: false },
+);
+
 export const MedicalInsuranceAuthorizeResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
@@ -1438,6 +1448,9 @@ export type PaymentOrderCreatePayload = Static<
 >;
 export type MedicalInsuranceAuthorizeRequestPayload = Static<
 	typeof MedicalInsuranceAuthorizeRequest
+>;
+export type MedicalInsuranceOutpatientAuthorizeRequestPayload = Static<
+	typeof MedicalInsuranceOutpatientAuthorizeRequest
 >;
 export type MedicalInsuranceAuthorizePayload = Static<
 	typeof MedicalInsuranceAuthorizeResponse

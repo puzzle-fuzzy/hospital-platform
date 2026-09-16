@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import type {
 	AdapterCallContext,
-	AppointmentMedicalInsuranceContext,
 	AppointmentMedicalInsurancePatient,
 	ExternalTrace,
 	MedicalInsuranceAmounts,
 	MedicalInsuranceAuthorizationContext,
 	MedicalInsuranceAuthorizationRepository,
+	MedicalInsuranceBusinessContext,
 	MedicalInsuranceBusinessType,
 	MedicalInsuranceCancellationEvidence,
 	MedicalInsuranceCredentialRepository,
@@ -697,7 +697,7 @@ function detailAmountFen(
 
 function mapFeeDetails(
 	details: readonly ProviderRecord[],
-	appointment: AppointmentMedicalInsuranceContext,
+	business: MedicalInsuranceBusinessContext,
 	auth: MedicalInsuranceAuthorizationContext,
 	medType: "12" | "11" | "110104",
 	deptCode: string,
@@ -755,7 +755,10 @@ function mapFeeDetails(
 				["orderId", "orderMainId", "rxno"],
 				operation,
 				requestId,
-			) ?? appointment.providerAppointmentId;
+			) ??
+			("providerAppointmentId" in business
+				? business.providerAppointmentId
+				: business.recordId);
 		return {
 			feedetlSn:
 				optionalText(
@@ -2811,11 +2814,36 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.6201",
 					`门诊险种 ${auth.insutype} 没有配置医疗类别`,
 				);
-			const appointment = input.appointment;
+			const business = input.appointment;
+			const providerPatientId = business.providerPatientId;
+			const businessRecordId =
+				"providerAppointmentId" in business
+					? business.providerAppointmentId
+					: business.recordId;
 			const registerId =
-				appointment.providerRegisterId ??
-				appointment.providerHisRegisterId ??
-				appointment.providerAppointmentId;
+				"providerRegisterId" in business
+					? (business.providerRegisterId ??
+						business.providerHisRegisterId ??
+						business.providerAppointmentId)
+					: undefined;
+			const totalFenExpected = business.totalFen;
+			const fallbackDepartmentId =
+				"departmentId" in business ? business.departmentId : undefined;
+			const fallbackDepartmentName =
+				"departmentName" in business ? business.departmentName : undefined;
+			const fallbackDoctorId =
+				"doctorId" in business ? business.doctorId : undefined;
+			const fallbackDoctorName =
+				"doctorName" in business ? business.doctorName : undefined;
+			const outpatientOrderIds =
+				businessType === "outpatient" && "outTradeOrderIds" in business
+					? [...business.outTradeOrderIds]
+					: [];
+			if (businessType === "outpatient" && outpatientOrderIds.length === 0)
+				throw responseError(
+					"medical-insurance.6201",
+					"门诊费用缺少 2.6.33 outTradeOrderIds",
+				);
 			const priorSettlementContext = await options.orders.getSettlementContext(
 				input.ownerUserId,
 				input.orderId,
@@ -2833,7 +2861,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				businessCode = priorSettlementContext.businessCode ?? "";
 				tradeOrderIds = [...priorSettlementContext.tradeOrderIds];
 				settlementAmountFen =
-					priorSettlementContext.settlementAmountFen ?? appointment.totalFen;
+					priorSettlementContext.settlementAmountFen ?? totalFenExpected;
 				if (
 					!businessId.trim() ||
 					!businessCode.trim() ||
@@ -2864,18 +2892,25 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						appCode: DEFAULT_APP_CODE,
 						autoSettle: "2",
 						hospitalId,
-						patId: appointment.providerPatientId,
+						patId: providerPatientId,
 						requestId: stableNumericRequestId(
 							`medical-insurance.2.6.65.1:${input.orderId}:${registerId}`,
 						),
-						requestParam: {
-							registerId,
-							registerSource: DEFAULT_REGISTER_SOURCE,
-							settleWay: DEFAULT_SETTLE_WAY,
-						},
+						requestParam:
+							businessType === "outpatient"
+								? {
+										outTradeOrderIds: outpatientOrderIds,
+										settleWay: DEFAULT_SETTLE_WAY,
+									}
+								: {
+										registerId,
+										registerSource: DEFAULT_REGISTER_SOURCE,
+										settleWay: DEFAULT_SETTLE_WAY,
+									},
 						sceneCode: DEFAULT_SCENE_CODE,
 						paySceneCode: DEFAULT_SCENE_CODE,
-						tradeTypeCode: DEFAULT_TRADE_TYPE_CODE,
+						tradeTypeCode:
+							businessType === "outpatient" ? "2" : DEFAULT_TRADE_TYPE_CODE,
 						workStationId: "",
 					},
 				);
@@ -2921,7 +2956,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"6201",
 				);
 			}
-			if (settlementAmountFen !== appointment.totalFen) {
+			if (settlementAmountFen !== totalFenExpected) {
 				throw responseError(
 					"medical-insurance.2.6.65.1",
 					"真实结算金额与预约服务端金额不一致",
@@ -2938,7 +2973,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records",
 				context,
 				{
-					patId: appointment.providerPatientId,
+					patId: providerPatientId,
 					startTime: dateTime(
 						new Date(currentDate.getTime() - 24 * 60 * 60 * 1000),
 					),
@@ -2984,7 +3019,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						businessId,
 						businessCode,
 						hospitalId,
-						patientId: appointment.providerPatientId,
+						patientId: providerPatientId,
 						networkRegister: {},
 						outNetworkSettleMain: {},
 						nationalUpDetailList: [],
@@ -3031,7 +3066,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 							"/msun-yb-app-miop/v1/out-insur-settle-infos",
 							context,
 							{
-								patId: appointment.providerPatientId,
+								patId: providerPatientId,
 								outSettleMainId: businessId,
 							},
 						);
@@ -3076,7 +3111,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					businessId,
 					businessCode,
 					hospitalId,
-					patientId: appointment.providerPatientId,
+					patientId: providerPatientId,
 					networkRegister: {},
 					outNetworkSettleMain: preOutNetworkSettleMain,
 					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
@@ -3105,7 +3140,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					businessId,
 					businessCode,
 					hospitalId,
-					patientId: appointment.providerPatientId,
+					patientId: providerPatientId,
 					networkRegister: {},
 					outNetworkSettleMain: preOutNetworkSettleMain,
 					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
@@ -3148,7 +3183,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						businessId,
 						businessCode,
 						hospitalId,
-						patientId: appointment.providerPatientId,
+						patientId: providerPatientId,
 						networkRegister: {},
 						outNetworkSettleMain: preOutNetworkSettleMain,
 						nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
@@ -3171,7 +3206,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					["billDeptCode", "billDeptId", "exeDeptCode", "exeDeptId"],
 					"medical-insurance.2.27.2.27",
 					detailResponse.requestId,
-				) ?? appointment.departmentId;
+				) ?? fallbackDepartmentId;
 			if (!deptId)
 				throw responseError(
 					"medical-insurance.2.1.9",
@@ -3224,14 +3259,14 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					["billDeptName"],
 					"medical-insurance.2.27.2.27",
 					detailResponse.requestId,
-				) ?? appointment.departmentName;
+				) ?? fallbackDepartmentName;
 			const doctorUserCode =
 				optionalText(
 					firstDetail,
 					["billDocCode", "exeDocCode"],
 					"medical-insurance.2.27.2.27",
 					detailResponse.requestId,
-				) ?? appointment.doctorId;
+				) ?? fallbackDoctorId;
 			if (!doctorUserCode)
 				throw responseError(
 					"medical-insurance.2.1.13",
@@ -3285,7 +3320,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.2.1.13",
 					doctorResponse.requestId,
 				) ??
-				appointment.doctorName;
+				fallbackDoctorName;
 			const chargeBatch =
 				optionalText(
 					firstDetail,
@@ -3294,10 +3329,22 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					detailResponse.requestId,
 				) ??
 				tradeOrderIds[0] ??
-				appointment.providerAppointmentId;
+				businessRecordId;
+			if (!deptName)
+				throw responseError(
+					"medical-insurance.2.1.9",
+					"无法从真实费用明细或业务事实解析 deptName",
+					detailResponse.requestId,
+				);
+			if (!doctorName)
+				throw responseError(
+					"medical-insurance.2.1.13",
+					"无法从真实费用明细或业务事实解析 doctorName",
+					detailResponse.requestId,
+				);
 			const feedetailList = mapFeeDetails(
 				details,
-				appointment,
+				business,
 				auth,
 				medType,
 				deptCode,
@@ -3318,7 +3365,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					),
 				0,
 			);
-			if (totalFen !== appointment.totalFen)
+			if (totalFen !== totalFenExpected)
 				throw responseError(
 					"medical-insurance.6201",
 					"真实费用明细合计与预约应付金额不一致",
@@ -3411,7 +3458,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					businessId,
 					businessCode,
 					settlementAmountFen,
-					appointmentTotalFen: appointment.totalFen,
+					appointmentTotalFen: totalFenExpected,
 					detailCount: details.length,
 					feedetailCount: feedetailList.length,
 					diagnosisCount: diagnoseList.length,
@@ -3552,7 +3599,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					businessId,
 					businessCode,
 					hospitalId,
-					patientId: appointment.providerPatientId,
+					patientId: providerPatientId,
 					chrgBchno: chargeBatch,
 					networkRegister,
 					outNetworkSettleMain,

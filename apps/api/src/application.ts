@@ -516,6 +516,8 @@ export function createDefaultApplicationServices(
 			gateways.appointmentPatientProfile,
 		medicalInsurance:
 			options.medicalInsuranceGateway ?? gateways.medicalInsurance,
+		outpatientPayments:
+			options.outpatientPaymentGateway ?? gateways.outpatientPayments,
 		core: medicalInsuranceCore,
 		...(options.logger ? { logger: options.logger } : {}),
 	});

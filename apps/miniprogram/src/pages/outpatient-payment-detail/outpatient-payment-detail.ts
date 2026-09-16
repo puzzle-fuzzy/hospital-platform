@@ -6,6 +6,14 @@ import {
 	loadOutpatientPaymentDetail,
 } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
+import {
+	clearPendingPayment,
+	continueMedicalPayment,
+	type PaymentProgress,
+	readPendingPayment,
+	resumeMedicalCashPaymentFromPending,
+	startOutpatientMedicalPayment,
+} from "../../services/medical-insurance";
 import { startOutpatientSelfPay } from "../../services/outpatient-self-pay";
 import {
 	disposePageInstance,
@@ -28,9 +36,14 @@ const HOSPITAL_NAME = "高平市人民医院";
 
 type PaymentStatus = "unpaid" | "paid";
 
+type MedicalApp = {
+	globalData: { medicalInsuranceAuthCode: string };
+};
+
 /**
- * 门诊费用页沿用挂号页的支付交互：微信自费走服务端门诊下单链路；医保
- * 入口继续保持受控提示，直到门诊医保授权、6201/6202 和回写 contract 完成。
+ * 门诊费用页沿用挂号页的支付交互：两种按钮都进入服务端统一支付编排；
+ * 医保入口只把 recordId/patientId 作为业务上下文，6201 的 outTradeOrderIds
+ * 由服务端重新调用 2.6.33 解析。
  */
 type OutpatientPaymentDetailPageState = OutpatientPaymentDetailPageData & {
 	paymentBusy: boolean;
@@ -48,12 +61,12 @@ type OutpatientPaymentDetailPageMethods = {
 	onBackHome(): void;
 	onMedicalPay(): void;
 	onWechatPay(): Promise<void>;
+	onShow(): void;
 	onUnload(): void;
 	formatAmount(amountFen: number): string;
 	formatDate(value: string): string;
 	statusLabel(status: PaymentStatus): string;
 	showError(error: unknown): void;
-	showPaymentUnavailable(mode: "医保支付" | "微信支付"): void;
 };
 
 function isPaymentStatus(value: unknown): value is PaymentStatus {
@@ -69,6 +82,8 @@ function validReference(value: unknown): value is string {
 		!Array.from(value).some((character) => character.charCodeAt(0) <= 0x1f)
 	);
 }
+
+let resumingMedicalPayment = false;
 
 Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 	data: {
@@ -129,6 +144,64 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			sourceStatus: status,
 		});
 		void this.loadDetail(patientId, recordId, status);
+	},
+
+	/** 从医保小程序回跳后恢复门诊授权，或在微信收银台返回后查同一订单。 */
+	onShow(): void {
+		if (resumingMedicalPayment) return;
+		const pending = readPendingPayment();
+		if (
+			pending?.businessType !== "outpatient" ||
+			pending.recordId !== this.data.sourceRecordId ||
+			pending.patientId !== this.data.sourcePatientId
+		)
+			return;
+		const app = getApp<MedicalApp>();
+		const authCode = String(
+			app?.globalData?.medicalInsuranceAuthCode || "",
+		).trim();
+		if (!authCode && pending.phase !== "cash_payment") return;
+		if (app?.globalData) app.globalData.medicalInsuranceAuthCode = "";
+		resumingMedicalPayment = true;
+		this.setData({
+			paymentBusy: true,
+			paymentMessage: authCode
+				? "正在调用医保授权接口，请勿重复提交"
+				: "正在确认医保支付并回写医院，请勿重复付款",
+		});
+		const progress = (_stage: PaymentProgress, message: string) =>
+			this.setData({ paymentMessage: message });
+		const task: Promise<boolean | { kind: "cashier_opened" } | undefined> =
+			authCode
+				? continueMedicalPayment(authCode, pending, progress)
+				: resumeMedicalCashPaymentFromPending(pending, progress);
+		void task
+			.then((result) => {
+				if (result === false) return;
+				if (!readPendingPayment()) {
+					this.setData({ paymentMessage: "门诊医保支付成功" });
+					wx.showModal({
+						title: "支付成功",
+						content: "本笔门诊费用已完成医保支付。",
+						showCancel: false,
+						confirmText: "知道了",
+						success: () => this.onBack(),
+					});
+				}
+			})
+			.catch((error: unknown) => {
+				clearPendingPayment();
+				this.setData({
+					paymentMessage: errorMessageWithCode(
+						error,
+						"门诊医保支付未完成，请稍后重试",
+					),
+				});
+			})
+			.finally(() => {
+				resumingMedicalPayment = false;
+				this.setData({ paymentBusy: false });
+			});
 	},
 
 	/** 重新确认 owner、患者和会话代际后，才读取单笔费用摘要。 */
@@ -226,7 +299,29 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 	},
 
 	onMedicalPay(): void {
-		this.showPaymentUnavailable("医保支付");
+		if (this.data.paymentBusy || this.data.item?.status !== "unpaid") return;
+		const patientId = this.data.sourcePatientId;
+		const recordId = this.data.sourceRecordId;
+		if (!patientId || !recordId) return;
+		this.setData({
+			paymentBusy: true,
+			paymentMessage: "正在准备门诊医保支付，请勿重复点击",
+		});
+		void startOutpatientMedicalPayment(
+			recordId,
+			patientId,
+			(_stage, message) => this.setData({ paymentMessage: message }),
+			"mixed",
+		)
+			.catch((error: unknown) => {
+				this.setData({
+					paymentMessage: errorMessageWithCode(
+						error,
+						"门诊医保支付未完成，请稍后重试",
+					),
+				});
+			})
+			.finally(() => this.setData({ paymentBusy: false }));
 	},
 
 	onWechatPay(): Promise<void> {
@@ -292,27 +387,6 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			item: null,
 			paymentBusy: false,
 			paymentMessage: "",
-		});
-	},
-
-	/** 门诊医保入口仍未接入，不能把费用 recordId 冒充预约号调用挂号医保接口。 */
-	showPaymentUnavailable(mode: "医保支付" | "微信支付"): void {
-		if (this.data.paymentBusy) return;
-		this.setData({
-			paymentBusy: true,
-			paymentMessage: `${mode}入口已准备，正在确认门诊支付服务状态`,
-		});
-		wx.showModal({
-			title: `${mode}暂未开放`,
-			content:
-				"门诊微信自费支付已接入；门诊医保授权和结算仍在接入中，请先使用微信支付或联系医院。",
-			showCancel: false,
-			confirmText: "知道了",
-			complete: () =>
-				this.setData({
-					paymentBusy: false,
-					paymentMessage: "",
-				}),
 		});
 	},
 });

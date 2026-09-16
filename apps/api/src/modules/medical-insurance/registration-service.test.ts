@@ -661,3 +661,233 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 		status: "insurance_settled",
 	});
 });
+
+test("门诊医保授权复用统一订单核心并从 2.6.33 解析支付事实", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	let contextInput: { recordId: string; providerPatientId: string } | undefined;
+	let authorizePatientId = "";
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations,
+		appointments: {} as never,
+		patients: {
+			resolveProviderReference: async (input: {
+				patientId: string;
+				referenceKind?: string;
+			}) => {
+				return {
+					patientId: input.patientId,
+					provider: "zhongyang" as const,
+					providerPatientId:
+						input.referenceKind === "directory"
+							? "directory-outpatient-patient-001"
+							: "his-outpatient-patient-001",
+				};
+			},
+		} as never,
+		identityUsers: {
+			findByUserId: async () => ({
+				userId: "user-outpatient-001",
+				providerSubject: "openid-outpatient-001",
+				unionId: "union-outpatient-001",
+			}),
+		} as never,
+		patientProfile: {
+			resolve: async () => ({
+				patient: {
+					providerPatientId: "his-outpatient-patient-001",
+					name: "门诊测试人",
+					cardNo: "CARD-OUTPATIENT-001",
+					idNo: "140581199001010011",
+					phone: "13800000000",
+				},
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "appointment-patient-profile",
+					requestId: "profile-outpatient-001",
+				},
+			}),
+		} as never,
+		outpatientPayments: {
+			resolvePaymentContext: async (input: {
+				recordId: string;
+				providerPatientId: string;
+			}) => {
+				contextInput = input;
+				return {
+					recordId: input.recordId,
+					providerPatientId: input.providerPatientId,
+					outTradeOrderIds: ["out-trade-order-001"],
+					totalFen: 1000,
+					trace: {
+						provider: "zhongyang" as const,
+						operation: "outpatient-payment-context",
+						requestId: "outpatient-context-001",
+					},
+				};
+			},
+		} as never,
+		medicalInsurance: {
+			authorize: async (input: { patientId: string; orderId: string }) => {
+				authorizePatientId = input.patientId;
+				await authorizations.put({
+					authorizationId: "authorization-outpatient-001",
+					ownerUserId: "user-outpatient-001",
+					medicalOrderId: input.orderId,
+					providerSubject: "openid-outpatient-001",
+					payAuthNo: "pay-auth-outpatient-001",
+					patient: {
+						idNo: "140581199001010011",
+						userName: "门诊测试人",
+						idType: "01",
+					},
+					psnNo: "psn-outpatient-001",
+					insutype: "310",
+					insuplcAdmdvs: "140581",
+					insuCode: "140581",
+					expiresAt: "2026-09-03T00:15:00.000Z",
+					createdAt: now.toISOString(),
+				});
+				return {
+					authorizationId: "authorization-outpatient-001",
+					trace: {
+						provider: "medical-insurance" as const,
+						operation: "medical-insurance.authorize",
+						requestId: "authorize-outpatient-001",
+					},
+				};
+			},
+		} as never,
+		now: () => now,
+	});
+
+	const result = await service.authorizeOutpatient({
+		ownerUserId: "user-outpatient-001",
+		recordId: "outpatient-record-001",
+		patientId: "patient-outpatient-001",
+		authCode: "auth-code-outpatient-001",
+		context: {
+			traceId: "medical-outpatient-trace-001",
+			idempotencyKey: "medical-outpatient-idempotency-001",
+		},
+	});
+
+	expect(result).toMatchObject({ status: "authorized" });
+	expect(contextInput).toMatchObject({
+		recordId: "outpatient-record-001",
+		providerPatientId: "his-outpatient-patient-001",
+	});
+	expect(authorizePatientId).toBe("his-outpatient-patient-001");
+	const stored = await orders.findByMedicalOrderId(result.orderId);
+	expect(stored).toMatchObject({
+		businessType: "outpatient",
+		orderType: "DiagPay",
+		businessId: "outpatient-record-001",
+		patientId: "patient-outpatient-001",
+	});
+});
+
+test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	await authorizations.put({
+		authorizationId: "authorization-fees-outpatient-001",
+		ownerUserId: "user-fees-outpatient-001",
+		medicalOrderId: "medical-fees-outpatient-001",
+		providerSubject: "openid-fees-outpatient-001",
+		payAuthNo: "pay-auth-fees-outpatient-001",
+		patient: {
+			idNo: "140581199001010011",
+			userName: "门诊费用测试人",
+			idType: "01",
+		},
+		psnNo: "psn-fees-outpatient-001",
+		insutype: "310",
+		insuplcAdmdvs: "140581",
+		insuCode: "140581",
+		expiresAt: "2026-09-03T00:15:00.000Z",
+		createdAt: now.toISOString(),
+	});
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-fees-outpatient-001",
+			ownerUserId: "user-fees-outpatient-001",
+			patientId: "patient-fees-outpatient-001",
+			appointmentId: undefined,
+			businessType: "outpatient",
+			orderType: "DiagPay",
+			businessId: "outpatient-record-fees-001",
+			authorizationId: "authorization-fees-outpatient-001",
+			feeUploadId: null,
+			payOrdId: null,
+			status: "created",
+		}),
+	);
+	let uploaded: unknown;
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations,
+		appointments: {} as never,
+		patients: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-fees-outpatient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "his-fees-outpatient-001",
+			}),
+		} as never,
+		outpatientPayments: {
+			resolvePaymentContext: async () => ({
+				recordId: "outpatient-record-fees-001",
+				providerPatientId: "his-fees-outpatient-001",
+				outTradeOrderIds: ["out-trade-fees-001", "out-trade-fees-002"],
+				totalFen: 2000,
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "outpatient-payment-context",
+					requestId: "outpatient-fees-context-001",
+				},
+			}),
+		} as never,
+		medicalInsurance: {
+			uploadFees: async (input: { appointment: unknown }) => {
+				uploaded = input.appointment;
+				return {
+					feeUploadId: "fee-upload-outpatient-001",
+					payOrdId: "pay-outpatient-001",
+					payTokenHash: "b".repeat(64),
+					mdtrtId: "mdtrt-outpatient-001",
+					acctUsedFlag: "0",
+					trace: {
+						provider: "medical-insurance" as const,
+						operation: "medical-insurance.6201",
+						requestId: "6201-outpatient-001",
+					},
+				};
+			},
+		} as never,
+		now: () => now,
+	});
+
+	const result = await service.uploadOutpatientFees({
+		ownerUserId: "user-fees-outpatient-001",
+		orderId: "medical-fees-outpatient-001",
+		context: {
+			traceId: "medical-fees-outpatient-trace-001",
+			idempotencyKey: "medical-fees-outpatient-idempotency-001",
+		},
+	});
+	expect(result).toMatchObject({
+		orderId: "medical-fees-outpatient-001",
+		status: "fee_uploaded",
+	});
+	expect(uploaded).toEqual({
+		businessType: "outpatient",
+		recordId: "outpatient-record-fees-001",
+		providerPatientId: "his-fees-outpatient-001",
+		outTradeOrderIds: ["out-trade-fees-001", "out-trade-fees-002"],
+		totalFen: 2000,
+	});
+});

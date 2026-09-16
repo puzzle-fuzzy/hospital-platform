@@ -18,6 +18,8 @@ import {
 	type MedicalInsuranceQueryTaskRepository,
 	medicalInsuranceOrderTypeForBusiness,
 	normalizeAdapterCallContext,
+	type OutpatientMedicalInsuranceContext,
+	type OutpatientPaymentGateway,
 	type PatientRepository,
 	type UserIdentityRepository,
 	validatePatientProviderReference,
@@ -57,6 +59,8 @@ export type MedicalInsuranceRegistrationServiceDependencies = {
 	identityUsers: UserIdentityRepository;
 	patientProfile: AppointmentPatientProfileGateway;
 	medicalInsurance: MedicalInsuranceGateway;
+	/** 门诊医保入口复用同一门诊 2.6.33 事实解析，不从客户端接收 Provider 订单号。 */
+	outpatientPayments?: OutpatientPaymentGateway;
 	/** 可注入统一核心；省略时为兼容旧组合根自动创建同一核心实现。 */
 	core?: MedicalInsurancePaymentCore;
 	/** 兼容旧组合根，实际由统一核心持有。 */
@@ -171,7 +175,7 @@ export class MedicalInsuranceRegistrationService {
 
 	private async patient(
 		ownerUserId: string,
-		appointment: AppointmentRegistration,
+		patientId: string,
 		context: ReturnType<typeof contextOf>,
 	) {
 		const identity =
@@ -188,7 +192,7 @@ export class MedicalInsuranceRegistrationService {
 		const directoryReference =
 			await this.dependencies.patients.resolveProviderReference({
 				ownerUserId,
-				patientId: appointment.patientId,
+				patientId,
 				provider: "zhongyang",
 				referenceKind: "directory",
 			});
@@ -198,7 +202,7 @@ export class MedicalInsuranceRegistrationService {
 			);
 		const referenceViolation = validatePatientProviderReference(
 			directoryReference,
-			appointment.patientId,
+			patientId,
 		);
 		if (referenceViolation)
 			throw new MedicalInsuranceRegistrationInputError(
@@ -212,6 +216,161 @@ export class MedicalInsuranceRegistrationService {
 			context,
 		);
 		return { identity, patient: result.patient };
+	}
+
+	private async outpatientProviderContext(
+		ownerUserId: string,
+		patientId: string,
+		recordId: string,
+		context: ReturnType<typeof contextOf>,
+	) {
+		const gateway = this.dependencies.outpatientPayments;
+		if (!gateway?.resolvePaymentContext) {
+			throw new DependencyNotConfiguredError("outpatient-payment-context");
+		}
+		const reference = await this.dependencies.patients.resolveProviderReference(
+			{
+				ownerUserId,
+				patientId,
+				provider: "zhongyang",
+				referenceKind: "his-patient",
+			},
+		);
+		if (!reference || validatePatientProviderReference(reference, patientId)) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"当前就诊人缺少众阳门诊缴费映射，无法发起医保支付",
+			);
+		}
+		const now = this.now();
+		const providerDateTime = (value: Date): string => {
+			const parts = new Intl.DateTimeFormat("en-CA", {
+				timeZone: "Asia/Shanghai",
+				calendar: "gregory",
+				numberingSystem: "latn",
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+				hourCycle: "h23",
+			}).formatToParts(value);
+			const values = Object.fromEntries(
+				parts
+					.filter((part) => part.type !== "literal")
+					.map((part) => [part.type, part.value]),
+			);
+			return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
+		};
+		const resolved = await gateway.resolvePaymentContext(
+			{
+				providerPatientId: reference.providerPatientId,
+				recordId,
+				startTime: providerDateTime(
+					new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+				),
+				endTime: providerDateTime(now),
+			},
+			context,
+		);
+		if (
+			resolved.recordId !== recordId ||
+			resolved.providerPatientId !== reference.providerPatientId ||
+			!Number.isSafeInteger(resolved.totalFen) ||
+			resolved.totalFen <= 0 ||
+			resolved.outTradeOrderIds.length === 0
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"门诊缴费事实不可用，无法发起医保支付",
+			);
+		}
+		return resolved;
+	}
+
+	private async authorizationContextForPatient(input: {
+		ownerUserId: string;
+		patientId: string;
+		businessId: string;
+		context: ReturnType<typeof contextOf>;
+	}): Promise<MedicalInsuranceAuthorizationContextPayload["data"]> {
+		const patients = await this.dependencies.patients.listByOwner(
+			input.ownerUserId,
+		);
+		const selected = patients.find(
+			(candidate) => candidate.id === input.patientId,
+		);
+		if (!selected) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"当前就诊人未关联有效患者档案，无法发起医保授权",
+			);
+		}
+		if (selected.relationship === "unknown") {
+			this.logger.warn(
+				{
+					event: "medical-insurance.authorization.relationship-fallback",
+					traceId: input.context.traceId,
+					ownerUserId: input.ownerUserId,
+					businessId: input.businessId,
+					assumedRelationship: "self",
+				},
+				"Unknown patient relationship temporarily treated as self",
+			);
+			return { payForRelatives: false };
+		}
+		if (selected.relationship === "self") return { payForRelatives: false };
+		const selfPatients = patients.filter(
+			(candidate) => candidate.relationship === "self",
+		);
+		if (selfPatients.length !== 1 || !selfPatients[0]) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"当前微信用户缺少唯一的本人就诊人档案，无法代亲属支付",
+			);
+		}
+		const { identity, patient } = await this.patient(
+			input.ownerUserId,
+			input.patientId,
+			input.context,
+		);
+		const payerReference =
+			await this.dependencies.patients.resolveProviderReference({
+				ownerUserId: input.ownerUserId,
+				patientId: selfPatients[0].id,
+				provider: "zhongyang",
+				referenceKind: "directory",
+			});
+		if (
+			!payerReference ||
+			validatePatientProviderReference(payerReference, selfPatients[0].id)
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"本人就诊人缺少有效的众阳目录映射，无法代亲属支付",
+			);
+		}
+		if (!identity.unionId) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"微信身份缺少 unionId，无法代亲属支付",
+			);
+		}
+		await this.dependencies.patientProfile.resolve(
+			{
+				unionId: identity.unionId,
+				providerPatientId: payerReference.providerPatientId,
+			},
+			input.context,
+		);
+		const patientName = patient.name.trim();
+		const patientIdNo = patient.idNo.trim().toUpperCase();
+		if (!patientName || patientIdNo.length < 4) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"亲属实名资料不完整，无法生成亲情付授权标识",
+			);
+		}
+		return {
+			payForRelatives: true,
+			familyId: createHash("md5")
+				.update(`${patientName}${patientIdNo.slice(-4)}`, "utf8")
+				.digest("hex"),
+		};
 	}
 
 	/**
@@ -266,7 +425,7 @@ export class MedicalInsuranceRegistrationService {
 		}
 		const { identity, patient } = await this.patient(
 			ownerUserId,
-			appointment,
+			appointment.patientId,
 			context,
 		);
 		const payerReference =
@@ -311,6 +470,191 @@ export class MedicalInsuranceRegistrationService {
 				.update(`${patientName}${patientIdNo.slice(-4)}`, "utf8")
 				.digest("hex"),
 		};
+	}
+
+	/** 门诊医保授权跳转前复用同一亲情付判定，并确认 recordId 仍属于当前患者。 */
+	async outpatientAuthorizationContext(input: {
+		ownerUserId: string;
+		recordId: string;
+		patientId: string;
+		context: unknown;
+	}): Promise<MedicalInsuranceAuthorizationContextPayload["data"]> {
+		const context = contextOf(input.context);
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const recordId = opaque(input.recordId, "recordId");
+		const patientId = opaque(input.patientId, "patientId");
+		await this.outpatientProviderContext(
+			ownerUserId,
+			patientId,
+			recordId,
+			context,
+		);
+		return this.authorizationContextForPatient({
+			ownerUserId,
+			patientId,
+			businessId: recordId,
+			context,
+		});
+	}
+
+	/**
+	 * 门诊医保授权。订单仍进入同一 MedicalInsurancePaymentCore，后续 fees、settle、
+	 * 微信支付和查单路由完全共用挂号实现；只有业务键和 2.6.33 门诊事实不同。
+	 */
+	async authorizeOutpatient(input: {
+		ownerUserId: string;
+		recordId: string;
+		patientId: string;
+		authCode: string;
+		context: unknown;
+	}): Promise<MedicalInsuranceAuthorizePayload["data"]> {
+		const context = contextOf(input.context);
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const recordId = opaque(input.recordId, "recordId");
+		const patientId = opaque(input.patientId, "patientId");
+		if (
+			typeof input.authCode !== "string" ||
+			!input.authCode.trim() ||
+			input.authCode.length > 512
+		)
+			throw new MedicalInsuranceRegistrationInputError("authCode is invalid");
+		const providerContext = await this.outpatientProviderContext(
+			ownerUserId,
+			patientId,
+			recordId,
+			context,
+		);
+		let order = await this.dependencies.orders.findByOwnerAndIdempotencyKey(
+			ownerUserId,
+			context.idempotencyKey,
+		);
+		if (
+			order &&
+			(order.businessType !== "outpatient" ||
+				order.businessId !== recordId ||
+				order.patientId !== patientId)
+		)
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance idempotency key conflicts with outpatient record",
+			);
+		if (order?.status === "cancelled") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"本次医保授权尝试已作废，请重新展码授权",
+			);
+		}
+		if (!order && this.dependencies.orders.findByOwnerAndBusinessKey) {
+			const previousOrder =
+				await this.dependencies.orders.findByOwnerAndBusinessKey(
+					ownerUserId,
+					"outpatient",
+					recordId,
+				);
+			if (
+				previousOrder &&
+				(previousOrder.businessType !== "outpatient" ||
+					previousOrder.businessId !== recordId ||
+					previousOrder.patientId !== patientId)
+			)
+				throw new MedicalInsuranceRegistrationInputError(
+					"Medical insurance business key conflicts with outpatient record",
+				);
+			if (previousOrder?.status && previousOrder.status !== "cancelled") {
+				const cancellation = await this.core.cancel({
+					ownerUserId,
+					orderId: previousOrder.medicalOrderId,
+					reason: "reauthorization",
+					context,
+				});
+				if (cancellation.status !== "cancelled" || !cancellation.restartAllowed)
+					throw new MedicalInsuranceRegistrationInputError(
+						"旧医保订单未能安全关闭，不能使用新的授权码发起支付",
+					);
+			}
+		}
+		if (!order) {
+			const now = this.now().toISOString();
+			const medicalOrderId = this.createId();
+			order = await this.dependencies.orders.insert({
+				medicalOrderId,
+				ownerUserId,
+				patientId,
+				businessType: "outpatient",
+				orderType: "DiagPay",
+				businessId: recordId,
+				authorizationId: null,
+				feeUploadId: null,
+				idempotencyKey: context.idempotencyKey,
+				medOrgOrd: medicalOrderId,
+				chrgBchno: this.createId().replaceAll("-", ""),
+				payOrdId: null,
+				payTokenHash: null,
+				mdtrtId: null,
+				acctUsedFlag: null,
+				status: "created",
+				ordStas: null,
+				amounts: null,
+				setlType: null,
+				revsTokenHash: null,
+				revsTokenExpiresAt: null,
+				lastError: null,
+				version: 1,
+				createdAt: now,
+				updatedAt: now,
+			});
+		}
+		if (order.authorizationId) {
+			const authorization = await this.dependencies.authorizations.get({
+				authorizationId: order.authorizationId,
+				ownerUserId,
+				medicalOrderId: order.medicalOrderId,
+				now: this.now().toISOString(),
+			});
+			if (!authorization)
+				throw new MedicalInsuranceRegistrationInputError(
+					"医保授权上下文不可用，请重新完成医保授权",
+				);
+			return { orderId: order.medicalOrderId, status: "authorized" };
+		}
+		const { identity, patient } = await this.patient(
+			ownerUserId,
+			patientId,
+			context,
+		);
+		const result = await this.dependencies.medicalInsurance.authorize(
+			{
+				authCode: input.authCode,
+				patientId: providerContext.providerPatientId,
+				ownerUserId,
+				orderId: order.medicalOrderId,
+				providerSubject: identity.providerSubject,
+				patient,
+			},
+			context,
+		);
+		const authorization = await this.dependencies.authorizations.get({
+			authorizationId: result.authorizationId,
+			ownerUserId,
+			medicalOrderId: order.medicalOrderId,
+			now: this.now().toISOString(),
+		});
+		if (!authorization)
+			throw new DependencyNotConfiguredError(
+				"medical-insurance-authorization-context",
+			);
+		const updated = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				...emptySettlementPatch(order),
+				authorizationId: result.authorizationId,
+				businessType: "outpatient",
+				orderType: "DiagPay",
+				businessId: recordId,
+			},
+		);
+		if (!updated)
+			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		return { orderId: updated.medicalOrderId, status: "authorized" };
 	}
 
 	async authorize(input: {
@@ -492,7 +836,7 @@ export class MedicalInsuranceRegistrationService {
 		}
 		const { identity, patient } = await this.patient(
 			ownerUserId,
-			appointment,
+			appointment.patientId,
 			context,
 		);
 		this.logger.info(
@@ -570,6 +914,9 @@ export class MedicalInsuranceRegistrationService {
 		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
 		if (!order || order.ownerUserId !== ownerUserId)
 			throw new MedicalInsuranceOrderNotFoundError();
+		if (order.businessType === "outpatient") {
+			return this.uploadOutpatientFees({ ownerUserId, orderId, context });
+		}
 		if (
 			(order.businessType && order.businessType !== "registration") ||
 			(order.orderType && order.orderType !== "RegPay")
@@ -664,6 +1011,106 @@ export class MedicalInsuranceRegistrationService {
 				providerRequestId: result.trace.requestId,
 			},
 			"Medical insurance fee upload completed",
+		);
+		return output(updated, result.cashierUrl);
+	}
+
+	/** 门诊 6201：重新解析同一 2.6.33 待缴事实，再进入统一医保 adapter。 */
+	async uploadOutpatientFees(input: {
+		ownerUserId: string;
+		orderId: string;
+		context: unknown;
+	}): Promise<MedicalInsuranceOrderPayload["data"]> {
+		const context = contextOf(input.context);
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const orderId = opaque(input.orderId, "orderId");
+		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
+		if (!order || order.ownerUserId !== ownerUserId)
+			throw new MedicalInsuranceOrderNotFoundError();
+		if (
+			order.businessType !== "outpatient" ||
+			order.orderType !== "DiagPay" ||
+			!order.businessId
+		)
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance order business type is not outpatient",
+			);
+		if (!order.authorizationId)
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance authorization is required",
+			);
+		if (order.status !== "created") {
+			const settlement = await this.dependencies.orders.getSettlementContext(
+				ownerUserId,
+				orderId,
+			);
+			return output(order, settlement?.cashierUrl);
+		}
+		const providerContext = await this.outpatientProviderContext(
+			ownerUserId,
+			order.patientId,
+			order.businessId,
+			context,
+		);
+		this.logger.info(
+			{
+				event: "medical-insurance.fees.requested",
+				traceId: context.traceId,
+				ownerUserId,
+				orderId,
+				recordId: order.businessId,
+				businessType: "outpatient",
+				orderType: "DiagPay",
+			},
+			"Medical insurance outpatient fee upload requested",
+		);
+		const business: OutpatientMedicalInsuranceContext = {
+			businessType: "outpatient",
+			recordId: order.businessId,
+			providerPatientId: providerContext.providerPatientId,
+			outTradeOrderIds: providerContext.outTradeOrderIds,
+			totalFen: providerContext.totalFen,
+		};
+		const result = await this.dependencies.medicalInsurance.uploadFees(
+			{
+				orderId,
+				ownerUserId,
+				patientId: providerContext.providerPatientId,
+				authorizationId: order.authorizationId,
+				appointment: business,
+			},
+			context,
+		);
+		const updated = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				...emptySettlementPatch(order),
+				businessType: "outpatient",
+				orderType: "DiagPay",
+				businessId: order.businessId,
+				status: "fee_uploaded",
+				feeUploadId: result.feeUploadId,
+				payOrdId: result.payOrdId,
+				payTokenHash: result.payTokenHash,
+				mdtrtId: result.mdtrtId,
+				acctUsedFlag: result.acctUsedFlag,
+			},
+		);
+		if (!updated)
+			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		this.logger.info(
+			{
+				event: "medical-insurance.fees.completed",
+				traceId: context.traceId,
+				ownerUserId,
+				orderId,
+				recordId: order.businessId,
+				businessType: "outpatient",
+				orderType: "DiagPay",
+				providerRequestId: result.trace.requestId,
+			},
+			"Medical insurance outpatient fee upload completed",
 		);
 		return output(updated, result.cashierUrl);
 	}
