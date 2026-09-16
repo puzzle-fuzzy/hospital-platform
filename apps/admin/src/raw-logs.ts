@@ -89,6 +89,14 @@ type RawChunk = {
 
 export type JournalCommand = (args: readonly string[]) => Promise<string>;
 
+/**
+ * journalctl 在目标 Ubuntu 环境不接受 ISO-8601 的 `T...Z` 形式；显式
+ * 写出 UTC，同时保留毫秒，避免把日志窗口按服务器本地时区误解。
+ */
+export function formatJournalTimestamp(value: Date): string {
+	return value.toISOString().replace("T", " ").replace("Z", " UTC");
+}
+
 function isObject(value: unknown): value is JsonObject {
 	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -459,9 +467,9 @@ export async function readRawLogTrace(
 		"-u",
 		RAW_LOG_UNITS[1],
 		"--since",
-		since.toISOString(),
+		formatJournalTimestamp(since),
 		"--until",
-		until.toISOString(),
+		formatJournalTimestamp(until),
 		"--grep",
 		grep,
 	] as const;

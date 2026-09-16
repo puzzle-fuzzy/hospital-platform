@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { parseJournalRawChunks, readRawLogTrace } from "./raw-logs";
+import {
+	formatJournalTimestamp,
+	parseJournalRawChunks,
+	readRawLogTrace,
+} from "./raw-logs";
 
 function shortSha256(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 16);
@@ -19,6 +23,31 @@ function journalLine(
 }
 
 describe("controlled raw journald reader", () => {
+	test("formats journalctl bounds as explicit UTC timestamps", async () => {
+		const since = new Date("2026-02-02T01:00:00.123Z");
+		const until = new Date("2026-02-02T01:10:00.456Z");
+		let receivedArgs: readonly string[] = [];
+
+		await readRawLogTrace(
+			{
+				identifiers: ["trace-raw-time-window"],
+				since: since.toISOString(),
+				until: until.toISOString(),
+			},
+			async (args) => {
+				receivedArgs = args;
+				return "";
+			},
+		);
+
+		const sinceIndex = receivedArgs.indexOf("--since");
+		const untilIndex = receivedArgs.indexOf("--until");
+		expect(formatJournalTimestamp(since)).toBe("2026-02-02 01:00:00.123 UTC");
+		expect(formatJournalTimestamp(until)).toBe("2026-02-02 01:10:00.456 UTC");
+		expect(receivedArgs[sinceIndex + 1]).toBe("2026-02-02 01:00:00.123 UTC");
+		expect(receivedArgs[untilIndex + 1]).toBe("2026-02-02 01:10:00.456 UTC");
+	});
+
 	test("reassembles plain request chunks and returns only matching trace", async () => {
 		const body = '{"hello":"world"}';
 		const lines = [
