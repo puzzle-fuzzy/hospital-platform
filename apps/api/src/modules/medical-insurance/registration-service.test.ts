@@ -816,7 +816,6 @@ test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
 			medicalOrderId: "medical-fees-outpatient-001",
 			ownerUserId: "user-fees-outpatient-001",
 			patientId: "patient-fees-outpatient-001",
-			appointmentId: undefined,
 			businessType: "outpatient",
 			orderType: "DiagPay",
 			businessId: "outpatient-record-fees-001",
@@ -838,6 +837,8 @@ test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
 				providerPatientId: "his-fees-outpatient-001",
 			}),
 		} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
 		outpatientPayments: {
 			resolvePaymentContext: async () => ({
 				recordId: "outpatient-record-fees-001",

@@ -27,3 +27,33 @@ test("正式小程序支付异常后清除本地支付上下文", async () => {
 
 	expect(readPendingPayment()).toBeNull();
 });
+
+test("门诊医保支付上下文保留 recordId 并通过本地恢复校验", async () => {
+	const storage = new Map<string, unknown>();
+	Object.assign(globalThis, {
+		wx: {
+			getStorageSync: (key: string) => storage.get(key),
+			setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+			removeStorageSync: (key: string) => storage.delete(key),
+		},
+	});
+	const { readPendingPayment } = await import("./medical-insurance");
+	storage.set("hospital-platform.pending-medical-payment.v1", {
+		businessType: "outpatient",
+		appointmentId: "outpatient-record-local-001",
+		recordId: "outpatient-record-local-001",
+		patientId: "patient-local-001",
+		createdAt: Date.now(),
+		authorizeIdempotencyKey: "medical-authorize-outpatient-local-001",
+		feesIdempotencyKey: "medical-fees-outpatient-local-001",
+		settleIdempotencyKey: "medical-settle-outpatient-local-001",
+		mode: "mixed",
+		phase: "authorization",
+	});
+
+	expect(readPendingPayment()).toMatchObject({
+		businessType: "outpatient",
+		recordId: "outpatient-record-local-001",
+		patientId: "patient-local-001",
+	});
+});

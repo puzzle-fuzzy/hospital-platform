@@ -1497,9 +1497,7 @@ export type WechatPrepayStatusPayload = Static<
 export type RegistrationSelfPayPayload = Static<
 	typeof RegistrationSelfPayResponse
 >;
-export type OutpatientSelfPayPayload = Static<
-	typeof OutpatientSelfPayResponse
->;
+export type OutpatientSelfPayPayload = Static<typeof OutpatientSelfPayResponse>;
 export type RegistrationPaymentExitRequestPayload = Static<
 	typeof RegistrationPaymentExitRequest
 >;

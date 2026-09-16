@@ -12,8 +12,8 @@ import {
 	type AppointmentRecordDirectoryGateway,
 	HealthKnowledgeContentUnavailableError,
 	type HealthKnowledgeRepository,
-	type IntelligentCustomerApplicationService,
 	type InpatientEpisodeGateway,
+	type IntelligentCustomerApplicationService,
 	type OutpatientMedicalRecordGateway,
 	type OutpatientPaymentGateway,
 	type PatientDirectoryGateway,
@@ -44,8 +44,8 @@ import {
 	authModule,
 	createInMemorySessionTokenService,
 } from "./modules/auth";
-import { HealthKnowledgeService } from "./modules/knowledge";
 import { InpatientEpisodeService } from "./modules/inpatient";
+import { HealthKnowledgeService } from "./modules/knowledge";
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
