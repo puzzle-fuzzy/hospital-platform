@@ -107,7 +107,7 @@ const BANNER_LIST = Object.freeze([
 	{ action: "follow", image: "/assets/legacy-home/banner-follow.png" },
 ] satisfies ReadonlyArray<{ action: string; image: string }>);
 
-/** 右侧快捷入口保留旧端布局；门诊病历使用原生卡片，避免复用写死“报告查询”的旧位图。 */
+/** 右侧快捷入口保留设计稿布局；第三项固定为旧端的门诊病历入口。 */
 const RIGHT_LIST = Object.freeze([
 	{ action: "guide", image: "/assets/legacy-home/right-guide.png" },
 	{ action: "companion", image: "/assets/legacy-home/right-companion.png" },
@@ -118,8 +118,7 @@ const RIGHT_LIST = Object.freeze([
 	},
 ] satisfies ReadonlyArray<HomeQuickEntryItem>);
 
-/** 门诊/住院/便民服务清单基于旧端顺序按当前要求取舍；未开放入口也保留
- * 固定 action，点击后进入统一状态页，避免出现“看得见但点了没反应”。 */
+/** 门诊清单严格同步旧端启用项；门诊病历已迁移到右侧快捷入口，不在此重复展示。 */
 const SERVICE_TABS = Object.freeze([
 	{
 		title: "门诊",
@@ -712,7 +711,9 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureEntry("inpatient-center");
 				break;
 			case "inpatient-payment":
-				navigateToFeatureStatus("inpatient-payment");
+				// 旧服务这里是“预交金代缴”表单，不是迁移状态页；金额查询
+				// 和支付结果仍由住院支付 contract 单独收敛。
+				navigateToFeatureEntry("inpatient-payment");
 				break;
 			case "admission-preconsultation":
 				navigateToFeatureEntry("admission-preconsultation");

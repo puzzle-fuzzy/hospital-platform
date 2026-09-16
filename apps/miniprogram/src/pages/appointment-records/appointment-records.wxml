@@ -45,7 +45,7 @@
 		</view>
 	</view>
 
-	<!-- 保留旧端双标签布局；两个标签分别触发服务端已确认的只读查询范围。 -->
+	<!-- 蓝湖稿为三等分标签；候补挂号暂未接入服务端，只保留真实的未开放入口。 -->
 	<view class="status-tabs">
 		<view
 			class="status-tab {{activeTab === 'online' ? 'status-tab-active' : ''}}"
@@ -62,6 +62,9 @@
 		>
 			<text>全部挂号</text>
 			<view wx:if="{{activeTab === 'all'}}" class="status-tab-indicator"></view>
+		</view>
+		<view class="status-tab status-tab-disabled" bindtap="onWaitingListTap">
+			<text>候补挂号</text>
 		</view>
 	</view>
 
@@ -120,59 +123,43 @@
 			bindtap="onRecordTap"
 			data-view-key="{{item.viewKey}}"
 		>
-			<!--
-				卡片恢复旧端的阅读顺序：科室/状态 → 医生与院区 → 日期时段 →
-				号序 → 操作。业务类型不再占一整行，减少装饰性信息，把视觉焦点
-				留给患者真正需要确认的就诊时间和当前状态。
-			-->
+			<!-- 蓝湖稿的卡片只保留科室、状态、就诊地点和时间事实。 -->
 			<view class="record-card-header">
 				<view class="record-card-title-wrap">
 					<text class="record-department">{{item.departmentName || "门诊挂号"}}</text>
-					<text class="record-card-caption">预约挂号</text>
 				</view>
 				<view class="record-status-badge {{item.statusClass}}">
-					<!-- 原版已预约状态使用蓝色业务图标，其余状态继续显示服务端归一化文案。 -->
-					<image
-						wx:if="{{item.status === 'scheduled'}}"
-						class="record-status-icon"
-						src="/assets/legacy-user/appointment-status.svg"
-						mode="aspectFit"
-					/>
+					<text wx:if="{{item.status === 'scheduled'}}">待就诊</text>
 					<text wx:else>{{item.statusLabel}}</text>
 				</view>
 			</view>
 
-			<view wx:if="{{item.doctorName || item.location}}" class="record-meta">
-				<view wx:if="{{item.doctorName}}" class="record-meta-item">
-					<text class="record-meta-label">医生</text>
-					<text class="record-meta-value">{{item.doctorName}}</text>
-				</view>
-				<view wx:if="{{item.location}}" class="record-meta-item">
-					<text class="record-meta-label">院区</text>
-					<text class="record-meta-value">{{item.location}}</text>
-				</view>
+			<view wx:if="{{item.doctorName || item.location}}" class="record-primary-meta">
+				<text wx:if="{{item.doctorName}}" class="record-doctor">{{item.doctorName}}</text>
+				<text wx:if="{{item.doctorName && item.location}}" class="record-meta-gap"> </text>
+				<text wx:if="{{item.location}}" class="record-location">{{item.location}}</text>
 			</view>
 
-			<!-- 日期、时段和时刻放进同一块浅色信息区，减少卡片内的视觉跳跃。 -->
-			<view class="record-schedule">
-				<view class="record-schedule-item">
-					<text class="record-schedule-label">就诊日期</text>
-					<text class="record-date">
-						{{item.workDate}}<text wx:if="{{item.periodLabel}}"> {{item.periodLabel}}</text>
-					</text>
+			<view class="record-visit-info record-schedule">
+				<text class="record-date">
+					{{item.workDate}}<text wx:if="{{item.periodLabel}}"> {{item.periodLabel}}</text>
+				</text>
+				<view class="record-time-row">
+					<text wx:if="{{item.workTime}}" class="record-time">{{item.workTime}}</text>
+					<view wx:if="{{item.serialNumber}}" class="record-number">
+						<text>第 </text>
+						<text class="record-number-emphasis">{{item.serialNumber}}</text>
+						<text> 号</text>
+					</view>
 				</view>
-				<view wx:if="{{item.workTime}}" class="record-schedule-item record-schedule-time">
-					<text class="record-schedule-label">就诊时段</text>
-					<text class="record-time">{{item.workTime}}</text>
-				</view>
-			</view>
-			<view wx:if="{{item.serialNumber}}" class="record-number">
-				<text wx:if="{{item.serialNumber}}">第 </text>
-				<text wx:if="{{item.serialNumber}}" class="record-number-emphasis">{{item.serialNumber}}</text>
-				<text wx:if="{{item.serialNumber}}"> 号</text>
+				<image
+					class="record-detail-arrow"
+					src="/assets/legacy-user/selector-arrow-right.svg"
+					mode="aspectFit"
+				/>
 			</view>
 
-			<!-- 未取消记录保留旧端操作区；未迁移的预问诊只显示安全提示。 -->
+			<!-- 蓝湖稿的预约卡片只展示预问诊操作，详情仍由卡片点击进入。 -->
 			<view
 				wx:if="{{item.status !== 'cancelled'}}"
 				class="record-actions"
@@ -184,12 +171,6 @@
 					data-view-key="{{item.viewKey}}"
 					plain="true"
 				>预问诊</button>
-				<button
-					class="record-action-button"
-					bindtap="onHospitalGuide"
-					data-view-key="{{item.viewKey}}"
-					plain="true"
-				>院内导航</button>
 			</view>
 		</view>
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多挂号记录</view>
@@ -202,7 +183,7 @@
 		退号和支付仍保持关闭，不能把卡片索引当作业务主键。
 	-->
 
-	<!-- 旧端院内导航弹窗：只展示静态科室位置，不伪造实时路线。 -->
+	<!-- 保留静态科室位置弹窗实现，不伪造实时路线。 -->
 	<view wx:if="{{showLocationModal}}" class="location-mask" catchtap="closeLocationModal">
 		<view class="location-popup" catchtap="stopLocationPropagation">
 			<view class="location-popup-header">

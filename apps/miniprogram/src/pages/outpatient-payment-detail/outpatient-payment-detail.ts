@@ -1,15 +1,17 @@
 import { ApiError, getCurrentUser } from "../../services/api-client";
-import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentDetail,
 } from "../../services/dashboard-service";
+import { errorMessageWithCode } from "../../services/error-presentation";
+import { startOutpatientSelfPay } from "../../services/outpatient-self-pay";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { switchToPrimaryTab } from "../../services/patient-navigation";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
@@ -26,6 +28,15 @@ const HOSPITAL_NAME = "高平市人民医院";
 
 type PaymentStatus = "unpaid" | "paid";
 
+/**
+ * 门诊费用页沿用挂号页的支付交互：微信自费走服务端门诊下单链路；医保
+ * 入口继续保持受控提示，直到门诊医保授权、6201/6202 和回写 contract 完成。
+ */
+type OutpatientPaymentDetailPageState = OutpatientPaymentDetailPageData & {
+	paymentBusy: boolean;
+	paymentMessage: string;
+};
+
 type OutpatientPaymentDetailPageMethods = {
 	loadDetail(
 		patientId: string,
@@ -34,11 +45,15 @@ type OutpatientPaymentDetailPageMethods = {
 	): Promise<void>;
 	onRetry(): void;
 	onBack(): void;
+	onBackHome(): void;
+	onMedicalPay(): void;
+	onWechatPay(): Promise<void>;
 	onUnload(): void;
 	formatAmount(amountFen: number): string;
 	formatDate(value: string): string;
 	statusLabel(status: PaymentStatus): string;
 	showError(error: unknown): void;
+	showPaymentUnavailable(mode: "医保支付" | "微信支付"): void;
 };
 
 function isPaymentStatus(value: unknown): value is PaymentStatus {
@@ -55,7 +70,7 @@ function validReference(value: unknown): value is string {
 	);
 }
 
-Page<OutpatientPaymentDetailPageData, OutpatientPaymentDetailPageMethods>({
+Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 	data: {
 		loading: true,
 		error: "",
@@ -65,6 +80,8 @@ Page<OutpatientPaymentDetailPageData, OutpatientPaymentDetailPageMethods>({
 		sourcePatientId: "",
 		sourceRecordId: "",
 		sourceStatus: "",
+		paymentBusy: false,
+		paymentMessage: "",
 	},
 
 	onLoad(options: Record<string, string | undefined>): void {
@@ -78,6 +95,8 @@ Page<OutpatientPaymentDetailPageData, OutpatientPaymentDetailPageMethods>({
 				sourcePatientId: "",
 				sourceRecordId: "",
 				sourceStatus: "",
+				paymentBusy: false,
+				paymentMessage: "",
 			});
 		});
 
@@ -120,7 +139,13 @@ Page<OutpatientPaymentDetailPageData, OutpatientPaymentDetailPageMethods>({
 	): Promise<void> {
 		const guard = getPageLatestRequestGuard(this, "outpatient-payment-detail");
 		const token = guard.begin();
-		this.setData({ loading: true, error: "", item: null });
+		this.setData({
+			loading: true,
+			error: "",
+			item: null,
+			paymentBusy: false,
+			paymentMessage: "",
+		});
 		let expectedSessionGeneration = -1;
 		return getCurrentUser()
 			.then((currentUser) => {
@@ -196,6 +221,52 @@ Page<OutpatientPaymentDetailPageData, OutpatientPaymentDetailPageMethods>({
 		wx.navigateBack({ delta: 1 });
 	},
 
+	onBackHome(): void {
+		switchToPrimaryTab("/pages/index/index");
+	},
+
+	onMedicalPay(): void {
+		this.showPaymentUnavailable("医保支付");
+	},
+
+	onWechatPay(): Promise<void> {
+		if (this.data.paymentBusy || this.data.item?.status !== "unpaid") {
+			return Promise.resolve();
+		}
+		const patientId = this.data.sourcePatientId;
+		const recordId = this.data.sourceRecordId;
+		if (!patientId || !recordId) return Promise.resolve();
+		this.setData({ paymentBusy: true, paymentMessage: "正在准备门诊微信支付" });
+		return (async () => {
+			try {
+				const result = await startOutpatientSelfPay(
+					recordId,
+					patientId,
+					(_stage, message) => this.setData({ paymentMessage: message }),
+				);
+				if (result.data.status === "cash_paid") {
+					this.setData({ paymentMessage: "门诊支付已确认" });
+					wx.showModal({
+						title: "支付成功",
+						content: "本笔门诊费用已完成支付。",
+						showCancel: false,
+						confirmText: "知道了",
+						success: () => this.onBack(),
+					});
+				}
+			} catch (error) {
+				this.setData({
+					paymentMessage: errorMessageWithCode(
+						error,
+						"门诊微信支付未完成，请稍后重试",
+					),
+				});
+			} finally {
+				this.setData({ paymentBusy: false });
+			}
+		})();
+	},
+
 	onUnload(): void {
 		disposePageSessionResetListener(this);
 		disposePageInstance(this);
@@ -219,6 +290,29 @@ Page<OutpatientPaymentDetailPageData, OutpatientPaymentDetailPageMethods>({
 			loading: false,
 			error: errorMessageWithCode(error, message),
 			item: null,
+			paymentBusy: false,
+			paymentMessage: "",
+		});
+	},
+
+	/** 门诊医保入口仍未接入，不能把费用 recordId 冒充预约号调用挂号医保接口。 */
+	showPaymentUnavailable(mode: "医保支付" | "微信支付"): void {
+		if (this.data.paymentBusy) return;
+		this.setData({
+			paymentBusy: true,
+			paymentMessage: `${mode}入口已准备，正在确认门诊支付服务状态`,
+		});
+		wx.showModal({
+			title: `${mode}暂未开放`,
+			content:
+				"门诊微信自费支付已接入；门诊医保授权和结算仍在接入中，请先使用微信支付或联系医院。",
+			showCancel: false,
+			confirmText: "知道了",
+			complete: () =>
+				this.setData({
+					paymentBusy: false,
+					paymentMessage: "",
+				}),
 		});
 	},
 });

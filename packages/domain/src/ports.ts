@@ -218,6 +218,8 @@ export type PaymentOrderSnapshot = {
  */
 export type RegistrationSelfPaySettlementContext = {
 	businessId: string;
+	/** 本次 Provider 业务类型对应的交易类型；门诊自费固定为 2。 */
+	tradeTypeCode?: string;
 	/** 2.6.65.1 返回的结算单编码；只在服务端创建 .2 时使用。 */
 	businessCode?: string;
 	payingId: string;
@@ -574,8 +576,13 @@ export interface RegistrationSelfPayPreparationGateway {
 		input: {
 			orderId: string;
 			totalFen: number;
-			providerRegisterId: string;
+			/** 挂号订单使用的 provider registerId；门诊订单不传此字段。 */
+			providerRegisterId?: string;
 			providerPatientId: string;
+			/** 门诊订单使用 2.6.33 返回的 outTradeOrderId 集合。 */
+			outTradeOrderIds?: readonly string[];
+			/** 订单业务类型；缺省保持挂号兼容。 */
+			businessType?: "registration" | "outpatient";
 			/** 众阳 MINI_PROGRAM .2 下单所需的当前支付人微信 openid。 */
 			paymentSystemUserId?: string;
 			patient: {

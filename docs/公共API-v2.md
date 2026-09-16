@@ -171,6 +171,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/reports/{reportId}/attachments/{attachmentId}` | Bearer | 必填 query `patientId`；校验 owner、患者、短期报告引用和 opaque 附件引用后，由服务端受控代理 PDF/图片 |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
 | `GET` | `/api/v2/payments/outpatient/records/{recordId}` | Bearer；幂等键可选 | 必填 query `patientId`、`status=unpaid|paid`；返回当前用户/就诊人范围内已核对的单笔门诊费用摘要，不返回项目级费用明细 |
+| `POST` | `/api/v2/payments/outpatient/records/{recordId}/self-pay` | Bearer + 必填幂等键 | body 仅含内部 `patientId`；服务端重新读取 2.6.33 待缴记录，使用 `tradeTypeCode=2`、与挂号相同的 `autoSettle` 和 `requestParam.outTradeOrderIds` 创建门诊微信支付订单，返回服务端校验后的 MD5 调起参数 |
+| `GET` | `/api/v2/payments/outpatient/records/{recordId}/self-pay` | Bearer；幂等键可选 | 必填 query `patientId`；查询门诊微信支付订单状态，调起成功不代表门诊结算已完成 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
 | `GET` | `/api/v2/payments/orders/{orderId}` | Bearer | 读取当前用户自己的平台支付订单 |
 | `GET` | `/api/v2/payments/orders/{orderId}/wechat-prepay` | Bearer + 必填幂等键 | 读取微信预支付尝试状态；不代表支付成功 |

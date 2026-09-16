@@ -94,10 +94,9 @@ page {
 	height: 28rpx;
 }
 
-/* 旧端两个状态标签共用一行，当前项使用医疗蓝和底部短线。 */
+/* 蓝湖稿三个状态标签共用一行，当前项使用医疗蓝和底部短线。 */
 .status-tabs {
 	display: flex;
-	/* 旧端选择区与状态标签连续相接，不额外插入新端间距。 */
 	background: #ffffff;
 }
 
@@ -107,8 +106,8 @@ page {
 	align-items: center;
 	justify-content: center;
 	box-sizing: border-box;
-	width: 50%;
-	/* 旧端使用 py-4（上下各 16px）+ 32rpx 文本，换算后约 112rpx。 */
+	width: 33.3333%;
+	/* 蓝湖稿标签区约 56px 高，换算为 112rpx。 */
 	height: 112rpx;
 	color: #666666;
 	font-size: 30rpx;
@@ -117,6 +116,10 @@ page {
 .status-tab-active {
 	color: #3d6df6;
 	font-weight: 500;
+}
+
+.status-tab-disabled {
+	color: #999999;
 }
 
 .status-tab-indicator {
@@ -145,11 +148,11 @@ page {
 	position: relative;
 	box-sizing: border-box;
 	margin-bottom: 24rpx;
-	padding: 32rpx;
+	padding: 28rpx 32rpx 24rpx;
 	border: 0;
-	border-radius: 18rpx;
+	border-radius: 14rpx;
 	background: #ffffff;
-	box-shadow: 0 4rpx 16rpx rgba(35, 55, 95, 0.06);
+	box-shadow: 0 4rpx 18rpx rgba(35, 55, 95, 0.08);
 	transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
@@ -162,10 +165,10 @@ page {
 .record-status-badge {
 	position: relative;
 	flex: 0 0 auto;
-	padding: 8rpx 16rpx;
-	border-radius: 8rpx;
-	font-size: 24rpx;
-	line-height: 1.2;
+	padding: 4rpx 18rpx;
+	border-radius: 4rpx;
+	font-size: 22rpx;
+	line-height: 32rpx;
 }
 
 .record-card-header {
@@ -176,33 +179,32 @@ page {
 	min-height: 44rpx;
 }
 
-
 .record-card-title-wrap {
-	display: flex;
 	min-width: 0;
 	flex: 1;
-	flex-direction: column;
-}
-
-.record-card-caption {
-	margin-top: 6rpx;
-	color: #9aa4b2;
-	font-size: 23rpx;
-	line-height: 1.35;
-}
-
-.record-status-icon {
-	display: block;
-	width: 48rpx;
-	height: 48rpx;
 }
 
 .record-status-badge.record-status-scheduled {
-	padding: 0;
-	background: transparent;
+	padding-left: 24rpx;
+	border-radius: 0 4rpx 4rpx 0;
+	background: #9ddfba;
+	color: #ffffff;
 }
 
-/* 旧端除“已预约”图标外，其他状态统一使用灰色小标签。 */
+/* 绿色状态标签保留蓝湖稿左侧的折角轮廓。 */
+.record-status-badge.record-status-scheduled::before {
+	position: absolute;
+	top: 0;
+	left: -14rpx;
+	width: 0;
+	height: 0;
+	border-top: 20rpx solid transparent;
+	border-right: 14rpx solid #9ddfba;
+	border-bottom: 20rpx solid transparent;
+	content: "";
+}
+
+/* 其他状态继续显示服务端归一化文案。 */
 .record-status-registered,
 .record-status-substituted,
 .record-status-completed,
@@ -216,7 +218,7 @@ page {
 
 .record-department {
 	overflow: hidden;
-	color: #1f2937;
+	color: #222222;
 	font-size: 32rpx;
 	font-weight: 700;
 	line-height: 1.4;
@@ -224,97 +226,88 @@ page {
 	white-space: nowrap;
 }
 
-.record-meta {
+.record-primary-meta {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 12rpx 24rpx;
-	margin-top: 22rpx;
-	color: #4b5563;
-	font-size: 24rpx;
-	line-height: 1.4;
-}
-
-.record-meta-item {
-	display: flex;
 	align-items: center;
-	min-width: 0;
+	margin-top: 20rpx;
+	color: #666666;
+	font-size: 24rpx;
+	line-height: 1.5;
 }
 
-.record-meta-label {
-	margin-right: 8rpx;
-	color: #9aa4b2;
-}
-
-.record-meta-value {
+.record-doctor,
+.record-location {
 	overflow: hidden;
-	max-width: 300rpx;
+	max-width: 100%;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.record-schedule {
-	display: flex;
-	align-items: stretch;
-	margin-top: 24rpx;
-	padding: 0;
-	border: 0;
-	border-radius: 0;
-	background: transparent;
+.record-meta-gap {
+	width: 16rpx;
 }
 
-.record-schedule-item {
+.record-visit-info {
+	position: relative;
 	display: flex;
-	min-width: 0;
+	margin-top: 20rpx;
+	padding-bottom: 2rpx;
 	flex-direction: column;
 }
 
-.record-schedule-time {
-	margin-left: 32rpx;
-	padding-left: 24rpx;
-	border-left: 1rpx solid #eeeeee;
-}
-
-.record-schedule-label {
-	color: #8995aa;
-	font-size: 22rpx;
-	line-height: 1.3;
-}
-
 .record-date {
-	margin-top: 8rpx;
+	display: flex;
+	align-items: center;
 	color: #333333;
-	font-size: 28rpx;
-	font-weight: 600;
-	line-height: 1.45;
+	font-size: 26rpx;
+	font-weight: 400;
+	line-height: 1.5;
+}
+
+.record-time-row {
+	display: flex;
+	align-items: center;
+	margin-top: 10rpx;
+	padding-right: 48rpx;
 }
 
 .record-time {
-	margin-top: 8rpx;
-	color: #4c4c4c;
-	font-size: 26rpx;
+	color: #666666;
+	font-size: 24rpx;
 	font-weight: 400;
-	line-height: 1.45;
+	line-height: 1.5;
 }
 
 .record-number {
-	margin-top: 16rpx;
-	padding-left: 2rpx;
-	color: #4b5563;
+	margin-left: 12rpx;
+	color: #666666;
 	font-size: 24rpx;
 	line-height: 1.5;
 }
 
 .record-number-emphasis {
 	color: #ee875e;
-	font-size: 28rpx;
+	font-size: 26rpx;
 	font-weight: 600;
+}
+
+.record-detail-arrow {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	display: block;
+	width: 28rpx;
+	height: 28rpx;
+	transform: translateY(-50%);
 }
 
 .record-actions {
 	display: flex;
 	justify-content: flex-end;
-	margin-top: 24rpx;
-	padding-top: 0;
+	margin-top: 20rpx;
+	padding-top: 16rpx;
+	border-top: 1rpx solid #f0f0f0;
 }
 
 .record-action-button {

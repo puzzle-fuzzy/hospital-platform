@@ -7,6 +7,7 @@
 				<text class="state-message">{{error}}</text>
 				<button wx:if="{{sourcePatientId && sourceRecordId && sourceStatus}}" class="retry-button" size="mini" bindtap="onRetry">重新加载</button>
 				<button class="back-button" size="mini" bindtap="onBack">返回费用记录</button>
+				<button class="home-button state-home-button" size="mini" bindtap="onBackHome">返回首页</button>
 			</block>
 		</view>
 
@@ -14,7 +15,7 @@
 			<view class="title-row">
 				<view>
 					<view class="eyebrow">OUTPATIENT PAYMENT</view>
-					<view class="title">门诊费用详情</view>
+					<view class="title">门诊缴费</view>
 				</view>
 				<view class="status status-{{item.status}}">{{statusLabel(item.status)}}</view>
 			</view>
@@ -39,7 +40,23 @@
 				<view class="muted notice-text">当前详情只展示众阳 2.6.33 已确认的摘要字段。项目级费用明细、医保分摊和电子票据需待正式接口合同确认后开放。</view>
 			</view>
 
+			<view wx:if="{{item.status === 'unpaid'}}" class="payment-card">
+				<view class="payment-card-title">选择支付方式</view>
+				<view class="payment-card-hint">请根据本次门诊费用选择支付方式</view>
+				<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
+				<view class="payment-actions">
+					<button class="payment-button medical-button" bindtap="onMedicalPay" loading="{{paymentBusy}}" disabled="{{paymentBusy}}">医保支付</button>
+					<button class="payment-button wechat-button" bindtap="onWechatPay" loading="{{paymentBusy}}" disabled="{{paymentBusy}}">微信支付</button>
+				</view>
+			</view>
+			<view wx:else class="paid-card">
+				<view class="paid-icon">✓</view>
+				<view class="paid-title">本笔费用已缴费</view>
+				<view class="paid-hint">如需查看后续就诊信息，请返回首页</view>
+			</view>
+
 			<view class="back-link" bindtap="onBack">返回费用记录</view>
+			<button class="home-button" bindtap="onBackHome">返回首页</button>
 		</block>
 	</view>
 </scroll-view>

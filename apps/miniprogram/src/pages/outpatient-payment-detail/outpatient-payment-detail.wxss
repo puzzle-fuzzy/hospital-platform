@@ -129,6 +129,107 @@ page {
 	color: #5d7795;
 }
 
+.payment-card,
+.paid-card {
+	box-sizing: border-box;
+	margin-bottom: 20rpx;
+	padding: 28rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+}
+
+.payment-card-title {
+	color: #20242b;
+	font-size: 30rpx;
+	font-weight: 700;
+}
+
+.payment-card-hint,
+.paid-hint {
+	margin-top: 10rpx;
+	color: #8b949e;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.payment-message {
+	margin-top: 16rpx;
+	padding: 16rpx 18rpx;
+	border-radius: 12rpx;
+	background: #f1f6ff;
+	color: #31557f;
+	font-size: 24rpx;
+	line-height: 1.5;
+}
+
+.payment-actions {
+	display: flex;
+	margin-top: 22rpx;
+	gap: 16rpx;
+}
+
+.payment-button {
+	box-sizing: border-box;
+	flex: 1;
+	margin: 0;
+	border-radius: 44rpx;
+	font-size: 28rpx;
+}
+
+.payment-button::after,
+.home-button::after {
+	border: 0;
+}
+
+.medical-button {
+	background: #3d6df6;
+	color: #ffffff;
+}
+
+.wechat-button {
+	background: #20b26b;
+	color: #ffffff;
+}
+
+.paid-card {
+	border: 1rpx solid #d9f0e2;
+	background: #f3fbf6;
+	text-align: center;
+}
+
+.paid-icon {
+	display: inline-flex;
+	width: 56rpx;
+	height: 56rpx;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: #20b26b;
+	color: #ffffff;
+	font-size: 36rpx;
+}
+
+.paid-title {
+	margin-top: 12rpx;
+	color: #176b45;
+	font-size: 30rpx;
+	font-weight: 700;
+}
+
+.home-button {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0 0 18rpx;
+	border-radius: 44rpx;
+	background: #3d6df6;
+	color: #ffffff;
+	font-size: 28rpx;
+}
+
+.state-home-button {
+	min-width: 180rpx;
+}
+
 .state-card {
 	display: flex;
 	align-items: center;

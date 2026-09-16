@@ -1,0 +1,34 @@
+<scroll-view class="inpatient-payment-scroll" scroll-y="true" enhanced="true">
+	<view class="inpatient-payment-page">
+		<view class="inpatient-payment-notice">请核对患者信息后再进行缴费！</view>
+
+		<view class="inpatient-payment-card">
+			<view class="inpatient-payment-card-title">当前就诊人</view>
+			<view class="inpatient-payment-patient" bindtap="onChangePatient">
+				<view class="inpatient-payment-patient-copy">
+					<text wx:if="{{patient}}" class="inpatient-payment-patient-name">{{patientName}}</text>
+					<text wx:elif="{{loading}}" class="inpatient-payment-muted">正在加载就诊人...</text>
+					<text wx:else class="inpatient-payment-muted">请选择就诊人</text>
+					<text wx:if="{{patient}}" class="inpatient-payment-patient-card">{{patient.cardNumberMasked}}</text>
+				</view>
+				<text class="inpatient-payment-arrow">›</text>
+			</view>
+			<view wx:if="{{!patient && !loading}}" class="inpatient-payment-retry" bindtap="onRetry">重新读取</view>
+		</view>
+
+		<view class="inpatient-payment-card">
+			<view class="inpatient-payment-field inpatient-payment-field-border">
+				<view class="inpatient-payment-label"><text class="inpatient-payment-required">*</text>就诊人姓名</view>
+				<input class="inpatient-payment-input" value="{{patientName}}" bindinput="onPatientInput" placeholder="请输入住院就诊人姓名" />
+			</view>
+			<view class="inpatient-payment-field">
+				<view class="inpatient-payment-label"><text class="inpatient-payment-required">*</text>手机号码</view>
+				<input class="inpatient-payment-input" type="number" value="{{mobile}}" bindinput="onMobileInput" maxlength="11" placeholder="请输入联系手机号" />
+			</view>
+		</view>
+
+		<view wx:if="{{message}}" class="inpatient-payment-message inpatient-payment-message-{{messageKind}}">{{message}}</view>
+		<button class="inpatient-payment-primary" loading="{{querying}}" bindtap="onQuery">查询</button>
+		<button class="inpatient-payment-plain" bindtap="onBackHome">返回医疗服务</button>
+	</view>
+</scroll-view>

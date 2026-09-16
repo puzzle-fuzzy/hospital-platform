@@ -193,33 +193,6 @@
 	line-height: 1.6;
 }
 
-.detail-payment-message {
-	box-sizing: border-box;
-	margin-bottom: 16rpx;
-	padding: 20rpx 24rpx;
-	border-radius: 14rpx;
-	background: #eef4ff;
-	color: #315bbf;
-	font-size: 25rpx;
-	line-height: 1.6;
-}
-
-.detail-payment-error {
-	display: block;
-	margin: -4rpx 8rpx 16rpx;
-	color: #d92d20;
-	font-size: 24rpx;
-	line-height: 1.6;
-}
-
-.detail-actions {
-	display: flex;
-	padding: 4rpx 0 16rpx;
-	flex-direction: column;
-	gap: 18rpx;
-}
-
-.detail-actions button,
 .detail-state-card button {
 	box-sizing: border-box;
 	width: 100%;
@@ -227,34 +200,45 @@
 	border-radius: 44rpx;
 	font-size: 30rpx;
 }
-
-.detail-cancel-button {
-	border: 1rpx solid #3d6df6;
-	background: #ffffff;
-	color: #3d6df6;
-}
-
-.detail-pay-button {
-	border: 0;
-	background: #3d6df6;
-	color: #ffffff;
-}
-
-.detail-medical-button {
-	border: 1rpx solid #3d6df6;
-	background: #ffffff;
-	color: #3d6df6;
-}
-
-.detail-pay-button[disabled] {
-	background: #a9bff8;
-	color: #ffffff;
-}
-
 .detail-retry-button {
 	border: 0;
 	background: #3d6df6;
 	color: #ffffff;
+}
+
+.detail-home-button {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 12rpx 0 20rpx;
+	border: 0;
+	border-radius: 16rpx;
+	background: #3d6df6;
+	color: #ffffff;
+	font-size: 28rpx;
+	line-height: 88rpx;
+}
+
+.detail-actions {
+	display: flex;
+	margin: 12rpx 0 0;
+	flex-direction: column;
+	gap: 16rpx;
+}
+
+.detail-cancel-button {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0;
+	border: 1rpx solid #d0d5dd;
+	border-radius: 16rpx;
+	background: #ffffff;
+	color: #344054;
+	font-size: 28rpx;
+	line-height: 88rpx;
+}
+
+.detail-cancel-button[disabled] {
+	opacity: 0.6;
 }
 
 .detail-footnote {

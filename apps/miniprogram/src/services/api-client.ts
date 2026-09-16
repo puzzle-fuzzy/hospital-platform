@@ -26,6 +26,7 @@ import type {
 	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentDetailResponse,
 	OutpatientPaymentListResponse,
+	OutpatientSelfPayResponse,
 	PatientBindingRequest,
 	PatientBindingResponse,
 	PatientListResponse,
@@ -1043,6 +1044,56 @@ function registrationSelfPayResponse(
 			status: data.status as RegistrationSelfPayResponse["data"]["status"],
 			paymentState:
 				data.paymentState as RegistrationSelfPayResponse["data"]["paymentState"],
+			totalFen: data.totalFen as number,
+			...(payParams ? { payParams } : {}),
+		},
+	};
+}
+
+function outpatientSelfPayResponse(
+	value: unknown,
+	expectedRecordId: string,
+): OutpatientSelfPayResponse {
+	if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
+		throw new ApiError("微信支付响应不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	const data = value.data;
+	if (
+		typeof data.recordId !== "string" ||
+		data.recordId !== expectedRecordId ||
+		typeof data.orderId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(data.orderId) ||
+		data.orderId.length > 64 ||
+		typeof data.status !== "string" ||
+		!REGISTRATION_SELF_PAY_STATUSES.has(data.status) ||
+		typeof data.paymentState !== "string" ||
+		!PAYMENT_STATES.has(data.paymentState) ||
+		!Number.isSafeInteger(data.totalFen) ||
+		(data.totalFen as number) <= 0
+	) {
+		throw new ApiError("微信支付响应不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	const payParams =
+		data.payParams === undefined
+			? undefined
+			: parseRegistrationSelfPayParamsValue(data.payParams);
+	if (data.payParams !== undefined && !payParams) {
+		throw new ApiError("服务端支付参数不可用", {
+			code: "wechat-pay-params-missing",
+		});
+	}
+	return {
+		success: true,
+		data: {
+			recordId: data.recordId,
+			orderId: data.orderId,
+			status: data.status as OutpatientSelfPayResponse["data"]["status"],
+			paymentState:
+				data.paymentState as OutpatientSelfPayResponse["data"]["paymentState"],
 			totalFen: data.totalFen as number,
 			...(payParams ? { payParams } : {}),
 		},
@@ -3306,6 +3357,54 @@ export function queryAppointmentSelfPay(
 		url: `/payments/appointments/${encodeURIComponent(appointmentId)}/self-pay`,
 		method: "GET",
 	}).then((payload) => registrationSelfPayResponse(payload, appointmentId));
+}
+
+/** 门诊纯微信支付；recordId 仅作为服务端费用引用，金额和 Provider 单号由服务端解析。 */
+export function requestOutpatientSelfPay(
+	recordId: string,
+	patientId: string,
+	idempotencyKey = createIdempotencyKey("outpatient-self-pay"),
+): Promise<OutpatientSelfPayResponse> {
+	if (
+		typeof recordId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(recordId) ||
+		typeof patientId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(patientId)
+	) {
+		return Promise.reject(
+			new ApiError("门诊费用引用无效", {
+				code: "outpatient-payment-query-invalid",
+			}),
+		);
+	}
+	return requestWithSession<unknown>({
+		url: `/payments/outpatient/records/${encodeURIComponent(recordId)}/self-pay`,
+		method: "POST",
+		data: { patientId },
+		idempotencyKey,
+	}).then((payload) => outpatientSelfPayResponse(payload, recordId));
+}
+
+export function queryOutpatientSelfPay(
+	recordId: string,
+	patientId: string,
+): Promise<OutpatientSelfPayResponse> {
+	if (
+		typeof recordId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(recordId) ||
+		typeof patientId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(patientId)
+	) {
+		return Promise.reject(
+			new ApiError("门诊费用引用无效", {
+				code: "outpatient-payment-query-invalid",
+			}),
+		);
+	}
+	return requestWithSession<unknown>({
+		url: `/payments/outpatient/records/${encodeURIComponent(recordId)}/self-pay?patientId=${encodeURIComponent(patientId)}`,
+		method: "GET",
+	}).then((payload) => outpatientSelfPayResponse(payload, recordId));
 }
 
 /** 读取当前用户所选就诊人的门诊费用摘要；临床患者映射只在服务端解析。 */

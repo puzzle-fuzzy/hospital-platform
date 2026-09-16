@@ -656,6 +656,38 @@ test("云健康非 HIS 收款只调用 .5 并要求最终结算确认", async ()
 	});
 });
 
+test("门诊自费 .5 沿用保存的 tradeTypeCode=2", async () => {
+	let body: Record<string, unknown> | undefined;
+	const gatewayInstance = gateway(async (_input, init) => {
+		body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+		return new Response(
+			JSON.stringify({ success: true, data: { isSettle: 1 } }),
+			{
+				status: 200,
+				headers: { "x-request-id": "outpatient-settlement-001" },
+			},
+		);
+	});
+
+	await gatewayInstance.writeBack(
+		{
+			orderId: "outpatient-order-001",
+			settlement: {
+				orderId: "outpatient-order-001",
+				state: "cash_paid",
+				totalFen: 1000,
+				insuranceFen: 0,
+				cashFen: 1000,
+				trace: [],
+			},
+			registrationContext: { ...registrationContext, tradeTypeCode: "2" },
+		},
+		context,
+	);
+
+	expect(body).toMatchObject({ autoSettle: 2, tradeTypeCode: "2" });
+});
+
 test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整数流水", async () => {
 	const requests: Array<{
 		path: string;
@@ -797,6 +829,98 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		"prepare-2",
 		"prepare-3",
 	]);
+});
+
+test("门诊自费使用 tradeTypeCode=2、挂号相同 autoSettle 和 2.6.33 订单集合", async () => {
+	const requests: Array<{ path: string; body?: Record<string, unknown> }> = [];
+	const responses = [
+		{
+			success: true,
+			data: {
+				businessId: "1952638941030000101",
+				businessCode: "DIAG-20260907-001",
+				getAmount: 10,
+			},
+		},
+		{
+			success: true,
+			data: {
+				outNetworkSettleMain: null,
+				outSettleDetailList: [{ amount: 10 }],
+			},
+		},
+		{
+			success: true,
+			data: {
+				payRecord: {
+					payingId: "1952638941030000102",
+					tradingId: "1952638941030000103",
+					outTradeNo: "OUTPATIENT-SELF-001",
+				},
+				result: JSON.stringify(yunhealthMd5Result),
+			},
+		},
+	];
+	let call = 0;
+	const preparation = createYunhealthRegistrationSelfPayPreparationGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		paymentOrgId: "10756",
+		hospitalId: "10389001",
+		pluginPayTypeId: "31",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		tradeTypeCode: "10",
+		miniProgramAppId: yunhealthMd5Result.appId,
+		fetcher: async (input, init) => {
+			const bodyText = String(init?.body ?? "");
+			requests.push({
+				path: new URL(String(input)).pathname,
+				...(bodyText
+					? { body: JSON.parse(bodyText) as Record<string, unknown> }
+					: {}),
+			});
+			const body = responses[call++];
+			return new Response(JSON.stringify(body), {
+				status: 200,
+				headers: { "x-request-id": `outpatient-prepare-${call}` },
+			});
+		},
+	});
+
+	const result = await preparation.prepare(
+		{
+			orderId: "outpatient-self-pay-001",
+			totalFen: 1000,
+			providerPatientId: "1952638941030000200",
+			outTradeOrderIds: ["401", "402"],
+			businessType: "outpatient",
+			paymentSystemUserId: "openid-outpatient-001",
+			patient: {
+				name: "测试患者",
+				cardNo: "P000001",
+				idNo: "11010519900101007X",
+			},
+		},
+		context,
+	);
+
+	expect(requests[0]?.body).toMatchObject({
+		autoSettle: "2",
+		patId: "1952638941030000200",
+		tradeTypeCode: "2",
+		requestParam: { outTradeOrderIds: ["401", "402"], settleWay: 6 },
+	});
+	expect(requests[2]?.body).toMatchObject({
+		autoSettle: 3,
+		tradeTypeCode: "2",
+		payTypeId: 31,
+		payModel: "MINI_PROGRAM",
+	});
+	expect(result.registrationContext).toMatchObject({
+		businessId: "1952638941030000101",
+		tradeTypeCode: "2",
+	});
 });
 
 test("云健康自费回写拒绝混合金额，不能发出任何请求", async () => {

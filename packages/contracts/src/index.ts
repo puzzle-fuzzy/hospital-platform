@@ -1264,6 +1264,24 @@ export const RegistrationSelfPayResponse = Type.Object({
 	}),
 });
 
+/** 门诊纯自费支付响应；金额与门诊记录由服务端重新核对。 */
+export const OutpatientSelfPayResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		recordId: Type.String({ minLength: 1, maxLength: 128 }),
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Union([
+			Type.Literal("prepay_ready"),
+			Type.Literal("awaiting_confirmation"),
+			Type.Literal("cash_paid"),
+			Type.Literal("failed"),
+		]),
+		paymentState: PaymentStateSchema,
+		totalFen: Type.Integer({ minimum: 1 }),
+		payParams: Type.Optional(RegistrationSelfPayLaunchParamsSchema),
+	}),
+});
+
 /** 用户明确退出挂号支付时，服务端按当前支付路线作废订单并取消预约。 */
 export const RegistrationPaymentExitRequest = Type.Object(
 	{
@@ -1465,6 +1483,9 @@ export type WechatPrepayStatusPayload = Static<
 >;
 export type RegistrationSelfPayPayload = Static<
 	typeof RegistrationSelfPayResponse
+>;
+export type OutpatientSelfPayPayload = Static<
+	typeof OutpatientSelfPayResponse
 >;
 export type RegistrationPaymentExitRequestPayload = Static<
 	typeof RegistrationPaymentExitRequest

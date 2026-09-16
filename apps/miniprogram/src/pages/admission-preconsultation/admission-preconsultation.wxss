@@ -1,1 +1,137 @@
-@import "../../styles/migration-surface.wxss";
+.admission-scroll {
+	height: 100vh;
+	background: #f8f8f8;
+}
+
+.admission-page {
+	box-sizing: border-box;
+	min-height: 100%;
+	padding: 20rpx 24rpx 48rpx;
+}
+
+.admission-notice,
+.admission-patient-card,
+.admission-question-card,
+.admission-message {
+	border-radius: 16rpx;
+	background: #fff;
+}
+
+.admission-notice {
+	padding: 20rpx 24rpx;
+	background: #fff5e8;
+	color: #a66b00;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.admission-patient-card {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 18rpx;
+	padding: 24rpx;
+}
+
+.admission-patient-copy {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.admission-patient-label,
+.admission-card-label {
+	color: #8791a5;
+	font-size: 23rpx;
+}
+
+.admission-patient-name,
+.admission-patient-muted {
+	margin-top: 8rpx;
+	color: #222b45;
+	font-size: 29rpx;
+}
+
+.admission-patient-muted { color: #9aa3b4; }
+.admission-card-label { margin-top: 6rpx; }
+.admission-patient-error { margin-top: 8rpx; color: #c53b3b; font-size: 23rpx; }
+.admission-arrow { color: #9aa3b4; font-size: 42rpx; font-weight: 300; }
+
+.admission-question-card {
+	margin-top: 18rpx;
+	padding: 24rpx;
+}
+
+.admission-question-title {
+	color: #222b45;
+	font-size: 28rpx;
+	font-weight: 600;
+	line-height: 1.55;
+}
+
+.admission-required { margin-right: 6rpx; color: #f04b4b; }
+
+.admission-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16rpx;
+	margin-top: 20rpx;
+}
+
+.admission-option {
+	box-sizing: border-box;
+	min-width: 136rpx;
+	padding: 16rpx 22rpx;
+	border: 1rpx solid #dfe5f2;
+	border-radius: 12rpx;
+	color: #4c566d;
+	font-size: 25rpx;
+	line-height: 1.4;
+	text-align: center;
+}
+
+.admission-option.is-selected {
+	border-color: #3d6df6;
+	background: #3d6df6;
+	color: #fff;
+}
+
+.admission-input,
+.admission-textarea {
+	box-sizing: border-box;
+	width: 100%;
+	margin-top: 18rpx;
+	padding: 18rpx;
+	border-radius: 12rpx;
+	background: #f7f9fd;
+	color: #222b45;
+	font-size: 26rpx;
+	line-height: 1.6;
+}
+
+.admission-input { height: 76rpx; }
+.admission-textarea { min-height: 150rpx; }
+
+.admission-message {
+	margin-top: 20rpx;
+	padding: 18rpx 22rpx;
+	background: #fff8e8;
+	color: #a66b00;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.admission-submit,
+.admission-back {
+	box-sizing: border-box;
+	width: 100%;
+	margin-top: 24rpx;
+	border-radius: 14rpx;
+	font-size: 28rpx;
+	line-height: 84rpx;
+}
+
+.admission-submit { background: #3d6df6; color: #fff; }
+.admission-disclaimer { display: block; margin-top: 16rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
+.admission-back { background: transparent; color: #68738a; }

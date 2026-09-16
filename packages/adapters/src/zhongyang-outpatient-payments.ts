@@ -599,6 +599,74 @@ export class ZhongyangOutpatientPaymentApiGateway
 			trace: trace(response.requestId),
 		};
 	}
+
+	/**
+	 * 支付前重新读取同一门诊待缴清单，并从服务端解析真实的
+	 * `outTradeOrderId`。小程序只持有 opaque recordId，绝不直接提交 Provider
+	 * 单号或金额。
+	 */
+	async resolvePaymentContext(input: {
+		providerPatientId: string;
+		recordId: string;
+		startTime: string;
+		endTime: string;
+	}, context: import("@hospital/domain").AdapterCallContext) {
+		const providerPatientId = requiredConfig(input.providerPatientId);
+		const recordId = requiredConfig(input.recordId);
+		const startTime = requiredConfig(input.startTime);
+		const endTime = requiredConfig(input.endTime);
+		const url = new URL(OUTPATIENT_PAYMENT_PATH, this.baseUrl);
+		url.searchParams.set("patId", providerPatientId);
+		url.searchParams.set("startTime", startTime);
+		url.searchParams.set("endTime", endTime);
+		url.searchParams.set("tradeStatus", "1");
+		url.searchParams.set("authSysCode", this.authSysCode);
+		const response = await requestJson<unknown>(
+			{
+				provider: "zhongyang",
+				operation: "outpatient-payment-context",
+				url: url.toString(),
+				method: "GET",
+				context,
+				...(this.authorizationToken
+					? { headers: { Authorization: `Bearer ${this.authorizationToken}` } }
+					: {}),
+			},
+			this.fetcher,
+		);
+		const items = responseItems(response.data, response.requestId);
+		const matched = items.find(
+			(item) => opaqueRecordId(item, providerPatientId, response.requestId) === recordId,
+		);
+		if (!matched) {
+			throw providerError(
+				"Zhongyang outpatient payment record was not found",
+				response.requestId,
+				false,
+			);
+		}
+		const outTradeOrderId = identityText(
+			matched.outTradeOrderId,
+			"outTradeOrderId",
+			response.requestId,
+		);
+		if (!outTradeOrderId) {
+			throw providerError(
+				"Zhongyang outpatient payment record has no outTradeOrderId",
+				response.requestId,
+			);
+		}
+		return {
+			recordId,
+			providerPatientId,
+			outTradeOrderIds: [outTradeOrderId],
+			totalFen: amountFen(matched.amount, response.requestId),
+			trace: {
+				...trace(response.requestId),
+				operation: "outpatient-payment-context",
+			},
+		};
+	}
 }
 
 export function createZhongyangOutpatientPaymentGateway(

@@ -40,6 +40,7 @@
 		"pages/blood-appointment/blood-appointment",
 		"pages/appointment-detail/appointment-detail",
 		"pages/inpatient-center/inpatient-center",
+		"pages/inpatient-payment/inpatient-payment",
 		"pages/my-doctor/my-doctor",
 		"pages/my-doctor-detail/my-doctor-detail",
 		"pages/electronic-consultation/electronic-consultation",

@@ -1,43 +1,97 @@
 .health-test-scroll {
 	height: 100vh;
-	background: #f7f9fd;
+	background: #f7f8fc;
 }
 
 .health-test-page {
 	box-sizing: border-box;
 	min-height: 100%;
-	padding: 32rpx 24rpx 48rpx;
+	padding: 24rpx 24rpx 48rpx;
 }
 
-.health-test-hero {
-	padding: 20rpx 8rpx 28rpx;
+.health-test-section,
+.health-test-tools {
+	border-radius: 18rpx;
+	background: #fff;
 }
 
-.health-test-title {
-	display: block;
+.health-test-section {
+	padding: 28rpx 24rpx 30rpx;
+}
+
+.health-test-interpretation-section,
+.health-test-tools {
+	margin-top: 20rpx;
+}
+
+.health-test-section-title,
+.health-test-tools-title {
 	color: #222b45;
-	font-size: 40rpx;
+	font-size: 30rpx;
 	font-weight: 600;
-	line-height: 1.4;
 }
 
-.health-test-subtitle,
-.health-test-card-copy,
-.health-test-message,
-.health-test-notice {
-	color: #68738a;
-	font-size: 25rpx;
-	line-height: 1.7;
+.health-test-grid {
+	display: grid;
+	margin-top: 26rpx;
+	column-gap: 12rpx;
+	row-gap: 28rpx;
 }
 
-.health-test-subtitle {
-	display: block;
-	margin-top: 10rpx;
+.health-test-grid-assessment {
+	grid-template-columns: repeat(4, 1fr);
+}
+
+.health-test-grid-interpretation {
+	grid-template-columns: repeat(5, 1fr);
+}
+
+.health-test-grid-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 0;
+	color: #4c566d;
+}
+
+.health-test-grid-item-disabled {
+	opacity: .62;
+}
+
+.health-test-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 78rpx;
+	height: 78rpx;
+	border-radius: 50%;
+	background: #eaf1ff;
+	color: #3d6df6;
+	font-size: 26rpx;
+	font-weight: 600;
+}
+
+.health-test-icon-interpretation {
+	background: #f1f5ff;
+	color: #6b7caa;
+}
+
+.health-test-grid-name {
+	margin-top: 12rpx;
+	max-width: 120rpx;
+	color: #4c566d;
+	font-size: 22rpx;
+	line-height: 1.35;
+	text-align: center;
+}
+
+.health-test-tools {
+	padding: 28rpx 24rpx 32rpx;
 }
 
 .health-test-tabs {
 	display: flex;
-	margin-bottom: 24rpx;
+	margin: 22rpx 0 20rpx;
 	padding: 8rpx;
 	border-radius: 16rpx;
 	background: #eaf0ff;
@@ -45,94 +99,90 @@
 
 .health-test-tab {
 	flex: 1;
-	padding: 20rpx 0;
+	padding: 18rpx 0;
 	border-radius: 12rpx;
 	color: #68738a;
-	font-size: 28rpx;
+	font-size: 26rpx;
 	line-height: 1.4;
 	text-align: center;
 }
 
 .health-test-tab.is-active {
-	background: #ffffff;
-	box-shadow: 0 4rpx 14rpx rgba(61, 109, 246, 0.12);
+	background: #fff;
+	box-shadow: 0 4rpx 14rpx rgba(61, 109, 246, .12);
 	color: #3d6df6;
 	font-weight: 600;
 }
 
-.health-test-card,
-.health-test-notice {
-	box-sizing: border-box;
-	border-radius: 18rpx;
-	background: #ffffff;
-}
-
 .health-test-card {
-	padding: 32rpx;
+	padding: 4rpx 8rpx 0;
 }
 
 .health-test-card-title {
 	display: block;
 	color: #222b45;
-	font-size: 32rpx;
+	font-size: 30rpx;
 	font-weight: 600;
-	line-height: 1.5;
+}
+
+.health-test-card-copy,
+.health-test-message,
+.health-test-notice {
+	color: #68738a;
+	font-size: 24rpx;
+	line-height: 1.7;
 }
 
 .health-test-card-copy {
 	display: block;
-	margin-top: 12rpx;
+	margin-top: 10rpx;
 }
 
 .health-test-field {
 	display: flex;
 	align-items: center;
-	margin-top: 28rpx;
-	padding-bottom: 18rpx;
+	margin-top: 26rpx;
+	padding-bottom: 16rpx;
 	border-bottom: 1rpx solid #e9edf5;
 }
 
 .health-test-label {
-	width: 132rpx;
+	width: 130rpx;
 	color: #333d56;
-	font-size: 28rpx;
+	font-size: 26rpx;
 }
 
 .health-test-input {
 	flex: 1;
 	min-width: 0;
 	color: #222b45;
-	font-size: 30rpx;
+	font-size: 28rpx;
 }
 
 .health-test-unit {
-	margin-left: 16rpx;
+	margin-left: 12rpx;
 	color: #8791a5;
-	font-size: 24rpx;
+	font-size: 22rpx;
 }
 
 .health-test-primary-button,
-.health-test-secondary-button,
-.health-test-plain-button {
+.health-test-plain-button,
+.health-test-popup-button {
 	box-sizing: border-box;
 	width: 100%;
-	margin-top: 28rpx;
 	border-radius: 14rpx;
-	font-size: 28rpx;
-	line-height: 84rpx;
+	font-size: 27rpx;
+	line-height: 80rpx;
 }
 
 .health-test-primary-button {
+	margin-top: 26rpx;
 	background: #3d6df6;
-	color: #ffffff;
-}
-
-.health-test-secondary-button {
-	background: #edf3ff;
-	color: #3d6df6;
+	color: #fff;
 }
 
 .health-test-plain-button {
+	margin-top: 22rpx;
 	background: transparent;
 	color: #68738a;
 }
@@ -141,26 +191,26 @@
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
-	margin-top: 24rpx;
-	padding: 24rpx;
+	margin-top: 22rpx;
+	padding: 20rpx;
 	border-radius: 14rpx;
 	background: #f7f9fd;
 }
 
 .health-test-result-label {
 	color: #68738a;
-	font-size: 26rpx;
+	font-size: 24rpx;
 }
 
 .health-test-result-value {
 	color: #3d6df6;
-	font-size: 42rpx;
+	font-size: 38rpx;
 	font-weight: 600;
 }
 
 .health-test-message {
-	margin-top: 20rpx;
-	padding: 20rpx 24rpx;
+	margin-top: 18rpx;
+	padding: 18rpx 20rpx;
 	border-radius: 14rpx;
 	background: #fff8e8;
 	color: #a66b00;
@@ -169,13 +219,58 @@
 .health-test-notice {
 	display: flex;
 	flex-direction: column;
-	gap: 8rpx;
-	margin-top: 24rpx;
-	padding: 24rpx;
+	gap: 6rpx;
+	margin-top: 20rpx;
+	padding: 20rpx;
+	border-radius: 16rpx;
 	background: #f0f4ff;
 }
 
 .health-test-notice text:first-child {
 	color: #3d6df6;
 	font-weight: 600;
+}
+
+.health-test-popup-mask {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 20;
+	padding: 40rpx;
+	background: rgba(0, 0, 0, .45);
+}
+
+.health-test-popup {
+	box-sizing: border-box;
+	width: 100%;
+	max-height: 76vh;
+	padding: 28rpx;
+	border-radius: 18rpx;
+	background: #fff;
+}
+
+.health-test-popup-title {
+	display: block;
+	color: #222b45;
+	font-size: 31rpx;
+	font-weight: 600;
+}
+
+.health-test-popup-content {
+	display: block;
+	margin-top: 18rpx;
+	color: #68738a;
+	font-size: 26rpx;
+	line-height: 1.8;
+}
+
+.health-test-popup-button {
+	margin-top: 22rpx;
+	background: #3d6df6;
+	color: #fff;
 }

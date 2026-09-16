@@ -1,0 +1,75 @@
+.inpatient-payment-scroll {
+	height: 100vh;
+	background: #f7f8fc;
+}
+
+.inpatient-payment-page {
+	box-sizing: border-box;
+	min-height: 100%;
+	padding: 24rpx;
+}
+
+.inpatient-payment-notice {
+	padding: 22rpx 24rpx;
+	border-radius: 16rpx;
+	background: #fff5e8;
+	color: #ff7a00;
+	font-size: 27rpx;
+	line-height: 1.6;
+}
+
+.inpatient-payment-card {
+	margin-top: 20rpx;
+	border-radius: 18rpx;
+	background: #fff;
+	box-shadow: 0 8rpx 24rpx rgba(40, 74, 150, .05);
+}
+
+.inpatient-payment-card-title {
+	padding: 24rpx 26rpx 0;
+	color: #222b45;
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.inpatient-payment-patient {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 108rpx;
+	padding: 0 26rpx;
+}
+
+.inpatient-payment-patient-copy {
+	display: flex;
+	flex-direction: column;
+}
+
+.inpatient-payment-patient-name,
+.inpatient-payment-muted {
+	color: #222b45;
+	font-size: 30rpx;
+}
+
+.inpatient-payment-muted { color: #9aa3b4; }
+.inpatient-payment-patient-card { margin-top: 6rpx; color: #8791a5; font-size: 24rpx; }
+.inpatient-payment-arrow { color: #9aa3b4; font-size: 44rpx; font-weight: 300; }
+.inpatient-payment-retry { padding: 0 26rpx 24rpx; color: #3d6df6; font-size: 25rpx; }
+
+.inpatient-payment-field {
+	display: flex;
+	align-items: center;
+	min-height: 104rpx;
+	padding: 0 26rpx;
+}
+
+.inpatient-payment-field-border { border-bottom: 1rpx solid #edf0f5; }
+.inpatient-payment-label { width: 210rpx; color: #333d56; font-size: 28rpx; }
+.inpatient-payment-required { margin-right: 8rpx; color: #ff3b30; }
+.inpatient-payment-input { flex: 1; min-width: 0; color: #222b45; font-size: 28rpx; text-align: right; }
+.inpatient-payment-message { margin-top: 20rpx; padding: 20rpx 24rpx; border-radius: 14rpx; font-size: 26rpx; line-height: 1.6; }
+.inpatient-payment-message-error { background: #fff0f0; color: #c53b3b; }
+.inpatient-payment-message-info { background: #edf3ff; color: #3d6df6; }
+.inpatient-payment-primary, .inpatient-payment-plain { width: 100%; margin-top: 34rpx; border-radius: 16rpx; font-size: 29rpx; line-height: 88rpx; }
+.inpatient-payment-primary { background: #3d6df6; color: #fff; }
+.inpatient-payment-plain { margin-top: 14rpx; background: transparent; color: #68738a; }

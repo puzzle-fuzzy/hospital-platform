@@ -65,6 +65,7 @@ import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insuranc
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
+import { OutpatientSelfPayService } from "./modules/outpatient-payments/self-pay-service";
 import { PatientService } from "./modules/patients";
 import { PatientBindingService } from "./modules/patients/binding-service";
 import { WechatPrepayService } from "./modules/payments";
@@ -92,6 +93,7 @@ export type ApplicationServices = {
 	medicalInsurancePluginPayment?: import("./modules/medical-insurance/plugin-payment-service").MedicalInsurancePluginPaymentService;
 	myDoctors?: MyDoctorService;
 	outpatientPayments?: OutpatientPaymentService;
+	outpatientSelfPay?: OutpatientSelfPayService;
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
 	healthKnowledge?: HealthKnowledgeService;
 	/** 智能导诊应用端口；配置原生 TS 端口时优先使用原生实现。 */
@@ -590,6 +592,37 @@ export function createDefaultApplicationServices(
 		},
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const outpatientSelfPay = new OutpatientSelfPayService({
+		paymentOrders,
+		patients: repositories.patients,
+		identityUsers: repositories.identityUsers,
+		patientProfile:
+			options.appointmentPatientProfileGateway ??
+			gateways.appointmentPatientProfile,
+		outpatientPayments:
+			options.outpatientPaymentGateway ?? gateways.outpatientPayments,
+		preparation:
+			options.registrationSelfPayPreparationGateway ??
+			gateways.registrationSelfPayPreparation,
+		hospitalSettlement:
+			options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
+		saveContext: async (ownerUserId, orderId, context) => {
+			if (!repositories.paymentOrders.saveRegistrationSelfPayContext) {
+				throw new DependencyNotConfiguredError("payment-orders");
+			}
+			await repositories.paymentOrders.saveRegistrationSelfPayContext(
+				ownerUserId,
+				orderId,
+				context,
+			);
+		},
+		getContext: async (ownerUserId, orderId) =>
+			repositories.paymentOrders.getRegistrationSelfPayContext?.(
+				ownerUserId,
+				orderId,
+			),
+		...(options.logger ? { logger: options.logger } : {}),
+	});
 	const registrationPaymentExit = new RegistrationPaymentExitService({
 		appointments: appointmentWrites,
 		medicalInsurance,
@@ -732,6 +765,7 @@ export function createDefaultApplicationServices(
 			authSysCode: options.outpatientPaymentAuthSysCode ?? "",
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
+		outpatientSelfPay,
 		healthKnowledge: new HealthKnowledgeService({
 			repository: repositories.healthKnowledge,
 			...(options.logger ? { logger: options.logger } : {}),

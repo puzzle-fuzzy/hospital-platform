@@ -1,5 +1,4 @@
 import departmentLocations from "../../data/department-location";
-import { errorMessageWithCode } from "../../services/error-presentation";
 import { getCurrentUser } from "../../services/api-client";
 import { appointmentRecordsErrorMessage } from "../../services/appointment-record-error";
 import {
@@ -12,6 +11,7 @@ import {
 	loadAppointmentRecords,
 	loadCurrentPatientForOwner,
 } from "../../services/dashboard-service";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
@@ -60,6 +60,7 @@ type AppointmentRecordsPageMethods = {
 	onLoadMore(): void;
 	onRetry(): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
+	onWaitingListTap(): void;
 	onChangePatient(): void;
 	onHospitalTap(): void;
 	onHospitalSelect(): void;
@@ -391,6 +392,11 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		this.setData({ activeTab });
 		// 切换标签按旧端语义重新读取对应范围，不能把在线结果伪装成全部结果。
 		void this.loadRecords(activeTab);
+	},
+
+	/** 蓝湖稿保留候补挂号标签；服务端尚未提供候补读模型时明确提示未开放。 */
+	onWaitingListTap(): void {
+		wx.showToast({ title: "候补挂号暂未开放", icon: "none" });
 	},
 
 	/** 记录状态在页面边界翻译，服务端 contract 仍保持稳定英文枚举。 */

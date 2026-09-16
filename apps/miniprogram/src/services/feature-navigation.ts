@@ -367,7 +367,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		title: "费用记录详情",
 		readiness: "已接入安全子集",
 		description:
-			"门诊费用摘要详情已接入；项目级费用明细和支付动作仍按 Provider 合同关闭。",
+			"门诊费用摘要详情和微信自费支付已接入；医保授权、结算和退费仍按 Provider 合同关闭。",
 		contractHint:
 			"摘要使用 2.6.33 已确认字段；项目明细、医保分摊、电子票据和短期授权仍待正式合同。",
 		icon: "/assets/legacy-home/top-payment.svg",
@@ -375,8 +375,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"outpatient-payment-write": {
 		title: "门诊缴费",
 		readiness: "待支付与回写 contract",
-		description:
-			"门诊缴费流程正在迁移中，当前不会创建订单或发起微信/医保支付。",
+		description: "门诊微信自费支付已接入；医保授权、结算和退费仍在迁移中。",
 		contractHint:
 			"等待订单归属、金额守恒、支付状态机、医保授权、查单和结算回写确认。",
 		icon: "/assets/legacy-home/top-payment.svg",
@@ -514,6 +513,7 @@ export const FEATURE_SURFACE_TARGETS: Readonly<
 > = Object.freeze({
 	"medical-record": "/pages/medical-record/medical-record",
 	"inpatient-center": "/pages/inpatient-center/inpatient-center",
+	"inpatient-payment": "/pages/inpatient-payment/inpatient-payment",
 	doctor: "/pages/my-doctor/my-doctor",
 	"electronic-consultation":
 		"/pages/electronic-consultation/electronic-consultation",

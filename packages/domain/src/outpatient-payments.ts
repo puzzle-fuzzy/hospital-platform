@@ -36,6 +36,19 @@ export type OutpatientPaymentRecord = {
 };
 
 /**
+ * 门诊支付前由服务端解析出的 Provider 事实。
+ * `recordId` 只是平台给小程序的 opaque 引用；真正提交 2.6.65.1 的
+ * `outTradeOrderIds` 必须由同一次 2.6.33 查询在服务端解析。
+ */
+export type OutpatientPaymentProviderContext = {
+	recordId: string;
+	providerPatientId: string;
+	outTradeOrderIds: readonly string[];
+	totalFen: number;
+	trace: ExternalTrace;
+};
+
+/**
  * 单次门诊费用只读响应的资源上限。
  *
  * 这是平台防御异常响应的上限，不是患者实际费用条数上限，也不是 Provider
@@ -257,4 +270,14 @@ export interface OutpatientPaymentGateway {
 		records: readonly OutpatientPaymentRecord[];
 		trace: ExternalTrace;
 	}>;
+	/** 门诊支付入口使用的服务端 Provider 事实解析；未实现时保持关闭。 */
+	resolvePaymentContext?(
+		input: {
+			providerPatientId: string;
+			recordId: string;
+			startTime: string;
+			endTime: string;
+		},
+		context: AdapterCallContext,
+	): Promise<OutpatientPaymentProviderContext>;
 }

@@ -306,6 +306,7 @@ export type {
 } from "./outbox";
 export type {
 	OutpatientPaymentGateway,
+	OutpatientPaymentProviderContext,
 	OutpatientPaymentRecord,
 	OutpatientPaymentResultViolation,
 	OutpatientPaymentStatus,

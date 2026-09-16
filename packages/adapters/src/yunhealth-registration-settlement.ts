@@ -633,6 +633,10 @@ export function createYunhealthRegistrationSettlementGateway(
 					},
 				);
 			}
+			const requestTradeTypeCode = requiredText(
+				registrationContext?.tradeTypeCode ?? tradeTypeCode,
+				"tradeTypeCode",
+			);
 			const requestIds: string[] = [];
 			const request = async <T>(
 				step: string,
@@ -677,7 +681,7 @@ export function createYunhealthRegistrationSettlementGateway(
 					hospitalId: normalizedContext.hospitalId,
 					sceneCode: "WeChatSmallProgram",
 					thirdFlag: 1,
-					tradeTypeCode,
+					tradeTypeCode: requestTradeTypeCode,
 					workStationId: requestWorkStationId,
 				},
 			);
@@ -820,14 +824,34 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 		async prepare(input, context) {
 			const orderId = requiredText(input.orderId, "orderId", 128);
 			const totalFen = positiveInteger(input.totalFen, "totalFen");
-			const providerRegisterId = positiveIntegerText(
-				input.providerRegisterId,
-				"providerRegisterId",
-			);
+			const businessType = input.businessType ?? "registration";
+			if (businessType !== "registration" && businessType !== "outpatient") {
+				throw providerError(THIRD_PART_OPERATION, "businessType is invalid", {
+					failureStage: "validation",
+					requestOutcome: "not_sent",
+				});
+			}
+			const providerRegisterId =
+				businessType === "registration"
+					? positiveIntegerText(input.providerRegisterId, "providerRegisterId")
+					: undefined;
 			const providerPatientId = positiveIntegerText(
 				input.providerPatientId,
 				"providerPatientId",
 			);
+			const outTradeOrderIds =
+				businessType === "outpatient"
+					? (input.outTradeOrderIds ?? []).map((value, index) =>
+							positiveIntegerText(value, `outTradeOrderIds[${index}]`),
+						)
+					: [];
+			if (businessType === "outpatient" && outTradeOrderIds.length === 0) {
+				throw providerError(
+					THIRD_PART_OPERATION,
+					"outTradeOrderIds is required for outpatient payment",
+					{ failureStage: "validation", requestOutcome: "not_sent" },
+				);
+			}
 			const paymentSystemUserId = requiredText(
 				input.paymentSystemUserId,
 				"paymentSystemUserId",
@@ -842,7 +866,10 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 			);
 			const requestIds: string[] = [];
 
-			const applyOperation = "registration-self-pay.2.6.65.1";
+			const applyOperation =
+				businessType === "outpatient"
+					? "outpatient-self-pay.2.6.65.1"
+					: "registration-self-pay.2.6.65.1";
 			const apply = await request<unknown>({
 				step: "2.6.65.1",
 				operation: applyOperation,
@@ -856,14 +883,17 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 					hospitalId,
 					patId: providerPatientId,
 					requestId: stableNumericRequestId(`2.6.65.1:${orderId}`),
-					requestParam: {
-						registerId: providerRegisterId,
-						registerSource: 15,
-						settleWay: 6,
-					},
+					requestParam:
+						businessType === "outpatient"
+							? { outTradeOrderIds, settleWay: 6 }
+							: {
+									registerId: providerRegisterId,
+									registerSource: 15,
+									settleWay: 6,
+								},
 					sceneCode: "WeChatSmallProgram",
 					paySceneCode: "WeChatSmallProgram",
-					tradeTypeCode,
+					tradeTypeCode: businessType === "outpatient" ? "2" : tradeTypeCode,
 					workStationId,
 				},
 			});
@@ -893,7 +923,10 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 					},
 				);
 			}
-			const settleDetailsOperation = "registration-self-pay.2.27.2.27";
+			const settleDetailsOperation =
+				businessType === "outpatient"
+					? "outpatient-self-pay.2.27.2.27"
+					: "registration-self-pay.2.27.2.27";
 			const settleDetails = await request<unknown>({
 				step: "2.27.2.27",
 				operation: settleDetailsOperation,
@@ -934,7 +967,10 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 			}
 			options.logger?.info(
 				{
-					event: "registration-self-pay.settlement-details.fetched",
+					event:
+						businessType === "outpatient"
+							? "outpatient-self-pay.settlement-details.fetched"
+							: "registration-self-pay.settlement-details.fetched",
 					traceId: context.traceId,
 					orderId,
 					providerRequestId: settleDetails.requestId,
@@ -946,7 +982,9 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 				"Registration self-pay settlement details fetched",
 			);
 
-			const recordCode = stableRecordCode(`registration-self-pay:${orderId}`);
+			const recordCode = stableRecordCode(
+				`${businessType}-self-pay:${orderId}`,
+			);
 			const plugin = await pluginGateway.createPreOrder(
 				{
 					orderId,
@@ -961,7 +999,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 					payType: pluginPayType,
 					workStationId,
 					recordCode,
-					tradeTypeCode,
+					tradeTypeCode: businessType === "outpatient" ? "2" : tradeTypeCode,
 				},
 				context,
 			);
@@ -983,6 +1021,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 				registrationContext: {
 					businessId,
 					businessCode,
+					tradeTypeCode: businessType === "outpatient" ? "2" : tradeTypeCode,
 					payingId: plugin.payingId,
 					tradingId: plugin.tradingId,
 					hospitalId: String(hospitalId),
@@ -1055,6 +1094,20 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			const orderId = requiredText(input.orderId, "orderId", 128);
 			const businessId = requiredText(input.businessId, "businessId");
 			const tradeCode = requiredText(input.tradeCode, "tradeCode");
+			const requestTradeTypeCode = requiredText(
+				input.tradeTypeCode ?? tradeTypeCode,
+				"tradeTypeCode",
+			);
+			if (
+				requestTradeTypeCode !== tradeTypeCode &&
+				requestTradeTypeCode !== "2"
+			) {
+				throw providerError(
+					"registration-self-pay.2.6.65.2.plugin",
+					"tradeTypeCode does not match server configuration",
+					{ failureStage: "validation", requestOutcome: "not_sent" },
+				);
+			}
 			const hospitalId = positiveInteger(input.hospitalId, "hospitalId");
 			positiveIntegerText(input.patientId, "patientId");
 			const totalFen = positiveInteger(input.totalFen, "totalFen");
@@ -1163,7 +1216,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						spbillCreateIp: "",
 						total: Number((totalFen / 100).toFixed(2)),
 						tradeCode,
-						tradeTypeCode,
+						tradeTypeCode: requestTradeTypeCode,
 						workStationId,
 					},
 					...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
@@ -1219,7 +1272,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 				payTypeId: String(requestPayTypeId),
 				payType: pluginPayType,
 				workStationId,
-				tradeTypeCode,
+				tradeTypeCode: requestTradeTypeCode,
 				...(payParams && outTradeNo ? { payParams, outTradeNo } : {}),
 				trace: {
 					provider: "yunhealth",

@@ -335,7 +335,8 @@ export function createApp(options: AppOptions = {}) {
 						? outpatientPaymentsModule(
 								services.outpatientPayments,
 								services.sessions,
-							)
+								services.outpatientSelfPay,
+							  )
 						: new Elysia({ name: "outpatient-payments-not-configured" }),
 				)
 				.use(

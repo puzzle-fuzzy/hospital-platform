@@ -1,0 +1,16 @@
+<svg width="339" height="91" viewBox="0 0 339 91" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="exam-bg" x1="0" y1="0" x2="339" y2="91" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F0F5FF"/>
+      <stop offset="1" stop-color="#E5EEFF"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="338" height="90" rx="16" fill="url(#exam-bg)" stroke="#C8D9FF"/>
+  <path d="M267 16C267 16 281 8 294 15C306 21 307 33 302 39C298 44 293 48 293 48H267V16Z" fill="#B7D0FF" opacity="0.45"/>
+  <circle cx="282" cy="30" r="11" fill="#FFE0C4"/>
+  <path d="M270 29C271 16 293 13 295 29C290 25 284 23 276 25L270 29Z" fill="#3C6AA9"/>
+  <path d="M268 70C268 55 274 45 282 45C290 45 296 55 296 70H268Z" fill="#7AB4FF"/>
+  <path d="M279 49H285V63H279V49Z" fill="white"/>
+  <path d="M282 53V61M278 57H286" stroke="#5B8FE6" stroke-width="2" stroke-linecap="round"/>
+  <text x="30" y="57" fill="#1F2937" font-family="Arial, sans-serif" font-size="28" font-weight="600">体检预约</text>
+</svg>

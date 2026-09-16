@@ -2,6 +2,7 @@ import {
 	OutpatientPaymentDetailResponse,
 	OutpatientPaymentListResponse,
 	OutpatientPaymentStatusSchema,
+	OutpatientSelfPayResponse,
 	success,
 } from "@hospital/contracts";
 import type {
@@ -35,6 +36,7 @@ import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
+import type { OutpatientSelfPayService } from "./self-pay-service";
 
 export class OutpatientPaymentPatientNotFoundError extends Error {
 	constructor() {
@@ -531,9 +533,10 @@ const OutpatientPaymentDetailParams = t.Object({
 export function outpatientPaymentsModule(
 	service: OutpatientPaymentService,
 	sessions: SessionTokenService,
+	selfPay?: OutpatientSelfPayService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions);
-	return new Elysia({ name: "outpatient-payments-module" })
+	const module = new Elysia({ name: "outpatient-payments-module" })
 		.onTransform({ as: "local" }, authentication.authenticate)
 		.get(
 			"/payments/outpatient/records/:recordId",
@@ -577,4 +580,52 @@ export function outpatientPaymentsModule(
 				tags: ["payments"],
 			},
 		);
+	if (selfPay) {
+		module.post(
+			"/payments/outpatient/records/:recordId/self-pay",
+			async ({ request, headers, params, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await selfPay.create({
+						ownerUserId: principal.userId,
+						recordId: params.recordId,
+						patientId: body.patientId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: t.Object({
+					authorization: t.Optional(t.String({ maxLength: 512 })),
+					"idempotency-key": t.String({ minLength: 1, maxLength: 128 }),
+				}),
+				params: t.Object({ recordId: t.String({ minLength: 1, maxLength: 128 }) }),
+				body: t.Object({ patientId: t.String({ minLength: 1, maxLength: 128 }) }),
+				response: { 200: OutpatientSelfPayResponse },
+				tags: ["payments"],
+			},
+		);
+		module.get(
+			"/payments/outpatient/records/:recordId/self-pay",
+			async ({ request, headers, params, query }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await selfPay.query({
+						ownerUserId: principal.userId,
+						recordId: params.recordId,
+						patientId: query.patientId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: t.Object({ authorization: t.Optional(t.String({ maxLength: 512 })) }),
+				params: t.Object({ recordId: t.String({ minLength: 1, maxLength: 128 }) }),
+				query: t.Object({ patientId: t.String({ minLength: 1, maxLength: 128 }) }),
+				response: { 200: OutpatientSelfPayResponse },
+				tags: ["payments"],
+			},
+		);
+	}
+	return module;
 }

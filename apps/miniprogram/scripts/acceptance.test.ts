@@ -688,14 +688,26 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentStyles).toContain("border: 2rpx solid #3d6df6");
 	expect(paymentStyles).toContain(".mixed-button");
 	expect(paymentStyles).toContain("background: #3d6df6");
-	expect(detailPage).toContain('selfPayStatus: "awaiting_confirmation"');
-	expect(detailPage).toContain("onMedicalPay(): void");
-	expect(detailPage).toContain(
-		"pages/registration-payment/registration-payment?patientId=",
+	// 挂号成功后的详情页只恢复“已预约”状态可用的取消动作；支付仍在独立流程中处理。
+	expect(detailPage).toContain("requestAppointmentCancellation");
+	expect(detailPage).toContain("onCancel(): void");
+	expect(detailPage).toContain('this.data.status !== "scheduled"');
+	expect(detailPage).toContain("onBackHome(): void");
+	expect(detailPage).toContain('switchToPrimaryTab("/pages/index/index")');
+	expect(detailPage).not.toContain("onMedicalPay");
+	expect(detailPage).not.toContain("onSelfPay");
+	expect(detailTemplate).toContain('bindtap="onBackHome"');
+	expect(detailTemplate).toContain(">返回首页</button>");
+	expect(detailTemplate).toContain(
+		"wx:if=\"{{localDetail && appointmentId && status === 'scheduled'}}\"",
 	);
-	expect(detailPage).toContain("&mode=mixed");
-	expect(detailTemplate).toContain('bindtap="onMedicalPay"');
-	expect(detailTemplate).toContain(">医保支付</button>");
+	expect(detailTemplate).toContain('bindtap="onCancel"');
+	expect(detailTemplate).toContain("取消预约");
+	expect(detailTemplate).not.toContain("医保支付");
+	expect(detailTemplate).not.toContain("微信支付");
+	expect(detailTemplate).toContain("detail-actions");
+	expect(detailTemplate).not.toContain("detail-payment-message");
+	expect(detailTemplate).not.toContain("detail-payment-error");
 	expect(detailTemplate).not.toContain("返回挂号列表");
 	expect(detailTemplate).not.toContain('bindtap="onBack"');
 	expect(paymentTemplate).not.toContain('data-mode="medical"');
@@ -713,7 +725,6 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentPage).toContain("用户取消收银台只代表本次支付尝试退出");
 	expect(paymentPage).toContain("已取消支付，预约已保留");
 	expect(insurance).not.toContain("requestAppointmentPaymentExit");
-	expect(detailPage).toContain("请点击继续微信支付");
 });
 
 test("native registration migration preserves duplicate-appointment safety", async () => {
@@ -2102,7 +2113,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(48);
+	expect(app.pages).toHaveLength(49);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2664,8 +2675,11 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(records).toContain("当前只有一个已经确认的院区");
 	expect(recordsTemplate).toContain("在线挂号");
 	expect(recordsTemplate).toContain("全部挂号");
+	expect(recordsTemplate).toContain("候补挂号");
+	expect(recordsTemplate).toContain("status-tab-disabled");
+	expect(records).toContain("onWaitingListTap");
 	expect(recordsTemplate).toContain("预问诊");
-	expect(recordsTemplate).toContain("院内导航");
+	expect(recordsTemplate).not.toContain("院内导航");
 	expect(recordsTemplate).toContain('class="selector-name"');
 	// 旧端患者行是“姓名（编号）”的紧凑视觉结构；编号在原生端必须仍是
 	// 平台脱敏卡号，避免为追求视觉一致而把 Provider 患者号重新带回小程序。
@@ -2690,7 +2704,7 @@ test("native mini program exposes appointment directory, scheduling, and records
 		"transition: background-color 0.2s ease, transform 0.2s ease;",
 	);
 	expect(recordsStyle).toContain("transform: scale(0.99);");
-	expect(recordsTemplate).toContain(
+	expect(recordsTemplate).not.toContain(
 		"/assets/legacy-user/appointment-status.svg",
 	);
 	expect(recordsTemplate).toContain("/assets/legacy-user/empty-record.svg");
@@ -2772,7 +2786,8 @@ test("native appointment tabs use server-owned read scopes", async () => {
 	expect(client).toContain("encodeURIComponent(normalized.scope)");
 	expect(client).toContain("requireAppointmentRecordRequestOptions");
 	expect(client).toContain("scope=");
-	expect(template).not.toContain("status-tab-disabled");
+	expect(template).toContain("status-tab-disabled");
+	expect(records).toContain("onWaitingListTap");
 });
 
 test("native appointment tab intent survives a stale patient reload", async () => {
@@ -3368,13 +3383,13 @@ test("native mini program exposes outpatient payment and my pages through platfo
 		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
 	);
 	expect(outpatientTemplate).toContain(
-		"当前仅提供门诊费用查询，支付、医保授权和结算功能正在完善中",
+		"当前支持门诊费用查询和微信自费支付；医保授权、结算和退费功能正在完善中",
 	);
 	// 旧端文案会暗示支付或医保已经可以在此页面执行；只读页面必须明确拒绝这种语义回流。
 	expect(outpatientTemplate).not.toContain("缴费后如需退费需至窗口办理");
 	expect(outpatientTemplate).not.toContain("目前支付宝支持");
 	expect(outpatientTemplate).toContain('bindtap="onRecordTap"');
-	expect(outpatientTemplate).toContain("支付、医保授权和结算功能正在完善中");
+	expect(outpatientTemplate).toContain("医保授权、结算和退费功能正在完善中");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(my).toContain("navigateToPatientScopedPage");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
@@ -3982,6 +3997,10 @@ test("native homepage places report query and outpatient medical records in thei
 		home.indexOf("const SERVICE_TABS"),
 		home.indexOf("type IndexPageMethods"),
 	);
+	const outpatientEntries = serviceEntries.slice(
+		serviceEntries.indexOf('title: "门诊"'),
+		serviceEntries.indexOf('title: "住院"'),
+	);
 
 	expect(topEntries).toContain('action: "reports"');
 	expect(topEntries).toContain('text: "报告查询"');
@@ -3989,8 +4008,20 @@ test("native homepage places report query and outpatient medical records in thei
 	expect(quickEntries).toContain('action: "medical-record"');
 	expect(quickEntries).toContain('text: "门诊病历"');
 	expect(quickEntries).not.toContain('action: "reports"');
-	expect(serviceEntries).not.toContain('title: "门诊病历"');
-	expect(serviceEntries).not.toContain('action: "medical-record"');
+	for (const title of ["我的挂号", "就诊人绑定", "我的问诊", "电子导诊单"]) {
+		expect(outpatientEntries).toContain(`title: "${title}"`);
+	}
+	for (const title of [
+		"门诊病历",
+		"检验检查开单",
+		"患者签名",
+		"检查预约",
+		"慢病管理",
+		"采血预约",
+	]) {
+		expect(outpatientEntries).not.toContain(`title: "${title}"`);
+	}
+	expect(outpatientEntries).not.toContain('action: "medical-record"');
 });
 
 test("native homepage companion entry uses the explicit companion status gate", async () => {
