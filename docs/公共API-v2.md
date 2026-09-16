@@ -374,8 +374,8 @@ Provider 鉴权和患者字段均不下发。详情或附件返回 404 不等于
 
 门诊缴费列表只返回 `recordId`、状态、科室/医生、账单时间和 `amountFen`。服务端会先校验
 `patientId` 并按当前用户解析 `his-patient` 映射，再调用 provider；空白、超长或带控制字符的标识、owner 映射缺失、
-持久化失败或 provider 失败都不能变成成功的空列表。当前仍是只读查询；支付调起、医保授权、医保结算、
-HIS 回写和退费必须走独立 contract。
+持久化失败或 provider 失败都不能变成成功的空列表。列表仍是只读查询；详情页的微信自费和医保支付已经通过独立
+contract 接入统一服务端编排，但仍受真实 Provider、微信、HIS 和真机验收 gate 控制，退费另立流程。
 
 Provider 返回的 `tradeStatus` 也必须与查询状态一致：`unpaid` 只接受 `1`，`paid` 只接受 `3`；
 缺失、无法识别或错配时服务端整批拒绝结果，不把请求 tab 当作 Provider 事实贴到费用记录上。
