@@ -750,6 +750,7 @@ test("门诊费用 service 二次校验后只返回白名单字段", async () =>
 			}),
 		},
 		authSysCode: "thirdSelfMachine",
+		now: () => new Date("2026-08-17T12:00:00+08:00"),
 	});
 
 	const result = await service.list("user-001", "patient-001", "paid", {
@@ -877,6 +878,7 @@ test("门诊费用日志保留经过校验的多请求 provider trace", async ()
 			}),
 		},
 		authSysCode: "thirdSelfMachine",
+		now: () => new Date("2026-08-17T12:00:00+08:00"),
 		logger: createLogger({
 			service: "outpatient-payment-trace-test",
 			environment: "test",

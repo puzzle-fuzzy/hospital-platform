@@ -161,6 +161,7 @@ describe("旧端页面全量迁移台账", () => {
 		expect(pageWxml).toContain('bindtouchstart="onVoiceTouchStart"');
 		expect(pageScript).toContain("requestIntelligentGuideMessage");
 		expect(pageScript).toContain("requestIntelligentGuideAudio");
+		expect(pageScript).not.toContain("legacyLoginCode");
 		expect(pageScript).not.toContain("html.ydrj.top");
 		expect(pageScript).not.toContain("providerConversationId");
 	});
@@ -208,12 +209,12 @@ describe("旧端页面全量迁移台账", () => {
 		}
 	});
 
-	test("我的问诊不把旧端硬编码演示数据误标为外部真实会话", () => {
+	test("我的问诊只迁移兼容历史摘要，不把它误标为真实外部会话", () => {
 		const consultation = FEATURE_STATUS_CATALOG.consultation;
 
 		expect(consultation.readiness).toBe("待外部入口 contract");
-		expect(consultation.description).toContain("演示数据");
-		expect(consultation.description).toContain("不会复制");
+		expect(consultation.description).toContain("兼容历史摘要");
+		expect(consultation.description).toContain("正文");
 		expect(consultation.contractHint).toContain("外部主体");
 		expect(consultation.contractHint).toContain("短期会话");
 	});

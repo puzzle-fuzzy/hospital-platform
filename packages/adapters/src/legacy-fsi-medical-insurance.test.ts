@@ -10,6 +10,9 @@ import {
 	createLegacyFsiMedicalInsuranceGateway,
 	mapSettlementDetails,
 	medicalTypeForBusiness,
+	offSiteTypeForInsuredArea,
+	settlementInsuTypeNameForInsutype,
+	settlementMedTypeNameForBusiness,
 } from "./legacy-fsi-medical-insurance";
 
 const order = {
@@ -35,6 +38,39 @@ test("6201 医疗类别按挂号、门诊职工和门诊居民选择", () => {
 	expect(medicalTypeForBusiness("outpatient", "310")).toBe("11");
 	expect(medicalTypeForBusiness("outpatient", "390")).toBe("110104");
 	expect(medicalTypeForBusiness("outpatient", "999")).toBeUndefined();
+});
+
+test(".32 medTypeName 按业务类型和险种映射", () => {
+	expect(settlementMedTypeNameForBusiness("registration", "310")).toBe(
+		"门诊挂号",
+	);
+	expect(settlementMedTypeNameForBusiness("registration", "390")).toBe(
+		"门诊挂号",
+	);
+	expect(settlementMedTypeNameForBusiness("outpatient", "390")).toBe(
+		"门诊统筹",
+	);
+	expect(settlementMedTypeNameForBusiness("outpatient", "310")).toBe(
+		"普通门诊",
+	);
+});
+
+test(".32 offSiteType 按参保地省内外规则映射", () => {
+	expect(offSiteTypeForInsuredArea("140581")).toBe(0);
+	expect(offSiteTypeForInsuredArea("141000")).toBe(1);
+	expect(offSiteTypeForInsuredArea("110000")).toBe(2);
+	expect(offSiteTypeForInsuredArea("")).toBeUndefined();
+});
+
+test(".32 insuTypeName 按医保险种字典映射", () => {
+	expect(settlementInsuTypeNameForInsutype("310")).toBe("职工基本医疗保险");
+	expect(settlementInsuTypeNameForInsutype("390")).toBe("城乡居民基本医疗保险");
+	expect(settlementInsuTypeNameForInsutype("320")).toBe("公务员医疗补助");
+	expect(settlementInsuTypeNameForInsutype("392")).toBe("城乡居民大病医疗保险");
+	expect(settlementInsuTypeNameForInsutype("330")).toBe("大额医疗费用补助");
+	expect(settlementInsuTypeNameForInsutype("510")).toBe("生育保险");
+	expect(settlementInsuTypeNameForInsutype("340")).toBe("离休人员医疗保障");
+	expect(settlementInsuTypeNameForInsutype("999")).toBeUndefined();
 });
 
 test(".27 明细缺少 orderId 和 outDocOrderId 时仍保留可用明细", () => {
@@ -66,6 +102,32 @@ test(".27 明细缺少 orderId 和 outDocOrderId 时仍保留可用明细", () =
 	});
 	expect(detail).not.toHaveProperty("orderId");
 	expect(detail).not.toHaveProperty("outDocOrderId");
+});
+
+test("挂号 .32 明细的 orderId 固定为 -1", () => {
+	const [detail] = mapSettlementDetails(
+		[
+			{
+				amount: "10.00",
+				chargeCode: "CHARGE-REG-001",
+				chargeId: "CHARGE-ID-REG-001",
+				chargeName: "挂号费",
+				networkItemCode: "ITEM-REG-001",
+				networkItemName: "挂号费",
+				outSettleDetailId: "DETAIL-REG-001",
+				price: "10.00",
+				quantity: 1,
+				selfBurdenRatio: "0",
+				createTime: "2026-09-16 10:27:39",
+			},
+		],
+		[],
+		"medical-insurance.2.27.2.27",
+		"fsi-27-registration-order-id-001",
+		"registration",
+	);
+
+	expect(detail).toMatchObject({ orderId: -1 });
 });
 
 function authorizationSelectionFixture(
@@ -550,6 +612,7 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 		chrgBchno: "batch-sequence-001",
 		insuredAreaCode: "140581",
 		networkRegister: {
+			insuType: "310",
 			memberNo: "psn-sequence-001",
 			chargeClassId: "charge-class-sequence-001",
 			networkPatClassId: "network-class-sequence-001",
@@ -594,6 +657,10 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 		],
 	};
 	const providerPaths: string[] = [];
+	const providerBodies: Array<{
+		path: string;
+		body: Record<string, unknown> | undefined;
+	}> = [];
 	let querySettlementCalls = 0;
 	const settlement = {
 		payOrdId: medicalOrder.payOrdId,
@@ -678,8 +745,16 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 		relayAuthorizationToken: "synthetic-token",
 		foundationBaseUrl: "https://foundation.example",
 		zhongyangBaseUrl: "https://zhongyang.example",
-		fetcher: async (input) => {
-			providerPaths.push(new URL(String(input)).pathname);
+		fetcher: async (input, init) => {
+			const path = new URL(String(input)).pathname;
+			providerPaths.push(path);
+			providerBodies.push({
+				path,
+				body:
+					typeof init?.body === "string"
+						? (JSON.parse(init.body) as Record<string, unknown>)
+						: undefined,
+			});
 			return new Response(
 				JSON.stringify({
 					success: true,
@@ -721,6 +796,21 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 	expect(providerPaths).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
 	]);
+	const notifyBody = providerBodies.at(-1)?.body;
+	expect(notifyBody?.outNetworkSettleMain).toMatchObject({
+		fixmedinsCode: "H14058101270",
+		fixmedinsName: "高平市人民医院",
+		insurOrgId: 10001,
+		outVisitRecordId: -1,
+	});
+	expect(notifyBody?.networkRegister).toMatchObject({
+		insuTypeName: "职工基本医疗保险",
+		medTypeName: "门诊挂号",
+		netDiagnosCode: "Z00.001",
+		netDiagnosName: "健康查体",
+		offSiteType: 0,
+		netRegSerial: "mdtrt-sequence-001",
+	});
 	expect(querySettlementCalls).toBe(1);
 	expect(settlementContext.settlementQuery6301).toMatchObject({
 		ordStas: "6",

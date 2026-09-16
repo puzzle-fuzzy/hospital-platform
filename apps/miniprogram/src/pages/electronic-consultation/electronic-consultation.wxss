@@ -1,1 +1,34 @@
-@import "../../styles/migration-surface.wxss";
+@import "../consult/consult.wxss";
+
+.consult-related-actions {
+	display: flex;
+	align-items: stretch;
+	justify-content: space-between;
+	box-sizing: border-box;
+	width: 710rpx;
+	margin: 20rpx auto 0;
+	padding: 22rpx 14rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+}
+
+.consult-related-action {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	flex: 1;
+	min-height: 116rpx;
+	color: #666666;
+	font-size: 24rpx;
+}
+
+.consult-related-action + .consult-related-action {
+	border-left: 1rpx solid #eeeeee;
+}
+
+.consult-related-action-icon {
+	width: 52rpx;
+	height: 52rpx;
+	margin-bottom: 10rpx;
+}

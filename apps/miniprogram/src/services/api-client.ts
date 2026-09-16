@@ -142,6 +142,10 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"not-found": "暂时找不到相关信息，请稍后重试",
 		unauthorized: "登录已过期，请重新登录",
 		"dependency-not-configured": "该功能正在完善中，暂时无法使用",
+		"intelligent-customer-invalid": "客服请求信息不完整，请重新输入",
+		"intelligent-customer-conversation-expired":
+			"本次客服会话已失效，请重新开始",
+		"intelligent-customer-rate-limited": "客服请求较频繁，请稍后再试",
 		"patient-sync-in-progress": "就诊人信息正在更新，请稍后再试",
 		"patient-query-invalid": "暂时无法获取就诊人，请稍后再试",
 		"patient-sync-stale": "就诊人信息已更新，请刷新后再试",
@@ -2617,7 +2621,7 @@ export function requestAppointmentClinicDepartments(
 }
 
 /**
- * 发送一条智能导诊文字消息。微信 code 只由服务端兑换旧服务凭证，旧 JWT
+ * 发送一条智能导诊文字消息。请求只依赖平台会话，旧 JWT、微信临时 code
  * 和 provider conversation_id 永远不会进入小程序。
  */
 export function requestIntelligentGuideMessage(
@@ -2634,7 +2638,7 @@ export function requestIntelligentGuideMessage(
 
 type IntelligentGuideAudioUpload = {
 	filePath: string;
-	legacyLoginCode: string;
+	legacyLoginCode?: string;
 	conversationReference?: string;
 };
 
@@ -2656,8 +2660,8 @@ async function uploadIntelligentGuideAudio(
 	if (
 		!input.filePath ||
 		input.filePath.length > 2_048 ||
-		!input.legacyLoginCode ||
-		input.legacyLoginCode.length > 256
+		(input.legacyLoginCode !== undefined &&
+			(!input.legacyLoginCode || input.legacyLoginCode.length > 256))
 	) {
 		throw new ApiError("Intelligent guide audio input is invalid", {
 			code: "intelligent-guide-invalid",
@@ -2695,7 +2699,9 @@ async function uploadIntelligentGuideAudio(
 			name: "audio",
 			timeout: API_REQUEST_TIMEOUT_MS,
 			formData: {
-				legacyLoginCode: input.legacyLoginCode,
+				...(input.legacyLoginCode
+					? { legacyLoginCode: input.legacyLoginCode }
+					: {}),
 				...(input.conversationReference
 					? { conversationReference: input.conversationReference }
 					: {}),

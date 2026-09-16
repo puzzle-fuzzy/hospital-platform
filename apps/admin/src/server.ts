@@ -145,7 +145,8 @@ async function registerLoginSession(response: Response): Promise<void> {
 	try {
 		const payload = (await response.clone().json()) as unknown;
 		const envelope = isObject(payload) ? payload : undefined;
-		const firstData = envelope && isObject(envelope.data) ? envelope.data : undefined;
+		const firstData =
+			envelope && isObject(envelope.data) ? envelope.data : undefined;
 		const nestedData =
 			firstData && isObject(firstData.data) ? firstData.data : undefined;
 		const data = nestedData || firstData || envelope;

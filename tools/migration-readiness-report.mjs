@@ -32,10 +32,16 @@ const ACTION_EVENT_SOURCES = new Map([
 		"报告详情",
 		{
 			script: await Bun.file(
-				resolve(repositoryRoot, "apps/miniprogram/src/pages/report-detail/report-detail.ts"),
+				resolve(
+					repositoryRoot,
+					"apps/miniprogram/src/pages/report-detail/report-detail.ts",
+				),
 			).text(),
 			template: await Bun.file(
-				resolve(repositoryRoot, "apps/miniprogram/src/pages/report-detail/report-detail.wxml"),
+				resolve(
+					repositoryRoot,
+					"apps/miniprogram/src/pages/report-detail/report-detail.wxml",
+				),
 			).text(),
 		},
 	],
@@ -49,7 +55,9 @@ function hasConcreteActionEvent(actionReference, methodName) {
 	}
 	const methodPattern = new RegExp(`\\b${methodName}\\s*\\(`, "u");
 	const eventPattern = new RegExp(`\\bbindtap=["']${methodName}["']`, "u");
-	return methodPattern.test(source.script) && eventPattern.test(source.template);
+	return (
+		methodPattern.test(source.script) && eventPattern.test(source.template)
+	);
 }
 
 /** 读取 JSON 文件；缺失的运行包元数据必须进入报告，而不是被默认为当前候选。 */

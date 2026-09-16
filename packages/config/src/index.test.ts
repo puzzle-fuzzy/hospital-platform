@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+	aiRuntimeConfigurationMissingFields,
+	aiRuntimeConfigurationStatus,
 	appointmentDirectoryConfigurationMissingFields,
 	appointmentDirectoryConfigurationStatus,
 	appointmentRecordsConfigurationMissingFields,
@@ -44,9 +46,49 @@ test("runtime config defaults to safe development gates", () => {
 		yunhealthRegistrationAuthSysCode: "thirdSelfMachine",
 		yunhealthRegistrationTradeTypeCode: "10",
 		workerPollIntervalMs: 1000,
+		aiRuntimeReady: false,
+		aiRuntimeTimeoutMs: 120_000,
+		intelligentCustomerEnabled: false,
 		adminLogsIngestUrl: undefined,
 		adminLogsIngestToken: undefined,
 	});
+});
+
+test("智能客服路由闸门只由独立环境变量打开", () => {
+	expect(
+		loadRuntimeConfig({ INTELLIGENT_CUSTOMER_ENABLED: "true" })
+			.intelligentCustomerEnabled,
+	).toBe(true);
+	expect(
+		loadRuntimeConfig({ INTELLIGENT_CUSTOMER_ENABLED: "false" })
+			.intelligentCustomerEnabled,
+	).toBe(false);
+});
+
+test("Python AI runtime requires a loopback URL and a sufficiently long token", () => {
+	const incomplete = loadRuntimeConfig({
+		AI_RUNTIME_READY: "true",
+		AI_RUNTIME_URL: "https://ai.internal:8101",
+		AI_RUNTIME_TOKEN: "short-token",
+	});
+
+	expect(aiRuntimeConfigurationStatus(incomplete)).toBe("incomplete");
+	expect(aiRuntimeConfigurationMissingFields(incomplete)).toEqual(
+		expect.arrayContaining([
+			"AI_RUNTIME_URL(loopback)",
+			"AI_RUNTIME_TOKEN(minLength=24)",
+		]),
+	);
+
+	const configured = loadRuntimeConfig({
+		AI_RUNTIME_READY: "true",
+		AI_RUNTIME_URL: " http://127.0.0.1:8101 ",
+		AI_RUNTIME_TOKEN: "local-ai-runtime-token-000001",
+		AI_RUNTIME_TIMEOUT_MS: "60000",
+	});
+
+	expect(aiRuntimeConfigurationStatus(configured)).toBe("configured");
+	expect(configured.aiRuntimeTimeoutMs).toBe(60_000);
 });
 
 test("Worker 日志上送地址和令牌使用独立配置并去除空白", () => {

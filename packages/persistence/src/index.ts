@@ -6,7 +6,9 @@ export {
 	PersistenceUnavailableError,
 } from "./errors";
 export { importHealthKnowledgeBundle } from "./health-knowledge-import";
+export { createRedisIntelligentCustomerConversationStateStore } from "./intelligent-customer-state";
 export { createRedisIntelligentGuideConversationStore } from "./intelligent-guide-conversation";
+export { createRedisIntelligentGuideConversationStateStore } from "./intelligent-guide-state";
 export { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
 export {
 	type CoreSchemaState,
@@ -38,12 +40,12 @@ export {
 	type RedisSessionTtlAuditResult,
 } from "./redis-session-ttl-audit";
 export {
-	createInMemoryAppointmentWriteRepository,
 	createInMemoryAppointmentScheduleSnapshotRepository,
+	createInMemoryAppointmentWriteRepository,
 	createInMemoryIdentityUserRepository,
-	createInMemoryMedicalInsuranceOrderRepository,
-	createInMemoryMedicalInsuranceCredentialRepository,
 	createInMemoryMedicalInsuranceAuthorizationRepository,
+	createInMemoryMedicalInsuranceCredentialRepository,
+	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
 	createInMemoryMyDoctorRepository,
 	createInMemoryPatientRepository,

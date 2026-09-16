@@ -23,6 +23,8 @@ import type { AppointmentWriteService } from "./modules/appointments";
 import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
+import { inpatientEpisodesModule } from "./modules/inpatient";
+import { intelligentCustomerModule } from "./modules/intelligent-customer";
 import {
 	type IntelligentGuideService,
 	intelligentGuideModule,
@@ -33,7 +35,6 @@ import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
-import { inpatientEpisodesModule } from "./modules/inpatient";
 import { medicalRecordsModule } from "./modules/medical-records";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
@@ -66,6 +67,8 @@ export type AppOptions = {
 	registrationSelfPayEnabled?: boolean;
 	/** 临时联调：false 时不注册众阳 2.6.65.9 反向查询路由。 */
 	yunhealthPaymentQueryEnabled?: boolean;
+	/** 智能客服独立部署闸门；默认关闭，不能因注入 service 而意外公开。 */
+	intelligentCustomerEnabled?: boolean;
 	/**
 	 * 医保结算通知模块；未传入 service 时不注册路由（组合根级 fail-closed）。
 	 * 生产组合根只有在 MEDICAL_INSURANCE_READY 与完整密钥配置下才构造。
@@ -107,6 +110,10 @@ function openApiPlugin() {
 				{ name: "medical-insurance", description: "医保授权与结算" },
 				{ name: "my-doctors", description: "我的医生" },
 				{ name: "knowledge", description: "审核后的健康百科只读内容" },
+				{
+					name: "intelligent-customer",
+					description: "智能客服（独立部署闸门）",
+				},
 				{ name: "reports", description: "检查检验报告目录" },
 				{ name: "medical-records", description: "门诊就诊摘要只读目录" },
 				{ name: "inpatient-episodes", description: "住院摘要只读目录" },
@@ -210,6 +217,8 @@ export function createApp(options: AppOptions = {}) {
 				throw new DependencyNotConfiguredError("intelligent-guide");
 			},
 		} as unknown as IntelligentGuideService);
+	const intelligentCustomerEnabled =
+		options.intelligentCustomerEnabled ?? config.intelligentCustomerEnabled;
 	const registrationSelfPay =
 		services.registrationSelfPay ??
 		({
@@ -279,6 +288,14 @@ export function createApp(options: AppOptions = {}) {
 						: new Elysia({ name: "health-knowledge-not-configured" }),
 				)
 				.use(intelligentGuideModule(intelligentGuide, services.sessions))
+				.use(
+					intelligentCustomerEnabled && services.intelligentCustomer
+						? intelligentCustomerModule(
+								services.intelligentCustomer,
+								services.sessions,
+							)
+						: new Elysia({ name: "intelligent-customer-disabled" }),
+				)
 				.use(
 					services.profile
 						? profileModule(services.profile, services.sessions)

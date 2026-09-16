@@ -377,6 +377,16 @@ export class MedicalInsuranceWechatPaymentService {
 		if (order.status === "cancelled") return output(order, false);
 		// 已完成医院回写的终态不能再被后续查单结果降级或改成待人工处理。
 		if (order.status === "insurance_settled") return output(order, false);
+		// 504、医保失败或 Worker 已判定待确认/人工审核的订单不能再次预下单。
+		// 直接返回服务端终态，避免客户端把旧订单和旧幂等键带回 Provider，
+		// 也避免把同一个失败响应误认为新的支付超时。
+		if (
+			order.status === "awaiting_confirmation" ||
+			order.status === "manual_review" ||
+			order.status === "failed"
+		) {
+			return output(order, false);
+		}
 		const { businessType, orderType } = orderBusiness(order);
 		if (order.wechatPaymentState === "prepay_ready" && order.wechatPayParams) {
 			// 6202 hospPartAmt 属于 othFeeAmt 明细，不是 ownPayAmt 内的现金
@@ -633,6 +643,11 @@ export class MedicalInsuranceWechatPaymentService {
 		if (order.status === "cancelled") return output(order, false);
 		// 已完成医院回写的终态不能再被后续查单结果降级或改成待人工处理。
 		if (order.status === "insurance_settled") return output(order, false);
+		// 人工审核/失败是服务端终态；查单只读本地权威状态，不再触发
+		// 6301、.32 或 .5，防止回到页面后重复重放同一条 504 链路。
+		if (order.status === "manual_review" || order.status === "failed") {
+			return output(order, false);
+		}
 		const { businessType, orderType } = orderBusiness(order);
 		if (
 			!order.wechatMixTradeNo ||

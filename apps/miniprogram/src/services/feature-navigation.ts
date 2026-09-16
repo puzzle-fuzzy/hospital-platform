@@ -199,9 +199,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		title: "我的问诊",
 		readiness: "待外部入口 contract",
 		description:
-			"旧端问诊历史当前包含演示数据，真实外部来源正在核对中；新端不会复制演示记录或创建问诊会话。",
+			"当前已展示当前就诊人的兼容历史摘要；外部问诊会话、正文和附件仍未开放。",
 		contractHint:
-			"需要确认外部主体、受众、患者归属、内容脱敏、短期会话、回跳和保留周期。",
+			"仍需确认外部主体、受众、患者归属、内容脱敏、短期会话、退出和保留周期。",
 		icon: "/assets/legacy-user/consultation.svg",
 	},
 	"discharge-followup": {
@@ -229,8 +229,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"electronic-consultation": {
 		title: "电子导诊单",
 		readiness: "待 provider contract",
-		description: "电子导诊单正在迁移中，当前不会读取旧缓存或生成虚假的导诊单。",
-		contractHint: "等待导诊单来源、患者上下文和读写权限确认。",
+		description: "电子导诊单已提供旧服务兼容版预约摘要和三个固定辅助入口。",
+		contractHint:
+			"预约摘要不代表独立导诊事实；等待正式导诊来源、患者上下文和读写权限确认。",
 		icon: "/assets/legacy-user/electronic-consultation.svg",
 	},
 	"electronic-bill": {
@@ -535,6 +536,7 @@ export const FEATURE_SURFACE_TARGETS: Readonly<
 	"risk-evaluation": "/pages/risk-evaluation/risk-evaluation",
 	guide: "/pages/smart-guide/smart-guide",
 	"smart-customer": "/pages/smart-customer/smart-customer",
+	consultation: "/pages/consultation/consultation",
 	"patient-subscription": "/pages/patient-subscription/patient-subscription",
 	"blood-appointment": "/pages/blood-appointment/blood-appointment",
 	"appointment-detail": "/pages/appointment-detail/appointment-detail",

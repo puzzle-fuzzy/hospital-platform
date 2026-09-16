@@ -2031,6 +2031,29 @@ export function loadAppointmentRecords(
 	).then((payload) => requireAppointmentRecordListData(payload.data).items);
 }
 
+/**
+ * 读取旧端“我的问诊”对应的历史摘要兼容视图。
+ *
+ * 旧端接口最终返回的是预约样式的摘要，但旧服务实现包含硬编码演示数据，
+ * 不能直接照搬。新端只使用已经按 owner/患者范围校验的预约只读服务，固定
+ * 为在线渠道和过去 120 天；这只恢复页面展示，不代表真实问诊会话、正文或
+ * 附件已经迁移。
+ */
+export function loadConsultationHistoryRecords(
+	patientId: string,
+	now = new Date(),
+	expectedSessionGeneration: number,
+): Promise<Array<AppointmentRecord>> {
+	return requestAppointmentRecords(
+		{
+			patientId: requirePatientId(patientId),
+			scope: "online",
+			...createPastDateRange(120, now),
+		},
+		expectedSessionGeneration,
+	).then((payload) => requireAppointmentRecordListData(payload.data).items);
+}
+
 /** 读取当前内部患者的 LIS/PACS/ECG/PEIS 实时报告目录。 */
 export function loadReports(
 	patientId: string,

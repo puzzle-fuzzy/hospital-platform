@@ -96,11 +96,50 @@ export {
 	normalizeExternalEntrySession,
 	revokeExternalEntrySession,
 } from "./external-entry-session";
+export type { ExternalTraceReadModelViolation } from "./external-trace";
+export {
+	ExternalTraceReadModelValidationError,
+	MAX_EXTERNAL_TRACE_REQUEST_IDS,
+	normalizeExternalTrace,
+} from "./external-trace";
 export type {
+	InpatientBaby,
+	InpatientBedStatus,
+	InpatientDiagnosis,
+	InpatientEpisode,
+	InpatientEpisodeGateway,
+	InpatientEpisodeResultViolation,
+	InpatientEpisodeStatus,
+} from "./inpatient";
+export {
+	InpatientEpisodeResultValidationError,
+	MAX_INPATIENT_EPISODES,
+	normalizeInpatientEpisodes,
+	validateInpatientProviderReference,
+} from "./inpatient";
+export type {
+	IntelligentCustomerApplicationService,
+	IntelligentCustomerConversationMessage,
+	IntelligentCustomerConversationState,
+	IntelligentCustomerConversationStateStore,
+	IntelligentCustomerModelGateway,
+	IntelligentCustomerReply,
+} from "./intelligent-customer";
+export {
+	INTELLIGENT_CUSTOMER_CONVERSATION_TTL_SECONDS,
+	INTELLIGENT_CUSTOMER_MESSAGE_MAX_CODE_POINTS,
+} from "./intelligent-customer";
+export type {
+	IntelligentGuideApplicationService,
+	IntelligentGuideConversationMessage,
+	IntelligentGuideConversationState,
+	IntelligentGuideConversationStateStore,
 	IntelligentGuideConversationStore,
 	IntelligentGuideDepartment,
 	IntelligentGuideGateway,
+	IntelligentGuideModelGateway,
 	IntelligentGuideProviderReply,
+	IntelligentGuideSpeechGateway,
 } from "./intelligent-guide";
 export {
 	INTELLIGENT_GUIDE_AUDIO_CONTENT_TYPES,
@@ -109,12 +148,6 @@ export {
 	INTELLIGENT_GUIDE_CONVERSATION_TTL_SECONDS,
 	INTELLIGENT_GUIDE_MESSAGE_MAX_CODE_POINTS,
 } from "./intelligent-guide";
-export type { ExternalTraceReadModelViolation } from "./external-trace";
-export {
-	ExternalTraceReadModelValidationError,
-	MAX_EXTERNAL_TRACE_REQUEST_IDS,
-	normalizeExternalTrace,
-} from "./external-trace";
 export type {
 	HealthKnowledgeCatalogItem,
 	HealthKnowledgeCatalogKind,
@@ -168,6 +201,10 @@ export {
 	validateHealthKnowledgeImportBundle,
 } from "./knowledge-import";
 export type {
+	KnowledgeSearchGateway,
+	KnowledgeSearchMatch,
+} from "./knowledge-search";
+export type {
 	ManualReviewKind,
 	ManualReviewReasonCode,
 	ManualReviewRepository,
@@ -214,8 +251,8 @@ export type {
 	MedicalInsuranceQueryTaskRepository,
 	MedicalInsuranceQueryTaskStatus,
 	MedicalInsuranceSettlementContext,
-	MedicalInsuranceSettlementQuerySnapshot,
 	MedicalInsuranceSettlementNotification,
+	MedicalInsuranceSettlementQuerySnapshot,
 } from "./medical-insurance-order";
 export {
 	assertMedicalInsuranceOrderTransition,
@@ -242,21 +279,6 @@ export {
 	OutpatientMedicalRecordResultValidationError,
 	validateMedicalRecordProviderReference,
 } from "./medical-records";
-export type {
-	InpatientBaby,
-	InpatientBedStatus,
-	InpatientDiagnosis,
-	InpatientEpisode,
-	InpatientEpisodeGateway,
-	InpatientEpisodeResultViolation,
-	InpatientEpisodeStatus,
-} from "./inpatient";
-export {
-	InpatientEpisodeResultValidationError,
-	MAX_INPATIENT_EPISODES,
-	normalizeInpatientEpisodes,
-	validateInpatientProviderReference,
-} from "./inpatient";
 export type {
 	MyDoctor,
 	MyDoctorCreateInput,

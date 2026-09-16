@@ -240,15 +240,15 @@
 	color: #ffffff;
 }
 
+.detail-medical-button {
+	border: 1rpx solid #3d6df6;
+	background: #ffffff;
+	color: #3d6df6;
+}
+
 .detail-pay-button[disabled] {
 	background: #a9bff8;
 	color: #ffffff;
-}
-
-.detail-back-button {
-	border: 1rpx solid #d0d5dd;
-	background: #ffffff;
-	color: #344054;
 }
 
 .detail-retry-button {

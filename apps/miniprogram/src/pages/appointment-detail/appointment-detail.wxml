@@ -13,7 +13,6 @@
 				class="detail-retry-button"
 				bindtap="onRetry"
 			>重新加载</button>
-			<button class="detail-back-button" bindtap="onBack">返回挂号列表</button>
 		</view>
 
 		<block wx:elif="{{status}}">
@@ -93,6 +92,11 @@
 
 			<view class="detail-actions">
 				<button
+					wx:if="{{localDetail && status === 'scheduled' && selfPayStatus !== 'cash_paid' && selfPayStatus !== 'awaiting_confirmation'}}"
+					class="detail-medical-button"
+					bindtap="onMedicalPay"
+				>医保支付</button>
+				<button
 					wx:if="{{localDetail && status === 'scheduled' && selfPayStatus !== 'cash_paid'}}"
 					class="detail-pay-button"
 					bindtap="onSelfPay"
@@ -101,7 +105,6 @@
 				<button wx:if="{{canCancel}}" class="detail-cancel-button" bindtap="onCancel">
 					{{canceling ? "取消中..." : "取消预约"}}
 				</button>
-				<button class="detail-back-button" bindtap="onBack">返回挂号列表</button>
 			</view>
 
 			<view class="detail-footnote">

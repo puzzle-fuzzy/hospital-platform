@@ -15,8 +15,6 @@ export const MEDICAL_INSURANCE_CONFIG = {
 	medicalOrgCode: "H14058101270",
 	medicalOrgChannelCredential: "__MINIPROGRAM_MEDICAL_ORG_CHANNEL_CREDENTIAL__",
 	pendingPaymentMaxAgeMs: 15 * 60 * 1000,
-	/** 已经生成服务端订单后保留 7 天恢复窗口，不能因本地 15 分钟过期而丢单。 */
-	pendingPaymentRecoveryMaxAgeMs: 7 * 24 * 60 * 60 * 1000,
 	insurancePollDelaysMs: [1_500, 3_000, 5_000, 8_000] as const,
 } as const;
 

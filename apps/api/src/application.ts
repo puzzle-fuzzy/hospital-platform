@@ -8,9 +8,15 @@ import type {
 	AppointmentRecordDirectoryGateway,
 	AppointmentWriteGateway,
 	HospitalSettlementGateway,
-	IntelligentGuideConversationStore,
-	IntelligentGuideGateway,
 	InpatientEpisodeGateway,
+	IntelligentCustomerApplicationService,
+	IntelligentCustomerConversationStateStore,
+	IntelligentCustomerModelGateway,
+	IntelligentGuideApplicationService,
+	IntelligentGuideConversationStateStore,
+	IntelligentGuideModelGateway,
+	IntelligentGuideSpeechGateway,
+	KnowledgeSearchGateway,
 	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
@@ -48,8 +54,9 @@ import {
 	createRedisSessionTokenService,
 	type SessionTokenService,
 } from "./modules/auth";
-import { IntelligentGuideService } from "./modules/intelligent-guide";
 import { InpatientEpisodeService } from "./modules/inpatient";
+import { NativeIntelligentCustomerService } from "./modules/intelligent-customer/native-mvp";
+import { NativeIntelligentGuideService } from "./modules/intelligent-guide/native-mvp";
 import { HealthKnowledgeService } from "./modules/knowledge";
 import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment-core";
 import { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
@@ -87,8 +94,10 @@ export type ApplicationServices = {
 	outpatientPayments?: OutpatientPaymentService;
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
 	healthKnowledge?: HealthKnowledgeService;
-	/** 智能导诊通过服务端身份桥接旧 AI，不向小程序下发旧 JWT 或会话 ID。 */
-	intelligentGuide?: IntelligentGuideService;
+	/** 智能导诊应用端口；配置原生 TS 端口时优先使用原生实现。 */
+	intelligentGuide?: IntelligentGuideApplicationService;
+	/** 智能客服应用端口；只有显式路由闸门打开时才对外注册。 */
+	intelligentCustomer?: IntelligentCustomerApplicationService;
 	reports: ReportService;
 	/** 仅提供门诊就诊摘要；病历正文、附件和住院病历不复用此服务。 */
 	medicalRecords?: OutpatientMedicalRecordService;
@@ -131,10 +140,20 @@ export type ApplicationServiceOptions = {
 	patientBindingGateway?: PatientBindingGateway;
 	/** 旧服务端微信登录，用于取得众阳 patCards 的用户级 JWT。 */
 	patientProviderAuthorizationGateway?: PatientProviderAuthorizationGateway;
-	/** 旧服务智能导诊文字/语音接口；只允许服务端持有上游地址。 */
-	intelligentGuideGateway?: IntelligentGuideGateway;
-	/** owner-scoped 的平台会话引用到旧会话 ID 映射。 */
-	intelligentGuideConversations?: IntelligentGuideConversationStore;
+	/** 原生 TS 导诊 owner-scoped 会话上下文；与旧 provider 映射分离。 */
+	intelligentGuideConversationStates?: IntelligentGuideConversationStateStore;
+	/** 原生 TS 导诊模型端口；MVP 默认使用受控规则实现，后续可注入 GGUF/云模型。 */
+	intelligentGuideModel?: IntelligentGuideModelGateway;
+	/** 原生 TS 导诊语音端口；可由回环 Python Whisper Runtime 承担转写。 */
+	intelligentGuideSpeech?: IntelligentGuideSpeechGateway;
+	/** 原生 TS 客服 owner-scoped 会话上下文；与导诊会话分开存储。 */
+	intelligentCustomerConversationStates?: IntelligentCustomerConversationStateStore;
+	/** 原生 TS 客服模型端口；可由回环 Python Runtime 承担推理。 */
+	intelligentCustomerModel?: IntelligentCustomerModelGateway;
+	/** 原生 TS 客服知识检索端口；只返回审核资料分块。 */
+	intelligentCustomerKnowledge?: KnowledgeSearchGateway;
+	/** 客服语音端口与导诊共享转写能力，但不共享会话编排。 */
+	intelligentCustomerSpeech?: IntelligentGuideSpeechGateway;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
 	/** 挂号页一级/二级树及受控三级科室读取，独立于既有扁平目录契约。 */
@@ -632,16 +651,33 @@ export function createDefaultApplicationServices(
 				: {}),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
-		...(options.patientProviderAuthorizationGateway &&
-		options.intelligentGuideGateway &&
-		options.intelligentGuideConversations
+		...(options.appointmentDirectoryGateway &&
+		options.intelligentGuideConversationStates
 			? {
-					intelligentGuide: new IntelligentGuideService({
-						identityUsers: repositories.identityUsers,
-						providerAuthorizationGateway:
-							options.patientProviderAuthorizationGateway,
-						guideGateway: options.intelligentGuideGateway,
-						conversations: options.intelligentGuideConversations,
+					intelligentGuide: new NativeIntelligentGuideService({
+						directory: options.appointmentDirectoryGateway,
+						conversations: options.intelligentGuideConversationStates,
+						...(options.intelligentGuideModel
+							? { model: options.intelligentGuideModel }
+							: {}),
+						...(options.intelligentGuideSpeech
+							? { speech: options.intelligentGuideSpeech }
+							: {}),
+						...(options.logger ? { logger: options.logger } : {}),
+					}),
+				}
+			: {}),
+		...(options.intelligentCustomerConversationStates &&
+		options.intelligentCustomerKnowledge &&
+		options.intelligentCustomerModel
+			? {
+					intelligentCustomer: new NativeIntelligentCustomerService({
+						conversations: options.intelligentCustomerConversationStates,
+						knowledge: options.intelligentCustomerKnowledge,
+						model: options.intelligentCustomerModel,
+						...(options.intelligentCustomerSpeech
+							? { speech: options.intelligentCustomerSpeech }
+							: {}),
 						...(options.logger ? { logger: options.logger } : {}),
 					}),
 				}

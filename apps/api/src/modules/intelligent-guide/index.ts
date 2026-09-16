@@ -3,11 +3,11 @@ import {
 	IntelligentGuideMessageResponse,
 	success,
 } from "@hospital/contracts";
+import type { IntelligentGuideApplicationService } from "@hospital/domain";
 import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
-import type { IntelligentGuideService } from "./service";
 
 const IntelligentGuideHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
@@ -16,7 +16,7 @@ const IntelligentGuideHeaders = t.Object({
 
 const IntelligentGuideAudioRequest = t.Object(
 	{
-		legacyLoginCode: t.String({ minLength: 1, maxLength: 256 }),
+		legacyLoginCode: t.Optional(t.String({ minLength: 1, maxLength: 256 })),
 		conversationReference: t.Optional(
 			t.String({
 				minLength: 1,
@@ -44,7 +44,7 @@ function uploadedAudioContentType(audio: File): string {
 }
 
 export function intelligentGuideModule(
-	service: IntelligentGuideService,
+	service: IntelligentGuideApplicationService,
 	sessions: SessionTokenService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions);
@@ -77,7 +77,9 @@ export function intelligentGuideModule(
 					await service.chatAudio(
 						principal.userId,
 						{
-							legacyLoginCode: body.legacyLoginCode,
+							...(body.legacyLoginCode
+								? { legacyLoginCode: body.legacyLoginCode }
+								: {}),
 							audio: new Uint8Array(await body.audio.arrayBuffer()),
 							contentType: uploadedAudioContentType(body.audio),
 							...(body.conversationReference
@@ -97,6 +99,10 @@ export function intelligentGuideModule(
 		);
 }
 
+export {
+	NativeIntelligentGuideService,
+	type NativeIntelligentGuideServiceDependencies,
+} from "./native-mvp";
 export {
 	IntelligentGuideConversationExpiredError,
 	IntelligentGuideInputError,

@@ -153,6 +153,9 @@ const requiredStaticFiles = [
 	"pages/my/my.json",
 	"pages/my/my.wxml",
 	"pages/my/my.wxss",
+	"pages/consultation/consultation.json",
+	"pages/consultation/consultation.wxml",
+	"pages/consultation/consultation.wxss",
 	"pages/registration-payment/registration-payment.json",
 	"pages/registration-payment/registration-payment.wxml",
 	"pages/registration-payment/registration-payment.wxss",
@@ -196,6 +199,7 @@ const requiredTypeScriptFiles = [
 	"pages/feature-status/feature-status.ts",
 	"pages/smart-guide/smart-guide.ts",
 	"pages/my/my.ts",
+	"pages/consultation/consultation.ts",
 	"pages/registration-payment/registration-payment.ts",
 	"pages/medical-cashier/medical-cashier.ts",
 ];

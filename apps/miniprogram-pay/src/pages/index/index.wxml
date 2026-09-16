@@ -46,7 +46,6 @@
 		<view wx:if="{{stage === 'success'}}" class="success">最终结算已确认</view>
 	</view>
 	<view wx:if="{{error}}" class="card error-card"><text class="error">{{error}}</text></view>
-
 	<view class="payment-label">选择支付方式</view>
 	<view class="payment-actions">
 		<button class="button payment-button medical-button" data-mode="medical" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'medical'}}" disabled="{{busy || patientIndex < 0 || (!hasPendingPayment && (!source || duplicate))}}">医保支付</button>

@@ -1,5 +1,4 @@
-import type { AdapterCallContext } from "./ports";
-import type { ExternalTrace } from "./ports";
+import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /** 智能导诊只接受旧服务已经定义的短文本边界。 */
 export const INTELLIGENT_GUIDE_MESSAGE_MAX_CODE_POINTS = 50;
@@ -39,6 +38,89 @@ export type IntelligentGuideProviderReply = {
 	summary?: string;
 	trace: ExternalTrace;
 };
+
+/**
+ * 原生 TS 导诊 Runtime 使用的最小会话消息。
+ *
+ * 只保存导诊上下文，不保存微信 code、JWT、患者资料或 Provider 原文。
+ * 当前 MVP 使用它保证首轮追问和多轮上下文，后续模型替换不改变业务层。
+ */
+export type IntelligentGuideConversationMessage = {
+	role: "user" | "assistant";
+	content: string;
+};
+
+export type IntelligentGuideConversationState = {
+	messages: readonly IntelligentGuideConversationMessage[];
+};
+
+/** 原生导诊会话状态必须按 owner 和平台引用隔离，并带 TTL。 */
+export interface IntelligentGuideConversationStateStore {
+	load(input: {
+		ownerUserId: string;
+		conversationReference: string;
+	}): Promise<IntelligentGuideConversationState | undefined>;
+	save(input: {
+		ownerUserId: string;
+		conversationReference: string;
+		state: IntelligentGuideConversationState;
+		expiresInSeconds: number;
+	}): Promise<void>;
+}
+
+/**
+ * 模型层端口。导诊编排只依赖结构化意图，不依赖具体 GGUF、云模型或规则实现。
+ * `departmentNames` 后续必须经过实时 HIS 科室目录重新解析，不能直接下发。
+ */
+export interface IntelligentGuideModelGateway {
+	complete(
+		input: {
+			message: string;
+			history: readonly IntelligentGuideConversationMessage[];
+		},
+		context: AdapterCallContext,
+	): Promise<{
+		message: string;
+		departmentNames: readonly string[];
+	}>;
+}
+
+/**
+ * 语音只负责转写，不负责导诊或患者上下文；转写文本必须重新进入
+ * IntelligentGuideApplicationService.chatText 的同一套边界校验。
+ */
+export interface IntelligentGuideSpeechGateway {
+	transcribe(
+		input: {
+			audio: Uint8Array;
+			contentType: (typeof INTELLIGENT_GUIDE_AUDIO_CONTENT_TYPES)[number];
+		},
+		context: AdapterCallContext,
+	): Promise<{ text: string }>;
+}
+
+/** API 模块依赖的导诊应用端口，允许旧适配器和原生 TS 实现并存迁移。 */
+export interface IntelligentGuideApplicationService {
+	chatText(
+		ownerUserId: string,
+		input: import("@hospital/contracts").IntelligentGuideMessageRequestPayload,
+		context: AdapterCallContext,
+	): Promise<
+		import("@hospital/contracts").IntelligentGuideMessageResponsePayload["data"]
+	>;
+	chatAudio(
+		ownerUserId: string,
+		input: {
+			legacyLoginCode?: string;
+			audio: Uint8Array;
+			contentType: string;
+			conversationReference?: string;
+		},
+		context: AdapterCallContext,
+	): Promise<
+		import("@hospital/contracts").IntelligentGuideMessageResponsePayload["data"]
+	>;
+}
 
 /**
  * 旧智能导诊接口只在服务端调用。

@@ -165,7 +165,11 @@ describe("全量阻断业务域准入目录", () => {
 
 	test("报告详情 action-only 入口绑定到真实页面事件", () => {
 		const expectedBindings = [
-			["report-cloud-image", "报告详情:report-cloud-image", "onDownloadCloudImage"],
+			[
+				"report-cloud-image",
+				"报告详情:report-cloud-image",
+				"onDownloadCloudImage",
+			],
 			["report-share", "报告详情:report-share", "onShareReport"],
 			["report-follow-up", "报告详情:report-follow-up", "onGotoConsultation"],
 		];

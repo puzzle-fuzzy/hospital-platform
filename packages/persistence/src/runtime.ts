@@ -1,9 +1,16 @@
 import type { DependencyState } from "@hospital/contracts";
+import type {
+	IntelligentCustomerConversationStateStore,
+	IntelligentGuideConversationStateStore,
+	IntelligentGuideConversationStore,
+} from "@hospital/domain";
 import type { AppLogger } from "@hospital/observability";
 import Redis from "ioredis";
 import { createPool, type Pool } from "mysql2/promise";
-import type { IntelligentGuideConversationStore } from "@hospital/domain";
 import type { DependencyPort, PersistencePorts } from "./index";
+import { createRedisIntelligentCustomerConversationStateStore } from "./intelligent-customer-state";
+import { createRedisIntelligentGuideConversationStore } from "./intelligent-guide-conversation";
+import { createRedisIntelligentGuideConversationStateStore } from "./intelligent-guide-state";
 import { type CoreSchemaState, readCoreSchemaStateFromPool } from "./migrate";
 import {
 	createMySqlRepositories,
@@ -13,7 +20,6 @@ import {
 	createRedisSessionStore,
 	type RedisSessionStore,
 } from "./redis-session";
-import { createRedisIntelligentGuideConversationStore } from "./intelligent-guide-conversation";
 import {
 	auditRedisSessionTtl,
 	RedisSessionTtlAuditError,
@@ -27,6 +33,14 @@ export type PersistenceRuntime = PersistencePorts & {
 	sessions: RedisSessionStore | undefined;
 	/** Redis 配置存在时提供 owner-scoped 的智能导诊会话引用映射。 */
 	intelligentGuideConversations: IntelligentGuideConversationStore | undefined;
+	/** Redis 中 owner-scoped 的原生 TS 导诊短会话上下文。 */
+	intelligentGuideConversationStates:
+		| IntelligentGuideConversationStateStore
+		| undefined;
+	/** Redis 中 owner-scoped 的原生 TS 客服短会话上下文。 */
+	intelligentCustomerConversationStates:
+		| IntelligentCustomerConversationStateStore
+		| undefined;
 	/**
 	 * 仅供受控维护命令使用的 TTL 聚合；正常 API 请求永远不调用 SCAN。
 	 * 该方法使用独立维护凭证时才有可能通过，不能把应用 ACL 强行扩权。
@@ -426,6 +440,12 @@ export function createPersistenceRuntime(options: {
 			: undefined,
 		intelligentGuideConversations: sessionClient
 			? createRedisIntelligentGuideConversationStore(sessionClient)
+			: undefined,
+		intelligentGuideConversationStates: sessionClient
+			? createRedisIntelligentGuideConversationStateStore(sessionClient)
+			: undefined,
+		intelligentCustomerConversationStates: sessionClient
+			? createRedisIntelligentCustomerConversationStateStore(sessionClient)
 			: undefined,
 		auditSessionTtl: redisClient
 			? async () => {

@@ -35,6 +35,7 @@
 		"pages/risk-evaluation/risk-evaluation",
 		"pages/smart-guide/smart-guide",
 		"pages/smart-customer/smart-customer",
+		"pages/consultation/consultation",
 		"pages/patient-subscription/patient-subscription",
 		"pages/blood-appointment/blood-appointment",
 		"pages/appointment-detail/appointment-detail",

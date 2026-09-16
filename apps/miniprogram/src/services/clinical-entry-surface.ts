@@ -15,10 +15,7 @@ import {
 } from "./patient-surface-context";
 import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 
-export type ClinicalSurfaceFeature =
-	| "medical-record"
-	| "inpatient-center"
-	| "electronic-consultation";
+export type ClinicalSurfaceFeature = "medical-record" | "inpatient-center";
 
 export type ClinicalSurfacePageData = PatientSurfaceContextData & {
 	title: string;

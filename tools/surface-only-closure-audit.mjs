@@ -34,15 +34,6 @@ export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 		],
 	},
 	{
-		featureKey: "electronic-consultation",
-		target: "pages/electronic-consultation/electronic-consultation",
-		mode: "surface-factory",
-		source:
-			"apps/miniprogram/src/pages/electronic-consultation/electronic-consultation.ts",
-		registration: 'registerClinicalSurfacePage("electronic-consultation")',
-		sharedSources: ["apps/miniprogram/src/services/clinical-entry-surface.ts"],
-	},
-	{
 		featureKey: "gift-banner",
 		target: "pages/gift-banner/gift-banner",
 		mode: "surface-factory",
@@ -68,14 +59,6 @@ export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 			"recordBloodPressure",
 			'navigateToFeatureStatus("health-test")',
 		],
-	},
-	{
-		featureKey: "inpatient-center",
-		target: "pages/inpatient-center/inpatient-center",
-		mode: "surface-factory",
-		source: "apps/miniprogram/src/pages/inpatient-center/inpatient-center.ts",
-		registration: 'registerClinicalSurfacePage("inpatient-center")',
-		sharedSources: ["apps/miniprogram/src/services/clinical-entry-surface.ts"],
 	},
 	{
 		featureKey: "pre-visit",

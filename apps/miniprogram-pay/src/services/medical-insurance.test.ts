@@ -229,3 +229,118 @@ test("只有尚未生成医保订单号的授权阶段允许切换普通自费",
 		}),
 	).toBe(false);
 });
+
+test("旧版恢复状态不会被继续使用", async () => {
+	const storage = new Map<string, unknown>();
+	const requests: CapturedRequest[] = [];
+	Object.assign(globalThis, {
+		wx: {
+			getStorageSync: (key: string) => storage.get(key),
+			setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+			removeStorageSync: (key: string) => storage.delete(key),
+			request: (options: WechatMiniprogram.RequestOption) => {
+				const path = new URL(options.url).pathname.replace(/^\/api\/v2/u, "");
+				const headers = options.header as Record<string, unknown>;
+				requests.push({
+					path,
+					idempotencyKey: String(headers["Idempotency-Key"] ?? ""),
+					data: options.data,
+				});
+				response(options, 200, {
+					data: {
+						orderId: "medical-settle-504-001",
+						status: "cash_pending",
+						paymentState: "prepay_ready",
+						cashFen: 200,
+					},
+				});
+			},
+		},
+	});
+	const { readPendingPayment } = await import("./medical-insurance");
+	const pending = {
+		appointmentId: "appointment-settle-504-001",
+		patientId: "patient-settle-504-001",
+		createdAt: Date.now(),
+		orderId: "medical-settle-504-001",
+		authorizeIdempotencyKey: "medical-authorize-settle-504-001",
+		feesIdempotencyKey: "medical-fees-settle-504-001",
+		settleIdempotencyKey: "medical-settle-settle-504-001",
+		mode: "mixed" as const,
+		phase: "cash_payment" as const,
+		wechatPayIdempotencyKey: "medical-wechat-pay-504-001",
+		wechatQueryIdempotencyKey: "medical-wechat-query-504-001",
+		recoveryState: "awaiting_confirmation" as const,
+	};
+	storage.set("miniprogram-pay.pending-payment.v2", pending);
+	expect(readPendingPayment()).toBeNull();
+	expect(requests).toHaveLength(0);
+});
+
+test("医保504后清除本地支付上下文，下一次点击才重新开始", async () => {
+	const storage = new Map<string, unknown>();
+	const requests: Array<{
+		method: string;
+		path: string;
+		idempotencyKey: string;
+	}> = [];
+	const pending = {
+		appointmentId: "appointment-recovery-001",
+		patientId: "patient-recovery-001",
+		createdAt: Date.now(),
+		orderId: "medical-recovery-001",
+		authorizeIdempotencyKey: "medical-authorize-recovery-001",
+		feesIdempotencyKey: "medical-fees-recovery-001",
+		settleIdempotencyKey: "medical-settle-recovery-001",
+		mode: "mixed" as const,
+		phase: "cash_payment" as const,
+		wechatPayIdempotencyKey: "medical-wechat-pay-recovery-001",
+		wechatQueryIdempotencyKey: "medical-wechat-query-recovery-001",
+	};
+	storage.set("miniprogram-pay.pending-payment.v2", pending);
+	Object.assign(globalThis, {
+		wx: {
+			getStorageSync: (key: string) => storage.get(key),
+			setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+			removeStorageSync: (key: string) => storage.delete(key),
+			request: (options: WechatMiniprogram.RequestOption) => {
+				const url = new URL(options.url);
+				requests.push({
+					method: options.method ?? "GET",
+					path: url.pathname,
+					idempotencyKey: String(
+						(options.header as Record<string, unknown>)?.["Idempotency-Key"] ??
+							"",
+					),
+				});
+				if (options.method === "POST") {
+					response(options, 504, {
+						error: {
+							code: "provider-temporarily-unavailable",
+							message: "Gateway Time-out",
+						},
+					});
+					return;
+				}
+				response(options, 200, {
+					data: {
+						orderId: "medical-recovery-001",
+						status: "cash_pending",
+						paymentState: "prepay_ready",
+						cashFen: 200,
+					},
+				});
+			},
+		},
+	});
+	const { continueMedicalCashPayment, readPendingPayment } = await import(
+		"./medical-insurance"
+	);
+
+	await expect(
+		continueMedicalCashPayment(pending, () => undefined),
+	).rejects.toMatchObject({ statusCode: 504 });
+	expect(requests.map((item) => item.method)).toEqual(["POST"]);
+	expect(requests[0]?.idempotencyKey).toBe("medical-wechat-pay-recovery-001");
+	expect(readPendingPayment()).toBeNull();
+});

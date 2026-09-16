@@ -171,6 +171,42 @@
 	line-height: 1.6;
 }
 
+.recovery-card {
+	box-sizing: border-box;
+	margin-bottom: 20rpx;
+	padding: 24rpx 26rpx;
+	background: #fff8ed;
+	border: 1rpx solid #f5d9a6;
+	border-radius: 20rpx;
+}
+
+.recovery-title {
+	color: #8a5a13;
+	font-size: 29rpx;
+	font-weight: 600;
+}
+
+.recovery-text {
+	margin-top: 10rpx;
+	color: #8b6a36;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.recovery-button {
+	box-sizing: border-box;
+	width: 100%;
+	margin-top: 18rpx;
+	border-radius: 44rpx;
+	background: #d9901a;
+	color: #fff;
+	font-size: 29rpx;
+}
+
+.recovery-button::after {
+	border: 0;
+}
+
 .payment-section {
 	margin-top: 28rpx;
 }

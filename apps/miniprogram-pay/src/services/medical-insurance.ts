@@ -141,7 +141,18 @@ function savePending(value: PendingPayment): void {
 
 export function readPendingPayment(): PendingPayment | null {
 	const value = wx.getStorageSync(STORAGE_KEYS.pendingPayment);
-	if (!validPending(value)) return null;
+	if (!validPending(value)) {
+		clearPendingPayment();
+		return null;
+	}
+	if (
+		value &&
+		typeof value === "object" &&
+		Object.prototype.hasOwnProperty.call(value, "recoveryState")
+	) {
+		clearPendingPayment();
+		return null;
+	}
 	const age = Date.now() - value.createdAt;
 	// 旧版本残留的 pending 没有可靠的创建时间，不能继续复用其中的
 	// 预约/医保订单；让下一次点击回到“重新取可用号源并预约”的入口。
@@ -425,15 +436,22 @@ async function orderCommand(
 }
 
 /** 只由 miniprogram-pay 在 2.6.33 返回“支付中”后调用，门诊查询小程序不调用。 */
-async function cancelPaymentInProgress(
+async function cancelMedicalOrder(
 	orderId: string,
+	reason: "payment_in_progress" | "reauthorization",
 ): Promise<MedicalCancellation> {
 	return request<MedicalCancellation>({
 		path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/cancel`,
 		method: "POST",
 		idempotencyKey: newIdempotencyKey("medical-cancel-in-progress"),
-		data: { reason: "payment_in_progress" },
+		data: { reason },
 	});
+}
+
+async function cancelPaymentInProgress(
+	orderId: string,
+): Promise<MedicalCancellation> {
+	return cancelMedicalOrder(orderId, "payment_in_progress");
 }
 
 function requestWechatSelfPayment(params: {
@@ -583,10 +601,19 @@ async function queryMedicalCashPayment(
 			return true;
 		}
 		if (result.status === "failed" || result.status === "manual_review") {
-			throw new Error("微信医保支付回写未成功，请查看后台订单日志");
+			throw new ApiError(
+				"医保支付回写未成功，请勿重复付款并联系医院核实",
+				409,
+				{
+					error: { code: "payment-notification-conflict" },
+				},
+			);
 		}
-		if (result.paymentState === "failed")
-			throw new Error("微信医保支付已失败，请不要重复预约");
+		if (result.paymentState === "failed") {
+			throw new ApiError("医保支付已失败，请勿重复付款并联系医院核实", 409, {
+				error: { code: "payment-order-conflict" },
+			});
+		}
 		if (index < attempts - 1) {
 			await new Promise((resolve) =>
 				setTimeout(resolve, PAY_CONFIG.insurancePollDelaysMs[index] || 1500),
@@ -626,11 +653,16 @@ export function resumeMedicalCashPaymentFromPending(
 	if (pending.phase !== "cash_payment") {
 		throw new Error("医保混合支付上下文不完整，无法确认");
 	}
-	return confirmMedicalCashPayment(
-		saveCashPaymentPhase(pending),
-		onProgress,
-		maxAttempts,
-	);
+	const current = saveCashPaymentPhase(pending);
+	return confirmMedicalCashPayment(current, onProgress, maxAttempts)
+		.then((completed) => {
+			if (!completed) clearPendingPayment();
+			return completed;
+		})
+		.catch((error) => {
+			clearPendingPayment();
+			throw error;
+		});
 }
 
 /**
@@ -645,12 +677,19 @@ export async function continueMedicalCashPayment(
 	const orderId = pending.orderId?.trim();
 	if (!orderId) throw new Error("医保订单引用为空，无法继续微信支付");
 	const current = saveCashPaymentPhase(pending);
-	const payment = await request<MedicalWechatPayment>({
-		path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/wechat-pay`,
-		method: "POST",
-		idempotencyKey: current.wechatPayIdempotencyKey,
-	});
+	let payment: MedicalWechatPayment;
+	try {
+		payment = await request<MedicalWechatPayment>({
+			path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/wechat-pay`,
+			method: "POST",
+			idempotencyKey: current.wechatPayIdempotencyKey,
+		});
+	} catch (error) {
+		clearPendingPayment();
+		throw error;
+	}
 	if (payment.medInsFailReason) {
+		clearPendingPayment();
 		throw new MedicalInsurancePaymentFailureError(payment.medInsFailReason);
 	}
 	if (current.mode === "medical" && payment.cashFen > 0) {
@@ -663,8 +702,12 @@ export async function continueMedicalCashPayment(
 		try {
 			await requestWechatMedicalInsurancePayment(payment.payParams);
 		} catch (error) {
-			if (!(error instanceof WechatPaymentCancelledError)) throw error;
-			paymentWasCancelled = true;
+			if (error instanceof WechatPaymentCancelledError) {
+				paymentWasCancelled = true;
+			} else {
+				clearPendingPayment();
+				throw error;
+			}
 		}
 	}
 	// success/fail 只表示收银台交互结果。回到小程序后仍必须以服务端 V3
@@ -674,9 +717,25 @@ export async function continueMedicalCashPayment(
 		if (completed) return;
 		throw new WechatPaymentCancelledError();
 	}
-	if (payment.status === "failed" || payment.paymentState === "failed")
-		throw new Error("微信医保支付已失败");
-	if (await confirmMedicalCashPayment(current, onProgress)) return;
+	if (
+		payment.status === "failed" ||
+		payment.status === "manual_review" ||
+		payment.paymentState === "failed"
+	) {
+		clearPendingPayment();
+		throw new ApiError("医保支付结果需要医院核实，请勿重复付款", 409, {
+			error: { code: "payment-notification-conflict" },
+		});
+	}
+	let confirmed: boolean;
+	try {
+		confirmed = await confirmMedicalCashPayment(current, onProgress);
+	} catch (error) {
+		clearPendingPayment();
+		throw error;
+	}
+	if (confirmed) return;
+	clearPendingPayment();
 	throw new Error(
 		"微信医保支付已提交，医保后置结算仍在确认，请稍后点击继续医保支付",
 	);
@@ -879,13 +938,20 @@ export async function continueMedicalPayment(
 			await navigateToMedicalAuth(replacement.appointmentId);
 			return { kind: "reauthorization_started" };
 		}
+		clearPendingPayment();
 		throw error;
 	}
 	onProgress("settling", "正在进行医保结算");
-	let order = await orderCommand(
-		`/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/settle`,
-		pending.settleIdempotencyKey,
-	);
+	let order: MedicalOrder;
+	try {
+		order = await orderCommand(
+			`/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/settle`,
+			pending.settleIdempotencyKey,
+		);
+	} catch (error) {
+		clearPendingPayment();
+		throw error;
+	}
 	for (
 		let index = 0;
 		index < PAY_CONFIG.insurancePollDelaysMs.length;
@@ -903,19 +969,30 @@ export async function continueMedicalPayment(
 			await continueMedicalCashPayment(pending, onProgress);
 			return undefined;
 		}
-		if (order.status === "failed" || order.status === "manual_review")
-			throw new Error("医保结算未成功，请查看后台订单日志");
+		if (order.status === "failed" || order.status === "manual_review") {
+			clearPendingPayment();
+			throw new ApiError("医保结算未成功，请勿重复付款并联系医院核实", 409, {
+				error: { code: "payment-notification-conflict" },
+			});
+		}
 		await new Promise((resolve) =>
 			setTimeout(resolve, PAY_CONFIG.insurancePollDelaysMs[index] || 1500),
 		);
 		onProgress("polling", `正在确认医保结算结果（${index + 1}）`);
-		order = await request<MedicalOrder>({
-			path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}`,
-			idempotencyKey: newIdempotencyKey("medical-query"),
-		});
+		try {
+			order = await request<MedicalOrder>({
+				path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}`,
+				idempotencyKey: newIdempotencyKey("medical-query"),
+			});
+		} catch (error) {
+			clearPendingPayment();
+			throw error;
+		}
 	}
-	if (order.status !== "insurance_settled")
+	if (order.status !== "insurance_settled") {
+		clearPendingPayment();
 		throw new Error("医保结算仍在处理中，请稍后点击继续医保支付");
+	}
 	finishMedicalPayment(pending, orderId, onProgress);
 }
 
@@ -937,17 +1014,31 @@ export async function continueMedicalCashierPaymentFromPending(
 	};
 	savePending(current);
 	onProgress("cash-confirming", "正在确认医保收银台支付并回写 HIS");
-	const result = await request<MedicalOrder>({
-		path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/cashier-confirm`,
-		method: "POST",
-		idempotencyKey: cashierConfirmIdempotencyKey,
-	});
+	let result: MedicalOrder;
+	try {
+		result = await request<MedicalOrder>({
+			path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/cashier-confirm`,
+			method: "POST",
+			idempotencyKey: cashierConfirmIdempotencyKey,
+		});
+	} catch (error) {
+		clearPendingPayment();
+		throw error;
+	}
 	if (result.status === "insurance_settled") {
 		finishMedicalPayment(current, orderId, onProgress);
 		return true;
 	}
-	if (result.status === "failed" || result.status === "manual_review")
-		throw new Error("医保收银台支付回写未成功，请查看后台订单日志");
+	if (result.status === "failed" || result.status === "manual_review") {
+		clearPendingPayment();
+		throw new ApiError(
+			"医保收银台支付回写未成功，请勿重复付款并联系医院核实",
+			409,
+			{
+				error: { code: "payment-notification-conflict" },
+			},
+		);
+	}
 	onProgress("cash-confirming", "收银台已返回，医院结算仍在确认，请稍后继续");
 	return false;
 }

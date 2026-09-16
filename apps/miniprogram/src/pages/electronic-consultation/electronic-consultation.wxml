@@ -1,56 +1,71 @@
-<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="migration-surface-page">
-		<view class="migration-surface-hero">
-			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="migration-surface-hero-copy">
-				<text class="migration-surface-title">{{title}}</text>
-				<text class="migration-surface-label">{{surfaceLabel}}</text>
-			</view>
-		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">{{scopeTitle}}</text>
-			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
+<scroll-view class="tab-page-scroll" scroll-y="true" enhanced="true">
+	<view class="consult-page">
+		<view class="consult-intro">
+			<text class="consult-intro-title">电子导诊单</text>
+			<text class="consult-intro-copy">仅显示 30 天内导诊单信息，取药、检查地点及执行状态仅供参考。</text>
 		</view>
 
-		<view class="migration-surface-patient-card">
-			<view class="migration-surface-patient-copy">
-				<text class="migration-surface-patient-label">当前就诊人</text>
-				<block wx:if="{{patientContextLoading && !patientContextLoaded}}">
-					<text class="migration-surface-patient-name">正在获取就诊人...</text>
-					<text class="migration-surface-patient-meta">当前只读取已确认的患者目录</text>
-				</block>
-				<block wx:elif="{{patientContextError}}">
-					<text wx:if="{{currentPatient}}" class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text wx:if="{{currentPatient}}" class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-					<text class="migration-surface-patient-error">{{patientContextError}}</text>
-					<button class="migration-surface-patient-retry" bindtap="onRetry">重新读取</button>
-				</block>
-				<block wx:else>
-					<text class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-				</block>
+		<view class="consult-patient-card">
+			<image class="consult-patient-icon" src="/assets/legacy-home/patient-qr.svg" mode="aspectFit" />
+			<view class="consult-patient-copy">
+				<text class="consult-patient-name">{{selectedPatientName}}</text>
+				<text class="consult-patient-id">{{selectedPatientIdLabel}}</text>
 			</view>
-			<button class="migration-surface-patient-action" bindtap="onOpenPatientSelector">{{patientActionLabel}}</button>
+			<button class="consult-patient-switch" bindtap="onChangePatient">切换就诊人</button>
 		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">服务状态</text>
-			<text class="migration-surface-card-copy">{{description}}</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text><text class="migration-surface-list-text">{{item}}</text>
+
+		<view wx:if="{{!visibleRecords.length}}" class="consult-state query-state-shell query-state-shell-column">
+			<block wx:if="{{loading}}">
+				<text class="consult-state-title">正在获取导诊信息...</text>
+				<text class="consult-state-hint">页面结构已准备好，请稍候</text>
+			</block>
+			<block wx:elif="{{error}}">
+				<text class="consult-state-title">{{error}}</text>
+				<button class="consult-retry" bindtap="onRetry">重新查询</button>
+			</block>
+			<block wx:else>
+				<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+				<text class="consult-state-title">未查询到您的记录</text>
+				<text class="consult-state-hint">当前仅展示已确认的预约摘要</text>
+			</block>
+		</view>
+
+		<view wx:if="{{!loading && !error && visibleRecords.length}}" class="consult-record-list">
+			<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="consult-record-card">
+				<view class="consult-record-header">
+					<view class="consult-record-title-wrap">
+						<text class="consult-record-department">{{item.departmentName || "科室"}}</text>
+						<text class="consult-record-caption">{{item.sourceTypeLabel}}</text>
+					</view>
+					<text class="consult-record-status {{item.statusClass}}">{{item.statusLabel}}</text>
+				</view>
+				<view class="consult-record-schedule">
+					<text class="consult-record-label">就诊时间</text>
+					<text class="consult-record-date">{{item.workDate}}</text>
+					<text wx:if="{{item.workTime}}" class="consult-record-time">{{item.workTime}}</text>
+				</view>
+				<view class="consult-record-meta">
+					<text wx:if="{{item.serialNumber}}">序号：{{item.serialNumber}}</text>
+					<text wx:if="{{item.location}}">地点：{{item.location}}</text>
 				</view>
 			</view>
+			<view wx:if="{{hasMoreRecords}}" class="consult-record-load-more" bindtap="onLoadMore">加载更多导诊记录</view>
+			<text class="consult-record-footnote">当前为旧服务兼容版，实时导诊与执行状态仍未开放。</text>
 		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">使用说明</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text><text class="migration-surface-list-text">{{item}}</text>
-				</view>
+
+		<view class="consult-related-actions">
+			<view class="consult-related-action" bindtap="onOpenBill">
+				<image class="consult-related-action-icon" src="/assets/legacy-home/top-payment.svg" mode="aspectFit" />
+				<text>缴费账单</text>
 			</view>
-			<text class="migration-surface-coverage">{{coverageLabel}}</text>
+			<view class="consult-related-action" bindtap="onOpenMedicalRecord">
+				<image class="consult-related-action-icon" src="/assets/legacy-home/top-record.svg" mode="aspectFit" />
+				<text>病历查询</text>
+			</view>
+			<view class="consult-related-action" bindtap="onOpenInpatientBooking">
+				<image class="consult-related-action-icon" src="/assets/legacy-home/service-inpatient.svg" mode="aspectFit" />
+				<text>住院预约</text>
+			</view>
 		</view>
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
-		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

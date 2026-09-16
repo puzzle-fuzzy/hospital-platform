@@ -34,7 +34,7 @@
 		{
 			"id": "electronic-consultation",
 			"contractStatus": "pending",
-			"implementationStatus": "unregistered",
+			"implementationStatus": "legacy-compatible",
 			"requestSample": "missing",
 			"successSample": "missing",
 			"emptySample": "missing",
@@ -43,7 +43,7 @@
 			"ownerMapping": "pending",
 			"fieldAllowlist": "pending",
 			"redactionRule": "pending",
-			"nextAction": "确认电子导诊单 Provider 来源、患者上下文、读取权限和短期资源引用语义"
+			"nextAction": "保留旧服务兼容版并确认正式电子导诊单 Provider 来源、患者上下文、读取权限和短期资源引用语义"
 		}
 	]
 }

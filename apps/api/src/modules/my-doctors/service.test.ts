@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-	MyDoctorInputError,
-	MyDoctorNotFoundError,
-} from "@hospital/domain";
+import { MyDoctorInputError, MyDoctorNotFoundError } from "@hospital/domain";
 import type { AppointmentService } from "../appointments/service";
 import { createInMemoryMyDoctorRepository } from "@hospital/persistence";
 import { MyDoctorService } from "./service";

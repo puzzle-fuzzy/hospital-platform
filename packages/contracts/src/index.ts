@@ -831,12 +831,14 @@ export const HealthKnowledgeDrugDetailResponse = Type.Object({
 });
 
 /**
- * 智能导诊每次发送都使用新的 wx.login code，由平台服务端换取旧服务用户凭证。
- * 小程序只提交平台会话引用，绝不接触旧 JWT 或旧 conversation_id。
+ * 原生 TS 导诊只依赖平台会话；`legacyLoginCode` 暂时保留为兼容字段，
+ * 仅在旧适配器仍被显式选用时使用。小程序绝不接触旧 JWT 或旧 conversation_id。
  */
 export const IntelligentGuideMessageRequest = Type.Object(
 	{
-		legacyLoginCode: Type.String({ minLength: 1, maxLength: 256 }),
+		legacyLoginCode: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 256 }),
+		),
 		message: Type.String({ minLength: 1, maxLength: 100 }),
 		conversationReference: Type.Optional(
 			Type.String({
@@ -876,6 +878,34 @@ export const IntelligentGuideMessageResponse = Type.Object({
 	),
 });
 
+/** 客服文本 contract 与导诊分离；当前仅供内部应用服务和后续独立路由使用。 */
+export const IntelligentCustomerMessageRequest = Type.Object(
+	{
+		message: Type.String({ minLength: 1, maxLength: 100 }),
+		conversationReference: Type.Optional(
+			Type.String({
+				minLength: 1,
+				maxLength: 128,
+				pattern: "^[A-Za-z0-9._:-]+$",
+			}),
+		),
+	},
+	{ additionalProperties: false },
+);
+
+export const IntelligentCustomerMessageResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object(
+		{
+			conversationReference: Type.String({ minLength: 1, maxLength: 128 }),
+			userInput: Type.String({ minLength: 1, maxLength: 100 }),
+			message: Type.String({ minLength: 1, maxLength: 4_000 }),
+			redirect: Type.Union([Type.Literal(""), Type.Literal("ai_guide")]),
+		},
+		{ additionalProperties: false },
+	),
+});
+
 /** 创建订单只引用服务端报价，客户端不能提交医保金额或现金金额。 */
 export const PaymentOrderCreateRequest = Type.Object({
 	patientId: Type.String({ minLength: 1, maxLength: 128 }),
@@ -904,10 +934,17 @@ export const MedicalInsuranceOrderCommandRequest = Type.Object(
 	{ additionalProperties: false },
 );
 
-/** 只允许支付小程序在 2.6.33 明确返回“正在收款中”后发起关闭重开。 */
+/**
+ * 支付小程序只能在服务端确认可以安全处理时关闭订单：
+ * `payment_in_progress` 用于 2.6.33 明确返回收款中，
+ * `reauthorization` 用于 504/人工审核后的显式安全重启。
+ */
 export const MedicalInsuranceCancelRequest = Type.Object(
 	{
-		reason: Type.Literal("payment_in_progress"),
+		reason: Type.Union([
+			Type.Literal("payment_in_progress"),
+			Type.Literal("reauthorization"),
+		]),
 	},
 	{ additionalProperties: false },
 );
@@ -1371,6 +1408,12 @@ export type IntelligentGuideMessageRequestPayload = Static<
 >;
 export type IntelligentGuideMessageResponsePayload = Static<
 	typeof IntelligentGuideMessageResponse
+>;
+export type IntelligentCustomerMessageRequestPayload = Static<
+	typeof IntelligentCustomerMessageRequest
+>;
+export type IntelligentCustomerMessageResponsePayload = Static<
+	typeof IntelligentCustomerMessageResponse
 >;
 export type PaymentOrderCreatePayload = Static<
 	typeof PaymentOrderCreateRequest

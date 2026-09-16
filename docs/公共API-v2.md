@@ -179,6 +179,12 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 
 ### 3.1 患者目录响应
 
+智能客服是独立的可选部署面，不属于默认当前公共接口表：只有 `INTELLIGENT_CUSTOMER_ENABLED=true` 且组合根成功构造
+客服 service、Redis 会话、审核知识检索和模型端口时，才注册以下两个 Bearer 路由：
+
+| `POST` | `/api/v2/intelligent-customer/messages` | Bearer；按用户固定窗口限流 | JSON body 为 `{message,conversationReference?}`；客服最多保留 5 轮 owner-scoped 会话，回答只允许空跳转或 `ai_guide` |
+| `POST` | `/api/v2/intelligent-customer/audio` | Bearer；按用户固定窗口限流 | multipart body 为 `{conversationReference?,audio}`；音频最大 2 MiB，先经 ASR 转写后复用客服文字链路 |
+
 `GET /patients` 和 `POST /patients/sync` 返回：
 
 ```json
@@ -516,8 +522,11 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 60210 | `user-profile-conflict` | 普通个人资料版本已被其他设备更新 |
 | 400 | 60300 | `my-doctor-query-invalid` | 我的医生请求或医生标识不合法 |
 | 400 | 60400 | `intelligent-guide-invalid` | 导诊文本、录音、微信临时 code 或会话引用不合法 |
+| 400 | 60420 | `intelligent-customer-invalid` | 客服文本、录音、会话引用或认证上下文不合法（客服独立闸门开启时） |
 | 404 | 60310 | `my-doctor-not-found` | 医生关系不存在或最新排班目录没有该医生 |
 | 404 | 60410 | `intelligent-guide-conversation-expired` | 平台导诊会话引用未知、已过期或不属于当前用户；需重新开始 |
+| 409 | 60430 | `intelligent-customer-conversation-expired` | 平台客服会话引用未知、已过期或不属于当前用户；需重新开始（客服独立闸门开启时） |
+| 429 | 60440 | `intelligent-customer-rate-limited` | 当前用户客服请求超过固定窗口上限，按 `Retry-After` 等待后重试（客服独立闸门开启时） |
 | 409 | 60320 | `my-doctor-already-followed` | 该医生已经被当前用户关注 |
 | 502 | 20400 | `patient-directory-snapshot-unsafe` | Provider 返回空患者目录但当前已有就诊人，服务端拒绝执行不确定的批量失效 |
 | 502 | 20500 | `patient-directory-reference-conflict` | 同一用户的医院档案映射与另一位就诊人冲突，本次就诊人未更新 |
@@ -551,9 +560,10 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 4. 真实 provider 文档到达后，先进入 [`Provider文档接入流程.md`](Provider文档接入流程.md)
    做版本、来源、hash、字段和错误码冻结，再实现写入/支付/医保能力。
 
-智能导诊是明确收窄的例外：只注册文字和录音两个固定入口，复用旧端已存在的导诊模型服务。当前
+智能导诊是明确收窄的例外：只注册文字和录音两个固定入口，复用受控的导诊模型服务。当前
 平台会话、旧微信身份、对话引用和科室跳挂号均已隔离；它不开放 `/intelligent/*` 万能代理、RAG
-文档管理、报告解读或智能客服 API。代码测试通过不代表旧模型、语音识别、真实账号和真机已验收。
+文档管理或报告解读 API。智能客服虽然已实现独立 TS 编排和可选路由，但默认仍由部署闸门关闭；代码测试通过不代表
+旧模型、语音识别、知识索引、真实账号和真机已验收。
 
 以下候选路径当前仍刻意保持 `404`，不是兼容入口，也不是“暂时返回空数据”：
 

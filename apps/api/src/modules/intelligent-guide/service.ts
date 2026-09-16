@@ -4,6 +4,7 @@ import type {
 } from "@hospital/contracts";
 import type {
 	AdapterCallContext,
+	IntelligentGuideApplicationService,
 	IntelligentGuideConversationStore,
 	IntelligentGuideGateway,
 	PatientProviderAuthorizationGateway,
@@ -48,6 +49,12 @@ export type IntelligentGuideServiceDependencies = {
 	logger?: AppLogger;
 };
 
+type NormalizedMessageInput = {
+	legacyLoginCode: string;
+	message: string;
+	conversationReference?: string;
+};
+
 function invalid(): never {
 	throw new IntelligentGuideInputError();
 }
@@ -57,7 +64,7 @@ function requireOwner(value: unknown): string {
 	return value;
 }
 
-function normalizeInput(value: unknown): IntelligentGuideMessageRequestPayload {
+function normalizeInput(value: unknown): NormalizedMessageInput {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		return invalid();
 	}
@@ -115,7 +122,7 @@ function normalizeInput(value: unknown): IntelligentGuideMessageRequestPayload {
 }
 
 export type IntelligentGuideAudioServiceInput = {
-	legacyLoginCode: string;
+	legacyLoginCode?: string;
 	audio: Uint8Array;
 	contentType: string;
 	conversationReference?: string;
@@ -127,7 +134,7 @@ type NormalizedGuideSessionInput = {
 };
 
 function normalizeGuideSessionInput(input: {
-	legacyLoginCode: unknown;
+	legacyLoginCode?: unknown;
 	conversationReference?: unknown;
 }): NormalizedGuideSessionInput {
 	const legacyLoginCode = input.legacyLoginCode;
@@ -158,9 +165,11 @@ function normalizeGuideSessionInput(input: {
 	};
 }
 
-function normalizeAudioInput(
-	value: IntelligentGuideAudioServiceInput,
-): IntelligentGuideAudioServiceInput & {
+function normalizeAudioInput(value: IntelligentGuideAudioServiceInput): Omit<
+	IntelligentGuideAudioServiceInput,
+	"legacyLoginCode"
+> & {
+	legacyLoginCode: string;
 	contentType: (typeof INTELLIGENT_GUIDE_AUDIO_CONTENT_TYPES)[number];
 	filename: string;
 } {
@@ -205,7 +214,9 @@ function requireContext(value: unknown): AdapterCallContext {
  * 保存 owner-scoped 会话映射。任何旧凭证和 provider conversation_id 都不会
  * 下发到小程序。
  */
-export class IntelligentGuideService {
+export class IntelligentGuideService
+	implements IntelligentGuideApplicationService
+{
 	private readonly logger: AppLogger;
 
 	constructor(

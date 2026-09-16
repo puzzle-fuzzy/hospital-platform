@@ -144,6 +144,34 @@
 	background: #fff5f3;
 }
 
+.recovery-card {
+	box-sizing: border-box;
+	margin-bottom: 24rpx;
+	padding: 24rpx 28rpx;
+	background: #fff8ed;
+	border: 1rpx solid #f5d9a6;
+	border-radius: 20rpx;
+}
+
+.recovery-title {
+	color: #8a5a13;
+	font-size: 29rpx;
+	font-weight: 600;
+}
+
+.recovery-text {
+	margin-top: 10rpx;
+	color: #8b6a36;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.recovery-button {
+	margin-top: 18rpx;
+	background: #d9901a;
+	color: #fff;
+}
+
 .payment-label {
 	margin-top: 30rpx;
 	color: #747d87;

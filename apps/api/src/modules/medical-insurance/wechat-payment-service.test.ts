@@ -789,3 +789,55 @@ test("已完成医院回写的混合订单不会被后续 Provider 查单降级"
 	});
 	expect(providerCalls).toBe(0);
 });
+
+test("504 后进入人工审核的订单不会再次预下单或触发医保查单", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "manual_review",
+			wechatPaymentState: "unknown",
+			medInsFailReason: "MIX_PAY_FAIL",
+		}),
+	);
+	let providerCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: {} as never,
+		wechatPayment: {
+			createMixedOrder: async () => {
+				providerCalls += 1;
+				throw new Error("must not recreate a manual-review order");
+			},
+			queryMixedOrder: async () => {
+				providerCalls += 1;
+				throw new Error("must not query a manual-review order");
+			},
+		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		confirmCashPayment: async () => {
+			throw new Error("must not complete a manual-review order");
+		},
+	});
+	const input = {
+		ownerUserId: "user-wechat-query-001",
+		orderId: "wechat-query-001",
+		context: {
+			traceId: "manual-review-replay-001",
+			idempotencyKey: "manual-review-replay-idempotency-001",
+		},
+	};
+
+	await expect(service.create(input)).resolves.toMatchObject({
+		status: "manual_review",
+		paymentState: "unknown",
+		medInsFailReason: "MIX_PAY_FAIL",
+	});
+	await expect(service.query(input)).resolves.toMatchObject({
+		status: "manual_review",
+		paymentState: "unknown",
+		medInsFailReason: "MIX_PAY_FAIL",
+	});
+	expect(providerCalls).toBe(0);
+});

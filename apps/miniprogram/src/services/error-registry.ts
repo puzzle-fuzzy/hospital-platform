@@ -84,6 +84,9 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"my-doctor-already-followed": 60320,
 	"intelligent-guide-invalid": 60400,
 	"intelligent-guide-conversation-expired": 60410,
+	"intelligent-customer-invalid": 60420,
+	"intelligent-customer-conversation-expired": 60430,
+	"intelligent-customer-rate-limited": 60440,
 } as const);
 
 /** 80xxx 客户端本地保留段；与服务端段位（10xxx–60xxx、10900）无交集。 */

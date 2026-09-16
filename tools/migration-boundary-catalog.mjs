@@ -274,6 +274,8 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待外部入口 contract",
 		contractFamily: "external-session",
 		legacyPaths: ["pagesB/user/my_consultation.vue"],
+		safeSurfaceTarget: "pages/consultation/consultation",
+		safePartialPaths: ["pagesB/user/my_consultation.vue"],
 		requiredMaterials: [
 			"external-subject",
 			"allowlist",
@@ -302,6 +304,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"short-session",
 			"redirect",
 		],
+		safePartialPaths: ["pagesB/health/electronic_consultation.vue"],
 		forbiddenCapabilities: [
 			"伪造导诊单",
 			"跨患者读取导诊结果",

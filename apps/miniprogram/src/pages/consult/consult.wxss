@@ -26,18 +26,12 @@ page {
 	color: #3d6df6;
 }
 
-.consult-intro-title,
 .consult-intro-copy,
 .consult-patient-name,
 .consult-patient-id,
 .consult-state-title,
 .consult-state-hint {
 	display: block;
-}
-
-.consult-intro-title {
-	font-size: 34rpx;
-	font-weight: 700;
 }
 
 .consult-intro-copy {

@@ -20,6 +20,7 @@ type GuideMessage = {
 	departments: GuideDepartment[];
 	advice: string;
 	summary: string;
+	showDisclaimer: boolean;
 	pending: boolean;
 };
 
@@ -77,29 +78,9 @@ function assistantMessage(
 		departments: input.departments ?? [],
 		advice: input.advice ?? "",
 		summary: input.summary ?? "",
+		showDisclaimer: input.showDisclaimer ?? false,
 		pending: input.pending ?? false,
 	};
-}
-
-function welcomeMessage(): GuideMessage {
-	return assistantMessage(
-		"您好，我会根据您描述的不适，帮助推荐可能合适的门诊科室。请尽量说明症状、持续时间和身体部位。",
-	);
-}
-
-function getWechatLoginCode(): Promise<string> {
-	return new Promise((resolve, reject) => {
-		wx.login({
-			success: (result) => {
-				if (typeof result.code === "string" && result.code.trim()) {
-					resolve(result.code);
-					return;
-				}
-				reject(new Error("wechat-login-code-missing"));
-			},
-			fail: reject,
-		});
-	});
 }
 
 function guideErrorMessage(error: unknown): string {
@@ -144,7 +125,7 @@ function recorderManager(): WechatMiniprogram.RecorderManager {
 
 Page<SmartGuidePageData, SmartGuidePageMethods>({
 	data: {
-		messages: [welcomeMessage()],
+		messages: [],
 		inputValue: "",
 		conversationReference: "",
 		progress: 0,
@@ -189,6 +170,7 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 			departments: [],
 			advice: "",
 			summary: "",
+			showDisclaimer: false,
 			pending: false,
 		};
 		const pendingMessage = assistantMessage("正在分析，请稍候…", {
@@ -203,9 +185,7 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 		});
 
 		try {
-			const legacyLoginCode = await getWechatLoginCode();
 			const response = await requestIntelligentGuideMessage({
-				legacyLoginCode,
 				message,
 				...(this.data.conversationReference
 					? { conversationReference: this.data.conversationReference }
@@ -223,6 +203,9 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 				departments: [...reply.departments],
 				advice: reply.advice ?? "",
 				summary: reply.summary ?? "",
+				showDisclaimer: !this.data.messages.some(
+					(item) => item.role === "assistant" && !item.pending,
+				),
 			});
 			this.setData({
 				messages: this.data.messages
@@ -287,6 +270,7 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 			departments: [],
 			advice: "",
 			summary: "",
+			showDisclaimer: false,
 			pending: true,
 		};
 		const pendingMessage = assistantMessage("正在分析语音内容，请稍候…", {
@@ -300,10 +284,8 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 		});
 
 		try {
-			const legacyLoginCode = await getWechatLoginCode();
 			const response = await requestIntelligentGuideAudio({
 				filePath,
-				legacyLoginCode,
 				...(this.data.conversationReference
 					? { conversationReference: this.data.conversationReference }
 					: {}),
@@ -320,6 +302,9 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 					departments: [...reply.departments],
 					advice: reply.advice ?? "",
 					summary: reply.summary ?? "",
+					showDisclaimer: !this.data.messages.some(
+						(item) => item.role === "assistant" && !item.pending,
+					),
 				},
 			);
 			this.setData({
@@ -381,14 +366,13 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 
 	onRestart() {
 		if (this.data.sending || this.data.recording) return;
-		const welcome = welcomeMessage();
 		this.setData({
-			messages: [welcome],
+			messages: [],
 			inputValue: "",
 			conversationReference: "",
 			progress: 0,
 			error: "",
-			scrollIntoView: welcome.id,
+			scrollIntoView: "",
 		});
 	},
 

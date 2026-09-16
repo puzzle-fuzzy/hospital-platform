@@ -215,7 +215,8 @@ async function syncDirectoryAfterBinding(
 			}
 		}
 	}
-	if (!directory) throw lastError ?? new Error("Patient directory confirmation failed");
+	if (!directory)
+		throw lastError ?? new Error("Patient directory confirmation failed");
 	return directory;
 }
 

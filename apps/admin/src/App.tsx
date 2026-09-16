@@ -330,7 +330,7 @@ function QueryPanel({
 					</Text>
 				</div>
 				<Tag icon={<CheckCircleFilled />} color="success">
-					旧服务已登录
+					新服务 1101 查询
 				</Tag>
 			</div>
 

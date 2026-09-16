@@ -67,13 +67,13 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 		id: "electronic-consultation",
 		name: "电子导诊单",
 		expectedReadiness: "待 provider contract",
-		implementationStatus: "unregistered",
+		implementationStatus: "legacy-compatible",
 		legacyEntries: [
 			{
 				path: "pagesB/health/electronic_consultation.vue",
 				featureKey: "electronic-consultation",
-				status: "blocked-provider",
-				surfaceOnlyTarget:
+				status: "partial",
+				safeSurfaceTarget:
 					"pages/electronic-consultation/electronic-consultation",
 			},
 		],

@@ -12,6 +12,7 @@ import {
 	type AppointmentRecordDirectoryGateway,
 	HealthKnowledgeContentUnavailableError,
 	type HealthKnowledgeRepository,
+	type IntelligentCustomerApplicationService,
 	type InpatientEpisodeGateway,
 	type OutpatientMedicalRecordGateway,
 	type OutpatientPaymentGateway,
@@ -316,6 +317,63 @@ test("临时联调关闭众阳 2.6.65.9 反向查询路由", async () => {
 	).toBeUndefined();
 });
 
+test("智能客服默认不注册，不影响固定 H5 API surface", async () => {
+	const response = await createApp().handle(
+		new Request("http://localhost/api/v1/intelligent-customer/messages", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ message: "医院怎么预约" }),
+		}),
+	);
+
+	expect(response.status).toBe(404);
+});
+
+test("智能客服只有显式闸门和 service 同时存在时才注册", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("customer-app-user");
+	const intelligentCustomer = {
+		chatText: async (ownerUserId, input) => ({
+			conversationReference: `${ownerUserId}-reference`,
+			userInput: input.message,
+			message: "请通过官方渠道预约。",
+			redirect: "",
+		}),
+		chatAudio: async () => {
+			throw new Error("audio is not used");
+		},
+	} satisfies IntelligentCustomerApplicationService;
+	const app = createApp({
+		services: {
+			...createDefaultApplicationServices(),
+			sessions,
+			intelligentCustomer,
+		},
+		intelligentCustomerEnabled: true,
+	});
+
+	const response = await app.handle(
+		new Request("http://localhost/api/v1/intelligent-customer/messages", {
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${issued.accessToken}`,
+				"content-type": "application/json",
+				"x-request-id": "customer-app-trace",
+			},
+			body: JSON.stringify({ message: "医院怎么预约" }),
+		}),
+	);
+
+	expect(response.status).toBe(200);
+	expect(await response.json()).toMatchObject({
+		success: true,
+		data: {
+			conversationReference: "customer-app-user-reference",
+			message: "请通过官方渠道预约。",
+		},
+	});
+});
+
 test("OpenAPI route inventory matches the current public application surface", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/openapi/json"),
@@ -562,6 +620,9 @@ test("public API documentation lists every stable public error code", async () =
 		"my-doctor-already-followed",
 		"intelligent-guide-invalid",
 		"intelligent-guide-conversation-expired",
+		"intelligent-customer-invalid",
+		"intelligent-customer-conversation-expired",
+		"intelligent-customer-rate-limited",
 	] as const;
 
 	for (const code of publicErrorCodes) {

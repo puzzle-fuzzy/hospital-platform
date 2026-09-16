@@ -41,13 +41,12 @@
 				<text>{{message}}</text>
 			</view>
 			<view wx:if="{{error}}" class="error-text">{{error}}</view>
-
 			<view wx:if="{{!completed}}" class="payment-section">
 				<view class="section-title">选择支付方式</view>
 				<view class="payment-actions">
 					<!-- UI 只提供两条入口：医保支付沿用内部 mixed 的医保授权/结算链路，微信支付沿用内部 self 的普通微信收款链路。 -->
-					<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'mixed' ? '继续医保支付' : '医保支付'}}</button>
-					<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy}}">{{hasPendingPayment && selectedMode === 'self' ? '继续微信支付' : '微信支付'}}</button>
+					<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy}}">医保支付</button>
+					<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy}}">微信支付</button>
 				</view>
 			</view>
 			<view wx:else class="completed-card">

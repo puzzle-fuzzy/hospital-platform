@@ -17,7 +17,6 @@ import {
 	canSwitchMedicalAuthorizationToSelfPay,
 	clearPendingPayment,
 	continueMedicalCashierPaymentFromPending,
-	continueMedicalCashPayment,
 	continueMedicalPayment,
 	continueSelfPaymentFromPending,
 	MedicalAuthNavigationCancelledError,
@@ -242,7 +241,7 @@ Page<
 		bootstrap(): Promise<void>;
 		loadSchedule(): Promise<void>;
 		onPatientChange(event: WechatMiniprogram.PickerChange): void;
-		onRegisterAndPay(event: PaymentModeEvent): void;
+		onRegisterAndPay(event: PaymentModeEvent): Promise<void>;
 		onCancelAndRetry(): void;
 	}
 >({
@@ -322,20 +321,21 @@ Page<
 						return;
 					}
 					this.setData({
-						hasPendingPayment: true,
+						hasPendingPayment: false,
 						error: "",
 						message:
 							paymentMode === "medical"
-								? "微信纯医保支付仍在确认，请稍后继续纯医保支付"
-								: "微信医保支付仍在确认，请稍后继续医保混合支付",
+								? "上次医保支付未确认，支付上下文已清除，请重新点击医保支付"
+								: "上次医保支付未确认，支付上下文已清除，请重新点击医保混合支付",
 					});
 				})
 				.catch((error: unknown) => {
 					console.error("[微信医保支付] 页面回前台查单失败", error);
+					clearPendingPayment();
 					this.setData({
-						hasPendingPayment: Boolean(readPendingPayment()),
+						hasPendingPayment: false,
 						error: friendlyError(error),
-						message: "医保支付未完成，请不要重复预约",
+						message: "医保支付未完成，支付上下文已清除，请重新点击医保支付",
 					});
 				})
 				.finally(() => {
@@ -462,10 +462,11 @@ Page<
 					});
 					return;
 				}
+				clearPendingPayment();
 				this.setData({
-					hasPendingPayment: Boolean(latestPending),
+					hasPendingPayment: false,
 					error: friendlyError(error),
-					message: "医保支付未完成，请不要重复预约",
+					message: "医保支付未完成，支付上下文已清除，请重新点击医保支付",
 				});
 			})
 			.finally(() => {
@@ -531,14 +532,15 @@ Page<
 		});
 	},
 
-	onRegisterAndPay(event: PaymentModeEvent) {
+	async onRegisterAndPay(event: PaymentModeEvent): Promise<void> {
 		const value = String(event.currentTarget.dataset.mode || "");
 		if (value !== "medical" && value !== "mixed" && value !== "self") return;
 		const mode = value as PaymentMode;
-		const pending = readPendingPayment();
+		let pending = readPendingPayment();
 		if (this.data.busy) return;
 		if (
 			pending &&
+			mode !== "mixed" &&
 			this.data.patients[this.data.patientIndex]?.id !== pending.patientId
 		) {
 			this.setData({
@@ -547,6 +549,21 @@ Page<
 				message: "",
 			});
 			return;
+		}
+		// 混合支付每次点击都从新授权和新订单开始，不恢复本地旧医保支付上下文。
+		if (mode === "mixed" && pending) {
+			this.setData({ busy: true, error: "", selectedMode: mode });
+			try {
+				await abandonPayment(pending.appointmentId, pending.mode ?? "mixed");
+			} catch (error) {
+				console.warn("[微信医保支付] 清理旧支付上下文失败，继续新流程", error);
+			}
+			clearPendingPayment();
+			pending = null;
+			this.setData({
+				busy: false,
+				hasPendingPayment: false,
+			});
 		}
 		this.setData({ selectedMode: mode });
 		if (pending) {
@@ -580,12 +597,15 @@ Page<
 								"收银台支付已返回，医院结算仍在确认，请稍后再次点击医保支付",
 						});
 					})
-					.catch((error: unknown) =>
+					.catch((error: unknown) => {
+						clearPendingPayment();
 						this.setData({
+							hasPendingPayment: false,
 							error: friendlyError(error),
-							message: "医保收银台支付未完成，请查看日志后重试",
-						}),
-					)
+							message:
+								"医保收银台支付未完成，支付上下文已清除，请重新点击医保支付",
+						});
+					})
 					.finally(() => this.setData({ busy: false }));
 				return;
 			}
@@ -636,11 +656,15 @@ Page<
 					(stage, message) => setProgress(this, stage, message),
 					1,
 				)
-					.then(async (completed) => {
-						if (completed) return;
-						await continueMedicalCashPayment(mixedPending, (stage, message) =>
-							setProgress(this, stage, message),
-						);
+					.then((completed) => {
+						if (!completed) {
+							this.setData({
+								hasPendingPayment: false,
+								message:
+									"支付结果未确认，支付上下文已清除，请重新点击医保混合支付",
+							});
+							return;
+						}
 					})
 					.then(() => this.setData({ hasPendingPayment: false }))
 					.catch(async (error: unknown) => {
@@ -648,9 +672,12 @@ Page<
 							await showWechatPaymentCancelled(this);
 							return;
 						}
+						clearPendingPayment();
 						this.setData({
+							hasPendingPayment: false,
 							error: friendlyError(error),
-							message: "医保混合支付未完成，请不要重复预约",
+							message:
+								"医保混合支付未完成，支付上下文已清除，请重新点击医保混合支付",
 						});
 					})
 					.finally(() => this.setData({ busy: false }));
@@ -675,13 +702,16 @@ Page<
 					(stage, message) => setProgress(this, stage, message),
 					1,
 				)
-					.then(async (completed) => {
-						if (completed) return;
-						await continueMedicalCashPayment(pending, (stage, message) =>
-							setProgress(this, stage, message),
-						);
+					.then((completed) => {
+						if (completed) {
+							this.setData({ hasPendingPayment: false });
+							return;
+						}
+						this.setData({
+							hasPendingPayment: false,
+							message: "支付结果未确认，支付上下文已清除，请重新点击医保支付",
+						});
 					})
-					.then(() => this.setData({ hasPendingPayment: false }))
 					.catch(async (error: unknown) => {
 						if (error instanceof MedicalCashRequiredError) {
 							this.setData({
@@ -696,9 +726,11 @@ Page<
 							await showWechatPaymentCancelled(this);
 							return;
 						}
+						clearPendingPayment();
 						this.setData({
+							hasPendingPayment: false,
 							error: friendlyError(error),
-							message: "医保支付未完成，请不要重复预约",
+							message: "医保支付未完成，支付上下文已清除，请重新点击医保支付",
 						});
 					})
 					.finally(() => this.setData({ busy: false }));

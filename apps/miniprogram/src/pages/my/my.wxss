@@ -243,10 +243,10 @@ page {
 	align-items: center;
 	box-sizing: border-box;
 	margin: 0 auto;
-	padding: 0 20rpx;
+	padding: 22rpx 44rpx;
 	width: 710rpx;
 	height: 120rpx;
-	border-radius: 30rpx;
+	border-radius: 20rpx;
 	background: linear-gradient(90deg, rgb(40, 115, 255) 0%, rgb(46, 114, 255) 100%);
 	color: #ffffff;
 }

@@ -653,6 +653,9 @@ test("native payment boundaries always end with a user-actionable result", async
 	const detailPage = await source(
 		"pages/appointment-detail/appointment-detail.ts",
 	);
+	const detailTemplate = await source(
+		"pages/appointment-detail/appointment-detail.wxml",
+	);
 
 	// 网络请求和微信收银台都必须有终点；支付未知时保留订单并引导查单，
 	// 不能让页面永久 loading，也不能把未知结果误报成失败。
@@ -664,9 +667,15 @@ test("native payment boundaries always end with a user-actionable result", async
 		expect(paymentSource).toContain("请勿重复付款");
 	}
 	expect(paymentPage).toContain("paymentActionMessage");
-	expect(paymentPage).toContain("预约已保留");
-	expect(paymentPage).toContain("请勿重复预约或重复付款");
+	expect(paymentPage).toContain("支付上下文已清除");
+	expect(paymentPage).toContain("如已扣款请联系医院核实");
 	expect(paymentPage).toContain("canSwitchMedicalAuthorizationToSelfPay");
+	expect(paymentPage).toContain("autoStartPaymentMode");
+	expect(paymentPage).toContain("autoStartInFlight");
+	expect(paymentPage).toContain(
+		"void this.startOrResumePayment(autoStartMode)",
+	);
+	expect(paymentPage).toContain("不能让 onShow 抢先恢复本地旧支付上下文");
 	expect(paymentPage).toContain("medical-insurance-insutype-unavailable");
 	expect(paymentPage).toContain(
 		"当前就诊人没有可用于本次支付的有效医保参保信息",
@@ -680,10 +689,19 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentStyles).toContain(".mixed-button");
 	expect(paymentStyles).toContain("background: #3d6df6");
 	expect(detailPage).toContain('selfPayStatus: "awaiting_confirmation"');
+	expect(detailPage).toContain("onMedicalPay(): void");
+	expect(detailPage).toContain(
+		"pages/registration-payment/registration-payment?patientId=",
+	);
+	expect(detailPage).toContain("&mode=mixed");
+	expect(detailTemplate).toContain('bindtap="onMedicalPay"');
+	expect(detailTemplate).toContain(">医保支付</button>");
+	expect(detailTemplate).not.toContain("返回挂号列表");
+	expect(detailTemplate).not.toContain('bindtap="onBack"');
 	expect(paymentTemplate).not.toContain('data-mode="medical"');
 	expect(paymentTemplate).toContain('data-mode="mixed"');
-	expect(paymentTemplate).toContain("'医保支付'");
-	expect(paymentTemplate).toContain("'微信支付'");
+	expect(paymentTemplate).toContain("医保支付");
+	expect(paymentTemplate).toContain("微信支付");
 	expect(paymentTemplate).not.toContain("纯医保支付");
 	expect(paymentTemplate).not.toContain("医保混合支付");
 	expect(paymentTemplate).not.toContain("普通自费支付");
@@ -1644,12 +1662,16 @@ test("native my page separates ordinary profile from family patient selection", 
 		"头像和昵称已显示，资料同步失败",
 	);
 	expect(template).toContain('mode="widthFix"');
-	expect(await source("pages/my/my.wxss")).toContain("height: 566rpx");
+	const myStyle = await source("pages/my/my.wxss");
+	expect(myStyle).toContain("height: 566rpx");
+	expect(myStyle).toMatch(
+		/\.family-card\s*\{[\s\S]*?padding:\s*22rpx 44rpx;[\s\S]*?border-radius:\s*20rpx;/,
+	);
 	expect(template).toContain("/assets/legacy-user/default-avatar.svg");
 	expect(template).toContain("{{section.title}}");
 	expect(template).toContain('src="{{item.icon}}" mode="aspectFill"');
 	// 旧端菜单的 `gap-20rpx` 同时约束行、列，不能只保留行间距。
-	expect(await source("pages/my/my.wxss")).toContain("column-gap: 20rpx;");
+	expect(myStyle).toContain("column-gap: 20rpx;");
 	expect(my).toContain('title: "我的订单"');
 	expect(template).toContain('data-action="{{item.action}}"');
 	// 每个菜单入口都有稳定 action，未完成能力进入统一状态页；不能拿 action
@@ -1946,7 +1968,7 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	expect(consult).not.toContain("msun-middle-business-appointment-server");
 	expect(consult).not.toContain("thirdPatientId");
 	expect(consultTemplate).not.toContain("<web-view");
-	expect(consultTemplate).toContain("智能陪诊");
+	expect(consultTemplate).not.toContain("智能陪诊");
 	expect(consultTemplate).toContain("实时就诊状态暂未开放");
 	expect(consult).toContain("loadAppointmentRecords");
 	expect(consultTemplate).toContain("当前仅展示已确认的就诊摘要");
@@ -1977,12 +1999,13 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	expect(smartCustomerTemplate).toContain('src="{{webViewUrl}}"');
 	expect(smartCustomerTemplate).not.toContain("migration-surface");
 
-	// 智能导诊不再复用失效证书和 ticket 消费缺失的旧 WebView；小程序只
-	// 提交微信临时 code 和平台会话引用，由新 API 服务端桥接旧 AI。
+	// 智能导诊不再复用失效证书、ticket 或旧 AI 登录 code；小程序只
+	// 提交平台会话引用，由原生 TS API 服务端编排模型和 HIS 科室目录。
 	expect(home).toContain('navigateToFeatureEntry("guide")');
 	expect(smartGuide).toContain("requestIntelligentGuideMessage");
 	expect(smartGuide).toContain("requestIntelligentGuideAudio");
-	expect(smartGuide).toContain("getWechatLoginCode");
+	expect(smartGuide).not.toContain("getWechatLoginCode");
+	expect(smartGuide).not.toContain("legacyLoginCode");
 	expect(smartGuide).toContain("不能替代医生诊断");
 	expect(smartGuide).not.toContain("html.ydrj.top");
 	expect(smartGuide).not.toContain("access_token");
@@ -1993,24 +2016,27 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	expect(smartGuideTemplate).toContain('bindtouchend="onVoiceTouchEnd"');
 });
 
-test("native intelligent guide keeps its composer and voice actions stable on narrow screens", async () => {
+test("native intelligent guide matches the Lanhu chat composer on narrow screens", async () => {
 	const template = await source("pages/smart-guide/smart-guide.wxml");
 	const style = await source("pages/smart-guide/smart-guide.wxss");
 
-	// 原生 button 自带左右 auto margin，放进 flex 后会吞掉剩余宽度并把
-	// textarea 挤到换行；三个操作按钮都必须显式接管自身盒模型。
+	// 蓝湖底部是两个圆形工具入口、一个可收缩输入框和一个固定宽度的发送键；
+	// 原生 button/textarea 的默认盒模型不能把输入区挤出窄屏。
 	expect(style).toMatch(
 		/\.guide-input\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?flex:\s*1;/,
 	);
 	expect(style).toMatch(
-		/\.guide-send\s*\{[\s\S]*?flex:\s*0 0 132rpx;[\s\S]*?margin:\s*0;/,
+		/\.guide-send\s*\{[\s\S]*?flex:\s*0 0 116rpx;[\s\S]*?margin:\s*0;/,
 	);
 	expect(style).toMatch(
-		/\.guide-voice\s*\{[\s\S]*?flex:\s*0 0 220rpx;[\s\S]*?margin:\s*0;/,
+		/\.guide-tool\s*\{[\s\S]*?flex:\s*0 0 64rpx;[\s\S]*?margin:\s*0;/,
 	);
-	expect(style).toMatch(
-		/\.guide-restart\s*\{[\s\S]*?width:\s*100%;[\s\S]*?margin:\s*0;/,
-	);
+	expect(style).toContain("position: fixed;");
+	expect(template).toContain("请输入症状/药品/疾病...");
+	expect(template).toContain("/assets/legacy-user/microphone.svg");
+	expect(template).toContain("/assets/legacy-user/image.svg");
+	expect(template).not.toContain("guide-voice-area");
+	expect(template).not.toContain("guide-restart");
 	// 页头只能使用正方形业务图标，不能把带文字的横幅压进方形图标框。
 	expect(template).toContain("/assets/legacy-user/doctor.svg");
 	expect(template).not.toContain("/assets/legacy-home/right-guide.png");
@@ -2076,7 +2102,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(47);
+	expect(app.pages).toHaveLength(48);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2107,18 +2133,32 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 });
 
 test("native clinical shells keep the shared style and my-doctor is a real page", async () => {
-	const clinicalPages = [
-		"pages/electronic-consultation/electronic-consultation",
-	];
-	for (const pagePath of clinicalPages) {
-		const template = await source(`${pagePath}.wxml`);
-		const style = await source(`${pagePath}.wxss`);
-		// 三个临床入口共享同一关闭态视觉骨架；样式导入和 WXML 类名必须
-		// 同时保持一致，避免页面变成没有间距和卡片样式的裸文本。
-		expect(style).toContain('@import "../../styles/migration-surface.wxss";');
-		expect(template).toContain('class="migration-surface-scroll"');
-		expect(template).not.toContain("clinical-surface-");
-	}
+	const electronicTemplate = await source(
+		"pages/electronic-consultation/electronic-consultation.wxml",
+	);
+	const electronicStyle = await source(
+		"pages/electronic-consultation/electronic-consultation.wxss",
+	);
+	const electronicScript = await source(
+		"pages/electronic-consultation/electronic-consultation.ts",
+	);
+	expect(electronicStyle).toContain('@import "../consult/consult.wxss";');
+	expect(electronicTemplate).toContain('class="consult-page"');
+	expect(electronicTemplate).toContain("30 天内");
+	expect(electronicTemplate).toContain("缴费账单");
+	expect(electronicTemplate).toContain("病历查询");
+	expect(electronicTemplate).toContain("住院预约");
+	expect(electronicScript).toContain("loadLegacyElectronicConsultationRecords");
+	expect(electronicScript).toContain(
+		'url: "/pages/outpatient-payment/outpatient-payment"',
+	);
+	expect(electronicScript).toContain(
+		'url: "/pages/medical-record/medical-record"',
+	);
+	expect(electronicScript).toContain(
+		'url: "/pages/official-account/official-account"',
+	);
+	expect(electronicScript).not.toContain("wx.request(");
 	const inpatientTemplate = await source(
 		"pages/inpatient-center/inpatient-center.wxml",
 	);
@@ -3145,27 +3185,24 @@ test("native blocked domains keep one explicit current-patient context", async (
 	}
 });
 
-test("门诊病历安全摘要进入原生页，未确认的问诊仍进入状态页", async () => {
+test("门诊病历和首页我的问诊安全摘要进入各自原生页", async () => {
 	const app = JSON.parse(await source("app.json")) as { pages: string[] };
 	const catalog = await source("services/legacy-page-catalog.ts");
 	const navigation = await source("services/feature-navigation.ts");
 
-	// 门诊病历只恢复旧端实际调用的近 30 天就诊摘要；问诊和病历正文仍
-	// 依赖独立 contract，不能用预约或报告数据拼装。
-	expect(app.pages).not.toContain("pages/consultation/consultation");
+	// 我的问诊只恢复旧端页面所需的当前患者历史摘要；外部会话、正文和附件仍关闭。
+	expect(app.pages).toContain("pages/consultation/consultation");
 	expect(app.pages).toContain("pages/medical-record/medical-record");
 	expect(catalog).toContain(
 		'nativeTarget: "pages/medical-record/medical-record"',
 	);
 	expect(catalog).toContain("已迁移近 30 天门诊就诊摘要");
 	expect(catalog).toContain('featureKey: "consultation"');
-	expect(catalog).toContain(
-		'nativeTarget: "pages/feature-status/feature-status"',
-	);
+	expect(catalog).toContain('nativeTarget: "pages/consultation/consultation"');
 	expect(navigation).toContain(
 		'"medical-record": "/pages/medical-record/medical-record"',
 	);
-	expect(navigation).not.toContain(
+	expect(navigation).toContain(
 		'consultation: "/pages/consultation/consultation"',
 	);
 });

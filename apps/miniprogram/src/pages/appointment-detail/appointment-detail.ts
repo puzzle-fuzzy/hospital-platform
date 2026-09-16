@@ -51,8 +51,8 @@ type AppointmentDetailPageMethods = {
 	loadPatientContext(patientId: string): Promise<void>;
 	onRetry(): void;
 	onCancel(): void;
+	onMedicalPay(): void;
 	onSelfPay(): void;
-	onBack(): void;
 	onUnload(): void;
 	showError(error: unknown): void;
 };
@@ -449,6 +449,38 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		});
 	},
 
+	/** 详情页医保支付沿用独立支付页，保证授权、结算、查单和回写共用一条链路。 */
+	onMedicalPay(): void {
+		if (
+			!this.data.localDetail ||
+			this.data.status !== "scheduled" ||
+			this.data.selfPayBusy ||
+			this.data.selfPayStatus === "cash_paid" ||
+			this.data.selfPayStatus === "awaiting_confirmation" ||
+			!this.data.appointmentId ||
+			!this.data.patientId
+		) {
+			return;
+		}
+		try {
+			assertSessionGeneration(
+				this.data.sessionGeneration,
+				"Appointment detail session changed before medical payment",
+			);
+		} catch (error) {
+			this.showError(error);
+			return;
+		}
+		logClientPageAction("appointment-detail", "onMedicalPay");
+		wx.navigateTo({
+			url: `/pages/registration-payment/registration-payment?patientId=${encodeURIComponent(this.data.patientId)}&appointmentId=${encodeURIComponent(this.data.appointmentId)}&mode=mixed`,
+			fail: (error) => {
+				logClientErrorTransformed("appointment-detail.medical-pay", error);
+				wx.showToast({ title: "医保支付页面暂时无法打开", icon: "none" });
+			},
+		});
+	},
+
 	/** 挂号微信支付只允许从服务端已确认的本地预约详情发起。 */
 	onSelfPay(): void {
 		if (
@@ -527,12 +559,6 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					selfPayError: presented.displayText,
 				});
 			});
-	},
-
-	onBack(): void {
-		wx.navigateBack({
-			fail: () => wx.switchTab({ url: "/pages/index/index" }),
-		});
 	},
 
 	onUnload(): void {

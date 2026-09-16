@@ -10,6 +10,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@hospital/ai-runtime": "workspace:*",
 		"@hospital/adapters": "workspace:*",
 		"@hospital/config": "workspace:*",
 		"@elysiajs/cors": "catalog:",

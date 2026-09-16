@@ -2,7 +2,6 @@
 <scroll-view class="tab-page-scroll" scroll-y="true" enhanced="true">
 	<view class="consult-page">
 		<view class="consult-intro">
-			<text class="consult-intro-title">智能陪诊</text>
 			<text class="consult-intro-copy">就诊引导、排队叫号、缴费、查报告和取药进度正在完善中。</text>
 		</view>
 

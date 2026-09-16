@@ -3,7 +3,6 @@ import {
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
 	createLegacyHospitalPatientAuthGateway,
-	createLegacyIntelligentGuideGateway,
 	createOfficialJavaLegacyFsiCrypto,
 	createWechatIdentityGateway,
 	createWechatMedicalInsuranceNotificationDecoder,
@@ -23,6 +22,14 @@ import {
 	createZhongyangReportGateway,
 } from "@hospital/adapters";
 import {
+	PythonLocalAiCustomerModelGateway,
+	PythonLocalAiKnowledgeSearchGateway,
+	PythonLocalAiModelGateway,
+	PythonLocalAiSpeechGateway,
+} from "@hospital/ai-runtime";
+import {
+	aiRuntimeConfigurationMissingFields,
+	aiRuntimeConfigurationStatus,
 	appointmentDirectoryConfigurationMissingFields,
 	appointmentDirectoryConfigurationStatus,
 	appointmentRecordsConfigurationMissingFields,
@@ -122,6 +129,50 @@ const reportDirectoryMissing =
 	reportDirectoryConfigurationMissingFields(config);
 const reportDetailStatus = reportDetailConfigurationStatus(config);
 const reportDetailMissing = reportDetailConfigurationMissingFields(config);
+const aiRuntimeStatus = aiRuntimeConfigurationStatus(config);
+const aiRuntimeMissing = aiRuntimeConfigurationMissingFields(config);
+const intelligentGuideModel =
+	aiRuntimeStatus === "configured" &&
+	config.aiRuntimeUrl &&
+	config.aiRuntimeToken
+		? new PythonLocalAiModelGateway({
+				baseUrl: config.aiRuntimeUrl,
+				token: config.aiRuntimeToken,
+				timeoutMs: config.aiRuntimeTimeoutMs,
+			})
+		: undefined;
+const intelligentGuideSpeech =
+	aiRuntimeStatus === "configured" &&
+	config.aiRuntimeUrl &&
+	config.aiRuntimeToken
+		? new PythonLocalAiSpeechGateway({
+				baseUrl: config.aiRuntimeUrl,
+				token: config.aiRuntimeToken,
+				timeoutMs: config.aiRuntimeTimeoutMs,
+			})
+		: undefined;
+const intelligentCustomerModel =
+	config.intelligentCustomerEnabled &&
+	aiRuntimeStatus === "configured" &&
+	config.aiRuntimeUrl &&
+	config.aiRuntimeToken
+		? new PythonLocalAiCustomerModelGateway({
+				baseUrl: config.aiRuntimeUrl,
+				token: config.aiRuntimeToken,
+				timeoutMs: config.aiRuntimeTimeoutMs,
+			})
+		: undefined;
+const intelligentCustomerKnowledge =
+	config.intelligentCustomerEnabled &&
+	aiRuntimeStatus === "configured" &&
+	config.aiRuntimeUrl &&
+	config.aiRuntimeToken
+		? new PythonLocalAiKnowledgeSearchGateway({
+				baseUrl: config.aiRuntimeUrl,
+				token: config.aiRuntimeToken,
+				timeoutMs: config.aiRuntimeTimeoutMs,
+			})
+		: undefined;
 const yunhealthRegistrationSettlementStatus =
 	yunhealthRegistrationSettlementConfigurationStatus(config);
 const yunhealthRegistrationSettlementMissing =
@@ -214,11 +265,6 @@ const patientBindingGateway =
 		: undefined;
 const patientProviderAuthorizationGateway = config.legacyPatientAuthBaseUrl
 	? createLegacyHospitalPatientAuthGateway({
-			baseUrl: config.legacyPatientAuthBaseUrl,
-		})
-	: undefined;
-const intelligentGuideGateway = config.legacyPatientAuthBaseUrl
-	? createLegacyIntelligentGuideGateway({
 			baseUrl: config.legacyPatientAuthBaseUrl,
 		})
 	: undefined;
@@ -523,12 +569,24 @@ const services = createDefaultApplicationServices({
 	...(patientProviderAuthorizationGateway
 		? { patientProviderAuthorizationGateway }
 		: {}),
-	...(intelligentGuideGateway ? { intelligentGuideGateway } : {}),
-	...(persistence.intelligentGuideConversations
+	...(persistence.intelligentGuideConversationStates
 		? {
-				intelligentGuideConversations:
-					persistence.intelligentGuideConversations,
+				intelligentGuideConversationStates:
+					persistence.intelligentGuideConversationStates,
 			}
+		: {}),
+	...(persistence.intelligentCustomerConversationStates
+		? {
+				intelligentCustomerConversationStates:
+					persistence.intelligentCustomerConversationStates,
+			}
+		: {}),
+	...(intelligentGuideModel ? { intelligentGuideModel } : {}),
+	...(intelligentGuideSpeech ? { intelligentGuideSpeech } : {}),
+	...(intelligentCustomerModel ? { intelligentCustomerModel } : {}),
+	...(intelligentCustomerKnowledge ? { intelligentCustomerKnowledge } : {}),
+	...(intelligentGuideSpeech
+		? { intelligentCustomerSpeech: intelligentGuideSpeech }
 		: {}),
 	...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
 	...(appointmentDepartmentTreeGateway
@@ -658,6 +716,7 @@ const app = createApp({
 		: {}),
 	wechatPaymentEnabled,
 	registrationSelfPayEnabled: wechatPaymentEnabled,
+	intelligentCustomerEnabled: config.intelligentCustomerEnabled,
 	// 临时联调：只验证 `.2 -> 支付 -> .5`，暂停 .9。
 	yunhealthPaymentQueryEnabled: false,
 	...(wechatMedicalInsurancePaymentNotification
@@ -735,6 +794,31 @@ logger.info(
 		intelligentGuideRuntime: services.intelligentGuide
 			? "enabled"
 			: "fail_closed",
+		intelligentGuideModelRuntime: services.intelligentGuide
+			? intelligentGuideModel
+				? "python-local"
+				: "mvp-rules"
+			: "not-installed",
+		intelligentGuideSpeechRuntime:
+			services.intelligentGuide && intelligentGuideSpeech
+				? "python-local"
+				: "fail_closed",
+		intelligentCustomerRoute:
+			config.intelligentCustomerEnabled && services.intelligentCustomer
+				? "enabled"
+				: "fail_closed",
+		intelligentCustomerModelRuntime: services.intelligentCustomer
+			? intelligentCustomerModel
+				? "python-local"
+				: "not-installed"
+			: "not-installed",
+		intelligentCustomerKnowledgeRuntime: services.intelligentCustomer
+			? intelligentCustomerKnowledge
+				? "python-local"
+				: "not-installed"
+			: "not-installed",
+		aiRuntimeConfiguration: aiRuntimeStatus,
+		...(aiRuntimeMissing.length > 0 ? { aiRuntimeMissing } : {}),
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
 		wechatMedicalInsuranceConfiguration: wechatMedicalInsuranceStatus,

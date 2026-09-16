@@ -108,6 +108,13 @@ export type RuntimeConfig = {
 	zhongyangAuthorizationToken: string | undefined;
 	/** 旧服务 API 根地址；用于换取绑卡/智能导诊所需的用户 JWT，并承载固定导诊接口。 */
 	legacyPatientAuthBaseUrl: string | undefined;
+	/** 本项目管理的本地 AI Runtime 闸门；可由受控 Python 进程承担模型推理。 */
+	aiRuntimeReady: boolean;
+	aiRuntimeUrl: string | undefined;
+	aiRuntimeToken: string | undefined;
+	aiRuntimeTimeoutMs: number;
+	/** 客服路由独立部署闸门；必须与客服 service 和 AI/知识依赖同时准备。 */
+	intelligentCustomerEnabled: boolean;
 	/** 新服务独立 Admin 查询接口的服务间令牌；不下发浏览器或小程序。 */
 	adminQueryToken: string | undefined;
 	/** 新服务独立 Admin 日志查看令牌；与 1101 查询令牌分离。 */
@@ -166,6 +173,7 @@ export type ProviderConfigurationDiagnostic = {
 		| "zhongyang-inpatient-episodes"
 		| "zhongyang-report-directory"
 		| "zhongyang-report-detail"
+		| "ai-runtime"
 		| "yunhealth-registration-settlement";
 	status: ProviderConfigurationStatus;
 	missingFields: readonly string[];
@@ -858,6 +866,11 @@ export function providerConfigurationDiagnostics(
 			missingFields: reportDetailConfigurationMissingFields(runtimeConfig),
 		},
 		{
+			name: "ai-runtime" as const,
+			status: aiRuntimeConfigurationStatus(runtimeConfig),
+			missingFields: aiRuntimeConfigurationMissingFields(runtimeConfig),
+		},
+		{
 			name: "yunhealth-registration-settlement" as const,
 			status: yunhealthRegistrationSettlementConfigurationStatus(runtimeConfig),
 			missingFields:
@@ -890,6 +903,23 @@ function positiveWorkerInterval(value: string | undefined): number {
 
 	throw new Error(
 		"WORKER_POLL_INTERVAL_MS must be an integer between 100 and 60000",
+	);
+}
+
+function positiveAiRuntimeTimeout(value: string | undefined): number {
+	if (!value) return 120_000;
+
+	const timeoutMs = Number(value);
+	if (
+		Number.isSafeInteger(timeoutMs) &&
+		timeoutMs >= 1_000 &&
+		timeoutMs <= 120_000
+	) {
+		return timeoutMs;
+	}
+
+	throw new Error(
+		"AI_RUNTIME_TIMEOUT_MS must be an integer between 1000 and 120000",
 	);
 }
 
@@ -939,6 +969,50 @@ function firstConfigured(
  */
 function providerBaseUrl(value: string | undefined, fallback: string): string {
 	return optional(value) ?? fallback;
+}
+
+function isLoopbackAiRuntimeUrl(value: string): boolean {
+	try {
+		const url = new URL(value);
+		return (
+			(url.protocol === "http:" || url.protocol === "https:") &&
+			["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname)
+		);
+	} catch {
+		return false;
+	}
+}
+
+export function aiRuntimeConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	if (!runtimeConfig.aiRuntimeReady) return [];
+	const missing = missingRuntimeFields([
+		{ name: "AI_RUNTIME_URL", value: runtimeConfig.aiRuntimeUrl },
+		{ name: "AI_RUNTIME_TOKEN", value: runtimeConfig.aiRuntimeToken },
+	]);
+	if (
+		runtimeConfig.aiRuntimeUrl &&
+		!isLoopbackAiRuntimeUrl(runtimeConfig.aiRuntimeUrl)
+	) {
+		missing.push("AI_RUNTIME_URL(loopback)");
+	}
+	if (
+		runtimeConfig.aiRuntimeToken &&
+		runtimeConfig.aiRuntimeToken.length < 24
+	) {
+		missing.push("AI_RUNTIME_TOKEN(minLength=24)");
+	}
+	return missing;
+}
+
+export function aiRuntimeConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.aiRuntimeReady) return "disabled";
+	return aiRuntimeConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
 }
 
 function origins(value: string | undefined): string[] {
@@ -1164,6 +1238,14 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 				env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,
 		),
 		legacyPatientAuthBaseUrl: optional(env.LEGACY_PATIENT_AUTH_BASE_URL),
+		aiRuntimeReady: boolean(env.AI_RUNTIME_READY, false),
+		aiRuntimeUrl: optional(env.AI_RUNTIME_URL),
+		aiRuntimeToken: optional(env.AI_RUNTIME_TOKEN),
+		aiRuntimeTimeoutMs: positiveAiRuntimeTimeout(env.AI_RUNTIME_TIMEOUT_MS),
+		intelligentCustomerEnabled: boolean(
+			env.INTELLIGENT_CUSTOMER_ENABLED,
+			false,
+		),
 		adminQueryToken: optional(env.ADMIN_QUERY_TOKEN),
 		adminLogsToken: optional(env.ADMIN_LOGS_TOKEN),
 		adminLogsIngestUrl: optional(env.ADMIN_LOGS_INGEST_URL),

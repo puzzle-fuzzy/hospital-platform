@@ -170,7 +170,7 @@ test("患者绑定服务迁移旧服务授权并把 JWT 只注入众阳上下文
 	).resolves.toMatchObject({ created: false, total: 0 });
 	expect(receivedInput).not.toHaveProperty("legacyLoginCode");
 	expect(receivedProviderContext).toEqual({
-			authorizationToken: "legacy-jwt-003",
+		authorizationToken: "legacy-jwt-003",
 	});
 });
 

@@ -67,6 +67,15 @@ import {
 	WechatLoginInputError,
 } from "../modules/auth/service";
 import {
+	InpatientEpisodePatientNotFoundError,
+	InpatientEpisodeQueryError,
+} from "../modules/inpatient/service";
+import {
+	IntelligentCustomerConversationExpiredError,
+	IntelligentCustomerInputError,
+} from "../modules/intelligent-customer";
+import { IntelligentCustomerRateLimitError } from "../modules/intelligent-customer/rate-limit";
+import {
 	IntelligentGuideConversationExpiredError,
 	IntelligentGuideInputError,
 } from "../modules/intelligent-guide";
@@ -82,10 +91,6 @@ import {
 	MedicalInsuranceWechatPaymentNotAllowedError,
 	MedicalInsuranceWechatPrepayExpiredError,
 } from "../modules/medical-insurance/wechat-payment-service";
-import {
-	InpatientEpisodePatientNotFoundError,
-	InpatientEpisodeQueryError,
-} from "../modules/inpatient/service";
 import {
 	MedicalRecordPatientNotFoundError,
 	MedicalRecordQueryError,
@@ -186,6 +191,9 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"my-doctor-already-followed": 60320,
 	"intelligent-guide-invalid": 60400,
 	"intelligent-guide-conversation-expired": 60410,
+	"intelligent-customer-invalid": 60420,
+	"intelligent-customer-conversation-expired": 60430,
+	"intelligent-customer-rate-limited": 60440,
 } as const);
 
 export type ServerErrorStableCode = keyof typeof ERROR_NUMERIC_CODES;
@@ -234,10 +242,57 @@ function messageFor(code: string): string {
 	return "服务器内部错误";
 }
 
+/**
+ * 管理端需要能把一次失败和接口调用日志对应起来；只回显有限的错误码、
+ * 请求号，不回显医保 err_msg，避免把参保人信息带回浏览器。
+ */
+function safeProviderDiagnosticValue(
+	value: string | undefined,
+	maxLength: number,
+): string | undefined {
+	const normalized = value?.trim();
+	if (!normalized) return undefined;
+	const safe = normalized
+		.replaceAll(/[^\p{L}\p{N}._:@-]/gu, "")
+		.slice(0, maxLength);
+	return safe || undefined;
+}
+
+function adminProviderDiagnosticMessage(
+	error: ProviderRequestError,
+	request: Request,
+): string | undefined {
+	let pathname = "";
+	try {
+		pathname = new URL(request.url).pathname;
+	} catch {
+		return undefined;
+	}
+	if (
+		pathname !== "/api/v1/admin/insurance/1101" &&
+		pathname !== "/admin/insurance/1101"
+	)
+		return undefined;
+	const providerCode = safeProviderDiagnosticValue(error.providerErrorCode, 64);
+	const requestId = safeProviderDiagnosticValue(error.requestId, 128);
+	const diagnostics = [
+		providerCode ? `医保错误码 ${providerCode}` : undefined,
+		requestId ? `请求号 ${requestId}` : undefined,
+	].filter((value): value is string => Boolean(value));
+	const suffix = diagnostics.length ? `（${diagnostics.join("，")}）` : "";
+	if (error.responseInvalid) {
+		return `医保 1101 查询返回内容无法识别${suffix}，请打开接口调用日志核对`;
+	}
+	if (error.retryable) {
+		return `医保 1101 查询暂时无法访问${suffix}，请稍后重试并查看接口调用日志`;
+	}
+	return `医保 1101 查询被外部服务拒绝${suffix}，请打开接口调用日志核对原始返回`;
+}
+
 export function errorHandlerPlugin() {
 	return new Elysia({ name: "error-handler" }).onError(
 		{ as: "global" },
-		({ code, error, set }) => {
+		({ code, error, request, set }) => {
 			if (error instanceof HttpError) {
 				set.status = error.statusCode;
 				return errorPayload(error.code, error.message);
@@ -339,6 +394,31 @@ export function errorHandlerPlugin() {
 				);
 			}
 
+			if (error instanceof IntelligentCustomerInputError) {
+				set.status = 400;
+				return errorPayload(
+					"intelligent-customer-invalid",
+					"客服请求信息不完整，请重新输入",
+				);
+			}
+
+			if (error instanceof IntelligentCustomerConversationExpiredError) {
+				set.status = 409;
+				return errorPayload(
+					"intelligent-customer-conversation-expired",
+					"本次客服会话已失效，请重新开始",
+				);
+			}
+
+			if (error instanceof IntelligentCustomerRateLimitError) {
+				set.status = 429;
+				set.headers["retry-after"] = String(error.retryAfterSeconds);
+				return errorPayload(
+					"intelligent-customer-rate-limited",
+					"客服请求较频繁，请稍后再试",
+				);
+			}
+
 			if (error instanceof HealthKnowledgeResultValidationError) {
 				// 健康知识来自已审核内容的持久化读模型，不是 Provider 代理结果；
 				// 读模型损坏不能降级成空目录，也不能误报成可重试的外部服务错误。
@@ -385,11 +465,13 @@ export function errorHandlerPlugin() {
 					: error.retryable
 						? "provider-temporarily-unavailable"
 						: "provider-request-rejected";
-				const providerMessage = responseInvalid
-					? "外部服务返回数据异常，请稍后重试"
-					: error.retryable
-						? "外部服务暂时不可用，请稍后重试"
-						: "外部服务拒绝了本次请求，请联系工作人员核实后再试";
+				const providerMessage =
+					adminProviderDiagnosticMessage(error, request) ??
+					(responseInvalid
+						? "外部服务返回数据异常，请稍后重试"
+						: error.retryable
+							? "外部服务暂时不可用，请稍后重试"
+							: "外部服务拒绝了本次请求，请联系工作人员核实后再试");
 				return errorPayload(providerCode, providerMessage);
 			}
 

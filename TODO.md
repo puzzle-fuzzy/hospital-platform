@@ -62,7 +62,7 @@
 | pagesB/health/discharge_followup.vue、pagesB/health/discharge_followup_detail.vue | pages/discharge-followup/discharge-followup，surface-only | 新端只注册临床外壳，见 apps/miniprogram/src/pages/discharge-followup/discharge-followup.ts:1-4；旧端有多套表单和提交，见 hospital-app/src/pagesB/health/discharge_followup_detail.vue:20-65,140-190 |
 | pagesB/health/disease_detail.vue、pagesB/health/drug_detail.vue、pagesB/health/health_encyclopedia.vue、pagesB/health/search_result.vue | health-knowledge 原生页面，partial | 新端 API/版本/免责声明骨架存在；旧正文不能直接照搬，旧目录 API 见 hospital-app/src/api/modules/health.ts:79-179 |
 | pagesB/health/electronic_bill.vue、pagesB/health/inpatient_payment.vue、pagesB/health/medical_insurance_pay.vue、pagesB/health/outpatient_pay.vue、pagesB/health/outpatient_pay_detail.vue、pagesB/health/payment_cashier.vue | 范围排除 | 全部属于费用/支付/医保/收银台，不在本次 TODO |
-| pagesB/health/electronic_consultation.vue | pages/electronic-consultation/electronic-consultation，surface-only | 当前文件只有 clinical-entry-surface 注册，见 apps/miniprogram/src/pages/electronic-consultation/electronic-consultation.ts:1-4 |
+| pagesB/health/electronic_consultation.vue | pages/electronic-consultation/electronic-consultation，partial / legacy-compatible | 已按旧端行为读取预约历史并筛选近 30 天，并迁移缴费账单、病历查询、住院预约三个固定入口；复用预约历史不代表独立电子导诊 Provider contract，实时导诊/执行状态仍关闭 |
 | pagesB/health/electronic_record.vue | pages/medical-record/medical-record，partial | 新端只有近 30 天门诊摘要；旧端有 out-visit-records 和 out-emrs，见 hospital-app/src/api/modules/medicalRecord.ts:86-127 |
 | pagesB/health/gift_electronic_banner.vue、pagesB/health/list_electronic_banner.vue、pagesB/health/record_electronic_banner.vue | pages/gift-banner/gift-banner，surface-only | 当前只显示患者上下文和公开记录关闭态；旧端真实提交/列表需要审核和文件规则 |
 | pagesB/health/gift_health_praise.vue、pagesB/health/list_health_praise.vue、pagesB/health/record_health_praise.vue | pages/health-praise/health-praise，surface-only | 旧端存在表扬信提交和查询 API，见 hospital-app/src/pagesB/health/gift_health_praise.vue:147-151,231-271,333-391 及旧 API commendatoryLetter.ts:53-68 |
@@ -84,7 +84,7 @@
 | pagesB/user/edit_profile.vue | pages/profile/profile，partial | 普通昵称/性别/年龄/邮箱已实现；头像、实名、微信身份不是普通资料 contract |
 | pagesB/user/feedback.vue | pages/feedback/feedback，replaced | 旧端只有帮助、客服电话和静态行为，没有真实提交 API；不扩展为虚构工单 |
 | pagesB/user/miss_appointment.vue | pages/missed-appointments/missed-appointments，partial | 新端由预约历史状态派生，仍待真实 Provider/公网/真机四方证据 |
-| pagesB/user/my_consultation.vue | feature-status:consultation，blocked-external | 旧端依赖独立问诊/陪诊历史，不能改名为预约历史 |
+| pagesB/user/my_consultation.vue | pages/consultation/consultation，partial / legacy-compatible | 已按旧端页面迁移当前就诊人的过去 120 天历史摘要和患者切换；旧端演示数据不复制，外部问诊会话、正文、附件和实时能力仍待 contract/验收 |
 | pagesB/user/my_registration.vue | pages/appointment-records/appointment-records，partial | 历史只读已有代码；支付/退款排除，取消和详情仍需真实验收 |
 | pagesB/user/subscription_message.vue | pages/patient-subscription/patient-subscription，partial | 旧端只改内存后 Toast，见 hospital-app/src/pagesB/user/subscription_message.vue:203-214；新端明确固定 enabled=false，见 apps/miniprogram/src/pages/patient-subscription/patient-subscription.ts:68-71,184-187 |
 
@@ -207,7 +207,7 @@
 - 旧 express.vue 是空列表预留，不存在可迁移的物流查询实现。
 - 旧 subscription_message.vue 是本地假保存，不存在可迁移的微信订阅链路。
 - patient-address 在旧 64 页面和 action 清单中没有来源，不属于旧服务迁移。
-- 旧 my_consultation.vue 的演示/外部问诊入口不能用预约历史顶替；在外部主体、归属、会话和保留规则确认前维持关闭。
+- 旧 my_consultation.vue 的演示数据和外部问诊入口不能用预约历史顶替；本轮仅提供明确标注为兼容版的当前患者过去 120 天历史摘要，不代表旧外部问诊 API、会话、正文或附件已迁移；外部主体、归属、会话和保留规则确认前继续维持关闭。
 
 ## 每项完成标准
 

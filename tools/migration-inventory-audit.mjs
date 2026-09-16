@@ -69,7 +69,7 @@ if (missingPages.length === 0 && stalePages.length === 0) {
  * - 当前机器存在旧仓库时，实际 `.vue` 文件必须全部出现在迁移矩阵；
  * - 没有显式路径或事实文件缺失时，审计必须失败，不能静默跳过并让
  *   CI/发布流程看起来像已经完成旧端核对。
-*/
+ */
 const legacyRoot = process.env.LEGACY_HOSPITAL_ROOT?.trim();
 if (!legacyRoot) {
 	throw new Error(

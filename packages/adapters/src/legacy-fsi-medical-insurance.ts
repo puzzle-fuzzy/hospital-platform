@@ -49,6 +49,12 @@ const DEFAULT_TRADE_TYPE_CODE = "10";
 const DEFAULT_REGISTER_SOURCE = 15;
 const DEFAULT_SETTLE_WAY = 6;
 const DEFAULT_PRE_ORDER_AUTO_SETTLE = 3;
+// HIS 2.27.2.32 的 insurOrgId 是医保测试通道的数值机构 ID，
+// 与 1101/6201/6202 使用的 fixmedins/orgCodg 字符串不能混用。
+const DEFAULT_SETTLEMENT_INSUR_ORG_ID = 10001;
+const DEFAULT_SETTLEMENT_FIXMEDINS_NAME = "高平市人民医院";
+const DEFAULT_SETTLEMENT_FIXMEDINS_CODE = "H14058101270";
+const DEFAULT_SETTLEMENT_OUT_VISIT_RECORD_ID = -1;
 // 众阳 2.6.65.4 文档示例使用 2；2.6.65.11 仍沿用挂号旧端实际使用的 3。
 const DEFAULT_PAY_QUERY_AUTO_SETTLE = 2;
 // 6201 的就医凭证类型沿用当前 1101 授权请求使用的居民身份证类型。
@@ -1157,7 +1163,7 @@ function buildOutNetworkSettleMainFrom6202(
 		MedicalInsuranceAuthorizationContext,
 		"insuplcAdmdvs" | "insutype"
 	>,
-	orgCode: string,
+	settlementInsurOrgId: number,
 	settlementTime: Date,
 ): ProviderRecord {
 	if (!source) return {};
@@ -1208,7 +1214,9 @@ function buildOutNetworkSettleMainFrom6202(
 	set("hospPartAmt", rootValue(["hospPartAmt"]) ?? preValue(["hosp_part_amt"]));
 	set("inscpScpAmt", preValue(["inscp_scp_amt"]));
 	set("insuplcAdmdvs", auth.insuplcAdmdvs);
-	set("insurOrgId", orgCode);
+	// Provider 将此字段反序列化为 Long，必须发送 JSON number，不能发送
+	// 1101/6201 使用的 H14058101270 字符串机构编码。
+	set("insurOrgId", settlementInsurOrgId);
 	set("insutype", preValue(["insutype"]));
 	const numericValues = [
 		...Object.values(root),
@@ -1304,7 +1312,7 @@ function composeOutNetworkSettleMain(
 	options: {
 		source?: LegacyFsi6202SettlementSource;
 		auth?: MedicalInsuranceAuthorizationContext;
-		orgCode?: string;
+		settlementInsurOrgId?: number;
 		amounts?: MedicalInsuranceAmounts;
 		settlementTime: Date;
 	},
@@ -1316,7 +1324,7 @@ function composeOutNetworkSettleMain(
 			insuplcAdmdvs: "",
 			insutype: "",
 		},
-		options.orgCode ?? "",
+		options.settlementInsurOrgId ?? DEFAULT_SETTLEMENT_INSUR_ORG_ID,
 		options.settlementTime,
 	);
 	const main: ProviderRecord = {
@@ -1343,13 +1351,18 @@ function composeOutNetworkSettleMain(
 		"networkPatClassId",
 		register.networkPatClassId ?? register.netWorkingPatClassId,
 	);
-	setIfMissing("outVisitRecordId", register.outVisitRecordId);
 	setIfMissing("mdtrtId", settlementContext.mdtrtId);
 	setIfMissing("insuplcAdmdvs", insuredAreaCode);
 	setIfMissing("clrOptins", insuredAreaCode);
 	setIfMissing("customClrOptins", insuredAreaCode);
 	setIfMissing("insutype", insutype);
-	setIfMissing("insurOrgId", options.orgCode);
+	// 即使 6202 没有返回主单，也要给 .32 一个符合 Provider Long
+	// 类型的机构 ID；不能回退为 1101 的字符串 orgCode。
+	main.insurOrgId =
+		options.settlementInsurOrgId ?? DEFAULT_SETTLEMENT_INSUR_ORG_ID;
+	main.fixmedinsName = DEFAULT_SETTLEMENT_FIXMEDINS_NAME;
+	main.fixmedinsCode = DEFAULT_SETTLEMENT_FIXMEDINS_CODE;
+	main.outVisitRecordId = DEFAULT_SETTLEMENT_OUT_VISIT_RECORD_ID;
 	setIfMissing("psnNo", register.memberNo);
 	setIfMissing("psnName", register.netPatName);
 	setIfMissing("netPatName", register.netPatName);
@@ -1393,6 +1406,7 @@ export function mapSettlementDetails(
 	children: readonly ProviderRecord[],
 	operation: string,
 	requestId: string | undefined,
+	businessType?: MedicalInsuranceBusinessType,
 ): Record<string, unknown>[] {
 	const childFor = (detail: ProviderRecord): ProviderRecord | undefined => {
 		const outTradeOrderId = optionalText(
@@ -1424,10 +1438,13 @@ export function mapSettlementDetails(
 
 	return details.map((detail, index) => {
 		const child = childFor(detail);
-		// 晋城测试环境的 2.27 返回可能同时缺少 orderId 和 outDocOrderId。
-		// 这两个字段不是当前 .32 请求的必需字段；没有时省略，避免在本地
-		// 映射阶段把一个可用的 HIS 明细误判为 provider-response-invalid。
-		const orderId = providerField(detail, child, ["orderId", "outDocOrderId"]);
+		// HIS `.32` 对挂号明细不接收医嘱号，院方约定统一传数值 -1；
+		// 门诊仍保留真实明细中的 orderId/outDocOrderId；门诊缺失时继续省略，
+		// 避免在本地映射阶段把可用的 HIS 明细误判为 provider-response-invalid。
+		const orderId =
+			businessType === "registration"
+				? -1
+				: providerField(detail, child, ["orderId", "outDocOrderId"]);
 		const item = {
 			amount: requiredProviderField(
 				detail,
@@ -1665,6 +1682,106 @@ export function medicalTypeForBusiness(
 }
 
 /**
+ * 2.27.2.32 networkRegister.medTypeName 由 1101 的业务事实和险种决定，
+ * 不能沿用 6201 的 medType 编码，也不能使用页面传入的任意文本。
+ */
+export function settlementMedTypeNameForBusiness(
+	businessType: MedicalInsuranceBusinessType,
+	insutype: string,
+): "门诊挂号" | "门诊统筹" | "普通门诊" | undefined {
+	if (businessType === "registration") return "门诊挂号";
+	if (insutype.trim() === "390") return "门诊统筹";
+	if (insutype.trim() === "310") return "普通门诊";
+	return undefined;
+}
+
+/** 2.27.2.32 networkRegister.insuTypeName 的险种名称映射。 */
+export function settlementInsuTypeNameForInsutype(
+	insutype: string,
+):
+	| "职工基本医疗保险"
+	| "城乡居民基本医疗保险"
+	| "公务员医疗补助"
+	| "城乡居民大病医疗保险"
+	| "大额医疗费用补助"
+	| "生育保险"
+	| "离休人员医疗保障"
+	| undefined {
+	switch (insutype.trim()) {
+		case "310":
+			return "职工基本医疗保险";
+		case "390":
+			return "城乡居民基本医疗保险";
+		case "320":
+			return "公务员医疗补助";
+		case "392":
+			return "城乡居民大病医疗保险";
+		case "330":
+			return "大额医疗费用补助";
+		case "510":
+			return "生育保险";
+		case "340":
+			return "离休人员医疗保障";
+		default:
+			return undefined;
+	}
+}
+
+/**
+ * 2.27.2.32 networkRegister.offSiteType 的医保地区规则：
+ * 1405 开头为高平本地，14 开头但不是 1405 为省内异地，其余为省外异地。
+ */
+export function offSiteTypeForInsuredArea(
+	insuplcAdmdvs: string,
+): 0 | 1 | 2 | undefined {
+	const area = insuplcAdmdvs.trim();
+	if (!area) return undefined;
+	if (area.startsWith("1405")) return 0;
+	if (area.startsWith("14")) return 1;
+	return 2;
+}
+
+function normalizeSettlementNetworkRegister(
+	register: ProviderRecord,
+	businessType: MedicalInsuranceBusinessType,
+	insuredAreaCode?: string,
+	settlementMain?: ProviderRecord,
+): ProviderRecord {
+	const insutype = String(register.insuType ?? register.insutype ?? "");
+	const area = String(
+		register.cantonCode ?? register.insuplcAdmdvs ?? insuredAreaCode ?? "",
+	);
+	const medTypeName =
+		typeof register.medTypeName === "string" && register.medTypeName.trim()
+			? register.medTypeName
+			: settlementMedTypeNameForBusiness(businessType, insutype);
+	const insuTypeName =
+		typeof register.insuTypeName === "string" && register.insuTypeName.trim()
+			? register.insuTypeName
+			: settlementInsuTypeNameForInsutype(insutype);
+	const offSiteType =
+		typeof register.offSiteType === "number"
+			? register.offSiteType
+			: offSiteTypeForInsuredArea(area);
+	const netRegSerial =
+		register.netRegSerial ??
+		providerField(settlementMain ?? {}, undefined, ["mdtrtId", "mdtrt_id"]);
+	return {
+		...register,
+		...(medTypeName ? { medTypeName } : {}),
+		...(insuTypeName ? { insuTypeName } : {}),
+		...(offSiteType === undefined ? {} : { offSiteType }),
+		...(netRegSerial === undefined ||
+		netRegSerial === null ||
+		netRegSerial === ""
+			? {}
+			: { netRegSerial }),
+		netDiagnosCode: "Z00.001",
+		netDiagnosName: "健康查体",
+	};
+}
+
+/**
  * 真实医保编排：授权解析 → 1101 → 2.6.65.1/2.27.2.27 → 2.1.9/2.1.13/2.6.33
  * → 6201 → 6202 → 6301。`.27` 的费用明细及 outSettlePat 三个 ID 在前置阶段持久化并复用，
  * 6301 候选结果也只查询一次；6201/6202 仍通过严格加密 FSI gateway，
@@ -1794,6 +1911,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			orderId: string;
 			ownerUserId: string;
 			amounts: MedicalInsuranceAmounts;
+			businessType: MedicalInsuranceBusinessType;
 			cashPaymentConfirmed?: boolean;
 		},
 		context: AdapterCallContext,
@@ -1929,9 +2047,31 @@ export function createLegacyFsiMedicalInsuranceGateway(
 							[],
 							"medical-insurance.2.27.2.32",
 							detailResponse.requestId,
+							input.businessType,
 						)
 					: settlementContext.upDetailList;
 			settlementContext = { ...settlementContext, upDetailList };
+			await options.orders.saveSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+				settlementContext,
+			);
+		}
+
+		const normalizedNetworkRegister = normalizeSettlementNetworkRegister(
+			settlementContext.networkRegister,
+			input.businessType,
+			settlementContext.insuredAreaCode,
+			settlementContext.outNetworkSettleMain,
+		);
+		if (
+			JSON.stringify(normalizedNetworkRegister) !==
+			JSON.stringify(settlementContext.networkRegister)
+		) {
+			settlementContext = {
+				...settlementContext,
+				networkRegister: normalizedNetworkRegister,
+			};
 			await options.orders.saveSettlementContext(
 				input.ownerUserId,
 				input.orderId,
@@ -1943,6 +2083,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			settlementContext,
 			{
 				amounts: input.amounts,
+				settlementInsurOrgId: DEFAULT_SETTLEMENT_INSUR_ORG_ID,
 				settlementTime: now(),
 			},
 		);
@@ -2012,7 +2153,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		const notifyPayload: Record<string, unknown> = {
 			hospitalId: settlementContext.hospitalId,
 			nationalUpDetailList: settlementContext.nationalUpDetailList,
-			networkRegister: settlementContext.networkRegister,
+			networkRegister: normalizedNetworkRegister,
 			outNetworkSettleMain: {
 				...settlementContext.outNetworkSettleMain,
 				transId: finalPayingId,
@@ -2874,6 +3015,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				childRecords,
 				"medical-insurance.2.27.2.27",
 				detailResponse.requestId,
+				businessType,
 			);
 			await options.orders.saveSettlementContext(
 				input.ownerUserId,
@@ -3134,7 +3276,15 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				...(auth.companyName ? { companyName: auth.companyName } : {}),
 				idNo: auth.patient.idNo,
 				insuType: auth.insutype,
+				insuTypeName: settlementInsuTypeNameForInsutype(auth.insutype),
 				memberNo: auth.psnNo,
+				medTypeName: settlementMedTypeNameForBusiness(
+					businessType,
+					auth.insutype,
+				),
+				netDiagnosCode: "Z00.001",
+				netDiagnosName: "健康查体",
+				offSiteType: offSiteTypeForInsuredArea(auth.insuplcAdmdvs),
 				netPatName: auth.patient.userName,
 				...(auth.netPatType ? { netPatType: auth.netPatType } : {}),
 				outPatId: providerField(outSettlePat ?? {}, undefined, ["patId"]),
@@ -3442,7 +3592,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						? { source: result.settlementSource }
 						: {}),
 					auth,
-					orgCode,
+					settlementInsurOrgId: DEFAULT_SETTLEMENT_INSUR_ORG_ID,
 					amounts: mapMedicalAmounts(result.settlement),
 					settlementTime,
 				},
@@ -3637,9 +3787,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				paymentState !== "closed" &&
 				paymentState !== "not_created"
 			) {
-				// 2.6.33 已经确认“正在收款中”，所以 pay-query 未返回可识别
-				// 的文字状态时，只在本专用 payment_in_progress 分支允许关单；
-				// 关单本身必须拿到 success=true 才能继续取消结算。
+				// 2.6.33 已确认“正在收款中”，或用户明确要求安全重新授权时，
+				// pay-query 未返回可识别文字状态也可以进入受控关单；关单本身
+				// 必须拿到 success=true 才能继续取消结算。
 				const closeResponse = await zhongyangPost(
 					"medical-insurance.2.6.65.11",
 					"/msun-middle-open-settlepay/api/v2/open/payment/pay-close",
@@ -3911,6 +4061,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 							orderId: input.orderId,
 							ownerUserId: input.ownerUserId,
 							amounts,
+							businessType:
+								order.businessType ??
+								(order.appointmentId ? "registration" : "outpatient"),
 							...(input.cashPaymentConfirmed === undefined
 								? {}
 								: { cashPaymentConfirmed: input.cashPaymentConfirmed }),

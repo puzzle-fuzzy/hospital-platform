@@ -154,10 +154,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/electronic_consultation.vue",
 			domain: "健康",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/electronic-consultation/electronic-consultation",
 			featureKey: "electronic-consultation",
-			note: "已迁移电子导诊单页面外壳、患者选择入口和关闭态；真实来源、患者上下文和读写权限仍待 contract。",
+			note: "已按旧端兼容版迁移近30天预约摘要、患者选择和状态处理；复用预约历史且不代表独立电子导诊 Provider contract，实时导诊/执行状态仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/electronic_record.vue",
@@ -521,10 +521,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/user/my_consultation.vue",
 			domain: "用户",
-			status: "blocked-external",
-			nativeTarget: "pages/feature-status/feature-status",
+			status: "partial",
+			nativeTarget: "pages/consultation/consultation",
 			featureKey: "consultation",
-			note: "旧端实际调用独立的治疗陪诊历史入口，不是预约历史；外部主体、受众、短期会话、回跳和退出 contract 未确认，因此不把预约记录改名为问诊。",
+			note: "已按旧端页面迁移当前就诊人的过去120天历史摘要和患者切换；兼容视图不复制演示数据，外部问诊会话、正文、附件和实时能力仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/user/my_registration.vue",

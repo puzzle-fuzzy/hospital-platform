@@ -39,6 +39,7 @@ test("runtime preflight fails closed without configuration and does not need inf
 			"zhongyang-inpatient-episodes:disabled",
 			"zhongyang-report-directory:disabled",
 			"zhongyang-report-detail:disabled",
+			"ai-runtime:disabled",
 			"yunhealth-registration-settlement:disabled",
 		],
 	});
@@ -97,6 +98,7 @@ test("runtime preflight fails an explicitly opened but incomplete provider gate"
 			"zhongyang-report-directory:missing=ZHONGYANG_BASE_URL(https)",
 			"zhongyang-report-directory:missing=ZHONGYANG_PEIS_HOSPITAL_ID",
 			"zhongyang-report-detail:disabled",
+			"ai-runtime:disabled",
 			"yunhealth-registration-settlement:disabled",
 		],
 	});

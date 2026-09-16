@@ -714,7 +714,7 @@ export class MedicalInsuranceRegistrationService {
 	async cancel(input: {
 		ownerUserId: string;
 		orderId: string;
-		reason: "payment_in_progress";
+		reason: "payment_in_progress" | "reauthorization";
 		context: unknown;
 	}): Promise<
 		import("@hospital/contracts").MedicalInsuranceCancellationPayload["data"]

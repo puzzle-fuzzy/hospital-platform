@@ -9,7 +9,7 @@ import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
  * 广度迁移边界审计。
  *
  * 旧端页面必须先全部有明确落点，但临床、患者绑定、外部会话和支付入口
-	 * 不能为了增加“已完成”数量而猜测 Provider 协议。这个工具把当前已经
+ * 不能为了增加“已完成”数量而猜测 Provider 协议。这个工具把当前已经
  * 识别出的高风险页面逐一绑定到 feature-status、固定 FeatureKey 或明确的
  * `surface-only` 页面外壳，后续若有人新增路由或把占位页改成半成品，提交门禁会立即提醒。
  *
@@ -89,14 +89,17 @@ const actionFeatureKeys = new Set(
 const featureStatusActions = new Set(migrationBreadth.featureStatusActions);
 
 const ACTION_EVENT_SOURCES = new Map([
-	["报告详情", {
-		script: await readSource(
-			"apps/miniprogram/src/pages/report-detail/report-detail.ts",
-		),
-		template: await readSource(
-			"apps/miniprogram/src/pages/report-detail/report-detail.wxml",
-		),
-	}],
+	[
+		"报告详情",
+		{
+			script: await readSource(
+				"apps/miniprogram/src/pages/report-detail/report-detail.ts",
+			),
+			template: await readSource(
+				"apps/miniprogram/src/pages/report-detail/report-detail.wxml",
+			),
+		},
+	],
 ]);
 
 function hasConcreteActionEvent(actionReference, methodName) {
@@ -110,7 +113,9 @@ function hasConcreteActionEvent(actionReference, methodName) {
 		"\\bbindtap=[\"']" + methodName + "[\"']",
 		"u",
 	);
-	return methodPattern.test(source.script) && eventPattern.test(source.template);
+	return (
+		methodPattern.test(source.script) && eventPattern.test(source.template)
+	);
 }
 
 function fail(message) {
