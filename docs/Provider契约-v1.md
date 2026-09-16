@@ -105,8 +105,8 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 即使 Provider 患者号来自 owner-scoped 仓储映射，门诊费用 adapter 仍会在发起 HTTP 请求前拒绝空引用，避免任务、回放器或错误仓储把 `patId=` 发给 Provider；服务层校验不是唯一边界；
 - 当前以 2.6.33 输出表确认的 `amount`、`billDeptName`、`billDocName`、`billDate` 为唯一公共映射来源；旧端遗留的 `waitPayAmount`、`registerDept`、`registerDoctor` 未进入新 contract，adapter 必须忽略它们，不能将其作为金额或展示字段 fallback；
 - 门诊费用单次只读响应最多允许 512 条；这是平台资源防护，不是患者实际费用条数上限，也不是 Provider 分页合同。当前已确认的裸数组形态仍可作为 Provider 响应输入，adapter 会在条目映射前对裸数组和包络 `data` 数组统一执行超量拒绝；domain/service 还会再次拒绝绕过 adapter 的超量结果。平台不会截断，不完整结果不能进入 `loaded` 成功日志；
-- `ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是独立只读 gate。打开它只允许查询门诊费用，不会隐式注册微信支付、医保 1101/6201/6202/6301、退款或 HIS 回写；这些能力必须分别完成 contract、幂等、查单、授权和真机验收；
-- 原生小程序已加入门诊缴费页和“我的”页面入口；没有支付/医保合同前，点击费用记录只展示迁移边界，不伪造支付成功或调用旧 provider URL。
+- `ZHONGYANG_OUTPATIENT_PAYMENT_READY` 仍只控制门诊费用读取。门诊医保支付另有独立 gate，代码已接入统一授权、6201/6202/6301 和微信支付编排；只有 Provider 合同、幂等、查单、授权、公网和真机验收全部通过后才允许打开，退款/HIS 退费仍不在本阶段；
+- 原生小程序门诊缴费详情页已提供“医保支付”和“微信支付”入口；服务端通过 owner-scoped `recordId/patientId` 重查 2.6.33，不能伪造支付成功或调用旧万能转发。
 
 ## 设计不变量
 
