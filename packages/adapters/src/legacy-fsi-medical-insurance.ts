@@ -1153,7 +1153,10 @@ function numberValue(value: unknown): number | undefined {
 function buildOutNetworkSettleMainFrom6202(
 	source: LegacyFsi6202SettlementSource | undefined,
 	settlementContext: MedicalInsuranceSettlementContext,
-	auth: MedicalInsuranceAuthorizationContext,
+	auth: Pick<
+		MedicalInsuranceAuthorizationContext,
+		"insuplcAdmdvs" | "insutype"
+	>,
 	orgCode: string,
 	settlementTime: Date,
 ): ProviderRecord {
@@ -1282,6 +1285,78 @@ function buildOutNetworkSettleMainFrom6202(
 	set("settleNo", preValue(["medins_setl_id"]));
 	set("settleSource", 3002);
 	set("settleType", "1");
+	return main;
+}
+
+/**
+ * 2.27.2.32 的主单是跨接口事实：6202 的 extData.preSetl 提供结算金额、
+ * 结算号和医保字段，1101/.27 保存的上下文提供患者/就诊标识，订单金额
+ * 只作为已经校验过的最后兜底。不能因为 .27 的 outNetworkSettleMain 为空
+ * 就阻断 .32；只要费用明细和支付后置流水已经就绪，就把可用事实合并后提交。
+ */
+function composeOutNetworkSettleMain(
+	settlementContext: MedicalInsuranceSettlementContext,
+	options: {
+		source?: LegacyFsi6202SettlementSource;
+		auth?: MedicalInsuranceAuthorizationContext;
+		orgCode?: string;
+		amounts?: MedicalInsuranceAmounts;
+		settlementTime: Date;
+	},
+): ProviderRecord {
+	const mapped = buildOutNetworkSettleMainFrom6202(
+		options.source,
+		settlementContext,
+		options.auth ?? {
+			insuplcAdmdvs: "",
+			insutype: "",
+		},
+		options.orgCode ?? "",
+		options.settlementTime,
+	);
+	const main: ProviderRecord = {
+		...settlementContext.outNetworkSettleMain,
+		...mapped,
+	};
+	const register = settlementContext.networkRegister;
+	const setIfMissing = (key: string, value: unknown) => {
+		if (
+			!hasProviderField(main, [key]) &&
+			value !== undefined &&
+			value !== null &&
+			value !== ""
+		) {
+			main[key] = value;
+		}
+	};
+	const auth = options.auth;
+	const insuredAreaCode =
+		auth?.insuplcAdmdvs?.trim() || settlementContext.insuredAreaCode?.trim();
+	const insutype = auth?.insutype?.trim();
+	setIfMissing("chargeClassId", register.chargeClassId);
+	setIfMissing(
+		"networkPatClassId",
+		register.networkPatClassId ?? register.netWorkingPatClassId,
+	);
+	setIfMissing("outVisitRecordId", register.outVisitRecordId);
+	setIfMissing("mdtrtId", settlementContext.mdtrtId);
+	setIfMissing("insuplcAdmdvs", insuredAreaCode);
+	setIfMissing("clrOptins", insuredAreaCode);
+	setIfMissing("customClrOptins", insuredAreaCode);
+	setIfMissing("insutype", insutype);
+	setIfMissing("insurOrgId", options.orgCode);
+	setIfMissing("psnNo", register.memberNo);
+	setIfMissing("psnName", register.netPatName);
+	setIfMissing("netPatName", register.netPatName);
+	setIfMissing("netPatType", register.netPatType);
+	setIfMissing("certNo", register.idNo);
+	setIfMissing("outPatId", register.outPatId);
+	if (options.amounts) {
+		setIfMissing("amount", fenToYuan(options.amounts.totalFen));
+		setIfMissing("getAmount", fenToYuan(options.amounts.cashFen));
+	}
+	setIfMissing("settleSource", 3002);
+	setIfMissing("settleType", "1");
 	return main;
 }
 
@@ -1789,8 +1864,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		}
 		if (
 			!settlementContext.settlementDetailsFetchedAt &&
-			(Object.keys(settlementContext.outNetworkSettleMain).length === 0 ||
-				settlementContext.upDetailList.length === 0)
+			settlementContext.upDetailList.length === 0
 		) {
 			const detailResponse = await zhongyangGet(
 				"medical-insurance.2.27.2.27",
@@ -1828,7 +1902,11 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			const fetchedAt = now().toISOString();
 			settlementContext = {
 				...settlementContext,
-				outNetworkSettleMain,
+				// 6202 已生成的主单字段优先，.27 只补充患者/就诊标识。
+				outNetworkSettleMain: {
+					...outNetworkSettleMain,
+					...settlementContext.outNetworkSettleMain,
+				},
 				settlementDetailsFetchedAt: fetchedAt,
 				settlementDetailsProviderRequestId: detailResponse.requestId,
 				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
@@ -1859,14 +1937,45 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			);
 		}
 
+		const composedSettlementMain = composeOutNetworkSettleMain(
+			settlementContext,
+			{
+				amounts: input.amounts,
+				settlementTime: now(),
+			},
+		);
 		if (
-			Object.keys(settlementContext.outNetworkSettleMain).length === 0 ||
-			settlementContext.upDetailList.length === 0
+			Object.keys(composedSettlementMain).length !==
+				Object.keys(settlementContext.outNetworkSettleMain).length ||
+			Object.keys(composedSettlementMain).some(
+				(key) =>
+					composedSettlementMain[key] !==
+					settlementContext.outNetworkSettleMain[key],
+			)
 		) {
-			throw responseError(
-				"medical-insurance.2.27.2.32",
-				"真实结算主单或费用明细不存在",
+			settlementContext = {
+				...settlementContext,
+				outNetworkSettleMain: composedSettlementMain,
+			};
+			await options.orders.saveSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+				settlementContext,
 			);
+			options.logger?.info(
+				{
+					event: "medical-insurance.settlement-main.composed",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					fieldCount: Object.keys(composedSettlementMain).length,
+					fields: Object.keys(composedSettlementMain).sort(),
+				},
+				"Medical insurance settlement main composed from stored payment facts",
+			);
+		}
+
+		if (settlementContext.upDetailList.length === 0) {
+			throw responseError("medical-insurance.2.27.2.32", "真实费用明细不存在");
 		}
 		const existingTransId = providerField(
 			settlementContext.outNetworkSettleMain,
@@ -3324,12 +3433,17 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				},
 				context,
 			);
-			const mappedOutNetworkSettleMain = buildOutNetworkSettleMainFrom6202(
-				result.settlementSource,
+			const mappedOutNetworkSettleMain = composeOutNetworkSettleMain(
 				settlementContext,
-				auth,
-				orgCode,
-				settlementTime,
+				{
+					...(result.settlementSource
+						? { source: result.settlementSource }
+						: {}),
+					auth,
+					orgCode,
+					amounts: mapMedicalAmounts(result.settlement),
+					settlementTime,
+				},
 			);
 			if (Object.keys(mappedOutNetworkSettleMain).length > 0) {
 				settlementContext = {

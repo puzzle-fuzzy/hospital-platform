@@ -517,12 +517,13 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 		patientId: "provider-patient-sequence-001",
 		chrgBchno: "batch-sequence-001",
 		insuredAreaCode: "140581",
-		networkRegister: { memberNo: "psn-sequence-001" },
-		outNetworkSettleMain: {
+		networkRegister: {
+			memberNo: "psn-sequence-001",
 			chargeClassId: "charge-class-sequence-001",
 			networkPatClassId: "network-class-sequence-001",
 			outVisitRecordId: "visit-sequence-001",
 		},
+		outNetworkSettleMain: {},
 		nationalUpDetailList: [],
 		upDetailList: [
 			{
