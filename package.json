@@ -45,6 +45,7 @@
 		"provider:audit": "bun tools/provider-intake-audit.mjs",
 		"readonly:audit": "bun tools/read-only-domain-audit.mjs",
 		"provider:smoke:secure": "bun tools/provider-smoke-secure.ts",
+		"provider:trace": "bun tools/provider-trace-export.mjs",
 		"provider:tls:audit": "bun tools/provider-tls-audit.ts",
 		"release:baseline:audit": "bun tools/release-baseline-audit.mjs",
 		"release:baseline:index:audit": "bun tools/current-baseline-index-audit.mjs",

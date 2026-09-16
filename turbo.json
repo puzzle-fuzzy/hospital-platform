@@ -2,7 +2,8 @@
 	"$schema": "https://turbo.build/schema.json",
 	"globalDependencies": [
 		"tools/p0-log-aggregate.mjs",
-		"tools/p0-business-evidence-audit.mjs"
+		"tools/p0-business-evidence-audit.mjs",
+		"tools/provider-trace-export.mjs"
 	],
 	"tasks": {
 		"build": {

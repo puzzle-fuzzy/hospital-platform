@@ -24,7 +24,11 @@ const rateLimits = new Map<string, { count: number; expiresAt: number }>();
 const activeSessions = new Map<string, number>();
 const maxActiveSessions = 500;
 const maxSessionTokenLength = 4096;
-const rawLogWindowMs = 30 * 60 * 1_000;
+// 单条日志详情默认只查前后 15 分钟；traceId 已在元数据列表中确定，
+// 继续扫描半小时会把大量无关 raw chunk 传给管理端。需要更宽窗口时，
+// 使用受控 provider-trace-export 工具显式指定 since/until。
+const rawLogWindowMs = 15 * 60 * 1_000;
+const rawLogFallbackWindowMs = 30 * 60 * 1_000;
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 	throw new Error("INSURANCE_QUERY_PORT must be a valid TCP port");
@@ -415,12 +419,22 @@ async function logRawDetailRequest(
 	const center = detailTimestamp ? Date.parse(detailTimestamp) : Number.NaN;
 	if (Number.isNaN(center)) return errorResponse("日志时间格式异常", 502);
 	try {
-		const trace = await readRawLogTrace({
+		let trace = await readRawLogTrace({
 			identifiers,
 			since: new Date(center - rawLogWindowMs).toISOString(),
 			until: new Date(center + rawLogWindowMs).toISOString(),
 			maxEntries: 300,
 		});
+		// 正常情况下 15 分钟足够；只有完全没有匹配块时才扩大到旧的 30 分钟，
+		// 避免长链路被静默判定为“没有原始日志”，同时不让普通查询承担大窗口成本。
+		if (trace.entries.length === 0) {
+			trace = await readRawLogTrace({
+				identifiers,
+				since: new Date(center - rawLogFallbackWindowMs).toISOString(),
+				until: new Date(center + rawLogFallbackWindowMs).toISOString(),
+				maxEntries: 300,
+			});
+		}
 		console.info(
 			JSON.stringify({
 				event: "admin.raw_log.read",

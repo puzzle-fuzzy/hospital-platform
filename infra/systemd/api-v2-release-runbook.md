@@ -5,6 +5,28 @@
 本文只负责切换 `hospital-platform-api-v2.service` 使用的 `current` release，
 不管理旧 Python 服务、不修改旧端口 `8001`、不执行数据库 migration，也不启动支付/医保/HIS worker。
 
+## 快速发布通道（业务联调）
+
+业务联调只发布受影响的运行面，不重复构建无关的 Java、Worker 或小程序产物。仓库提供
+[`tools/publish-3090.sh`](../../tools/publish-3090.sh)，默认只上传本机已经构建的 bundle；脚本不会在 3090
+安装依赖、构建 TypeScript 或读取真实环境变量：
+
+```bash
+# API/Worker 都变化时
+tools/publish-3090.sh <candidate-sha> --surface both
+
+# 仅 API 变化时复用当前 release 的 Worker
+tools/publish-3090.sh <candidate-sha> --surface api
+
+# 仅 Worker 变化时复用当前 release 的 API
+tools/publish-3090.sh <candidate-sha> --surface worker
+```
+
+需要本机定向构建时才增加 `--build`。选择单一运行面时，Java SDK 和另一运行面直接从旧 release 复用，
+不重新上传或构建。无论选择哪条通道，脚本仍会执行 release 目录上传、checksum、
+`PROVIDER_RAW_LOGGING=true`/环境文件权限检查、`current.next` 原子切换、API 重启、15 秒 readiness、
+8001 共存和失败回滚；这些是安全门禁，不属于可删除的冗余步骤。正式生产发布仍按本手册后续完整候选门禁执行。
+
 ## 0. 3090 原始日志永久约束
 
 3090 的 `shared/api.env` 必须永久保持：
@@ -144,6 +166,7 @@ test -f "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js"
 test -f "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js"
 test -f "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js"
 test -f "releases/${new_sha}/apps/worker/dist/redis-session-ttl-audit.js"
+test -f "releases/${new_sha}/apps/worker/dist/provider-trace-export.js"
 test -f "releases/${new_sha}/packages/adapters/dist/java-sdk/classes/com/hospital/platform/medicalinsurance/OfficialFsiSdkCli.class"
 test -f "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/med-request-data-sdk-2.1.4.jar"
 test -f "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/fastjson-1.2.83.jar"
@@ -161,6 +184,7 @@ sha256sum \
     "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js" \
     "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js" \
     "releases/${new_sha}/apps/worker/dist/redis-session-ttl-audit.js" \
+    "releases/${new_sha}/apps/worker/dist/provider-trace-export.js" \
     "releases/${new_sha}/packages/adapters/dist/java-sdk/classes/com/hospital/platform/medicalinsurance/OfficialFsiSdkCli.class" \
     "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/med-request-data-sdk-2.1.4.jar" \
     "releases/${new_sha}/packages/adapters/dist/java-sdk/lib/fastjson-1.2.83.jar" \
@@ -180,7 +204,7 @@ sha256sum \
 生产 release 的依赖目录可能没有 workspace `@hospital/*` 开发链接，不能在服务器 release 目录直接执行
 `bun build` 或临时 `bun install` 作为发布步骤；必须使用本地构建 bundle，并通过 checksum 证明上传内容
 与候选产物一致。worker release 除常驻 `index.js` 外，还必须包含独立的 `preflight.js`、
-`provider-directory-smoke.js`、`api-runtime-smoke.js` 和 `p0-log-aggregate.js`，这样服务器可以在没有
+`provider-directory-smoke.js`、`api-runtime-smoke.js`、`p0-log-aggregate.js` 和 `provider-trace-export.js`，这样服务器可以在没有
 workspace 链接时复现发布前只读验收，并在受控 journald 窗口执行不回显原文的日志聚合；这些脚本不会启动
 worker，也不会执行 migration 或支付/医保/HIS 写入。还必须包含 `p0-business-evidence-audit.js`，用于对安全
 聚合结果执行“请求事件 + 明确成功事件”的业务门禁。`p0-log-aggregate.js` 只消费 stdin 的 journald JSONL；生产查询
