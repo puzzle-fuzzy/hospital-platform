@@ -27,6 +27,9 @@ tools/publish-3090.sh <candidate-sha> --surface worker
 `PROVIDER_RAW_LOGGING=true`/环境文件权限检查、`current.next` 原子切换、API 重启、15 秒 readiness、
 8001 共存和失败回滚；这些是安全门禁，不属于可删除的冗余步骤。正式生产发布仍按本手册后续完整候选门禁执行。
 
+单笔日志和快速发布的日常操作记录见
+[`日志查询与3090快速发布-2026-09-16.md`](../../docs/发布/日志查询与3090快速发布-2026-09-16.md)。
+
 ## 0. 3090 原始日志永久约束
 
 3090 的 `shared/api.env` 必须永久保持：
