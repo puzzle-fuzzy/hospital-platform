@@ -1272,10 +1272,15 @@ function buildOutNetworkSettleMainFrom6202(
 	set("psnNo", preValue(["psn_no"]));
 	set("psnPartAmt", preValue(["psn_part_amt"]));
 	set("setlId", preValue(["medins_setl_id"]));
+	// .32 是支付完成后的 HIS 回写：setlTime 使用支付后置分项全部成功时
+	// 记录的 postPaymentCompletedAt，不读取 6301 的查询时间；历史上下文
+	// 没有该时间时，使用本次 .32 提交时刻作为可审计的服务端兜底。
+	const writebackTime =
+		settlementContext.postPaymentCompletedAt ?? dateTime(settlementTime);
 	set(
 		"setlTime",
 		legacyFsiDateTime(
-			settlementContext.postPaymentCompletedAt,
+			writebackTime,
 			"medical-insurance.2.27.2.32",
 			undefined,
 			"setlTime",
@@ -1383,7 +1388,7 @@ function requiredProviderField(
  * 2.27.2.32 的 upDetailList 只能在 6202/6301 之后使用真实 HIS 明细构造。
  * 2.6.33 只用于确认待支付子项目和匹配事实，不能提前决定后置回写字段。
  */
-function mapSettlementDetails(
+export function mapSettlementDetails(
 	details: readonly ProviderRecord[],
 	children: readonly ProviderRecord[],
 	operation: string,
@@ -1419,6 +1424,10 @@ function mapSettlementDetails(
 
 	return details.map((detail, index) => {
 		const child = childFor(detail);
+		// 晋城测试环境的 2.27 返回可能同时缺少 orderId 和 outDocOrderId。
+		// 这两个字段不是当前 .32 请求的必需字段；没有时省略，避免在本地
+		// 映射阶段把一个可用的 HIS 明细误判为 provider-response-invalid。
+		const orderId = providerField(detail, child, ["orderId", "outDocOrderId"]);
 		const item = {
 			amount: requiredProviderField(
 				detail,
@@ -1473,14 +1482,7 @@ function mapSettlementDetails(
 				requestId,
 				index,
 			),
-			orderId: requiredProviderField(
-				detail,
-				child,
-				["orderId", "outDocOrderId"],
-				operation,
-				requestId,
-				index,
-			),
+			...(orderId === undefined ? {} : { orderId }),
 			outBillId: requiredProviderField(
 				detail,
 				child,

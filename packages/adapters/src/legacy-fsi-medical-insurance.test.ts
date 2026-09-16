@@ -8,6 +8,7 @@ import type {
 import {
 	accountFlag,
 	createLegacyFsiMedicalInsuranceGateway,
+	mapSettlementDetails,
 	medicalTypeForBusiness,
 } from "./legacy-fsi-medical-insurance";
 
@@ -34,6 +35,37 @@ test("6201 医疗类别按挂号、门诊职工和门诊居民选择", () => {
 	expect(medicalTypeForBusiness("outpatient", "310")).toBe("11");
 	expect(medicalTypeForBusiness("outpatient", "390")).toBe("110104");
 	expect(medicalTypeForBusiness("outpatient", "999")).toBeUndefined();
+});
+
+test(".27 明细缺少 orderId 和 outDocOrderId 时仍保留可用明细", () => {
+	const [detail] = mapSettlementDetails(
+		[
+			{
+				amount: "10.00",
+				chargeCode: "CHARGE-001",
+				chargeId: "CHARGE-ID-001",
+				chargeName: "挂号费",
+				networkItemCode: "ITEM-001",
+				networkItemName: "挂号费",
+				outSettleDetailId: "DETAIL-001",
+				price: "10.00",
+				quantity: 1,
+				selfBurdenRatio: "1",
+				createTime: "2026-09-16 09:43:12",
+			},
+		],
+		[],
+		"medical-insurance.2.27.2.27",
+		"fsi-27-test-001",
+	);
+
+	expect(detail).toMatchObject({
+		amount: "10.00",
+		outBillId: "DETAIL-001",
+		outSettleDetailId: "DETAIL-001",
+	});
+	expect(detail).not.toHaveProperty("orderId");
+	expect(detail).not.toHaveProperty("outDocOrderId");
 });
 
 function authorizationSelectionFixture(
@@ -533,7 +565,6 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 				chargeName: "挂号费",
 				networkItemCode: "ITEM-001",
 				networkItemName: "挂号费",
-				orderId: "ORDER-001",
 				outBillId: "BILL-001",
 				price: "10.00",
 				quantity: 1,
@@ -675,6 +706,7 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 	expect(settlementContext.outNetworkSettleMain).toMatchObject({
 		mdtrtId: "mdtrt-sequence-001",
 		insutype: "310",
+		setlTime: "2026-09-16 03:01:00",
 	});
 
 	const completed = await gateway.query(
