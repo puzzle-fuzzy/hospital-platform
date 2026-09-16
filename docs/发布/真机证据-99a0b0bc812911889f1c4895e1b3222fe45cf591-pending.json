@@ -1,0 +1,94 @@
+{
+	"candidate": {
+		"serverRelease": "ce1e871cfa99faf292203b4bfc2006ff962309b1",
+		"miniProgramCommit": "99a0b0b",
+		"sourceRevision": "99a0b0bc812911889f1c4895e1b3222fe45cf591"
+	},
+	"startedAt": "2026-09-16T12:10:00+08:00",
+	"domains": {
+		"auth": {
+			"result": "pending",
+			"reason": "等待当前候选的微信登录页面、客户端 requestId 和服务端同链日志证据",
+			"requiredScenarios": ["success", "unauthorized"]
+		},
+		"patientDirectory": {
+			"result": "pending",
+			"reason": "等待当前候选的首页患者目录、账号切换清理与服务端事件证据",
+			"requiredScenarios": [
+				"success-non-empty",
+				"success-empty",
+				"unauthorized",
+				"temporary-failure",
+				"account-switch"
+			]
+		},
+		"patientDirectorySync": {
+			"result": "pending",
+			"reason": "等待当前候选的患者同步、冲突和临床映射证据",
+			"requiredScenarios": [
+				"success",
+				"success-empty-guard",
+				"sync-conflict",
+				"temporary-failure"
+			]
+		},
+		"patientSelection": {
+			"result": "pending",
+			"reason": "等待当前候选的初次选择、显式切换和过期选择证据",
+			"requiredScenarios": [
+				"initial-selection",
+				"explicit-switch",
+				"stale-selection"
+			]
+		},
+		"appointmentDirectory": {
+			"result": "pending",
+			"reason": "等待当前候选的预约科室/排班只读链路和 Provider 低敏 requestId 证据",
+			"requiredScenarios": [
+				"departments-success",
+				"schedules-success",
+				"success-empty",
+				"provider-failure"
+			]
+		},
+		"appointmentRecords": {
+			"result": "pending",
+			"reason": "等待当前候选的预约历史在线/全部范围和 owner 映射证据",
+			"requiredScenarios": [
+				"success-non-empty",
+				"success-empty",
+				"unauthorized",
+				"patient-mapping-failure"
+			]
+		},
+		"missedAppointments": {
+			"result": "pending",
+			"reason": "等待当前候选的爽约派生筛选和患者切换证据",
+			"requiredScenarios": [
+				"success-non-empty",
+				"success-empty",
+				"patient-switch"
+			]
+		},
+		"outpatientPayment": {
+			"result": "pending",
+			"reason": "等待门诊费用只读证据；本清单不触发支付、医保或账单写入",
+			"requiredScenarios": [
+				"success-non-empty",
+				"success-empty",
+				"unauthorized",
+				"patient-mapping-failure"
+			]
+		},
+		"profileReadonlyWrite": {
+			"result": "pending",
+			"reason": "等待当前候选的普通资料读取、受控更新、版本冲突和会话失效证据",
+			"requiredScenarios": [
+				"read-success",
+				"update-success",
+				"version-conflict",
+				"unauthorized"
+			]
+		}
+	}
+}
