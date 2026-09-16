@@ -194,6 +194,10 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 			}>
 		).every((component) => component.state === "succeeded"),
 	).toBeTrue();
+	expect(currentSettlement).toMatchObject({
+		payingId: "paying-1",
+		tradingId: "trading-1",
+	});
 });
 
 test("高平普通挂号授权过期后仍可补交医院优惠H5/50且不创建微信现金分项", async () => {

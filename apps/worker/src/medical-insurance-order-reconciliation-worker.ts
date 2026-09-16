@@ -661,6 +661,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		);
 		if (!updated) throw new Error("medical order version conflict");
 		let hisCompleted = false;
+		let hisWritebackBlocked = false;
 		if (fullyPaid) {
 			if (
 				this.dependencies.postPayment &&
@@ -724,19 +725,33 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			} else {
 				throw new Error("medical-insurance-post-payment-not-configured");
 			}
+			const settlementAfterCompletion =
+				await this.dependencies.orders.getSettlementContext(
+					order.ownerUserId,
+					order.medicalOrderId,
+				);
+			const writebackStatus =
+				settlementAfterCompletion?.settlementWriteback?.status;
+			hisWritebackBlocked =
+				writebackStatus === "failed" || writebackStatus === "unknown";
 		}
+		const writebackManualReview =
+			fullyPaid && !hisCompleted && hisWritebackBlocked;
 		const continueQuery =
-			(!fullyPaid && !providerFailed) || (fullyPaid && !hisCompleted);
+			(!fullyPaid && !providerFailed) ||
+			(fullyPaid && !hisCompleted && !hisWritebackBlocked);
 		const updatedTask = await this.updateTask(task, now, {
 			continueQuery,
-			manualReview: providerFailed,
+			manualReview: providerFailed || writebackManualReview,
 			...(providerFailed
 				? { lastErrorCode: "wechat-mixed-payment-failed" }
-				: fullyPaid && hisCompleted
-					? {}
-					: fullyPaid
-						? { lastErrorCode: "wechat-mixed-his-writeback-pending" }
-						: { lastErrorCode: "wechat-mixed-payment-pending" }),
+				: writebackManualReview
+					? { lastErrorCode: "wechat-mixed-his-writeback-failed" }
+					: fullyPaid && hisCompleted
+						? {}
+						: fullyPaid
+							? { lastErrorCode: "wechat-mixed-his-writeback-pending" }
+							: { lastErrorCode: "wechat-mixed-payment-pending" }),
 		});
 		if (updatedTask.status === "manual_review" && !providerFailed) {
 			await this.dependencies.orders.applySettlement(
@@ -753,13 +768,14 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				},
 			);
 		}
-		this.logger[providerFailed ? "error" : "info"](
+		this.logger[providerFailed || writebackManualReview ? "error" : "info"](
 			{
-				event: providerFailed
-					? "worker.payment.medical_wechat_query.manual_review_required"
-					: fullyPaid && hisCompleted
-						? "worker.payment.medical_wechat_query.confirmed"
-						: "worker.payment.medical_wechat_query.retry_scheduled",
+				event:
+					providerFailed || writebackManualReview
+						? "worker.payment.medical_wechat_query.manual_review_required"
+						: fullyPaid && hisCompleted
+							? "worker.payment.medical_wechat_query.confirmed"
+							: "worker.payment.medical_wechat_query.retry_scheduled",
 				taskId: task.taskId,
 				orderId: order.medicalOrderId,
 				queryAttempts: updatedTask.attempts,
@@ -775,7 +791,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			},
 			"Medical insurance WeChat mixed order reconciled",
 		);
-		return providerFailed
+		return providerFailed || writebackManualReview
 			? "manual_review"
 			: fullyPaid && hisCompleted
 				? "reconciled"

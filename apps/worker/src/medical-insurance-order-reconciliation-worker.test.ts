@@ -805,6 +805,110 @@ test("mixed payment finalizes HIS through .32 then .5 without creating .2 or cal
 	expect(settlement?.postPaymentCompletedAt).toBe(now.toISOString());
 });
 
+test(".32 failed writeback moves an otherwise paid mixed order to manual review without retry", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			amounts: {
+				totalFen: 100,
+				cashFen: 20,
+				personalAccountFen: 20,
+				fundFen: 50,
+				otherPaymentFen: 10,
+				hospitalPartFen: 10,
+			},
+			wechatMixTradeNo: "mix-writeback-failed-worker-001",
+			wechatOutTradeNo: "out-writeback-failed-worker-001",
+			wechatPaymentState: "prepay_ready",
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-worker-001",
+		"medical-order-worker-001",
+		{
+			businessId: "business-writeback-failed-worker-001",
+			businessCode: "trade-code-writeback-failed-worker-001",
+			hospitalId: "1001",
+			patientId: "2001",
+			insuredAreaCode: "140581",
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: ["trade-writeback-failed-worker-001"],
+			postPaymentComponents: [
+				prePaymentComponent("hospital_reduce", 30, "H5", "50"),
+				prePaymentComponent("fund", 50, "H5", "2"),
+				prePaymentComponent("personal_account", 20, "H5", "5"),
+			],
+			settlementWriteback: {
+				attemptedAt: "2026-09-03T00:00:01.000Z",
+				status: "failed",
+				providerRequestId: "notify-writeback-failed-worker-001",
+				providerStatus: "insur=SUCCESS,settle=FAIL",
+			},
+		},
+	);
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+	let finalizationCalls = 0;
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks,
+		orders,
+		medicalInsurance: {
+			query: async () => {
+				finalizationCalls += 1;
+				return evidence();
+			},
+		},
+		wechatPayment: {
+			createMixedOrder: async () => {
+				throw new Error("create is not used");
+			},
+			recoverMixedOrder: async () => {
+				throw new Error("recover is not used");
+			},
+			queryMixedOrder: async () => ({
+				mixState: "paid",
+				cashState: "paid",
+				insuranceState: "paid",
+				medInsPayStatus: "MED_INS_PAY_SUCCESS",
+				cashFen: 0,
+				totalFen: 100,
+				fundFen: 50,
+				personalAccountFen: 20,
+				otherPaymentFen: 10,
+				medicalCashFen: 20,
+				cashReduceDetails: [
+					{ cashReduceFen: 20, cashReduceType: "HOSPITAL_REDUCE" },
+				],
+				providerStatus: "MIX_PAY_SUCCESS/NO_SELF_PAY/MED_INS_PAY_SUCCESS",
+				trace: {
+					provider: "wechat-pay",
+					operation: "medical-mix-query",
+					requestId: "medical-writeback-failed-worker-001",
+				},
+			}),
+		},
+		postPayment: {
+			createPreOrder: async () => {
+				throw new Error(".2 must not run after payment");
+			},
+			completeSettlement: async () => {
+				throw new Error(".5 must not run after failed .32");
+			},
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("manual_review");
+	expect(finalizationCalls).toBe(1);
+	expect(
+		await orders.findByMedicalOrderId("medical-order-worker-001"),
+	).toMatchObject({ status: "manual_review" });
+	expect(await worker.runOnce(new Date(now.getTime() + 60_000))).toBe("idle");
+	expect(finalizationCalls).toBe(1);
+});
+
 test("nonzero med_ins_other_fee stays unmapped and blocks post-payment writeback", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(

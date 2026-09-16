@@ -1955,278 +1955,356 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		}
 
 		let settlementContext: MedicalInsuranceSettlementContext = stored;
-		if (
-			settlementContext.postPaymentComponents?.some(
-				(component) => component.state !== "succeeded",
-			)
-		) {
-			throw responseError(
-				"medical-insurance.2.27.2.32",
-				"支付后置分项尚未全部成功",
-			);
-		}
-		// `.32` 必须严格位于 6301 之后。6202 的 ordStas=3/4/5/6
-		// 只是结算候选，只有 6301 候选事实落库后才允许回写 HIS。
-		if (
-			settlementContext.settlementQuery6301?.statusClass !==
-			"settlement_candidate"
-		) {
-			throw responseError(
-				"medical-insurance.2.27.2.32",
-				"6301 尚未返回可后置结算状态，不能提交医院结算",
-				undefined,
-				{
-					failureStage: "validation",
-					responseInvalid: false,
-					requestOutcome: "not_sent",
-				},
-			);
-		}
-		if (
-			!settlementContext.settlementDetailsFetchedAt &&
-			settlementContext.upDetailList.length === 0
-		) {
-			const detailResponse = await zhongyangGet(
-				"medical-insurance.2.27.2.27",
-				"/msun-yb-app-miop/v1/out-insur-settle-infos",
-				context,
-				{
-					patId: settlementContext.patientId,
-					outSettleMainId: settlementContext.businessId,
-				},
-			);
-			const settleInfo = objectPayload(
-				detailResponse.data,
-				"medical-insurance.2.27.2.27",
-				detailResponse.requestId,
-			);
-			const details = arrayPayload(
-				settleInfo,
-				["outSettleDetailList", "out_settle_detail_list"],
-				"medical-insurance.2.27.2.27",
-				detailResponse.requestId,
-			);
-			options.logger?.info(
-				{
-					event: "medical-insurance.settlement-details.shape",
-					traceId: context.traceId,
-					orderId: input.orderId,
-					detailProviderRequestId: detailResponse.requestId,
-					...settlementDetailShape(details, []),
-				},
-				"Medical insurance stored settlement detail inputs inspected",
-			);
-			// 旧上下文没有前置快照时仍需补读 .27，但只取文档明确要求的
-			// outSettlePat 三个 ID；绝不把 .27 的 outNetworkSettleMain 当主单。
-			const outNetworkSettleMain = settlementPatientIdentifiers(settleInfo);
-			const fetchedAt = now().toISOString();
-			settlementContext = {
-				...settlementContext,
-				// 6202 已生成的主单字段优先，.27 只补充患者/就诊标识。
-				outNetworkSettleMain: {
-					...outNetworkSettleMain,
-					...settlementContext.outNetworkSettleMain,
-				},
-				settlementDetailsFetchedAt: fetchedAt,
-				settlementDetailsProviderRequestId: detailResponse.requestId,
-				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-					? (settleInfo.nationalUpDetailList as ProviderRecord[])
-					: settlementContext.nationalUpDetailList,
-			};
-			// 先记录“已读取”事实，哪怕明细映射失败也不能在后续
-			// 6301 重试中再次请求 .27；映射失败应停在人工核验。
-			await options.orders.saveSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-				settlementContext,
-			);
-			const upDetailList =
-				details.length > 0
-					? mapSettlementDetails(
-							details,
-							[],
-							"medical-insurance.2.27.2.32",
-							detailResponse.requestId,
-							input.businessType,
-						)
-					: settlementContext.upDetailList;
-			settlementContext = { ...settlementContext, upDetailList };
-			await options.orders.saveSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-				settlementContext,
-			);
-		}
-
-		const normalizedNetworkRegister = normalizeSettlementNetworkRegister(
-			settlementContext.networkRegister,
-			input.businessType,
-			settlementContext.insuredAreaCode,
-			settlementContext.outNetworkSettleMain,
-		);
-		if (
-			JSON.stringify(normalizedNetworkRegister) !==
-			JSON.stringify(settlementContext.networkRegister)
-		) {
-			settlementContext = {
-				...settlementContext,
-				networkRegister: normalizedNetworkRegister,
-			};
-			await options.orders.saveSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-				settlementContext,
-			);
-		}
-
-		const composedSettlementMain = composeOutNetworkSettleMain(
-			settlementContext,
-			{
-				amounts: input.amounts,
-				settlementInsurOrgId: DEFAULT_SETTLEMENT_INSUR_ORG_ID,
-				settlementTime: now(),
-			},
-		);
-		if (
-			Object.keys(composedSettlementMain).length !==
-				Object.keys(settlementContext.outNetworkSettleMain).length ||
-			Object.keys(composedSettlementMain).some(
-				(key) =>
-					composedSettlementMain[key] !==
-					settlementContext.outNetworkSettleMain[key],
-			)
-		) {
-			settlementContext = {
-				...settlementContext,
-				outNetworkSettleMain: composedSettlementMain,
-			};
-			await options.orders.saveSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-				settlementContext,
-			);
-			options.logger?.info(
-				{
-					event: "medical-insurance.settlement-main.composed",
-					traceId: context.traceId,
-					orderId: input.orderId,
-					fieldCount: Object.keys(composedSettlementMain).length,
-					fields: Object.keys(composedSettlementMain).sort(),
-				},
-				"Medical insurance settlement main composed from stored payment facts",
-			);
-		}
-
-		if (settlementContext.upDetailList.length === 0) {
-			throw responseError("medical-insurance.2.27.2.32", "真实费用明细不存在");
-		}
-		const existingTransId = providerField(
-			settlementContext.outNetworkSettleMain,
-			undefined,
-			["transId", "trans_id"],
-		);
-		const existingTransIdText = String(existingTransId ?? "").trim();
-		const matchingComponent = existingTransIdText
-			? settlementContext.postPaymentComponents?.find(
-					(component) =>
-						component.state === "succeeded" &&
-						component.payingId === existingTransIdText,
-				)
-			: undefined;
-		const finalPayingId =
-			matchingComponent?.payingId ?? settlementContext.payingId;
-		const finalTradingId =
-			matchingComponent?.tradingId ?? settlementContext.tradingId;
-		if (!finalPayingId || !finalTradingId) {
-			throw responseError(
-				"medical-insurance.2.27.2.32",
-				"支付后置分项尚未生成有效 payingId/tradingId",
-			);
-		}
-		if (existingTransIdText && existingTransIdText !== finalPayingId) {
-			throw responseError(
-				"medical-insurance.2.27.2.32",
-				"outNetworkSettleMain.transId 与 2.6.65.2 payingId 不一致",
-			);
-		}
-
-		const notifyPayload: Record<string, unknown> = {
-			hospitalId: settlementContext.hospitalId,
-			nationalUpDetailList: settlementContext.nationalUpDetailList,
-			networkRegister: normalizedNetworkRegister,
-			outNetworkSettleMain: {
-				...settlementContext.outNetworkSettleMain,
-				transId: finalPayingId,
-			},
-			outSettleMainId: settlementContext.businessId,
-			patId: settlementContext.patientId,
-			tradingId: finalTradingId,
-			upDetailList: settlementContext.upDetailList,
-		};
-		options.logger?.info(
-			{
-				event: "medical-insurance.2.27.2.32.requested",
-				traceId: context.traceId,
-				orderId: input.orderId,
-				settlementQueryProviderRequestId:
-					settlementContext.settlementQuery6301?.providerRequestId,
-				postPaymentComponentCount:
-					settlementContext.postPaymentComponents?.length ?? 0,
-				upDetailCount: settlementContext.upDetailList.length,
-				hasSettlementMain:
-					Object.keys(settlementContext.outNetworkSettleMain).length > 0,
-				hasPayingId: Boolean(finalPayingId),
-				hasTradingId: Boolean(finalTradingId),
-			},
-			"Medical insurance HIS settlement writeback requested after 6301",
-		);
-		const notifyResponse = await zhongyangPost(
-			"medical-insurance.2.27.2.32",
-			"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-			context,
-			notifyPayload,
-		);
-		const insur = String(
-			providerDeepValue(notifyResponse.data, ["insur"]) ?? "",
-		)
-			.trim()
-			.toUpperCase();
-		const settle = String(
-			providerDeepValue(notifyResponse.data, ["settle"]) ?? "",
-		)
-			.trim()
-			.toUpperCase();
-		options.logger?.info(
-			{
-				event: "medical-insurance.2.27.2.32.completed",
-				traceId: context.traceId,
-				orderId: input.orderId,
-				providerRequestId: notifyResponse.requestId,
-				insur: insur || "UNKNOWN",
-				settle: settle || "UNKNOWN",
-			},
-			"Medical insurance HIS settlement writeback completed",
-		);
-		const notifyTrace = trace(
-			"medical-insurance.2.27.2.32",
-			context,
-			[notifyResponse.requestId],
-			settlementContext.businessId,
-		);
-		if (
-			providerSuccessFlag(notifyResponse.data) === false ||
-			insur !== "SUCCESS" ||
-			settle !== "SUCCESS"
-		) {
+		const previousWriteback = settlementContext.settlementWriteback;
+		// 2.27.2.32 不是可重放查询。医保侧即使返回 HTTP 200 + settle=FAIL，
+		// 也可能已经占用结算 ID；一旦尝试过，后续查单任务不得再次提交。
+		if (previousWriteback?.status !== "succeeded" && previousWriteback) {
 			return {
 				state: "awaiting_confirmation",
 				amounts: input.amounts,
-				trace: notifyTrace,
+				trace: trace(
+					"medical-insurance.2.27.2.32",
+					context,
+					previousWriteback.providerRequestId
+						? [previousWriteback.providerRequestId]
+						: [],
+					settlementContext.businessId,
+				),
 				source: "yunhealth",
-				providerStatus: `insur=${insur || "UNKNOWN"},settle=${settle || "UNKNOWN"}`,
+				providerStatus:
+					previousWriteback.providerStatus ??
+					"2.27.2.32_writeback_already_attempted",
 				finality: "settlement_candidate",
 				authoritative: false,
 			};
+		}
+		let notifyRequestId = previousWriteback?.providerRequestId;
+		let notifyTrace = trace(
+			"medical-insurance.2.27.2.32",
+			context,
+			notifyRequestId ? [notifyRequestId] : [],
+			settlementContext.businessId,
+		);
+		if (previousWriteback?.status !== "succeeded") {
+			if (
+				settlementContext.postPaymentComponents?.some(
+					(component) => component.state !== "succeeded",
+				)
+			) {
+				throw responseError(
+					"medical-insurance.2.27.2.32",
+					"支付后置分项尚未全部成功",
+				);
+			}
+			// `.32` 必须严格位于 6301 之后。6202 的 ordStas=3/4/5/6
+			// 只是结算候选，只有 6301 候选事实落库后才允许回写 HIS。
+			if (
+				settlementContext.settlementQuery6301?.statusClass !==
+				"settlement_candidate"
+			) {
+				throw responseError(
+					"medical-insurance.2.27.2.32",
+					"6301 尚未返回可后置结算状态，不能提交医院结算",
+					undefined,
+					{
+						failureStage: "validation",
+						responseInvalid: false,
+						requestOutcome: "not_sent",
+					},
+				);
+			}
+			if (
+				!settlementContext.settlementDetailsFetchedAt &&
+				settlementContext.upDetailList.length === 0
+			) {
+				const detailResponse = await zhongyangGet(
+					"medical-insurance.2.27.2.27",
+					"/msun-yb-app-miop/v1/out-insur-settle-infos",
+					context,
+					{
+						patId: settlementContext.patientId,
+						outSettleMainId: settlementContext.businessId,
+					},
+				);
+				const settleInfo = objectPayload(
+					detailResponse.data,
+					"medical-insurance.2.27.2.27",
+					detailResponse.requestId,
+				);
+				const details = arrayPayload(
+					settleInfo,
+					["outSettleDetailList", "out_settle_detail_list"],
+					"medical-insurance.2.27.2.27",
+					detailResponse.requestId,
+				);
+				options.logger?.info(
+					{
+						event: "medical-insurance.settlement-details.shape",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						detailProviderRequestId: detailResponse.requestId,
+						...settlementDetailShape(details, []),
+					},
+					"Medical insurance stored settlement detail inputs inspected",
+				);
+				// 旧上下文没有前置快照时仍需补读 .27，但只取文档明确要求的
+				// outSettlePat 三个 ID；绝不把 .27 的 outNetworkSettleMain 当主单。
+				const outNetworkSettleMain = settlementPatientIdentifiers(settleInfo);
+				const fetchedAt = now().toISOString();
+				settlementContext = {
+					...settlementContext,
+					// 6202 已生成的主单字段优先，.27 只补充患者/就诊标识。
+					outNetworkSettleMain: {
+						...outNetworkSettleMain,
+						...settlementContext.outNetworkSettleMain,
+					},
+					settlementDetailsFetchedAt: fetchedAt,
+					settlementDetailsProviderRequestId: detailResponse.requestId,
+					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
+						? (settleInfo.nationalUpDetailList as ProviderRecord[])
+						: settlementContext.nationalUpDetailList,
+				};
+				// 先记录“已读取”事实，哪怕明细映射失败也不能在后续
+				// 6301 重试中再次请求 .27；映射失败应停在人工核验。
+				await options.orders.saveSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+					settlementContext,
+				);
+				const upDetailList =
+					details.length > 0
+						? mapSettlementDetails(
+								details,
+								[],
+								"medical-insurance.2.27.2.32",
+								detailResponse.requestId,
+								input.businessType,
+							)
+						: settlementContext.upDetailList;
+				settlementContext = { ...settlementContext, upDetailList };
+				await options.orders.saveSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+					settlementContext,
+				);
+			}
+
+			const normalizedNetworkRegister = normalizeSettlementNetworkRegister(
+				settlementContext.networkRegister,
+				input.businessType,
+				settlementContext.insuredAreaCode,
+				settlementContext.outNetworkSettleMain,
+			);
+			if (
+				JSON.stringify(normalizedNetworkRegister) !==
+				JSON.stringify(settlementContext.networkRegister)
+			) {
+				settlementContext = {
+					...settlementContext,
+					networkRegister: normalizedNetworkRegister,
+				};
+				await options.orders.saveSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+					settlementContext,
+				);
+			}
+
+			const composedSettlementMain = composeOutNetworkSettleMain(
+				settlementContext,
+				{
+					amounts: input.amounts,
+					settlementInsurOrgId: DEFAULT_SETTLEMENT_INSUR_ORG_ID,
+					settlementTime: now(),
+				},
+			);
+			if (
+				Object.keys(composedSettlementMain).length !==
+					Object.keys(settlementContext.outNetworkSettleMain).length ||
+				Object.keys(composedSettlementMain).some(
+					(key) =>
+						composedSettlementMain[key] !==
+						settlementContext.outNetworkSettleMain[key],
+				)
+			) {
+				settlementContext = {
+					...settlementContext,
+					outNetworkSettleMain: composedSettlementMain,
+				};
+				await options.orders.saveSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+					settlementContext,
+				);
+				options.logger?.info(
+					{
+						event: "medical-insurance.settlement-main.composed",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						fieldCount: Object.keys(composedSettlementMain).length,
+						fields: Object.keys(composedSettlementMain).sort(),
+					},
+					"Medical insurance settlement main composed from stored payment facts",
+				);
+			}
+
+			if (settlementContext.upDetailList.length === 0) {
+				throw responseError(
+					"medical-insurance.2.27.2.32",
+					"真实费用明细不存在",
+				);
+			}
+			const primaryMedicalComponent =
+				settlementContext.postPaymentComponents?.find(
+					(component) =>
+						component.kind === "fund" &&
+						component.payTypeId === "2" &&
+						component.state === "succeeded" &&
+						Boolean(component.payingId && component.tradingId),
+				);
+			const finalPayingId =
+				primaryMedicalComponent?.payingId ?? settlementContext.payingId;
+			const finalTradingId =
+				primaryMedicalComponent?.tradingId ?? settlementContext.tradingId;
+			if (!finalPayingId || !finalTradingId) {
+				throw responseError(
+					"medical-insurance.2.27.2.32",
+					"支付后置分项尚未生成有效 payingId/tradingId",
+				);
+			}
+			const existingTransId = providerField(
+				settlementContext.outNetworkSettleMain,
+				undefined,
+				["transId", "trans_id"],
+			);
+			const existingTransIdText = String(existingTransId ?? "").trim();
+			if (existingTransIdText && existingTransIdText !== finalPayingId) {
+				options.logger?.warn(
+					{
+						event: "medical-insurance.2.27.2.32.trans-id-corrected",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						existingTransId: existingTransIdText,
+						finalPayingId,
+					},
+					"Medical insurance .32 transId corrected to payTypeId=2 payingId",
+				);
+			}
+
+			const notifyPayload: Record<string, unknown> = {
+				hospitalId: settlementContext.hospitalId,
+				nationalUpDetailList: settlementContext.nationalUpDetailList,
+				networkRegister: normalizedNetworkRegister,
+				outNetworkSettleMain: {
+					...settlementContext.outNetworkSettleMain,
+					transId: finalPayingId,
+				},
+				outSettleMainId: settlementContext.businessId,
+				patId: settlementContext.patientId,
+				tradingId: finalTradingId,
+				upDetailList: settlementContext.upDetailList,
+			};
+			options.logger?.info(
+				{
+					event: "medical-insurance.2.27.2.32.requested",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					settlementQueryProviderRequestId:
+						settlementContext.settlementQuery6301?.providerRequestId,
+					postPaymentComponentCount:
+						settlementContext.postPaymentComponents?.length ?? 0,
+					upDetailCount: settlementContext.upDetailList.length,
+					hasSettlementMain:
+						Object.keys(settlementContext.outNetworkSettleMain).length > 0,
+					hasPayingId: Boolean(finalPayingId),
+					hasTradingId: Boolean(finalTradingId),
+				},
+				"Medical insurance HIS settlement writeback requested after 6301",
+			);
+			const attemptedAt = now().toISOString();
+			settlementContext = {
+				...settlementContext,
+				settlementWriteback: {
+					attemptedAt,
+					status: "unknown",
+				},
+			};
+			// 在发送不可重放的 .32 前先落库“已尝试”事实；即使网络或进程在
+			// 返回前中断，后续查单也不得再次向医保提交同一个结算 ID。
+			await options.orders.saveSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+				settlementContext,
+			);
+			const notifyResponse = await zhongyangPost(
+				"medical-insurance.2.27.2.32",
+				"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+				context,
+				notifyPayload,
+			);
+			const insur = String(
+				providerDeepValue(notifyResponse.data, ["insur"]) ?? "",
+			)
+				.trim()
+				.toUpperCase();
+			const settle = String(
+				providerDeepValue(notifyResponse.data, ["settle"]) ?? "",
+			)
+				.trim()
+				.toUpperCase();
+			options.logger?.info(
+				{
+					event: "medical-insurance.2.27.2.32.completed",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					providerRequestId: notifyResponse.requestId,
+					insur: insur || "UNKNOWN",
+					settle: settle || "UNKNOWN",
+				},
+				"Medical insurance HIS settlement writeback completed",
+			);
+			notifyRequestId = notifyResponse.requestId;
+			notifyTrace = trace(
+				"medical-insurance.2.27.2.32",
+				context,
+				[notifyResponse.requestId],
+				settlementContext.businessId,
+			);
+			const writebackStatus =
+				providerSuccessFlag(notifyResponse.data) !== false &&
+				insur === "SUCCESS" &&
+				settle === "SUCCESS"
+					? "succeeded"
+					: "failed";
+			settlementContext = {
+				...settlementContext,
+				settlementWriteback: {
+					attemptedAt,
+					status: writebackStatus,
+					providerRequestId: notifyResponse.requestId,
+					providerStatus: `insur=${insur || "UNKNOWN"},settle=${settle || "UNKNOWN"}`,
+				},
+			};
+			await options.orders.saveSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+				settlementContext,
+			);
+			if (
+				providerSuccessFlag(notifyResponse.data) === false ||
+				insur !== "SUCCESS" ||
+				settle !== "SUCCESS"
+			) {
+				return {
+					state: "awaiting_confirmation",
+					amounts: input.amounts,
+					trace: notifyTrace,
+					source: "yunhealth",
+					providerStatus: `insur=${insur || "UNKNOWN"},settle=${settle || "UNKNOWN"}`,
+					finality: "settlement_candidate",
+					authoritative: false,
+				};
+			}
 		}
 
 		// 纯医保没有微信自费金额：.32 成功即完成医保结算，不调用 .5。
@@ -2275,7 +2353,10 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		const completeTrace = trace(
 			"medical-insurance.2.27.2.32/2.6.65.5",
 			context,
-			[notifyResponse.requestId, completeResponse.requestId],
+			[
+				...(notifyRequestId ? [notifyRequestId] : []),
+				completeResponse.requestId,
+			],
 			settlementContext.businessId,
 		);
 		if (

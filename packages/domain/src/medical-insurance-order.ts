@@ -382,6 +382,17 @@ export type MedicalInsuranceSettlementContext = {
 	/** 微信/医保最终成功后，按金额分项后置提交的 2.6.65.2 流水。 */
 	postPaymentComponents?: readonly MedicalInsurancePostPaymentComponent[];
 	postPaymentCompletedAt?: string;
+	/**
+	 * 2.27.2.32 是医保侧不可重放的结算回写：一次请求失败后不能由查单任务
+	 * 自动再次提交，否则医保侧会返回“结算 ID 已存在”。该事实用于跨进程
+	 * 阻止重复回写；成功时只允许继续未完成的 .5。
+	 */
+	settlementWriteback?: {
+		attemptedAt: string;
+		status: "succeeded" | "failed" | "unknown";
+		providerRequestId?: string;
+		providerStatus?: string;
+	};
 	/** 6201 返回的独立医保收银台地址；短期保存，仅通过专用接口返回给支付小程序。 */
 	cashierUrl?: string;
 	/**

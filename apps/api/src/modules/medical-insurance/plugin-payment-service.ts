@@ -521,10 +521,30 @@ export class MedicalInsurancePluginPaymentService {
 						: {}),
 					updatedAt: this.now().toISOString(),
 				};
+				// .32 的 PayNotifyService 只接受医保统筹分项（payTypeId=2）
+				// 的 payingId/tradingId。不能让后续的医院减免、个账或微信
+				// 分项覆盖结算上下文的主流水关联键。
+				const primaryMedicalComponent = components.find(
+					(component) =>
+						component.kind === "fund" &&
+						component.payTypeId === "2" &&
+						component.state === "succeeded" &&
+						component.payingId &&
+						component.tradingId,
+				);
+				const primaryPayingId =
+					primaryMedicalComponent?.payingId ??
+					settlement.payingId ??
+					result.payingId;
+				const primaryTradingId =
+					primaryMedicalComponent?.tradingId ??
+					settlement.tradingId ??
+					result.tradingId;
 				settlement = {
 					...settlement,
-					payingId: result.payingId,
-					tradingId: result.tradingId,
+					...(primaryPayingId && primaryTradingId
+						? { payingId: primaryPayingId, tradingId: primaryTradingId }
+						: {}),
 					postPaymentComponents: components,
 				};
 				await this.dependencies.orders.saveSettlementContext(

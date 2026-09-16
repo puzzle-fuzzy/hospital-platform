@@ -1884,6 +1884,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			settlementContexts.set(medicalOrderId, {
 				...context,
 				...(context.plugin ? { plugin: { ...context.plugin } } : {}),
+				...(context.settlementWriteback
+					? { settlementWriteback: { ...context.settlementWriteback } }
+					: {}),
 				...(context.postPaymentComponents
 					? {
 							postPaymentComponents: context.postPaymentComponents.map(
@@ -1921,6 +1924,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			settlementContexts.set(medicalOrderId, {
 				...context,
 				...(context.plugin ? { plugin: { ...context.plugin } } : {}),
+				...(context.settlementWriteback
+					? { settlementWriteback: { ...context.settlementWriteback } }
+					: {}),
 				...(context.postPaymentComponents
 					? {
 							postPaymentComponents: context.postPaymentComponents.map(
@@ -1956,6 +1962,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			return {
 				...context,
 				...(context.plugin ? { plugin: { ...context.plugin } } : {}),
+				...(context.settlementWriteback
+					? { settlementWriteback: { ...context.settlementWriteback } }
+					: {}),
 				...(context.postPaymentComponents
 					? {
 							postPaymentComponents: context.postPaymentComponents.map(

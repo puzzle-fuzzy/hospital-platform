@@ -588,6 +588,120 @@ test("纯医保零元订单在 .32 成功后不调用 .5", async () => {
 	expect(querySettlementCalls).toBe(1);
 });
 
+test(".32 失败后不重复提交同一结算 ID", async () => {
+	const medicalOrder = {
+		medicalOrderId: "medical-order-writeback-failed-001",
+		ownerUserId: "user-writeback-failed-001",
+		businessType: "registration",
+		appointmentId: "appointment-writeback-failed-001",
+		amounts: {
+			totalFen: 100,
+			cashFen: 0,
+			personalAccountFen: 0,
+			fundFen: 100,
+		},
+	} as MedicalInsuranceOrder;
+	let settlementContext: MedicalInsuranceSettlementContext = {
+		businessId: "business-writeback-failed-001",
+		hospitalId: "hospital-writeback-failed-001",
+		patientId: "patient-writeback-failed-001",
+		insuredAreaCode: "140581",
+		networkRegister: { insuType: "310", memberNo: "member-001" },
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [{ detailId: "detail-writeback-failed-001" }],
+		tradeOrderIds: ["trade-writeback-failed-001"],
+		postPaymentCompletedAt: "2026-09-16T03:00:00.000Z",
+		postPaymentComponents: [
+			{
+				componentId: "medical-order-writeback-failed-001:fund",
+				kind: "fund",
+				totalFen: 100,
+				amountFen: 100,
+				payModel: "H5",
+				payTypeId: "2",
+				recordCode: "record-writeback-failed-001",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "paying-writeback-failed-001",
+				tradingId: "trading-writeback-failed-001",
+				updatedAt: "2026-09-16T03:00:00.000Z",
+			},
+		],
+		settlementQuery6301: {
+			queriedAt: "2026-09-16T03:00:00.000Z",
+			providerRequestId: "fsi-6301-writeback-failed-001",
+			payOrdId: "pay-order-writeback-failed-001",
+			ordStas: "6",
+			statusClass: "settlement_candidate",
+			amounts: {
+				totalFen: 100,
+				cashFen: 0,
+				personalAccountFen: 0,
+				fundFen: 100,
+			},
+		},
+	};
+	let notifyCalls = 0;
+	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		legacyFsi: {} as never,
+		orders: {
+			findByMedicalOrderId: async () => medicalOrder,
+			getSettlementContext: async () => settlementContext,
+			saveSettlementContext: async (
+				_owner: string,
+				_orderId: string,
+				next: MedicalInsuranceSettlementContext,
+			) => {
+				settlementContext = next;
+			},
+		} as never,
+		authorizations: {} as never,
+		credentials: {} as never,
+		relayUrl: "https://relay.example",
+		relayAuthorizationToken: "synthetic-token",
+		foundationBaseUrl: "https://foundation.example",
+		zhongyangBaseUrl: "https://zhongyang.example",
+		fetcher: async (input) => {
+			if (new URL(String(input)).pathname.endsWith("/settle-info/notify")) {
+				notifyCalls += 1;
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						insur: "SUCCESS",
+						settle: "FAIL",
+						memo: "PayNotifyService not found",
+					},
+				}),
+				{ status: 200, headers: { "content-type": "application/json" } },
+			);
+		},
+	});
+
+	const input = {
+		orderId: medicalOrder.medicalOrderId,
+		ownerUserId: medicalOrder.ownerUserId,
+		cashPaymentConfirmed: true,
+	};
+	const first = await gateway.query(input, context);
+	const second = await gateway.query(input, context);
+	expect(first).toMatchObject({
+		state: "awaiting_confirmation",
+		authoritative: false,
+	});
+	expect(second).toMatchObject({
+		state: "awaiting_confirmation",
+		authoritative: false,
+	});
+	expect(notifyCalls).toBe(1);
+	expect(settlementContext.settlementWriteback).toMatchObject({
+		status: "failed",
+		providerStatus: "insur=SUCCESS,settle=FAIL",
+	});
+});
+
 test("6202 后先落库 6301 候选，再调用 .32", async () => {
 	const medicalOrder = {
 		medicalOrderId: "medical-order-sequence-001",
@@ -618,7 +732,7 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 			networkPatClassId: "network-class-sequence-001",
 			outVisitRecordId: "visit-sequence-001",
 		},
-		outNetworkSettleMain: {},
+		outNetworkSettleMain: { transId: "paying-hospital-reduce" },
 		nationalUpDetailList: [],
 		upDetailList: [
 			{
@@ -640,6 +754,20 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 		payingId: "paying-sequence-001",
 		tradingId: "trading-sequence-001",
 		postPaymentComponents: [
+			{
+				componentId: "medical-order-sequence-001:hospital-reduce",
+				kind: "hospital_reduce",
+				totalFen: 1000,
+				amountFen: 200,
+				payModel: "H5",
+				payTypeId: "50",
+				recordCode: "record-hospital-reduce-001",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "paying-hospital-reduce",
+				tradingId: "trading-hospital-reduce",
+				updatedAt: "2026-09-15T19:01:00.000Z",
+			},
 			{
 				componentId: "medical-order-sequence-001:fund",
 				kind: "fund",
@@ -798,6 +926,7 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 	]);
 	const notifyBody = providerBodies.at(-1)?.body;
 	expect(notifyBody?.outNetworkSettleMain).toMatchObject({
+		transId: "paying-sequence-001",
 		fixmedinsCode: "H14058101270",
 		fixmedinsName: "高平市人民医院",
 		insurOrgId: 10001,
