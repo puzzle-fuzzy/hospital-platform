@@ -96,7 +96,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 最终状态查询、退款/HIS 回写和门诊自费终结链路继续保持 fail-closed；不能把目录 gate 或
 医保支付 gate 视为这些未确认能力的授权。
 
-门诊缴费 Phase 7E 当前只实现“费用目录查询”，不等同于已经接通支付：
+门诊缴费 Phase 7E 的列表仍是只读；支付执行由独立的医保支付 gate 负责，不能把列表结果当作支付完成：
 
 - 使用 `/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records`，服务端从 owner-scoped 的内部 `patientId` 解析众阳患者映射；`patId`、provider 订单号和完整原始字段不会进入小程序请求或公开 contract；
 - 服务端固定最近 30 个中国标准时间日的查询窗口，并固定 `authSysCode` 配置；该渠道码只能在 adapter 构造时注入，不能作为单次查询参数被调用方覆盖。时间格式化显式使用 `Asia/Shanghai`，不能继承服务器进程时区；账单 `billDate` 严格使用 `YYYY-MM-DD HH:mm:ss`，adapter 会校验真实自然日和时分秒范围；小程序只能选择 `unpaid` 或 `paid`，不能提交金额、渠道、患者 provider 标识或结算状态；
