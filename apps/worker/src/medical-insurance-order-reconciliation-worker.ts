@@ -6,6 +6,7 @@ import type {
 	MedicalInsurancePostPaymentComponent,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceSettlementContext,
 	MedicalInsuranceSettlementEvidence,
 	MedicalInsuranceSettlementEvidenceFinality,
 	MedicalInsuranceWechatPaymentGateway,
@@ -237,6 +238,24 @@ function reconciliationFailureCode(error: unknown): string | undefined {
 		return "concurrent-state-change";
 	}
 	return undefined;
+}
+
+/**
+ * 2.27.2.32 的成功回写是不可重放的权威事实。
+ *
+ * `ord_stas` 只允许保存 6202/6301 的短状态，不能把
+ * `completion=isSettle=1` 之类的诊断文本写入数据库；诊断值留在加密结算
+ * 上下文和日志中，订单状态迁移只使用已有的短状态快照。
+ */
+function successfulSettlementWriteback(
+	context: MedicalInsuranceSettlementContext | undefined,
+): boolean {
+	const providerStatus = context?.settlementWriteback?.providerStatus ?? "";
+	return (
+		context?.settlementWriteback?.status === "succeeded" &&
+		/(^|,)insur=SUCCESS(,|$)/u.test(providerStatus) &&
+		/(^|,)settle=SUCCESS(,|$)/u.test(providerStatus)
+	);
 }
 
 function candidateState(
@@ -515,25 +534,53 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		}
 
 		// cashPaymentConfirmed=true 进入 legacy FSI 最终确认：先调用 2.27.2.32
-		// 回写医保支付结果，成功后才调用 2.6.65.5 完成 HIS 结算。
-		const completion = await this.dependencies.medicalInsurance.query(
-			{
-				orderId: order.medicalOrderId,
-				ownerUserId: order.ownerUserId,
-				cashPaymentConfirmed: true,
-			},
-			{
-				...context,
-				idempotencyKey: `medical-post-payment-finalize:${order.medicalOrderId}`,
-			},
+		// 回写医保支付结果；`.32` 的 SUCCESS 是可判定的支付成功事实，
+		// `.5` 仍按既有链路尝试，但其异常不能再阻塞已成功的支付结果页。
+		let completion: MedicalInsuranceSettlementEvidence | undefined;
+		let completionError: unknown;
+		try {
+			completion = await this.dependencies.medicalInsurance.query(
+				{
+					orderId: order.medicalOrderId,
+					ownerUserId: order.ownerUserId,
+					cashPaymentConfirmed: true,
+				},
+				{
+					...context,
+					idempotencyKey: `medical-post-payment-finalize:${order.medicalOrderId}`,
+				},
+			);
+		} catch (error) {
+			completionError = error;
+		}
+		const settlementAfterFinalize =
+			await this.dependencies.orders.getSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+			);
+		const writebackSucceeded = successfulSettlementWriteback(
+			settlementAfterFinalize,
 		);
-		if (
-			completion.state !== "insurance_settled" ||
-			completion.finality !== "paid" ||
-			!completion.authoritative ||
-			!sameAmounts(order, completion)
-		) {
-			return false;
+		const completionAccepted = Boolean(
+			completion &&
+				completion.state === "insurance_settled" &&
+				completion.finality === "paid" &&
+				completion.authoritative &&
+				sameAmounts(order, completion),
+		);
+		if (completionError && !writebackSucceeded) throw completionError;
+		if (!completionAccepted && !writebackSucceeded) return false;
+		if (writebackSucceeded && !completionAccepted) {
+			this.logger.warn(
+				{
+					event: "worker.payment.medical_wechat_query.writeback_succeeded",
+					traceId: context.traceId,
+					orderId: order.medicalOrderId,
+					completionErrorName:
+						completionError instanceof Error ? completionError.name : undefined,
+				},
+				"Medical insurance .32 writeback succeeded; treating payment as settled",
+			);
 		}
 		const latest = await this.dependencies.orders.findByMedicalOrderId(
 			order.medicalOrderId,
@@ -545,7 +592,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			latest.version,
 			{
 				status: "insurance_settled",
-				ordStas: completion.providerStatus,
+				// ord_stas 是 VARCHAR(8)，只保存 6202/6301 的短状态快照；
+				// .32/.5 的完整诊断值留在 settlement context 中。
+				ordStas: latest.ordStas,
 				amounts: latest.amounts,
 				setlType: latest.setlType,
 				revsTokenHash: latest.revsTokenHash,
@@ -553,7 +602,28 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				wechatPaymentState: "cash_paid",
 			},
 		);
-		return completed?.status === "insurance_settled";
+		if (completed?.status === "insurance_settled") return true;
+		// API 通知或另一轮 Worker 可能在完成 HIS 回写期间先推进了版本；
+		// 重新读取一次，避免已确认订单继续停在 pending。
+		const refreshed = await this.dependencies.orders.findByMedicalOrderId(
+			latest.medicalOrderId,
+		);
+		if (!refreshed) return false;
+		if (refreshed.status === "insurance_settled") return true;
+		const retried = await this.dependencies.orders.applySettlement(
+			refreshed.medicalOrderId,
+			refreshed.version,
+			{
+				status: "insurance_settled",
+				ordStas: refreshed.ordStas,
+				amounts: refreshed.amounts,
+				setlType: refreshed.setlType,
+				revsTokenHash: refreshed.revsTokenHash,
+				revsTokenExpiresAt: refreshed.revsTokenExpiresAt,
+				wechatPaymentState: "cash_paid",
+			},
+		);
+		return retried?.status === "insurance_settled";
 	}
 
 	private async reconcileWechatMixedOrder(
@@ -711,7 +781,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 						updated.version,
 						{
 							status: "insurance_settled",
-							ordStas: completion.providerStatus,
+							// ord_stas 是 VARCHAR(8)，保留 6301 的短状态快照；
+							// 后置接口的完整结果已在加密结算上下文中保存。
+							ordStas: updated.ordStas,
 							amounts: updated.amounts,
 							setlType: updated.setlType,
 							revsTokenHash: updated.revsTokenHash,
@@ -1027,6 +1099,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 						maxAttempts: MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 						reason: "provider-query-failed",
 						errorName: error instanceof Error ? error.name : "UnknownError",
+						...(error instanceof Error && error.message
+							? { errorMessage: error.message }
+							: {}),
 						...(failureCode ? { failureCode } : {}),
 						...providerFailureMetadata(error),
 					},
@@ -1041,6 +1116,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 					orderId: task.medicalOrderId,
 					queryAttempts: retryTask.attempts,
 					errorName: error instanceof Error ? error.name : "UnknownError",
+					...(error instanceof Error && error.message
+						? { errorMessage: error.message }
+						: {}),
 					...(failureCode ? { failureCode } : {}),
 					...providerFailureMetadata(error),
 				},

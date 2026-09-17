@@ -398,12 +398,30 @@ Page<
 						return;
 					}
 					this.setData({
-						hasPendingPayment: false,
+						hasPendingPayment: true,
 						completed: false,
-						message: "上次医保支付未确认，支付上下文已清除，请重新点击医保支付",
+						stage: "cash-confirming",
+						message:
+							"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
 					});
 				})
 				.catch((error: unknown) => {
+					if (
+						error instanceof ApiError &&
+						["payment-prepay-unknown", "payment-prepay-in-progress"].includes(
+							error.code,
+						)
+					) {
+						this.setData({
+							hasPendingPayment: true,
+							completed: false,
+							stage: "cash-confirming",
+							error: paymentError(error),
+							message:
+								"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
+						});
+						return;
+					}
 					clearPendingPayment();
 					this.setData({
 						hasPendingPayment: false,
@@ -618,9 +636,11 @@ Page<
 			);
 			if (!confirmed) {
 				this.setData({
-					hasPendingPayment: false,
+					hasPendingPayment: true,
 					completed: false,
-					message: "支付结果未确认，支付上下文已清除，请重新点击医保支付",
+					stage: "cash-confirming",
+					message:
+						"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
 				});
 				return;
 			}
@@ -644,9 +664,11 @@ Page<
 				return;
 			}
 			this.setData({
-				hasPendingPayment: false,
+				hasPendingPayment: true,
 				completed: false,
-				message: "支付结果未确认，支付上下文已清除，请重新点击医保支付",
+				stage: "cash-confirming",
+				message:
+					"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
 			});
 			return;
 		}

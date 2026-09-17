@@ -959,16 +959,9 @@ export function resumeMedicalCashPaymentFromPending(
 		});
 	}
 	const current = saveCashPaymentPhase(pending);
-	return confirmMedicalCashPayment(current, onProgress, maxAttempts)
-		.then((confirmed) => {
-			if (!confirmed) clearPendingPayment();
-			return confirmed;
-		})
-		.catch((error: unknown) => {
-			void error;
-			clearPendingPayment();
-			throw error;
-		});
+	// 查询窗口结束只代表“暂未读到最终状态”，不能清除仍可恢复的订单。
+	// 明确失败由 queryMedicalCashPayment 抛出；调用方再按失败类型清理。
+	return confirmMedicalCashPayment(current, onProgress, maxAttempts);
 }
 
 export async function continueMedicalCashPayment(
@@ -977,6 +970,7 @@ export async function continueMedicalCashPayment(
 ): Promise<void> {
 	const current = saveCashPaymentPhase(pending);
 	let paymentResponse: unknown;
+	let paymentResponseUnknown = false;
 	try {
 		paymentResponse = await requestWithSession<unknown>({
 			url: `/payments/medical-insurance/orders/${encodeURIComponent(current.orderId)}/wechat-pay`,
@@ -984,8 +978,32 @@ export async function continueMedicalCashPayment(
 			idempotencyKey: current.wechatPayIdempotencyKey,
 		});
 	} catch (error) {
-		clearPendingPayment();
-		throw error;
+		// 50250 只表示本次预支付响应未知/已过期，不能清除仍可查单的
+		// 医保订单。先直接查官方混合订单，若 .32 已成功则会进入结果页。
+		if (error instanceof ApiError && error.code === "payment-prepay-unknown") {
+			paymentResponseUnknown = true;
+		} else {
+			clearPendingPayment();
+			throw error;
+		}
+	}
+	if (paymentResponseUnknown && paymentResponse === undefined) {
+		onProgress(
+			"cash-confirming",
+			"支付参数已过期或未返回，正在确认医保订单结果，请勿重复付款",
+		);
+		let confirmed: boolean;
+		try {
+			confirmed = await confirmMedicalCashPayment(current, onProgress);
+		} catch (error) {
+			clearPendingPayment();
+			throw error;
+		}
+		if (confirmed) return;
+		throw new ApiError(
+			"微信医保支付仍在确认，请稍后点击医保支付继续，勿重复付款",
+			{ code: "payment-prepay-in-progress" },
+		);
 	}
 	const payment = readMedicalWechatPayment(paymentResponse);
 	if (payment.medInsFailReason) {
@@ -1034,7 +1052,9 @@ export async function continueMedicalCashPayment(
 		throw error;
 	}
 	if (confirmed) return;
-	clearPendingPayment();
+	// 收银台超时（50250）后保留 pending，让用户稍后继续查单；
+	// 只有明确失败的分支才会在前面清除上下文。
+	if (!paymentResponseUnknown) clearPendingPayment();
 	throw new ApiError(
 		"微信医保支付仍在确认，请稍后点击医保支付继续，勿重复付款",
 		{ code: "payment-prepay-in-progress" },

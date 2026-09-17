@@ -197,6 +197,18 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 				}
 			})
 			.catch((error: unknown) => {
+				if (
+					error instanceof ApiError &&
+					["payment-prepay-unknown", "payment-prepay-in-progress"].includes(
+						error.code,
+					)
+				) {
+					this.setData({
+						paymentMessage:
+							"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
+					});
+					return;
+				}
 				clearPendingPayment();
 				this.setData({
 					paymentMessage: errorMessageWithCode(
