@@ -26,6 +26,10 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, fetchLogDetail, fetchLogPage, fetchLogRaw } from "./api";
+import {
+	pairRawLogInvocations,
+	type RawLogInvocation,
+} from "./raw-log-invocations";
 import type {
 	AdminLogLevel,
 	AdminLogPage,
@@ -69,18 +73,127 @@ function optionalText(value: string | undefined): string {
 	return value || "—";
 }
 
-function prettyText(value: string): string {
-	try {
-		return JSON.stringify(JSON.parse(value), null, 2);
-	} catch {
-		return value;
-	}
+function rawLayerLabel(layer: RawLogInvocation["layer"]): string {
+	if (layer === "transport") return "传输层";
+	if (layer === "logical") return "业务层";
+	if (layer === "legacy") return "旧 FSI 层";
+	return "其他层";
 }
 
-function rawEntryTitle(entry: RawLogEntry): string {
-	const direction = entry.direction === "request" ? "请求" : "返回";
-	const operation = entry.operation || entry.event;
-	return `${direction} · ${operation}`;
+function rawEntryPanel(label: string, entry?: RawLogEntry) {
+	if (!entry) {
+		return (
+			<Card size="small" title={label}>
+				<Alert
+					type="warning"
+					showIcon
+					title={`${label}缺失`}
+					description="没有找到对应的原始日志记录，不能把缺失的一侧当作成功。"
+				/>
+			</Card>
+		);
+	}
+	return (
+		<Card size="small" title={label}>
+			<Descriptions
+				bordered
+				size="small"
+				column={1}
+				items={[
+					{
+						key: "timestamp",
+						label: "时间",
+						children: formatTime(entry.timestamp),
+					},
+					{
+						key: "status",
+						label: "HTTP 状态",
+						children: statusTag(entry.statusCode),
+					},
+					{
+						key: "encoding",
+						label: "编码/分块",
+						children: `${entry.bodyEncoding} · ${entry.chunkCount} 块`,
+					},
+					{
+						key: "integrity",
+						label: "完整性",
+						children: entry.complete ? (
+							<Tag color="success">chunk / UTF-8 / SHA-256 已校验</Tag>
+						) : (
+							<Tag color="warning">未完整还原：{entry.error || "未知原因"}</Tag>
+						),
+					},
+					{
+						key: "headers",
+						label: "请求/返回头",
+						children: entry.headersText ? (
+							<pre className="raw-log-pre">{entry.headersText}</pre>
+						) : (
+							"—"
+						),
+					},
+					{
+						key: "url",
+						label: "地址",
+						children: optionalText(entry.url),
+					},
+					{
+						key: "body",
+						label: "原始 Body",
+						children:
+							entry.bodyText !== undefined ? (
+								<pre className="raw-log-pre">{entry.bodyText}</pre>
+							) : (
+								"—"
+							),
+					},
+				]}
+			/>
+		</Card>
+	);
+}
+
+function rawInvocationPanel(invocation: RawLogInvocation) {
+	const correlation =
+		invocation.traceId || invocation.requestId || invocation.providerRequestId;
+	return (
+		<Space orientation="vertical" size={8} style={{ width: "100%" }}>
+			<Descriptions
+				bordered
+				size="small"
+				column={1}
+				items={[
+					{
+						key: "layer",
+						label: "日志层",
+						children: rawLayerLabel(invocation.layer),
+					},
+					{
+						key: "attempt",
+						label: "调用序号",
+						children:
+							invocation.attempt === 0
+								? "首次调用"
+								: `第 ${invocation.attempt + 1} 次（重试）`,
+					},
+					{
+						key: "correlation",
+						label: "关联号",
+						children: optionalText(correlation),
+					},
+				]}
+			/>
+			<Flex className="raw-invocation-panes" gap={12} wrap="wrap">
+				<div className="raw-invocation-pane">
+					{rawEntryPanel("入参 JSON", invocation.request)}
+				</div>
+				<div className="raw-invocation-pane">
+					{rawEntryPanel("返回 JSON", invocation.response)}
+				</div>
+			</Flex>
+		</Space>
+	);
 }
 
 export function LogPanel({
@@ -110,6 +223,10 @@ export function LogPanel({
 	const [rawTrace, setRawTrace] = useState<RawLogTrace>();
 	const [rawLoading, setRawLoading] = useState(false);
 	const detailRequestRef = useRef(0);
+	const rawInvocations = useMemo(
+		() => (rawTrace ? pairRawLogInvocations(rawTrace) : []),
+		[rawTrace],
+	);
 
 	const filterQuery = useMemo<AdminLogQuery>(
 		() => ({
@@ -491,6 +608,33 @@ export function LogPanel({
 									size={12}
 									style={{ width: "100%" }}
 								>
+									<Descriptions
+										bordered
+										size="small"
+										column={2}
+										items={[
+											{
+												key: "invocations",
+												label: "实际调用",
+												children: `${rawInvocations.length} 次`,
+											},
+											{
+												key: "complete",
+												label: "完整 request/response",
+												children: `${rawInvocations.filter((item) => item.complete).length} 次`,
+											},
+											{
+												key: "requests",
+												label: "入参 JSON",
+												children: `${rawInvocations.filter((item) => item.request).length} 份`,
+											},
+											{
+												key: "responses",
+												label: "返回 JSON",
+												children: `${rawInvocations.filter((item) => item.response).length} 份`,
+											},
+										]}
+									/>
 									{rawTrace.truncated ? (
 										<Alert
 											type="warning"
@@ -499,79 +643,24 @@ export function LogPanel({
 											description="请缩小时间范围或使用更具体的 Provider 请求号继续查看。"
 										/>
 									) : null}
+									{rawInvocations.some((item) => !item.complete) ? (
+										<Alert
+											type="warning"
+											showIcon
+											title="链路存在未完整调用"
+											description="下面按调用序号分别展示入参和返回；缺失或校验失败的一侧保持明确标记，不合并成成功结果。"
+										/>
+									) : null}
 									<Collapse
-										items={rawTrace.entries.map((entry, index) => ({
-											key: `${entry.timestamp}-${index}`,
-											label: rawEntryTitle(entry),
-											extra: entry.complete ? (
+										items={rawInvocations.map((invocation) => ({
+											key: invocation.key,
+											label: `${invocation.operation || "原始调用"} · ${rawLayerLabel(invocation.layer)} · ${invocation.attempt === 0 ? "首次" : `重试 ${invocation.attempt + 1}`}`,
+											extra: invocation.complete ? (
 												<Tag color="success">已校验</Tag>
 											) : (
 												<Tag color="warning">不完整</Tag>
 											),
-											children: (
-												<Space
-													orientation="vertical"
-													size={8}
-													style={{ width: "100%" }}
-												>
-													<Descriptions
-														bordered
-														size="small"
-														column={1}
-														items={[
-															{
-																key: "timestamp",
-																label: "时间",
-																children: formatTime(entry.timestamp),
-															},
-															{
-																key: "requestId",
-																label: "关联号",
-																children: optionalText(
-																	entry.traceId ||
-																		entry.requestId ||
-																		entry.providerRequestId,
-																),
-															},
-															{
-																key: "url",
-																label: "地址",
-																children: optionalText(entry.url),
-															},
-															{
-																key: "headers",
-																label: "请求/返回头",
-																children: entry.headersText ? (
-																	<pre className="raw-log-pre">
-																		{prettyText(entry.headersText)}
-																	</pre>
-																) : (
-																	"—"
-																),
-															},
-														]}
-													/>
-													{entry.bodyText !== undefined ? (
-														<>
-															<Text strong>
-																{entry.direction === "request"
-																	? "请求 Body"
-																	: "返回 Body"}
-															</Text>
-															<pre className="raw-log-pre">
-																{prettyText(entry.bodyText)}
-															</pre>
-														</>
-													) : (
-														<Alert
-															type="warning"
-															showIcon
-															title="原文未能完整还原"
-															description={entry.error || "缺少日志块"}
-														/>
-													)}
-												</Space>
-											),
+											children: rawInvocationPanel(invocation),
 										}))}
 									/>
 									<Text type="secondary">
