@@ -1,4 +1,3 @@
-import { normalize1101Result, queryPayload } from "./insurance";
 import type {
 	AdminLogPage,
 	AdminLogQuery,
@@ -6,8 +5,6 @@ import type {
 	RawLogTrace,
 	CaptchaState,
 	LoginValues,
-	Normalized1101Result,
-	QueryValues,
 	Session,
 } from "./types";
 
@@ -151,26 +148,6 @@ export async function logout(session: Session): Promise<void> {
 		});
 	} finally {
 		clearSession();
-	}
-}
-
-export async function queryInsurance(
-	values: QueryValues,
-	session: Session,
-): Promise<Normalized1101Result> {
-	try {
-		const result = await request<unknown>("/api/insurance/1101", {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${session.accessToken}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(queryPayload(values)),
-		});
-		return normalize1101Result(result);
-	} catch (error) {
-		if (error instanceof ApiError && error.status === 401) clearSession();
-		throw error;
 	}
 }
 

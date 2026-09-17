@@ -9,11 +9,6 @@ const legacyUpstream = new URL(
 	Bun.env.LEGACY_HOSPITAL_API_BASE_URL?.trim() ||
 		"https://test-hp.meiyi.pro/api/v1",
 );
-const adminQueryUpstreamValue = Bun.env.ADMIN_QUERY_API_BASE_URL?.trim() || "";
-const adminQueryUpstream = adminQueryUpstreamValue
-	? new URL(adminQueryUpstreamValue)
-	: undefined;
-const adminQueryToken = Bun.env.ADMIN_QUERY_API_TOKEN?.trim() || "";
 const adminLogsUpstreamValue = Bun.env.ADMIN_LOGS_API_BASE_URL?.trim() || "";
 const adminLogsUpstream = adminLogsUpstreamValue
 	? new URL(adminLogsUpstreamValue)
@@ -29,22 +24,17 @@ const rateLimits = new Map<string, { count: number; expiresAt: number }>();
 const activeSessions = new Map<string, number>();
 const maxActiveSessions = 500;
 const maxSessionTokenLength = 4096;
-const rawLogWindowMs = 30 * 60 * 1_000;
+// 单条日志详情默认只查前后 15 分钟；traceId 已在元数据列表中确定，
+// 继续扫描半小时会把大量无关 raw chunk 传给管理端。需要更宽窗口时，
+// 使用受控 provider-trace-export 工具显式指定 since/until。
+const rawLogWindowMs = 15 * 60 * 1_000;
+const rawLogFallbackWindowMs = 30 * 60 * 1_000;
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 	throw new Error("INSURANCE_QUERY_PORT must be a valid TCP port");
 }
 if (legacyUpstream.protocol !== "https:") {
 	throw new Error("Legacy hospital API must use HTTPS");
-}
-if (
-	adminQueryUpstream &&
-	adminQueryUpstream.protocol !== "https:" &&
-	!(allowHttpUpstream && adminQueryUpstream.protocol === "http:")
-) {
-	throw new Error(
-		"Admin query API must use HTTPS unless HTTP is explicitly enabled",
-	);
 }
 if (
 	adminLogsUpstream &&
@@ -106,16 +96,6 @@ function optionalText(value: unknown, maxLength: number): string {
 	return normalized;
 }
 
-function identityNumber(value: unknown): string {
-	const normalized = requiredText(value, "IDENTITY_NUMBER", 18)
-		.replaceAll(/\s/g, "")
-		.toUpperCase();
-	if (!/^\d{15}$|^\d{17}[0-9X]$/u.test(normalized)) {
-		throw new Error("INVALID_IDENTITY_NUMBER");
-	}
-	return normalized;
-}
-
 function bearer(request: Request): string {
 	const authorization = request.headers.get("authorization")?.trim() || "";
 	if (!/^Bearer [A-Za-z0-9._~+/-]+=*$/u.test(authorization)) {
@@ -145,7 +125,8 @@ async function registerLoginSession(response: Response): Promise<void> {
 	try {
 		const payload = (await response.clone().json()) as unknown;
 		const envelope = isObject(payload) ? payload : undefined;
-		const firstData = envelope && isObject(envelope.data) ? envelope.data : undefined;
+		const firstData =
+			envelope && isObject(envelope.data) ? envelope.data : undefined;
 		const nestedData =
 			firstData && isObject(firstData.data) ? firstData.data : undefined;
 		const data = nestedData || firstData || envelope;
@@ -295,52 +276,6 @@ async function loginRequest(request: Request): Promise<Response> {
 	return response;
 }
 
-async function insuranceRequest(request: Request): Promise<Response> {
-	bearer(request);
-	const input = await requestJson(request);
-	const mode = requiredText(input.mode, "MODE", 32);
-	if (
-		mode !== "identity-card" &&
-		mode !== "electronic-credential" &&
-		mode !== "social-security-card"
-	) {
-		throw new Error("INVALID_MODE");
-	}
-	const certno = identityNumber(input.identityNumber);
-	const psnName = requiredText(input.name, "NAME", 50);
-	const credentialNumber =
-		mode === "identity-card"
-			? certno
-			: requiredText(input.credentialNumber, "CREDENTIAL_NUMBER", 512);
-	const cardSerialNumber =
-		mode === "social-security-card"
-			? requiredText(input.cardSerialNumber, "CARD_SERIAL_NUMBER", 64)
-			: "";
-	if (!adminQueryUpstream || !adminQueryToken) {
-		return errorResponse("新服务查询接口尚未配置", 503);
-	}
-	return upstreamRequest(
-		adminQueryUpstream,
-		"/admin/insurance/1101",
-		{
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Admin-Query-Token": adminQueryToken,
-				"X-Request-Id": crypto.randomUUID(),
-			},
-			body: JSON.stringify({
-				mode,
-				identityNumber: certno,
-				name: psnName,
-				...(mode === "identity-card" ? {} : { credentialNumber }),
-				...(mode === "social-security-card" ? { cardSerialNumber } : {}),
-			}),
-		},
-		"新服务医保查询暂时不可用，请稍后重试",
-	);
-}
-
 async function logsRequest(request: Request, url: URL): Promise<Response> {
 	bearer(request);
 	if (!adminLogsUpstream || !adminLogsToken) {
@@ -484,12 +419,22 @@ async function logRawDetailRequest(
 	const center = detailTimestamp ? Date.parse(detailTimestamp) : Number.NaN;
 	if (Number.isNaN(center)) return errorResponse("日志时间格式异常", 502);
 	try {
-		const trace = await readRawLogTrace({
+		let trace = await readRawLogTrace({
 			identifiers,
 			since: new Date(center - rawLogWindowMs).toISOString(),
 			until: new Date(center + rawLogWindowMs).toISOString(),
 			maxEntries: 300,
 		});
+		// 正常情况下 15 分钟足够；只有完全没有匹配块时才扩大到旧的 30 分钟，
+		// 避免长链路被静默判定为“没有原始日志”，同时不让普通查询承担大窗口成本。
+		if (trace.entries.length === 0) {
+			trace = await readRawLogTrace({
+				identifiers,
+				since: new Date(center - rawLogFallbackWindowMs).toISOString(),
+				until: new Date(center + rawLogFallbackWindowMs).toISOString(),
+				maxEntries: 300,
+			});
+		}
 		console.info(
 			JSON.stringify({
 				event: "admin.raw_log.read",
@@ -597,9 +542,6 @@ const server = Bun.serve({
 			if (url.pathname === "/api/auth/logout" && request.method === "POST") {
 				return await logoutRequest(request);
 			}
-			if (url.pathname === "/api/insurance/1101" && request.method === "POST") {
-				return await insuranceRequest(request);
-			}
 			if (url.pathname === "/api/logs" && request.method === "GET") {
 				return await logsRequest(request, url);
 			}
@@ -640,7 +582,6 @@ console.info(
 		host: server.hostname,
 		port: server.port,
 		legacyUpstreamProtocol: legacyUpstream.protocol,
-		adminQueryConfigured: Boolean(adminQueryUpstream && adminQueryToken),
 		adminLogsConfigured: Boolean(adminLogsUpstream && adminLogsToken),
 	}),
 );
