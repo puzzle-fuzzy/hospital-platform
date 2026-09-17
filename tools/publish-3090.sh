@@ -191,7 +191,6 @@ fi
 
 if ! ssh_remote bash -s -- "$remote_root" "$readiness_attempts" "$readiness_interval_seconds" <<'REMOTE_READINESS'
 set -u
-root="$1"
 max_attempts="$2"
 interval_seconds="$3"
 health_file="$(mktemp)"
@@ -226,24 +225,26 @@ for attempt in $(seq 1 "$max_attempts"); do
 		fi
 	fi
 
-	api_port=0
-	legacy_port=0
+	api_port=missing
+	legacy_port=missing
 	if ss -ltn | grep -Eq ':18081([[:space:]]|$)'; then
-		api_port=1
+		api_port=listening
 	fi
 	if ss -ltn | grep -Eq ':8001([[:space:]]|$)'; then
-		legacy_port=1
+		legacy_port=listening
 	fi
 
 	if [[ "$curl_exit" -eq 0 ]]; then
 		curl_result=ok
+	elif grep -qiE 'timed out|timeout' "$curl_error_file"; then
+		curl_result=timeout
 	else
-		curl_result=transport_or_timeout
+		curl_result=transport_error
 	fi
 	printf 'publish-3090: readiness attempt=%s/%s curl=%s http=%s health=%s database=%s redis=%s schema=%s port_18081=%s port_8001=%s\n' \
 		"$attempt" "$max_attempts" "$curl_result" "$http_code" "$health_status" "$database_status" "$redis_status" "$schema_status" "$api_port" "$legacy_port"
 
-	if [[ "$health_ok" -eq 1 && "$api_port" -eq 1 && "$legacy_port" -eq 1 ]]; then
+	if [[ "$health_ok" -eq 1 && "$api_port" == listening && "$legacy_port" == listening ]]; then
 		printf 'publish-3090: readiness passed on attempt %s/%s\n' "$attempt" "$max_attempts"
 		exit 0
 	fi
