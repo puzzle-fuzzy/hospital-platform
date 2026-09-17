@@ -106,6 +106,51 @@ test("众阳门诊费用 adapter 只使用已确认 amount 并把元转换为分
 	expect(JSON.stringify(result)).not.toContain("provider-order-secret");
 });
 
+test("众阳门诊费用 adapter 允许费用类型未提供的可选展示字段", async () => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "optional-fields-order",
+							registerId: "optional-fields-register",
+							visitRecordId: "optional-fields-visit",
+							amount: 176,
+							tradeStatus: "1",
+							billDate: "2026-08-16 09:00:00",
+							spec: "",
+							quantity: 1,
+							typeMemo: null,
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "optional-fields" } },
+			),
+	});
+
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-patient-secret",
+			startTime: "2026-07-17 00:00:00",
+			endTime: "2026-08-16 23:59:59",
+			status: "unpaid",
+		},
+		context,
+	);
+
+	expect(result.records[0]).toMatchObject({
+		status: "unpaid",
+		amountFen: 17600,
+		quantity: "1",
+	});
+	expect(result.records[0]).not.toHaveProperty("spec");
+	expect(result.records[0]).not.toHaveProperty("typeMemo");
+});
+
 test("众阳门诊费用金额按十进制精确转换，并拒绝超过安全范围的分值", async () => {
 	const createGateway = (amount: string) =>
 		createZhongyangOutpatientPaymentGateway({

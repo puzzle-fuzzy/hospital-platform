@@ -198,6 +198,17 @@ function textField(
 	return normalized;
 }
 
+/** 费用展示字段大多由 Provider 按费用类型可选返回；空值不应让整批账单失败。 */
+function optionalTextField(
+	value: unknown,
+	field: string,
+	requestId: string,
+	maxLength: number,
+): string | undefined {
+	if (value === undefined || value === null || value === "") return undefined;
+	return textField(value, field, requestId, maxLength);
+}
+
 /**
  * 校验 2.6.33 的账单时间，并保留 provider 约定的中国标准时间文本。
  *
@@ -551,49 +562,54 @@ function mapRecord(
 	// 这里直接复用公开 contract 的上限：异常 provider 文本必须在 adapter
 	// 边界被拒绝，不能等到 Elysia 响应校验阶段才变成难定位的 500。
 	const billDate = billDateText(item.billDate, requestId);
-	const itemName = textField(item.itemName, "itemName", requestId, 256);
-	const departmentName = textField(
+	const itemName = optionalTextField(item.itemName, "itemName", requestId, 256);
+	const departmentName = optionalTextField(
 		item.billDeptName,
 		"departmentName",
 		requestId,
 		128,
 	);
-	const executionDepartmentName = textField(
+	const executionDepartmentName = optionalTextField(
 		item.exeDeptName,
 		"executionDepartmentName",
 		requestId,
 		128,
 	);
-	const doctorName = textField(item.billDocName, "doctorName", requestId, 128);
-	const executionDoctorName = textField(
+	const doctorName = optionalTextField(
+		item.billDocName,
+		"doctorName",
+		requestId,
+		128,
+	);
+	const executionDoctorName = optionalTextField(
 		item.exeDocName,
 		"executionDoctorName",
 		requestId,
 		128,
 	);
-	const spec = textField(item.spec, "spec", requestId, 128);
-	const quantity = textField(item.quantity, "quantity", requestId, 64);
-	const unitName = textField(item.unitName, "unitName", requestId, 64);
+	const spec = optionalTextField(item.spec, "spec", requestId, 128);
+	const quantity = optionalTextField(item.quantity, "quantity", requestId, 64);
+	const unitName = optionalTextField(item.unitName, "unitName", requestId, 64);
 	const priceFen = optionalAmountFen(item.price, "price", requestId);
-	const chargeClassName = textField(
+	const chargeClassName = optionalTextField(
 		item.chargeClassName,
 		"chargeClassName",
 		requestId,
 		128,
 	);
-	const tradePropName = textField(
+	const tradePropName = optionalTextField(
 		item.tradePropName,
 		"tradePropName",
 		requestId,
 		128,
 	);
-	const networkPatClassName = textField(
+	const networkPatClassName = optionalTextField(
 		item.networkPatClassName,
 		"networkPatClassName",
 		requestId,
 		128,
 	);
-	const typeMemo = textField(item.typeMemo, "typeMemo", requestId, 128);
+	const typeMemo = optionalTextField(item.typeMemo, "typeMemo", requestId, 128);
 	const preferentialAmountFen = optionalAmountFen(
 		item.preferentialAmount,
 		"preferentialAmount",
