@@ -542,35 +542,6 @@ export class MedicalInsuranceRegistrationService {
 				"本次医保授权尝试已作废，请重新展码授权",
 			);
 		}
-		if (!order && this.dependencies.orders.findByOwnerAndBusinessKey) {
-			const previousOrder =
-				await this.dependencies.orders.findByOwnerAndBusinessKey(
-					ownerUserId,
-					"outpatient",
-					recordId,
-				);
-			if (
-				previousOrder &&
-				(previousOrder.businessType !== "outpatient" ||
-					previousOrder.businessId !== recordId ||
-					previousOrder.patientId !== patientId)
-			)
-				throw new MedicalInsuranceRegistrationInputError(
-					"Medical insurance business key conflicts with outpatient record",
-				);
-			if (previousOrder?.status && previousOrder.status !== "cancelled") {
-				const cancellation = await this.core.cancel({
-					ownerUserId,
-					orderId: previousOrder.medicalOrderId,
-					reason: "reauthorization",
-					context,
-				});
-				if (cancellation.status !== "cancelled" || !cancellation.restartAllowed)
-					throw new MedicalInsuranceRegistrationInputError(
-						"旧医保订单未能安全关闭，不能使用新的授权码发起支付",
-					);
-			}
-		}
 		if (!order) {
 			const now = this.now().toISOString();
 			const medicalOrderId = this.createId();
