@@ -393,6 +393,18 @@ export type MedicalInsuranceSettlementContext = {
 		providerRequestId?: string;
 		providerStatus?: string;
 	};
+	/**
+	 * 2.6.65.5 是含自费金额订单的 HIS 最终完成接口。该接口不可由查单任务
+	 * 自动重放：同一订单最多发起一次；成功、失败或请求结果未知均需持久化，
+	 * 后续只读取该事实，不再向 Provider 发送第二次请求。纯医保（cashFen=0）
+	 * 不创建此字段，也不调用 .5。
+	 */
+	settlementCompletion?: {
+		attemptedAt: string;
+		status: "succeeded" | "failed" | "unknown";
+		providerRequestId?: string;
+		providerStatus?: string;
+	};
 	/** 6201 返回的独立医保收银台地址；短期保存，仅通过专用接口返回给支付小程序。 */
 	cashierUrl?: string;
 	/**

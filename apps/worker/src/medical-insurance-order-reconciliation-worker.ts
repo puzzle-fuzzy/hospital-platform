@@ -732,8 +732,15 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				);
 			const writebackStatus =
 				settlementAfterCompletion?.settlementWriteback?.status;
+			const completionStatus =
+				settlementAfterCompletion?.settlementCompletion?.status;
+			// `.32` 和 `.5` 都是不可重放的 HIS 写入；任一已经失败或结果未知，
+			// 后续查单只能进入人工核验，不能再次向 Provider 发起请求。
 			hisWritebackBlocked =
-				writebackStatus === "failed" || writebackStatus === "unknown";
+				writebackStatus === "failed" ||
+				writebackStatus === "unknown" ||
+				completionStatus === "failed" ||
+				completionStatus === "unknown";
 		}
 		const writebackManualReview =
 			fullyPaid && !hisCompleted && hisWritebackBlocked;

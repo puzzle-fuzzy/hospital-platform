@@ -536,6 +536,14 @@ function deserializeMedicalInsuranceSettlementContext(
 			undefined
 			? (parsed as { settlementWriteback: unknown }).settlementWriteback
 			: undefined;
+	const settlementCompletion =
+		typeof parsed === "object" &&
+		parsed !== null &&
+		!Array.isArray(parsed) &&
+		(parsed as { settlementCompletion?: unknown }).settlementCompletion !==
+			undefined
+			? (parsed as { settlementCompletion: unknown }).settlementCompletion
+			: undefined;
 	const invalidSettlementWriteback = (() => {
 		if (settlementWriteback === undefined) return false;
 		if (
@@ -545,6 +553,25 @@ function deserializeMedicalInsuranceSettlementContext(
 		)
 			return true;
 		const value = settlementWriteback as Record<string, unknown>;
+		return (
+			typeof value.attemptedAt !== "string" ||
+			!value.attemptedAt.trim() ||
+			!new Set(["succeeded", "failed", "unknown"]).has(String(value.status)) ||
+			(value.providerRequestId !== undefined &&
+				typeof value.providerRequestId !== "string") ||
+			(value.providerStatus !== undefined &&
+				typeof value.providerStatus !== "string")
+		);
+	})();
+	const invalidSettlementCompletion = (() => {
+		if (settlementCompletion === undefined) return false;
+		if (
+			!settlementCompletion ||
+			typeof settlementCompletion !== "object" ||
+			Array.isArray(settlementCompletion)
+		)
+			return true;
+		const value = settlementCompletion as Record<string, unknown>;
 		return (
 			typeof value.attemptedAt !== "string" ||
 			!value.attemptedAt.trim() ||
@@ -675,6 +702,7 @@ function deserializeMedicalInsuranceSettlementContext(
 				.settlementDetailsProviderRequestId !== "string") ||
 		invalidSettlementQuery6301 ||
 		invalidSettlementWriteback ||
+		invalidSettlementCompletion ||
 		invalidPostPaymentComponents ||
 		typeof (parsed as { networkRegister?: unknown }).networkRegister !==
 			"object" ||

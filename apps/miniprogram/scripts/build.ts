@@ -159,6 +159,9 @@ const requiredStaticFiles = [
 	"pages/registration-payment/registration-payment.json",
 	"pages/registration-payment/registration-payment.wxml",
 	"pages/registration-payment/registration-payment.wxss",
+	"pages/payment-result/payment-result.json",
+	"pages/payment-result/payment-result.wxml",
+	"pages/payment-result/payment-result.wxss",
 	"pages/medical-cashier/medical-cashier.json",
 	"pages/medical-cashier/medical-cashier.wxml",
 	"pages/medical-cashier/medical-cashier.wxss",
@@ -201,6 +204,7 @@ const requiredTypeScriptFiles = [
 	"pages/my/my.ts",
 	"pages/consultation/consultation.ts",
 	"pages/registration-payment/registration-payment.ts",
+	"pages/payment-result/payment-result.ts",
 	"pages/medical-cashier/medical-cashier.ts",
 ];
 const requiredAssetDirectories = ["assets"];

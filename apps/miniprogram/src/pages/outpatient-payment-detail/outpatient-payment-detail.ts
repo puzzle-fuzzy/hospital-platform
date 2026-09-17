@@ -34,6 +34,14 @@ import type { OutpatientPaymentDetailPageData } from "../../types";
 
 const HOSPITAL_NAME = "高平市人民医院";
 
+function paymentResultUrl(
+	patientId: string,
+	recordId: string,
+	channel: "medical" | "wechat",
+): string {
+	return `/pages/payment-result/payment-result?business=outpatient&channel=${channel}&patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(recordId)}`;
+}
+
 type PaymentStatus = "unpaid" | "paid";
 
 type MedicalApp = {
@@ -179,13 +187,12 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			.then((result) => {
 				if (result === false) return;
 				if (!readPendingPayment()) {
-					this.setData({ paymentMessage: "门诊医保支付成功" });
-					wx.showModal({
-						title: "支付成功",
-						content: "本笔门诊费用已完成医保支付。",
-						showCancel: false,
-						confirmText: "知道了",
-						success: () => this.onBack(),
+					wx.redirectTo({
+						url: paymentResultUrl(
+							this.data.sourcePatientId,
+							this.data.sourceRecordId,
+							"medical",
+						),
 					});
 				}
 			})
@@ -340,13 +347,12 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 					(_stage, message) => this.setData({ paymentMessage: message }),
 				);
 				if (result.data.status === "cash_paid") {
-					this.setData({ paymentMessage: "门诊支付已确认" });
-					wx.showModal({
-						title: "支付成功",
-						content: "本笔门诊费用已完成支付。",
-						showCancel: false,
-						confirmText: "知道了",
-						success: () => this.onBack(),
+					wx.redirectTo({
+						url: paymentResultUrl(
+							this.data.sourcePatientId,
+							this.data.sourceRecordId,
+							"wechat",
+						),
 					});
 				}
 			} catch (error) {

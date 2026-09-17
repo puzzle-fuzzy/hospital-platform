@@ -1,0 +1,22 @@
+<scroll-view class="payment-result-scroll" scroll-y="true" enhanced="true">
+	<view class="payment-result-page">
+		<view class="success-card">
+			<view class="success-icon">✓</view>
+			<text class="success-title">{{title}}</text>
+			<text class="success-subtitle">{{subtitle}}</text>
+		</view>
+
+		<view class="summary-card">
+			<view class="summary-row"><text>业务</text><text>{{businessLabel}}</text></view>
+			<view class="summary-row"><text>支付方式</text><text>{{channelLabel}}</text></view>
+			<view class="summary-divider"></view>
+			<text class="summary-confirmed">支付成功，医院端已收到本次支付结果</text>
+			<text wx:if="{{detailHint}}" class="summary-hint">{{detailHint}}</text>
+		</view>
+
+		<view class="result-actions">
+			<button wx:if="{{hasDetail}}" class="primary-button" bindtap="onViewDetail">查看{{businessLabel}}详情</button>
+			<button class="secondary-button" bindtap="onBackHome">返回首页</button>
+		</view>
+	</view>
+</scroll-view>

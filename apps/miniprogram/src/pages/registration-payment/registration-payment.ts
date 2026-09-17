@@ -80,6 +80,14 @@ function appointmentDetailUrl(
 	return `/pages/appointment-detail/appointment-detail?patientId=${encodeURIComponent(patientId)}&appointmentId=${encodeURIComponent(appointmentId)}`;
 }
 
+function paymentResultUrl(
+	appointmentId: string,
+	patientId: string,
+	channel: "medical" | "wechat",
+): string {
+	return `/pages/payment-result/payment-result?business=registration&channel=${channel}&patientId=${encodeURIComponent(patientId)}&appointmentId=${encodeURIComponent(appointmentId)}`;
+}
+
 /** 纯医保订单和混合医保订单共用“医保支付”入口，每次点击都是新的尝试。 */
 function paymentButtonMode(mode: PaymentMode | undefined): PaymentMode | "" {
 	return mode === "medical" ? "mixed" : (mode ?? "");
@@ -487,6 +495,7 @@ Page<
 		if (this.data.busy) return;
 		this.setData({
 			busy: true,
+			selectedMode: mode,
 			error: "",
 			stage: "preparing",
 			message:
@@ -772,7 +781,11 @@ Page<
 			return;
 		}
 		wx.redirectTo({
-			url: appointmentDetailUrl(appointmentId, patientId),
+			url: paymentResultUrl(
+				appointmentId,
+				patientId,
+				this.data.selectedMode === "self" ? "wechat" : "medical",
+			),
 			fail: () => {
 				paymentCompletionRedirecting = false;
 				// 跳转失败时保留成功页和“查看挂号详情”按钮，不能把已完成支付误报为失败。

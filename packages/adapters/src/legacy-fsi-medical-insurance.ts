@@ -2005,6 +2005,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 
 		let settlementContext: MedicalInsuranceSettlementContext = stored;
 		const previousWriteback = settlementContext.settlementWriteback;
+		const previousCompletion = settlementContext.settlementCompletion;
 		// 2.27.2.32 不是可重放查询。医保侧即使返回 HTTP 200 + settle=FAIL，
 		// 也可能已经占用结算 ID；一旦尝试过，后续查单任务不得再次提交。
 		if (previousWriteback?.status !== "succeeded" && previousWriteback) {
@@ -2368,6 +2369,40 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				authoritative: true,
 			};
 		}
+		// 含自费金额的订单，.5 只允许发起一次。成功直接复用已落库事实；
+		// 失败或结果未知也不能由后续查单自动重放，必须转人工核验。
+		if (previousCompletion) {
+			const completionTrace = trace(
+				"medical-insurance.2.6.65.5",
+				context,
+				previousCompletion.providerRequestId
+					? [previousCompletion.providerRequestId]
+					: [],
+				settlementContext.businessId,
+			);
+			if (previousCompletion.status === "succeeded") {
+				return {
+					state: "insurance_settled",
+					amounts: input.amounts,
+					trace: completionTrace,
+					source: "yunhealth",
+					providerStatus:
+						previousCompletion.providerStatus ?? "completion=succeeded",
+					finality: "paid",
+					authoritative: true,
+				};
+			}
+			return {
+				state: "awaiting_confirmation",
+				amounts: input.amounts,
+				trace: completionTrace,
+				source: "yunhealth",
+				providerStatus:
+					previousCompletion.providerStatus ?? "2.6.65.5_already_attempted",
+				finality: "settlement_candidate",
+				authoritative: false,
+			};
+		}
 		// 有微信自费金额时，必须等官方微信订单查单成功后由
 		// cashPaymentConfirmed 放行，再调用 .5 完成 HIS 结算。
 		if (!input.cashPaymentConfirmed) {
@@ -2385,10 +2420,29 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			};
 		}
 
+		const completionAttemptedAt = now().toISOString();
+		settlementContext = {
+			...settlementContext,
+			settlementCompletion: {
+				attemptedAt: completionAttemptedAt,
+				status: "unknown",
+			},
+		};
+		// 先持久化“已尝试”事实，阻止查单重试再次触发 .5；同时使用
+		// 订单稳定幂等键，避免 Provider 在并发/网络重试中重复扣款。
+		await options.orders.saveSettlementContext(
+			input.ownerUserId,
+			input.orderId,
+			settlementContext,
+		);
+		const completionContext = {
+			...context,
+			idempotencyKey: `medical-insurance-2.6.65.5:${settlementContext.businessId}`,
+		};
 		const completeResponse = await zhongyangPost(
 			"medical-insurance.2.6.65.5",
 			"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
-			context,
+			completionContext,
 			{
 				authSysCode: DEFAULT_AUTH_SYS_CODE,
 				autoSettle: 2,
@@ -2399,9 +2453,31 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			},
 		);
 		const completionMarker = completeSettleConfirmation(completeResponse.data);
+		const completionStatus =
+			providerSuccessFlag(completeResponse.data) !== false &&
+			completionMarker !== undefined
+				? "succeeded"
+				: "failed";
+		const completionProviderStatus = completionMarker
+			? `completion=${completionMarker}`
+			: "completion=UNKNOWN";
+		settlementContext = {
+			...settlementContext,
+			settlementCompletion: {
+				attemptedAt: completionAttemptedAt,
+				status: completionStatus,
+				providerRequestId: completeResponse.requestId,
+				providerStatus: completionProviderStatus,
+			},
+		};
+		await options.orders.saveSettlementContext(
+			input.ownerUserId,
+			input.orderId,
+			settlementContext,
+		);
 		const completeTrace = trace(
 			"medical-insurance.2.27.2.32/2.6.65.5",
-			context,
+			completionContext,
 			[
 				...(notifyRequestId ? [notifyRequestId] : []),
 				completeResponse.requestId,
@@ -2417,9 +2493,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				amounts: input.amounts,
 				trace: completeTrace,
 				source: "yunhealth",
-				providerStatus: completionMarker
-					? `completion=${completionMarker}`
-					: "completion=UNKNOWN",
+				providerStatus: completionProviderStatus,
 				finality: "settlement_candidate",
 				authoritative: false,
 			};
@@ -2429,7 +2503,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			amounts: input.amounts,
 			trace: completeTrace,
 			source: "yunhealth",
-			providerStatus: `completion=${completionMarker}`,
+			providerStatus: completionProviderStatus,
 			finality: "paid",
 			authoritative: true,
 		};

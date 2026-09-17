@@ -951,6 +951,28 @@ test("6202 后先落库 6301 候选，再调用 .32，并兼容 .5 完成状态"
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
 		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
+	const repeated = await gateway.query(
+		{
+			orderId: medicalOrder.medicalOrderId,
+			ownerUserId: medicalOrder.ownerUserId,
+			cashPaymentConfirmed: true,
+		},
+		context,
+	);
+	expect(repeated).toMatchObject({
+		state: "insurance_settled",
+		providerStatus: "completion=outSettleVO.settleStatus=4",
+		finality: "paid",
+		authoritative: true,
+	});
+	expect(providerPaths).toEqual([
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	]);
+	expect(settlementContext.settlementCompletion).toMatchObject({
+		status: "succeeded",
+		providerStatus: "completion=outSettleVO.settleStatus=4",
+	});
 	const notifyBody = providerBodies.find((request) =>
 		request.path.endsWith("/settle-info/notify"),
 	)?.body;
