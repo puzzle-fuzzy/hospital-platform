@@ -245,6 +245,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0048_patient_feedback.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0049_appointment_display_context",
+		file: "../migrations/0049_appointment_display_context.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -530,6 +535,8 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"introduction",
 			"expertise",
 			"department_location",
+			"registration_class_name",
+			"hospital_area_name",
 			"doctor_id",
 			"work_date",
 			"total_slots",
@@ -561,6 +568,9 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"department_id",
 			"doctor_id",
 			"status",
+			"department_name",
+			"registration_class_name",
+			"hospital_area_name",
 		],
 	},
 	{
