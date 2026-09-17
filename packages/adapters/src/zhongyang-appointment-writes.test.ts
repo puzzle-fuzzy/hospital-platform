@@ -59,7 +59,7 @@ test("预约锁号保留 19 位 Provider ID，并对相等时间点不发送时�
 
 	const lockBody = JSON.parse(String(calls[1]?.init.body));
 	expect(calls[0]?.url).toBe(
-		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/sources/9007199254740993001?requestChannel=3",
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/sources/9007199254740993001?requestChannel=4",
 	);
 	expect(calls[1]?.url).toBe(
 		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/sources/locked-sources",
@@ -199,6 +199,40 @@ test("预约取消只向 Provider 发送服务端映射后的标识并返回关�
 			provider: "zhongyang",
 			operation: "appointment-cancellation",
 			requestId: "cancel-request-001",
+		},
+	});
+});
+
+test("预约实际费用读取沿用旧确认页的渠道 4", async () => {
+	let requestUrl = "";
+	const gateway = createZhongyangAppointmentWriteGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrl = String(input);
+			return jsonResponse(
+				{ success: true, data: { factRegisterFee: "12.34" } },
+				"fee-request-001",
+			);
+		},
+	});
+
+	const result = await gateway.getFactRegisterFee(
+		{
+			providerScheduleId: "9007199254740993001",
+			providerPatientId: "9007199254740993002",
+		},
+		context,
+	);
+
+	expect(requestUrl).toBe(
+		"https://zhongyang.example.test/msun-middle-business-appointment-server/v1/appointment-infos/fact-register-fee?hisScheduleId=9007199254740993001&patId=9007199254740993002&requestChannel=4",
+	);
+	expect(result).toEqual({
+		totalFen: 1234,
+		trace: {
+			provider: "zhongyang",
+			operation: "appointment-fact-register-fee",
+			requestId: "fee-request-001",
 		},
 	});
 });

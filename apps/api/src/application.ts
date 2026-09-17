@@ -66,6 +66,7 @@ import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { OutpatientSelfPayService } from "./modules/outpatient-payments/self-pay-service";
+import { PatientFeedbackService } from "./modules/patient-feedback";
 import { PatientService } from "./modules/patients";
 import { PatientBindingService } from "./modules/patients/binding-service";
 import { WechatPrepayService } from "./modules/payments";
@@ -83,6 +84,7 @@ export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
 	patientBinding?: PatientBindingService;
+	patientFeedback?: PatientFeedbackService;
 	appointments: AppointmentService;
 	appointmentWrites?: AppointmentWriteService;
 	medicalInsurance?: MedicalInsuranceRegistrationService;
@@ -678,7 +680,8 @@ export function createDefaultApplicationServices(
 					},
 				} satisfies PatientBindingGateway),
 			identityUsers: repositories.identityUsers,
-			...(options.patientProviderAuthorizationGateway
+			...(options.patientBindingGateway &&
+			options.patientProviderAuthorizationGateway
 				? {
 						providerAuthorizationGateway:
 							options.patientProviderAuthorizationGateway,
@@ -726,6 +729,12 @@ export function createDefaultApplicationServices(
 		myDoctors: new MyDoctorService({
 			repository: repositories.myDoctors,
 			appointments,
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		patientFeedback: new PatientFeedbackService({
+			repository: repositories.patientFeedback,
+			patients: repositories.patients,
+			appointments: repositories.appointmentWrites,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		reports: new ReportService({

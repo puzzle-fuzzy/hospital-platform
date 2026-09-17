@@ -1,0 +1,44 @@
+.convenience-compose-scroll { height: 100vh; background: #f8f9fa; }
+.convenience-compose-page { box-sizing: border-box; min-height: 100%; padding: 20rpx 24rpx 48rpx; }
+.convenience-compose-card, .convenience-compose-empty-card { overflow: hidden; border-radius: 16rpx; background: #fff; }
+.convenience-compose-record-card { overflow: hidden; border-radius: 16rpx; background: #fff; }
+.convenience-compose-record-item { display: flex; flex-direction: column; gap: 10rpx; padding: 24rpx; border-bottom: 1rpx solid #f0f2f6; }
+.convenience-compose-record-head { display: flex; justify-content: space-between; gap: 16rpx; color: #333; font-size: 24rpx; }
+.convenience-compose-record-status { color: #3d6df6; }
+.convenience-compose-record-kind { color: #777; font-size: 23rpx; }
+.convenience-compose-record-content { color: #333; font-size: 27rpx; line-height: 1.5; }
+.convenience-compose-record-more { padding: 20rpx; color: #9aa3b4; font-size: 23rpx; text-align: center; }
+.convenience-compose-notice { padding: 22rpx 24rpx; background: #e9f0ff; color: #3d6df6; font-size: 25rpx; line-height: 1.6; }
+.convenience-compose-patient { display: flex; align-items: center; justify-content: space-between; padding: 24rpx; border-bottom: 1rpx solid #f0f0f0; }
+.convenience-compose-patient-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.convenience-compose-label, .convenience-compose-row-label { color: #777; font-size: 24rpx; }
+.convenience-compose-name { margin-top: 8rpx; color: #222; font-size: 29rpx; font-weight: 600; }
+.convenience-compose-muted, .convenience-compose-row-value.is-muted { color: #999; }
+.convenience-compose-error { margin-top: 8rpx; color: #c53b3b; font-size: 23rpx; }
+.convenience-compose-arrow { color: #999; font-size: 42rpx; }
+.convenience-compose-row { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; min-height: 92rpx; padding: 0 24rpx; border-bottom: 1rpx solid #f3f3f3; }
+.convenience-compose-row-value { flex: 1; color: #333; font-size: 27rpx; text-align: right; }
+.convenience-compose-row-action:active { background: #f7f9ff; }
+.convenience-compose-field { padding: 22rpx 24rpx 8rpx; border-bottom: 1rpx solid #f3f3f3; }
+.convenience-compose-textarea { box-sizing: border-box; width: 100%; min-height: 150rpx; margin-top: 12rpx; padding: 18rpx 20rpx; border-radius: 10rpx; background: #f8f9fa; color: #333; font-size: 27rpx; line-height: 1.5; }
+.convenience-compose-template-title { padding: 22rpx 24rpx 12rpx; color: #777; font-size: 24rpx; }
+.convenience-compose-templates { display: flex; flex-wrap: wrap; gap: 14rpx; padding: 0 24rpx 20rpx; }
+.convenience-compose-template { padding: 12rpx 16rpx; border: 1rpx solid #dfe5f2; border-radius: 10rpx; color: #3d6df6; font-size: 24rpx; }
+.convenience-compose-display-row { border-bottom: 0; }
+.convenience-compose-display { display: flex; gap: 22rpx; }
+.convenience-compose-display-option { color: #555; font-size: 26rpx; }
+.convenience-compose-display-option.is-selected { color: #3d6df6; font-weight: 600; }
+.convenience-compose-message { margin-top: 18rpx; padding: 18rpx 22rpx; border-radius: 14rpx; background: #fff8e8; color: #a66b00; font-size: 24rpx; line-height: 1.6; }
+.convenience-compose-primary { width: 100%; margin-top: 22rpx; border-radius: 14rpx; background: #3d6df6; color: #fff; font-size: 29rpx; line-height: 84rpx; }
+.convenience-compose-note { display: block; margin-top: 18rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
+.convenience-compose-back { width: 100%; margin-top: 10rpx; border-radius: 14rpx; background: transparent; color: #68738a; font-size: 28rpx; line-height: 84rpx; }
+.convenience-compose-picker-mask { position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: flex-end; background: rgba(0, 0, 0, .36); }
+.convenience-compose-picker { box-sizing: border-box; width: 100%; max-height: 72vh; padding: 20rpx 24rpx 28rpx; border-radius: 24rpx 24rpx 0 0; background: #fff; }
+.convenience-compose-picker-title { padding: 12rpx 0 20rpx; color: #222; font-size: 30rpx; font-weight: 600; text-align: center; }
+.convenience-compose-picker-item { display: flex; flex-direction: column; gap: 6rpx; padding: 22rpx 8rpx; border-bottom: 1rpx solid #f0f2f6; color: #333; font-size: 27rpx; }
+.convenience-compose-picker-subtitle { color: #7c8494; font-size: 23rpx; }
+.convenience-compose-picker-cancel { margin-top: 18rpx; padding: 20rpx; border-radius: 12rpx; background: #f5f6f8; color: #555; font-size: 27rpx; text-align: center; }
+.convenience-compose-empty-card { display: flex; flex-direction: column; align-items: center; padding: 72rpx 32rpx 44rpx; }
+.convenience-compose-empty-image { width: 180rpx; height: 180rpx; }
+.convenience-compose-empty-title { margin-top: 28rpx; color: #555; font-size: 29rpx; }
+.convenience-compose-empty-note { margin-top: 12rpx; color: #9aa3b4; font-size: 23rpx; text-align: center; }

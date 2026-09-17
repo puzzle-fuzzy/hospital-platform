@@ -186,7 +186,11 @@ export class ZhongyangPatientBindingApiGateway
 		},
 		context: AdapterCallContext,
 		providerContext?: PatientBindingProviderContext,
-	): Promise<{ created: boolean; trace: ExternalTrace }> {
+	): Promise<{
+		created: boolean;
+		providerPatientId: string;
+		trace: ExternalTrace;
+	}> {
 		const displayName = requiredText(input.displayName, "displayName", 128);
 		const mobile = requiredText(input.mobile, "mobile", 32);
 		const identityNumber = requiredText(
@@ -281,6 +285,9 @@ export class ZhongyangPatientBindingApiGateway
 		successfulEnvelope(bindResponse.data, bindResponse.requestId);
 		return {
 			created,
+			// patId 是绑定后的 HIS 档案引用，只用于服务端反查目录是否已经
+			// 出现本次患者；不能把它作为小程序患者 ID 返回。
+			providerPatientId: String(patient.patId),
 			trace: {
 				provider: "zhongyang",
 				operation: "patient-binding",

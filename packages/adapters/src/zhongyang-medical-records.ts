@@ -162,6 +162,10 @@ function mapRecord(
 	const hospitalName = safeText(value.hospitalName, 128, requestId);
 	const clinicTypeName = safeText(value.clinicTypeName, 128, requestId);
 	const chargeClassName = safeText(value.chargeClassName, 128, requestId);
+	const patientName = safeText(value.patName, 128, requestId);
+	const patientSex = safeText(value.sexName, 64, requestId);
+	const patientAge = safeText(value.patAge, 32, requestId);
+	const maritalStatus = safeText(value.maritalStatusName, 64, requestId);
 	const diagnosis = safeText(
 		value.diagnosisName ?? value.diagnosis ?? value.diagnosisContent,
 		4096,
@@ -174,6 +178,10 @@ function mapRecord(
 		...(hospitalName ? { hospitalName } : {}),
 		...(clinicTypeName ? { clinicTypeName } : {}),
 		...(chargeClassName ? { chargeClassName } : {}),
+		...(patientName ? { patientName } : {}),
+		...(patientSex ? { patientSex } : {}),
+		...(patientAge ? { patientAge } : {}),
+		...(maritalStatus ? { maritalStatus } : {}),
 		...(diagnosis ? { diagnosis } : {}),
 	};
 }

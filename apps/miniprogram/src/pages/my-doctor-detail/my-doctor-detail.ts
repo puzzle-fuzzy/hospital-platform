@@ -15,6 +15,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { logClientErrorTransformed } from "../../services/telemetry";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
@@ -29,6 +30,8 @@ type MyDoctorDetailPageMethods = {
 	loadDetail(): Promise<void>;
 	onDateTap(event: WechatMiniprogram.TouchEvent): void;
 	onFollowTap(): void;
+	onProfileTap(): void;
+	onProfileClose(): void;
 	onScheduleTap(event: WechatMiniprogram.TouchEvent): void;
 	onRetry(): void;
 	onPullDownRefresh(): void;
@@ -101,6 +104,9 @@ function doctorFromSchedule(schedule: AppointmentSchedule): MyDoctorDetailView {
 		...(schedule.titleName ? { titleName: schedule.titleName } : {}),
 		...(schedule.introduction ? { introduction: schedule.introduction } : {}),
 		...(schedule.expertise ? { expertise: schedule.expertise } : {}),
+		...(schedule.hospitalAreaName
+			? { hospitalAreaName: schedule.hospitalAreaName }
+			: {}),
 		...(schedule.departmentLocation
 			? { departmentLocation: schedule.departmentLocation }
 			: {}),
@@ -127,6 +133,7 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 		dateOptions: [],
 		selectedDate: "",
 		followed: false,
+		showProfile: false,
 		loading: true,
 		scheduleLoading: true,
 		actionLoading: false,
@@ -156,6 +163,7 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 					dateOptions: [],
 					selectedDate: "",
 					followed: false,
+					showProfile: false,
 					loading: true,
 					scheduleLoading: true,
 					actionLoading: false,
@@ -179,16 +187,31 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 		const range = createUpcomingDateRange(
 			DASHBOARD_DATE_RANGE_DAYS.appointmentDirectory,
 		);
-		return Promise.all([
+		return Promise.allSettled([
 			requestMyDoctors(),
 			requestAppointmentSchedules({ ...range, doctorId: this.data.doctorId }),
 		])
-			.then(([followedPayload, schedulePayload]) => {
+			.then(([followedResult, scheduleResult]) => {
 				if (!guard.isCurrent(token)) return;
+				if (scheduleResult.status === "rejected") {
+					throw scheduleResult.reason;
+				}
+				if (followedResult.status === "rejected") {
+					// 关注关系是医生详情的附加能力；旧端关注查询失败时仍
+					// 展示排班。记录经过转换的错误，但不把它伪装成排班失败。
+					logClientErrorTransformed(
+						"my-doctor-detail.follow-state",
+						followedResult.reason,
+					);
+				}
+				const followedItems =
+					followedResult.status === "fulfilled"
+						? followedResult.value.data.items
+						: [];
 				const schedules = requireAppointmentScheduleListData(
-					schedulePayload.data,
+					scheduleResult.value.data,
 				).items.filter((schedule) => schedule.doctorId === this.data.doctorId);
-				const followedDoctor = followedPayload.data.items.find(
+				const followedDoctor = followedItems.find(
 					(doctor) => doctor.doctorId === this.data.doctorId,
 				);
 				const doctor =
@@ -202,6 +225,7 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 						schedules.some(
 							(schedule) =>
 								schedule.workDate === item.workDate &&
+								schedule.availabilityStatus === "open" &&
 								schedule.availableSlots > 0,
 						),
 					)?.workDate ??
@@ -273,6 +297,15 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 			.finally(() => this.setData({ actionLoading: false }));
 	},
 
+	onProfileTap(): void {
+		if (!this.data.doctor?.introduction && !this.data.doctor?.expertise) return;
+		this.setData({ showProfile: true });
+	},
+
+	onProfileClose(): void {
+		this.setData({ showProfile: false });
+	},
+
 	onScheduleTap(event): void {
 		const scheduleId = event.currentTarget?.dataset?.scheduleId;
 		if (typeof scheduleId !== "string" || !scheduleId) return;
@@ -280,6 +313,16 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 			(item) => item.scheduleId === scheduleId,
 		);
 		if (!schedule) return;
+		if (schedule.availabilityStatus !== "open") {
+			wx.showToast({
+				title:
+					schedule.availabilityStatus === "stopped"
+						? "当前排班已停诊"
+						: "当前排班状态待确认",
+				icon: "none",
+			});
+			return;
+		}
 		if (schedule.availableSlots <= 0) {
 			wx.showToast({ title: "当前号源已约满", icon: "none" });
 			return;

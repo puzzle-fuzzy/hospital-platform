@@ -1,60 +1,36 @@
-<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="migration-surface-page">
-		<view class="migration-surface-hero">
-			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="migration-surface-hero-copy">
-				<text class="migration-surface-title">{{title}}</text>
-				<text class="migration-surface-label">{{surfaceLabel}}</text>
+<scroll-view class="pre-visit-scroll" scroll-y="true" enhanced="true">
+	<view class="pre-visit-page">
+		<view class="pre-visit-notice">请根据当前情况填写，所有项目均为必填项。问卷只针对当前预约，不读取旧服务历史。</view>
+		<view class="pre-visit-patient-card" bindtap="onChangePatient">
+			<view class="pre-visit-patient-copy">
+				<text class="pre-visit-patient-label">当前就诊人</text>
+				<text wx:if="{{patient}}" class="pre-visit-patient-name">{{patient.displayName}}</text>
+				<text wx:elif="{{loading}}" class="pre-visit-muted">正在获取就诊人...</text>
+				<text wx:else class="pre-visit-muted">请选择就诊人</text>
+				<text wx:if="{{patient}}" class="pre-visit-patient-card">{{patient.cardNumberMasked}}</text>
+				<text wx:if="{{patientError}}" class="pre-visit-error">{{patientError}}</text>
 			</view>
+			<text class="pre-visit-arrow">›</text>
 		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">{{scopeTitle}}</text>
-			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
+		<view class="pre-visit-context {{appointmentId ? 'is-ready' : 'is-missing'}}">
+			<text wx:if="{{appointmentId}}">已从当前预约记录进入</text>
+			<text wx:else>请从预约记录进入，选择具体预约后再填写</text>
 		</view>
 
-		<view class="migration-surface-patient-card">
-			<view class="migration-surface-patient-copy">
-				<text class="migration-surface-patient-label">当前就诊人</text>
-				<block wx:if="{{patientContextLoading}}">
-					<text class="migration-surface-patient-name">正在获取就诊人...</text>
-					<text class="migration-surface-patient-meta">当前只读取已确认的患者目录</text>
-				</block>
-				<block wx:elif="{{patientContextError}}">
-					<text class="migration-surface-patient-error">{{patientContextError}}</text>
-					<button class="migration-surface-patient-retry" bindtap="onRetry">重新读取</button>
-				</block>
-				<block wx:else>
-					<text class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-				</block>
+		<view wx:for="{{questions}}" wx:key="key" class="pre-visit-question-card">
+			<view class="pre-visit-question-title"><text class="pre-visit-required">*</text>{{index + 1}}. {{item.title}}</view>
+			<view wx:if="{{item.type === 'choice'}}" class="pre-visit-options">
+				<view class="pre-visit-option {{answers[index] === 'no' ? 'is-selected' : ''}}" data-index="{{index}}" data-value="no" bindtap="onOptionTap">无</view>
+				<view class="pre-visit-option {{answers[index] === 'yes' ? 'is-selected' : ''}}" data-index="{{index}}" data-value="yes" bindtap="onOptionTap">有</view>
 			</view>
-			<button class="migration-surface-patient-action" bindtap="onOpenPatientSelector">{{patientActionLabel}}</button>
+			<input wx:if="{{item.type === 'text'}}" class="pre-visit-input" data-index="{{index}}" value="{{inputValues[index]}}" bindinput="onInput" placeholder="{{item.placeholder}}" />
+			<input wx:elif="{{item.type === 'choice' && item.hasInput}}" class="pre-visit-input {{answers[index] !== 'yes' ? 'is-disabled' : ''}}" data-index="{{index}}" value="{{inputValues[index]}}" bindinput="onInput" disabled="{{answers[index] !== 'yes'}}" placeholder="{{item.placeholder}}" />
 		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">服务状态</text>
-			<text class="migration-surface-card-copy">{{description}}</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
-				</view>
-			</view>
-		</view>
-
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">使用说明</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
-				</view>
-			</view>
-			<text class="migration-surface-coverage">{{coverageLabel}}</text>
-		</view>
-
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
-		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
+		<view wx:if="{{message}}" class="pre-visit-message">{{message}}</view>
+		<button class="pre-visit-submit" loading="{{submitting}}" bindtap="onSubmit">提交</button>
+		<text class="pre-visit-disclaimer">当前只迁移问卷题目和填写交互；提交接口、问卷版本、授权和医护读取 contract 尚未开放。</text>
+		<button class="pre-visit-back" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

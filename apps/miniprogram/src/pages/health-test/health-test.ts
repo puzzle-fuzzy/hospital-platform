@@ -60,16 +60,64 @@ const ASSESSMENT_ITEMS: ReadonlyArray<AssessmentItem> = Object.freeze([
 ]);
 
 const INTERPRETATION_ITEMS: ReadonlyArray<InterpretationItem> = Object.freeze([
-	{ name: "体温", icon: "温", content: "正常体温约37℃，日体温变化通常小于1℃。异常情况请结合症状及时就医。" },
-	{ name: "脉搏", icon: "脉", content: "成人静息脉搏通常每分钟60至100次，持续异常或伴随不适时请咨询医生。" },
-	{ name: "呼吸", icon: "呼", content: "正常成年人静息呼吸通常每分钟16至20次，呼吸困难或明显异常请及时就医。" },
-	{ name: "血压", icon: "压", content: "血压会受时间、情绪和测量方式影响。本提示仅作健康知识参考，不替代医生诊断。" },
-	{ name: "体重", icon: "重", content: "体重应结合身高、年龄和近期变化观察。短期明显波动建议咨询医生。" },
-	{ name: "进食量", icon: "食", content: "进食量应结合平时习惯和身体状态观察，持续明显减少或增加请咨询医生。" },
-	{ name: "大便", icon: "便", content: "排便频率存在个体差异，持续腹泻、便秘或伴随出血应及时就医。" },
-	{ name: "小便", icon: "尿", content: "尿量和颜色会受饮水、用药等影响，持续明显异常或伴随疼痛应及时就医。" },
-	{ name: "睡眠", icon: "眠", content: "规律作息有助于健康。长期失眠、嗜睡或影响日常生活时请寻求专业帮助。" },
-	{ name: "月经周期", icon: "经", content: "月经周期存在个体差异，持续明显改变、疼痛或异常出血请咨询妇科医生。" },
+	{
+		name: "体温",
+		icon: "温",
+		content:
+			"正常体温约37℃，日体温变化通常小于1℃。异常情况请结合症状及时就医。",
+	},
+	{
+		name: "脉搏",
+		icon: "脉",
+		content:
+			"成人静息脉搏通常每分钟60至100次，持续异常或伴随不适时请咨询医生。",
+	},
+	{
+		name: "呼吸",
+		icon: "呼",
+		content:
+			"正常成年人静息呼吸通常每分钟16至20次，呼吸困难或明显异常请及时就医。",
+	},
+	{
+		name: "血压",
+		icon: "压",
+		content:
+			"血压会受时间、情绪和测量方式影响。本提示仅作健康知识参考，不替代医生诊断。",
+	},
+	{
+		name: "体重",
+		icon: "重",
+		content: "体重应结合身高、年龄和近期变化观察。短期明显波动建议咨询医生。",
+	},
+	{
+		name: "进食量",
+		icon: "食",
+		content:
+			"进食量应结合平时习惯和身体状态观察，持续明显减少或增加请咨询医生。",
+	},
+	{
+		name: "大便",
+		icon: "便",
+		content: "排便频率存在个体差异，持续腹泻、便秘或伴随出血应及时就医。",
+	},
+	{
+		name: "小便",
+		icon: "尿",
+		content:
+			"尿量和颜色会受饮水、用药等影响，持续明显异常或伴随疼痛应及时就医。",
+	},
+	{
+		name: "睡眠",
+		icon: "眠",
+		content:
+			"规律作息有助于健康。长期失眠、嗜睡或影响日常生活时请寻求专业帮助。",
+	},
+	{
+		name: "月经周期",
+		icon: "经",
+		content:
+			"月经周期存在个体差异，持续明显改变、疼痛或异常出血请咨询妇科医生。",
+	},
 ]);
 
 function parseNumber(value: string): number {
@@ -109,7 +157,9 @@ Page<HealthTestPageData, HealthTestPageMethods>({
 		const item = ASSESSMENT_ITEMS.find((candidate) => candidate.key === key);
 		if (!item) return;
 		if (!item.available) {
-			wx.showToast({ title: `${item.name}题库暂未开放`, icon: "none" });
+			wx.navigateTo({
+				url: `/pages/self-test-question/self-test-question?type=${item.key}`,
+			});
 			return;
 		}
 		this.setData({ mode: resolveMode(key), message: "" });
@@ -117,9 +167,15 @@ Page<HealthTestPageData, HealthTestPageMethods>({
 
 	onInterpretationTap(event) {
 		const name = String(event.currentTarget.dataset.name ?? "");
-		const item = INTERPRETATION_ITEMS.find((candidate) => candidate.name === name);
+		const item = INTERPRETATION_ITEMS.find(
+			(candidate) => candidate.name === name,
+		);
 		if (!item) return;
-		this.setData({ showTips: true, tipsTitle: `${item.name}健康贴士`, tipsContent: item.content });
+		this.setData({
+			showTips: true,
+			tipsTitle: `${item.name}健康贴士`,
+			tipsContent: item.content,
+		});
 	},
 
 	onModeTap(event) {
@@ -140,9 +196,15 @@ Page<HealthTestPageData, HealthTestPageMethods>({
 	},
 
 	onCalculateBmi() {
-		const result = calculateBmi(parseNumber(this.data.height), parseNumber(this.data.weight));
+		const result = calculateBmi(
+			parseNumber(this.data.height),
+			parseNumber(this.data.weight),
+		);
 		if (!result) {
-			this.setData({ message: "请输入有效的身高和体重（身高 50–250 cm，体重 10–300 kg）", hasBmiResult: false });
+			this.setData({
+				message: "请输入有效的身高和体重（身高 50–250 cm，体重 10–300 kg）",
+				hasBmiResult: false,
+			});
 			return;
 		}
 		this.setData({
@@ -153,9 +215,15 @@ Page<HealthTestPageData, HealthTestPageMethods>({
 	},
 
 	onRecordBloodPressure() {
-		const result = recordBloodPressure(parseNumber(this.data.systolic), parseNumber(this.data.diastolic));
+		const result = recordBloodPressure(
+			parseNumber(this.data.systolic),
+			parseNumber(this.data.diastolic),
+		);
 		if (!result) {
-			this.setData({ message: "请输入有效的血压读数，并确保收缩压高于舒张压。", hasBloodPressureResult: false });
+			this.setData({
+				message: "请输入有效的血压读数，并确保收缩压高于舒张压。",
+				hasBloodPressureResult: false,
+			});
 			return;
 		}
 		this.setData({

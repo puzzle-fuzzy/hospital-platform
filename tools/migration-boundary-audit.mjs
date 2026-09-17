@@ -188,7 +188,11 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			continue;
 		}
 		const expectedTarget =
-			gate.safeReadOnlyTarget ?? gate.safeSurfaceTarget ?? expectedStatusPage;
+			gate.safeReadOnlyTargets?.[legacyPath] ??
+			gate.safeReadOnlyTarget ??
+			gate.safeSurfaceTargets?.[legacyPath] ??
+			gate.safeSurfaceTarget ??
+			expectedStatusPage;
 		if (entry.nativeTarget !== expectedTarget) {
 			fail(
 				`${gate.name} 的 ${legacyPath} 落点不符合 contract 边界：期望 ${expectedTarget}，实际 ${entry.nativeTarget}`,

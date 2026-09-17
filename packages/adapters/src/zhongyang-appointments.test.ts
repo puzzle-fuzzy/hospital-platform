@@ -41,7 +41,7 @@ test("众阳预约目录只返回科室白名单并固定服务端渠道", async
 	);
 
 	expect(requestUrl).toBe(
-		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings/scheduling-depts?requestChannel=3&startDate=2026-08-15&endDate=2026-08-22",
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings/scheduling-depts?requestChannel=4&startDate=2026-08-15&endDate=2026-08-22",
 	);
 	expect(requestHeaders?.get("authorization")).toBe("Bearer server-token");
 	expect(requestHeaders?.get("x-request-id")).toBe(context.traceId);
@@ -184,7 +184,7 @@ test("众阳三级可预约科室只从受控二级 ID 解析名称后查询", a
 		"/msun-middle-business-amc-server/v1/schedulings/scheduling-depts",
 	);
 	expect(Object.fromEntries(clinicUrl.searchParams)).toEqual({
-		requestChannel: "3",
+		requestChannel: "4",
 		startDate: "2026-08-15",
 		endDate: "2026-08-22",
 		searchCondition: "心血管内科",
@@ -260,6 +260,7 @@ test("众阳排班目录固定请求渠道并只返回已验证的号源读模�
 						deptName: "心内科",
 						docId: 20,
 						docName: "李医生",
+						hospitalAreaName: "南院区",
 						workDate: "2026-08-20",
 						shiftName: "上午",
 						startTime: "08:00",
@@ -268,8 +269,10 @@ test("众阳排班目录固定请求渠道并只返回已验证的号源读模�
 						remainingNumber: null,
 						usableNum: 7,
 						usableSourceNum: 12,
+						scheduleStatus: 2,
 						timeGroupFlag: "1",
 						registrationFee: 99,
+						registerClassName: "专家号",
 						doctorTelephone: "13800000000",
 					},
 				]),
@@ -289,7 +292,7 @@ test("众阳排班目录固定请求渠道并只返回已验证的号源读模�
 	);
 
 	expect(requestUrl).toBe(
-		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings?requestChannel=3&startDate=2026-08-20&endDate=2026-08-21&scheduleType=1&deptId=dept-001&docId=doctor-001",
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings?requestChannel=4&startDate=2026-08-20&endDate=2026-08-21&scheduleType=1&deptId=dept-001&docId=doctor-001",
 	);
 	expect(result.schedules).toEqual([
 		{
@@ -298,17 +301,247 @@ test("众阳排班目录固定请求渠道并只返回已验证的号源读模�
 			departmentName: "心内科",
 			doctorId: "20",
 			doctorName: "李医生",
+			hospitalAreaName: "南院区",
 			workDate: "2026-08-20",
 			shiftName: "上午",
 			startTime: "08:00",
 			endTime: "12:00",
 			totalSlots: 30,
 			availableSlots: 12,
+			availabilityStatus: "open",
 			timeGroup: "range",
+			registrationClassName: "专家号",
 		},
 	]);
 	expect(JSON.stringify(result)).not.toContain("13800000000");
 	expect(JSON.stringify(result)).not.toContain("registrationFee");
+});
+
+test("众阳旧端医生目录使用 scheduling-doctors 并展开嵌套排班", async () => {
+	let requestUrl = "";
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrl = String(input);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							workDate: "2026-08-20",
+							deptId: "dept-001",
+							deptName: "心内科",
+							deptAddr: "门诊楼二层",
+							docId: "doctor-001",
+							docName: "李医生",
+							postTitleName: "主任医师",
+							introduce: "心血管疾病诊疗",
+							specialty: "冠心病",
+							doctorPic: "https://img.example.test/doctor.jpg",
+							totalUsableNum: 4,
+							schedulingList: [
+								{
+									hisScheduleId: "legacy-schedule-001",
+									totalNum: 10,
+									usableNum: 4,
+									shiftName: "上午",
+									shiftCode: "AM",
+									registerClassName: "专家号",
+									timeGroupFlag: "1",
+								},
+							],
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "provider-doctor-001" } },
+			);
+		},
+	});
+
+	if (!gateway.listDoctorSchedules) throw new Error("doctor gateway missing");
+	const result = await gateway.listDoctorSchedules(
+		{
+			startDate: "2026-08-20",
+			endDate: "2026-08-27",
+			departmentId: "dept-001",
+		},
+		context,
+	);
+
+	expect(requestUrl).toBe(
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings/scheduling-doctors?requestChannel=4&startDate=2026-08-20&endDate=2026-08-27&deptId=dept-001",
+	);
+	expect(result.schedules).toEqual([
+		{
+			providerScheduleId: "legacy-schedule-001",
+			departmentId: "dept-001",
+			departmentName: "心内科",
+			departmentLocation: "门诊楼二层",
+			doctorId: "doctor-001",
+			doctorName: "李医生",
+			titleName: "主任医师",
+			introduction: "心血管疾病诊疗",
+			expertise: "冠心病",
+			doctorPhotoUrl: "https://img.example.test/doctor.jpg",
+			workDate: "2026-08-20",
+			shiftName: "上午",
+			totalSlots: 10,
+			availableSlots: 4,
+			availabilityStatus: "unknown",
+			timeGroup: "range",
+			registrationClassName: "专家号",
+		},
+	]);
+	expect(JSON.stringify(result)).not.toContain("totalUsableNum");
+	expect(JSON.stringify(result)).not.toContain("doctorTelephone");
+});
+
+test("众阳旧端医生目录按首条 visitCount 保持医生卡访问量顺序", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							docId: "doctor-low",
+							docName: "低访问医生",
+							visitCount: 2,
+							workDate: "2026-08-20",
+							deptId: "dept-001",
+							deptName: "心内科",
+							schedulingList: [
+								{
+									hisScheduleId: "schedule-low",
+									totalNum: 10,
+									usableNum: 1,
+									shiftName: "上午",
+								},
+							],
+						},
+						{
+							docId: "doctor-high",
+							docName: "高访问医生",
+							visitCount: 20,
+							workDate: "2026-08-20",
+							deptId: "dept-001",
+							deptName: "心内科",
+							schedulingList: [
+								{
+									hisScheduleId: "schedule-high",
+									totalNum: 10,
+									usableNum: 3,
+									shiftName: "下午",
+								},
+							],
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "provider-doctor-order" } },
+			),
+	});
+
+	if (!gateway.listDoctorSchedules) throw new Error("doctor gateway missing");
+	const result = await gateway.listDoctorSchedules(
+		{
+			startDate: "2026-08-20",
+			endDate: "2026-08-27",
+			departmentId: "dept-001",
+		},
+		context,
+	);
+
+	expect(result.schedules.map((schedule) => schedule.doctorId)).toEqual([
+		"doctor-high",
+		"doctor-low",
+	]);
+});
+
+test("众阳排班状态沿用旧端语义，缺失状态不得伪造可预约", async () => {
+	const stoppedGateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-stopped-001",
+						deptId: "dept-001",
+						deptName: "内科",
+						docId: "doctor-001",
+						docName: "医生甲",
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalNum: 10,
+						usableSourceNum: 5,
+						scheduleStatus: 1,
+						timeGroupFlag: "0",
+					},
+				]),
+				{ status: 200, headers: { "x-request-id": "provider-status-001" } },
+			),
+	});
+	const stoppedResult = await stoppedGateway.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		context,
+	);
+	expect(stoppedResult.schedules[0]?.availabilityStatus).toBe("stopped");
+
+	const unknownGateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-unknown-001",
+						deptId: "dept-001",
+						deptName: "内科",
+						docId: "doctor-001",
+						docName: "医生甲",
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalNum: 10,
+						usableSourceNum: 5,
+						timeGroupFlag: "0",
+					},
+				]),
+				{ status: 200, headers: { "x-request-id": "provider-status-002" } },
+			),
+	});
+	const unknownResult = await unknownGateway.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		context,
+	);
+	expect(unknownResult.schedules[0]?.availabilityStatus).toBe("unknown");
+
+	const invalidGateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-invalid-status-001",
+						deptId: "dept-001",
+						deptName: "内科",
+						docId: "doctor-001",
+						docName: "医生甲",
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalNum: 10,
+						usableSourceNum: 5,
+						scheduleStatus: "2",
+						timeGroupFlag: "0",
+					},
+				]),
+				{ status: 200, headers: { "x-request-id": "provider-status-003" } },
+			),
+	});
+	await expect(
+		invalidGateway.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			context,
+		),
+	).rejects.toMatchObject({ name: "ProviderRequestError" });
 });
 
 test("众阳预约目录和排班 adapter 在触网前拒绝畸形查询", async () => {
@@ -629,6 +862,7 @@ test("众阳预约记录只固定微信查询参数并移除患者和支付字�
 							telephone: "13800000000",
 							deptName: "心内科",
 							deptAddr: "门诊楼二层",
+							hospitalAreaName: "南院区",
 							docName: "李医生",
 							workDate: "2026-08-20",
 							workTime: "08:00",
@@ -658,6 +892,7 @@ test("众阳预约记录只固定微信查询参数并移除患者和支付字�
 	expect(result.records).toEqual([
 		{
 			departmentName: "心内科",
+			hospitalAreaName: "南院区",
 			location: "门诊楼二层",
 			doctorName: "李医生",
 			workDate: "2026-08-20",
@@ -954,10 +1189,12 @@ test("众阳预约目录超过资源上限时在字段映射前整批拒绝", as
 });
 
 test("众阳分时段号源返回白名单展示字段并丢弃 provider sourceId", async () => {
+	let requestUrl = "";
 	const gateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",
-		fetcher: async () =>
-			new Response(
+		fetcher: async (input) => {
+			requestUrl = String(input);
+			return new Response(
 				JSON.stringify([
 					{
 						sourceId: "src-0001",
@@ -976,7 +1213,8 @@ test("众阳分时段号源返回白名单展示字段并丢弃 provider sourceI
 					status: 200,
 					headers: { "x-request-id": "sources-ok-001" },
 				},
-			),
+			);
+		},
 	});
 
 	const result = await gateway.listSources?.(
@@ -985,6 +1223,9 @@ test("众阳分时段号源返回白名单展示字段并丢弃 provider sourceI
 	);
 	if (!result) throw new Error("listSources capability missing");
 
+	expect(requestUrl).toBe(
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/sources/schedule%2Fsources%26special?requestChannel=4",
+	);
 	expect(result.sources).toEqual([
 		{ serialNumber: "3", timeLabel: "08:00-09:00", timeGroup: "range" },
 		{ serialNumber: "4", timeLabel: "09:30", timeGroup: "point" },

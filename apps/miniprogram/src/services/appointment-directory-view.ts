@@ -158,26 +158,78 @@ export function visibleAppointmentSchedules(
  */
 export function groupAppointmentDoctorCards(
 	schedules: readonly AppointmentSchedule[],
+	options: { includeUnknownAvailableSlots?: boolean } = {},
 ): AppointmentDoctorCard[] {
 	type MutableDoctorCard = {
 		doctorId: string;
 		doctorName: string;
+		titleName?: string;
+		description?: string;
 		doctorPhotoUrl?: string;
+		availabilityStatus?: "open" | "stopped" | "unknown";
 		scheduleCount: number;
 		availableSlots: number;
 		dateSlots: Map<string, number>;
 	};
+	const firstNonEmpty = (current: string | undefined, next: string | undefined) =>
+		current || next;
+	const mergeAvailabilityStatus = (
+		current: MutableDoctorCard["availabilityStatus"],
+		next: AppointmentSchedule["availabilityStatus"],
+	): MutableDoctorCard["availabilityStatus"] => {
+		if (next === undefined) return current;
+		if (current === undefined || current === next) return next;
+		if (current === "unknown" || next === "unknown") return "unknown";
+		if (current === "open" || next === "open") return "open";
+		return "stopped";
+	};
+	const displaySlotsForSchedule = (schedule: AppointmentSchedule): number => {
+		if (schedule.availabilityStatus === "stopped") return 0;
+		if (
+			schedule.availabilityStatus === undefined ||
+			schedule.availabilityStatus === "open" ||
+			(options.includeUnknownAvailableSlots &&
+				schedule.availabilityStatus === "unknown")
+		) {
+			return schedule.availableSlots;
+		}
+		return 0;
+	};
+	const displayStatusForSchedule = (
+		schedule: AppointmentSchedule,
+	): AppointmentSchedule["availabilityStatus"] => {
+		if (schedule.availabilityStatus !== "open") {
+			return schedule.availabilityStatus;
+		}
+		return schedule.availableSlots > 0 ? "open" : "stopped";
+	};
 
 	const cardsByDoctor = new Map<string, MutableDoctorCard>();
 	for (const schedule of schedules) {
+		const displaySlots = displaySlotsForSchedule(schedule);
+		const displayStatus = displayStatusForSchedule(schedule);
 		const card = cardsByDoctor.get(schedule.doctorId);
 		if (card) {
+			const titleName = firstNonEmpty(card.titleName, schedule.titleName);
+			if (titleName !== undefined) card.titleName = titleName;
+			const description = firstNonEmpty(
+				card.description,
+				schedule.introduction || schedule.expertise,
+			);
+			if (description !== undefined) card.description = description;
 			card.scheduleCount += 1;
-			card.availableSlots += schedule.availableSlots;
+			card.availableSlots += displaySlots;
 			card.dateSlots.set(
 				schedule.workDate,
-				(card.dateSlots.get(schedule.workDate) ?? 0) + schedule.availableSlots,
+				(card.dateSlots.get(schedule.workDate) ?? 0) + displaySlots,
 			);
+			const availabilityStatus = mergeAvailabilityStatus(
+				card.availabilityStatus,
+				displayStatus,
+			);
+			if (availabilityStatus !== undefined) {
+				card.availabilityStatus = availabilityStatus;
+			}
 			// 建卡时无图的医生，用后续排班中首个非空照片补齐；已有照片不覆盖。
 			if (!card.doctorPhotoUrl && schedule.doctorPhotoUrl) {
 				card.doctorPhotoUrl = schedule.doctorPhotoUrl;
@@ -187,19 +239,29 @@ export function groupAppointmentDoctorCards(
 		cardsByDoctor.set(schedule.doctorId, {
 			doctorId: schedule.doctorId,
 			doctorName: schedule.doctorName,
+			...(schedule.titleName ? { titleName: schedule.titleName } : {}),
+			...(schedule.introduction || schedule.expertise
+				? { description: schedule.introduction || schedule.expertise }
+				: {}),
 			...(schedule.doctorPhotoUrl
 				? { doctorPhotoUrl: schedule.doctorPhotoUrl }
 				: {}),
+			...(displayStatus ? { availabilityStatus: displayStatus } : {}),
 			scheduleCount: 1,
-			availableSlots: schedule.availableSlots,
-			dateSlots: new Map([[schedule.workDate, schedule.availableSlots]]),
+			availableSlots: displaySlots,
+			dateSlots: new Map([[schedule.workDate, displaySlots]]),
 		});
 	}
 
 	return [...cardsByDoctor.values()].map((card) => ({
 		doctorId: card.doctorId,
 		doctorName: card.doctorName,
+		...(card.titleName ? { titleName: card.titleName } : {}),
+		...(card.description ? { description: card.description } : {}),
 		...(card.doctorPhotoUrl ? { doctorPhotoUrl: card.doctorPhotoUrl } : {}),
+		...(card.availabilityStatus
+			? { availabilityStatus: card.availabilityStatus }
+			: {}),
 		avatarLabel: card.doctorName.slice(0, 1),
 		scheduleCount: card.scheduleCount,
 		availableSlots: card.availableSlots,

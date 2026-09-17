@@ -120,6 +120,84 @@ page {
 	line-height: 1.65;
 }
 
+.doctor-profile-link {
+	margin: -8rpx 4rpx 20rpx;
+	color: #5687ed;
+	font-size: 25rpx;
+	line-height: 1.5;
+	text-align: right;
+}
+
+.doctor-profile-modal {
+	position: fixed;
+	z-index: 20;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	display: flex;
+	align-items: flex-end;
+	background: rgba(24, 34, 54, 0.42);
+}
+
+.doctor-profile-modal-panel {
+	box-sizing: border-box;
+	width: 100%;
+	max-height: 80vh;
+	padding-bottom: env(safe-area-inset-bottom);
+	border-radius: 24rpx 24rpx 0 0;
+	background: #ffffff;
+}
+
+.doctor-profile-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	height: 92rpx;
+	padding: 0 28rpx;
+	border-bottom: 1rpx solid #edf0f4;
+}
+
+.doctor-profile-modal-title {
+	color: #252a34;
+	font-size: 32rpx;
+	font-weight: 700;
+}
+
+.doctor-profile-modal-close {
+	color: #8b93a1;
+	font-size: 26rpx;
+}
+
+.doctor-profile-modal-scroll {
+	box-sizing: border-box;
+	max-height: calc(80vh - 92rpx);
+	padding: 26rpx 28rpx 36rpx;
+}
+
+.doctor-profile-modal-section + .doctor-profile-modal-section {
+	margin-top: 26rpx;
+}
+
+.doctor-profile-modal-section-title,
+.doctor-profile-modal-copy {
+	display: block;
+}
+
+.doctor-profile-modal-section-title {
+	color: #343b47;
+	font-size: 28rpx;
+	font-weight: 600;
+}
+
+.doctor-profile-modal-copy {
+	margin-top: 12rpx;
+	color: #697181;
+	font-size: 26rpx;
+	line-height: 1.7;
+}
+
 .detail-section-heading {
 	display: flex;
 	align-items: baseline;
@@ -205,6 +283,18 @@ page {
 	color: #343b47;
 	font-size: 28rpx;
 	font-weight: 600;
+}
+
+.doctor-schedule-registration-class {
+	display: inline-block;
+	align-self: flex-start;
+	margin-top: 8rpx;
+	padding: 4rpx 12rpx;
+	border-radius: 8rpx;
+	background: #fff0d9;
+	color: #925a05;
+	font-size: 21rpx;
+	line-height: 1.35;
 }
 
 .doctor-schedule-time {

@@ -31,6 +31,9 @@ import type {
 	PatientDirectorySyncStart,
 	PatientDirectorySyncStartInput,
 	PatientDirectoryUpsertInput,
+	PatientFeedback,
+	PatientFeedbackCreateInput,
+	PatientFeedbackRepository,
 	PatientProviderReference,
 	PatientRecord,
 	PatientRelationship,
@@ -69,6 +72,7 @@ import {
 	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateMyDoctorCreateInput,
+	validatePatientFeedbackCreateInput,
 	validateReportReference,
 } from "@hospital/domain";
 import type {
@@ -170,6 +174,8 @@ type AppointmentScheduleSnapshotRow = RowDataPacket & {
 	introduction: string | null;
 	expertise: string | null;
 	department_location: string | null;
+	registration_class_name: string | null;
+	hospital_area_name: string | null;
 	doctor_id: string;
 	doctor_name: string;
 	work_date: string;
@@ -213,6 +219,8 @@ type AppointmentRegistrationRow = RowDataPacket & {
 	department_name: string;
 	department_id: string | null;
 	doctor_id: string | null;
+	registration_class_name: string | null;
+	hospital_area_name: string | null;
 	doctor_name: string;
 	work_date: string;
 	shift_name: string;
@@ -235,6 +243,23 @@ type MyDoctorRow = RowDataPacket & {
 	department_name: string;
 	doctor_avatar_url: string | null;
 	created_at: string;
+};
+
+type PatientFeedbackRow = RowDataPacket & {
+	feedback_id: string;
+	owner_user_id: string;
+	patient_id: string;
+	appointment_id: string;
+	kind: string;
+	content: string;
+	display_public: number | boolean;
+	status: string;
+	donate_date: string;
+	department_name: string;
+	doctor_name: string;
+	idempotency_key: string;
+	created_at: string;
+	updated_at: string;
 };
 
 /**
@@ -1182,6 +1207,7 @@ export type MySqlRepositories = {
 	/** 只供受控维护命令使用；患者 API 和普通 Worker 不应调用。 */
 	operations: ManualReviewRepository;
 	healthKnowledge: HealthKnowledgeRepository;
+	patientFeedback: PatientFeedbackRepository;
 };
 
 /**
@@ -1845,6 +1871,12 @@ function appointmentScheduleSnapshot(
 			...(row.department_location
 				? { departmentLocation: row.department_location }
 				: {}),
+			...(row.registration_class_name
+				? { registrationClassName: row.registration_class_name }
+				: {}),
+			...(row.hospital_area_name
+				? { hospitalAreaName: row.hospital_area_name }
+				: {}),
 			doctorId: row.doctor_id,
 			doctorName: row.doctor_name,
 			workDate: row.work_date,
@@ -1924,6 +1956,12 @@ function appointmentRegistration(
 		departmentName: row.department_name,
 		...(row.department_id ? { departmentId: row.department_id } : {}),
 		...(row.doctor_id ? { doctorId: row.doctor_id } : {}),
+		...(row.registration_class_name
+			? { registrationClassName: row.registration_class_name }
+			: {}),
+		...(row.hospital_area_name
+			? { hospitalAreaName: row.hospital_area_name }
+			: {}),
 		doctorName: row.doctor_name,
 		workDate: row.work_date,
 		shiftName: row.shift_name,
@@ -1952,6 +1990,36 @@ function myDoctor(row: MyDoctorRow): MyDoctor {
 			: {}),
 		createdAt: mysqlUtcDateTimeToIso(row.created_at),
 	});
+}
+
+function normalizePatientFeedback(row: PatientFeedbackRow): PatientFeedback {
+	if (row.kind !== "gift-banner" && row.kind !== "health-praise")
+		throw new Error("Persistence returned an unknown patient feedback kind");
+	if (
+		row.status !== "pending_review" &&
+		row.status !== "approved" &&
+		row.status !== "rejected" &&
+		row.status !== "withdrawn"
+	)
+		throw new Error("Persistence returned an unknown patient feedback status");
+	const record: PatientFeedback = {
+		feedbackId: row.feedback_id,
+		ownerUserId: row.owner_user_id,
+		patientId: row.patient_id,
+		appointmentId: row.appointment_id,
+		kind: row.kind,
+		content: row.content,
+		displayPublic: Boolean(row.display_public),
+		status: row.status,
+		donateDate: String(row.donate_date).slice(0, 10),
+		departmentName: row.department_name,
+		doctorName: row.doctor_name,
+		idempotencyKey: row.idempotency_key,
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
+	};
+	validatePatientFeedbackCreateInput(record);
+	return record;
 }
 
 function reportReference(row: ReportReferenceRow): ReportReference {
@@ -2982,6 +3050,45 @@ export function createMySqlRepositories(
 				providerPatientId: row.provider_patient_id,
 			};
 		},
+		async resolvePatientByProviderReference(
+			input,
+		): Promise<PatientProviderReference | undefined> {
+			const referenceKind = input.referenceKind ?? "his-patient";
+			if (referenceKind === "his-patient") {
+				const rows = await execute<PatientProviderReferenceRow[]>(
+					pool,
+					"SELECT provider_refs.patient_id, provider_refs.provider_name, provider_refs.reference_kind, provider_refs.provider_patient_id FROM hp_patient_provider_references AS provider_refs INNER JOIN hp_patients AS patients ON patients.owner_user_id = provider_refs.owner_user_id AND patients.patient_id = provider_refs.patient_id AND patients.provider_name = provider_refs.provider_name WHERE provider_refs.owner_user_id = ? AND provider_refs.provider_name = ? AND provider_refs.reference_kind = ? AND provider_refs.provider_patient_id = ? AND patients.directory_active = 1 LIMIT 1",
+					[
+						input.ownerUserId,
+						input.provider,
+						referenceKind,
+						input.providerPatientId,
+					],
+				);
+				const row = rows[0];
+				return row?.provider_patient_id
+					? {
+							patientId: row.patient_id,
+							provider: input.provider,
+							providerPatientId: row.provider_patient_id,
+						}
+					: undefined;
+			}
+
+			const rows = await execute<PatientRow[]>(pool, PATIENT_BY_PROVIDER_SQL, [
+				input.ownerUserId,
+				input.provider,
+				input.providerPatientId,
+			]);
+			const row = rows[0];
+			return row?.provider_patient_id
+				? {
+						patientId: row.patient_id,
+						provider: input.provider,
+						providerPatientId: row.provider_patient_id,
+					}
+				: undefined;
+		},
 	};
 
 	const paymentQuotes: PaymentQuoteRepository = {
@@ -3443,10 +3550,11 @@ export function createMySqlRepositories(
 				`INSERT INTO hp_appointment_schedule_snapshots
 					(schedule_id, provider, provider_schedule_id, department_id, department_name,
 					 title_name, introduction, expertise, department_location,
+					 registration_class_name, hospital_area_name,
 					 doctor_id, doctor_name, work_date, shift_name, start_time, end_time,
 					 total_slots, available_slots, time_group, provider_request_id,
 					 observed_at, expires_at, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				 ON DUPLICATE KEY UPDATE
 					provider_schedule_id = IF(observed_at <= VALUES(observed_at), VALUES(provider_schedule_id), provider_schedule_id),
 					department_id = IF(observed_at <= VALUES(observed_at), VALUES(department_id), department_id),
@@ -3455,6 +3563,8 @@ export function createMySqlRepositories(
 					introduction = IF(observed_at <= VALUES(observed_at), VALUES(introduction), introduction),
 					expertise = IF(observed_at <= VALUES(observed_at), VALUES(expertise), expertise),
 					department_location = IF(observed_at <= VALUES(observed_at), VALUES(department_location), department_location),
+					registration_class_name = IF(observed_at <= VALUES(observed_at), VALUES(registration_class_name), registration_class_name),
+					hospital_area_name = IF(observed_at <= VALUES(observed_at), VALUES(hospital_area_name), hospital_area_name),
 					doctor_id = IF(observed_at <= VALUES(observed_at), VALUES(doctor_id), doctor_id),
 					doctor_name = IF(observed_at <= VALUES(observed_at), VALUES(doctor_name), doctor_name),
 					work_date = IF(observed_at <= VALUES(observed_at), VALUES(work_date), work_date),
@@ -3478,6 +3588,8 @@ export function createMySqlRepositories(
 					input.schedule.introduction ?? null,
 					input.schedule.expertise ?? null,
 					input.schedule.departmentLocation ?? null,
+					input.schedule.registrationClassName ?? null,
+					input.schedule.hospitalAreaName ?? null,
 					input.schedule.doctorId,
 					input.schedule.doctorName,
 					input.schedule.workDate,
@@ -3498,6 +3610,7 @@ export function createMySqlRepositories(
 				pool,
 				`SELECT schedule_id, provider, provider_schedule_id, department_id,
 					department_name, title_name, introduction, expertise, department_location,
+					registration_class_name, hospital_area_name,
 					doctor_id, doctor_name, work_date, shift_name,
 					start_time, end_time, total_slots, available_slots, time_group,
 					provider_request_id, observed_at, expires_at
@@ -3513,6 +3626,7 @@ export function createMySqlRepositories(
 				pool,
 				`SELECT schedule_id, provider, provider_schedule_id, department_id,
 					department_name, title_name, introduction, expertise, department_location,
+					registration_class_name, hospital_area_name,
 					doctor_id, doctor_name, work_date, shift_name,
 					start_time, end_time, total_slots, available_slots, time_group,
 					provider_request_id, observed_at, expires_at
@@ -3599,6 +3713,100 @@ export function createMySqlRepositories(
 				[ownerUserId, doctorId],
 			);
 			return result.affectedRows === 1;
+		},
+	};
+
+	const patientFeedback: PatientFeedbackRepository = {
+		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
+			const rows = await execute<PatientFeedbackRow[]>(
+				pool,
+				`SELECT feedback_id, owner_user_id, patient_id, appointment_id, kind,
+					content, display_public, status, donate_date, department_name,
+					doctor_name, idempotency_key, created_at, updated_at
+				 FROM hp_patient_feedback
+				 WHERE owner_user_id = ? AND idempotency_key = ? LIMIT 1`,
+				[ownerUserId, idempotencyKey],
+			);
+			return rows[0] ? normalizePatientFeedback(rows[0]) : undefined;
+		},
+		async create(input: PatientFeedbackCreateInput) {
+			const createdAt = input.createdAt ?? new Date().toISOString();
+			const updatedAt = input.updatedAt ?? createdAt;
+			validatePatientFeedbackCreateInput({ ...input, createdAt, updatedAt });
+			const feedbackId = input.feedbackId ?? crypto.randomUUID();
+			try {
+				await execute<ResultSetHeader>(
+					pool,
+					`INSERT INTO hp_patient_feedback
+						(feedback_id, owner_user_id, patient_id, appointment_id, kind,
+						 content, display_public, status, donate_date, department_name,
+						 doctor_name, idempotency_key, created_at, updated_at)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_review', ?, ?, ?, ?, ?, ?)`,
+					[
+						feedbackId,
+						input.ownerUserId,
+						input.patientId,
+						input.appointmentId,
+						input.kind,
+						input.content,
+						input.displayPublic,
+						input.donateDate,
+						input.departmentName,
+						input.doctorName,
+						input.idempotencyKey,
+						mysqlDateTime(createdAt),
+						mysqlDateTime(updatedAt),
+					],
+				);
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const existing = await this.findByOwnerAndIdempotencyKey(
+					input.ownerUserId,
+					input.idempotencyKey,
+				);
+				if (existing) return existing;
+				throw error;
+			}
+			const created = await execute<PatientFeedbackRow[]>(
+				pool,
+				`SELECT feedback_id, owner_user_id, patient_id, appointment_id, kind,
+					content, display_public, status, donate_date, department_name,
+					doctor_name, idempotency_key, created_at, updated_at
+				 FROM hp_patient_feedback WHERE feedback_id = ? LIMIT 1`,
+				[feedbackId],
+			);
+			if (!created[0]) throw new Error("Patient feedback was not stored");
+			return normalizePatientFeedback(created[0]);
+		},
+		async listByOwnerAndPatient({
+			ownerUserId,
+			patientId,
+			kind,
+			donateDate,
+			displayPublic,
+		}) {
+			const rows = await execute<PatientFeedbackRow[]>(
+				pool,
+				`SELECT feedback_id, owner_user_id, patient_id, appointment_id, kind,
+					content, display_public, status, donate_date, department_name,
+					doctor_name, idempotency_key, created_at, updated_at
+					 FROM hp_patient_feedback
+					 WHERE owner_user_id = ? AND patient_id = ?
+					 ${kind ? "AND kind = ?" : ""}
+					 ${donateDate ? `AND donate_date ${donateDate.length === 7 ? "LIKE" : "="} ?` : ""}
+					 ${displayPublic === undefined ? "" : "AND display_public = ?"}
+					 ORDER BY created_at DESC, feedback_id DESC`,
+				[
+					ownerUserId,
+					patientId,
+					...(kind ? [kind] : []),
+					...(donateDate
+						? [donateDate.length === 7 ? `${donateDate}-%` : donateDate]
+						: []),
+					...(displayPublic === undefined ? [] : [displayPublic]),
+				],
+			);
+			return rows.map(normalizePatientFeedback);
 		},
 	};
 
@@ -3794,7 +4002,8 @@ export function createMySqlRepositories(
 				pool,
 				`SELECT appointment_id, owner_user_id, patient_id, hold_id,
 					provider_appointment_id, provider_patient_id, provider_register_id,
-					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id, doctor_name, work_date,
+					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id,
+					registration_class_name, hospital_area_name, doctor_name, work_date,
 					shift_name, source_serial_number, total_fen, status, created_at, updated_at
 				 FROM hp_appointment_registrations
 				 WHERE owner_user_id = ? AND appointment_id = ? LIMIT 1`,
@@ -3807,7 +4016,8 @@ export function createMySqlRepositories(
 				pool,
 				`SELECT appointment_id, owner_user_id, patient_id, hold_id,
 					provider_appointment_id, provider_patient_id, provider_register_id,
-					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id, doctor_name, work_date,
+					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id,
+					registration_class_name, hospital_area_name, doctor_name, work_date,
 					shift_name, source_serial_number, total_fen, status, created_at, updated_at
 				 FROM hp_appointment_registrations
 				 WHERE owner_user_id = ? AND idempotency_key = ? LIMIT 1`,
@@ -3820,7 +4030,8 @@ export function createMySqlRepositories(
 				pool,
 				`SELECT appointment_id, owner_user_id, patient_id, hold_id,
 					provider_appointment_id, provider_patient_id, provider_register_id,
-					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id, doctor_name, work_date,
+					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id,
+					registration_class_name, hospital_area_name, doctor_name, work_date,
 					shift_name, source_serial_number, total_fen, status, created_at, updated_at
 				 FROM hp_appointment_registrations
 				 WHERE owner_user_id = ? AND patient_id = ? AND work_date = ?
@@ -3851,7 +4062,8 @@ export function createMySqlRepositories(
 				pool,
 				`SELECT appointment_id, owner_user_id, patient_id, hold_id,
 					provider_appointment_id, provider_patient_id, provider_register_id,
-					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id, doctor_name, work_date,
+					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id,
+					registration_class_name, hospital_area_name, doctor_name, work_date,
 					shift_name, source_serial_number, total_fen, status, created_at, updated_at
 				 FROM hp_appointment_registrations
 				 WHERE ${conditions.join(" AND ")}
@@ -3866,11 +4078,12 @@ export function createMySqlRepositories(
 				`INSERT INTO hp_appointment_registrations (
 					appointment_id, owner_user_id, patient_id, hold_id,
 					provider_appointment_id, provider_patient_id, provider_register_id,
-					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id, doctor_name, work_date,
+					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id,
+					registration_class_name, hospital_area_name, doctor_name, work_date,
 					shift_name, source_serial_number, total_fen, status, created_at, updated_at
 				) VALUES (
-					?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-					?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+					?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+					?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 				)
 				ON DUPLICATE KEY UPDATE appointment_id = appointment_id`,
 				[
@@ -3886,6 +4099,8 @@ export function createMySqlRepositories(
 					registration.departmentName,
 					registration.departmentId ?? null,
 					registration.doctorId ?? null,
+					registration.registrationClassName ?? null,
+					registration.hospitalAreaName ?? null,
 					registration.doctorName,
 					registration.workDate,
 					registration.shiftName,
@@ -4777,6 +4992,7 @@ export function createMySqlRepositories(
 		outbox,
 		operations,
 		healthKnowledge: createMySqlHealthKnowledgeRepository(pool),
+		patientFeedback,
 	};
 }
 

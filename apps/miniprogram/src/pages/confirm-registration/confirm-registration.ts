@@ -41,6 +41,8 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		hospitalName: "高平市人民医院",
 		scheduleId: "",
 		departmentName: "",
+		registrationClassName: "",
+		hospitalAreaName: "",
 		doctorName: "",
 		workDate: "",
 		shiftName: "",
@@ -63,6 +65,9 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		this.setData({
 			scheduleId: decodeRouteValue(options.scheduleId) ?? "",
 			departmentName: decodeRouteValue(options.departmentName) ?? "",
+			registrationClassName:
+				decodeRouteValue(options.registrationClassName) ?? "",
+			hospitalAreaName: decodeRouteValue(options.hospitalAreaName) ?? "",
 			doctorName: decodeRouteValue(options.doctorName) ?? "",
 			workDate: decodeRouteValue(options.workDate) ?? "",
 			shiftName: decodeRouteValue(options.shiftName) ?? "",

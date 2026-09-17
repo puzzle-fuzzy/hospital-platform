@@ -17,6 +17,7 @@ import {
 	formatOutpatientBillDateLabel,
 	formatPlatformDate,
 	loadAppointmentClinicDepartments,
+	loadAppointmentDoctorSchedules,
 	loadAppointmentDepartmentTree,
 	loadAppointmentSchedules,
 	loadCurrentPatientForOwner,
@@ -260,6 +261,12 @@ test("预约排班查询在网络请求前拒绝损坏的科室标识", async ()
 	).rejects.toMatchObject({ code: "appointment-query-invalid" });
 	await expect(
 		loadAppointmentSchedules("x".repeat(129), BEIJING_MIDNIGHT),
+	).rejects.toMatchObject({ code: "appointment-query-invalid" });
+	await expect(
+		loadAppointmentDoctorSchedules(" ", BEIJING_MIDNIGHT),
+	).rejects.toMatchObject({ code: "appointment-query-invalid" });
+	await expect(
+		loadAppointmentDoctorSchedules("dept-001\n", BEIJING_MIDNIGHT),
 	).rejects.toMatchObject({ code: "appointment-query-invalid" });
 });
 
@@ -958,7 +965,9 @@ test("预约排班响应必须绑定请求科室并保持号源语义", () => {
 				endTime: "12:00",
 				totalSlots: 20,
 				availableSlots: 8,
+				availabilityStatus: "open" as const,
 				timeGroup: "range" as const,
+				registrationClassName: "专家号",
 			},
 		],
 		total: 1,
@@ -986,6 +995,10 @@ test("预约排班响应必须绑定请求科室并保持号源语义", () => {
 		{
 			...valid,
 			items: [{ ...valid.items[0], doctorPhotoUrl: "javascript:alert(1)" }],
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], availabilityStatus: "paused" }],
 		},
 		{
 			...valid,
@@ -1112,6 +1125,10 @@ test("门诊病历响应只接受无 Provider 主键的安全摘要", () => {
 				visitTime: "2026-08-15 10:20:30",
 				departmentName: "心内科",
 				doctorName: "张医生",
+				patientName: "张三",
+				patientSex: "男",
+				patientAge: "38",
+				maritalStatus: "已婚",
 				diagnosis: "高血压",
 			},
 		],

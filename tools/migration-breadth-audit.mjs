@@ -197,6 +197,9 @@ function extractPageMethods(source) {
 			"onRetry",
 			"onOpenPatientSelector",
 			"onOpenMigrationStatus",
+			"onMonthChange",
+			"onConvenienceAction",
+			"onRecordTap",
 			"onBackHome",
 		);
 	}

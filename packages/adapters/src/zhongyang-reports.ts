@@ -1059,6 +1059,13 @@ function mapLaboratoryDetail(
 				operation,
 				requestId,
 			);
+			const expertOpinion = optionalText(
+				detail.expertOpinion,
+				"expertOpinion",
+				operation,
+				requestId,
+				4096,
+			);
 			return {
 				name: requiredText(
 					detail.itemName ?? detail.itemEname,
@@ -1074,6 +1081,7 @@ function mapLaboratoryDetail(
 				),
 				...(unit !== undefined ? { unit } : {}),
 				...(referenceRange !== undefined ? { referenceRange } : {}),
+				...(expertOpinion !== undefined ? { expertOpinion } : {}),
 				flag: detailFlag(detail, operation, requestId),
 			};
 		}),

@@ -65,7 +65,7 @@ Content-Type: application/json
 | Header | 使用范围 | 规则 |
 | --- | --- | --- |
 | `X-Request-Id` | 业务请求可选 | 用于贯穿小程序、Nginx、API、adapter 和日志；服务端缺失时生成安全 requestId |
-| `Idempotency-Key` | 患者同步、患者绑定、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` + `0016` schema gate 通过后使用 owner-scoped operation ledger；患者绑定按 owner 使用幂等键合并重复请求，并固定 Provider 查档/建档/绑卡顺序，完成后的目录同步使用独立 key，且必须同时打开患者绑定与患者目录 gate |
+| `Idempotency-Key` | 患者同步、患者绑定、电子锦旗/表扬信、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` + `0016` schema gate 通过后使用 owner-scoped operation ledger；患者绑定按 owner 使用幂等键合并重复请求，并固定 Provider 查档/建档/绑卡顺序，完成后的目录同步使用独立 key；反馈提交按 owner+幂等键重放同一条新服务记录，内容默认进入待审核 |
 | `Authorization` | 受保护接口 | 只接受平台 Bearer 会话，不接受 provider token |
 
 无论接口返回成功还是错误，服务端都会在响应头返回最终采用的 `X-Request-Id`；错误响应不会因为进入统一错误处理器而丢失它。
@@ -123,11 +123,12 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/me/profile` | Bearer | 读取当前用户的普通展示资料；不存在时返回安全默认值，不隐式创建记录 |
 | `PUT` | `/api/v2/me/profile` | Bearer | 使用 `version` 更新昵称、性别、年龄、邮箱；不接收实名/微信/患者/头像字段 |
 | `POST` | `/api/v2/patients/sync` | Bearer + 必填幂等键 | 从 provider 刷新当前用户的患者目录；不接受 body |
-| `POST` | `/api/v2/patients/bind` | Bearer + 必填幂等键 | body 为 `{displayName,mobile,identityNumber,consent:true}`；当前路由保留 fail-closed 行为，只有患者绑定 contract 和 Provider gateway 就绪后才按旧服务顺序查档、建档（必要时）、绑卡并同步脱敏目录；当前小程序页面不调用 |
+| `POST` | `/api/v2/patients/bind` | Bearer + 必填幂等键 | body 为 `{displayName,mobile,identityNumber,consent:true,legacyLoginCode?}`；当前小程序实名表单会调用该平台 API，服务端保留 fail-closed 行为，只有患者绑定 contract、旧服务身份校验和 Provider gateway 就绪后才按旧服务顺序查档、建档（必要时）、绑卡并同步脱敏目录 |
 | `GET` | `/api/v2/patients` | Bearer | 返回当前用户 owner-scoped 的脱敏患者目录 |
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
 | `GET` | `/api/v2/appointments/department-tree` | Bearer；幂等键可选 | 返回挂号页的一级/二级真实科室树 |
 | `GET` | `/api/v2/appointments/clinic-departments` | Bearer；幂等键可选 | 必填 `parentDepartmentId`；返回该受控二级科室下的三级可预约门诊 |
+| `GET` | `/api/v2/appointments/doctor-schedules` | Bearer；幂等键可选 | 旧端“按医生挂号”专用目录；必填 `startDate`、`endDate`，可选 `departmentId`、`doctorId`；服务端展开 Provider `scheduling-doctors` 的嵌套排班，状态未由该端点返回时保持 `unknown` |
 | `GET` | `/api/v2/appointments/schedules` | Bearer；幂等键可选 | 必填 `startDate`、`endDate`；可选 `departmentId`、`doctorId` |
 | `GET` | `/api/v2/appointments/schedules/{scheduleId}/sources` | Bearer；幂等键可选 | 读取单个排班的分时段号源；`scheduleId` 必须对应未过期排班快照，否则 404 `appointment-schedule-reference-expired`；不返回 provider 号源 ID、锁号状态或费用 |
 | `POST` | `/api/v2/appointments/holds` | Bearer + 幂等键 | body 为 `{patientId, scheduleId, sourceSerialNumber}`；服务端重新读取有效排班、号源和挂号费，创建 60 秒服务端占位 |
@@ -158,6 +159,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/my/doctors/{doctorId}` | Bearer | 返回当前用户自己的单个医生关系快照 |
 | `POST` | `/api/v2/my/doctors` | Bearer + 幂等键可选 | body 只有 `{doctorId}`；服务端从当前排班目录确认医生资料后建立关注关系 |
 | `DELETE` | `/api/v2/my/doctors/{doctorId}` | Bearer + 幂等键可选 | 幂等取消当前用户的医生关注关系；不会按 GET 执行破坏性操作 |
+| `GET` | `/api/v2/patient-feedback` | Bearer；query 必填 `patientId`，可选 `kind`、`donateDate`（`YYYY-MM-DD` 或 `YYYY-MM`）、`displayPublic` | 查询当前用户、当前就诊人的新服务电子锦旗/表扬信记录；只返回自己的记录，不读取旧服务历史，日期和公开标志筛选沿用旧服务语义 |
+| `POST` | `/api/v2/patient-feedback` | Bearer + 幂等键可选 | body 为 `{patientId,appointmentId,kind,content,displayPublic,donateDate}`；服务端重新校验患者与平台预约归属，从预约快照生成科室/医生字段，新记录进入 `pending_review`，不代表已公开 |
 | `GET` | `/api/v2/knowledge/health/part/list` | Bearer | 返回已发布健康百科的身体部位目录；没有审核发布版本时 fail-closed |
 | `GET` | `/api/v2/knowledge/health/crowd/list` | Bearer | 返回已发布健康百科的人群目录；不接受 provider 或患者参数 |
 | `GET` | `/api/v2/knowledge/health/department/list` | Bearer | 返回已发布健康百科的科室目录；不接受 provider 或患者参数 |

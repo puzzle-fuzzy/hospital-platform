@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { PatientBindingGateway } from "@hospital/domain";
 import {
+	PatientBindingDirectoryConfirmationError,
 	PatientBindingInputError,
 	PatientBindingService,
 } from "./binding-service";
@@ -19,6 +20,7 @@ test("患者绑定服务派生身份证事实并用独立同步幂等键刷新�
 			received = input;
 			return {
 				created: true,
+				providerPatientId: "his-patient-binding-001",
 				trace: {
 					provider: "zhongyang",
 					operation: "patient-binding",
@@ -31,6 +33,13 @@ test("患者绑定服务派生身份证事实并用独立同步幂等键刷新�
 		async sync(_owner: string, syncContext: { idempotencyKey: string }) {
 			syncKey = syncContext.idempotencyKey;
 			return { items: [], total: 0 };
+		},
+		async resolvePatientByProviderReference() {
+			return {
+				patientId: "platform-patient-binding-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "his-patient-binding-001",
+			};
 		},
 	} as unknown as PatientService;
 	const service = new PatientBindingService({
@@ -111,6 +120,13 @@ test("患者绑定服务迁移旧服务授权并把 JWT 只注入众阳上下文
 			async sync() {
 				return { items: [], total: 0 };
 			},
+			async resolvePatientByProviderReference() {
+				return {
+					patientId: "platform-patient-binding-003",
+					provider: "zhongyang" as const,
+					providerPatientId: "his-patient-binding-003",
+				};
+			},
 		} as unknown as PatientService,
 		identityUsers: {
 			async findOrCreateByWechat() {
@@ -144,6 +160,7 @@ test("患者绑定服务迁移旧服务授权并把 JWT 只注入众阳上下文
 				receivedProviderContext = providerContext;
 				return {
 					created: false,
+					providerPatientId: "his-patient-binding-003",
 					trace: {
 						provider: "zhongyang",
 						operation: "patient-binding",
@@ -181,6 +198,7 @@ test("患者绑定后首次目录确认失败时仍使用确认窗口重试", as
 			async bind() {
 				return {
 					created: false,
+					providerPatientId: "his-patient-binding-004",
 					trace: {
 						provider: "zhongyang",
 						operation: "patient-binding",
@@ -200,6 +218,15 @@ test("患者绑定后首次目录确认失败时仍使用确认窗口重试", as
 				);
 				return { items: [], total: 0 };
 			},
+			async resolvePatientByProviderReference() {
+				return syncCalls === 3
+					? {
+							patientId: "platform-patient-binding-004",
+							provider: "zhongyang" as const,
+							providerPatientId: "his-patient-binding-004",
+						}
+					: undefined;
+			},
 		} as unknown as PatientService,
 		directoryRetryDelaysMs: [0, 0],
 	});
@@ -217,6 +244,49 @@ test("患者绑定后首次目录确认失败时仍使用确认窗口重试", as
 		),
 	).resolves.toMatchObject({ created: false, total: 0 });
 	expect(syncCalls).toBe(3);
+});
+
+test("患者绑定目录始终未出现时拒绝伪造成功", async () => {
+	let syncCalls = 0;
+	const service = new PatientBindingService({
+		gateway: {
+			async bind() {
+				return {
+					created: false,
+					providerPatientId: "his-patient-binding-missing",
+					trace: {
+						provider: "zhongyang",
+						operation: "patient-binding",
+						requestId: "provider-binding-missing",
+					},
+				};
+			},
+		},
+		patients: {
+			async sync() {
+				syncCalls += 1;
+				return { items: [], total: 0 };
+			},
+			async resolvePatientByProviderReference() {
+				return undefined;
+			},
+		} as unknown as PatientService,
+		directoryRetryDelaysMs: [],
+	});
+
+	await expect(
+		service.bind(
+			"fixture-owner-binding-missing",
+			{
+				displayName: "张三",
+				mobile: "13812345678",
+				identityNumber: "11010519900101007X",
+				consent: true,
+			},
+			{ ...context, idempotencyKey: "binding-service-key-missing" },
+		),
+	).rejects.toBeInstanceOf(PatientBindingDirectoryConfirmationError);
+	expect(syncCalls).toBe(1);
 });
 
 test("患者绑定服务拒绝旧服务 JWT 与当前 owner 的 unionId 不一致", async () => {
@@ -275,4 +345,73 @@ test("患者绑定服务拒绝旧服务 JWT 与当前 owner 的 unionId 不一�
 		),
 	).rejects.toBeInstanceOf(PatientBindingInputError);
 	expect(gatewayCalls).toBe(0);
+});
+
+test("患者绑定相同幂等键并发只产生一次 Provider 操作", async () => {
+	let providerCalls = 0;
+	let releaseProvider!: () => void;
+	const providerReleased = new Promise<void>((resolve) => {
+		releaseProvider = resolve;
+	});
+	const service = new PatientBindingService({
+		gateway: {
+			async bind() {
+				providerCalls += 1;
+				await providerReleased;
+				return {
+					created: false,
+					providerPatientId: "his-patient-binding-inflight",
+					trace: {
+						provider: "zhongyang",
+						operation: "patient-binding",
+						requestId: "provider-binding-inflight",
+					},
+				};
+			},
+		},
+		patients: {
+			async sync() {
+				return { items: [], total: 0 };
+			},
+			async resolvePatientByProviderReference() {
+				return {
+					patientId: "platform-patient-binding-inflight",
+					provider: "zhongyang" as const,
+					providerPatientId: "his-patient-binding-inflight",
+				};
+			},
+		} as unknown as PatientService,
+		directoryRetryDelaysMs: [],
+	});
+	const input = {
+		displayName: "张三",
+		mobile: "13812345678",
+		identityNumber: "11010519900101007X",
+		consent: true as const,
+	};
+	const keyContext = { ...context, idempotencyKey: "binding-service-inflight" };
+	const first = service.bind(
+		"fixture-owner-binding-inflight",
+		input,
+		keyContext,
+	);
+	const second = service.bind(
+		"fixture-owner-binding-inflight",
+		input,
+		keyContext,
+	);
+	const conflicting = service.bind(
+		"fixture-owner-binding-inflight",
+		{ ...input, displayName: "李四" },
+		keyContext,
+	);
+
+	await expect(conflicting).rejects.toBeInstanceOf(PatientBindingInputError);
+	expect(providerCalls).toBe(1);
+	releaseProvider();
+	await expect(Promise.all([first, second])).resolves.toEqual([
+		{ created: false, items: [], total: 0 },
+		{ created: false, items: [], total: 0 },
+	]);
+	expect(providerCalls).toBe(1);
 });

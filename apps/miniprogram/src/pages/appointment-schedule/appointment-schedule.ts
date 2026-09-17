@@ -8,7 +8,7 @@ import {
 	createUpcomingDateRange,
 	DASHBOARD_DATE_RANGE_DAYS,
 	formatPlatformDate,
-	loadAppointmentSchedules,
+	loadAppointmentDoctorSchedules,
 	loadAppointmentSchedulesForDate,
 } from "../../services/dashboard-service";
 import {
@@ -223,12 +223,14 @@ Page<AppointmentSchedulePageData, AppointmentSchedulePageMethods>({
 			hasMoreSchedules: false,
 			visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 		});
-		return loadAppointmentSchedules(this.data.departmentId)
+		return loadAppointmentDoctorSchedules(this.data.departmentId)
 			.then((doctorSchedules) => {
 				if (!guard.isCurrent(token)) return;
 				this.setData({
 					doctorSchedules,
-					doctorCards: groupAppointmentDoctorCards(doctorSchedules),
+					doctorCards: groupAppointmentDoctorCards(doctorSchedules, {
+						includeUnknownAvailableSlots: true,
+					}),
 				});
 			})
 			.catch((error) => {
@@ -456,6 +458,16 @@ Page<AppointmentSchedulePageData, AppointmentSchedulePageMethods>({
 			(item) => item.scheduleId === scheduleId,
 		);
 		if (!schedule) return;
+		if (schedule.availabilityStatus !== "open") {
+			wx.showToast({
+				title:
+					schedule.availabilityStatus === "stopped"
+						? "当前排班已停诊"
+						: "当前排班状态待确认",
+				icon: "none",
+			});
+			return;
+		}
 		if (schedule.availableSlots <= 0) {
 			wx.showToast({ title: "当前号源已约满", icon: "none" });
 			return;

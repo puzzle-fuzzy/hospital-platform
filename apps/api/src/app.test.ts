@@ -7,6 +7,7 @@ import {
 	ProviderRequestError,
 } from "@hospital/adapters";
 import {
+	type AdapterCallContext,
 	type AppointmentDepartmentTreeGateway,
 	type AppointmentDirectoryGateway,
 	type AppointmentRecordDirectoryGateway,
@@ -49,6 +50,7 @@ import { HealthKnowledgeService } from "./modules/knowledge";
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
+import { PatientBindingDirectoryConfirmationError } from "./modules/patients/binding-service";
 import {
 	WechatPaymentNotificationService,
 	WechatPrepayService,
@@ -388,6 +390,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/appointments/clinic-departments",
 		"/api/v1/appointments/departments",
 		"/api/v1/appointments/department-tree",
+		"/api/v1/appointments/doctor-schedules",
 		"/api/v1/appointments/holds",
 		"/api/v1/appointments/records",
 		"/api/v1/appointments/registrations",
@@ -414,6 +417,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/medical-records",
 		"/api/v1/my/doctors",
 		"/api/v1/my/doctors/{doctorId}",
+		"/api/v1/patient-feedback",
 		"/api/v1/patients",
 		"/api/v1/patients/bind",
 		"/api/v1/patients/sync",
@@ -889,6 +893,208 @@ test("patient sync authenticates before validating its idempotency header", asyn
 			code: "unauthorized",
 			numericCode: 10200,
 			message: "请先登录后再继续操作",
+		},
+	});
+});
+
+test("patient binding authenticates before accepting the实名 payload", async () => {
+	const response = await createApp().handle(
+		new Request("http://localhost/api/v1/patients/bind", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"idempotency-key": "patient-binding-unauthenticated",
+			},
+			body: JSON.stringify({
+				displayName: "测试就诊人",
+				mobile: "13800000000",
+				identityNumber: "11010519491231002X",
+				consent: true,
+			}),
+		}),
+	);
+
+	// 未登录请求必须先在认证层终止，不能让实名字段进入绑定服务或 Provider。
+	expect(response.status).toBe(401);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "unauthorized",
+			numericCode: 10200,
+			message: "请先登录后再继续操作",
+		},
+	});
+});
+
+test("authenticated patient binding returns only the safe directory contract", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-binding-api-owner");
+	let receivedContext: AdapterCallContext | undefined;
+	const app = createApp({
+		services: {
+			...createDefaultApplicationServices(),
+			sessions,
+			patientBinding: {
+				bind: async (
+					_owner: string,
+					_input: unknown,
+					context: AdapterCallContext,
+				) => {
+					receivedContext = context;
+					return {
+						created: true,
+						items: [
+							{
+								id: "patient-platform-001",
+								displayName: "测试就诊人",
+								relationship: "self",
+								cardNumberMasked: "00100******7027",
+								source: "hospital-his",
+								clinicalAccess: "ready",
+							},
+						],
+						total: 1,
+					};
+				},
+			} as unknown as NonNullable<ApplicationServices["patientBinding"]>,
+		},
+	});
+
+	const response = await app.handle(
+		new Request("http://localhost/api/v1/patients/bind", {
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${issued.accessToken}`,
+				"content-type": "application/json",
+				"idempotency-key": "patient-binding-api-001",
+				"x-request-id": "patient-binding-api-trace",
+			},
+			body: JSON.stringify({
+				displayName: "测试就诊人",
+				mobile: "13800000000",
+				identityNumber: "11010519491231002X",
+				consent: true,
+			}),
+		}),
+	);
+
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({
+		success: true,
+		data: {
+			created: true,
+			items: [
+				{
+					id: "patient-platform-001",
+					displayName: "测试就诊人",
+					relationship: "self",
+					cardNumberMasked: "00100******7027",
+					source: "hospital-his",
+					clinicalAccess: "ready",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(receivedContext?.idempotencyKey).toBe("patient-binding-api-001");
+});
+
+test("patient binding does not turn an unconfirmed directory into success", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-binding-confirmation-owner");
+	const app = createApp({
+		services: {
+			...createDefaultApplicationServices(),
+			sessions,
+			patientBinding: {
+				bind: async () => {
+					throw new PatientBindingDirectoryConfirmationError();
+				},
+			} as unknown as NonNullable<ApplicationServices["patientBinding"]>,
+		},
+	});
+
+	const response = await app.handle(
+		new Request("http://localhost/api/v1/patients/bind", {
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${issued.accessToken}`,
+				"content-type": "application/json",
+				"idempotency-key": "patient-binding-confirmation-001",
+			},
+			body: JSON.stringify({
+				displayName: "测试就诊人",
+				mobile: "13800000000",
+				identityNumber: "11010519491231002X",
+				consent: true,
+			}),
+		}),
+	);
+
+	expect(response.status).toBe(502);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "provider-response-invalid",
+			numericCode: 10820,
+			message: "医院返回的数据暂时无法确认，请稍后重试",
+		},
+	});
+});
+
+test("authenticated appointment directory returns only the safe tree contract", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-appointment-directory-owner");
+	const app = createApp({
+		services: {
+			...createDefaultApplicationServices(),
+			sessions,
+			appointments: {
+				listDepartmentTree: async () => ({
+					items: [
+						{
+							groupId: "group-outpatient",
+							displayName: "门诊科室",
+							departments: [
+								{
+									departmentId: "department-internal-001",
+									displayName: "内科",
+								},
+							],
+						},
+					],
+					total: 1,
+				}),
+			} as unknown as AppointmentService,
+		},
+	});
+
+	const response = await app.handle(
+		new Request("http://localhost/api/v1/appointments/department-tree", {
+			headers: {
+				authorization: `Bearer ${issued.accessToken}`,
+				"x-request-id": "appointment-directory-api-trace",
+			},
+		}),
+	);
+
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					groupId: "group-outpatient",
+					displayName: "门诊科室",
+					departments: [
+						{
+							departmentId: "department-internal-001",
+							displayName: "内科",
+						},
+					],
+				},
+			],
+			total: 1,
 		},
 	});
 });

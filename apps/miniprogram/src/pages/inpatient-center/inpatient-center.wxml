@@ -48,12 +48,18 @@
 
 			<view wx:elif="{{episodes.length}}" class="inpatient-list">
 				<view wx:for="{{episodes}}" wx:key="viewKey" class="inpatient-card">
+					<text class="inpatient-card-section-title">住院信息</text>
 					<view class="inpatient-card-header">
 						<view class="inpatient-card-title-wrap">
 							<text class="inpatient-card-title">{{item.patientName}}</text>
 							<text wx:if="{{item.inpatientNumber}}" class="inpatient-card-number">住院号：{{item.inpatientNumber}}</text>
 						</view>
 						<text class="inpatient-status inpatient-status-{{item.status}}">{{item.statusLabel}}</text>
+					</view>
+					<view class="inpatient-card-patient-meta">
+						<text wx:if="{{item.sex}}">性别：{{item.sex}}</text>
+						<text wx:if="{{item.age}}">年龄：{{item.age}}</text>
+						<text wx:if="{{item.cardNumberMasked}}">就诊卡号：{{item.cardNumberMasked}}</text>
 					</view>
 					<view class="inpatient-card-grid">
 						<view class="inpatient-card-field"><text class="inpatient-card-label">入院时间</text><text class="inpatient-card-value">{{item.admittedAt}}</text></view>

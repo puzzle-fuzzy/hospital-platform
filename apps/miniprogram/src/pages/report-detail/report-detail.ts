@@ -74,6 +74,7 @@ function parseReportCount(value: string | undefined): number {
 Page<ReportDetailPageState, ReportDetailPageMethods>({
 	data: {
 		loading: true,
+		selectedPatientName: "",
 		title: "报告详情",
 		reportCount: 0,
 		activeTab: "report",
@@ -99,6 +100,7 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 			// 会话切换时连同深链引用一并清除，禁止重试按钮再次读取旧报告。
 			this.setData({
 				loading: false,
+				selectedPatientName: "",
 				title: "报告详情不可用",
 				reportCount: 0,
 				activeTab: "report",
@@ -162,6 +164,7 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 		// selected_patient_id 仍是旧账号的值，也不会直接把引用送进详情 API。
 		let expectedSessionGeneration = -1;
 		let expectedOwnerId = "";
+		let selectedPatientName = "";
 		return getCurrentUser()
 			.then((currentUser) => {
 				if (!detailGuard.isCurrent(detailToken)) return undefined;
@@ -183,6 +186,12 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 					!isCurrentSelectedPatient(patientId)
 				) {
 					throw new ApiError("当前就诊人已变更，请重新选择后查看报告", {
+						code: "patient-selection-required",
+					});
+				}
+				selectedPatientName = currentPatient.displayName.trim();
+				if (!selectedPatientName) {
+					throw new ApiError("当前就诊人信息不可用", {
 						code: "patient-selection-required",
 					});
 				}
@@ -225,6 +234,7 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 					report.kind === "laboratory" ? [] : [...report.sections];
 				const attachments = [...(report.attachments ?? [])];
 				this.setData({
+					selectedPatientName,
 					title: report.title,
 					kind: report.kind,
 					kindLabel: REPORT_KIND_LABELS[report.kind],
@@ -350,10 +360,16 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 	},
 
 	onDownloadCloudImage(): void {
+		// 旧端 report_detail.vue 依次赋值 reportImgPath、reportPdfPath、
+		// pdfUrl，后出现的非空字段会覆盖前一个；当前 adapter 已按该事实把
+		// PACS 附件排成 PDF 在前、图片在后，因此入口必须打开第一项，不能
+		// 擅自把图片提到 PDF 前面。
 		const attachment = this.data.attachments[0];
-		if (attachment) {
-			void this.openAttachment(attachment);
+		if (!attachment) {
+			wx.showToast({ title: "暂无可用报告附件", icon: "none" });
+			return;
 		}
+		void this.openAttachment(attachment);
 	},
 
 	/** 旧端有分享入口，但真实分享 contract 尚未确认；保持明确关闭态。 */
@@ -379,6 +395,7 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 		this.setData({
 			error: errorMessageWithCode(error, message),
 			loading: false,
+			selectedPatientName: "",
 			title: "报告详情不可用",
 			kind: "",
 			kindLabel: "",

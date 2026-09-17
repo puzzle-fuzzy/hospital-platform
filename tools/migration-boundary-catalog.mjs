@@ -148,7 +148,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待支付与回写 contract",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/health/inpatient_payment.vue"],
-		safeSurfaceTarget: "pages/feature-status/feature-status",
+		safeSurfaceTarget: "pages/inpatient-payment/inpatient-payment",
 		safePartialPaths: ["pagesB/health/inpatient_payment.vue"],
 		requiredMaterials: [
 			"amount-unit",
@@ -368,6 +368,14 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/discharge_followup_detail.vue",
 		],
 		safeSurfaceTarget: "pages/discharge-followup/discharge-followup",
+		safeSurfaceTargets: {
+			"pagesB/health/discharge_followup_detail.vue":
+				"pages/discharge-followup-detail/discharge-followup-detail",
+		},
+		safePartialPaths: [
+			"pagesB/health/discharge_followup.vue",
+			"pagesB/health/discharge_followup_detail.vue",
+		],
 		requiredMaterials: [
 			"discharge-event",
 			"followup-task",
@@ -394,6 +402,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/risk_self_evaluation.vue",
 		],
 		safeSurfaceTarget: "pages/risk-evaluation/risk-evaluation",
+		safePartialPaths: [
+			"pagesB/health/risk_form_fall.vue",
+			"pagesB/health/risk_form_pain.vue",
+			"pagesB/health/risk_form_pressure.vue",
+			"pagesB/health/risk_self_evaluation.vue",
+		],
 		requiredMaterials: [
 			"rule-version",
 			"applicable-population",
@@ -425,7 +439,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		safePartialPaths: [
 			"pagesB/health/blood_pressure_calc.vue",
 			"pagesB/health/bmi_calc.vue",
+			"pagesB/health/health_test.vue",
 		],
+		safeSurfaceTargets: {
+			"pagesB/health/self_test_question.vue":
+				"pages/self-test-question/self-test-question",
+		},
 		requiredMaterials: [
 			"question-bank-version",
 			"threshold-version",
@@ -447,6 +466,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "clinical-content-write",
 		legacyPaths: ["pagesB/health/pre_visit.vue"],
 		safeSurfaceTarget: "pages/pre-visit/pre-visit",
+		safePartialPaths: ["pagesB/health/pre_visit.vue"],
 		requiredMaterials: [
 			"appointment-context",
 			"questionnaire-version",
@@ -471,6 +491,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/record_electronic_banner.vue",
 		],
 		safeSurfaceTarget: "pages/gift-banner/gift-banner",
+		safeSurfaceTargets: {
+			"pagesB/health/gift_electronic_banner.vue":
+				"pages/convenience-compose/convenience-compose",
+			"pagesB/health/record_electronic_banner.vue":
+				"pages/convenience-compose/convenience-compose",
+		},
 		requiredMaterials: [
 			"content-review",
 			"file-security",
@@ -496,6 +522,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/record_health_praise.vue",
 		],
 		safeSurfaceTarget: "pages/health-praise/health-praise",
+		safeSurfaceTargets: {
+			"pagesB/health/gift_health_praise.vue":
+				"pages/convenience-compose/convenience-compose",
+			"pagesB/health/record_health_praise.vue":
+				"pages/convenience-compose/convenience-compose",
+		},
 		requiredMaterials: [
 			"content-review",
 			"file-security",

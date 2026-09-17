@@ -312,7 +312,9 @@ function frozenBoundaryCoverage(migrationBreadth) {
 				continue;
 			}
 			const expectedTarget =
+				gate.safeReadOnlyTargets?.[legacyPath] ??
 				gate.safeReadOnlyTarget ??
+				gate.safeSurfaceTargets?.[legacyPath] ??
 				gate.safeSurfaceTarget ??
 				"pages/feature-status/feature-status";
 			if (entry.nativeTarget !== expectedTarget) {

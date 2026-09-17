@@ -176,6 +176,18 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 		providerPatientId: "his-patient-002",
 	});
 	expect(
+		await patients.resolvePatientByProviderReference?.({
+			ownerUserId: "user-001",
+			provider: "zhongyang",
+			providerPatientId: "his-patient-002",
+			referenceKind: "his-patient",
+		}),
+	).toEqual({
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		providerPatientId: "his-patient-002",
+	});
+	expect(
 		await patients.resolveProviderReference({
 			ownerUserId: "other-user",
 			patientId: "internal-patient-001",

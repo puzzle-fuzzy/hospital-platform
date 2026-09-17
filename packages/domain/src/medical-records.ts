@@ -1,13 +1,18 @@
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
-/** 门诊病历列表只返回患者端确实需要的就诊摘要，不包含 Provider 主键。 */
+/** 门诊病历列表只返回当前已选患者端确实需要的就诊摘要，不包含 Provider 主键。 */
 export type OutpatientMedicalRecord = {
 	departmentName?: string;
 	doctorName?: string;
 	hospitalName?: string;
 	clinicTypeName?: string;
 	chargeClassName?: string;
+	/** 旧端记录卡展示的当前患者快照字段，不用于身份匹配或写入。 */
+	patientName?: string;
+	patientSex?: string;
+	patientAge?: string;
+	maritalStatus?: string;
 	/** 原版门诊记录中的就诊时间展示值，保留医院返回的明确粒度。 */
 	visitTime: string;
 	diagnosis?: string;
@@ -66,8 +71,9 @@ function optionalText(value: unknown, maxLength: number): string | undefined {
 /**
  * Provider adapter 和可替换测试网关都必须经过同一层二次投影。
  *
- * 这里明确丢弃 regId、patId、身份证、姓名等旧端字段；门诊病历页面只需要
- * 展示已选患者对应的摘要，不能把 Provider 临床主键或患者资料带回小程序。
+ * 这里明确丢弃 regId、patId、身份证等旧端字段；姓名、性别、年龄和婚姻
+ * 状况仅作为当前已选患者对应记录卡的展示快照返回，不能用于身份匹配、写入
+ * 或跨患者复用。
  */
 export function normalizeOutpatientMedicalRecords(
 	value: unknown,
@@ -100,6 +106,18 @@ export function normalizeOutpatientMedicalRecords(
 				: {}),
 			...(optionalText(record.chargeClassName, 128)
 				? { chargeClassName: record.chargeClassName as string }
+				: {}),
+			...(optionalText(record.patientName, 128)
+				? { patientName: record.patientName as string }
+				: {}),
+			...(optionalText(record.patientSex, 64)
+				? { patientSex: record.patientSex as string }
+				: {}),
+			...(optionalText(record.patientAge, 32)
+				? { patientAge: record.patientAge as string }
+				: {}),
+			...(optionalText(record.maritalStatus, 64)
+				? { maritalStatus: record.maritalStatus as string }
 				: {}),
 			...(optionalText(record.diagnosis, 4096)
 				? { diagnosis: record.diagnosis as string }

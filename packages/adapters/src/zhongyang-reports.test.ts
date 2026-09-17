@@ -504,6 +504,7 @@ test("众阳 LIS 详情只映射白名单检测项并保留 provider 引用在�
 								itemResult: "10.2",
 								unit: "10^9/L",
 								itemRange: "3.5-9.5",
+								expertOpinion: "结合临床情况复核",
 								mark: "H",
 							},
 							{
@@ -540,6 +541,7 @@ test("众阳 LIS 详情只映射白名单检测项并保留 provider 引用在�
 				result: "10.2",
 				unit: "10^9/L",
 				referenceRange: "3.5-9.5",
+				expertOpinion: "结合临床情况复核",
 				flag: "high",
 			},
 			{ name: "血红蛋白", result: "120", flag: "critical" },

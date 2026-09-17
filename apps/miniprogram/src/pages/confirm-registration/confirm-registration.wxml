@@ -11,9 +11,17 @@
 			<text class="confirm-row-label">预约科室</text>
 			<text class="confirm-row-value">{{departmentName}}</text>
 		</view>
+		<view wx:if="{{registrationClassName}}" class="confirm-row">
+			<text class="confirm-row-label">预约号别</text>
+			<text class="confirm-row-value">{{registrationClassName}}</text>
+		</view>
 		<view class="confirm-row">
 			<text class="confirm-row-label">预约医生</text>
 			<text class="confirm-row-value">{{doctorName}}</text>
+		</view>
+		<view wx:if="{{hospitalAreaName}}" class="confirm-row">
+			<text class="confirm-row-label">就诊院区</text>
+			<text class="confirm-row-value">{{hospitalAreaName}}</text>
 		</view>
 		<view class="confirm-row">
 			<text class="confirm-row-label">挂号序号</text>

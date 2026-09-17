@@ -52,6 +52,26 @@ export function resolveKnowledgeTabSource(
 		: "reload-disease-catalog";
 }
 
+/** 复用旧百科的首字母分组展示，只整理已经通过服务端白名单的条目。 */
+export function groupHealthKnowledgeItems<T extends { initialLetter?: string }>(
+	items: readonly T[],
+): Array<{ letter: string; items: T[] }> {
+	const groups = new Map<string, T[]>();
+	for (const item of items) {
+		const letter = item.initialLetter?.trim().toUpperCase() || "#";
+		const group = groups.get(letter) ?? [];
+		group.push(item);
+		groups.set(letter, group);
+	}
+	return [...groups.entries()]
+		.sort(([left], [right]) => {
+			if (left === "#") return 1;
+			if (right === "#") return -1;
+			return left.localeCompare(right, "en");
+		})
+		.map(([letter, groupedItems]) => ({ letter, items: groupedItems }));
+}
+
 /**
  * 解析症状查询页携带的 opaque symptomId 列表。
  *

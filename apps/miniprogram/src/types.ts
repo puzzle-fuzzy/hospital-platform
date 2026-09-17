@@ -28,6 +28,9 @@ import type {
 	OutpatientSelfPayPayload,
 	PatientBindingPayload,
 	PatientBindingRequestPayload,
+	PatientFeedbackCreateRequestPayload,
+	PatientFeedbackListResponsePayload,
+	PatientFeedbackResponsePayload,
 	PatientListPayload,
 	RegistrationSelfPayPayload,
 	ReportDetailPayload,
@@ -78,6 +81,9 @@ export type HealthKnowledgeDrugDetailResponse =
 	HealthKnowledgeDrugDetailResponsePayload;
 export type AuthSessionResponse = AuthSessionPayload;
 export type CurrentUserResponse = CurrentUserPayload;
+export type PatientFeedbackCreateRequest = PatientFeedbackCreateRequestPayload;
+export type PatientFeedbackListResponse = PatientFeedbackListResponsePayload;
+export type PatientFeedbackResponse = PatientFeedbackResponsePayload;
 export type PatientListResponse = PatientListPayload;
 export type PatientBindingRequest = PatientBindingRequestPayload;
 export type PatientBindingResponse = PatientBindingPayload;
@@ -137,10 +143,16 @@ export type MyDoctor = MyDoctorListResponse["data"]["items"][number];
 export type AppointmentDoctorCard = {
 	doctorId: string;
 	doctorName: string;
+	/** 旧端 doctorList.title 的受控排班字段。 */
+	titleName?: string;
+	/** 旧端 doctorList.desc 的受控介绍/擅长字段。 */
+	description?: string;
 	/** 旧端 doctorPic 的受控照片 URL；同一医生取首个非空照片，无图时页面回退本地头像。 */
 	doctorPhotoUrl?: string;
 	/** 无照片时的本地字母/汉字头像兜底。 */
 	avatarLabel: string;
+	/** 医生卡片聚合后的安全排班状态；缺失时页面按待确认处理。 */
+	availabilityStatus?: "open" | "stopped" | "unknown";
 	scheduleCount: number;
 	availableSlots: number;
 	dates: Array<{
@@ -426,6 +438,7 @@ export type MyDoctorDetailView = {
 	titleName?: string;
 	introduction?: string;
 	expertise?: string;
+	hospitalAreaName?: string;
 	departmentLocation?: string;
 	departmentName: string;
 	doctorAvatarUrl?: string;
@@ -444,6 +457,7 @@ export type MyDoctorDetailPageData = {
 	}>;
 	selectedDate: string;
 	followed: boolean;
+	showProfile: boolean;
 	loading: boolean;
 	scheduleLoading: boolean;
 	actionLoading: boolean;
@@ -470,6 +484,8 @@ export type AppointmentDetailPageData = {
 	patientCardLabel: string;
 	hospitalName: string;
 	departmentName: string;
+	registrationClassName: string;
+	hospitalAreaName: string;
 	doctorName: string;
 	workDate: string;
 	shiftName: string;
@@ -518,6 +534,9 @@ export type ConfirmRegistrationPageData = {
 	hospitalName: string;
 	scheduleId: string;
 	departmentName: string;
+	/** 旧端确认页的真实挂号类型名称；缺失时不拼接虚假号别。 */
+	registrationClassName: string;
+	hospitalAreaName: string;
 	doctorName: string;
 	workDate: string;
 	shiftName: string;
@@ -626,6 +645,8 @@ export type MissedAppointmentsPageData = {
 
 export type ReportDetailPageData = {
 	loading: boolean;
+	/** 由当前 owner 的患者目录提供，仅作为详情页上下文展示。 */
+	selectedPatientName: string;
 	title: string;
 	reportCount: number;
 	activeTab: "report" | "image";

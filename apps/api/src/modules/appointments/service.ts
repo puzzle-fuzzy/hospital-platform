@@ -697,6 +697,7 @@ export class AppointmentService {
 	async listSchedules(
 		input: AppointmentScheduleQuery,
 		context: AdapterCallContext,
+		useDoctorDirectory = false,
 	): Promise<AppointmentScheduleListPayload["data"]> {
 		let trace: ExternalTrace | undefined;
 		try {
@@ -707,20 +708,30 @@ export class AppointmentService {
 				),
 			);
 			validateScheduleQuery(input);
+			const directoryList =
+				useDoctorDirectory && this.dependencies.directory.listDoctorSchedules
+					? this.dependencies.directory.listDoctorSchedules.bind(
+							this.dependencies.directory,
+						)
+					: this.dependencies.directory.listSchedules.bind(
+							this.dependencies.directory,
+						);
+			const operationName = useDoctorDirectory
+				? "appointment.directory.doctor-schedules.requested"
+				: "appointment.directory.schedules.requested";
 			this.logger.info(
 				{
-					event: "appointment.directory.schedules.requested",
+					event: operationName,
 					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					startDate: input.startDate,
 					endDate: input.endDate,
 				},
-				"Appointment schedule directory requested",
+				useDoctorDirectory
+					? "Appointment doctor schedule directory requested"
+					: "Appointment schedule directory requested",
 			);
-			const result = await this.dependencies.directory.listSchedules(
-				input,
-				context,
-			);
+			const result = await directoryList(input, context);
 			trace = normalizeExternalTrace(
 				(result as { trace?: unknown } | undefined)?.trace,
 				{ expectedProvider: "zhongyang" },
@@ -786,6 +797,14 @@ export class AppointmentService {
 			this.logFailure(context, error, "schedules", trace);
 			throw error;
 		}
+	}
+
+	/** 旧端“按医生挂号”入口；真实众阳 gateway 使用 scheduling-doctors。 */
+	async listDoctorSchedules(
+		input: AppointmentScheduleQuery,
+		context: AdapterCallContext,
+	): Promise<AppointmentScheduleListPayload["data"]> {
+		return this.listSchedules(input, context, true);
 	}
 
 	/**

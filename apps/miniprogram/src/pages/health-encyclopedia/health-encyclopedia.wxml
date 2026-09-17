@@ -30,27 +30,36 @@
 			</view>
 			<view class="knowledge-columns">
 				<scroll-view class="knowledge-left" scroll-y="true">
-					<view wx:for="{{leftItems}}" wx:key="id" class="knowledge-left-item {{item.id === selectedLeftId ? 'knowledge-left-item-active' : ''}}" data-id="{{item.id}}" bindtap="onLeftItemTap">{{item.name}}</view>
+					<view wx:for="{{leftItems}}" wx:key="id" class="knowledge-left-item {{item.id === selectedLeftId ? 'knowledge-left-item-active' : ''}}" data-id="{{item.id}}" bindtap="onLeftItemTap">
+						<text>{{item.name}}</text>
+						<text wx:if="{{activeTab === 'symptom' && partSelectionCounts[item.id] > 0}}" class="knowledge-left-count">{{partSelectionCounts[item.id]}}</text>
+					</view>
 				</scroll-view>
 				<scroll-view class="knowledge-right" scroll-y="true">
 					<view wx:if="{{activeTab === 'symptom'}}">
-						<view wx:for="{{rightItems}}" wx:key="id" class="knowledge-right-item" data-id="{{item.id}}" bindtap="onSymptomTap">
-							<text class="knowledge-item-name">{{item.name}}</text>
-							<text class="knowledge-check" wx:if="{{selectedSymptomIds.indexOf(item.id) >= 0}}">已选</text>
+						<view wx:for="{{rightGroups}}" wx:for-item="group" wx:key="letter" class="knowledge-letter-group">
+							<view class="knowledge-letter-anchor">{{group.letter}}</view>
+							<view wx:for="{{group.items}}" wx:for-item="entry" wx:key="id" class="knowledge-right-item" data-id="{{entry.id}}" bindtap="onSymptomTap">
+								<text class="knowledge-item-name">{{entry.name}}</text>
+								<text class="knowledge-check" wx:if="{{selectedSymptomIds.indexOf(entry.id) >= 0}}">已选</text>
+							</view>
 						</view>
 					</view>
 					<view wx:else>
-						<view wx:for="{{rightItems}}" wx:key="id" class="knowledge-right-item" data-id="{{item.id}}" bindtap="onDiseaseTap">
-							<view>
-								<text class="knowledge-item-name">{{item.name}}</text>
-								<text class="knowledge-item-extra" wx:if="{{item.treatmentDepartment}}">{{item.treatmentDepartment}}</text>
+						<view wx:for="{{rightGroups}}" wx:for-item="group" wx:key="letter" class="knowledge-letter-group">
+							<view class="knowledge-letter-anchor">{{group.letter}}</view>
+							<view wx:for="{{group.items}}" wx:for-item="entry" wx:key="id" class="knowledge-right-item" data-id="{{entry.id}}" bindtap="onDiseaseTap">
+								<view>
+									<text class="knowledge-item-name">{{entry.name}}</text>
+									<text class="knowledge-item-extra" wx:if="{{entry.treatmentDepartment}}">{{entry.treatmentDepartment}}</text>
+								</view>
+								<image
+									class="knowledge-arrow"
+									src="/assets/legacy-user/selector-arrow-right.svg"
+									mode="aspectFit"
+									aria-hidden="true"
+								/>
 							</view>
-							<image
-								class="knowledge-arrow"
-								src="/assets/legacy-user/selector-arrow-right.svg"
-								mode="aspectFit"
-								aria-hidden="true"
-							/>
 						</view>
 					</view>
 					<view class="knowledge-inline-empty" wx:if="{{rightItems.length === 0}}">暂无该分类内容</view>

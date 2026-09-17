@@ -1,0 +1,38 @@
+<scroll-view class="discharge-detail-scroll" scroll-y="true" enhanced="true">
+	<view class="discharge-detail-page">
+		<view class="discharge-detail-title">{{title}}</view>
+
+		<view class="discharge-detail-patient" bindtap="onChangePatient">
+			<view class="discharge-detail-patient-copy">
+				<text class="discharge-detail-label">当前就诊人</text>
+				<text wx:if="{{patient}}" class="discharge-detail-name">{{patient.displayName}}</text>
+				<text wx:elif="{{loading}}" class="discharge-detail-muted">正在获取就诊人...</text>
+				<text wx:else class="discharge-detail-muted">请选择就诊人</text>
+				<text wx:if="{{patient}}" class="discharge-detail-card">{{patient.cardNumberMasked}}</text>
+				<text wx:if="{{patientError}}" class="discharge-detail-error">{{patientError}}</text>
+			</view>
+			<text class="discharge-detail-arrow">›</text>
+		</view>
+
+		<view wx:for="{{form.sections}}" wx:key="title" class="discharge-detail-section">
+			<view class="discharge-detail-section-title">{{item.title}}</view>
+			<text wx:if="{{item.description}}" class="discharge-detail-section-description">{{item.description}}</text>
+			<view wx:for="{{item.fields}}" wx:for-item="field" wx:key="key" class="discharge-detail-field">
+				<text class="discharge-detail-field-label">{{field.label}}</text>
+				<input wx:if="{{field.kind === 'input'}}" class="discharge-detail-input" data-key="{{field.key}}" value="{{values[field.key]}}" bindinput="onInput" placeholder="{{field.placeholder}}" />
+				<input wx:elif="{{field.kind === 'date'}}" class="discharge-detail-input" type="date" data-key="{{field.key}}" value="{{values[field.key]}}" bindinput="onInput" placeholder="请选择日期" />
+				<textarea wx:elif="{{field.kind === 'textarea'}}" class="discharge-detail-textarea" data-key="{{field.key}}" value="{{values[field.key]}}" bindinput="onInput" maxlength="1000" placeholder="{{field.placeholder}}"></textarea>
+				<view wx:elif="{{field.kind === 'choice'}}" class="discharge-detail-options">
+					<view wx:for="{{field.options}}" wx:for-item="option" wx:key="*this" class="discharge-detail-option {{values[field.key].indexOf(option) >= 0 ? 'is-selected' : ''}}" data-key="{{field.key}}" data-option="{{option}}" bindtap="onOptionTap">
+						<text class="discharge-detail-check">{{values[field.key].indexOf(option) >= 0 ? '✓' : ''}}</text><text>{{option}}</text>
+					</view>
+				</view>
+			</view>
+		</view>
+
+		<view wx:if="{{message}}" class="discharge-detail-message">{{message}}</view>
+		<button class="discharge-detail-submit" loading="{{submitting}}" bindtap="onSubmit">提交随访</button>
+		<text class="discharge-detail-note">表单字段和八类随访入口已按旧服务迁移；提交前仅做本地校验，未开放接口不会保存答案。</text>
+		<button class="discharge-detail-back" bindtap="onBack">返回随访列表</button>
+	</view>
+</scroll-view>

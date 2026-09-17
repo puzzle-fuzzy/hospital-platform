@@ -18,9 +18,10 @@ export type ConvenienceSurfaceFeature = "gift-banner" | "health-praise";
 /**
  * 便民记录区域的状态只描述当前患者上下文是否已确认。
  *
- * 电子锦旗和表扬信的真实 Provider 尚未开放，因此 `unavailable` 不是
- * Provider 成功返回的空数组，而是“患者读取成功后，业务能力仍关闭”。
- * 把 loading/error 单独保留下来，避免页面把目录故障伪装成空记录。
+ * 电子锦旗和表扬信的公开审核投影尚未开放，因此 `unavailable` 不是
+ * Provider 成功返回的空数组，而是“患者读取成功后，公开列表能力仍关闭”。
+ * 提交和个人记录由新服务负责，不复用旧服务 Provider；把 loading/error
+ * 单独保留下来，避免页面把目录故障伪装成空记录。
  */
 export type ConvenienceSurfaceRecordState = "loading" | "error" | "unavailable";
 
@@ -52,7 +53,7 @@ const DEFINITIONS: Readonly<
 	Record<ConvenienceSurfaceFeature, ConvenienceSurfaceDefinition>
 > = Object.freeze({
 	"gift-banner": {
-		 title: "电子锦旗",
+		title: "电子锦旗",
 		recordTitle: "电子锦旗记录",
 		recordNote: USER_FACING_SURFACE_COPY.description,
 		myRecordsLabel: "我的电子锦旗",
@@ -139,8 +140,9 @@ function toPageData(
  * 电子锦旗和表扬信共用页面结构，但不共用未来的内容 Provider 模型。
  *
  * 旧端同时存在列表、记录和提交页面，并且会把患者/医生快照直接交给
- * 外部接口。这里先迁移真实可确认的页面结构与当前就诊人选择，记录区域
- * 明确显示“服务待接入”，避免把未查询当成空记录，也避免产生写入副作用。
+ * 外部接口。新端已把提交和个人记录改为平台 owner-scoped 链路；公开区域
+ * 仍明确显示“服务待接入”，避免把未查询当成空记录，也避免产生未经审核
+ * 的公开写入副作用。
  */
 export function registerConvenienceSurfacePage(
 	feature: ConvenienceSurfaceFeature,
@@ -221,23 +223,31 @@ export function registerConvenienceSurfacePage(
 		},
 
 		onMonthChange(event) {
-		const delta = String(event.currentTarget.dataset.delta ?? "") === "next" ? 1 : -1;
-		const [yearText, monthText] = this.data.monthLabel.replace("月", "").split("年");
-		const date = new Date(Number(yearText), Number(monthText) - 1 + delta, 1);
-		this.setData({ monthLabel: `${date.getFullYear()}年${String(date.getMonth() + 1).padStart(2, "0")}月` });
-		// 没有当前 contract 时，切换月份仍然只改变筛选上下文，不能把
-		// 未查询的列表渲染成空成功结果。
-		wx.showToast({ title: "公开记录服务尚未开放", icon: "none" });
+			const delta =
+				String(event.currentTarget.dataset.delta ?? "") === "next" ? 1 : -1;
+			const [yearText, monthText] = this.data.monthLabel
+				.replace("月", "")
+				.split("年");
+			const date = new Date(Number(yearText), Number(monthText) - 1 + delta, 1);
+			this.setData({
+				monthLabel: `${date.getFullYear()}年${String(date.getMonth() + 1).padStart(2, "0")}月`,
+			});
+			// 没有当前 contract 时，切换月份仍然只改变筛选上下文，不能把
+			// 未查询的列表渲染成空成功结果。
+			wx.showToast({ title: "公开记录服务尚未开放", icon: "none" });
 		},
 
 		onConvenienceAction(event) {
-		const action = String(event.currentTarget.dataset.action ?? "");
-		if (!action) return;
-		wx.showToast({ title: `${action}功能正在接入中`, icon: "none" });
+			const action = String(event.currentTarget.dataset.action ?? "");
+			if (!action) return;
+			const mode = action === this.data.myRecordsLabel ? "records" : "create";
+			wx.navigateTo({
+				url: `/pages/convenience-compose/convenience-compose?feature=${feature}&mode=${mode}`,
+			});
 		},
 
 		onRecordTap() {
-		wx.showToast({ title: "公开记录服务尚未开放", icon: "none" });
+			wx.showToast({ title: "公开记录服务尚未开放", icon: "none" });
 		},
 
 		onUnload() {

@@ -59,12 +59,14 @@
 						<view class="doctor-card-copy">
 							<view class="doctor-card-name-row">
 								<text class="doctor-card-name">{{doctor.doctorName}}</text>
+								<text wx:if="{{doctor.titleName}}" class="doctor-card-title">{{doctor.titleName}}</text>
 								<text
-									class="doctor-availability {{doctor.availableSlots > 0 ? 'doctor-availability-open' : 'doctor-availability-full'}}"
-								>{{doctor.availableSlots > 0 ? '有号' : '已约满'}}</text>
+									class="doctor-availability {{doctor.availabilityStatus === 'open' && doctor.availableSlots > 0 ? 'doctor-availability-open' : 'doctor-availability-full'}}"
+								>{{doctor.availabilityStatus === 'open' && doctor.availableSlots > 0 ? '有号' : doctor.availabilityStatus === 'stopped' ? '停诊' : doctor.availabilityStatus === 'unknown' ? '待确认' : '已约满'}}</text>
 							</view>
+							<text wx:if="{{doctor.description}}" class="doctor-card-description">{{doctor.description}}</text>
 							<text class="doctor-card-meta">共 {{doctor.scheduleCount}} 个出诊时段</text>
-							<text class="doctor-card-hint">当前可预约余 {{doctor.availableSlots}} 个号</text>
+							<text class="doctor-card-hint">{{doctor.availabilityStatus === 'unknown' ? '当前观测余' : '当前可预约余'}} {{doctor.availableSlots}} 个号</text>
 						</view>
 					</view>
 
@@ -120,7 +122,7 @@
 						<view class="date-filter-chevron" aria-hidden="true"></view>
 					</view>
 				</picker>
-				<!-- 当前公开 contract 尚无号别字段；保留信息位但不伪造下拉筛选。 -->
+				<!-- 当前公开 contract 展示号别，但暂不支持按号别筛选。 -->
 				<view class="date-filter-static" aria-disabled="true">
 					<text>全部号别</text>
 				</view>
@@ -170,15 +172,17 @@
 							<text class="schedule-doctor">{{item.doctorName}}</text>
 							<text class="schedule-shift">{{item.shiftName}}</text>
 						</view>
+						<text wx:if="{{item.registrationClassName}}" class="schedule-registration-class">{{item.registrationClassName}}</text>
 						<text class="schedule-date">{{item.workDate}}</text>
+						<text wx:if="{{item.hospitalAreaName}}" class="schedule-time">{{item.hospitalAreaName}}</text>
 						<text wx:if="{{item.startTime}}" class="schedule-time">
 							{{item.startTime}}<text wx:if="{{item.endTime}}"> - {{item.endTime}}</text>
 						</text>
 						<text wx:else class="schedule-time">具体时段以医院排班为准</text>
 					</view>
 					<view class="schedule-item-action">
-						<text class="schedule-slots {{item.availableSlots > 0 ? 'schedule-slots-available' : 'schedule-slots-empty'}}">剩 {{item.availableSlots}} 个</text>
-						<view class="schedule-reserve {{item.availableSlots > 0 ? 'schedule-reserve-active' : 'schedule-reserve-full'}}">{{item.availableSlots > 0 ? '挂号' : '已约满'}}</view>
+						<text class="schedule-slots {{item.availabilityStatus === 'open' && item.availableSlots > 0 ? 'schedule-slots-available' : 'schedule-slots-empty'}}">{{item.availabilityStatus === 'stopped' ? '停诊' : item.availabilityStatus === 'unknown' ? '状态待确认' : '剩 ' + item.availableSlots + ' 个'}}</text>
+						<view class="schedule-reserve {{item.availabilityStatus === 'open' && item.availableSlots > 0 ? 'schedule-reserve-active' : 'schedule-reserve-full'}}">{{item.availabilityStatus === 'open' && item.availableSlots > 0 ? '挂号' : item.availabilityStatus === 'stopped' ? '停诊' : item.availabilityStatus === 'unknown' ? '待确认' : '已约满'}}</view>
 					</view>
 				</view>
 				<view wx:if="{{hasMoreSchedules}}" class="schedule-load-more" bindtap="onLoadMore">加载更多号源</view>

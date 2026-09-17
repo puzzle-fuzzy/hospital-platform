@@ -34,9 +34,17 @@
 					<text class="detail-row-label">预约科室</text>
 					<text class="detail-row-value">{{departmentName}}</text>
 				</view>
+				<view wx:if="{{registrationClassName}}" class="detail-row">
+					<text class="detail-row-label">预约号别</text>
+					<text class="detail-row-value">{{registrationClassName}}</text>
+				</view>
 				<view class="detail-row">
 					<text class="detail-row-label">预约医生</text>
 					<text class="detail-row-value">{{doctorName}}</text>
+				</view>
+				<view wx:if="{{hospitalAreaName}}" class="detail-row">
+					<text class="detail-row-label">就诊院区</text>
+					<text class="detail-row-value">{{hospitalAreaName}}</text>
 				</view>
 				<view class="detail-row">
 					<text class="detail-row-label">预约挂号序号</text>
@@ -59,6 +67,7 @@
 				<view class="detail-row detail-row-last">
 					<text class="detail-row-label">就诊地址</text>
 					<text class="detail-row-value">{{location || "以医院现场指引为准"}}</text>
+					<button class="detail-guide-button" bindtap="onHospitalGuide" plain="true">去导航</button>
 				</view>
 				<text class="detail-notice">请携带有效证件按就诊日期到院取号候诊，具体取号时间以医院现场公示为准。</text>
 			</view>
@@ -96,5 +105,21 @@
 				<text>预约状态和金额以服务端及医院最终记录为准。</text>
 			</view>
 		</block>
+
+		<view wx:if="{{showLocationModal}}" class="detail-location-mask" catchtap="closeLocationModal">
+			<view class="detail-location-popup" catchtap="stopLocationPropagation">
+				<view class="detail-location-header">
+					<text>科室位置信息</text>
+					<button class="detail-location-close" bindtap="closeLocationModal" plain="true">×</button>
+				</view>
+				<scroll-view wx:if="{{locationResults.length}}" class="detail-location-scroll" scroll-y="true">
+					<view wx:for="{{locationResults}}" wx:key="department" class="detail-location-item">
+						<text class="detail-location-department">{{item.department}}</text>
+						<text class="detail-location-text">{{item.location}}</text>
+					</view>
+				</scroll-view>
+				<view wx:else class="detail-location-empty">未找到相关科室位置信息</view>
+			</view>
+		</view>
 	</view>
 </scroll-view>

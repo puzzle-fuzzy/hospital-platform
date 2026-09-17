@@ -1,0 +1,26 @@
+.discharge-detail-scroll { height: 100vh; background: #f8f9fa; }
+.discharge-detail-page { box-sizing: border-box; min-height: 100%; padding: 20rpx 24rpx 48rpx; }
+.discharge-detail-title { padding: 26rpx 20rpx; border-radius: 16rpx; background: #fff; color: #222; font-size: 31rpx; font-weight: 600; line-height: 1.5; text-align: center; }
+.discharge-detail-patient { display: flex; align-items: center; justify-content: space-between; margin-top: 18rpx; padding: 24rpx; border-radius: 16rpx; background: #fff; }
+.discharge-detail-patient-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.discharge-detail-label, .discharge-detail-field-label { color: #777; font-size: 24rpx; }
+.discharge-detail-name { margin-top: 8rpx; color: #222; font-size: 29rpx; font-weight: 600; }
+.discharge-detail-muted { margin-top: 8rpx; color: #999; font-size: 28rpx; }
+.discharge-detail-card { margin-top: 8rpx; color: #999; font-size: 23rpx; }
+.discharge-detail-error { margin-top: 8rpx; color: #c53b3b; font-size: 23rpx; }
+.discharge-detail-arrow { color: #999; font-size: 42rpx; }
+.discharge-detail-section { margin-top: 18rpx; overflow: hidden; border-radius: 16rpx; background: #fff; }
+.discharge-detail-section-title { padding: 22rpx 24rpx; border-bottom: 1rpx solid #f0f0f0; color: #222; font-size: 29rpx; font-weight: 600; }
+.discharge-detail-section-description { display: block; padding: 20rpx 24rpx 0; color: #666; font-size: 26rpx; line-height: 1.7; }
+.discharge-detail-field { padding: 20rpx 24rpx; border-bottom: 1rpx solid #f3f3f3; }
+.discharge-detail-field:last-child { border-bottom: 0; }
+.discharge-detail-input, .discharge-detail-textarea { box-sizing: border-box; width: 100%; margin-top: 12rpx; padding: 18rpx 20rpx; border-radius: 10rpx; background: #f8f9fa; color: #333; font-size: 27rpx; }
+.discharge-detail-textarea { min-height: 130rpx; line-height: 1.5; }
+.discharge-detail-options { display: flex; flex-wrap: wrap; gap: 14rpx; margin-top: 12rpx; }
+.discharge-detail-option { display: flex; align-items: center; min-height: 60rpx; padding: 0 18rpx; border: 1rpx solid #e4e7ed; border-radius: 10rpx; color: #555; font-size: 25rpx; line-height: 1.4; }
+.discharge-detail-option.is-selected { border-color: #3d6df6; background: #eff3ff; color: #3d6df6; }
+.discharge-detail-check { display: inline-block; width: 25rpx; margin-right: 8rpx; color: #3d6df6; font-weight: 600; text-align: center; }
+.discharge-detail-message { margin-top: 18rpx; padding: 18rpx 22rpx; border-radius: 14rpx; background: #fff8e8; color: #a66b00; font-size: 24rpx; line-height: 1.6; }
+.discharge-detail-submit { width: 100%; margin-top: 22rpx; border-radius: 14rpx; background: #3d6df6; color: #fff; font-size: 29rpx; line-height: 84rpx; }
+.discharge-detail-note { display: block; margin-top: 18rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
+.discharge-detail-back { width: 100%; margin-top: 12rpx; border-radius: 14rpx; background: transparent; color: #68738a; font-size: 28rpx; line-height: 84rpx; }

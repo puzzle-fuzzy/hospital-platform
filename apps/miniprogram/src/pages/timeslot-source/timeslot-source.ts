@@ -26,8 +26,8 @@ type TimeslotSourcePageMethods = {
  * 对应旧项目 `/pagesB/hospital/timeslot_source`。
  *
  * 旧端同时请求排班详情和号源明细，并展示 provider 挂号费；新端只消费
- * 服务端白名单后的排班展示上下文与分时段号源，不展示费用，也不把
- * provider 号源 ID 拼进后续路由——预约写入时由服务端重新解析号源。
+ * 服务端白名单后的排班展示上下文与分时段号源，补充传递真实挂号类型/院区，
+ * 不展示费用，也不把 provider 号源 ID 拼进后续路由——预约写入时由服务端重新解析号源。
  */
 Page<TimeslotSourcePageData, TimeslotSourcePageMethods>({
 	data: {
@@ -92,6 +92,14 @@ Page<TimeslotSourcePageData, TimeslotSourcePageMethods>({
 		const query = [
 			`scheduleId=${encodeURIComponent(this.data.scheduleId)}`,
 			`departmentName=${encodeURIComponent(schedule.departmentName)}`,
+			...(schedule.registrationClassName
+				? [
+						`registrationClassName=${encodeURIComponent(schedule.registrationClassName)}`,
+					]
+				: []),
+			...(schedule.hospitalAreaName
+				? [`hospitalAreaName=${encodeURIComponent(schedule.hospitalAreaName)}`]
+				: []),
 			`doctorName=${encodeURIComponent(schedule.doctorName)}`,
 			`workDate=${encodeURIComponent(schedule.workDate)}`,
 			`shiftName=${encodeURIComponent(schedule.shiftName)}`,

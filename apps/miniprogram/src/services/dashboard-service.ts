@@ -24,6 +24,7 @@ import {
 	getCurrentUser,
 	request,
 	requestAppointmentClinicDepartments,
+	requestAppointmentDoctorSchedules,
 	requestAppointmentDepartments,
 	requestAppointmentDepartmentTree,
 	requestAppointmentRecords,
@@ -607,6 +608,14 @@ export function requireAppointmentScheduleListData(
 		const titleName = optionalAppointmentText(item.titleName, 128);
 		const introduction = optionalAppointmentText(item.introduction, 512);
 		const expertise = optionalAppointmentText(item.expertise, 255);
+		const registrationClassName = optionalAppointmentText(
+			item.registrationClassName,
+			128,
+		);
+		const hospitalAreaName = optionalAppointmentText(
+			item.hospitalAreaName,
+			128,
+		);
 		const departmentLocation = optionalAppointmentText(
 			item.departmentLocation,
 			256,
@@ -620,6 +629,7 @@ export function requireAppointmentScheduleListData(
 		const endTime = optionalAppointmentText(item.endTime, 32);
 		const totalSlots = item.totalSlots;
 		const availableSlots = item.availableSlots;
+		const availabilityStatus = item.availabilityStatus;
 		if (
 			!isBoundedAppointmentIdentifier(scheduleId) ||
 			seenScheduleIds.has(scheduleId) ||
@@ -633,7 +643,11 @@ export function requireAppointmentScheduleListData(
 			!Number.isSafeInteger(availableSlots) ||
 			availableSlots < 0 ||
 			availableSlots > totalSlots ||
-			!isAppointmentTimeGroup(item.timeGroup)
+			!isAppointmentTimeGroup(item.timeGroup) ||
+			(availabilityStatus !== undefined &&
+				availabilityStatus !== "open" &&
+				availabilityStatus !== "stopped" &&
+				availabilityStatus !== "unknown")
 		) {
 			return invalidAppointmentResponse(
 				"Appointment schedule response item is invalid",
@@ -647,6 +661,10 @@ export function requireAppointmentScheduleListData(
 			...(titleName === undefined ? {} : { titleName }),
 			...(introduction === undefined ? {} : { introduction }),
 			...(expertise === undefined ? {} : { expertise }),
+			...(registrationClassName === undefined
+				? {}
+				: { registrationClassName }),
+			...(hospitalAreaName === undefined ? {} : { hospitalAreaName }),
 			...(departmentLocation === undefined ? {} : { departmentLocation }),
 			doctorId,
 			doctorName,
@@ -657,6 +675,7 @@ export function requireAppointmentScheduleListData(
 			...(endTime === undefined ? {} : { endTime }),
 			totalSlots,
 			availableSlots,
+			...(availabilityStatus === undefined ? {} : { availabilityStatus }),
 			timeGroup: item.timeGroup,
 		});
 	}
@@ -797,12 +816,17 @@ const MEDICAL_RECORD_FIELDS = new Set([
 	"hospitalName",
 	"clinicTypeName",
 	"chargeClassName",
+	"patientName",
+	"patientSex",
+	"patientAge",
+	"maritalStatus",
 	"visitTime",
 	"diagnosis",
 ]);
 
 /**
- * 微信响应再次按门诊摘要白名单重投影，Provider 主键或患者身份字段一律拒绝。
+ * 微信响应再次按门诊摘要白名单重投影，Provider 主键一律拒绝；患者快照字段
+ * 只用于当前已选患者的记录卡展示，不用于身份匹配或写入。
  * 空数组只在响应 contract 完整时才表示真实空结果，错误不能降级成空态。
  */
 export function requireOutpatientMedicalRecordListData(
@@ -829,6 +853,10 @@ export function requireOutpatientMedicalRecordListData(
 		const hospitalName = optionalDisplayText(item.hospitalName, 128);
 		const clinicTypeName = optionalDisplayText(item.clinicTypeName, 128);
 		const chargeClassName = optionalDisplayText(item.chargeClassName, 128);
+		const patientName = optionalDisplayText(item.patientName, 128);
+		const patientSex = optionalDisplayText(item.patientSex, 64);
+		const patientAge = optionalDisplayText(item.patientAge, 32);
+		const maritalStatus = optionalDisplayText(item.maritalStatus, 64);
 		const diagnosis = optionalDisplayText(item.diagnosis, 4096);
 		return {
 			visitTime: item.visitTime,
@@ -837,6 +865,10 @@ export function requireOutpatientMedicalRecordListData(
 			...(hospitalName ? { hospitalName } : {}),
 			...(clinicTypeName ? { clinicTypeName } : {}),
 			...(chargeClassName ? { chargeClassName } : {}),
+			...(patientName ? { patientName } : {}),
+			...(patientSex ? { patientSex } : {}),
+			...(patientAge ? { patientAge } : {}),
+			...(maritalStatus ? { maritalStatus } : {}),
 			...(diagnosis ? { diagnosis } : {}),
 		};
 	});
@@ -1736,6 +1768,40 @@ export function loadAppointmentSchedules(
 		);
 	}
 	return requestAppointmentSchedules({
+		departmentId,
+		...createUpcomingDateRange(
+			DASHBOARD_DATE_RANGE_DAYS.appointmentDirectory,
+			now,
+		),
+	}).then(
+		(payload) =>
+			requireAppointmentScheduleListData(payload.data, departmentId).items,
+	);
+}
+
+/**
+ * 读取旧端“按医生挂号”使用的独立医生排班目录；日期模式仍走普通排班
+ * 接口。两者返回同一份受控排班读模型，医生卡片层再做展示聚合。
+ */
+export function loadAppointmentDoctorSchedules(
+	departmentId: string,
+	now = new Date(),
+): Promise<Array<AppointmentSchedule>> {
+	if (!departmentId) {
+		return Promise.reject(
+			new ApiError("预约科室不能为空", {
+				code: "appointment-department-missing",
+			}),
+		);
+	}
+	if (!isBoundedAppointmentIdentifier(departmentId)) {
+		return Promise.reject(
+			new ApiError("预约科室参数不合法", {
+				code: "appointment-query-invalid",
+			}),
+		);
+	}
+	return requestAppointmentDoctorSchedules({
 		departmentId,
 		...createUpcomingDateRange(
 			DASHBOARD_DATE_RANGE_DAYS.appointmentDirectory,

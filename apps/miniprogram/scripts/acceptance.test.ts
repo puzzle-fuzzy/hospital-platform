@@ -26,6 +26,7 @@ import {
 	LABORATORY_FLAG_LABELS,
 	toLaboratoryReportItemView,
 } from "../src/services/report-presenter";
+import { getDischargeFollowupFormDefinition } from "../src/services/discharge-followup-form-catalog";
 import type { Patient } from "../src/types";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
@@ -702,6 +703,9 @@ test("native payment boundaries always end with a user-actionable result", async
 		"wx:if=\"{{localDetail && appointmentId && status === 'scheduled'}}\"",
 	);
 	expect(detailTemplate).toContain('bindtap="onCancel"');
+	expect(detailPage).toContain("onHospitalGuide(): void");
+	expect(detailTemplate).toContain('bindtap="onHospitalGuide"');
+	expect(detailTemplate).toContain("detail-location-mask");
 	expect(detailTemplate).toContain("取消预约");
 	expect(detailTemplate).not.toContain("医保支付");
 	expect(detailTemplate).not.toContain("微信支付");
@@ -845,6 +849,13 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("onShow(): void");
 	expect(selection).toContain("this.clearDisplayedPatientDirectory();");
 	expect(selection).toContain('switchToPrimaryTab("/pages/index/index");');
+	// 从新增页返回会先清空失去 owner 证明的目录；同步完成前必须保持 loading，
+	// 不能把短暂的空数组渲染成“暂无已绑定就诊人”。
+	expect(selection).toContain(
+		"this.setData({ loading: true, syncing: false });",
+	);
+	expect(selection).toContain('"patient-list-load"');
+	expect(selection).toContain("this.syncPatientDirectoryForLoad(loadToken)");
 	expect(selection).toContain("onPatientTap");
 	expect(selection).toContain("setSelectedPatientId");
 	expect(selection).toContain("onUnload");
@@ -953,7 +964,7 @@ test("native patient selection routes to the live patient binding page", async (
 		join(import.meta.dir, "../../../docs/迁移/患者绑定契约草案.md"),
 	).text();
 
-	// 患者绑定服务端准入已完成，正常入口直接进入真实表单；旧服务 JWT 由 API
+	// 患者绑定候选闭环已接入，正常入口直接进入实名表单；旧服务 JWT 由 API
 	// 服务端换取并注入众阳请求上下文，小程序不接触旧 JWT 或众阳地址。
 	expect(selection).toContain("onAddPatient");
 	expect(selection).toContain("navigateToFeatureEntry");
@@ -976,6 +987,9 @@ test("native patient selection routes to the live patient binding page", async (
 	expect(bindingPage).toContain("请输入正确的身份证号");
 	expect(bindingTemplate).toContain('data-field="displayName"');
 	expect(bindingTemplate).toContain('data-field="mobile"');
+	expect(template).not.toContain("患者绑定 contract 未完成");
+	expect(template).not.toContain("暂时无法新增就诊人");
+	expect(template).not.toContain("新增服务开放后可在此办理");
 	expect(bindingTemplate).toContain('data-field="identityNumber"');
 	expect(bindingTemplate).toContain("我已阅读并同意");
 	expect(bindingContract).toContain("查找异常不得转成“没有档案”");
@@ -2113,7 +2127,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(49);
+	expect(app.pages).toHaveLength(52);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2193,6 +2207,12 @@ test("native clinical shells keep the shared style and my-doctor is a real page"
 	const doctorDetailScript = await source(
 		"pages/my-doctor-detail/my-doctor-detail.ts",
 	);
+	const doctorDetailTemplate = await source(
+		"pages/my-doctor-detail/my-doctor-detail.wxml",
+	);
+	const reportDetailScript = await source(
+		"pages/report-detail/report-detail.ts",
+	);
 	expect(doctorTemplate).toContain('class="my-doctor-scroll"');
 	expect(doctorTemplate).toContain('bindtap="onDoctorTap"');
 	expect(doctorScript).toContain("requestMyDoctors");
@@ -2200,6 +2220,20 @@ test("native clinical shells keep the shared style and my-doctor is a real page"
 	expect(doctorScript).toContain("disposePageSessionResetListener");
 	expect(doctorDetailScript).toContain("registerPageSessionResetListener");
 	expect(doctorDetailScript).toContain("disposePageSessionResetListener");
+	expect(doctorDetailScript).toContain(
+		'schedule.availabilityStatus !== "open"',
+	);
+	expect(doctorDetailScript).toContain(
+		'schedule.availabilityStatus === "stopped"',
+	);
+	expect(doctorDetailScript).toContain("onProfileTap");
+	expect(doctorDetailScript).toContain("onProfileClose");
+	expect(doctorDetailTemplate).toContain('bindtap="onProfileTap"');
+	expect(doctorDetailTemplate).toContain('bindtap="onProfileClose"');
+	expect(doctorDetailTemplate).toContain("registrationClassName");
+	expect(reportDetailScript).toContain(
+		"const attachment = this.data.attachments[0]",
+	);
 	expect(doctorScript).not.toContain("registerClinicalSurfacePage");
 
 	const myStyle = await source("pages/my/my.wxss");
@@ -2568,10 +2602,15 @@ test("native mini program exposes appointment directory, scheduling, and records
 	const recordsStyle = await source(
 		"pages/appointment-records/appointment-records.wxss",
 	);
+	const scheduleStyle = await source(
+		"pages/appointment-schedule/appointment-schedule.wxss",
+	);
 
 	expect(app).toContain('"pages/appointment-directory/appointment-directory"');
 	expect(app).toContain('"pages/appointment-schedule/appointment-schedule"');
 	expect(app).toContain('"pages/appointment-records/appointment-records"');
+	expect(scheduleTemplate).toContain("registrationClassName");
+	expect(scheduleStyle).toContain("schedule-registration-class");
 	expect(home).toContain("navigateToAuthenticatedPage");
 	expect(home).toContain('"/pages/hospital-list/hospital-list"');
 	expect(home).toContain("navigateToPatientScopedPage");
@@ -2623,6 +2662,7 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(scheduleTemplate).toContain("按医生挂号");
 	expect(scheduleTemplate).toContain("按日期挂号");
 	expect(scheduleTemplate).toContain("可预约号源");
+	expect(scheduleTemplate).toContain("hospitalAreaName");
 	expect(scheduleTemplate).toContain("已约满");
 	expect(scheduleTemplate).toContain("余");
 	expect(schedule).toContain("当前号源已约满");
@@ -2679,7 +2719,12 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(recordsTemplate).toContain("status-tab-disabled");
 	expect(records).toContain("onWaitingListTap");
 	expect(recordsTemplate).toContain("预问诊");
-	expect(recordsTemplate).not.toContain("院内导航");
+	// 旧端挂号卡片同时提供预问诊和院内导航；新端导航只打开已审核的
+	// 静态科室位置弹窗，不调用动态地图或外部路线服务。
+	expect(recordsTemplate).toContain("院内导航");
+	expect(recordsTemplate).toContain("hospitalAreaName");
+	expect(recordsTemplate).toContain('bindtap="onHospitalGuide"');
+	expect(records).toContain("searchDepartmentLocation");
 	expect(recordsTemplate).toContain('class="selector-name"');
 	// 旧端患者行是“姓名（编号）”的紧凑视觉结构；编号在原生端必须仍是
 	// 平台脱敏卡号，避免为追求视觉一致而把 Provider 患者号重新带回小程序。
@@ -2712,7 +2757,7 @@ test("native mini program exposes appointment directory, scheduling, and records
 		"/assets/legacy-home/empty-services.png",
 	);
 	expect(records).toContain("filterAppointmentRecords");
-	expect(records).toContain('navigateToFeatureStatus("pre-visit")');
+	expect(records).toContain("pages/pre-visit/pre-visit?appointmentId=");
 	// 预约写入、provider 患者标识和支付字段均不得进入小程序页面。
 	expect(directory).not.toContain("providerPatientId");
 	expect(records).not.toContain("providerPatientId");
@@ -3116,9 +3161,15 @@ test("native convenience pages keep patient context without fake public records"
 	const praise = await source("pages/health-praise/health-praise.wxml");
 	const giftScript = await source("pages/gift-banner/gift-banner.ts");
 	const praiseScript = await source("pages/health-praise/health-praise.ts");
+	const compose = await source(
+		"pages/convenience-compose/convenience-compose.ts",
+	);
+	const composeTemplate = await source(
+		"pages/convenience-compose/convenience-compose.wxml",
+	);
 
-	// 锦旗和表扬信都要先绑定当前就诊人；列表、月份筛选和两个旧操作入口
-	// 先恢复，真实记录 contract 未确认前不能出现提交成功。
+	// 锦旗和表扬信都要先绑定当前就诊人；公开列表仍关闭，但个人记录和新服务
+	// 提交已经接入，提交结果只表示进入待审核。
 	expect(service).toContain("loadCurrentPatient");
 	expect(service).toContain("resolveConvenienceSurfaceRecordState");
 	expect(service).toContain("USER_FACING_SURFACE_COPY");
@@ -3148,6 +3199,16 @@ test("native convenience pages keep patient context without fake public records"
 	);
 	expect(service).not.toContain("submitGift");
 	expect(service).not.toContain("createCommendatoryLetter");
+	// 表单的就诊记录选择使用新服务 owner-scoped 预约读模型；提交和个人记录
+	// 走新服务，不接旧库历史，也不能让客户端伪造患者/医护快照。
+	expect(compose).toContain("loadAppointmentRecords");
+	expect(compose).toContain("onVisitRecordSelect");
+	expect(compose).toContain("isCurrentSessionGeneration");
+	expect(composeTemplate).toContain("选择就诊记录");
+	expect(composeTemplate).toContain("选择就诊记录后自动填充");
+	expect(compose).toContain("createPatientFeedback");
+	expect(compose).toContain("loadPatientFeedback");
+	expect(compose).toContain("已提交审核");
 });
 
 test("direct patient directory pages share one error translation boundary", async () => {
@@ -3175,8 +3236,12 @@ test("native blocked domains keep one explicit current-patient context", async (
 			"services/provider-entry-surface.ts",
 		].map((file) => source(file)),
 	);
-	const admissionPage = await source("pages/admission-preconsultation/admission-preconsultation.ts");
-	const admissionTemplate = await source("pages/admission-preconsultation/admission-preconsultation.wxml");
+	const admissionPage = await source(
+		"pages/admission-preconsultation/admission-preconsultation.ts",
+	);
+	const admissionTemplate = await source(
+		"pages/admission-preconsultation/admission-preconsultation.wxml",
+	);
 
 	// 这个页面还没有正式 Provider/临床 contract，但用户从选择页返回后
 	// 必须能看到当前上下文、失败原因和重试入口；不能只有一个“选择就诊人”
@@ -3570,6 +3635,10 @@ test("native client reads only the safe outpatient medical-record summary", asyn
 	expect(page).toContain("loadCurrentPatientForOwner");
 	expect(page).toContain("loadOutpatientMedicalRecords");
 	expect(template).toContain("近 30 天门诊就诊摘要");
+	expect(template).toContain("姓名：{{item.patientName}}");
+	expect(template).toContain("性别：{{item.patientSex}}");
+	expect(template).toContain("年龄：{{item.patientAge}}");
+	expect(template).toContain("婚姻：{{item.maritalStatus}}");
 	expect(template).toContain("病历正文、附件和住院病历尚未开放");
 	for (const sourceText of [client, service, page]) {
 		expect(sourceText).not.toContain("/out-emrs");
@@ -3592,6 +3661,10 @@ test("native client reads only the safe inpatient episode summary", async () => 
 	expect(page).toContain("loadInpatientEpisodes");
 	expect(template).toContain("住院信息与日费用清单入口");
 	expect(template).toContain("日费用清单");
+	expect(template).toContain("住院号：{{item.inpatientNumber}}");
+	expect(template).toContain("性别：{{item.sex}}");
+	expect(template).toContain("年龄：{{item.age}}");
+	expect(template).toContain("就诊卡号：{{item.cardNumberMasked}}");
 	for (const sourceText of [client, service, page]) {
 		expect(sourceText).not.toContain("/msun-middle-aggregate-hsz");
 		expect(sourceText).not.toContain("providerPatientId=");
@@ -3693,6 +3766,7 @@ test("native report detail errors clear the previous clinical read model", async
 	expect(showErrorBody).toContain("items: []");
 	expect(showErrorBody).toContain("hasItems: false");
 	expect(showErrorBody).toContain("hasAttachment: false");
+	expect(showErrorBody).toContain('selectedPatientName: ""');
 });
 
 test("native report detail keeps loading, error and empty states at one stable height", async () => {
@@ -3913,10 +3987,14 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	const appointmentSchedule = await source(
 		"pages/appointment-schedule/appointment-schedule.ts",
 	);
+	const timeslotSource = await source(
+		"pages/timeslot-source/timeslot-source.ts",
+	);
 	const appointmentRecords = await source(
 		"pages/appointment-records/appointment-records.ts",
 	);
 	const reportDetail = await source("pages/report-detail/report-detail.ts");
+	const reportTemplate = await source("pages/report-detail/report-detail.wxml");
 	const reportDirectory = await source(
 		"pages/report-directory/report-directory.ts",
 	);
@@ -3927,11 +4005,29 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	expect(appointmentSchedule).toContain(
 		"pages/timeslot-source/timeslot-source?scheduleId=",
 	);
+	expect(timeslotSource).toContain("registrationClassName");
+	expect(timeslotSource).toContain("hospitalAreaName");
 	const confirmRegistration = await source(
 		"pages/confirm-registration/confirm-registration.ts",
 	);
+	const confirmRegistrationTemplate = await source(
+		"pages/confirm-registration/confirm-registration.wxml",
+	);
+	const appointmentDetailTemplate = await source(
+		"pages/appointment-detail/appointment-detail.wxml",
+	);
+	const registrationPaymentTemplate = await source(
+		"pages/registration-payment/registration-payment.wxml",
+	);
 	expect(confirmRegistration).toContain("requestAppointmentHold(");
 	expect(confirmRegistration).toContain("requestAppointmentRegistration(");
+	expect(confirmRegistration).toContain("options.registrationClassName");
+	expect(confirmRegistrationTemplate).toContain("预约号别</text>");
+	expect(confirmRegistrationTemplate).toContain("就诊院区</text>");
+	expect(appointmentDetailTemplate).toContain("{{registrationClassName}}");
+	expect(appointmentDetailTemplate).toContain("{{hospitalAreaName}}");
+	expect(registrationPaymentTemplate).toContain("{{registrationClassName}}");
+	expect(registrationPaymentTemplate).toContain("{{hospitalAreaName}}");
 	expect(confirmRegistration).toContain(
 		"pages/registration-payment/registration-payment?",
 	);
@@ -3944,10 +4040,15 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	expect(appointmentRecords).toContain(
 		'url: `/pages/appointment-detail/appointment-detail?${query.join("&")}`',
 	);
-	expect(appointmentRecords).toContain('navigateToFeatureStatus("pre-visit")');
+	expect(appointmentRecords).toContain(
+		"pages/pre-visit/pre-visit?appointmentId=",
+	);
 	expect(reportDetail).toContain("downloadReportAttachment(");
+	expect(reportDetail).toContain("const attachment = this.data.attachments[0]");
 	expect(reportDetail).toContain("wx.openDocument({");
 	expect(reportDetail).toContain("wx.previewImage({");
+	expect(reportDetail).toContain("selectedPatientName");
+	expect(reportTemplate).toContain("患者姓名：{{selectedPatientName}}");
 	expect(reportDetail).toContain(
 		'url: "/pages/appointment-directory/appointment-directory"',
 	);
@@ -4031,14 +4132,231 @@ test("native homepage places report query and outpatient medical records in thei
 		serviceEntries.indexOf('title: "住院"'),
 		serviceEntries.indexOf('title: "便民"'),
 	);
-	for (const title of ["住院信息查询", "住院预缴", "入院预问诊", "出院随访", "风险自评"]) {
+	for (const title of [
+		"住院信息查询",
+		"住院预缴",
+		"入院预问诊",
+		"出院随访",
+		"风险自评",
+	]) {
 		expect(inpatientEntries).toContain(`title: "${title}"`);
 	}
 
-	const convenienceEntries = serviceEntries.slice(serviceEntries.indexOf('title: "便民"'));
-	for (const title of ["院内导航", "健康自测", "健康百科", "电子锦旗", "表扬信"]) {
+	const convenienceEntries = serviceEntries.slice(
+		serviceEntries.indexOf('title: "便民"'),
+	);
+	for (const title of [
+		"院内导航",
+		"健康自测",
+		"健康百科",
+		"电子锦旗",
+		"表扬信",
+	]) {
 		expect(convenienceEntries).toContain(`title: "${title}"`);
 	}
+	// 三个 tab 的菜单集合必须与旧服务启用集合一一对应；数量断言防止后续
+	// 把已移入右侧快捷入口的门诊病历，或旧端注释掉的入口重新塞回菜单。
+	expect((outpatientEntries.match(/title:/g) ?? []).length - 1).toBe(4);
+	expect((inpatientEntries.match(/title:/g) ?? []).length - 1).toBe(5);
+	expect((convenienceEntries.match(/title:/g) ?? []).length - 1).toBe(5);
+});
+
+test("native medical-service menus have concrete migrated page targets", async () => {
+	const app = JSON.parse(await source("app.json")) as { pages: string[] };
+	const navigation = await source("services/feature-navigation.ts");
+	const healthTest = await source("pages/health-test/health-test.ts");
+	const healthTestTemplate = await source("pages/health-test/health-test.wxml");
+	const selfTest = await source(
+		"pages/self-test-question/self-test-question.ts",
+	);
+	const admission = await source(
+		"pages/admission-preconsultation/admission-preconsultation.ts",
+	);
+	const preVisit = await source("pages/pre-visit/pre-visit.ts");
+	const preVisitTemplate = await source("pages/pre-visit/pre-visit.wxml");
+	const discharge = await source(
+		"pages/discharge-followup/discharge-followup.ts",
+	);
+	const dischargeDetail = await source(
+		"pages/discharge-followup-detail/discharge-followup-detail.ts",
+	);
+	const convenienceSurface = await source("services/convenience-surface.ts");
+	const convenienceCompose = await source(
+		"pages/convenience-compose/convenience-compose.ts",
+	);
+	const risk = await source("pages/risk-evaluation/risk-evaluation.ts");
+	const inpatient = await source("pages/inpatient-center/inpatient-center.ts");
+	const healthKnowledge = await source(
+		"pages/health-encyclopedia/health-encyclopedia.ts",
+	);
+	const healthKnowledgeTemplate = await source(
+		"pages/health-encyclopedia/health-encyclopedia.wxml",
+	);
+
+	for (const page of [
+		"pages/inpatient-center/inpatient-center",
+		"pages/inpatient-payment/inpatient-payment",
+		"pages/admission-preconsultation/admission-preconsultation",
+		"pages/discharge-followup/discharge-followup",
+		"pages/discharge-followup-detail/discharge-followup-detail",
+		"pages/risk-evaluation/risk-evaluation",
+		"pages/health-test/health-test",
+		"pages/self-test-question/self-test-question",
+		"pages/gift-banner/gift-banner",
+		"pages/health-praise/health-praise",
+		"pages/convenience-compose/convenience-compose",
+	]) {
+		expect(app.pages).toContain(page);
+	}
+	for (const key of [
+		"inpatient-center",
+		"inpatient-payment",
+		"admission-preconsultation",
+		"discharge-followup",
+		"risk-evaluation",
+		"health-test",
+		"gift-banner",
+		"health-praise",
+	]) {
+		expect(navigation).toContain(`"${key}"`);
+	}
+	for (const title of [
+		"动脉血管",
+		"2型糖尿病",
+		"心脏功能",
+		"肺功能",
+		"心理年龄",
+		"老年痴呆",
+		"心理压力",
+	]) {
+		expect(selfTest).toContain(`title: "${title}"`);
+	}
+	expect(healthTestTemplate).toContain("自测评估");
+	expect(healthTestTemplate).toContain("指标解读");
+	expect(admission).toContain("ADMISSION_PRECONSULTATION_QUESTIONS");
+	expect(preVisit).toContain("PRE_VISIT_QUESTIONS");
+	for (const title of [
+		"症状描述",
+		"患病时长",
+		"您是否有药物或食物过敏?",
+		"您是否有抽烟或喝酒史?",
+		"您是否曾患有传染性疾病?",
+		"家族遗传病史?",
+	]) {
+		expect(preVisit).toContain(`title: "${title}"`);
+	}
+	expect(preVisitTemplate).toContain("当前预约记录");
+	expect(preVisit).toContain("本次未提交");
+	expect(preVisit).not.toContain("saveBeforeVisitRecordApi");
+	expect(discharge).toContain("DISCHARGE_FOLLOWUP_ITEMS");
+	expect(discharge).toContain(
+		"discharge-followup-detail/discharge-followup-detail",
+	);
+	expect(dischargeDetail).toContain("getDischargeFollowupFormDefinition");
+	expect(dischargeDetail).toContain("onOptionTap");
+	expect(convenienceSurface).toContain(
+		"convenience-compose/convenience-compose",
+	);
+	expect(convenienceCompose).toContain("GIFT_TEMPLATES");
+	expect(convenienceCompose).toContain("PRAISE_TEMPLATES");
+	expect(risk).toContain("FORM_ITEMS");
+	expect(inpatient).toContain('activeTab: "info"');
+	expect(healthKnowledge).toContain("groupHealthKnowledgeItems");
+	expect(healthKnowledge).toContain("partSelectionCounts");
+	expect(healthKnowledge).toContain("symptomIdsByPart");
+	expect(healthKnowledge).toContain("rightGroups");
+	expect(healthKnowledgeTemplate).toContain("knowledge-letter-anchor");
+	expect(healthKnowledgeTemplate).toContain('wx:for="{{rightGroups}}"');
+	expect(healthKnowledgeTemplate).toContain("knowledge-left-count");
+});
+
+test("native discharge follow-up forms preserve the old component field contract", () => {
+	const keys = (tableName: string) =>
+		getDischargeFollowupFormDefinition(tableName).sections.flatMap((section) =>
+			section.fields.map((field) => field.key),
+		);
+
+	const level1 = keys("高平市人民医院一级随访记录表");
+	expect(level1).toContain("symptomsGuidance");
+	expect(level1).toContain("treatmentMethodDetails");
+	expect(level1).toContain("exerciseDetails");
+	expect(level1).toContain("mentalState");
+	expect(level1).toContain("livingSelfCare");
+	expect(level1).toContain("workStatus");
+	expect(level1).not.toContain("conditionGuidance");
+	expect(level1).not.toContain("treatmentGuidance");
+	expect(level1).not.toContain("rehabilitationGuidance");
+	expect(level1).not.toContain("emotion");
+	expect(level1).not.toContain("selfCare");
+	expect(level1).not.toContain("workLife");
+
+	const level4 = keys("高平市人民医院四级手术随访记录表");
+	for (const key of [
+		"oneWeekStatus",
+		"threeToSixMonthsStatus",
+		"livingImpairment",
+		"followUpFrequency",
+	]) {
+		expect(level4).toContain(key);
+	}
+
+	for (const tableName of [
+		"心内科四级手术随访记录表",
+		"神经内科四级手术随访记录表",
+	]) {
+		const specialty = keys(tableName);
+		for (const key of ["mainSymptoms", "mainDrugs", "mainDrugsDetails"]) {
+			expect(specialty).toContain(key);
+		}
+		expect(specialty).not.toContain("symptoms");
+		expect(specialty).not.toContain("medication");
+		expect(specialty).not.toContain("medicationGuidance");
+	}
+
+	const daytime = keys("高平市人民医院日间手术随访记录表");
+	for (const key of [
+		"incisionStatus",
+		"drainageStatus",
+		"excretionStatus",
+		"treatmentDetails",
+		"returnVisitTimeText",
+	]) {
+		expect(daytime).toContain(key);
+	}
+	expect(daytime).not.toContain("incision");
+	expect(daytime).not.toContain("drainage");
+	expect(daytime).not.toContain("excretion");
+	expect(daytime).not.toContain("treatment");
+	expect(daytime).not.toContain("returnVisitTime");
+
+	const level2 = keys("高平市人民医院二级回访登记表");
+	for (const key of [
+		"satisfactionDoctor",
+		"satisfactionStaff",
+		"windowDeptIssues",
+		"irregularBehaviors",
+		"chronicReturnVisit",
+		"suggestionType",
+		"visitor",
+	]) {
+		// 这些字段在同一个旧的二级组件中按表单类型分支使用；目录必须保留
+		// 完整字段集合，不能只迁移前面的满意度问题。
+		expect(level2).toContain(key);
+	}
+
+	const level4Second = getDischargeFollowupFormDefinition(
+		"高平市人民医院四级手术二次回访登记表",
+	);
+	expect(level4Second.sections[0]?.description).toContain("回访中心");
+	const level4SecondKeys = keys("高平市人民医院四级手术二次回访登记表");
+	expect(level4SecondKeys).toContain("halfYearRecheck");
+	expect(level4SecondKeys).toContain("recheckSmooth");
+	expect(level4SecondKeys).not.toContain("satisfactionDoctor");
+
+	const daytimeSecondKeys = keys("高平市人民医院日间手术二级回访登记表");
+	expect(daytimeSecondKeys).toContain("daytimeProcessSatisfaction");
+	expect(daytimeSecondKeys).toContain("satisfactionDoctor");
+	expect(daytimeSecondKeys).toContain("suggestionContent");
 });
 
 test("native homepage companion entry uses the explicit companion status gate", async () => {
@@ -4432,6 +4750,7 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(reportTemplate).toContain("report-actions");
 	expect(reportTemplate).toContain("report-tabs-wrap");
 	expect(reportTemplate).toContain("report-content");
+	expect(reportTemplate).toContain("expertOpinion");
 	expect(reportTemplate).toContain("/assets/legacy-home/report-download.svg");
 	expect(reportStyle).toContain(".bottom-action-wrap");
 	expect(reportStyle).toContain("z-index: 30");
@@ -4680,6 +4999,10 @@ test("native report detail page consumes only the opaque platform reference", as
 	expect(page).toContain('typeof patientId !== "string"');
 	expect(page).toContain("report-detail-id-missing");
 	expect(template).toContain("report-actions");
+	expect(page).toContain("selectedPatientName");
+	expect(template).toContain("患者姓名：{{selectedPatientName}}");
+	expect(template).toContain('bindtap="onDownloadCloudImage"');
+	expect(page).toContain("暂无可用报告附件");
 	expect(page).not.toContain("providerReportId");
 	expect(page).not.toContain("fileUrl");
 	expect(template).not.toContain("providerReportId");

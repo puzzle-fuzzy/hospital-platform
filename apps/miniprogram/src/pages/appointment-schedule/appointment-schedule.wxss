@@ -193,6 +193,24 @@ page {
 	white-space: nowrap;
 }
 
+.doctor-card-title {
+	margin-left: 10rpx;
+	color: #666666;
+	font-size: 25rpx;
+	line-height: 1.35;
+}
+
+.doctor-card-description {
+	display: -webkit-box;
+	margin-top: 10rpx;
+	overflow: hidden;
+	color: #666666;
+	font-size: 25rpx;
+	line-height: 1.45;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
 .doctor-availability {
 	flex-shrink: 0;
 	margin-left: 14rpx;
@@ -484,6 +502,22 @@ page {
 
 .schedule-date {
 	margin-top: 10rpx;
+}
+
+.schedule-registration-class {
+	display: inline-block;
+	align-self: flex-start;
+	max-width: 100%;
+	margin-top: 8rpx;
+	padding: 4rpx 12rpx;
+	border-radius: 8rpx;
+	background: #fff0d9;
+	color: #925a05;
+	font-size: 20rpx;
+	line-height: 1.35;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .schedule-time {

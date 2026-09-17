@@ -1,0 +1,21 @@
+<scroll-view class="self-test-scroll" scroll-y="true" enhanced="true">
+	<view class="self-test-page">
+		<view class="self-test-hero">
+			<text class="self-test-title">{{title}}</text>
+			<text class="self-test-subtitle">请根据实际情况逐项选择，结果仅作健康参考。</text>
+		</view>
+		<view wx:if="{{questions.length}}" class="self-test-card">
+			<view wx:for="{{questions}}" wx:key="id" class="self-test-question">
+				<text class="self-test-question-title">{{item.title}}</text>
+				<view wx:for="{{item.options}}" wx:for-item="option" wx:key="value" class="self-test-option {{answers[item.id] === option.value ? 'is-selected' : ''}}" data-question-id="{{item.id}}" data-value="{{option.value}}" bindtap="onOptionTap">
+					<view class="self-test-radio">{{answers[item.id] === option.value ? '✓' : ''}}</view>
+					<text>{{option.label}}</text>
+				</view>
+			</view>
+		</view>
+		<view wx:if="{{message}}" class="self-test-message">{{message}}</view>
+		<button class="self-test-submit" bindtap="onSubmit">查看结果</button>
+		<text class="self-test-note">题目和选项按旧服务题库迁移。当前平台尚未接入审核后的评分/结果接口，不会把填写内容保存或解释为诊断。</text>
+		<button class="self-test-back" bindtap="onBack">返回健康自测</button>
+	</view>
+</scroll-view>

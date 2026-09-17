@@ -28,6 +28,13 @@ export class PatientBindingInputError extends Error {
 	}
 }
 
+export class PatientBindingDirectoryConfirmationError extends Error {
+	constructor() {
+		super("Patient binding directory confirmation is pending");
+		this.name = "PatientBindingDirectoryConfirmationError";
+	}
+}
+
 function isSafeText(value: unknown, maxLength: number): value is string {
 	return (
 		typeof value === "string" &&
@@ -185,6 +192,7 @@ async function syncDirectoryAfterBinding(
 	owner: string,
 	context: AdapterCallContext,
 	delays: readonly number[],
+	providerPatientId: string,
 ): Promise<Awaited<ReturnType<PatientService["sync"]>>> {
 	let directory: Awaited<ReturnType<PatientService["sync"]>> | undefined;
 	let lastError: unknown;
@@ -204,15 +212,20 @@ async function syncDirectoryAfterBinding(
 				owner,
 				syncContextForBinding(context, attempt),
 			);
-			directory = candidate;
-		} catch (error) {
-			lastError = error;
-			if (directory) {
-				// 绑卡已经收到 Provider 成功响应；确认窗口内某次目录读取
-				// 失败不能把已成立的绑定重新报告成失败。页面返回后仍会
-				// 触发一次显式 owner-scoped 同步，继续取得最新目录。
+			const reference = await patients.resolvePatientByProviderReference(
+				owner,
+				providerPatientId,
+				syncContextForBinding(context, attempt),
+				"his-patient",
+			);
+			if (reference) {
+				directory = candidate;
 				break;
 			}
+			lastError = new PatientBindingDirectoryConfirmationError();
+		} catch (error) {
+			lastError = error;
+			if (error instanceof DependencyNotConfiguredError) throw error;
 		}
 	}
 	if (!directory)
@@ -293,6 +306,7 @@ export class PatientBindingService {
 					owner,
 					traceContext,
 					this.directoryRetryDelaysMs,
+					result.providerPatientId,
 				);
 				this.logger.info(
 					{

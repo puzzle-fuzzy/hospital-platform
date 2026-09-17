@@ -162,6 +162,117 @@ test("预约目录医生筛选只收窄本地已读取的排班窗口", () => {
 	).toEqual(["schedule-1"]);
 });
 
+test("预约目录聚合停诊和未知状态时不把余号显示成可预约", () => {
+	const schedules = [
+		{
+			doctorId: "doctor-stopped",
+			doctorName: "医生甲",
+			workDate: "2026-08-21",
+			availableSlots: 6,
+			availabilityStatus: "stopped" as const,
+		},
+		{
+			doctorId: "doctor-open",
+			doctorName: "医生乙",
+			workDate: "2026-08-21",
+			availableSlots: 3,
+			availabilityStatus: "open" as const,
+		},
+		{
+			doctorId: "doctor-open",
+			doctorName: "医生乙",
+			workDate: "2026-08-22",
+			availableSlots: 4,
+			availabilityStatus: "stopped" as const,
+		},
+	] as unknown as AppointmentSchedule[];
+
+	expect(groupAppointmentDoctorCards(schedules)).toEqual([
+		{
+			doctorId: "doctor-stopped",
+			doctorName: "医生甲",
+			availabilityStatus: "stopped",
+			avatarLabel: "医",
+			scheduleCount: 1,
+			availableSlots: 0,
+			dates: [
+				{
+					workDate: "2026-08-21",
+					label: "8月21日 周五",
+					availableSlots: 0,
+				},
+			],
+		},
+		{
+			doctorId: "doctor-open",
+			doctorName: "医生乙",
+			availabilityStatus: "open",
+			avatarLabel: "医",
+			scheduleCount: 2,
+			availableSlots: 3,
+			dates: [
+				{
+					workDate: "2026-08-21",
+					label: "8月21日 周五",
+					availableSlots: 3,
+				},
+				{
+					workDate: "2026-08-22",
+					label: "8月22日 周六",
+					availableSlots: 0,
+				},
+			],
+		},
+	]);
+});
+
+test("旧端医生接口的未知状态保留观测余号，但不改变待确认状态", () => {
+	const [card] = groupAppointmentDoctorCards(
+		[
+			{
+				doctorId: "doctor-legacy",
+				doctorName: "医生丙",
+				workDate: "2026-08-21",
+				availableSlots: 5,
+				availabilityStatus: "unknown",
+			} as unknown as AppointmentSchedule,
+		],
+		{ includeUnknownAvailableSlots: true },
+	);
+	expect(card).toMatchObject({
+		availabilityStatus: "unknown",
+		availableSlots: 5,
+		dates: [{ workDate: "2026-08-21", availableSlots: 5 }],
+	});
+});
+
+test("预约目录医生卡保留旧端职称和介绍或擅长字段", () => {
+	const [card] = groupAppointmentDoctorCards([
+		{
+			doctorId: "doctor-profile",
+			doctorName: "周医生",
+			titleName: "副主任医师",
+			introduction: "长期从事心血管疾病诊疗",
+			expertise: "冠心病及高血压",
+			workDate: "2026-08-21",
+			availableSlots: 3,
+		} as unknown as AppointmentSchedule,
+		{
+			doctorId: "doctor-profile",
+			doctorName: "周医生",
+			expertise: "冠心病及高血压",
+			workDate: "2026-08-22",
+			availableSlots: 1,
+		} as unknown as AppointmentSchedule,
+	]);
+
+	expect(card).toMatchObject({
+		doctorId: "doctor-profile",
+		titleName: "副主任医师",
+		description: "长期从事心血管疾病诊疗",
+	});
+});
+
 test("按医生卡片取该医生排班中首个非空照片，无图时保留本地头像", () => {
 	const schedules = [
 		{

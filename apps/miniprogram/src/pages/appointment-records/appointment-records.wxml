@@ -134,9 +134,11 @@
 				</view>
 			</view>
 
-			<view wx:if="{{item.doctorName || item.location}}" class="record-primary-meta">
+			<view wx:if="{{item.doctorName || item.hospitalAreaName || item.location}}" class="record-primary-meta">
 				<text wx:if="{{item.doctorName}}" class="record-doctor">{{item.doctorName}}</text>
-				<text wx:if="{{item.doctorName && item.location}}" class="record-meta-gap"> </text>
+				<text wx:if="{{(item.doctorName && item.hospitalAreaName) || (item.doctorName && !item.hospitalAreaName && item.location)}}" class="record-meta-gap"> </text>
+				<text wx:if="{{item.hospitalAreaName}}" class="record-hospital-area">{{item.hospitalAreaName}}</text>
+				<text wx:if="{{item.hospitalAreaName && item.location}}" class="record-meta-gap"> </text>
 				<text wx:if="{{item.location}}" class="record-location">{{item.location}}</text>
 			</view>
 
@@ -159,7 +161,7 @@
 				/>
 			</view>
 
-			<!-- 蓝湖稿的预约卡片只展示预问诊操作，详情仍由卡片点击进入。 -->
+			<!-- 旧端预约卡片保留预问诊和院内导航操作，详情仍由卡片点击进入。 -->
 			<view
 				wx:if="{{item.status !== 'cancelled'}}"
 				class="record-actions"
@@ -171,16 +173,22 @@
 					data-view-key="{{item.viewKey}}"
 					plain="true"
 				>预问诊</button>
-			</view>
+				<button
+					class="record-action-button"
+					bindtap="onHospitalGuide"
+					data-view-key="{{item.viewKey}}"
+					plain="true"
+				>院内导航</button>
+				</view>
 		</view>
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多挂号记录</view>
 		</view>
 	</view>
 
 	<!--
-		旧端挂号卡点击后会进入详情；当前公开 contract 只有安全摘要，没有稳定的
-		预约详情引用，因此点击时由 onRecordTap 明确提示“详情暂未开放”。取消、
-		退号和支付仍保持关闭，不能把卡片索引当作业务主键。
+		旧端挂号卡点击后会进入详情。新预约使用 owner-scoped 平台 appointmentId
+		读取详情；Provider 历史摘要只带已经校验的展示字段进入只读详情版式。
+		取消、退号和支付仍按各自 contract/gate 控制，不能把卡片索引当作业务主键。
 	-->
 
 	<!-- 保留静态科室位置弹窗实现，不伪造实时路线。 -->

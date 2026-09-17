@@ -1,4 +1,3 @@
-import departmentLocations from "../../data/department-location";
 import { getCurrentUser } from "../../services/api-client";
 import { appointmentRecordsErrorMessage } from "../../services/appointment-record-error";
 import {
@@ -12,7 +11,6 @@ import {
 	loadCurrentPatientForOwner,
 } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -35,6 +33,7 @@ import {
 	hasPlatformSession,
 	sessionStateAfterAuthenticatedReadError,
 } from "../../services/session-service";
+import { searchDepartmentLocation } from "../../services/department-location";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -82,43 +81,6 @@ type AppointmentRecordsPageMethods = {
 		renderGeneration: number,
 	): AppointmentRecordView;
 };
-
-function removeOutpatient(text: string): string {
-	return text.replace(/门诊/g, "").trim();
-}
-
-/**
- * 旧端的院内导航是静态科室位置查询，不是实时路线规划。
- * 继续使用已随旧端审核过的静态资料，匹配不到时明确展示空结果，不能猜楼层。
- */
-function searchDepartmentLocation(
-	department: string,
-): DepartmentLocationView[] {
-	const cleanedDepartment = removeOutpatient(department);
-	if (!cleanedDepartment) return [];
-
-	const results: DepartmentLocationView[] = [];
-	for (const [name, location] of Object.entries(departmentLocations)) {
-		const cleanedName = removeOutpatient(name);
-		if (
-			cleanedName === cleanedDepartment ||
-			cleanedName.includes(cleanedDepartment) ||
-			cleanedDepartment.includes(cleanedName)
-		) {
-			results.push({ department: name, location });
-		}
-	}
-
-	return results.sort((left, right) => {
-		const leftName = removeOutpatient(left.department);
-		const rightName = removeOutpatient(right.department);
-		if (leftName === cleanedDepartment && rightName !== cleanedDepartment)
-			return -1;
-		if (leftName !== cleanedDepartment && rightName === cleanedDepartment)
-			return 1;
-		return leftName.length - rightName.length;
-	});
-}
 
 function getVisibleRecords(
 	records: readonly AppointmentRecordView[],
@@ -488,17 +450,25 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		// `catchtap` 已经完成阻止冒泡；保留方法让 WXML 的交互边界可审计。
 	},
 
-	/** 旧端预问诊目标页尚未完成独立 contract，统一进入状态页。 */
+	/**
+	 * 旧端预问诊从挂号记录进入；新端只把平台本地 appointmentId 作为
+	 * 页面上下文，Provider 历史摘要没有该引用时保持关闭，不能把旧
+	 * 旧 Provider 患者标识或挂号标识拼回小程序路由。
+	 */
 	onPreVisit(event: ViewKeyEvent): void {
 		if (!this.isPatientContextCurrent()) return;
-		if (
-			!findVisibleRecord(
-				this.data.visibleRecords,
-				event.currentTarget?.dataset?.viewKey,
-			)
-		)
+		const record = findVisibleRecord(
+			this.data.visibleRecords,
+			event.currentTarget?.dataset?.viewKey,
+		);
+		if (!record) return;
+		if (!record.appointmentId) {
+			wx.showToast({ title: "该历史记录暂不支持预问诊", icon: "none" });
 			return;
-		navigateToFeatureStatus("pre-visit");
+		}
+		wx.navigateTo({
+			url: `/pages/pre-visit/pre-visit?appointmentId=${encodeURIComponent(record.appointmentId)}`,
+		});
 	},
 
 	/**

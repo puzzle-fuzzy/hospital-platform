@@ -26,7 +26,7 @@
 			<view class="report-card">
 				<view class="report-title">{{title}}</view>
 				<view class="report-actions">
-					<view wx:if="{{hasAttachment}}" class="report-action" bindtap="onDownloadCloudImage">
+					<view class="report-action" bindtap="onDownloadCloudImage">
 						<image src="/assets/legacy-home/report-download.svg" mode="heightFix" class="report-download-icon" />
 						<text>打开报告附件</text>
 					</view>
@@ -53,6 +53,7 @@
 
 		<view wx:if="{{activeTab === 'report'}}" class="report-content">
 			<view class="report-basic">
+				<text wx:if="{{selectedPatientName}}">患者姓名：{{selectedPatientName}}</text>
 				<text>{{kindLabel}}</text>
 				<text>{{reportedAt}}</text>
 			</view>
@@ -66,8 +67,9 @@
 						<text wx:if="{{item.result}}">结果：{{item.result}}</text>
 						<text wx:if="{{item.unit}}">{{item.unit}}</text>
 					</view>
-					<text wx:if="{{item.referenceRange}}" class="report-item-range">参考范围：{{item.referenceRange}}</text>
-				</view>
+						<text wx:if="{{item.referenceRange}}" class="report-item-range">参考范围：{{item.referenceRange}}</text>
+						<text wx:if="{{item.expertOpinion}}" class="report-item-opinion">专家意见：{{item.expertOpinion}}</text>
+					</view>
 			</view>
 			<view wx:elif="{{kind !== 'laboratory' && hasGenericContent}}" class="report-generic">
 				<view wx:for="{{fields}}" wx:key="label" class="report-field">

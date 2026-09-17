@@ -56,6 +56,12 @@
 						</view>
 						<text class="medical-record-visit-time">{{item.visitTime}}</text>
 					</view>
+					<view wx:if="{{item.patientName || item.patientSex || item.patientAge || item.maritalStatus}}" class="medical-record-patient-snapshot">
+						<text wx:if="{{item.patientName}}">姓名：{{item.patientName}}</text>
+						<text wx:if="{{item.patientSex}}">性别：{{item.patientSex}}</text>
+						<text wx:if="{{item.patientAge}}">年龄：{{item.patientAge}}</text>
+						<text wx:if="{{item.maritalStatus}}">婚姻：{{item.maritalStatus}}</text>
+					</view>
 					<view wx:if="{{item.diagnosis}}" class="medical-record-diagnosis">
 						<text class="medical-record-diagnosis-label">诊断结果：</text>
 						<text class="medical-record-diagnosis-value">{{item.diagnosis}}</text>

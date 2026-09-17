@@ -240,6 +240,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0047_yunhealth_payment_query_references.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0048_patient_feedback",
+		file: "../migrations/0048_patient_feedback.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -278,6 +283,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_health_knowledge_part_symptoms",
 	"hp_health_knowledge_symptom_diseases",
 	"hp_health_knowledge_disease_drugs",
+	"hp_patient_feedback",
 ] as const;
 
 export const PERSISTENCE_SCHEMA_COLUMNS = [
@@ -668,6 +674,25 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"updated_at",
 		],
 	},
+	{
+		table: "hp_patient_feedback",
+		columns: [
+			"feedback_id",
+			"owner_user_id",
+			"patient_id",
+			"appointment_id",
+			"kind",
+			"content",
+			"display_public",
+			"status",
+			"donate_date",
+			"department_name",
+			"doctor_name",
+			"idempotency_key",
+			"created_at",
+			"updated_at",
+		],
+	},
 ] as const;
 
 /** 保护 owner 隔离查询和租约竞争的安全关键索引及其列顺序。 */
@@ -868,6 +893,27 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		name: "ix_hp_health_knowledge_disease_drugs_disease",
 		columns: ["content_version", "disease_id"],
 	},
+	{
+		table: "hp_patient_feedback",
+		name: "uq_hp_patient_feedback_owner_idempotency",
+		columns: ["owner_user_id", "idempotency_key"],
+	},
+	{
+		table: "hp_patient_feedback",
+		name: "ix_hp_patient_feedback_owner_patient_created",
+		columns: ["owner_user_id", "patient_id", "created_at"],
+	},
+	{
+		table: "hp_patient_feedback",
+		name: "ix_hp_patient_feedback_owner_patient_date",
+		columns: [
+			"owner_user_id",
+			"patient_id",
+			"donate_date",
+			"kind",
+			"created_at",
+		],
+	},
 ] as const;
 
 /** 复合外键防止患者或订单跨越 owner，关联到另一位用户的数据。 */
@@ -976,6 +1022,27 @@ export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 		columns: ["owner_user_id", "patient_id"],
 		referencedTable: "hp_patients",
 		referencedColumns: ["owner_user_id", "patient_id"],
+	},
+	{
+		table: "hp_patient_feedback",
+		name: "fk_hp_patient_feedback_owner",
+		columns: ["owner_user_id"],
+		referencedTable: "hp_identity_users",
+		referencedColumns: ["user_id"],
+	},
+	{
+		table: "hp_patient_feedback",
+		name: "fk_hp_patient_feedback_patient",
+		columns: ["owner_user_id", "patient_id"],
+		referencedTable: "hp_patients",
+		referencedColumns: ["owner_user_id", "patient_id"],
+	},
+	{
+		table: "hp_patient_feedback",
+		name: "fk_hp_patient_feedback_appointment",
+		columns: ["appointment_id"],
+		referencedTable: "hp_appointment_registrations",
+		referencedColumns: ["appointment_id"],
 	},
 	{
 		table: "hp_health_knowledge_items",

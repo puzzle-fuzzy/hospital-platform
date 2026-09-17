@@ -211,8 +211,21 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			this.clearDisplayedPatientDirectory();
 			// 新增页返回是一次明确的写入后刷新，不是普通的页面曝光；
 			// 这里必须走 Provider 同步，不能只读刚才可能尚未更新的本地快照。
-			this.setData({ loading: false });
-			void this.onSyncPatients();
+			// 保持 loading=true 直到同步结束，避免清空旧目录后在请求尚未完成时
+			// 短暂渲染“暂无已绑定就诊人”的误导性空态。不能调用 onSyncPatients：
+			// 它为防止重复点击会拒绝 loading 中的请求，所以这里直接创建本轮
+			// 页面令牌并复用同一个同步实现。
+			this.setData({ loading: true, syncing: false });
+			const listLoadGuard = getPageLatestRequestGuard(
+				this,
+				"patient-list-load",
+			);
+			const loadToken = listLoadGuard.begin();
+			void this.syncPatientDirectoryForLoad(loadToken).finally(() => {
+				if (listLoadGuard.isCurrent(loadToken)) {
+					this.setData({ loading: false });
+				}
+			});
 			return;
 		}
 		void this.loadPatientList();

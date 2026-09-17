@@ -702,7 +702,7 @@ test(".32 失败后不重复提交同一结算 ID", async () => {
 	});
 });
 
-test("6202 后先落库 6301 候选，再调用 .32", async () => {
+test("6202 后先落库 6301 候选，再调用 .32，并兼容 .5 完成状态", async () => {
 	const medicalOrder = {
 		medicalOrderId: "medical-order-sequence-001",
 		ownerUserId: "user-sequence-001",
@@ -883,13 +883,22 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 						? (JSON.parse(init.body) as Record<string, unknown>)
 						: undefined,
 			});
-			return new Response(
-				JSON.stringify({
-					success: true,
-					data: { insur: "SUCCESS", settle: "SUCCESS" },
-				}),
-				{ status: 200, headers: { "content-type": "application/json" } },
-			);
+			const data = path.endsWith("/complete-settle")
+				? {
+						success: true,
+						data: {
+							outSettleVO: { settleStatus: "4" },
+							outSettlePayFinishDTOList: [{ settleStatus: "4" }],
+						},
+					}
+				: {
+						success: true,
+						data: { insur: "SUCCESS", settle: "SUCCESS" },
+					};
+			return new Response(JSON.stringify(data), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
 		},
 	});
 
@@ -924,7 +933,27 @@ test("6202 后先落库 6301 候选，再调用 .32", async () => {
 	expect(providerPaths).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
 	]);
-	const notifyBody = providerBodies.at(-1)?.body;
+	const finalized = await gateway.query(
+		{
+			orderId: medicalOrder.medicalOrderId,
+			ownerUserId: medicalOrder.ownerUserId,
+			cashPaymentConfirmed: true,
+		},
+		context,
+	);
+	expect(finalized).toMatchObject({
+		state: "insurance_settled",
+		providerStatus: "completion=outSettleVO.settleStatus=4",
+		finality: "paid",
+		authoritative: true,
+	});
+	expect(providerPaths).toEqual([
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	]);
+	const notifyBody = providerBodies.find((request) =>
+		request.path.endsWith("/settle-info/notify"),
+	)?.body;
 	expect(notifyBody?.outNetworkSettleMain).toMatchObject({
 		transId: "paying-sequence-001",
 		fixmedinsCode: "H14058101270",

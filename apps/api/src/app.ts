@@ -38,6 +38,7 @@ import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-ins
 import { medicalRecordsModule } from "./modules/medical-records";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
+import { patientFeedbackModule } from "./modules/patient-feedback";
 import { PatientBindingService, patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
 import type { RegistrationPaymentExitService } from "./modules/payments/registration-payment-exit-service";
@@ -107,6 +108,7 @@ function openApiPlugin() {
 				{ name: "profile", description: "普通个人资料" },
 				{ name: "patients", description: "患者档案" },
 				{ name: "appointments", description: "预约目录" },
+				{ name: "patient-feedback", description: "电子锦旗与表扬信" },
 				{ name: "medical-insurance", description: "医保授权与结算" },
 				{ name: "my-doctors", description: "我的医生" },
 				{ name: "knowledge", description: "审核后的健康百科只读内容" },
@@ -312,6 +314,11 @@ export function createApp(options: AppOptions = {}) {
 					),
 				)
 				.use(
+					services.patientFeedback
+						? patientFeedbackModule(services.patientFeedback, services.sessions)
+						: new Elysia({ name: "patient-feedback-not-configured" }),
+				)
+				.use(
 					services.myDoctors
 						? myDoctorsModule(services.myDoctors, services.sessions)
 						: new Elysia({ name: "my-doctors-not-configured" }),
@@ -336,7 +343,7 @@ export function createApp(options: AppOptions = {}) {
 								services.outpatientPayments,
 								services.sessions,
 								services.outpatientSelfPay,
-							  )
+							)
 						: new Elysia({ name: "outpatient-payments-not-configured" }),
 				)
 				.use(

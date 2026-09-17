@@ -224,6 +224,16 @@ page {
 	background: #f7f8fa;
 }
 
+.medical-record-patient-snapshot {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8rpx 24rpx;
+	margin-top: 18rpx;
+	color: #333;
+	font-size: 24rpx;
+	line-height: 1.5;
+}
+
 .medical-record-diagnosis-label {
 	flex: 0 0 auto;
 	color: #333;

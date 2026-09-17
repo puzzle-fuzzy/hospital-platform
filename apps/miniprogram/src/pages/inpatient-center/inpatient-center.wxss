@@ -164,7 +164,9 @@ page {
 .inpatient-state-title,
 .inpatient-state-hint,
 .inpatient-card-title,
+.inpatient-card-section-title,
 .inpatient-card-number,
+.inpatient-card-patient-meta,
 .inpatient-card-label,
 .inpatient-card-value,
 .inpatient-card-summary-row,
@@ -206,6 +208,23 @@ page {
 	border-radius: 16rpx;
 	background: #fff;
 	box-shadow: 0 4rpx 16rpx rgba(35, 55, 95, 0.04);
+}
+
+.inpatient-card-section-title {
+	margin-bottom: 20rpx;
+	color: #222;
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.inpatient-card-patient-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8rpx 24rpx;
+	margin-top: 18rpx;
+	color: #333;
+	font-size: 24rpx;
+	line-height: 1.5;
 }
 
 .inpatient-card-header {

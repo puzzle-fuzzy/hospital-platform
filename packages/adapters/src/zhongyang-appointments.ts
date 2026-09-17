@@ -28,9 +28,12 @@ import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
-// 众阳 2.10.2/2.10.3 预约目录合同明确约定：门诊微信渠道编码为 3。
-// 自助机的 4 只保留在显式的历史全量记录范围，不得复用到小程序读链路。
-const REQUEST_CHANNEL = "3";
+// 旧端实际按接口区分渠道：一级/二级目录使用门诊微信 3，
+// 排班科室、排班医生、排班列表和号源明细使用门诊自助机 4。
+// 这组差异以旧端源码为迁移事实；Provider 当前合同/院方确认仍由 P1-04
+// 的验收 gate 决定，不能因为代码已对齐旧端就提前开放真实请求。
+const DEPARTMENT_TREE_REQUEST_CHANNEL = "3";
+const SCHEDULING_REQUEST_CHANNEL = "4";
 /** 旧 provider 记录接口的两个已核实只读渠道；数字不进入公共 API。 */
 const RECORD_REQUEST_CHANNELS: Record<AppointmentRecordScope, string> = {
 	online: "3",
@@ -40,6 +43,8 @@ const DEPARTMENT_PATH =
 	"/msun-middle-business-amc-server/v1/schedulings/scheduling-depts";
 const DEPARTMENT_TREE_PATH = "/msun-middle-business-amc-server/v1/first-depts";
 const SCHEDULE_PATH = "/msun-middle-business-amc-server/v1/schedulings";
+const DOCTOR_SCHEDULE_PATH =
+	"/msun-middle-business-amc-server/v1/schedulings/scheduling-doctors";
 const SCHEDULE_SOURCES_PATH = "/msun-middle-business-amc-server/v1/sources/";
 const RECORD_PATH =
 	"/msun-middle-business-appointment-server/v1/appointment-infos/";
@@ -451,6 +456,16 @@ function requiredInteger(
 	return parsed;
 }
 
+function optionalInteger(
+	value: unknown,
+	field: string,
+	operation: string,
+	requestId: string,
+): number {
+	if (value === undefined || value === null || value === "") return 0;
+	return requiredInteger(value, field, operation, requestId);
+}
+
 /**
  * provider 排班号必须在一次完整响应中唯一。
  *
@@ -690,6 +705,13 @@ function mapRecord(
 		requestId,
 		128,
 	);
+	const hospitalAreaName = optionalText(
+		value.hospitalAreaName,
+		"hospitalAreaName",
+		operation,
+		requestId,
+		128,
+	);
 	const rawWorkTime = optionalText(
 		value.workTime,
 		"workTime",
@@ -724,6 +746,7 @@ function mapRecord(
 	return {
 		...(departmentName ? { departmentName } : {}),
 		...(doctorName ? { doctorName } : {}),
+		...(hospitalAreaName ? { hospitalAreaName } : {}),
 		workDate,
 		...(workTime ? { workTime } : {}),
 		...(location ? { location } : {}),
@@ -865,6 +888,11 @@ function mapSchedule(
 	operation: string,
 	requestId: string,
 ): AppointmentProviderSchedule {
+	const availabilityStatus = mapScheduleAvailability(
+		value.scheduleStatus,
+		operation,
+		requestId,
+	);
 	// 当前 AMC 排班响应中 remainingNumber 可能为 null，平台已确认的可用号源
 	// 字段是 usableSourceNum。旧端不同接口中的 usableNum/remainingNumber 不能
 	// 被当作同一个事实回退使用；缺少 usableSourceNum 时拒绝整条响应，避免把
@@ -954,6 +982,20 @@ function mapSchedule(
 		requestId,
 		255,
 	);
+	const registrationClassName = optionalText(
+		value.registerClassName,
+		"registerClassName",
+		operation,
+		requestId,
+		128,
+	);
+	const hospitalAreaName = optionalText(
+		value.hospitalAreaName,
+		"hospitalAreaName",
+		operation,
+		requestId,
+		128,
+	);
 	const departmentLocation = optionalText(
 		value.deptAddr,
 		"deptAddr",
@@ -978,6 +1020,8 @@ function mapSchedule(
 		...(titleName ? { titleName } : {}),
 		...(introduction ? { introduction } : {}),
 		...(expertise ? { expertise } : {}),
+		...(registrationClassName ? { registrationClassName } : {}),
+		...(hospitalAreaName ? { hospitalAreaName } : {}),
 		...(departmentLocation ? { departmentLocation } : {}),
 		doctorId: requiredText(value.docId, "docId", operation, requestId),
 		doctorName: requiredText(value.docName, "docName", operation, requestId),
@@ -993,8 +1037,77 @@ function mapSchedule(
 		...(endTime ? { endTime } : {}),
 		totalSlots,
 		availableSlots,
+		availabilityStatus,
 		timeGroup: timeGroup(value.timeGroupFlag),
 	};
+}
+
+/**
+ * 展开旧端 `scheduling-doctors` 的医生条目。
+ *
+ * 该接口把医生卡字段放在外层、排班号源放在 `schedulingList`；公共 API
+ * 仍只接受现有排班读模型，因此只在 adapter 内组合两层字段。该接口没有
+ * `scheduleStatus`，所以状态保持 `unknown`，不能凭 `usableNum` 伪造“可挂号”
+ * 状态；真正进入号源页时仍会重新读取旧端 `schedulings` 的正式状态。
+ * 外层 `visitCount` 只用于复刻旧端医生卡的访问量降序，不进入公共读模型。
+ */
+function mapDoctorSchedules(
+	value: ProviderObject,
+	operation: string,
+	requestId: string,
+): AppointmentProviderSchedule[] {
+	const schedulingList = value.schedulingList;
+	if (!Array.isArray(schedulingList)) {
+		throw providerError(
+			operation,
+			"Zhongyang scheduling-doctors schedulingList is invalid",
+			requestId,
+		);
+	}
+	return schedulingList.map((schedule) => {
+		const nested = objectValue(schedule, operation, requestId);
+		return mapSchedule(
+			{
+				...nested,
+				workDate: value.workDate,
+				deptId: value.deptId,
+				deptName: value.deptName,
+				deptAddr: value.deptAddr,
+				docId: value.docId,
+				docName: value.docName,
+				doctorPic: value.doctorPic,
+				postTitleName: value.postTitleName,
+				introduce: value.introduce,
+				specialty: value.specialty,
+				// `usableNum` 是该接口嵌套排班的明确可用号源字段；
+				// 它只作为数量读模型，状态仍由 mapSchedule 保持 unknown。
+				usableSourceNum: nested.usableNum,
+			},
+			operation,
+			requestId,
+		);
+	});
+}
+
+/**
+ * 旧端明确使用 `scheduleStatus === 2` 表示正常排班；新端只保留有限的
+ * 展示状态，不把 Provider 数字或未知值暴露给小程序。字段缺失是待确认，
+ * 不能因为有余号就伪造“可预约”。
+ */
+function mapScheduleAvailability(
+	value: unknown,
+	operation: string,
+	requestId: string,
+): "open" | "stopped" | "unknown" {
+	if (value === undefined || value === null) return "unknown";
+	if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+		throw providerError(
+			operation,
+			"Zhongyang appointment scheduleStatus is invalid",
+			requestId,
+		);
+	}
+	return value === 2 ? "open" : "stopped";
 }
 
 function trace(
@@ -1053,7 +1166,7 @@ export class ZhongyangAppointmentApiGateway
 		requestId: string;
 	}> {
 		const url = new URL(DEPARTMENT_TREE_PATH, this.baseUrl);
-		url.searchParams.set("requestChannel", "3");
+		url.searchParams.set("requestChannel", DEPARTMENT_TREE_REQUEST_CHANNEL);
 		url.searchParams.set("todayRegisterFlag", "0");
 		url.searchParams.set("queryMode", "0");
 		const headers = this.headers();
@@ -1085,7 +1198,7 @@ export class ZhongyangAppointmentApiGateway
 		const operation = "appointment-departments";
 		const normalizedInput = normalizeDepartmentQuery(input);
 		const url = new URL(DEPARTMENT_PATH, this.baseUrl);
-		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
+		url.searchParams.set("requestChannel", SCHEDULING_REQUEST_CHANNEL);
 		// 众阳 AMC 的科室接口虽然返回科室列表，但仍要求带上有效的日期窗口；
 		// 日期由 API 服务端生成，不能让小程序拼接 provider 查询参数。
 		url.searchParams.set("startDate", normalizedInput.startDate);
@@ -1146,7 +1259,7 @@ export class ZhongyangAppointmentApiGateway
 		}
 
 		const url = new URL(DEPARTMENT_PATH, this.baseUrl);
-		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
+		url.searchParams.set("requestChannel", SCHEDULING_REQUEST_CHANNEL);
 		url.searchParams.set("startDate", normalizedInput.startDate);
 		url.searchParams.set("endDate", normalizedInput.endDate);
 		// 旧端只支持名称筛选；此名称严格来自刚刚验证的一级/二级目录，
@@ -1188,7 +1301,7 @@ export class ZhongyangAppointmentApiGateway
 		const operation = "appointment-schedules";
 		const normalizedInput = normalizeScheduleQuery(input);
 		const url = new URL(SCHEDULE_PATH, this.baseUrl);
-		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
+		url.searchParams.set("requestChannel", SCHEDULING_REQUEST_CHANNEL);
 		url.searchParams.set("startDate", normalizedInput.startDate);
 		url.searchParams.set("endDate", normalizedInput.endDate);
 		// 众阳 2.10.2.3 将 scheduleType 标为必填；本 demo 只走医生排班。
@@ -1219,6 +1332,99 @@ export class ZhongyangAppointmentApiGateway
 		return { schedules, trace: trace(operation, response.requestId) };
 	}
 
+	async listDoctorSchedules(
+		input: AppointmentScheduleQuery,
+		context: AdapterCallContext,
+	) {
+		const operation = "appointment-doctor-schedules";
+		const normalizedInput = normalizeScheduleQuery(input);
+		const url = new URL(DOCTOR_SCHEDULE_PATH, this.baseUrl);
+		url.searchParams.set("requestChannel", SCHEDULING_REQUEST_CHANNEL);
+		url.searchParams.set("startDate", normalizedInput.startDate);
+		url.searchParams.set("endDate", normalizedInput.endDate);
+		if (normalizedInput.departmentId) {
+			url.searchParams.set("deptId", normalizedInput.departmentId);
+		}
+		const headers = this.headers();
+		const response = await requestJson<unknown>(
+			{
+				provider: "zhongyang",
+				operation,
+				url: url.toString(),
+				method: "GET",
+				context,
+				...(headers ? { headers } : {}),
+			},
+			this.fetcher,
+		);
+		const doctorItems = responseItems(
+			response.data,
+			operation,
+			response.requestId,
+			MAX_APPOINTMENT_SCHEDULE_ITEMS,
+		);
+		// 旧端先按 docId 聚合，再使用每位医生首条记录的 visitCount 降序排列。
+		// 先记录每位医生的首条排序事实，再整体重排，保持同医生多日期排班
+		// 的相对顺序；visitCount 仅在 adapter 内消费，避免扩张客户端 contract。
+		const doctorOrder = new Map<
+			string,
+			{ visitCount: number; index: number }
+		>();
+		for (const [index, item] of doctorItems.entries()) {
+			const doctorKey =
+				typeof item.docId === "string" || typeof item.docId === "number"
+					? String(item.docId)
+					: `__invalid-doctor-${index}`;
+			if (!doctorOrder.has(doctorKey)) {
+				doctorOrder.set(doctorKey, {
+					visitCount: optionalInteger(
+						item.visitCount,
+						"visitCount",
+						operation,
+						response.requestId,
+					),
+					index,
+				});
+			}
+		}
+		const orderedDoctorItems = doctorItems
+			.map((item, index) => {
+				const doctorKey =
+					typeof item.docId === "string" || typeof item.docId === "number"
+						? String(item.docId)
+						: `__invalid-doctor-${index}`;
+				return { item, index, order: doctorOrder.get(doctorKey) };
+			})
+			.sort(
+				(left, right) =>
+					(right.order?.visitCount ?? 0) - (left.order?.visitCount ?? 0) ||
+					(left.order?.index ?? left.index) -
+						(right.order?.index ?? right.index) ||
+					left.index - right.index,
+			)
+			.map(({ item }) => item);
+		const schedules = orderedDoctorItems.flatMap((item) =>
+			mapDoctorSchedules(item, operation, response.requestId),
+		);
+		if (schedules.length > MAX_APPOINTMENT_SCHEDULE_ITEMS) {
+			throw providerError(
+				operation,
+				"Zhongyang scheduling-doctors response contained too many schedules",
+				response.requestId,
+			);
+		}
+		const filteredSchedules = normalizedInput.doctorId
+			? schedules.filter(
+					(schedule) => schedule.doctorId === normalizedInput.doctorId,
+				)
+			: schedules;
+		ensureUniqueScheduleIds(filteredSchedules, operation, response.requestId);
+		return {
+			schedules: filteredSchedules,
+			trace: trace(operation, response.requestId),
+		};
+	}
+
 	async listSources(
 		input: AppointmentScheduleSourceQuery,
 		context: AdapterCallContext,
@@ -1231,7 +1437,7 @@ export class ZhongyangAppointmentApiGateway
 			`${SCHEDULE_SOURCES_PATH}${encodeURIComponent(providerScheduleId)}`,
 			this.baseUrl,
 		);
-		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
+		url.searchParams.set("requestChannel", SCHEDULING_REQUEST_CHANNEL);
 		const headers = this.headers();
 		const response = await requestJson<unknown>(
 			{

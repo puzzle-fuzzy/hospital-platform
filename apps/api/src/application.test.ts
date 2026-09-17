@@ -3,6 +3,7 @@ import type {
 	AppointmentDirectoryGateway,
 	IntelligentGuideConversationStateStore,
 } from "@hospital/domain";
+import { DependencyNotConfiguredError } from "@hospital/domain";
 import type { MySqlRepositories } from "@hospital/persistence";
 import {
 	createDefaultApplicationServices,
@@ -57,4 +58,34 @@ test("default application composition does not revive the legacy guide fallback"
 	const services = createDefaultApplicationServices();
 
 	expect(services.intelligentGuide).toBeUndefined();
+});
+
+test("closed patient binding does not invoke legacy auth before missing binding gateway", async () => {
+	let authCalls = 0;
+	const services = createDefaultApplicationServices({
+		patientProviderAuthorizationGateway: {
+			async exchangeWechatCode() {
+				authCalls += 1;
+				throw new Error("legacy auth must not run");
+			},
+		},
+	});
+
+	await expect(
+		services.patientBinding?.bind(
+			"fixture-closed-binding-owner",
+			{
+				displayName: "张三",
+				mobile: "13812345678",
+				identityNumber: "11010519900101007X",
+				consent: true,
+				legacyLoginCode: "wx-code-closed",
+			},
+			{
+				traceId: "closed-binding-trace",
+				idempotencyKey: "closed-binding-idem",
+			},
+		),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+	expect(authCalls).toBe(0);
 });

@@ -34,6 +34,7 @@
 						<text wx:if="{{doctor.titleName}}" class="doctor-profile-title">{{doctor.titleName}}</text>
 					</view>
 					<text class="doctor-profile-department">{{doctor.departmentName}}</text>
+					<text wx:if="{{doctor.hospitalAreaName}}" class="doctor-profile-location">{{doctor.hospitalAreaName}}</text>
 					<text wx:if="{{doctor.departmentLocation}}" class="doctor-profile-location">{{doctor.departmentLocation}}</text>
 				</view>
 				<button
@@ -51,6 +52,14 @@
 			<view wx:if="{{doctor.introduction}}" class="doctor-introduction-card">
 				<text class="detail-section-title">个人简介</text>
 				<text class="doctor-introduction-copy">{{doctor.introduction}}</text>
+			</view>
+
+			<view
+				wx:if="{{doctor.introduction || doctor.expertise}}"
+				class="doctor-profile-link"
+				bindtap="onProfileTap"
+			>
+				<text>查看完整简介 ></text>
 			</view>
 
 			<view class="doctor-schedule-card">
@@ -85,14 +94,17 @@
 					>
 						<view class="doctor-schedule-copy">
 							<text class="doctor-schedule-shift">{{item.shiftName}}</text>
+							<text wx:if="{{item.registrationClassName}}" class="doctor-schedule-registration-class">{{item.registrationClassName}}</text>
 							<text wx:if="{{item.startTime}}" class="doctor-schedule-time">
 								{{item.startTime}}<text wx:if="{{item.endTime}}"> - {{item.endTime}}</text>
 							</text>
 							<text wx:else class="doctor-schedule-time">具体时段以医院排班为准</text>
 						</view>
 						<view class="doctor-schedule-action">
-							<text class="doctor-schedule-slots {{item.availableSlots > 0 ? 'doctor-slots-available' : ''}}">余 {{item.availableSlots}} 号</text>
-							<view wx:if="{{item.availableSlots > 0}}" class="doctor-schedule-booking">
+							<text wx:if="{{item.availabilityStatus === 'stopped'}}" class="doctor-schedule-slots">已停诊</text>
+							<text wx:elif="{{item.availabilityStatus !== 'open'}}" class="doctor-schedule-slots">状态待确认</text>
+							<text wx:else class="doctor-schedule-slots {{item.availableSlots > 0 ? 'doctor-slots-available' : ''}}">余 {{item.availableSlots}} 号</text>
+							<view wx:if="{{item.availabilityStatus === 'open' && item.availableSlots > 0}}" class="doctor-schedule-booking">
 								<text class="doctor-schedule-arrow-label">预约</text>
 								<image
 									class="doctor-schedule-arrow"
@@ -101,7 +113,8 @@
 									aria-label="查看预约时段"
 								/>
 							</view>
-							<text wx:else class="doctor-schedule-arrow-label">已约满</text>
+							<text wx:elif="{{item.availabilityStatus === 'stopped'}}" class="doctor-schedule-arrow-label">已停诊</text>
+							<text wx:else class="doctor-schedule-arrow-label">待确认</text>
 						</view>
 					</view>
 				</view>
@@ -114,5 +127,24 @@
 			</view>
 			<text class="detail-note">号源和出诊时间以医院实时安排为准，点击有余号的时段查看预约信息。</text>
 		</block>
+
+		<view wx:if="{{showProfile}}" class="doctor-profile-modal">
+			<view class="doctor-profile-modal-panel">
+				<view class="doctor-profile-modal-header">
+					<text class="doctor-profile-modal-title">医生简介</text>
+					<text class="doctor-profile-modal-close" bindtap="onProfileClose">关闭</text>
+				</view>
+				<scroll-view class="doctor-profile-modal-scroll" scroll-y="true">
+					<view wx:if="{{doctor.introduction}}" class="doctor-profile-modal-section">
+						<text class="doctor-profile-modal-section-title">个人介绍</text>
+						<text class="doctor-profile-modal-copy">{{doctor.introduction}}</text>
+					</view>
+					<view wx:if="{{doctor.expertise}}" class="doctor-profile-modal-section">
+						<text class="doctor-profile-modal-section-title">擅长领域</text>
+						<text class="doctor-profile-modal-copy">{{doctor.expertise}}</text>
+					</view>
+				</scroll-view>
+			</view>
+		</view>
 	</view>
 </scroll-view>

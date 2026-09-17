@@ -74,6 +74,9 @@ export type AppointmentRegistration = {
 	departmentId?: string;
 	doctorId?: string;
 	departmentName: string;
+	/** 旧端详情页的挂号类型展示；只保存已白名单的排班事实。 */
+	registrationClassName?: string;
+	hospitalAreaName?: string;
 	doctorName: string;
 	workDate: string;
 	shiftName: string;

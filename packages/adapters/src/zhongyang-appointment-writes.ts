@@ -8,9 +8,9 @@ import type {
 } from "@hospital/domain";
 import {
 	AdapterNotConfiguredError,
-	ProviderRequestError,
 	type ProviderFailureReason,
 	type ProviderFailureStage,
+	ProviderRequestError,
 } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
@@ -25,8 +25,11 @@ const APPOINTMENT_PATH =
 const RECORD_PATH = `${APPOINTMENT_PATH}/`;
 const PATIENT_INFO_PATH = "/api/public/patientInfoByUnionId";
 const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
-// 众阳 2.10.3/2.10.4 合同明确约定：门诊微信渠道编码为 3。
+// 预约创建、取消和锁号请求当前按已确认的门诊微信 contract 使用 3；
+// 旧端实际费用读取和号源明细读取使用门诊自助机 4，单独保留该迁移事实。
 const REQUEST_CHANNEL = "3";
+const SOURCE_LOOKUP_REQUEST_CHANNEL = "4";
+const FACT_FEE_REQUEST_CHANNEL = "4";
 
 type ProviderObject = Record<string, unknown>;
 
@@ -198,7 +201,7 @@ function providerId(
 			operation,
 			`Zhongyang ${field} must be a non-negative decimal identifier`,
 			requestId,
-			requestId === undefined ? false : true,
+			requestId !== undefined,
 			undefined,
 			requestId === undefined ? "validation" : "response",
 		);
@@ -463,7 +466,7 @@ export class ZhongyangAppointmentWriteApiGateway
 			operation,
 			`${SOURCE_PATH}${providerScheduleId}`,
 			context,
-			{ requestChannel: REQUEST_CHANNEL },
+			{ requestChannel: SOURCE_LOOKUP_REQUEST_CHANNEL },
 		);
 		const source = items(response.data, operation, response.requestId).find(
 			(item) =>
@@ -625,7 +628,7 @@ export class ZhongyangAppointmentWriteApiGateway
 			{
 				hisScheduleId: providerScheduleId,
 				patId: providerPatientId,
-				requestChannel: REQUEST_CHANNEL,
+				requestChannel: FACT_FEE_REQUEST_CHANNEL,
 			},
 		);
 		const envelope = objectValue(response.data, operation, response.requestId);

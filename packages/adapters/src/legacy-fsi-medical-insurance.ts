@@ -1560,6 +1560,52 @@ function providerSuccessFlag(value: unknown): boolean | undefined {
 	return undefined;
 }
 
+/**
+ * 众阳 `.5` 完成结算在不同测试批次返回过两种成功形态：
+ * `data.isSettle=1`，或只返回 `outSettleVO.settleStatus=4`/
+ * `outSettlePayFinishDTOList[].settleStatus=4`。只有明确的完成标记才算成功，
+ * 不能因为外层 HTTP 200 或 `success=true` 就放行。
+ */
+function completeSettleConfirmation(value: unknown): string | undefined {
+	const isSettle = providerDeepValue(value, ["isSettle"]);
+	if (String(isSettle ?? "").trim() === "1") return "isSettle=1";
+
+	const nestedData = providerDeepValue(value, ["data"]);
+	const payload =
+		nestedData && typeof nestedData === "object" && !Array.isArray(nestedData)
+			? (nestedData as ProviderRecord)
+			: value && typeof value === "object" && !Array.isArray(value)
+				? (value as ProviderRecord)
+				: undefined;
+	if (!payload) return undefined;
+
+	const settleStatus =
+		payload.outSettleVO &&
+		typeof payload.outSettleVO === "object" &&
+		!Array.isArray(payload.outSettleVO)
+			? (payload.outSettleVO as ProviderRecord).settleStatus
+			: undefined;
+	if (String(settleStatus ?? "").trim() === "4") {
+		return "outSettleVO.settleStatus=4";
+	}
+
+	const finishRecords = payload.outSettlePayFinishDTOList;
+	if (
+		Array.isArray(finishRecords) &&
+		finishRecords.length > 0 &&
+		finishRecords.every(
+			(record) =>
+				typeof record === "object" &&
+				record !== null &&
+				!Array.isArray(record) &&
+				String((record as ProviderRecord).settleStatus ?? "").trim() === "4",
+		)
+	) {
+		return "outSettlePayFinishDTOList.settleStatus=4";
+	}
+	return undefined;
+}
+
 function providerDeepValue(
 	value: unknown,
 	keys: readonly string[],
@@ -2352,7 +2398,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				workStationId: "",
 			},
 		);
-		const isSettle = providerDeepValue(completeResponse.data, ["isSettle"]);
+		const completionMarker = completeSettleConfirmation(completeResponse.data);
 		const completeTrace = trace(
 			"medical-insurance.2.27.2.32/2.6.65.5",
 			context,
@@ -2364,14 +2410,16 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		);
 		if (
 			providerSuccessFlag(completeResponse.data) === false ||
-			String(isSettle) !== "1"
+			completionMarker === undefined
 		) {
 			return {
 				state: "awaiting_confirmation",
 				amounts: input.amounts,
 				trace: completeTrace,
 				source: "yunhealth",
-				providerStatus: `isSettle=${String(isSettle ?? "UNKNOWN")}`,
+				providerStatus: completionMarker
+					? `completion=${completionMarker}`
+					: "completion=UNKNOWN",
 				finality: "settlement_candidate",
 				authoritative: false,
 			};
@@ -2381,7 +2429,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			amounts: input.amounts,
 			trace: completeTrace,
 			source: "yunhealth",
-			providerStatus: "isSettle=1",
+			providerStatus: `completion=${completionMarker}`,
 			finality: "paid",
 			authoritative: true,
 		};

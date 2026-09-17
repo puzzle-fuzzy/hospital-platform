@@ -109,6 +109,13 @@ const developmentOnlyKeys = [
 	"API_BASE_URL",
 	"REDIS_SESSION_AUDIT_URL",
 	"ADMIN_LOGS_INGEST_URL",
+	// 当前 AI Runtime 是回环 Python sidecar；生产 API 模板在独立
+	// sidecar 部署 contract 确认前不提供这些变量，客服也保持默认关闭。
+	"AI_RUNTIME_READY",
+	"AI_RUNTIME_URL",
+	"AI_RUNTIME_TOKEN",
+	"AI_RUNTIME_TIMEOUT_MS",
+	"INTELLIGENT_CUSTOMER_ENABLED",
 ];
 
 const productionOnlyKeys = ["MBS_FORWARD_PATH"];

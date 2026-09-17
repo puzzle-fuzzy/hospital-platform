@@ -61,11 +61,11 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 报告查询指定 `kind` 时，service 会确认所有返回摘要都属于该来源；来源错配整批返回 `provider-response-invalid`，不把其它来源静默混入当前报告列表。
 - 报告公共目录（LIS、PACS、ECG 合并后的单次结果）最多允许 512 条，LIS 详情最多允许 1024 条检测项；adapter 与 domain/service 都会在映射或短期详情引用创建前整批拒绝超量结果，返回 `provider-response-invalid`，不截断、不创建部分短期详情引用，也不返回部分临床明细。该边界是平台资源防护，不是 Provider 分页或患者报告数量合同。
 
-预约 Phase 7B 已实现众阳 AMC 只读目录；预约写入仅使用已在众阳门户精确核对的门诊合同：
+预约 Phase 7B 已实现众阳 AMC 只读目录；这里必须区分当前门户口径与旧端迁移事实：门户核对曾记录门诊微信 `requestChannel=3`，但旧端源码对排班/医生/排班列表/号源实际使用 `4`。新 adapter 按端点保留这组迁移差异，Provider/院方逐端点确认前不开放目录 gate；预约写入仍仅使用已在众阳门户精确核对的门诊合同：
 
-- `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts`、`/scheduling-doctors` 和 `/schedulings` 使用众阳 2.10.2.1/2/3，门诊微信固定 `requestChannel=3`；医生排班固定带必填 `scheduleType=1`，日期窗口由服务端生成，不由小程序透传；
-- `/msun-middle-business-amc-server/v1/sources/{hisScheduleId}` 和 `/sources/locked-sources` 使用众阳 2.10.3.2/3，号源读取后由服务端按 `sourceId`、`patId` 和排班重新锁定；服务端不接受小程序提交 provider 身份、sourceId 或金额；
-- `/msun-middle-business-appointment-server/v1/appointment-infos/fact-register-fee`、`/appointment-infos`、`/appointment-infos/d` 使用众阳 2.10.3.8、2.10.4.1/3；实际费用只取 Provider 返回并转换为整数分，执行预约发送 `isPay="0"` 和 `requestChannel=3`；2.10.3.8 的必填 `registerSource` 固定值未在门户中明确，本项目不猜值；
+- `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts`、`/scheduling-doctors` 和 `/schedulings` 使用众阳 2.10.2.1/2/3；按旧端迁移事实暂使用 `requestChannel=4`，医生排班固定带必填 `scheduleType=1`，日期窗口由服务端生成，不由小程序透传；该渠道仍待当前 Provider/院方确认，不构成已验收合同；
+- `/msun-middle-business-amc-server/v1/sources/{hisScheduleId}` 和 `/sources/locked-sources` 使用众阳 2.10.3.2/3；按旧端迁移事实号源只读暂使用 `requestChannel=4`，号源读取后由服务端按 `sourceId`、`patId` 和排班重新锁定；服务端不接受小程序提交 provider 身份、sourceId 或金额；该渠道仍待当前 Provider/院方确认；
+- `/msun-middle-business-appointment-server/v1/appointment-infos/fact-register-fee`、`/appointment-infos`、`/appointment-infos/d` 使用众阳 2.10.3.8、2.10.4.1/3；按旧确认页迁移事实，实际费用读取暂使用 `requestChannel=4`，金额只取 Provider 返回并转换为整数分；执行预约仍发送 `isPay="0"` 和当前 contract 的 `requestChannel=3`；旧端执行预约曾提交 `requestChannel="my"`，该值含义未确认，不能照搬；2.10.3.8 的必填 `registerSource` 固定值未在门户中明确，本项目不猜值；
 - 新 API 不返回挂号费、医生电话/照片、provider 原始字段，也不允许小程序透传任意 query；门诊自费 `2.6.65.*` 中门户未标注为对应门诊业务的重复条目已跳过，不用相似接口补齐。
 - 已验证排班目录在写入短期观察快照时最多 4 路并发，并保持目录结果顺序；该限制只保护 MySQL 资源，任一写入异常会停止领取新快照、等待已在途写入收尾后记录 `unavailable`，不改变只读目录结果，也不把部分快照当作未来写入授权。
 - 排班 service 会再次确认每条结果都在请求的日期窗口内，并匹配请求中的科室/医生筛选；窗口外或筛选错配时整批返回 `provider-response-invalid`，不会过滤坏行后伪装成完整号源目录。

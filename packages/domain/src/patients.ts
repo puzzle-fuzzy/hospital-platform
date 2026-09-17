@@ -789,6 +789,18 @@ export interface PatientRepository {
 		/** 未指定时读取旧的目录引用；临床接口必须显式请求 his-patient。 */
 		referenceKind?: PatientProviderReferenceKind;
 	}): Promise<PatientProviderReference | undefined>;
+	/**
+	 * 按 owner/provider/用途和外部患者引用反查平台患者。
+	 *
+	 * 绑定完成后的目录确认必须使用这个反查，不能只看同步是否返回 HTTP
+	 * 成功或目录是否非空；实现缺失时绑定服务必须 fail-closed。
+	 */
+	resolvePatientByProviderReference?(input: {
+		ownerUserId: string;
+		provider: "zhongyang";
+		providerPatientId: string;
+		referenceKind?: PatientProviderReferenceKind;
+	}): Promise<PatientProviderReference | undefined>;
 }
 
 /** 众阳/HIS 患者目录只通过服务端身份查询，禁止小程序直接携带 unionId。 */
@@ -838,7 +850,12 @@ export interface PatientBindingGateway {
 		},
 		context: AdapterCallContext,
 		providerContext?: PatientBindingProviderContext,
-	): Promise<{ created: boolean; trace: ExternalTrace }>;
+	): Promise<{
+		created: boolean;
+		/** 仅供绑定后的目录确认，不能进入 API 或小程序响应。 */
+		providerPatientId: string;
+		trace: ExternalTrace;
+	}>;
 }
 
 /** 微信登录 provider 边界；code2session 的原始报文不离开 adapter 层。 */

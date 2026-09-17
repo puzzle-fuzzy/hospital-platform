@@ -253,6 +253,12 @@ export const AppointmentScheduleSchema = Type.Object({
 	titleName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	introduction: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
 	expertise: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+	registrationClassName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	hospitalAreaName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
 	departmentLocation: Type.Optional(
 		Type.String({ minLength: 1, maxLength: 256 }),
 	),
@@ -267,6 +273,14 @@ export const AppointmentScheduleSchema = Type.Object({
 	endTime: Type.Optional(Type.String({ minLength: 1 })),
 	totalSlots: Type.Integer({ minimum: 0 }),
 	availableSlots: Type.Integer({ minimum: 0 }),
+	/** 旧端由 scheduleStatus===2 且有余号决定可挂号；缺失时必须待确认。 */
+	availabilityStatus: Type.Optional(
+		Type.Union([
+			Type.Literal("open"),
+			Type.Literal("stopped"),
+			Type.Literal("unknown"),
+		]),
+	),
 	timeGroup: Type.Union([
 		Type.Literal("point"),
 		Type.Literal("range"),
@@ -322,6 +336,57 @@ export const MyDoctorDeleteResponse = Type.Object({
 	data: Type.Object({
 		doctorId: Type.String({ minLength: 1, maxLength: 128 }),
 		followed: Type.Literal(false),
+	}),
+});
+
+/** 电子锦旗/表扬信新提交只进入审核队列；公开展示前必须有审核结果。 */
+export const PatientFeedbackKindSchema = Type.Union([
+	Type.Literal("gift-banner"),
+	Type.Literal("health-praise"),
+]);
+export const PatientFeedbackStatusSchema = Type.Union([
+	Type.Literal("pending_review"),
+	Type.Literal("approved"),
+	Type.Literal("rejected"),
+	Type.Literal("withdrawn"),
+]);
+export const PatientFeedbackSchema = Type.Object({
+	feedbackId: Type.String({ minLength: 1, maxLength: 128 }),
+	patientId: Type.String({ minLength: 1, maxLength: 128 }),
+	appointmentId: Type.String({ minLength: 1, maxLength: 128 }),
+	kind: PatientFeedbackKindSchema,
+	content: Type.String({ minLength: 1, maxLength: 1000 }),
+	displayPublic: Type.Boolean(),
+	status: PatientFeedbackStatusSchema,
+	donateDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+	departmentName: Type.String({ minLength: 1, maxLength: 128 }),
+	doctorName: Type.String({ minLength: 1, maxLength: 128 }),
+	createdAt: Type.String({ minLength: 1, maxLength: 64 }),
+	updatedAt: Type.String({ minLength: 1, maxLength: 64 }),
+});
+export const PatientFeedbackCreateRequest = Type.Object(
+	{
+		patientId: Type.String({ minLength: 1, maxLength: 128 }),
+		appointmentId: Type.String({ minLength: 1, maxLength: 128 }),
+		kind: PatientFeedbackKindSchema,
+		content: Type.String({ minLength: 1, maxLength: 1000 }),
+		displayPublic: Type.Boolean(),
+		donateDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+	},
+	{ additionalProperties: false },
+);
+export const PatientFeedbackResponse = Type.Object({
+	success: Type.Literal(true),
+	data: PatientFeedbackSchema,
+});
+export const PatientFeedbackListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(PatientFeedbackSchema),
+		total: Type.Integer({ minimum: 0 }),
+		pageNo: Type.Integer({ minimum: 1 }),
+		pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+		hasMore: Type.Boolean(),
 	}),
 });
 
@@ -388,6 +453,9 @@ export const AppointmentRecordSchema = Type.Object({
 	appointmentId: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	hospitalAreaName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
 	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
 	workTime: Type.Optional(
 		Type.String({
@@ -440,6 +508,12 @@ export const AppointmentDetailResponse = Type.Object({
 		patient: AppointmentDetailPatientSchema,
 		hospitalName: Type.String({ minLength: 1, maxLength: 128 }),
 		departmentName: Type.String({ minLength: 1, maxLength: 128 }),
+		registrationClassName: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 128 }),
+		),
+		hospitalAreaName: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 128 }),
+		),
 		doctorName: Type.String({ minLength: 1, maxLength: 128 }),
 		workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
 		shiftName: Type.String({ minLength: 1, maxLength: 64 }),
@@ -489,6 +563,12 @@ const AppointmentRegistrationData = Type.Object({
 	status: Type.Union([Type.Literal("booked"), Type.Literal("duplicate")]),
 	patientId: Type.String({ minLength: 1, maxLength: 128 }),
 	departmentName: Type.String({ minLength: 1, maxLength: 128 }),
+	registrationClassName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	hospitalAreaName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
 	doctorName: Type.String({ minLength: 1, maxLength: 128 }),
 	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
 	shiftName: Type.String({ minLength: 1, maxLength: 64 }),
@@ -509,13 +589,17 @@ export const AppointmentCancellationResponse = Type.Object({
 	}),
 });
 
-/** 门诊病历列表只返回已经脱敏的就诊摘要，不返回 regId/patId 等 Provider 标识。 */
+/** 门诊病历列表只返回当前已选患者的就诊摘要和记录卡展示快照，不返回 regId/patId 等 Provider 标识。 */
 export const OutpatientMedicalRecordSchema = Type.Object({
 	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	hospitalName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	clinicTypeName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	chargeClassName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	patientName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	patientSex: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	patientAge: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
+	maritalStatus: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 	visitTime: Type.String({ minLength: 1, maxLength: 64 }),
 	diagnosis: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
 });
@@ -640,6 +724,7 @@ export const LaboratoryReportDetailItemSchema = Type.Object({
 	result: Type.String({ minLength: 1, maxLength: 256 }),
 	unit: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 	referenceRange: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+	expertOpinion: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
 	flag: Type.Union([
 		Type.Literal("normal"),
 		Type.Literal("high"),
@@ -1369,6 +1454,16 @@ export type MyDoctorFollowPayload = Static<typeof MyDoctorFollowRequest>;
 export type MyDoctorListPayload = Static<typeof MyDoctorListResponse>;
 export type MyDoctorResponsePayload = Static<typeof MyDoctorResponse>;
 export type MyDoctorDeletePayload = Static<typeof MyDoctorDeleteResponse>;
+export type PatientFeedbackPayload = Static<typeof PatientFeedbackSchema>;
+export type PatientFeedbackCreateRequestPayload = Static<
+	typeof PatientFeedbackCreateRequest
+>;
+export type PatientFeedbackResponsePayload = Static<
+	typeof PatientFeedbackResponse
+>;
+export type PatientFeedbackListResponsePayload = Static<
+	typeof PatientFeedbackListResponse
+>;
 export type AppointmentScheduleSourcePayload = Static<
 	typeof AppointmentScheduleSourceSchema
 >;

@@ -24,6 +24,8 @@
 				<view class="card-title">预约信息</view>
 				<view class="info-row"><text>医院</text><text>{{hospitalName}}</text></view>
 				<view class="info-row"><text>科室</text><text>{{departmentName}}</text></view>
+				<view wx:if="{{registrationClassName}}" class="info-row"><text>号别</text><text>{{registrationClassName}}</text></view>
+				<view wx:if="{{hospitalAreaName}}" class="info-row"><text>院区</text><text>{{hospitalAreaName}}</text></view>
 				<view class="info-row"><text>医生</text><text>{{doctorName}}</text></view>
 				<view class="info-row"><text>就诊时间</text><text>{{workDate}} {{shiftName}} {{workTime}}</text></view>
 				<view class="info-row"><text>挂号序号</text><text>{{sourceSerialNumber}}号</text></view>

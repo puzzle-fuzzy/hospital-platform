@@ -71,13 +71,17 @@
 				</view>
 				<view class="record-status-badge record-status-missed record-status-stamp">已爽约</view>
 			</view>
-			<view wx:if="{{item.doctorName || item.location}}" class="record-meta">
+			<view wx:if="{{item.doctorName || item.hospitalAreaName || item.location}}" class="record-meta">
 				<view wx:if="{{item.doctorName}}" class="record-meta-item">
 					<text class="record-meta-label">医生</text>
 					<text class="record-meta-value">{{item.doctorName}}</text>
 				</view>
-				<view wx:if="{{item.location}}" class="record-meta-item">
+				<view wx:if="{{item.hospitalAreaName}}" class="record-meta-item">
 					<text class="record-meta-label">院区</text>
+					<text class="record-meta-value">{{item.hospitalAreaName}}</text>
+				</view>
+				<view wx:if="{{item.location}}" class="record-meta-item">
+					<text class="record-meta-label">科室位置</text>
 					<text class="record-meta-value">{{item.location}}</text>
 				</view>
 			</view>

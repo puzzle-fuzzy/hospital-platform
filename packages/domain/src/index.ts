@@ -321,6 +321,22 @@ export {
 	validateOutpatientPaymentRecords,
 } from "./outpatient-payments";
 export type {
+	PatientFeedback,
+	PatientFeedbackCreateInput,
+	PatientFeedbackKind,
+	PatientFeedbackRepository,
+	PatientFeedbackStatus,
+} from "./patient-feedback";
+export {
+	MAX_CONTENT_CODE_POINTS,
+	PatientFeedbackIdempotencyConflictError,
+	PatientFeedbackInputError,
+	patientFeedbackPage,
+	samePatientFeedbackRequest,
+	validatePatientFeedbackCreateInput,
+	validatePatientFeedbackDateFilter,
+} from "./patient-feedback";
+export type {
 	PatientWriteCommand,
 	PatientWriteCommandInput,
 	PatientWriteCommandState,

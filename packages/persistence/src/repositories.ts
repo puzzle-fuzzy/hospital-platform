@@ -24,6 +24,9 @@ import type {
 	PatientDirectorySyncStart,
 	PatientDirectorySyncStartInput,
 	PatientDirectoryUpsertInput,
+	PatientFeedback,
+	PatientFeedbackCreateInput,
+	PatientFeedbackRepository,
 	PatientProviderReference,
 	PatientRecord,
 	PatientRepository,
@@ -56,6 +59,7 @@ import {
 	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateMyDoctorCreateInput,
+	validatePatientFeedbackCreateInput,
 	validateReportReference,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
@@ -96,6 +100,65 @@ export function createInMemoryIdentityUserRepository(
 		},
 		async findByUserId(userId) {
 			return [...users.values()].find((user) => user.userId === userId);
+		},
+	};
+}
+
+/** 电子锦旗/表扬信只用于新服务测试与本地组合；不读取或导入旧服务历史。 */
+export function createInMemoryPatientFeedbackRepository(
+	seed: readonly PatientFeedback[] = [],
+): PatientFeedbackRepository {
+	const records = new Map(
+		seed.map((record) => [record.feedbackId, { ...record }]),
+	);
+	return {
+		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
+			return [...records.values()].find(
+				(record) =>
+					record.ownerUserId === ownerUserId &&
+					record.idempotencyKey === idempotencyKey,
+			);
+		},
+		async create(input: PatientFeedbackCreateInput) {
+			validatePatientFeedbackCreateInput(input);
+			const existing = await this.findByOwnerAndIdempotencyKey(
+				input.ownerUserId,
+				input.idempotencyKey,
+			);
+			if (existing) return { ...existing };
+			const now = new Date().toISOString();
+			const record: PatientFeedback = {
+				...input,
+				feedbackId: input.feedbackId ?? `fixture-feedback-${records.size + 1}`,
+				status: "pending_review",
+				createdAt: input.createdAt ?? now,
+				updatedAt: input.updatedAt ?? now,
+			};
+			records.set(record.feedbackId, record);
+			return { ...record };
+		},
+		async listByOwnerAndPatient({
+			ownerUserId,
+			patientId,
+			kind,
+			donateDate,
+			displayPublic,
+		}) {
+			return [...records.values()]
+				.filter(
+					(record) =>
+						record.ownerUserId === ownerUserId &&
+						record.patientId === patientId &&
+						(kind === undefined || record.kind === kind) &&
+						(donateDate === undefined ||
+							(donateDate.length === 7
+								? record.donateDate.startsWith(`${donateDate}-`)
+								: record.donateDate === donateDate)) &&
+						(displayPublic === undefined ||
+							record.displayPublic === displayPublic),
+				)
+				.sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+				.map((record) => ({ ...record }));
 		},
 	};
 }
@@ -691,6 +754,31 @@ export function createInMemoryPatientRepository(
 					}
 				: undefined;
 		},
+		async resolvePatientByProviderReference(input) {
+			const referenceKind = input.referenceKind ?? "his-patient";
+			const patientId = providerExternalIndex.get(
+				providerExternalReferenceKey({
+					ownerUserId: input.ownerUserId,
+					provider: input.provider,
+					referenceKind,
+					providerPatientId: input.providerPatientId,
+				}),
+			);
+			if (!patientId) return undefined;
+			const patient = patients.find(
+				(candidate) =>
+					candidate.id === patientId &&
+					candidate.ownerUserId === input.ownerUserId &&
+					!inactivePatientIds.has(candidate.id),
+			);
+			return patient
+				? {
+						patientId: patient.id,
+						provider: input.provider,
+						providerPatientId: input.providerPatientId,
+					}
+				: undefined;
+		},
 	};
 }
 
@@ -1158,8 +1246,20 @@ export function createNotConfiguredRepositories(): {
 	healthKnowledge: ReturnType<
 		typeof createNotConfiguredHealthKnowledgeRepository
 	>;
+	patientFeedback: PatientFeedbackRepository;
 } {
 	return {
+		patientFeedback: {
+			findByOwnerAndIdempotencyKey: async () => {
+				throw new PersistenceNotConfiguredError("patient-feedback");
+			},
+			create: async () => {
+				throw new PersistenceNotConfiguredError("patient-feedback");
+			},
+			listByOwnerAndPatient: async () => {
+				throw new PersistenceNotConfiguredError("patient-feedback");
+			},
+		},
 		identityUsers: {
 			findOrCreateByWechat: async () => {
 				throw new PersistenceNotConfiguredError("identity-users");
@@ -1184,6 +1284,9 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError("patients");
 			},
 			resolveProviderReference: async () => {
+				throw new PersistenceNotConfiguredError("patients");
+			},
+			resolvePatientByProviderReference: async () => {
 				throw new PersistenceNotConfiguredError("patients");
 			},
 		},

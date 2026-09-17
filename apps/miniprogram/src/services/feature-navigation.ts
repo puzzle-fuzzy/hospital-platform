@@ -296,8 +296,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"gift-banner": {
 		title: "电子锦旗",
 		readiness: "待临床审核",
-		description: "电子锦旗正在迁移中，当前不会提交患者或医护快照。",
-		contractHint: "等待内容审核、文件安全、脱敏公开展示和撤回规则确认。",
+		description:
+			"电子锦旗已支持新服务提交和查看个人记录，公开展示仍需审核后开放。",
+		contractHint: "等待内容审核、脱敏公开展示和撤回规则确认。",
 		icon: "/assets/legacy-home/service-banner.svg",
 	},
 	guide: {
@@ -320,8 +321,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"health-praise": {
 		title: "表扬信",
 		readiness: "待临床审核",
-		description: "表扬信正在迁移中，当前不会提交或公开患者相关内容。",
-		contractHint: "等待内容审核、脱敏展示、文件上传、幂等和撤回规则确认。",
+		description:
+			"表扬信已支持新服务提交和查看个人记录，公开展示仍需审核后开放。",
+		contractHint: "等待内容审核、脱敏展示、幂等和撤回规则确认。",
 		icon: "/assets/legacy-home/service-praise.svg",
 	},
 	"health-test": {

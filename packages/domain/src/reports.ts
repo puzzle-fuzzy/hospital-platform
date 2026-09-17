@@ -254,6 +254,7 @@ export type LaboratoryReportDetailItem = {
 	result: string;
 	unit?: string;
 	referenceRange?: string;
+	expertOpinion?: string;
 	flag: ReportDetailFlag;
 };
 
@@ -724,11 +725,13 @@ export function normalizeLaboratoryReportDetail(
 			"referenceRange",
 			256,
 		);
+		const expertOpinion = optionalReportText(detailItem, "expertOpinion", 4096);
 		return {
 			name: detailItem.name,
 			result: detailItem.result,
 			...(unit ? { unit } : {}),
 			...(referenceRange ? { referenceRange } : {}),
+			...(expertOpinion ? { expertOpinion } : {}),
 			flag,
 		};
 	});

@@ -95,6 +95,80 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 	);
 });
 
+test("医生模式优先使用独立的 scheduling-doctors gateway", async () => {
+	let regularCalls = 0;
+	let doctorCalls = 0;
+	const schedule: AppointmentProviderSchedule = {
+		providerScheduleId: "doctor-directory-schedule-001",
+		departmentId: "dept-001",
+		departmentName: "心内科",
+		doctorId: "doctor-001",
+		doctorName: "李医生",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		totalSlots: 10,
+		availableSlots: 4,
+		availabilityStatus: "unknown",
+		timeGroup: "range",
+	};
+	const directory: AppointmentDirectoryGateway = {
+		listDepartments: async () => ({
+			departments: [],
+			trace: {
+				provider: "zhongyang",
+				operation: "appointment-departments",
+				requestId: "unused",
+			},
+		}),
+		listSchedules: async () => {
+			regularCalls += 1;
+			return {
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "regular",
+				},
+			};
+		},
+		listDoctorSchedules: async () => {
+			doctorCalls += 1;
+			return {
+				schedules: [schedule],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-doctor-schedules",
+					requestId: "doctor",
+				},
+			};
+		},
+	};
+	const service = new AppointmentService({
+		directory,
+		createScheduleId: () => "platform-doctor-schedule-001",
+		logger: createNoopLogger(),
+	});
+
+	const result = await service.listDoctorSchedules(
+		{
+			startDate: "2026-08-20",
+			endDate: "2026-08-21",
+			departmentId: "dept-001",
+		},
+		{ traceId: "doctor-trace-001", idempotencyKey: "doctor-key-001" },
+	);
+
+	expect(doctorCalls).toBe(1);
+	expect(regularCalls).toBe(0);
+	expect(result.items).toMatchObject([
+		{
+			scheduleId: "platform-doctor-schedule-001",
+			doctorId: "doctor-001",
+			availabilityStatus: "unknown",
+		},
+	]);
+});
+
 test("预约 service 在 Provider 和快照仓储前拒绝非法调用上下文", async () => {
 	let directoryCalls = 0;
 	const directory: AppointmentDirectoryGateway = {

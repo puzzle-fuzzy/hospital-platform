@@ -5,6 +5,7 @@ import {
 	requestAppointmentDetail,
 	safeApiErrorMessage,
 } from "../../services/api-client";
+import { searchDepartmentLocation } from "../../services/department-location";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
@@ -41,6 +42,9 @@ type AppointmentDetailPageMethods = {
 	loadPatientContext(patientId: string): Promise<void>;
 	onRetry(): void;
 	onCancel(): void;
+	onHospitalGuide(): void;
+	closeLocationModal(): void;
+	stopLocationPropagation(): void;
 	onBackHome(): void;
 	onUnload(): void;
 	showError(error: unknown): void;
@@ -60,6 +64,11 @@ type AppointmentDetailRouteOptions = {
 
 type AppointmentDetailPageState = AppointmentDetailPageData & {
 	location: string;
+	showLocationModal: boolean;
+	locationResults: Array<{
+		department: string;
+		location: string;
+	}>;
 };
 
 function decode(value: string | undefined): string {
@@ -116,6 +125,8 @@ function detailDefaults(): AppointmentDetailPageState {
 		patientCardLabel: "",
 		hospitalName: "高平市人民医院",
 		departmentName: "",
+		registrationClassName: "",
+		hospitalAreaName: "",
 		doctorName: "",
 		workDate: "",
 		shiftName: "",
@@ -133,6 +144,8 @@ function detailDefaults(): AppointmentDetailPageState {
 		sourcePatientId: "",
 		legacySummary: false,
 		location: "",
+		showLocationModal: false,
+		locationResults: [],
 	};
 }
 
@@ -151,6 +164,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				patientName: "",
 				patientCardLabel: "",
 				departmentName: "",
+				registrationClassName: "",
+				hospitalAreaName: "",
 				doctorName: "",
 				workDate: "",
 				shiftName: "",
@@ -166,6 +181,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				localDetail: false,
 				legacySummary: false,
 				location: "",
+				showLocationModal: false,
+				locationResults: [],
 			});
 		});
 
@@ -225,6 +242,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			status: status as AppointmentDetailPageData["status"],
 			statusLabel: STATUS_LABELS[status as AppointmentDetailPageData["status"]],
 			location: safeRouteText(options.location, 256),
+			showLocationModal: false,
+			locationResults: [],
 			totalFen: 0,
 			totalLabel: "以医院实际收费记录为准",
 			canceling: false,
@@ -329,6 +348,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 							: `就诊卡：${detail.patient.cardNumberMasked}`,
 					hospitalName: detail.hospitalName,
 					departmentName: detail.departmentName,
+					registrationClassName: detail.registrationClassName ?? "",
+					hospitalAreaName: detail.hospitalAreaName ?? "",
 					doctorName: detail.doctorName,
 					workDate: detail.workDate,
 					shiftName: detail.shiftName,
@@ -343,6 +364,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					sessionGeneration: expectedSessionGeneration,
 					localDetail: true,
 					legacySummary: false,
+					showLocationModal: false,
+					locationResults: [],
 				});
 			})
 			.catch((error) => {
@@ -417,6 +440,24 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		});
 	},
 
+	/** 复用预约记录页的静态位置资料，保持旧详情页“去导航”行为。 */
+	onHospitalGuide(): void {
+		if (!this.data.status || !this.data.departmentName) return;
+		this.setData({
+			showLocationModal: true,
+			locationResults: searchDepartmentLocation(this.data.departmentName),
+		});
+	},
+
+	closeLocationModal(): void {
+		this.setData({ showLocationModal: false, locationResults: [] });
+	},
+
+	/** 弹窗内容不应触发遮罩层关闭。 */
+	stopLocationPropagation(): void {
+		// `catchtap` 已阻止冒泡；保留显式方法让 WXML 绑定可审计。
+	},
+
 	onBackHome(): void {
 		switchToPrimaryTab("/pages/index/index");
 	},
@@ -436,6 +477,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			patientCardLabel: "",
 			canceling: false,
 			sessionGeneration: -1,
+			showLocationModal: false,
+			locationResults: [],
 		});
 		wx.showToast({ title: message, icon: "none" });
 	},

@@ -29,6 +29,9 @@ import type {
 	OutpatientSelfPayResponse,
 	PatientBindingRequest,
 	PatientBindingResponse,
+	PatientFeedbackCreateRequest,
+	PatientFeedbackListResponse,
+	PatientFeedbackResponse,
 	PatientListResponse,
 	RegistrationSelfPayResponse,
 	ReportAttachment,
@@ -415,6 +418,17 @@ function isSafeAppointmentWriteText(
 	);
 }
 
+function optionalSafeAppointmentWriteText(
+	value: unknown,
+	maxLength: number,
+): string | undefined {
+	if (value === undefined) return undefined;
+	if (!isSafeAppointmentWriteText(value, maxLength)) {
+		return invalidAppointmentWriteResponse();
+	}
+	return value;
+}
+
 function invalidAppointmentWriteResponse(): never {
 	throw new ApiError("预约服务返回数据异常", {
 		code: "provider-response-invalid",
@@ -470,6 +484,14 @@ function requireAppointmentRegistrationResponse(
 	) {
 		return invalidAppointmentWriteResponse();
 	}
+	const registrationClassName = optionalSafeAppointmentWriteText(
+		data.registrationClassName,
+		128,
+	);
+	const hospitalAreaName = optionalSafeAppointmentWriteText(
+		data.hospitalAreaName,
+		128,
+	);
 	return {
 		success: true,
 		data: {
@@ -477,6 +499,8 @@ function requireAppointmentRegistrationResponse(
 			status: data.status,
 			patientId: data.patientId,
 			departmentName: data.departmentName,
+			...(registrationClassName ? { registrationClassName } : {}),
+			...(hospitalAreaName ? { hospitalAreaName } : {}),
 			doctorName: data.doctorName,
 			workDate: data.workDate,
 			shiftName: data.shiftName,
@@ -2379,6 +2403,41 @@ export function request<TResponse = unknown>(
 	return requestWithConfig(options, getAppConfig());
 }
 
+/** 新服务电子锦旗/表扬信：提交只返回待审核记录，不代表公开展示已完成。 */
+export function createPatientFeedback(
+	input: PatientFeedbackCreateRequest,
+): Promise<PatientFeedbackResponse["data"]> {
+	return request<PatientFeedbackResponse>({
+		url: "/patient-feedback",
+		method: "POST",
+		data: input,
+		idempotencyKey: createIdempotencyKey("patient-feedback"),
+		sensitivePayload: true,
+	}).then((response) => response.data);
+}
+
+export function loadPatientFeedback(
+	patientId: string,
+	kind?: PatientFeedbackCreateRequest["kind"],
+	donateDate?: string,
+	displayPublic?: boolean,
+	pageNo?: number,
+	pageSize?: number,
+): Promise<PatientFeedbackListResponse["data"]> {
+	return request<PatientFeedbackListResponse>({
+		url: "/patient-feedback",
+		method: "GET",
+		data: {
+			patientId,
+			...(kind ? { kind } : {}),
+			...(donateDate ? { donateDate } : {}),
+			...(displayPublic === undefined ? {} : { displayPublic }),
+			...(pageNo === undefined ? {} : { pageNo }),
+			...(pageSize === undefined ? {} : { pageSize }),
+		},
+	}).then((response) => response.data);
+}
+
 /** 当前小程序进程内的登录请求；并发页面共享同一个一次性 code 兑换结果。 */
 let loginInFlight: Promise<AuthSessionResponse> | null = null;
 
@@ -2969,6 +3028,20 @@ export function requestAppointmentSchedules(
 	const query = buildAppointmentScheduleQuery(options);
 	return requestWithSession<unknown>({
 		url: `/appointments/schedules?${query}`,
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentScheduleListResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/** 读取旧端“按医生挂号”的独立医生排班目录。 */
+export function requestAppointmentDoctorSchedules(
+	options: AppointmentScheduleRequestOptions,
+): Promise<AppointmentScheduleListResponse> {
+	const query = buildAppointmentScheduleQuery(options);
+	return requestWithSession<unknown>({
+		url: `/appointments/doctor-schedules?${query}`,
 	}).then((payload) =>
 		requireSuccessDataResponse<AppointmentScheduleListResponse["data"]>(
 			payload,

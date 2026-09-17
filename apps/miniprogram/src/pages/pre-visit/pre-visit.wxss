@@ -1,1 +1,27 @@
-@import "../../styles/migration-surface.wxss";
+.pre-visit-scroll { height: 100vh; background: #f8f8f8; }
+.pre-visit-page { box-sizing: border-box; min-height: 100%; padding: 20rpx 24rpx 48rpx; }
+.pre-visit-notice, .pre-visit-patient-card, .pre-visit-context, .pre-visit-question-card, .pre-visit-message { border-radius: 16rpx; background: #fff; }
+.pre-visit-notice { padding: 20rpx 24rpx; background: #fff5e8; color: #a66b00; font-size: 25rpx; line-height: 1.6; }
+.pre-visit-patient-card { display: flex; align-items: center; justify-content: space-between; margin-top: 18rpx; padding: 24rpx; }
+.pre-visit-patient-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.pre-visit-patient-label, .pre-visit-patient-card { color: #8791a5; font-size: 23rpx; }
+.pre-visit-patient-name, .pre-visit-muted { margin-top: 8rpx; color: #222b45; font-size: 29rpx; }
+.pre-visit-muted { color: #9aa3b4; }
+.pre-visit-patient-card { margin-top: 6rpx; }
+.pre-visit-error { margin-top: 8rpx; color: #c53b3b; font-size: 23rpx; }
+.pre-visit-arrow { color: #9aa3b4; font-size: 42rpx; font-weight: 300; }
+.pre-visit-context { margin-top: 18rpx; padding: 18rpx 22rpx; color: #3d6df6; font-size: 25rpx; line-height: 1.5; }
+.pre-visit-context.is-missing { background: #fff8e8; color: #a66b00; }
+.pre-visit-question-card { margin-top: 18rpx; padding: 24rpx; }
+.pre-visit-question-title { color: #222b45; font-size: 28rpx; font-weight: 600; line-height: 1.55; }
+.pre-visit-required { margin-right: 6rpx; color: #f04b4b; }
+.pre-visit-options { display: flex; gap: 16rpx; margin-top: 20rpx; }
+.pre-visit-option { box-sizing: border-box; flex: 1; padding: 16rpx 22rpx; border: 1rpx solid #dfe5f2; border-radius: 12rpx; color: #4c566d; font-size: 25rpx; text-align: center; }
+.pre-visit-option.is-selected { border-color: #3d6df6; background: #3d6df6; color: #fff; }
+.pre-visit-input { box-sizing: border-box; width: 100%; height: 76rpx; margin-top: 18rpx; padding: 18rpx; border-radius: 12rpx; background: #f7f9fd; color: #222b45; font-size: 26rpx; }
+.pre-visit-input.is-disabled { color: #a6adbb; }
+.pre-visit-message { margin-top: 20rpx; padding: 18rpx 22rpx; background: #fff8e8; color: #a66b00; font-size: 25rpx; line-height: 1.6; }
+.pre-visit-submit, .pre-visit-back { box-sizing: border-box; width: 100%; margin-top: 24rpx; border-radius: 14rpx; font-size: 28rpx; line-height: 84rpx; }
+.pre-visit-submit { background: #3d6df6; color: #fff; }
+.pre-visit-disclaimer { display: block; margin-top: 16rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
+.pre-visit-back { background: transparent; color: #68738a; }

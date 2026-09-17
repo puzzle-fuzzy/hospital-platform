@@ -18,6 +18,7 @@ import {
 	PatientDirectorySnapshotStaleError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
+	type PatientProviderReference,
 	PatientReadModelValidationError,
 	type PatientRepository,
 	type UserIdentityRepository,
@@ -592,5 +593,33 @@ export class PatientService {
 			}
 			throw error;
 		}
+	}
+
+	/**
+	 * 绑定后的最终确认专用反查。
+	 *
+	 * providerPatientId 只在服务端短暂存在；返回的平台 patientId 仍由
+	 * owner-scoped 仓储决定，不能把外部患者号带入 HTTP 响应。
+	 */
+	async resolvePatientByProviderReference(
+		ownerUserId: string,
+		providerPatientId: string,
+		context: AdapterCallContext,
+		referenceKind: "directory" | "his-patient" = "his-patient",
+	): Promise<PatientProviderReference | undefined> {
+		const normalized = normalizePatientServiceCall(ownerUserId, context);
+		if (!isBoundedOpaqueIdentifier(providerPatientId)) {
+			throw new PatientServiceInputError("context-invalid");
+		}
+		const resolver = this.repository.resolvePatientByProviderReference;
+		if (!resolver) {
+			throw new DependencyNotConfiguredError("patient-binding-confirmation");
+		}
+		return resolver.call(this.repository, {
+			ownerUserId: normalized.ownerUserId,
+			provider: "zhongyang",
+			providerPatientId,
+			referenceKind,
+		});
 	}
 }

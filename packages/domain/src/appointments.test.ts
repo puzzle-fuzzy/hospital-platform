@@ -65,6 +65,7 @@ function providerSchedule(index: number) {
 		providerScheduleId: `provider-schedule-${index}`,
 		departmentId: "department-001",
 		departmentName: "心内科",
+		hospitalAreaName: "南院区",
 		doctorId: "doctor-001",
 		doctorName: "李医生",
 		workDate: "2026-08-20",
@@ -142,6 +143,18 @@ test("预约历史只接受合法时间点或不倒序的时间段", () => {
 			{ ...base, workTime: "08:00-12:00" },
 		]),
 	).toHaveLength(2);
+	expect(
+		normalizeAppointmentRecordResults([
+			{ ...base, hospitalAreaName: "南院区", location: "门诊楼二层" },
+		]),
+	).toEqual([
+		{
+			hospitalAreaName: "南院区",
+			location: "门诊楼二层",
+			workDate: "2026-08-20",
+			status: "scheduled",
+		},
+	]);
 
 	for (const workTime of [
 		"上午",

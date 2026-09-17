@@ -40,6 +40,8 @@ type RegistrationPaymentPageData = {
 	patientCardLabel: string;
 	hospitalName: string;
 	departmentName: string;
+	registrationClassName: string;
+	hospitalAreaName: string;
 	doctorName: string;
 	workDate: string;
 	shiftName: string;
@@ -214,6 +216,8 @@ Page<
 		patientCardLabel: "",
 		hospitalName: "高平市人民医院",
 		departmentName: "",
+		registrationClassName: "",
+		hospitalAreaName: "",
 		doctorName: "",
 		workDate: "",
 		shiftName: "",
@@ -249,6 +253,8 @@ Page<
 				patientRelationship: "",
 				patientCardLabel: "",
 				departmentName: "",
+				registrationClassName: "",
+				hospitalAreaName: "",
 				doctorName: "",
 				workDate: "",
 				shiftName: "",
@@ -318,6 +324,8 @@ Page<
 						: `就诊卡：${detail.data.patient.cardNumberMasked}`,
 				hospitalName: detail.data.hospitalName,
 				departmentName: detail.data.departmentName,
+				registrationClassName: detail.data.registrationClassName ?? "",
+				hospitalAreaName: detail.data.hospitalAreaName ?? "",
 				doctorName: detail.data.doctorName,
 				workDate: detail.data.workDate,
 				shiftName: detail.data.shiftName,

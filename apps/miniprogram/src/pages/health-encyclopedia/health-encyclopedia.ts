@@ -7,6 +7,7 @@ import {
 import type { KnowledgeDiseaseMode } from "../../services/health-knowledge-view";
 import {
 	isKnowledgeDiseaseMode,
+	groupHealthKnowledgeItems,
 	resolveKnowledgePanelState,
 	resolveKnowledgeTabSource,
 } from "../../services/health-knowledge-view";
@@ -59,8 +60,15 @@ type KnowledgePageData = {
 	departments: LeftItem[];
 	leftItems: LeftItem[];
 	rightItems: Array<HealthKnowledgeSymptomItem | HealthKnowledgeDiseaseSummary>;
+	rightGroups: Array<{
+		letter: string;
+		items: Array<HealthKnowledgeSymptomItem | HealthKnowledgeDiseaseSummary>;
+	}>;
 	selectedSymptoms: HealthKnowledgeSymptomItem[];
 	selectedSymptomIds: string[];
+	/** 已加载部位到症状 ID 的当前发布版本映射，用于复刻旧端数量提示。 */
+	symptomIdsByPart: Record<string, string[]>;
+	partSelectionCounts: Record<string, number>;
 	selectedLeftId: string;
 	state: PageState;
 	errorMessage: string;
@@ -76,8 +84,11 @@ const EMPTY_DATA: KnowledgePageData = {
 	departments: [],
 	leftItems: [],
 	rightItems: [],
+	rightGroups: [],
 	selectedSymptoms: [],
 	selectedSymptomIds: [],
+	symptomIdsByPart: {},
+	partSelectionCounts: {},
 	selectedLeftId: "",
 	state: "idle",
 	errorMessage: "",
@@ -123,8 +134,11 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 			state: "loading",
 			errorMessage: "",
 			rightItems: [],
+			rightGroups: [],
 			selectedSymptoms: [],
 			selectedSymptomIds: [],
+			symptomIdsByPart: {},
+			partSelectionCounts: {},
 		});
 		try {
 			const response = await requestHealthKnowledgeCatalog("part");
@@ -156,16 +170,37 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 		const token = requestToken ?? guard.begin();
 		if (!guard.isCurrent(token)) return;
 		if (!partId) {
-			this.setData({ state: "empty", rightItems: [] });
+			this.setData({ state: "empty", rightItems: [], rightGroups: [] });
 			return;
 		}
-		this.setData({ state: "loading", errorMessage: "", rightItems: [] });
+		this.setData({
+			state: "loading",
+			errorMessage: "",
+			rightItems: [],
+			rightGroups: [],
+		});
 		try {
 			const response = await requestHealthSymptomsByPart(partId);
 			if (!guard.isCurrent(token) || requestSerial !== this.requestSerial)
 				return;
+			const symptomIdsByPart = {
+				...this.data.symptomIdsByPart,
+				[partId]: response.data.items.map((item) => item.id),
+			};
+			const selectedIds = new Set(this.data.selectedSymptomIds);
+			const partSelectionCounts = Object.fromEntries(
+				this.data.parts.map((part) => [
+					part.id,
+					(symptomIdsByPart[part.id] ?? []).filter((id) =>
+						selectedIds.has(id),
+					).length,
+				]),
+			);
 			this.setData({
 				rightItems: response.data.items,
+				rightGroups: groupHealthKnowledgeItems(response.data.items),
+				symptomIdsByPart,
+				partSelectionCounts,
 				// 左侧目录仍然存在时，右侧空结果必须保持 ready；否则
 				// 页面级 empty 会把左侧分类一起隐藏，用户无法继续切换。
 				state: resolveKnowledgePanelState(this.data.leftItems.length),
@@ -183,7 +218,12 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 		const guard = getPageLatestRequestGuard(this, "health-encyclopedia");
 		const requestToken = guard.begin();
 		const serial = ++this.requestSerial;
-		this.setData({ state: "loading", errorMessage: "", rightItems: [] });
+		this.setData({
+			state: "loading",
+			errorMessage: "",
+			rightItems: [],
+			rightGroups: [],
+		});
 		try {
 			const response = await requestHealthKnowledgeCatalog(mode);
 			if (!guard.isCurrent(requestToken) || serial !== this.requestSerial)
@@ -199,7 +239,7 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 				disclaimer: response.data.publication.disclaimer,
 			});
 			if (items.length === 0) {
-				this.setData({ state: "empty", rightItems: [] });
+				this.setData({ state: "empty", rightItems: [], rightGroups: [] });
 				return;
 			}
 			await this.loadDiseases(mode, items[0]?.id ?? "", serial, requestToken);
@@ -221,16 +261,22 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 		const token = requestToken ?? guard.begin();
 		if (!guard.isCurrent(token)) return;
 		if (!id) {
-			this.setData({ state: "empty", rightItems: [] });
+			this.setData({ state: "empty", rightItems: [], rightGroups: [] });
 			return;
 		}
-		this.setData({ state: "loading", errorMessage: "", rightItems: [] });
+		this.setData({
+			state: "loading",
+			errorMessage: "",
+			rightItems: [],
+			rightGroups: [],
+		});
 		try {
 			const response = await requestHealthDiseasesByRelation(mode, id);
 			if (!guard.isCurrent(token) || requestSerial !== this.requestSerial)
 				return;
 			this.setData({
 				rightItems: response.data.items,
+				rightGroups: groupHealthKnowledgeItems(response.data.items),
 				// 分类目录有内容但当前关系为空属于右栏空态，不能升级为
 				// 整页空态；WXML 会继续显示左栏和“暂无该分类内容”。
 				state: resolveKnowledgePanelState(this.data.leftItems.length),
@@ -249,7 +295,12 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 		if (rawTab !== "symptom" && rawTab !== "disease") return;
 		const tab = rawTab as KnowledgeTab;
 		if (tab === this.data.activeTab) return;
-		this.setData({ activeTab: tab, rightItems: [], state: "loading" });
+		this.setData({
+			activeTab: tab,
+			rightItems: [],
+			rightGroups: [],
+			state: "loading",
+		});
 		const source = resolveKnowledgeTabSource(tab, this.data.parts.length);
 		if (source === "reload-symptom-catalog") {
 			// 没有已确认的部位目录时，必须重新读取目录；不能把空数组
@@ -326,6 +377,14 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 		this.setData({
 			selectedSymptoms: selected,
 			selectedSymptomIds: selected.map((candidate) => candidate.id),
+			partSelectionCounts: Object.fromEntries(
+				this.data.parts.map((part) => [
+					part.id,
+					(this.data.symptomIdsByPart[part.id] ?? []).filter((itemId) =>
+						selected.some((candidate) => candidate.id === itemId),
+					).length,
+				]),
+			),
 		});
 	},
 
@@ -337,6 +396,15 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 			),
 			selectedSymptomIds: this.data.selectedSymptomIds.filter(
 				(itemId) => itemId !== id,
+			),
+			partSelectionCounts: Object.fromEntries(
+				this.data.parts.map((part) => [
+					part.id,
+					(this.data.symptomIdsByPart[part.id] ?? []).filter(
+						(itemId) =>
+							this.data.selectedSymptomIds.includes(itemId) && itemId !== id,
+					).length,
+				]),
 			),
 		});
 	},

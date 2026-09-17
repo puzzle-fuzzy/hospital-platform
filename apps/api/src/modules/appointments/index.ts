@@ -194,6 +194,24 @@ export function appointmentsModule(
 			},
 		)
 		.get(
+			"/appointments/doctor-schedules",
+			async ({ request, headers, query }) => {
+				await authentication.get(request);
+				return success(
+					await appointmentService.listDoctorSchedules(
+						query,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: AppointmentHeaders,
+				query: AppointmentScheduleQuery,
+				response: { 200: AppointmentScheduleListResponse },
+				tags: ["appointments"],
+			},
+		)
+		.get(
 			"/appointments/schedules",
 			async ({ request, headers, query }) => {
 				await authentication.get(request);

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	isKnowledgeDiseaseMode,
+	groupHealthKnowledgeItems,
 	parseHealthKnowledgeSymptomIds,
 	resolveKnowledgePanelState,
 	resolveKnowledgeTabSource,
@@ -14,6 +15,22 @@ describe("健康百科分类面板状态", () => {
 
 	test("左侧没有任何分类时才展示整体空状态", () => {
 		expect(resolveKnowledgePanelState(0)).toBe("empty");
+	});
+});
+
+describe("健康百科首字母分组", () => {
+	test("按服务端首字母稳定分组并把缺失值放入 #", () => {
+		expect(
+			groupHealthKnowledgeItems([
+				{ id: "2", initialLetter: "b" },
+				{ id: "1", initialLetter: "A" },
+				{ id: "3" },
+			]),
+		).toEqual([
+			{ letter: "A", items: [{ id: "1", initialLetter: "A" }] },
+			{ letter: "B", items: [{ id: "2", initialLetter: "b" }] },
+			{ letter: "#", items: [{ id: "3" }] },
+		]);
 	});
 });
 

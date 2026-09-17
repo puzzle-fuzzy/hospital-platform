@@ -25,6 +25,7 @@ import {
 	PatientDirectorySnapshotStaleError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
+	PatientFeedbackInputError,
 	PatientReadModelValidationError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
@@ -100,7 +101,11 @@ import {
 	OutpatientPaymentQueryError,
 	OutpatientPaymentRecordNotFoundError,
 } from "../modules/outpatient-payments";
-import { PatientBindingInputError } from "../modules/patients/binding-service";
+import { PatientFeedbackAppointmentNotFoundError } from "../modules/patient-feedback/service";
+import {
+	PatientBindingDirectoryConfirmationError,
+	PatientBindingInputError,
+} from "../modules/patients/binding-service";
 import { PatientServiceInputError } from "../modules/patients/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import { RegistrationPaymentExitInputError } from "../modules/payments/registration-payment-exit-service";
@@ -316,6 +321,27 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"patient-binding-invalid",
 					"请检查姓名、手机号、身份证号和授权确认",
+				);
+			}
+
+			if (error instanceof PatientBindingDirectoryConfirmationError) {
+				set.status = 502;
+				return errorPayload(
+					"provider-response-invalid",
+					"医院返回的数据暂时无法确认，请稍后重试",
+				);
+			}
+
+			if (error instanceof PatientFeedbackInputError) {
+				set.status = 400;
+				return errorPayload("validation", "电子锦旗或表扬信内容不符合要求");
+			}
+
+			if (error instanceof PatientFeedbackAppointmentNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"appointment-registration-not-found",
+					"未找到可关联的有效就诊记录",
 				);
 			}
 

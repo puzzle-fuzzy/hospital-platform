@@ -94,6 +94,8 @@ export type AppointmentWriteServiceDependencies = {
 						scheduleId: string;
 						departmentId: string;
 						departmentName: string;
+						registrationClassName?: string;
+						hospitalAreaName?: string;
 						doctorId: string;
 						doctorName: string;
 						workDate: string;
@@ -170,6 +172,12 @@ function outputRegistration(
 		status,
 		patientId: registration.patientId,
 		departmentName: registration.departmentName,
+		...(registration.registrationClassName
+			? { registrationClassName: registration.registrationClassName }
+			: {}),
+		...(registration.hospitalAreaName
+			? { hospitalAreaName: registration.hospitalAreaName }
+			: {}),
 		doctorName: registration.doctorName,
 		workDate: registration.workDate,
 		shiftName: registration.shiftName,
@@ -418,6 +426,12 @@ export class AppointmentWriteService {
 			},
 			hospitalName: "高平市人民医院",
 			departmentName: registration.departmentName,
+			...(registration.registrationClassName
+				? { registrationClassName: registration.registrationClassName }
+				: {}),
+			...(registration.hospitalAreaName
+				? { hospitalAreaName: registration.hospitalAreaName }
+				: {}),
 			doctorName: registration.doctorName,
 			workDate: registration.workDate,
 			shiftName: registration.shiftName,
@@ -669,6 +683,14 @@ export class AppointmentWriteService {
 					departmentId: snapshot.schedule.departmentId,
 					doctorId: snapshot.schedule.doctorId,
 					departmentName: snapshot.schedule.departmentName,
+					...(snapshot.schedule.registrationClassName
+						? {
+								registrationClassName: snapshot.schedule.registrationClassName,
+							}
+						: {}),
+					...(snapshot.schedule.hospitalAreaName
+						? { hospitalAreaName: snapshot.schedule.hospitalAreaName }
+						: {}),
 					doctorName: snapshot.schedule.doctorName,
 					workDate: snapshot.schedule.workDate,
 					shiftName: snapshot.schedule.shiftName,
@@ -731,6 +753,12 @@ export class AppointmentWriteService {
 			departmentId: snapshot.schedule.departmentId,
 			doctorId: snapshot.schedule.doctorId,
 			departmentName: snapshot.schedule.departmentName,
+			...(snapshot.schedule.registrationClassName
+				? { registrationClassName: snapshot.schedule.registrationClassName }
+				: {}),
+			...(snapshot.schedule.hospitalAreaName
+				? { hospitalAreaName: snapshot.schedule.hospitalAreaName }
+				: {}),
 			doctorName: snapshot.schedule.doctorName,
 			workDate: snapshot.schedule.workDate,
 			shiftName: snapshot.schedule.shiftName,

@@ -32,6 +32,9 @@ export type AppointmentScheduleDetails = {
 	titleName?: string;
 	introduction?: string;
 	expertise?: string;
+	/** 旧端排班卡展示的挂号类型名称，不包含费用或 Provider 写入标识。 */
+	registrationClassName?: string;
+	hospitalAreaName?: string;
 	departmentLocation?: string;
 	doctorId: string;
 	doctorName: string;
@@ -47,6 +50,8 @@ export type AppointmentScheduleDetails = {
 	endTime?: string;
 	totalSlots: number;
 	availableSlots: number;
+	/** 旧端 scheduleStatus 的安全展示映射；缺失 Provider 字段时为 unknown。 */
+	availabilityStatus?: "open" | "stopped" | "unknown";
 	timeGroup: "point" | "range" | "unknown";
 };
 
@@ -394,6 +399,16 @@ export function normalizeAppointmentScheduleResults(
 			512,
 		);
 		const expertise = optionalAppointmentScheduleText(record, "expertise", 255);
+		const registrationClassName = optionalAppointmentScheduleText(
+			record,
+			"registrationClassName",
+			128,
+		);
+		const hospitalAreaName = optionalAppointmentScheduleText(
+			record,
+			"hospitalAreaName",
+			128,
+		);
 		const departmentLocation = optionalAppointmentScheduleText(
 			record,
 			"departmentLocation",
@@ -452,6 +467,15 @@ export function normalizeAppointmentScheduleResults(
 			record.timeGroup === "unknown"
 				? record.timeGroup
 				: invalidAppointmentDirectoryResult("time-group-invalid");
+		const availabilityStatus = record.availabilityStatus;
+		if (
+			availabilityStatus !== undefined &&
+			availabilityStatus !== "open" &&
+			availabilityStatus !== "stopped" &&
+			availabilityStatus !== "unknown"
+		) {
+			invalidAppointmentDirectoryResult("schedule-field-invalid");
+		}
 		return {
 			providerScheduleId,
 			departmentId,
@@ -459,6 +483,8 @@ export function normalizeAppointmentScheduleResults(
 			...(titleName ? { titleName } : {}),
 			...(introduction ? { introduction } : {}),
 			...(expertise ? { expertise } : {}),
+			...(registrationClassName ? { registrationClassName } : {}),
+			...(hospitalAreaName ? { hospitalAreaName } : {}),
 			...(departmentLocation ? { departmentLocation } : {}),
 			doctorId,
 			doctorName,
@@ -469,6 +495,7 @@ export function normalizeAppointmentScheduleResults(
 			...(endTime ? { endTime } : {}),
 			totalSlots,
 			availableSlots,
+			...(availabilityStatus ? { availabilityStatus } : {}),
 			timeGroup,
 		};
 	});
@@ -789,6 +816,7 @@ export type AppointmentRecord = {
 	appointmentId?: string;
 	departmentName?: string;
 	doctorName?: string;
+	hospitalAreaName?: string;
 	workDate: string;
 	/** adapter 归一化后的时间点 HH:mm 或时间段 HH:mm-HH:mm。 */
 	workTime?: string;
@@ -939,6 +967,11 @@ export function normalizeAppointmentRecordResults(
 
 		const departmentName = optionalRecordText(record, "departmentName", 128);
 		const doctorName = optionalRecordText(record, "doctorName", 128);
+		const hospitalAreaName = optionalRecordText(
+			record,
+			"hospitalAreaName",
+			128,
+		);
 		const appointmentId = record.appointmentId;
 		if (
 			appointmentId !== undefined &&
@@ -954,6 +987,7 @@ export function normalizeAppointmentRecordResults(
 			...(appointmentId ? { appointmentId } : {}),
 			...(departmentName ? { departmentName } : {}),
 			...(doctorName ? { doctorName } : {}),
+			...(hospitalAreaName ? { hospitalAreaName } : {}),
 			workDate: record.workDate,
 			...(workTime ? { workTime } : {}),
 			...(location ? { location } : {}),
@@ -1044,6 +1078,20 @@ export interface AppointmentDirectoryGateway {
 		trace: ExternalTrace;
 	}>;
 	listSchedules(
+		input: AppointmentScheduleQuery,
+		context: AdapterCallContext,
+	): Promise<{
+		schedules: readonly AppointmentProviderSchedule[];
+		trace: ExternalTrace;
+	}>;
+	/**
+	 * 读取旧端“按医生挂号”使用的独立医生排班接口。
+	 *
+	 * 该能力保持可选，避免回放/未配置 gateway 被迫伪造医生目录；service
+	 * 在能力缺失时回退到普通排班读取，真实众阳 adapter 则使用
+	 * `scheduling-doctors` 并在边界内展开其嵌套排班。
+	 */
+	listDoctorSchedules?(
 		input: AppointmentScheduleQuery,
 		context: AdapterCallContext,
 	): Promise<{

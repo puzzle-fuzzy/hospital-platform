@@ -140,7 +140,8 @@ export class PersistenceNotConfiguredError extends DependencyNotConfiguredError 
 		| "my-doctors"
 		| "report-references"
 		| "manual-review"
-		| "health-knowledge";
+		| "health-knowledge"
+		| "patient-feedback";
 
 	constructor(
 		resource:
@@ -160,7 +161,8 @@ export class PersistenceNotConfiguredError extends DependencyNotConfiguredError 
 			| "my-doctors"
 			| "report-references"
 			| "manual-review"
-			| "health-knowledge",
+			| "health-knowledge"
+			| "patient-feedback",
 	) {
 		super(`persistence:${resource}`);
 		this.name = "PersistenceNotConfiguredError";

@@ -20,8 +20,10 @@
 .knowledge-left { width: 270rpx; flex-shrink: 0; background: #f8f8f8; }
 .knowledge-left-item { min-height: 82rpx; display: flex; align-items: center; padding: 0 24rpx; box-sizing: border-box; border-left: 8rpx solid transparent; color: #444; font-size: 27rpx; }
 .knowledge-left-item-active { border-left-color: #4c8eff; background: #fff; color: #222; }
+.knowledge-left-count { margin-left: 8rpx; min-width: 28rpx; padding: 2rpx 8rpx; border-radius: 16rpx; color: #3d6df6; background: #eaf2ff; font-size: 22rpx; line-height: 28rpx; text-align: center; }
 .knowledge-right { flex: 1; min-width: 0; background: #fff; }
 .knowledge-right-item { min-height: 82rpx; display: flex; align-items: center; justify-content: space-between; padding: 0 24rpx; border-bottom: 1rpx solid #f2f2f2; box-sizing: border-box; }
+.knowledge-letter-anchor { padding: 16rpx 24rpx 8rpx; color: #8a94a6; font-size: 24rpx; font-weight: 600; background: #fff; }
 .knowledge-item-name { font-size: 28rpx; }
 .knowledge-item-extra { margin-left: 12rpx; color: #999; font-size: 22rpx; }
 .knowledge-check { color: #4c8eff; font-size: 23rpx; }
