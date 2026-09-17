@@ -2,11 +2,6 @@
 	<view class="page">
 	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
-	<view class="page-header">
-		<view class="page-title">选择就诊人</view>
-		<view class="page-description">请选择要进行预约、查询报告或查看挂号记录的就诊人</view>
-	</view>
-
 	<!-- 固定实名表单入口；提交后的真实写入仍由服务端门禁控制。 -->
 	<view class="add-patient-bar" bindtap="onAddPatient">
 		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />

@@ -158,7 +158,7 @@ function providerResponseError(
 
 function providerRejectedError(
 	infno: LegacyFsiInfno,
-	response: { requestId: string },
+	response: { requestId: string; statusCode?: number },
 	body: Record<string, unknown>,
 ): ProviderRequestError | undefined {
 	const rawCode = body.code ?? body.respCode ?? body.responseCode;
@@ -180,18 +180,46 @@ function providerRejectedError(
 		optionalTextField(body, "msg") ??
 		optionalTextField(body, "errorMsg") ??
 		optionalTextField(body, "respMessage");
+	const gatewayTimeout =
+		(infno === "6201" || infno === "6202") &&
+		(response.statusCode === 504 ||
+			containsGatewayTimeoutMarker(providerMessage) ||
+			containsGatewayTimeoutMarker(safeJsonText(body)));
 	return new ProviderRequestError({
 		provider: "legacy-fsi",
 		operation: `legacy-fsi.${infno}`,
 		message: "Legacy FSI provider rejected the request",
 		requestId: response.requestId,
-		retryable: false,
+		retryable: gatewayTimeout,
 		failureStage: "response",
 		responseInvalid: false,
 		...(code ? { providerErrorCode: code } : {}),
 		...(providerMessage ? { providerErrorMessage: providerMessage } : {}),
-		requestOutcome: "rejected",
+		...(gatewayTimeout ? { reason: "medical-insurance-timeout" as const } : {}),
+		requestOutcome: gatewayTimeout ? "unknown" : "rejected",
 	});
+}
+
+/**
+ * 医保网关有时以 HTTP 200 返回业务失败，但把核心的 504 文本嵌在
+ * `message` 中（例如 `Unexpected code Response{..., code=504,
+ * message=Gateway Time-out, ...}`）。这里只识别这组明确标记，不能把
+ * 普通的 500/001 业务拒绝扩大成可重试超时。
+ */
+function containsGatewayTimeoutMarker(value: string | undefined): boolean {
+	if (!value) return false;
+	return (
+		/\bcode\b["']?\s*[:=]\s*["']?504\b/iu.test(value) &&
+		/\bmessage\b["']?\s*[:=]\s*["']?Gateway Time-out\b/iu.test(value)
+	);
+}
+
+function safeJsonText(value: unknown): string | undefined {
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return undefined;
+	}
 }
 
 /** 通用 FSI（1101）使用 infcode/err_msg 表示业务结果，不走移动支付中心

@@ -289,8 +289,8 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 
 ### 3.3.1 预约写入与医保支付命令
 
-`miniprogram-pay` 使用上表中的独立命令，不存在把“预约 + 医保支付”包成一个后端快速编排
-接口的入口。业务顺序固定为：读取排班/号源 → 创建服务端占位 → 预约写入 → 医保授权 →
+历史 `miniprogram-pay` 曾使用上表中的独立命令，不存在把“预约 + 医保支付”包成一个后端快速编排
+接口的入口。该测试端已停止使用，以下顺序仅用于接口历史追溯；现行入口以主小程序和当前服务端发布版本为准：读取排班/号源 → 创建服务端占位 → 预约写入 → 医保授权 →
 费用上传 → 医保结算 → 按 6202 金额调用 2.6.65.2 → 使用 `.2.result` 的 APIv2/MD5 参数调起支付
 → 微信医保混合查单 → 2.6.65.5 最终结算确认。
 预约已存在时服务端返回已有的 opaque `appointmentId`，
@@ -507,6 +507,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 30540 | `medical-insurance-payment-in-progress` | 当前已有支付在进行中；新小程序只提示，支付小程序可调用专用关单重开分支 |
 | 409 | 30550 | `medical-insurance-cancellation-context-missing` | 服务端缺少安全关单所需的 Provider 上下文；不会盲目调用关单接口，需人工补录或处理 |
 | 409 | 30560 | `medical-insurance-insutype-unavailable` | 1101 没有返回可用于本次支付的有效医保险种；预约保留，可由用户确认改用普通自费支付 |
+| 503 | 30570 | `medical-insurance-timeout` | 6201/6202 返回体包含医保核心 `code=504, message=Gateway Time-out`；医保连接超时，请稍后重新挂号重试 |
 | 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | 50320 | `outpatient-payment-record-not-found` | 当前用户/就诊人范围内未找到对应门诊缴费记录 |
 | 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
@@ -578,7 +579,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 - `POST /api/v2/payments/insurance/authorization`：旧的通用医保授权路径。
 - `POST /api/v2/appointments`、`POST /api/v2/appointments/{appointmentId}/cancel`：旧的通用预约路径。
 
-它们与 `miniprogram-pay` 使用的分层命令不是同一路由；旧服务存在对应能力不改变这些旧路径的关闭状态。
+它们与历史 `miniprogram-pay` 使用的分层命令不是同一路由；旧服务存在对应能力不改变这些旧路径的关闭状态。`miniprogram-pay` 已停止使用，相关测试端目录和文档只保留追溯，后续择机删除。
 
 ## 6. 源码证据与维护入口
 

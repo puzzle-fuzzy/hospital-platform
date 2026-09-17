@@ -8,8 +8,8 @@ page {
 	padding: 24rpx 20rpx calc(40rpx + env(safe-area-inset-bottom));
 }
 
-.patient-strip,
-.page-header,
+.report-notice,
+.selector-card,
 .query-panel,
 .report-list,
 .state-card {
@@ -18,54 +18,68 @@ page {
 	margin-right: auto;
 	margin-left: auto;
 }
-.patient-strip {
+.report-notice {
+	margin-bottom: 0;
+	padding: 26rpx 30rpx;
+	border-radius: 16rpx 16rpx 0 0;
+	background: #fff8ee;
+	color: #e58b63;
+	font-size: 29rpx;
+	line-height: 1.65;
+}
+
+.selector-card {
+	overflow: hidden;
+	margin-bottom: 20rpx;
+	border-radius: 0 0 16rpx 16rpx;
+	background: #ffffff;
+}
+
+.selector-row {
 	display: flex;
 	align-items: center;
-	padding: 18rpx 22rpx;
-	border: 1rpx solid #dbe5ff;
-	border-radius: 18rpx;
-	background: #f2f6ff;
+	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 92rpx;
+	padding: 26rpx 30rpx;
+	color: #333333;
 }
 
-.patient-strip image {
-	flex-shrink: 0;
-	width: 56rpx;
-	height: 56rpx;
+.selector-label {
+	flex: 0 0 150rpx;
+	font-size: 28rpx;
 }
 
-.patient-copy {
+.selector-value {
 	display: flex;
-	flex-direction: column;
-	gap: 5rpx;
+	align-items: center;
+	justify-content: flex-end;
+	flex: 1;
 	min-width: 0;
-	margin-left: 18rpx;
+	color: #333333;
+	font-size: 30rpx;
+	text-align: right;
 }
 
-.patient-name {
+.selector-name {
 	overflow: hidden;
-	color: #222222;
-	font-size: 30rpx;
-	font-weight: 700;
+	min-width: 0;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.patient-card {
-	color: #777777;
+.selector-card-number {
+	margin-left: 10rpx;
+	color: #999999;
 	font-size: 23rpx;
 }
 
-.patient-change {
-	margin-left: auto;
-	padding-left: 20rpx;
-	color: #3d6df6;
-	font-size: 25rpx;
-	white-space: nowrap;
-}
-
-.page-header {
-	margin-top: 26rpx;
-	margin-bottom: 20rpx;
+.selector-arrow-image {
+	display: block;
+	margin-left: 14rpx;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
 }
 
 .query-panel {
@@ -148,19 +162,6 @@ page {
 	border-top: 1rpx solid #f0f2f6;
 	color: #8a93a3;
 	font-size: 23rpx;
-}
-
-.page-title {
-	color: #222222;
-	font-size: 38rpx;
-	font-weight: 700;
-	line-height: 1.5;
-}
-
-.page-description {
-	margin-top: 8rpx;
-	color: #888888;
-	font-size: 26rpx;
 }
 
 .report-card {

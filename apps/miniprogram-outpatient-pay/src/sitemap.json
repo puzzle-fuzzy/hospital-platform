@@ -1,4 +1,0 @@
-{
-	"desc": "门诊缴费支付示例",
-	"rules": [{ "action": "allow", "page": "*" }]
-}

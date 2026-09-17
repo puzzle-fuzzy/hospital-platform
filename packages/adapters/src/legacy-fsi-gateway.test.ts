@@ -260,6 +260,7 @@ test("legacy FSI gateway captures rejected relay response body in the raw log wi
 		).rejects.toMatchObject({
 			providerErrorCode: "360053",
 			providerErrorMessage: "provider rejection details",
+			retryable: false,
 			requestOutcome: "rejected",
 		});
 
@@ -292,6 +293,58 @@ test("legacy FSI gateway captures rejected relay response body in the raw log wi
 			delete Bun.env.PROVIDER_RAW_LOGGING;
 		} else {
 			Bun.env.PROVIDER_RAW_LOGGING = previousRawLogging;
+		}
+	}
+});
+
+test("6201/6202 内嵌医保核心 504 被标记为可重试医保连接超时", async () => {
+	for (const infno of ["6201", "6202"] as const) {
+		const api = gateway(
+			async () =>
+				new Response(
+					JSON.stringify({
+						success: false,
+						code: "001",
+						message:
+							"操作失败，Unexpected code Response{protocol=http/1.1, code=504, message=Gateway Time-out, url=http://provider.invalid/fsi/api/outpatientRregistration}",
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": `relay-${infno}-timeout` },
+					},
+				),
+		);
+
+		const timeoutExpectation = {
+			retryable: true,
+			reason: "medical-insurance-timeout",
+			requestOutcome: "unknown",
+			providerErrorCode: "001",
+			providerErrorMessage: expect.stringContaining(
+				"code=504, message=Gateway Time-out",
+			),
+		};
+		if (infno === "6201") {
+			await expect(
+				api.uploadFees(feeUploadData(), context),
+			).rejects.toMatchObject(timeoutExpectation);
+		} else {
+			await expect(
+				api.createPaymentOrder(
+					{
+						payAuthNo: "auth-001",
+						payOrdId: "order-001",
+						payToken: "token-001",
+						orgCodg: "org-001",
+						orgBizSer: "biz-001",
+						chrgBchno: "batch-001",
+						feeType: "01",
+						mdtrtId: "visit-001",
+						acctUsedFlag: "0",
+					},
+					context,
+				),
+			).rejects.toMatchObject(timeoutExpectation);
 		}
 	}
 });

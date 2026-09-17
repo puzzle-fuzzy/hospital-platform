@@ -5,6 +5,8 @@ import type {
 	RawLogTrace,
 	CaptchaState,
 	LoginValues,
+	PaymentDayResult,
+	PaymentInterfaceDetail,
 	Session,
 } from "./types";
 
@@ -198,6 +200,42 @@ export async function fetchLogRaw(
 	try {
 		return await request<RawLogTrace>(
 			`/api/logs/${encodeURIComponent(id)}/raw`,
+			{
+				headers: { Authorization: `Bearer ${session.accessToken}` },
+			},
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function fetchPaymentDay(
+	date: string,
+	session: Session,
+): Promise<PaymentDayResult> {
+	try {
+		return await request<PaymentDayResult>(
+			`/api/payments/day?date=${encodeURIComponent(date)}`,
+			{
+				headers: { Authorization: `Bearer ${session.accessToken}` },
+			},
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function fetchPaymentInterface(
+	date: string,
+	flowId: string,
+	ordinal: number,
+	session: Session,
+): Promise<PaymentInterfaceDetail> {
+	try {
+		return await request<PaymentInterfaceDetail>(
+			`/api/payments/day/${encodeURIComponent(date)}/${encodeURIComponent(flowId)}/interfaces/${ordinal}`,
 			{
 				headers: { Authorization: `Bearer ${session.accessToken}` },
 			},

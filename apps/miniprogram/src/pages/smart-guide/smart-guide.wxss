@@ -73,14 +73,15 @@ page {
 .guide-message {
 	display: flex;
 	box-sizing: border-box;
-	margin-bottom: 36rpx;
+	align-items: flex-start;
+	gap: 16rpx;
+	margin-bottom: 28rpx;
 	padding-right: 30rpx;
 	padding-left: 30rpx;
 }
 
 .guide-message--assistant {
-	flex-direction: column;
-	align-items: stretch;
+	flex-direction: row;
 }
 
 .guide-message--user {
@@ -88,43 +89,109 @@ page {
 	padding-left: 90rpx;
 }
 
+.guide-message__avatar {
+	display: flex;
+	box-sizing: border-box;
+	align-items: center;
+	justify-content: center;
+	width: 56rpx;
+	height: 56rpx;
+	flex: 0 0 56rpx;
+	margin-top: 4rpx;
+	border-radius: 50%;
+	background: #e8f5ff;
+}
+
+.guide-message__avatar image {
+	display: block;
+	width: 52rpx;
+	height: 52rpx;
+}
+
+.guide-message__body {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.guide-message--assistant .guide-message__body {
+	flex: 1;
+}
+
+.guide-message--user .guide-message__body {
+	max-width: 82%;
+}
+
 .guide-bubble {
 	box-sizing: border-box;
 	max-width: 100%;
-	border-radius: 15rpx;
-	font-size: 30rpx;
-	line-height: 48rpx;
-	word-break: break-all;
+	border: 1rpx solid transparent;
+	border-radius: 14rpx 24rpx 24rpx 24rpx;
+	font-size: 29rpx;
+	line-height: 44rpx;
+	word-break: break-word;
 }
 
 .guide-message--assistant .guide-bubble {
-	width: 100%;
-	padding: 22rpx 30rpx;
-	background: #eaf2fd;
-	color: #333333;
+	padding: 22rpx 26rpx;
+	border-color: #e3edf8;
+	background: #f4f8fe;
+	box-shadow: 0 8rpx 22rpx rgba(68, 111, 158, 0.08);
+	color: #26364a;
 }
 
 .guide-message--user .guide-bubble {
-	display: inline-block;
-	padding: 15rpx 30rpx;
+	display: block;
+	padding: 16rpx 24rpx;
+	border-radius: 24rpx 8rpx 24rpx 24rpx;
 	background: #2f73f2;
+	box-shadow: 0 8rpx 18rpx rgba(47, 115, 242, 0.18);
 	color: #ffffff;
+}
+
+.guide-bubble--error {
+	border-color: #ffe0c8;
+	background: #fff8f2;
+	box-shadow: 0 8rpx 22rpx rgba(195, 119, 67, 0.08);
+	color: #4a3b31;
 }
 
 .guide-bubble--pending {
 	color: #a5b4c8;
 }
 
+.guide-bubble__heading {
+	margin-bottom: 6rpx;
+	color: #c46b38;
+	font-size: 22rpx;
+	font-weight: 600;
+	line-height: 32rpx;
+}
+
+.guide-message__content {
+	display: block;
+	word-break: break-word;
+}
+
+.guide-bubble__code {
+	display: block;
+	margin-top: 12rpx;
+	padding-top: 10rpx;
+	border-top: 1rpx solid #f1d4bd;
+	color: #b47754;
+	font-size: 22rpx;
+	line-height: 32rpx;
+}
+
 .guide-summary {
 	margin-top: 18rpx;
-	color: #c4ccd8;
+	color: #64748b;
 	font-size: 24rpx;
 	line-height: 36rpx;
 }
 
 .guide-disclaimer {
 	margin-top: 12rpx;
-	color: #c4ccd8;
+	color: #64748b;
 	font-size: 24rpx;
 	line-height: 36rpx;
 }
@@ -132,7 +199,8 @@ page {
 .guide-advice {
 	box-sizing: border-box;
 	width: 100%;
-	margin-top: -10rpx;
+	margin-top: 14rpx;
+	padding: 0 6rpx;
 	color: #333333;
 	font-size: 26rpx;
 	line-height: 42rpx;
@@ -141,10 +209,11 @@ page {
 .guide-departments {
 	box-sizing: border-box;
 	width: 100%;
-	margin-top: 18rpx;
-	padding: 22rpx 30rpx;
-	border-radius: 15rpx;
-	background: #eaf2fd;
+	margin-top: 16rpx;
+	padding: 18rpx 20rpx;
+	border: 1rpx solid #e3edf8;
+	border-radius: 16rpx;
+	background: #f4f8fe;
 }
 
 .guide-department {
@@ -209,9 +278,9 @@ page {
 	box-sizing: border-box;
 	align-items: center;
 	gap: 18rpx;
-	min-height: 128rpx;
-	padding: 26rpx 30rpx calc(26rpx + env(safe-area-inset-bottom));
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, #def7ff 100%);
+	min-height: 124rpx;
+	padding: 24rpx 30rpx calc(24rpx + env(safe-area-inset-bottom));
+	background: linear-gradient(180deg, #e9faff 0%, #d8f4ff 100%);
 }
 
 .guide-tool {
@@ -219,13 +288,15 @@ page {
 	box-sizing: border-box;
 	align-items: center;
 	justify-content: center;
-	width: 64rpx;
-	height: 64rpx;
-	flex: 0 0 64rpx;
+	width: 76rpx;
+	height: 76rpx;
+	flex: 0 0 76rpx;
 	margin: 0;
 	padding: 0;
 	border-radius: 50%;
 	background: #ffffff;
+	line-height: 1;
+	box-shadow: 0 6rpx 18rpx rgba(71, 139, 172, 0.1);
 }
 
 .guide-tool--recording {
@@ -233,7 +304,11 @@ page {
 }
 
 .guide-tool[disabled] {
-	opacity: 0.76;
+	opacity: 1;
+}
+
+.guide-tool--image .guide-tool__icon {
+	opacity: 0.58;
 }
 
 .guide-tool__icon {
@@ -254,16 +329,22 @@ page {
 .guide-input {
 	box-sizing: border-box;
 	width: auto;
-	height: 66rpx;
+	height: 76rpx;
 	min-width: 0;
 	flex: 1;
-	padding: 12rpx 22rpx;
-	border: 2rpx solid #a066e5;
-	border-radius: 34rpx;
+	display: block;
+	padding: 14rpx 24rpx;
+	border: 4rpx solid #943df2;
+	border-radius: 38rpx;
 	background: #ffffff;
 	color: #333333;
-	font-size: 25rpx;
+	font-size: 28rpx;
 	line-height: 40rpx;
+}
+
+.guide-input__placeholder {
+	color: #6f7078;
+	opacity: 1;
 }
 
 .guide-send {
@@ -277,7 +358,7 @@ page {
 	border-radius: 15rpx;
 	background: #2f73f2;
 	color: #ffffff;
-	font-size: 28rpx;
+	font-size: 30rpx;
 	line-height: 76rpx;
 }
 

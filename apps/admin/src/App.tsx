@@ -1,10 +1,11 @@
 import {
-	FileSearchOutlined,
+	CodeOutlined,
 	LockOutlined,
 	LogoutOutlined,
 	ReloadOutlined,
 	SafetyCertificateOutlined,
 	UserOutlined,
+	WalletOutlined,
 } from "@ant-design/icons";
 import {
 	Alert,
@@ -23,6 +24,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { clearSession, loadCaptcha, loadSession, login, logout } from "./api";
 import { LogPanel } from "./LogPanel";
+import { PaymentPanel } from "./PaymentPanel";
 import type { CaptchaState, LoginValues, Session } from "./types";
 
 const { Header, Sider } = Layout;
@@ -80,7 +82,7 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 			<Card className="login-card" variant="borderless">
 				<Space orientation="vertical" size={4} className="login-heading">
 					<Title level={2}>高平市人民医院管理后台</Title>
-					<Text type="secondary">使用医院管理账号登录后查看接口调用日志</Text>
+					<Text type="secondary">实时日志与支付流程查看</Text>
 				</Space>
 				<Form<LoginValues>
 					form={form}
@@ -161,6 +163,7 @@ function Console() {
 	const [session, setSession] = useState<Session | undefined>(() =>
 		loadSession(),
 	);
+	const [activeKey, setActiveKey] = useState("logs");
 
 	const signOut = async () => {
 		if (session) await logout(session).catch(() => undefined);
@@ -181,7 +184,7 @@ function Console() {
 					<div>
 						<Text strong>高平市人民医院</Text>
 						<Text type="secondary" className="header-subtitle">
-							接口调用日志
+							{activeKey === "logs" ? "实时接口日志" : "支付流程查看"}
 						</Text>
 					</div>
 				</div>
@@ -205,23 +208,39 @@ function Console() {
 					<div className="sider-title">管理菜单</div>
 					<Menu
 						mode="inline"
-						selectedKeys={["logs"]}
+						selectedKeys={[activeKey]}
+						onClick={({ key }) => setActiveKey(key)}
 						items={[
 							{
 								key: "logs",
-								icon: <FileSearchOutlined />,
-								label: "接口调用日志",
+								icon: <CodeOutlined />,
+								label: "实时日志",
+							},
+							{
+								key: "payments",
+								icon: <WalletOutlined />,
+								label: "查看支付",
 							},
 						]}
 					/>
 				</Sider>
-				<LogPanel
-					session={session}
-					onExpired={() => {
-						clearSession();
-						setSession(undefined);
-					}}
-				/>
+				{activeKey === "logs" ? (
+					<LogPanel
+						session={session}
+						onExpired={() => {
+							clearSession();
+							setSession(undefined);
+						}}
+					/>
+				) : (
+					<PaymentPanel
+						session={session}
+						onExpired={() => {
+							clearSession();
+							setSession(undefined);
+						}}
+					/>
+				)}
 			</Layout>
 		</Layout>
 	);

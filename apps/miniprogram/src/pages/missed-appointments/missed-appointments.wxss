@@ -6,7 +6,7 @@ page {
 
 /*
 	爽约页复用预约记录卡片的基础样式，但页面自身仍要声明布局容器。
-	如果只依赖被 import 的卡片样式，患者卡和标题会退化成原始 WXML 文本，
+	如果只依赖被 import 的卡片样式，患者卡和空态会退化成原始 WXML 文本，
 	空态图片也会按原始资源尺寸撑满视口；这些是页面级视觉契约，不能省略。
 */
 .page {
@@ -18,8 +18,6 @@ page {
 
 .error-message,
 .trust-notice,
-.patient-strip,
-.page-header,
 .record-list,
 .state-card,
 .readonly-note {
@@ -67,73 +65,6 @@ page {
 	font-weight: 700;
 }
 
-/* 就诊人卡保持与门诊缴费/报告页一致；点击整卡进入独立选择页。 */
-.patient-strip {
-	display: flex;
-	align-items: center;
-	padding: 18rpx 22rpx;
-	border: 1rpx solid #dbe5ff;
-	border-radius: 18rpx;
-	background: #f2f6ff;
-}
-
-.patient-strip image {
-	flex-shrink: 0;
-	width: 56rpx;
-	height: 56rpx;
-}
-
-.patient-strip-copy {
-	display: flex;
-	min-width: 0;
-	margin-left: 18rpx;
-	flex-direction: column;
-}
-
-.patient-strip-name {
-	overflow: hidden;
-	color: #222222;
-	font-size: 30rpx;
-	font-weight: 700;
-	line-height: 1.4;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.patient-strip-card {
-	margin-top: 5rpx;
-	color: #777777;
-	font-size: 23rpx;
-	line-height: 1.4;
-}
-
-.patient-strip-change {
-	margin-left: auto;
-	padding-left: 20rpx;
-	color: #3d6df6;
-	font-size: 25rpx;
-	white-space: nowrap;
-}
-
-.page-header {
-	margin-top: 26rpx;
-	margin-bottom: 20rpx;
-}
-
-.page-title {
-	color: #222222;
-	font-size: 38rpx;
-	font-weight: 700;
-	line-height: 1.5;
-}
-
-.page-description {
-	margin-top: 8rpx;
-	color: #888888;
-	font-size: 26rpx;
-	line-height: 1.6;
-}
-
 /* 预约记录基础样式的 record-list 带有全宽定义，这里补齐爽约页的内容宽度。 */
 .record-list {
 	box-sizing: border-box;
@@ -161,52 +92,6 @@ page {
 	width: 112rpx;
 	height: 112rpx;
 	margin-bottom: 18rpx;
-}
-
-/* 查询中先保留患者卡的高度，但不把爽约页变成患者选择模块。 */
-.patient-strip-loading {
-	min-height: 92rpx;
-}
-
-.patient-strip-loading-icon {
-	box-sizing: border-box;
-	flex: 0 0 56rpx;
-	width: 56rpx;
-	height: 56rpx;
-	border: 6rpx solid #dbe5ff;
-	border-top-color: #85aeff;
-	border-radius: 50%;
-	animation: missed-patient-loading 900ms linear infinite;
-}
-
-.patient-strip-loading-copy {
-	display: flex;
-	flex: 1;
-	min-width: 0;
-	margin-left: 18rpx;
-	flex-direction: column;
-}
-
-.patient-strip-loading-line {
-	height: 20rpx;
-	border-radius: 10rpx;
-	background: #e8eefc;
-}
-
-.patient-strip-loading-line-name {
-	width: 180rpx;
-}
-
-.patient-strip-loading-line-card {
-	margin-top: 10rpx;
-	width: 240rpx;
-	height: 14rpx;
-}
-
-@keyframes missed-patient-loading {
-	to {
-		transform: rotate(360deg);
-	}
 }
 
 /* 爽约页沿用旧端右上角的圆形印章语义，不再用普通灰色胶囊抢占标题空间。 */

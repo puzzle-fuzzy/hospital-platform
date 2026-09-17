@@ -25,12 +25,32 @@ export function isOutpatientPaymentStatus(
 	return value === "unpaid" || value === "paid";
 }
 
-/** 门诊费用展示模型；金额统一为人民币分，provider 订单号不进入该模型。 */
+/**
+ * 门诊费用展示模型；金额统一为人民币分，provider 订单号、患者标识和医保编码
+ * 不进入该模型。字段均来自 2.6.33 的费用条目，展示字段保持可选以兼容不同
+ * 费用类型（药品、检查、材料和挂号费）返回的空字段。
+ */
 export type OutpatientPaymentRecord = {
 	recordId: string;
 	status: OutpatientPaymentStatus;
+	/** Provider tradeStatus=4；仍属于已缴费查询结果，但资金正在退款。 */
+	paymentStatus?: "refunding";
+	itemName?: string;
 	departmentName?: string;
+	executionDepartmentName?: string;
 	doctorName?: string;
+	executionDoctorName?: string;
+	spec?: string;
+	quantity?: string;
+	unitName?: string;
+	priceFen?: number;
+	chargeClassName?: string;
+	tradePropName?: string;
+	networkPatClassName?: string;
+	typeMemo?: string;
+	preferentialAmountFen?: number;
+	ascendAmountFen?: number;
+	selfBurdenRatio?: number;
 	billDate: string;
 	amountFen: number;
 };
@@ -201,6 +221,13 @@ export function normalizeOutpatientPaymentRecords(
 		if (normalizedStatus !== expectedStatus) {
 			invalidResult("status-mismatch");
 		}
+		const paymentStatus = record.paymentStatus;
+		if (
+			paymentStatus !== undefined &&
+			(paymentStatus !== "refunding" || normalizedStatus !== "paid")
+		) {
+			invalidResult("status-mismatch");
+		}
 		const recordId = record.recordId;
 		if (!isBoundedOpaqueIdentifier(recordId)) {
 			invalidResult("record-id-invalid");
@@ -223,23 +250,88 @@ export function normalizeOutpatientPaymentRecords(
 		) {
 			invalidResult("amount-invalid");
 		}
+		const itemName = optionalPaymentDisplayText(record.itemName, 256);
 		const departmentName = optionalPaymentDisplayText(record.departmentName);
+		const executionDepartmentName = optionalPaymentDisplayText(
+			record.executionDepartmentName,
+		);
 		const doctorName = optionalPaymentDisplayText(record.doctorName);
+		const executionDoctorName = optionalPaymentDisplayText(
+			record.executionDoctorName,
+		);
+		const spec = optionalPaymentDisplayText(record.spec);
+		const quantity = optionalPaymentDisplayText(record.quantity, 64);
+		const unitName = optionalPaymentDisplayText(record.unitName, 64);
+		const priceFen = optionalPaymentAmountFen(record.priceFen);
+		const chargeClassName = optionalPaymentDisplayText(record.chargeClassName);
+		const tradePropName = optionalPaymentDisplayText(record.tradePropName);
+		const networkPatClassName = optionalPaymentDisplayText(
+			record.networkPatClassName,
+		);
+		const typeMemo = optionalPaymentDisplayText(record.typeMemo);
+		const preferentialAmountFen = optionalPaymentAmountFen(
+			record.preferentialAmountFen,
+		);
+		const ascendAmountFen = optionalPaymentAmountFen(record.ascendAmountFen);
+		const selfBurdenRatio = optionalPaymentRatio(record.selfBurdenRatio);
 		return {
 			recordId,
 			status: normalizedStatus,
+			...(paymentStatus !== undefined ? { paymentStatus } : {}),
+			...(itemName !== undefined ? { itemName } : {}),
 			...(departmentName !== undefined ? { departmentName } : {}),
+			...(executionDepartmentName !== undefined
+				? { executionDepartmentName }
+				: {}),
 			...(doctorName !== undefined ? { doctorName } : {}),
+			...(executionDoctorName !== undefined ? { executionDoctorName } : {}),
+			...(spec !== undefined ? { spec } : {}),
+			...(quantity !== undefined ? { quantity } : {}),
+			...(unitName !== undefined ? { unitName } : {}),
+			...(priceFen !== undefined ? { priceFen } : {}),
+			...(chargeClassName !== undefined ? { chargeClassName } : {}),
+			...(tradePropName !== undefined ? { tradePropName } : {}),
+			...(networkPatClassName !== undefined ? { networkPatClassName } : {}),
+			...(typeMemo !== undefined ? { typeMemo } : {}),
+			...(preferentialAmountFen !== undefined ? { preferentialAmountFen } : {}),
+			...(ascendAmountFen !== undefined ? { ascendAmountFen } : {}),
+			...(selfBurdenRatio !== undefined ? { selfBurdenRatio } : {}),
 			billDate,
 			amountFen,
 		};
 	});
 }
 
-function optionalPaymentDisplayText(value: unknown): string | undefined {
+function optionalPaymentDisplayText(
+	value: unknown,
+	maxLength = 128,
+): string | undefined {
 	if (value === undefined) return undefined;
-	if (!hasSafeDisplayText(value, 128)) {
+	if (!hasSafeDisplayText(value, maxLength)) {
 		invalidResult("display-text-invalid");
+	}
+	return value;
+}
+
+/** 可选金额仍必须按人民币分保存，不能把缺失金额静默当作 0 元。 */
+function optionalPaymentAmountFen(value: unknown): number | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+		invalidResult("amount-invalid");
+	}
+	return value;
+}
+
+/** 2.6.33 自付比例按 0～1 的小数保存，页面再格式化为百分比。 */
+function optionalPaymentRatio(value: unknown): number | undefined {
+	if (value === undefined) return undefined;
+	if (
+		typeof value !== "number" ||
+		!Number.isFinite(value) ||
+		value < 0 ||
+		value > 1
+	) {
+		invalidResult("amount-invalid");
 	}
 	return value;
 }
