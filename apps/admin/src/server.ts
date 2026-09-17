@@ -1,5 +1,12 @@
 import { extname, join, normalize } from "node:path";
-import { readRawLogTrace } from "./raw-logs";
+import {
+	buildPaymentDaySnapshot,
+	PAYMENT_MAX_JOURNAL_BYTES,
+	paymentDayWindow,
+	paymentInterfaceDetail,
+	publicPaymentDay,
+} from "./payment-day";
+import { formatJournalTimestamp, readRawLogTrace } from "./raw-logs";
 
 type JsonObject = Record<string, unknown>;
 
@@ -29,6 +36,10 @@ const maxSessionTokenLength = 4096;
 // 使用受控 provider-trace-export 工具显式指定 since/until。
 const rawLogWindowMs = 15 * 60 * 1_000;
 const rawLogFallbackWindowMs = 30 * 60 * 1_000;
+const paymentJournalUnits = [
+	"hospital-platform-api-v2.service",
+	"hospital-platform-worker-v2.service",
+] as const;
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 	throw new Error("INSURANCE_QUERY_PORT must be a valid TCP port");
@@ -73,6 +84,126 @@ async function requestJson(request: Request): Promise<JsonObject> {
 	const parsed = JSON.parse(text) as unknown;
 	if (!isObject(parsed)) throw new Error("INVALID_JSON_OBJECT");
 	return parsed;
+}
+
+function currentShanghaiDate(): string {
+	return new Intl.DateTimeFormat("en-CA", {
+		timeZone: "Asia/Shanghai",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	}).format(new Date());
+}
+
+async function readPaymentJournal(date: string): Promise<string> {
+	const window = paymentDayWindow(date);
+	const args = [
+		"--all",
+		"-o",
+		"json",
+		"--no-pager",
+		...paymentJournalUnits.flatMap((unit) => ["-u", unit]),
+		"--since",
+		formatJournalTimestamp(window.readSince),
+		"--until",
+		formatJournalTimestamp(window.readUntil),
+	] as const;
+	const process = Bun.spawn(["journalctl", ...args], {
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const [serialized, stderr, exitCode] = await Promise.all([
+		new Response(process.stdout).text(),
+		new Response(process.stderr).text(),
+		process.exited,
+	]);
+	if (
+		new TextEncoder().encode(serialized).byteLength > PAYMENT_MAX_JOURNAL_BYTES
+	) {
+		throw new Error("payment-day-journal-too-large");
+	}
+	if (exitCode !== 0) {
+		const suffix = stderr.trim().slice(-240);
+		throw new Error(`payment-day-journal-failed${suffix ? `:${suffix}` : ""}`);
+	}
+	return serialized;
+}
+
+async function paymentDayRequest(
+	request: Request,
+	url: URL,
+): Promise<Response> {
+	bearer(request);
+	const date = url.searchParams.get("date") || currentShanghaiDate();
+	try {
+		const snapshot = buildPaymentDaySnapshot(
+			date,
+			await readPaymentJournal(date),
+		);
+		console.info(
+			JSON.stringify({
+				event: "admin.payment_day.read",
+				date,
+				orderCount: snapshot.orders.length,
+				parsedRecords: snapshot.parsedRecords,
+				unmatchedPaymentEventCount: snapshot.unmatchedPaymentEventCount,
+				boundaryBufferMinutes: snapshot.window.boundaryBufferMinutes,
+			}),
+		);
+		return json({ code: 0, data: publicPaymentDay(snapshot) });
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : "UNKNOWN";
+		if (reason === "payment-day-date-invalid") {
+			return errorResponse("支付日期必须是有效的 YYYY-MM-DD", 422);
+		}
+		if (reason === "payment-day-journal-too-large") {
+			return errorResponse("支付日志窗口过大，请缩小日期范围", 413);
+		}
+		return errorResponse("支付日志暂时不可用，请稍后重试", 502);
+	}
+}
+
+async function paymentInterfaceRequest(
+	request: Request,
+	date: string,
+	flowId: string,
+	ordinalText: string,
+): Promise<Response> {
+	bearer(request);
+	if (!/^payment-[a-f0-9]{24}$/u.test(flowId)) {
+		return errorResponse("支付流程标识不合法", 400);
+	}
+	const ordinal = Number(ordinalText);
+	if (!Number.isSafeInteger(ordinal) || ordinal < 1 || ordinal > 300) {
+		return errorResponse("支付接口序号不合法", 400);
+	}
+	try {
+		const snapshot = buildPaymentDaySnapshot(
+			date,
+			await readPaymentJournal(date),
+		);
+		const detail = paymentInterfaceDetail(snapshot, flowId, ordinal);
+		if (!detail) return errorResponse("支付流程或接口不存在", 404);
+		console.info(
+			JSON.stringify({
+				event: "admin.payment_interface.read",
+				date,
+				flowId,
+				ordinal,
+				complete: detail.interface.complete,
+			}),
+		);
+		return json({ code: 0, data: detail });
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : "UNKNOWN";
+		if (reason === "payment-day-date-invalid") {
+			return errorResponse("支付日期必须是有效的 YYYY-MM-DD", 422);
+		}
+		if (reason === "payment-day-journal-too-large") {
+			return errorResponse("支付日志窗口过大，请缩小日期范围", 413);
+		}
+		return errorResponse("支付接口原文暂时不可用，请稍后重试", 502);
+	}
 }
 
 function requiredText(
@@ -541,6 +672,20 @@ const server = Bun.serve({
 			}
 			if (url.pathname === "/api/auth/logout" && request.method === "POST") {
 				return await logoutRequest(request);
+			}
+			const paymentInterfaceMatch = url.pathname.match(
+				/^\/api\/payments\/day\/(\d{4}-\d{2}-\d{2})\/(payment-[a-f0-9]{24})\/interfaces\/([1-9][0-9]*)$/u,
+			);
+			if (paymentInterfaceMatch && request.method === "GET") {
+				return await paymentInterfaceRequest(
+					request,
+					paymentInterfaceMatch[1] ?? "",
+					paymentInterfaceMatch[2] ?? "",
+					paymentInterfaceMatch[3] ?? "",
+				);
+			}
+			if (url.pathname === "/api/payments/day" && request.method === "GET") {
+				return await paymentDayRequest(request, url);
 			}
 			if (url.pathname === "/api/logs" && request.method === "GET") {
 				return await logsRequest(request, url);

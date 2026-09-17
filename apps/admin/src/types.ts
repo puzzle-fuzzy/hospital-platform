@@ -119,3 +119,66 @@ export type AdminLogQuery = {
 	startTime?: string;
 	endTime?: string;
 };
+
+export type PaymentBoundary = "before-day" | "within-day" | "after-day";
+
+export type PaymentStatus =
+	| "CANCELLED"
+	| "MANUAL_REVIEW_REQUIRED"
+	| "PROVIDER_COMPLETED"
+	| "OBSERVED"
+	| "INCOMPLETE";
+
+export type PaymentInterfaceSummary = {
+	id: string;
+	ordinal: number;
+	operation?: string;
+	displayOperation: string;
+	invocationIndex: number;
+	timestamp: string;
+	traceId?: string;
+	providerRequestId?: string;
+	statusCode?: number;
+	complete: boolean;
+	attribution: "correlation" | "timeline";
+	boundary: PaymentBoundary;
+};
+
+export type PaymentFlowSummary = {
+	id: string;
+	orderId: string;
+	appointmentId?: string;
+	startedAt: string;
+	status: PaymentStatus;
+	interfaceCount: number;
+	completeInterfaceCount: number;
+	hasBoundaryCrossing: boolean;
+	attributionWarningCount: number;
+	interfaces: PaymentInterfaceSummary[];
+};
+
+export type PaymentDayResult = {
+	date: string;
+	timezone: "Asia/Shanghai";
+	window: {
+		start: string;
+		endExclusive: string;
+		readSince: string;
+		readUntil: string;
+		boundaryBufferMinutes: number;
+	};
+	orders: PaymentFlowSummary[];
+	parsedRecords: number;
+	unmatchedPaymentEventCount: number;
+};
+
+export type PaymentInterfaceDetail = {
+	flowId: string;
+	orderId: string;
+	appointmentId?: string;
+	startedAt: string;
+	status: PaymentStatus;
+	interface: PaymentInterfaceSummary;
+	request?: RawLogEntry;
+	response?: RawLogEntry;
+};
