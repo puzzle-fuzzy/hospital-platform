@@ -11,7 +11,7 @@ die() {
 usage() {
 	echo '用法：tools/publish-3090.sh <commit-or-sha> [--surface api|worker|both] [--build] [--dry-run]'
 	echo '默认只上传已构建产物；--surface api/worker 可复用另一发布面的 current 产物。'
-	echo '环境变量：RELEASE_HOST、RELEASE_ROOT、SSH_OPTIONS（需要跳板机/密钥时使用）。'
+	echo '环境变量：RELEASE_HOST、RELEASE_ROOT、SSH_OPTIONS、RELEASE_READINESS_ATTEMPTS、RELEASE_READINESS_INTERVAL_SECONDS。'
 }
 
 if [[ $# -eq 1 && ( "$1" == '-h' || "$1" == '--help' ) ]]; then
@@ -67,6 +67,10 @@ else
 	remote_root=/home/ps/code/hospital-platform
 fi
 [[ "$remote_root" =~ ^/[A-Za-z0-9._/-]+$ ]] || die 'RELEASE_ROOT 含有不安全字符'
+readiness_attempts="${RELEASE_READINESS_ATTEMPTS:-30}"
+readiness_interval_seconds="${RELEASE_READINESS_INTERVAL_SECONDS:-1}"
+[[ "$readiness_attempts" =~ ^[1-9][0-9]*$ ]] || die 'RELEASE_READINESS_ATTEMPTS 必须是正整数'
+[[ "$readiness_interval_seconds" =~ ^[1-9][0-9]*$ ]] || die 'RELEASE_READINESS_INTERVAL_SECONDS 必须是正整数'
 ssh_args=()
 rsync_args=()
 if [[ -n "${SSH_OPTIONS:-}" ]]; then
@@ -185,23 +189,72 @@ if ! ssh_remote "sudo -n systemctl restart hospital-platform-api-v2.service"; th
 	die 'API 重启失败'
 fi
 
-if ! ssh_remote bash -s -- "$remote_root" <<'REMOTE_READINESS'
-set -eu
+if ! ssh_remote bash -s -- "$remote_root" "$readiness_attempts" "$readiness_interval_seconds" <<'REMOTE_READINESS'
+set -u
 root="$1"
-for attempt in $(seq 1 15); do
-	if curl -fsS --max-time 2 http://10.0.0.3:18081/health/ready |
-		jq -e '.success == true and .data.status == "ready" and .data.dependencies.database == "ok" and .data.dependencies.redis == "ok" and .data.dependencies.schema == "ok"' >/dev/null 2>&1 &&
-		ss -ltn | grep -Eq ':18081' &&
-		ss -ltn | grep -Eq ':8001'; then
+max_attempts="$2"
+interval_seconds="$3"
+health_file="$(mktemp)"
+curl_error_file="$(mktemp)"
+cleanup_readiness() {
+	rm -f "$health_file" "$curl_error_file"
+}
+trap cleanup_readiness EXIT
+
+for attempt in $(seq 1 "$max_attempts"); do
+	: >"$health_file"
+	: >"$curl_error_file"
+	http_code="$(curl -sS --max-time 2 -o "$health_file" -w '%{http_code}' \
+		http://10.0.0.3:18081/health/ready 2>"$curl_error_file")"
+	curl_exit=$?
+	if [[ -z "$http_code" ]]; then
+		http_code=000
+	fi
+
+	health_status="unavailable"
+	database_status="unavailable"
+	redis_status="unavailable"
+	schema_status="unavailable"
+	health_ok=0
+	if [[ "$curl_exit" -eq 0 && "$http_code" == 200 ]]; then
+		health_status="$(jq -r '.data.status // "missing"' "$health_file" 2>/dev/null || printf 'invalid')"
+		database_status="$(jq -r '.data.dependencies.database // "missing"' "$health_file" 2>/dev/null || printf 'invalid')"
+		redis_status="$(jq -r '.data.dependencies.redis // "missing"' "$health_file" 2>/dev/null || printf 'invalid')"
+		schema_status="$(jq -r '.data.dependencies.schema // "missing"' "$health_file" 2>/dev/null || printf 'invalid')"
+		if jq -e '.success == true and .data.status == "ready" and .data.dependencies.database == "ok" and .data.dependencies.redis == "ok" and .data.dependencies.schema == "ok"' "$health_file" >/dev/null 2>&1; then
+			health_ok=1
+		fi
+	fi
+
+	api_port=0
+	legacy_port=0
+	if ss -ltn | grep -Eq ':18081([[:space:]]|$)'; then
+		api_port=1
+	fi
+	if ss -ltn | grep -Eq ':8001([[:space:]]|$)'; then
+		legacy_port=1
+	fi
+
+	if [[ "$curl_exit" -eq 0 ]]; then
+		curl_result=ok
+	else
+		curl_result=transport_or_timeout
+	fi
+	printf 'publish-3090: readiness attempt=%s/%s curl=%s http=%s health=%s database=%s redis=%s schema=%s port_18081=%s port_8001=%s\n' \
+		"$attempt" "$max_attempts" "$curl_result" "$http_code" "$health_status" "$database_status" "$redis_status" "$schema_status" "$api_port" "$legacy_port"
+
+	if [[ "$health_ok" -eq 1 && "$api_port" -eq 1 && "$legacy_port" -eq 1 ]]; then
+		printf 'publish-3090: readiness passed on attempt %s/%s\n' "$attempt" "$max_attempts"
 		exit 0
 	fi
-	test "$attempt" -eq 15 || sleep 1
+	test "$attempt" -eq "$max_attempts" || sleep "$interval_seconds"
 done
+printf 'publish-3090: readiness failed after %s attempts; candidate remains rolled back by caller\n' "$max_attempts" >&2
 exit 1
 REMOTE_READINESS
 then
 	rollback
-	die 'readiness 或 8001 共存检查失败'
+	die "readiness 或 8001 共存检查失败（已尝试 ${readiness_attempts} 次，每次间隔 ${readiness_interval_seconds}s）"
 fi
 
 ssh_remote "sudo -n systemctl is-active hospital-platform-api-v2.service && test \"\$(readlink -f '$remote_root/current')\" = '$release_dir' && grep -q '^PROVIDER_RAW_LOGGING=true$' '$remote_root/shared/api.env'" ||
