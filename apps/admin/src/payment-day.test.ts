@@ -5,6 +5,7 @@ import {
 	paymentInterfaceDetail,
 	publicPaymentDay,
 } from "./payment-day";
+import { parseRawLogEntriesFromSerialized } from "./raw-logs";
 
 function journalLine(
 	message: Record<string, unknown>,
@@ -133,5 +134,34 @@ describe("payment day attribution", () => {
 		expect(() => paymentDayWindow("2026-02-30")).toThrow(
 			"payment-day-date-invalid",
 		);
+	});
+
+	test("accepts raw entries fetched separately from the payment event journal", () => {
+		const summary = journalLine({
+			event: "medical-insurance.authorization.requested",
+			time: "2026-09-16T16:00:05.000Z",
+			orderId: "order-separated",
+			appointmentId: "appointment-separated",
+			traceId: "trace-separated",
+		});
+		const raw = rawLine({
+			event: "provider.request.raw",
+			time: "2026-09-16T16:00:06.000Z",
+			direction: "request",
+			body: '{"step":"separate-query"}',
+			traceId: "trace-separated",
+			providerRequestId: "provider-separated",
+		});
+		const rawEntries = parseRawLogEntriesFromSerialized(raw);
+		const result = publicPaymentDay(
+			buildPaymentDaySnapshot("2026-09-17", summary, rawEntries),
+		);
+
+		expect(result.orders).toHaveLength(1);
+		expect(result.orders[0]?.interfaces).toHaveLength(1);
+		expect(result.orders[0]?.interfaces[0]).toMatchObject({
+			displayOperation: "2.6.65.2",
+			complete: false,
+		});
 	});
 });

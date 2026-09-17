@@ -14,6 +14,17 @@
 			<text wx:if="{{detailHint}}" class="summary-hint">{{detailHint}}</text>
 		</view>
 
+		<view wx:if="{{amountBreakdownVisible}}" class="amount-card">
+			<view class="amount-card-title">本次费用明细</view>
+			<view class="amount-row amount-total-row"><text>费用总额</text><text>{{totalAmountLabel}}</text></view>
+			<view class="amount-row"><text>医保支付</text><text>{{insuranceAmountLabel}}</text></view>
+			<view class="amount-row"><text>自费支付</text><text>{{cashAmountLabel}}</text></view>
+			<text class="amount-source-hint">金额来自服务端支付订单的最终返回结果</text>
+		</view>
+		<view wx:elif="{{amountBreakdownLoading || amountBreakdownHint}}" class="amount-sync-hint">
+			{{amountBreakdownHint || '正在同步本次费用明细'}}
+		</view>
+
 		<view class="result-actions">
 			<button wx:if="{{hasDetail}}" class="primary-button" bindtap="onViewDetail">查看{{businessLabel}}详情</button>
 			<button class="secondary-button" bindtap="onBackHome">返回首页</button>

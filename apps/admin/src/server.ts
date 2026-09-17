@@ -2,12 +2,17 @@ import { extname, join, normalize } from "node:path";
 import type { PaymentDaySnapshot } from "./payment-day";
 import {
 	buildPaymentDaySnapshot,
+	collectPaymentOrders,
 	PAYMENT_MAX_JOURNAL_BYTES,
+	PAYMENT_MAX_INTERFACES,
+	PAYMENT_MAX_ORDERS,
 	paymentDayWindow,
 	paymentInterfaceDetail,
+	parsePaymentJournal,
 	publicPaymentDay,
 } from "./payment-day";
 import { formatJournalTimestamp, readRawLogTrace } from "./raw-logs";
+import type { RawLogEntry } from "./types";
 
 type JsonObject = Record<string, unknown>;
 
@@ -41,6 +46,10 @@ const paymentJournalUnits = [
 	"hospital-platform-api-v2.service",
 	"hospital-platform-worker-v2.service",
 ] as const;
+// 日汇总只需支付业务事件；原始 Provider 报文由 readPaymentRawEntries 按订单
+// 关联号定向读取，避免把全日 raw chunk 一次性装入内存并触发 64 MiB 门槛。
+const paymentJournalGrep =
+	'"event":"(medical-insurance\\.|payment\\.wechat_prepay\\.|outpatient\\.self-payment\\.|appointment\\.self-payment\\.|worker\\.payment\\.)';
 const paymentSnapshotCacheTtlMs = 30_000;
 const paymentSnapshotCacheMaxEntries = 2;
 const paymentSnapshotCache = new Map<
@@ -112,6 +121,8 @@ async function runPaymentJournal(
 		"json",
 		"--no-pager",
 		...paymentJournalUnits.flatMap((unit) => ["-u", unit]),
+		"--grep",
+		paymentJournalGrep,
 		"--since",
 		formatJournalTimestamp(window.readSince),
 		"--until",
@@ -138,6 +149,56 @@ async function runPaymentJournal(
 	return serialized;
 }
 
+function rawEntryKey(entry: RawLogEntry): string {
+	return [
+		entry.unit,
+		entry.direction,
+		entry.event,
+		entry.timestamp,
+		entry.traceId || "",
+		entry.requestId || "",
+		entry.providerRequestId || "",
+		entry.operation || "",
+		entry.integrity?.actualSha256 || "",
+	].join("\u0001");
+}
+
+async function readPaymentRawEntries(
+	date: string,
+	orders: ReturnType<typeof collectPaymentOrders>,
+): Promise<RawLogEntry[]> {
+	const window = paymentDayWindow(date);
+	const selectedOrders = orders.slice(0, PAYMENT_MAX_ORDERS);
+	const collected: RawLogEntry[] = [];
+	const batchSize = 6;
+	for (let offset = 0; offset < selectedOrders.length; offset += batchSize) {
+		const batch = selectedOrders.slice(offset, offset + batchSize);
+		const traces = await Promise.all(
+			batch.map(async (order) => {
+				const identifiers = [...order.identifiers];
+				if (identifiers.length === 0) return [] as RawLogEntry[];
+				try {
+					const trace = await readRawLogTrace({
+						identifiers,
+						since: window.readSince.toISOString(),
+						until: window.readUntil.toISOString(),
+						maxEntries: PAYMENT_MAX_INTERFACES,
+					});
+					return trace.entries as RawLogEntry[];
+				} catch {
+					// 某一笔 raw 日志过大或暂时不可读时，不影响同日其它订单汇总；
+					// 该笔保持现有“不完整”状态，刷新日期后可再次尝试读取。
+					return [] as RawLogEntry[];
+				}
+			}),
+		);
+		for (const entries of traces) collected.push(...entries);
+	}
+	const unique = new Map<string, RawLogEntry>();
+	for (const entry of collected) unique.set(rawEntryKey(entry), entry);
+	return [...unique.values()];
+}
+
 async function readPaymentJournal(date: string): Promise<string> {
 	const window = paymentDayWindow(date);
 	return runPaymentJournal(window);
@@ -151,7 +212,11 @@ async function paymentSnapshot(date: string): Promise<PaymentDaySnapshot> {
 	const existing = paymentSnapshotInFlight.get(date);
 	if (existing) return existing;
 	const pending = readPaymentJournal(date)
-		.then((serialized) => buildPaymentDaySnapshot(date, serialized))
+		.then(async (serialized) => {
+			const orders = collectPaymentOrders(parsePaymentJournal(serialized));
+			const rawEntries = await readPaymentRawEntries(date, orders);
+			return buildPaymentDaySnapshot(date, serialized, rawEntries);
+		})
 		.then((snapshot) => {
 			for (const [cachedDate, cachedSnapshot] of paymentSnapshotCache) {
 				if (cachedSnapshot.expiresAt <= Date.now()) {

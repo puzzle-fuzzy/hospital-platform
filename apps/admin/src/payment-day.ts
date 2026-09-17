@@ -570,6 +570,7 @@ function buildInternalFlow(
 export function buildPaymentDaySnapshot(
 	date: string,
 	serialized: string,
+	rawEntries?: RawLogEntry[],
 ): PaymentDaySnapshot {
 	const window = paymentDayWindow(date);
 	if (
@@ -582,9 +583,9 @@ export function buildPaymentDaySnapshot(
 	const allIdentifiers = new Set(
 		allOrders.flatMap((order) => [...order.identifiers]),
 	);
-	const rawEntries = parseRawLogEntriesFromSerialized(serialized).filter(
-		(entry) => hasAnyIdentifier(entry, allIdentifiers),
-	);
+	const parsedRawEntries = (
+		rawEntries ?? parseRawLogEntriesFromSerialized(serialized)
+	).filter((entry) => hasAnyIdentifier(entry, allIdentifiers));
 	const orders = allOrders
 		.filter((order) => {
 			const started = Date.parse(order.startedAt);
@@ -594,7 +595,9 @@ export function buildPaymentDaySnapshot(
 			);
 		})
 		.slice(0, PAYMENT_MAX_ORDERS)
-		.map((order) => buildInternalFlow(order, allOrders, window, rawEntries));
+		.map((order) =>
+			buildInternalFlow(order, allOrders, window, parsedRawEntries),
+		);
 	const unmatchedPaymentEventCount = records.filter(
 		(record) =>
 			ORDER_PAYMENT_EVENT.test(stringValue(record.message.event) || "") &&

@@ -2,7 +2,6 @@ import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
-	formatOutpatientRatioLabel,
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentDetail,
 } from "../../services/dashboard-service";
@@ -11,6 +10,7 @@ import {
 	clearPendingPayment,
 	continueMedicalPayment,
 	type PaymentProgress,
+	readLastMedicalPaymentResult,
 	readPendingPayment,
 	resumeMedicalCashPaymentFromPending,
 	startOutpatientMedicalPayment,
@@ -39,8 +39,16 @@ function paymentResultUrl(
 	patientId: string,
 	recordId: string,
 	channel: "medical" | "wechat",
+	options?: { orderId?: string; totalFen?: number },
 ): string {
-	return `/pages/payment-result/payment-result?business=outpatient&channel=${channel}&patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(recordId)}`;
+	const orderId = options?.orderId
+		? `&orderId=${encodeURIComponent(options.orderId)}`
+		: "";
+	const totalFen =
+		options?.totalFen !== undefined
+			? `&totalFen=${encodeURIComponent(String(options.totalFen))}`
+			: "";
+	return `/pages/payment-result/payment-result?business=outpatient&channel=${channel}&patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(recordId)}${orderId}${totalFen}`;
 }
 
 type PaymentStatus = "unpaid" | "paid";
@@ -75,12 +83,6 @@ type OutpatientPaymentDetailPageMethods = {
 	onUnload(): void;
 	formatAmount(amountFen: number): string;
 	formatDate(value: string): string;
-	formatRatio(value: number): string;
-	formatSpecQuantity(
-		spec?: string,
-		quantity?: string,
-		unitName?: string,
-	): string;
 	statusLabel(status: PaymentStatus, paymentStatus?: "refunding"): string;
 	showError(error: unknown): void;
 };
@@ -195,11 +197,15 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			.then((result) => {
 				if (result === false) return;
 				if (!readPendingPayment()) {
+					const completed = readLastMedicalPaymentResult();
 					wx.redirectTo({
 						url: paymentResultUrl(
 							this.data.sourcePatientId,
 							this.data.sourceRecordId,
 							"medical",
+							completed?.recordId === this.data.sourceRecordId
+								? { orderId: completed.orderId }
+								: undefined,
 						),
 					});
 				}
@@ -375,6 +381,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 							this.data.sourcePatientId,
 							this.data.sourceRecordId,
 							"wechat",
+							{ totalFen: result.data.totalFen },
 						),
 					});
 				}
@@ -402,20 +409,6 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 
 	formatDate(value: string): string {
 		return formatOutpatientBillDateLabel(value);
-	},
-
-	formatRatio(value: number): string {
-		return formatOutpatientRatioLabel(value);
-	},
-
-	formatSpecQuantity(
-		spec?: string,
-		quantity?: string,
-		unitName?: string,
-	): string {
-		return [spec, quantity ? `× ${quantity}` : undefined, unitName]
-			.filter(Boolean)
-			.join(" ");
 	},
 
 	statusLabel(status: PaymentStatus, paymentStatus?: "refunding"): string {

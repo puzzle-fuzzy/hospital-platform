@@ -1,3 +1,9 @@
+import {
+	type MedicalPaymentAmounts,
+	queryMedicalOrder,
+	readLastMedicalPaymentResult,
+} from "../../services/medical-insurance";
+
 type PaymentBusiness = "registration" | "outpatient";
 type PaymentChannel = "medical" | "wechat";
 
@@ -12,12 +18,23 @@ type PaymentResultPageData = {
 	patientId: string;
 	appointmentId: string;
 	recordId: string;
+	orderId: string;
 	hasDetail: boolean;
+	amountBreakdownVisible: boolean;
+	amountBreakdownLoading: boolean;
+	totalAmountLabel: string;
+	insuranceAmountLabel: string;
+	cashAmountLabel: string;
+	amountBreakdownHint: string;
 };
 
 type PaymentResultPageMethods = {
 	onViewDetail(): void;
 	onBackHome(): void;
+	loadAmounts(
+		orderId: string,
+		fallbackAmounts?: MedicalPaymentAmounts,
+	): Promise<void>;
 };
 
 type PaymentResultRouteOptions = {
@@ -26,6 +43,8 @@ type PaymentResultRouteOptions = {
 	patientId?: string;
 	appointmentId?: string;
 	recordId?: string;
+	orderId?: string;
+	totalFen?: string;
 };
 
 function decode(value: string | undefined): string {
@@ -47,6 +66,33 @@ function safeReference(value: string | undefined, max = 128): string {
 		return "";
 	}
 	return decoded;
+}
+
+function parseFen(value: string | undefined): number | undefined {
+	const normalized = safeReference(value, 16);
+	if (!/^\d+$/u.test(normalized)) return undefined;
+	const amount = Number(normalized);
+	return Number.isSafeInteger(amount) && amount > 0 ? amount : undefined;
+}
+
+function formatFen(value: number): string {
+	return `${(value / 100).toFixed(2)} 元`;
+}
+
+function matchesPaymentResult(
+	result: ReturnType<typeof readLastMedicalPaymentResult>,
+	business: PaymentBusiness,
+	patientId: string,
+	appointmentId: string,
+	recordId: string,
+): result is NonNullable<ReturnType<typeof readLastMedicalPaymentResult>> {
+	return Boolean(
+		result &&
+			result.appointmentId === appointmentId &&
+			(!result.businessType || result.businessType === business) &&
+			(business !== "outpatient" || result.recordId === recordId) &&
+			Boolean(patientId),
+	);
 }
 
 function isBusiness(value: string): value is PaymentBusiness {
@@ -89,7 +135,14 @@ function emptyData(): PaymentResultPageData {
 		patientId: "",
 		appointmentId: "",
 		recordId: "",
+		orderId: "",
 		hasDetail: false,
+		amountBreakdownVisible: false,
+		amountBreakdownLoading: false,
+		totalAmountLabel: "",
+		insuranceAmountLabel: "",
+		cashAmountLabel: "",
+		amountBreakdownHint: "",
 	};
 }
 
@@ -111,6 +164,33 @@ Page<PaymentResultPageData, PaymentResultPageMethods>({
 		const patientId = safeReference(options?.patientId);
 		const appointmentId = safeReference(options?.appointmentId, 64);
 		const recordId = safeReference(options?.recordId);
+		const storedResult = readLastMedicalPaymentResult();
+		const matchingStoredResult = matchesPaymentResult(
+			storedResult,
+			businessValue,
+			patientId,
+			appointmentId,
+			recordId,
+		)
+			? storedResult
+			: null;
+		const orderId =
+			safeReference(options?.orderId, 64) ||
+			matchingStoredResult?.orderId ||
+			"";
+		const routeTotalFen = parseFen(options?.totalFen);
+		const routeAmounts =
+			routeTotalFen === undefined
+				? undefined
+				: {
+						totalFen: routeTotalFen,
+						insuranceFen: 0,
+						cashFen: routeTotalFen,
+					};
+		const fallbackAmounts =
+			(channelValue === "wechat" ? routeAmounts : undefined) ??
+			matchingStoredResult?.amounts ??
+			routeAmounts;
 		const detail = labels(businessValue, channelValue);
 		this.setData({
 			business: businessValue,
@@ -119,13 +199,59 @@ Page<PaymentResultPageData, PaymentResultPageMethods>({
 			patientId,
 			appointmentId,
 			recordId,
+			orderId,
 			hasDetail:
 				Boolean(patientId) &&
 				(businessValue === "registration"
 					? Boolean(appointmentId)
 					: Boolean(recordId)),
+			amountBreakdownVisible: Boolean(fallbackAmounts),
+			amountBreakdownLoading: channelValue === "medical" && Boolean(orderId),
+			...(fallbackAmounts
+				? {
+						totalAmountLabel: formatFen(fallbackAmounts.totalFen),
+						insuranceAmountLabel: formatFen(fallbackAmounts.insuranceFen),
+						cashAmountLabel: formatFen(fallbackAmounts.cashFen),
+					}
+				: {}),
 		});
 		wx.setNavigationBarTitle({ title: "支付结果" });
+		void this.loadAmounts(orderId, fallbackAmounts);
+	},
+
+	async loadAmounts(
+		orderId: string,
+		fallbackAmounts?: MedicalPaymentAmounts,
+	): Promise<void> {
+		if (this.data.channel !== "medical" || !orderId) {
+			this.setData({ amountBreakdownLoading: false });
+			return;
+		}
+		try {
+			const order = await queryMedicalOrder(orderId);
+			if (order.amounts) {
+				this.setData({
+					amountBreakdownVisible: true,
+					amountBreakdownLoading: false,
+					totalAmountLabel: formatFen(order.amounts.totalFen),
+					insuranceAmountLabel: formatFen(order.amounts.insuranceFen),
+					cashAmountLabel: formatFen(order.amounts.cashFen),
+					amountBreakdownHint: "",
+				});
+				return;
+			}
+		} catch {
+			// 结果页不能把金额明细查询失败误报成支付失败；保留已完成摘要，
+			// 若本地没有最终金额则只提示同步中，不自行猜测医保/自费分摊。
+		}
+		this.setData({
+			amountBreakdownLoading: false,
+			...(fallbackAmounts
+				? {}
+				: {
+						amountBreakdownHint: "支付金额明细正在同步，请稍后查看门诊缴费记录",
+					}),
+		});
 	},
 
 	onViewDetail(): void {

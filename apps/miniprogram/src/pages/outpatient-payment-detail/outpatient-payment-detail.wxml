@@ -21,31 +21,11 @@
 				<view class="muted">{{selectedPatient.cardNumberMasked}}</view>
 			</view>
 
-			<view class="card">
-				<view class="label">医院</view>
-				<view class="value">{{hospitalName}}</view>
+			<view class="card fee-card">
+				<view wx:if="{{hospitalName}}" class="detail-line"><text class="detail-label">医院</text><text class="detail-value">{{hospitalName}}</text></view>
 				<view wx:if="{{item.itemName}}" class="detail-line"><text class="detail-label">费用项目</text><text class="detail-value">{{item.itemName}}</text></view>
-				<view class="detail-line"><text class="detail-label">开单科室</text><text class="detail-value">{{item.departmentName || '门诊费用'}}</text></view>
-				<view wx:if="{{item.executionDepartmentName}}" class="detail-line"><text class="detail-label">执行科室</text><text class="detail-value">{{item.executionDepartmentName}}</text></view>
-				<view wx:if="{{item.doctorName}}" class="detail-line"><text class="detail-label">就诊医生</text><text class="detail-value">{{item.doctorName}}</text></view>
-				<view wx:if="{{item.executionDoctorName}}" class="detail-line"><text class="detail-label">执行医生</text><text class="detail-value">{{item.executionDoctorName}}</text></view>
-				<view wx:if="{{item.spec || item.quantity || item.unitName}}" class="detail-line"><text class="detail-label">规格数量</text><text class="detail-value">{{formatSpecQuantity(item.spec, item.quantity, item.unitName)}}</text></view>
-				<view wx:if="{{item.priceFen >= 0}}" class="detail-line"><text class="detail-label">单价</text><text class="detail-value">{{formatAmount(item.priceFen)}}</text></view>
-				<view wx:if="{{item.unitName}}" class="detail-line"><text class="detail-label">计价单位</text><text class="detail-value">{{item.unitName}}</text></view>
-				<view wx:if="{{item.chargeClassName}}" class="detail-line"><text class="detail-label">费别</text><text class="detail-value">{{item.chargeClassName}}</text></view>
-				<view wx:if="{{item.tradePropName}}" class="detail-line"><text class="detail-label">医嘱分类</text><text class="detail-value">{{item.tradePropName}}</text></view>
-				<view wx:if="{{item.networkPatClassName}}" class="detail-line"><text class="detail-label">医保类别</text><text class="detail-value">{{item.networkPatClassName}}</text></view>
-				<view wx:if="{{item.typeMemo}}" class="detail-line"><text class="detail-label">项目类型</text><text class="detail-value">{{item.typeMemo}}</text></view>
-				<view wx:if="{{item.selfBurdenRatio >= 0}}" class="detail-line"><text class="detail-label">自付比例</text><text class="detail-value">{{formatRatio(item.selfBurdenRatio)}}</text></view>
-				<view wx:if="{{item.preferentialAmountFen >= 0}}" class="detail-line"><text class="detail-label">优惠金额</text><text class="detail-value">{{formatAmount(item.preferentialAmountFen)}}</text></view>
-				<view wx:if="{{item.ascendAmountFen >= 0}}" class="detail-line"><text class="detail-label">上浮金额</text><text class="detail-value">{{formatAmount(item.ascendAmountFen)}}</text></view>
-				<view class="detail-line"><text class="detail-label">费用日期</text><text class="detail-value">{{formatDate(item.billDate)}}</text></view>
-				<view class="detail-line detail-line-last"><text class="detail-label">账单金额</text><text class="amount">{{formatAmount(item.amountFen)}}</text></view>
-			</view>
-
-			<view class="notice-card">
-				<view class="notice-title">费用信息</view>
-				<view class="muted notice-text">页面展示的是本次 2.6.33 返回并经过服务端校验的费用字段；订单号、医保编码和诊断等内部字段不会在页面展示。</view>
+				<view wx:if="{{item.billDate}}" class="detail-line"><text class="detail-label">费用日期</text><text class="detail-value">{{formatDate(item.billDate)}}</text></view>
+				<view wx:if="{{item.amountFen >= 0}}" class="detail-line detail-line-last"><text class="detail-label">缴费金额</text><text class="amount">{{formatAmount(item.amountFen)}}</text></view>
 			</view>
 
 			<view wx:if="{{item.status === 'unpaid'}}" class="payment-card">

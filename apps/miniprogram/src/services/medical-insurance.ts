@@ -75,11 +75,26 @@ type MedicalOrderStatus =
 	| "failed"
 	| "cancelled";
 
-type MedicalOrder = {
+export type MedicalPaymentAmounts = {
+	totalFen: number;
+	insuranceFen: number;
+	cashFen: number;
+};
+
+export type MedicalOrder = {
 	orderId: string;
 	status: MedicalOrderStatus;
-	amounts?: { totalFen: number; insuranceFen: number; cashFen: number };
+	amounts?: MedicalPaymentAmounts;
 	cashierUrl?: string;
+};
+
+export type LastMedicalPaymentResult = {
+	businessType?: "registration" | "outpatient";
+	appointmentId: string;
+	recordId?: string;
+	orderId: string;
+	amounts?: MedicalPaymentAmounts;
+	completedAt: number;
 };
 
 type MedicalCancellation = {
@@ -205,6 +220,27 @@ function isMedicalOrderStatus(value: unknown): value is MedicalOrderStatus {
 	);
 }
 
+function readMedicalPaymentAmounts(
+	value: unknown,
+): MedicalPaymentAmounts | null {
+	if (!isRecord(value)) return null;
+	const { totalFen, insuranceFen, cashFen } = value;
+	if (
+		typeof totalFen !== "number" ||
+		typeof insuranceFen !== "number" ||
+		typeof cashFen !== "number" ||
+		!Number.isSafeInteger(totalFen) ||
+		!Number.isSafeInteger(insuranceFen) ||
+		!Number.isSafeInteger(cashFen) ||
+		totalFen <= 0 ||
+		insuranceFen < 0 ||
+		cashFen < 0
+	) {
+		return null;
+	}
+	return { totalFen, insuranceFen, cashFen };
+}
+
 function readMedicalOrder(value: unknown): MedicalOrder {
 	const payload = requireSuccessDataResponse<unknown>(value);
 	const data = payload.data;
@@ -219,28 +255,13 @@ function readMedicalOrder(value: unknown): MedicalOrder {
 	}
 	let amounts: MedicalOrder["amounts"];
 	if (data.amounts !== undefined) {
-		if (!isRecord(data.amounts)) {
+		const parsedAmounts = readMedicalPaymentAmounts(data.amounts);
+		if (!parsedAmounts) {
 			throw new ApiError("医保金额响应不可用", {
 				code: "provider-response-invalid",
 			});
 		}
-		const { totalFen, insuranceFen, cashFen } = data.amounts;
-		if (
-			typeof totalFen !== "number" ||
-			typeof insuranceFen !== "number" ||
-			typeof cashFen !== "number" ||
-			!Number.isSafeInteger(totalFen) ||
-			!Number.isSafeInteger(insuranceFen) ||
-			!Number.isSafeInteger(cashFen) ||
-			totalFen <= 0 ||
-			insuranceFen < 0 ||
-			cashFen < 0
-		) {
-			throw new ApiError("医保金额响应不可用", {
-				code: "provider-response-invalid",
-			});
-		}
-		amounts = { totalFen, insuranceFen, cashFen };
+		amounts = parsedAmounts;
 	}
 	if (data.cashierUrl !== undefined && !isHttpsUrl(data.cashierUrl)) {
 		throw new ApiError("医保收银台地址不可用", {
@@ -253,6 +274,66 @@ function readMedicalOrder(value: unknown): MedicalOrder {
 		...(amounts ? { amounts } : {}),
 		...(data.cashierUrl ? { cashierUrl: data.cashierUrl } : {}),
 	};
+}
+
+/** 结果页按已完成订单读取 6202/6301 最终金额，不从门诊账单重新推算。 */
+export async function queryMedicalOrder(
+	orderId: string,
+): Promise<MedicalOrder> {
+	if (!isOpaque(orderId)) {
+		throw new ApiError("医保订单引用无效", {
+			code: "payment-order-invalid",
+		});
+	}
+	return readMedicalOrder(
+		await requestWithSession<unknown>({
+			url: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}`,
+			idempotencyKey: createIdempotencyKey("medical-result-query"),
+		}),
+	);
+}
+
+function readLastMedicalPaymentResultValue(
+	value: unknown,
+): LastMedicalPaymentResult | null {
+	if (!isRecord(value)) return null;
+	if (
+		(value.businessType !== undefined &&
+			value.businessType !== "registration" &&
+			value.businessType !== "outpatient") ||
+		!isOpaque(value.appointmentId) ||
+		(value.recordId !== undefined && !isOpaque(value.recordId)) ||
+		!isOpaque(value.orderId) ||
+		typeof value.completedAt !== "number" ||
+		!Number.isSafeInteger(value.completedAt) ||
+		value.completedAt <= 0
+	) {
+		return null;
+	}
+	const amounts =
+		value.amounts === undefined
+			? undefined
+			: readMedicalPaymentAmounts(value.amounts);
+	if (value.amounts !== undefined && !amounts) return null;
+	return {
+		...(value.businessType ? { businessType: value.businessType } : {}),
+		appointmentId: value.appointmentId,
+		...(value.recordId ? { recordId: value.recordId } : {}),
+		orderId: value.orderId,
+		...(amounts ? { amounts } : {}),
+		completedAt: value.completedAt,
+	};
+}
+
+/** 读取最近一次已完成支付，页面只接受白名单字段。 */
+export function readLastMedicalPaymentResult(): LastMedicalPaymentResult | null {
+	const result = readLastMedicalPaymentResultValue(
+		wx.getStorageSync(MINIPROGRAM_STORAGE_KEYS.lastMedicalPaymentResult),
+	);
+	if (!result) {
+		wx.removeStorageSync(MINIPROGRAM_STORAGE_KEYS.lastMedicalPaymentResult);
+	}
+	return result;
 }
 
 function readMedicalCancellation(value: unknown): MedicalCancellation {
@@ -817,6 +898,7 @@ function finishMedicalPayment(
 	onProgress: Progress,
 	orderId: string,
 	message: string,
+	amounts?: MedicalPaymentAmounts,
 ): void {
 	clearPendingPayment();
 	wx.setStorageSync(MINIPROGRAM_STORAGE_KEYS.lastMedicalPaymentResult, {
@@ -824,6 +906,7 @@ function finishMedicalPayment(
 		appointmentId: pending.appointmentId,
 		...(pending.recordId ? { recordId: pending.recordId } : {}),
 		orderId,
+		...(amounts ? { amounts } : {}),
 		completedAt: Date.now(),
 	});
 	onProgress(
@@ -1213,7 +1296,13 @@ export async function continueMedicalPayment(
 			{ code: "payment-prepay-in-progress" },
 		);
 	}
-	finishMedicalPayment(current, onProgress, orderId, "挂号和医保支付成功");
+	finishMedicalPayment(
+		current,
+		onProgress,
+		orderId,
+		"挂号和医保支付成功",
+		order.amounts,
+	);
 }
 
 async function continueSelfPayment(
@@ -1241,6 +1330,11 @@ async function continueSelfPayment(
 			onProgress,
 			payment.data.orderId,
 			"挂号和微信支付成功",
+			{
+				totalFen: payment.data.totalFen,
+				insuranceFen: 0,
+				cashFen: payment.data.totalFen,
+			},
 		);
 		return;
 	}
@@ -1262,6 +1356,11 @@ async function continueSelfPayment(
 				onProgress,
 				result.data.orderId,
 				"挂号和微信支付成功",
+				{
+					totalFen: result.data.totalFen,
+					insuranceFen: 0,
+					cashFen: result.data.totalFen,
+				},
 			);
 			return;
 		}
@@ -1354,6 +1453,7 @@ export async function continueMedicalCashierPaymentFromPending(
 			onProgress,
 			pending.orderId,
 			"挂号和医保支付成功",
+			result.amounts,
 		);
 		return true;
 	}

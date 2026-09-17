@@ -19,6 +19,7 @@ import {
 	navigateToMedicalAuth,
 	type PaymentMode,
 	prepareFreshMedicalAuthorization,
+	readLastMedicalPaymentResult,
 	readPendingPayment,
 	resumeMedicalCashPaymentFromPending,
 	startMedicalPayment,
@@ -84,8 +85,16 @@ function paymentResultUrl(
 	appointmentId: string,
 	patientId: string,
 	channel: "medical" | "wechat",
+	options?: { orderId?: string; totalFen?: number },
 ): string {
-	return `/pages/payment-result/payment-result?business=registration&channel=${channel}&patientId=${encodeURIComponent(patientId)}&appointmentId=${encodeURIComponent(appointmentId)}`;
+	const orderId = options?.orderId
+		? `&orderId=${encodeURIComponent(options.orderId)}`
+		: "";
+	const totalFen =
+		options?.totalFen !== undefined
+			? `&totalFen=${encodeURIComponent(String(options.totalFen))}`
+			: "";
+	return `/pages/payment-result/payment-result?business=registration&channel=${channel}&patientId=${encodeURIComponent(patientId)}&appointmentId=${encodeURIComponent(appointmentId)}${orderId}${totalFen}`;
 }
 
 /** 纯医保订单和混合医保订单共用“医保支付”入口，每次点击都是新的尝试。 */
@@ -805,11 +814,22 @@ Page<
 			paymentCompletionRedirecting = false;
 			return;
 		}
+		const completed = readLastMedicalPaymentResult();
+		const completedForAppointment =
+			completed?.appointmentId === appointmentId ? completed : null;
 		wx.redirectTo({
 			url: paymentResultUrl(
 				appointmentId,
 				patientId,
 				this.data.selectedMode === "self" ? "wechat" : "medical",
+				completedForAppointment
+					? {
+							orderId: completedForAppointment.orderId,
+							...(completedForAppointment.amounts
+								? { totalFen: completedForAppointment.amounts.totalFen }
+								: {}),
+						}
+					: undefined,
 			),
 			fail: () => {
 				paymentCompletionRedirecting = false;

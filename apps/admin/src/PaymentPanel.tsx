@@ -333,8 +333,8 @@ export function PaymentPanel({
 				title="支付流程按开始时间归属"
 				description={
 					day
-						? `查询窗口：${formatTime(day.window.start)} — ${formatTime(day.window.endExclusive)}；前后各带 ${day.window.boundaryBufferMinutes} 分钟边界缓冲。跨到次日的接口仍归属于原支付流程，无法唯一关联的记录不会强行归入。`
-						: "查询会自动带边界缓冲，凌晨前后跨日的接口会显示明确的日期归属。"
+						? `查询窗口：${formatTime(day.window.start)} — ${formatTime(day.window.endExclusive)}；前后各带 ${day.window.boundaryBufferMinutes} 分钟边界缓冲。日汇总只读取支付事件，点击接口时再按订单关联号读取原始请求和返回。跨到次日的接口仍归属于原支付流程，无法唯一关联的记录不会强行归入。`
+						: "查询会自动带边界缓冲，日汇总只读取支付事件；点击接口时再按订单关联号读取原始请求和返回。"
 				}
 			/>
 			{error ? <Alert type="error" showIcon title={error} /> : null}

@@ -96,6 +96,69 @@
 	font-size: 24rpx;
 }
 
+.amount-card {
+	box-sizing: border-box;
+	margin-top: 24rpx;
+	padding: 34rpx 30rpx 28rpx;
+	border-radius: 24rpx;
+	background: #ffffff;
+	box-shadow: 0 10rpx 32rpx rgba(40, 74, 150, 0.07);
+}
+
+.amount-card-title {
+	margin-bottom: 12rpx;
+	color: #1f2d3d;
+	font-size: 30rpx;
+	font-weight: 600;
+	line-height: 1.6;
+}
+
+.amount-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 58rpx;
+	color: #68738a;
+	font-size: 27rpx;
+	line-height: 1.6;
+}
+
+.amount-row text:last-child {
+	color: #1f2d3d;
+	font-weight: 600;
+}
+
+.amount-total-row {
+	padding-bottom: 12rpx;
+	border-bottom: 1rpx solid #edf0f5;
+	color: #4b5870;
+}
+
+.amount-total-row text:last-child {
+	color: #e67e22;
+	font-size: 31rpx;
+}
+
+.amount-source-hint,
+.amount-sync-hint {
+	display: block;
+	color: #8791a5;
+	font-size: 23rpx;
+	line-height: 1.6;
+}
+
+.amount-source-hint {
+	margin-top: 12rpx;
+}
+
+.amount-sync-hint {
+	margin-top: 24rpx;
+	padding: 24rpx 30rpx;
+	border-radius: 24rpx;
+	background: #ffffff;
+	text-align: center;
+}
+
 .result-actions {
 	margin-top: 34rpx;
 }

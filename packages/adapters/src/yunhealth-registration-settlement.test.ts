@@ -106,7 +106,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 		appCode: "WeChatSmallProg",
 		authSysCode: "thirdSelfMachine",
 		autoSettle: 3,
-		body: "自费支付",
+		body: "支付",
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,
 		payModel: "H5",
