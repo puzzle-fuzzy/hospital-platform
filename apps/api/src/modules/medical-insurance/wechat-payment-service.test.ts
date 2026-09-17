@@ -3,6 +3,7 @@ import type {
 	MedicalInsuranceOrder,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceWechatPaymentGateway,
+	WechatPaymentNotification,
 } from "@hospital/domain";
 import { type AppLogger, createLogger } from "@hospital/observability";
 import {
@@ -497,6 +498,51 @@ test("医保混合回调只唤醒持久化查单任务，不在回调内访问 P
 	});
 
 	expect(providerCalls).toBe(0);
+	expect(await tasks.claimDueForQuery(new Date(now), 1, 60_000)).toHaveLength(
+		1,
+	);
+});
+
+test("医保现金回调按已落库 out_trade_no 关联，不依赖 MIP 前缀", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			wechatOutTradeNo: "MZJSD20260917003002",
+			wechatMixTradeNo: "mix-mzjsd-cash-001",
+		}),
+	);
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository();
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: tasks,
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: {} as never,
+		wechatPayment: {} as never,
+		confirmCashPayment: async () => {
+			throw new Error("cash callback must not complete HIS");
+		},
+		now: () => new Date(now),
+	});
+	const notification: WechatPaymentNotification = {
+		notificationId: "medical-cash-notification-mzjsd-001",
+		eventType: "TRANSACTION.SUCCESS",
+		orderId: "MZJSD20260917003002",
+		tradeState: "SUCCESS",
+		totalFen: 200,
+		providerTransactionId: "4200000000000201",
+		receivedAt: now,
+	};
+
+	await expect(
+		service.receiveCashNotification({
+			notification,
+			context: {
+				traceId: notification.notificationId,
+				idempotencyKey: `cash:${notification.notificationId}`,
+			},
+		}),
+	).resolves.toBe(true);
 	expect(await tasks.claimDueForQuery(new Date(now), 1, 60_000)).toHaveLength(
 		1,
 	);

@@ -814,19 +814,22 @@ export class MedicalInsuranceWechatPaymentService {
 	}
 
 	/**
-	 * 普通 JSAPI 回调承载混合订单的现金段。识别 MIP out_trade_no 后只唤醒
-	 * 医保混合查单，不写普通支付通知表，也不允许普通支付 Worker 单独据此
-	 * 完成医院回写。
+	 * 普通 JSAPI 回调承载混合订单的现金段。按已落库的 out_trade_no 精确
+	 * 关联医保订单后，只唤醒医保混合查单，不写普通支付通知表，也不允许
+	 * 普通支付 Worker 单独据此完成医院回写。不能依赖平台自行生成的前缀：
+	 * 复用众阳 .2 预支付时，out_trade_no 可能是众阳返回的 MZJSD...。
 	 */
 	async receiveCashNotification(input: {
 		notification: WechatPaymentNotification;
 		context: { traceId: string; idempotencyKey: string };
 	}): Promise<boolean> {
 		const notification = input.notification;
-		if (!notification.orderId.startsWith("MIP")) return false;
 		const order = await this.dependencies.orders.findByWechatOutTradeNo(
 			notification.orderId,
 		);
+		// 非医保订单交回普通支付通知链路；只有精确命中医保订单时才消费
+		// 该通知，避免按格式猜测订单归属。
+		if (!order) return false;
 		if (!order?.amounts) {
 			throw new MedicalInsuranceWechatPaymentInputError(
 				"Medical insurance cash notification order was not found",
