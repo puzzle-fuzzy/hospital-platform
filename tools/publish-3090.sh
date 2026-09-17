@@ -70,7 +70,7 @@ fi
 ssh_args=()
 rsync_args=()
 if [[ -n "${SSH_OPTIONS:-}" ]]; then
-	read -r -a ssh_args <<< "$SSH_OPTIONS"
+	IFS=' ' read -r -a ssh_args <<< "$SSH_OPTIONS"
 	rsync_args=(-e "ssh $SSH_OPTIONS")
 fi
 ssh_remote() { ssh "${ssh_args[@]}" "$remote_host" "$@"; }
