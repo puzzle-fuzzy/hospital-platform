@@ -3979,7 +3979,23 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"Medical insurance cancellation requested",
 			);
 
-			if (settlementContext.payingId) {
+			// 临时跳过重授权路径的 2.6.65.4：当前 Provider 对已有 payingId
+			// 返回 trade-payment@0002，导致明确的重授权请求无法进入受控关单。
+			// 2.6.65.11 仍是必经校验，只有 revokeStatus=3 才会继续 .6。
+			const shouldQueryPaymentStatus = input.reason !== "reauthorization";
+			if (settlementContext.payingId && !shouldQueryPaymentStatus) {
+				options.logger?.warn(
+					{
+						event: "medical-insurance.cancellation.2.6.65.4.skipped",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						reason: input.reason,
+						providerStatus: "temporarily_disabled_for_reauthorization",
+					},
+					"Medical insurance payment status query skipped for reauthorization",
+				);
+			}
+			if (settlementContext.payingId && shouldQueryPaymentStatus) {
 				const queryResponse = await zhongyangPost(
 					"medical-insurance.2.6.65.4",
 					"/msun-middle-open-settlepay/api/v2/open/payment/pay-query",

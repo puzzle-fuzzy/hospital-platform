@@ -445,6 +445,77 @@ test("缺少关单上下文时在 Provider 边界前返回可识别错误", asyn
 	expect(providerCalled).toBe(false);
 });
 
+test("重授权暂时跳过 .4 但仍强制 .11 和 .6 成功", async () => {
+	const providerPaths: string[] = [];
+	const medicalOrder = {
+		...order,
+		medicalOrderId: "medical-order-reauthorization-001",
+		ownerUserId: "user-reauthorization-001",
+		businessType: "registration",
+	} as MedicalInsuranceOrder;
+	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		legacyFsi: {} as never,
+		orders: {
+			findByMedicalOrderId: async () => medicalOrder,
+			getSettlementContext: async () =>
+				({
+					businessId: "business-reauthorization-001",
+					hospitalId: "10389001",
+					payingId: "paying-reauthorization-001",
+				}) as MedicalInsuranceSettlementContext,
+		} as never,
+		authorizations: {} as never,
+		credentials: {} as never,
+		relayUrl: "https://relay.example",
+		relayAuthorizationToken: "synthetic-token",
+		foundationBaseUrl: "https://foundation.example",
+		zhongyangBaseUrl: "https://zhongyang.example",
+		fetcher: async (url) => {
+			const requestUrl =
+				typeof url === "string"
+					? url
+					: url instanceof URL
+						? url.toString()
+						: url.url;
+			const path = new URL(requestUrl).pathname;
+			providerPaths.push(path);
+			const data = path.endsWith("/pay-close")
+				? { success: true, data: { revokePayRecords: [{ status: "3" }] } }
+				: { success: true, data: { cancelStatus: "1" } };
+			return new Response(JSON.stringify(data), {
+				status: 200,
+				headers: {
+					"content-type": "application/json",
+					"x-request-id": `request-reauthorization-${providerPaths.length}`,
+				},
+			});
+		},
+	});
+
+	await expect(
+		gateway.cancel(
+			{
+				orderId: medicalOrder.medicalOrderId,
+				ownerUserId: medicalOrder.ownerUserId,
+				reason: "reauthorization",
+			},
+			{
+				traceId: "trace-reauthorization-001",
+				idempotencyKey: "idempotency-reauthorization-001",
+			},
+		),
+	).resolves.toMatchObject({
+		state: "cancelled",
+		paymentState: "closed",
+		settlementState: "cancelled",
+	});
+
+	expect(providerPaths).toEqual([
+		"/msun-middle-open-settlepay/api/v2/open/payment/pay-close",
+		"/msun-middle-open-settlepay/api/v2/open/settle/cancel-settle",
+	]);
+});
+
 test("纯医保零元订单在 .32 成功后不调用 .5", async () => {
 	const providerPaths: string[] = [];
 	const medicalOrder = {
