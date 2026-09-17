@@ -1,13 +1,13 @@
 @import "../../styles/clinical-query-state.wxss";
 page {
-	background: #f8f8f8;
+	background: #f5f5f5;
 }
 
 .page {
 	box-sizing: border-box;
 	min-height: 100vh;
 	padding: 0 0 40rpx;
-	background: #f8f8f8;
+	background: #f5f5f5;
 }
 
 .error-message,
@@ -35,6 +35,8 @@ page {
 /* 旧端 PatientHospitalSelector：白色卡片、两行、分割线和右侧箭头。 */
 .selector-card {
 	overflow: hidden;
+	margin: 0 0 20rpx;
+	border-radius: 0;
 	background: #ffffff;
 }
 
@@ -43,8 +45,9 @@ page {
 	align-items: center;
 	justify-content: space-between;
 	box-sizing: border-box;
+	height: 92rpx;
 	min-height: 92rpx;
-	padding: 26rpx 30rpx;
+	padding: 0 30rpx;
 	color: #333333;
 }
 
@@ -97,6 +100,8 @@ page {
 /* 蓝湖稿三个状态标签共用一行，当前项使用医疗蓝和底部短线。 */
 .status-tabs {
 	display: flex;
+	margin: 0;
+	border-radius: 0;
 	background: #ffffff;
 }
 
@@ -107,8 +112,9 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	width: 33.3333%;
-	/* 蓝湖稿标签区约 56px 高，换算为 112rpx。 */
-	height: 112rpx;
+	/* 就诊人行沿用旧端 92rpx 高度，医院园区与三个标签保持一致。 */
+	height: 92rpx;
+	min-height: 92rpx;
 	color: #666666;
 	font-size: 30rpx;
 }
@@ -126,7 +132,7 @@ page {
 	position: absolute;
 	bottom: 0;
 	left: 50%;
-	width: 64rpx;
+	width: 176rpx;
 	height: 4rpx;
 	transform: translateX(-50%);
 	border-radius: 4rpx;
@@ -162,13 +168,43 @@ page {
 	transform: scale(0.99);
 }
 
+/* 蓝湖稿的“已预约”使用倾斜图章，不能退化成绿色文字标签。 */
+.record-status-stamp {
+	position: absolute;
+	top: 24rpx;
+	right: 24rpx;
+	display: block;
+	width: 108rpx;
+	height: 108rpx;
+}
+
 .record-status-badge {
-	position: relative;
-	flex: 0 0 auto;
-	padding: 4rpx 18rpx;
-	border-radius: 4rpx;
+	position: absolute;
+	top: 24rpx;
+	right: 24rpx;
+	box-sizing: border-box;
+	min-width: 84rpx;
+	height: 40rpx;
+	padding: 0 16rpx 0 24rpx;
+	background: #3d6df6;
+	color: #ffffff;
 	font-size: 22rpx;
-	line-height: 32rpx;
+	line-height: 40rpx;
+	text-align: center;
+	white-space: nowrap;
+}
+
+/* 列表稿的状态标左侧是向外的箭头缺口，不是标题下方的横向标签。 */
+.record-status-badge::before {
+	position: absolute;
+	top: 0;
+	left: -12rpx;
+	width: 0;
+	height: 0;
+	border-top: 20rpx solid transparent;
+	border-right: 12rpx solid #3d6df6;
+	border-bottom: 20rpx solid transparent;
+	content: "";
 }
 
 .record-card-header {
@@ -184,40 +220,32 @@ page {
 	flex: 1;
 }
 
-.record-status-badge.record-status-scheduled {
-	padding-left: 24rpx;
-	border-radius: 0 4rpx 4rpx 0;
-	background: #9ddfba;
-	color: #ffffff;
-}
-
-/* 绿色状态标签保留蓝湖稿左侧的折角轮廓。 */
-.record-status-badge.record-status-scheduled::before {
-	position: absolute;
-	top: 0;
-	left: -14rpx;
-	width: 0;
-	height: 0;
-	border-top: 20rpx solid transparent;
-	border-right: 14rpx solid #9ddfba;
-	border-bottom: 20rpx solid transparent;
-	content: "";
-}
-
 /* 其他状态继续显示服务端归一化文案。 */
 .record-status-registered,
 .record-status-substituted,
-.record-status-completed,
+.record-status-completed {
+	background: #3d6df6;
+	color: #ffffff;
+}
+
 .record-status-cancelled,
 .record-status-missed,
 .record-status-stopped,
 .record-status-unknown {
-	background: #f5f5f5;
-	color: #666666;
+	background: #b8b8b8;
+	color: #ffffff;
+}
+
+.record-status-cancelled::before,
+.record-status-missed::before,
+.record-status-stopped::before,
+.record-status-unknown::before {
+	border-right-color: #b8b8b8;
 }
 
 .record-department {
 	overflow: hidden;
+	padding-right: 150rpx;
 	color: #222222;
 	font-size: 32rpx;
 	font-weight: 700;

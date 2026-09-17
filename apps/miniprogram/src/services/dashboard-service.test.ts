@@ -17,8 +17,8 @@ import {
 	formatOutpatientBillDateLabel,
 	formatPlatformDate,
 	loadAppointmentClinicDepartments,
-	loadAppointmentDoctorSchedules,
 	loadAppointmentDepartmentTree,
+	loadAppointmentDoctorSchedules,
 	loadAppointmentSchedules,
 	loadCurrentPatientForOwner,
 	loadInpatientEpisodes,
@@ -1095,6 +1095,23 @@ test("门诊费用列表必须保持查询状态和公共记录字段一致", ()
 			"unpaid",
 		),
 	).toEqual({ items: valid.items, total: valid.total });
+	const baseItem = valid.items[0];
+	if (!baseItem) throw new Error("test fixture is missing a payment item");
+	const refunding = {
+		status: "paid" as const,
+		items: [
+			{
+				...baseItem,
+				status: "paid" as const,
+				paymentStatus: "refunding" as const,
+			},
+		],
+		total: 1,
+	};
+	expect(requireOutpatientPaymentListData(refunding, "paid")).toEqual({
+		items: refunding.items,
+		total: refunding.total,
+	});
 
 	for (const invalid of [
 		{ ...valid, status: "paid" },
@@ -1110,6 +1127,10 @@ test("门诊费用列表必须保持查询状态和公共记录字段一致", ()
 			...valid,
 			items: [valid.items[0], { ...valid.items[0] }],
 			total: 2,
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], paymentStatus: "refunding" }],
 		},
 	]) {
 		expect(() => requireOutpatientPaymentListData(invalid, "unpaid")).toThrow(
@@ -1202,10 +1223,10 @@ test("住院摘要查询先拒绝空患者标识，不产生网络请求", () =>
 	);
 });
 
-test("门诊费用列表展示旧端日期粒度但保留完整账单事实", () => {
+test("门诊费用列表展示完整账单时间并精确格式化金额", () => {
 	const billDate = "2026-08-15 10:20:30";
-	// 这里只验证渲染投影；服务端 contract 仍在上面的读模型测试中保留完整时间。
-	expect(formatOutpatientBillDateLabel(billDate)).toBe("2026-08-15");
+	// 页面展示完整的 2.6.33 账单时间，避免同日多笔费用无法区分。
+	expect(formatOutpatientBillDateLabel(billDate)).toBe(billDate);
 	expect(formatOutpatientAmountLabel(1234)).toBe("¥12.34");
 	expect(formatOutpatientAmountLabel(0)).toBe("¥0.00");
 	expect(formatOutpatientAmountLabel(Number.MAX_SAFE_INTEGER)).toBe(

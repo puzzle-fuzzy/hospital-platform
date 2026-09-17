@@ -1,8 +1,0 @@
-{
-	"extends": "../../tsconfig.base.json",
-	"compilerOptions": {
-		"noEmit": true,
-		"types": ["bun", "wechat-miniprogram"]
-	},
-	"include": ["src/**/*.ts", "scripts/**/*.ts"]
-}

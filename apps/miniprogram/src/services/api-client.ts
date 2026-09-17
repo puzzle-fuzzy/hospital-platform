@@ -198,6 +198,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 			"当前医保订单需要人工处理，请联系工作人员",
 		"medical-insurance-insutype-unavailable":
 			"当前就诊人未查询到可用于本次支付的有效医保参保信息，可确认改用微信支付",
+		"medical-insurance-timeout": "医保连接超时，请稍后重新挂号重试",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
 		"report-query-invalid": "暂时无法查询检查报告，请稍后再试",
 		"report-patient-not-found": "未查询到检查报告",
@@ -3480,7 +3481,7 @@ export function queryOutpatientSelfPay(
 	}).then((payload) => outpatientSelfPayResponse(payload, recordId));
 }
 
-/** 读取当前用户所选就诊人的门诊费用摘要；临床患者映射只在服务端解析。 */
+/** 读取当前用户所选就诊人的门诊费用记录；临床患者映射只在服务端解析。 */
 export function requestOutpatientPaymentRecords(
 	options: {
 		patientId: string;
@@ -3550,8 +3551,8 @@ export function requestInpatientEpisodes(
 }
 
 /**
- * 读取单笔已核对的门诊费用摘要。
- * 项目级费用明细仍没有正式 Provider contract，客户端不能自行拼装或补全。
+ * 读取单笔已核对的门诊费用记录。
+ * 页面只消费服务端按 2.6.33 白名单投影的字段，不能自行拼装或补全。
  */
 export function requestOutpatientPaymentDetail(
 	options: {

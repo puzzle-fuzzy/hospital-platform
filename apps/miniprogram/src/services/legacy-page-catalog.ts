@@ -247,7 +247,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "partial",
 			nativeTarget: "pages/outpatient-payment-detail/outpatient-payment-detail",
 			featureKey: "outpatient-payment-detail",
-			note: "已迁移 owner/patient 作用域的费用摘要详情和微信自费支付；项目级明细、医保结算、退费和电子票据继续关闭。",
+			note: "已迁移 owner/patient 作用域的费用详情和微信自费支付；医保结算、退费和电子票据继续关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/outpatient_pay.vue",

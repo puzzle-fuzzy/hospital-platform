@@ -1103,12 +1103,37 @@ export const OutpatientPaymentStatusSchema = Type.Union([
 	Type.Literal("paid"),
 ]);
 
-/** 门诊费用只返回展示所需字段；订单号、患者卡号和医保字段留在服务端。 */
+/**
+ * 门诊费用返回 2.6.33 中可安全展示的费用字段；订单号、患者卡号、医保编码、
+ * 诊断和原始响应仍留在服务端。金额统一使用人民币分，比例保留 0～1 小数。
+ */
 export const OutpatientPaymentRecordSchema = Type.Object({
 	recordId: Type.String({ minLength: 1, maxLength: 128 }),
 	status: OutpatientPaymentStatusSchema,
+	/** Provider tradeStatus=4；在已缴费列表中明确展示为退款中。 */
+	paymentStatus: Type.Optional(Type.Literal("refunding")),
+	itemName: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
 	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	executionDepartmentName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
 	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	executionDoctorName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	spec: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	quantity: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	unitName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	priceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+	chargeClassName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	tradePropName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	networkPatClassName: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 128 }),
+	),
+	typeMemo: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	preferentialAmountFen: Type.Optional(Type.Integer({ minimum: 0 })),
+	ascendAmountFen: Type.Optional(Type.Integer({ minimum: 0 })),
+	selfBurdenRatio: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
 	billDate: Type.String({ minLength: 1, maxLength: 64 }),
 	amountFen: Type.Integer({ minimum: 0 }),
 });
@@ -1123,10 +1148,10 @@ export const OutpatientPaymentListResponse = Type.Object({
 });
 
 /**
- * 门诊费用详情目前只开放已由 2.6.33 核对的单笔摘要。
+ * 门诊费用详情复用同一条 2.6.33 费用条目展示白名单。
  *
- * 项目级费用明细、医保分摊和电子票据字段尚未有可引用的众阳正式 contract，
- * 因此不能为了还原旧页面而在这里新增未经确认的价格、数量或医保字段。
+ * 订单号、医保编码、诊断和电子票据字段仍不进入患者端 contract；支付流程
+ * 只使用服务端重新读取的金额和记录引用，不使用页面展示字段。
  */
 export const OutpatientPaymentDetailResponse = Type.Object({
 	success: Type.Literal(true),

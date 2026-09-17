@@ -24,9 +24,9 @@ import {
 	getCurrentUser,
 	request,
 	requestAppointmentClinicDepartments,
-	requestAppointmentDoctorSchedules,
 	requestAppointmentDepartments,
 	requestAppointmentDepartmentTree,
+	requestAppointmentDoctorSchedules,
 	requestAppointmentRecords,
 	requestAppointmentSchedules,
 	requestInpatientEpisodes,
@@ -661,9 +661,7 @@ export function requireAppointmentScheduleListData(
 			...(titleName === undefined ? {} : { titleName }),
 			...(introduction === undefined ? {} : { introduction }),
 			...(expertise === undefined ? {} : { expertise }),
-			...(registrationClassName === undefined
-				? {}
-				: { registrationClassName }),
+			...(registrationClassName === undefined ? {} : { registrationClassName }),
 			...(hospitalAreaName === undefined ? {} : { hospitalAreaName }),
 			...(departmentLocation === undefined ? {} : { departmentLocation }),
 			doctorId,
@@ -687,8 +685,8 @@ export function requireAppointmentScheduleListData(
  *
  * `total` 一致只能证明数组长度没有错，不能证明“待缴费/已缴费”语义没有
  * 串台。客户端收到的 JSON 不是 TypeScript 事实；这里在页面读取边界再次
- * 校验列表状态、记录标识、账单时间和金额的基本形状，防止代理或版本错配
- * 把已缴记录展示在待缴页，或让非整数金额进入 `toFixed`/支付前置逻辑。
+ * 校验列表状态、记录标识、账单时间、金额和 2.6.33 展示字段的形状，防止
+ * 代理或版本错配把已缴记录展示在待缴页，或让非整数金额进入支付前置逻辑。
  * Provider 的日期格式、金额来源和最终权限仍由服务端 contract 负责。
  */
 export function requireOutpatientPaymentListData(
@@ -711,8 +709,18 @@ export function requireOutpatientPaymentListData(
 			});
 		}
 		const recordId = item.recordId;
+		const itemName = optionalDisplayText(
+			item.itemName,
+			256,
+			"Outpatient payment response item is invalid",
+		);
 		const departmentName = optionalDisplayText(
 			item.departmentName,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const executionDepartmentName = optionalDisplayText(
+			item.executionDepartmentName,
 			128,
 			"Outpatient payment response item is invalid",
 		);
@@ -721,9 +729,68 @@ export function requireOutpatientPaymentListData(
 			128,
 			"Outpatient payment response item is invalid",
 		);
+		const executionDoctorName = optionalDisplayText(
+			item.executionDoctorName,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const spec = optionalDisplayText(
+			item.spec,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const quantity = optionalDisplayText(
+			item.quantity,
+			64,
+			"Outpatient payment response item is invalid",
+		);
+		const unitName = optionalDisplayText(
+			item.unitName,
+			64,
+			"Outpatient payment response item is invalid",
+		);
+		const chargeClassName = optionalDisplayText(
+			item.chargeClassName,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const tradePropName = optionalDisplayText(
+			item.tradePropName,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const networkPatClassName = optionalDisplayText(
+			item.networkPatClassName,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const typeMemo = optionalDisplayText(
+			item.typeMemo,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const priceFen = optionalOutpatientAmountFen(
+			item.priceFen,
+			"Outpatient payment response item is invalid",
+		);
+		const preferentialAmountFen = optionalOutpatientAmountFen(
+			item.preferentialAmountFen,
+			"Outpatient payment response item is invalid",
+		);
+		const ascendAmountFen = optionalOutpatientAmountFen(
+			item.ascendAmountFen,
+			"Outpatient payment response item is invalid",
+		);
+		const selfBurdenRatio = optionalOutpatientRatio(
+			item.selfBurdenRatio,
+			"Outpatient payment response item is invalid",
+		);
+		const paymentStatus = item.paymentStatus;
 		const amountFen = item.amountFen;
 		if (
 			item.status !== expectedStatus ||
+			(paymentStatus !== undefined &&
+				(paymentStatus !== "refunding" || item.status !== "paid")) ||
 			!hasBoundedDisplayText(recordId, 128) ||
 			seenRecordIds.has(recordId) ||
 			!isOutpatientBillDateTime(item.billDate) ||
@@ -735,20 +802,68 @@ export function requireOutpatientPaymentListData(
 				code: "provider-response-invalid",
 			});
 		}
+		const normalizedPaymentStatus =
+			paymentStatus === "refunding" ? paymentStatus : undefined;
 		seenRecordIds.add(recordId);
 		items.push({
 			recordId,
 			status: expectedStatus,
+			...(normalizedPaymentStatus === undefined
+				? {}
+				: { paymentStatus: normalizedPaymentStatus }),
 			billDate: item.billDate,
 			amountFen,
+			...(itemName === undefined ? {} : { itemName }),
 			...(departmentName === undefined ? {} : { departmentName }),
+			...(executionDepartmentName === undefined
+				? {}
+				: { executionDepartmentName }),
 			...(doctorName === undefined ? {} : { doctorName }),
+			...(executionDoctorName === undefined ? {} : { executionDoctorName }),
+			...(spec === undefined ? {} : { spec }),
+			...(quantity === undefined ? {} : { quantity }),
+			...(unitName === undefined ? {} : { unitName }),
+			...(priceFen === undefined ? {} : { priceFen }),
+			...(chargeClassName === undefined ? {} : { chargeClassName }),
+			...(tradePropName === undefined ? {} : { tradePropName }),
+			...(networkPatClassName === undefined ? {} : { networkPatClassName }),
+			...(typeMemo === undefined ? {} : { typeMemo }),
+			...(preferentialAmountFen === undefined ? {} : { preferentialAmountFen }),
+			...(ascendAmountFen === undefined ? {} : { ascendAmountFen }),
+			...(selfBurdenRatio === undefined ? {} : { selfBurdenRatio }),
 		});
 	}
 	return {
 		items,
 		total: list.total,
 	};
+}
+
+function optionalOutpatientAmountFen(
+	value: unknown,
+	message: string,
+): number | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+		throw new ApiError(message, { code: "provider-response-invalid" });
+	}
+	return value;
+}
+
+function optionalOutpatientRatio(
+	value: unknown,
+	message: string,
+): number | undefined {
+	if (value === undefined) return undefined;
+	if (
+		typeof value !== "number" ||
+		!Number.isFinite(value) ||
+		value < 0 ||
+		value > 1
+	) {
+		throw new ApiError(message, { code: "provider-response-invalid" });
+	}
+	return value;
 }
 
 /** 号源页直接消费的排班上下文和号源也必须通过同一公开字段边界。 */
@@ -1106,7 +1221,7 @@ export function requireInpatientEpisodeListData(
 	return { items, total: list.total };
 }
 
-/** 门诊详情沿用列表摘要的运行时校验，不允许网络响应带入未确认明细字段。 */
+/** 门诊详情沿用列表的 2.6.33 安全展示字段校验，不允许网络响应带入内部字段。 */
 export function requireOutpatientPaymentDetailData(
 	value: unknown,
 	patientId: string,
@@ -1914,7 +2029,7 @@ export function loadInpatientEpisodes(
 	).then((payload) => requireInpatientEpisodeListData(payload.data));
 }
 
-/** 读取单笔已核对的门诊费用摘要；项目级明细仍按 Provider contract 关闭。 */
+/** 读取单笔已核对的门诊费用记录；详情与列表复用同一字段白名单。 */
 export function loadOutpatientPaymentDetail(
 	patientId: string,
 	recordId: string,
@@ -1950,15 +2065,14 @@ export function loadOutpatientPaymentDetail(
 }
 
 /**
- * 将已通过 contract 校验的账单时间投影为旧端列表的展示粒度。
+ * 将已通过 contract 校验的账单时间原样投影到页面。
  *
- * `billDate` 的完整时分秒仍是业务事实，不能在 API 或领域层截断：服务端
- * 需要它执行中国标准时间窗口校验，记录引用也会使用它区分不同开单时刻。
- * 这里只在小程序渲染边界显示自然日，恢复旧端 `formatBillDate` 的行为，
- * 避免把内部精确时间误认为页面设计或支付状态的一部分。
+ * 2.6.33 的 `billDate` 同时包含费用日期和时分秒；此前只取前 10 位会让
+ * 同一天多笔费用无法区分，也会让用户误以为日期来自当前查询时间。服务端
+ * 仍保留完整值做窗口校验，页面展示同一条已校验的完整时间事实。
  */
 export function formatOutpatientBillDateLabel(billDate: string): string {
-	return billDate.slice(0, 10);
+	return billDate;
 }
 
 /**
@@ -1976,6 +2090,17 @@ export function formatOutpatientAmountLabel(amountFen: number): string {
 	const yuan = Math.floor(amountFen / 100);
 	const fen = amountFen % 100;
 	return `¥${yuan}.${String(fen).padStart(2, "0")}`;
+}
+
+/** 将 2.6.33 的 0～1 自付比例转换为用户可读的百分比。 */
+export function formatOutpatientRatioLabel(ratio: number): string {
+	if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
+		throw new ApiError("门诊自付比例不合法", {
+			code: "provider-response-invalid",
+		});
+	}
+	const percent = ratio * 100;
+	return `${Number.isInteger(percent) ? percent : percent.toFixed(2)}%`;
 }
 
 /** 读取当前内部患者的脱敏预约历史摘要。 */

@@ -7,8 +7,8 @@ import {
 import {
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
-	getMiniProgramDevelopmentRuntimePath,
 	getMiniProgramPendingRuntimePath,
+	getMiniProgramRuntimePath,
 	listRuntimeFiles,
 	type MiniProgramRuntimeBuildMode,
 } from "./runtime-publisher";
@@ -46,14 +46,10 @@ function resolveVerificationOptions(): Readonly<{
 const { buildMode, verifyPending } = resolveVerificationOptions();
 const runtime = verifyPending
 	? getMiniProgramPendingRuntimePath(root, buildMode)
-	: buildMode === "development"
-		? getMiniProgramDevelopmentRuntimePath(root)
-		: join(root, "dist");
+	: getMiniProgramRuntimePath(root);
 const runtimeLabel = verifyPending
 	? `${buildMode} pending runtime`
-	: buildMode === "development"
-		? "development runtime"
-		: "dist";
+	: "dist runtime";
 const buildCommand =
 	buildMode === "development"
 		? "pnpm --filter @hospital/miniprogram build:dev"
@@ -153,7 +149,7 @@ await assertFile("build-info.json");
 await assertFile("project.config.json");
 
 /**
- * 正式与开发运行包都必须作为独立工程打开，不能依赖父目录的
+ * 正式和开发两种模式共用同一个独立 dist 工程，不能依赖父目录的
  * `miniprogramRoot=dist/`，否则工具仍可能监听旁边的 src/。
  */
 const runtimeProjectConfig = JSON.parse(

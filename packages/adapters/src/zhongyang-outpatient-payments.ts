@@ -38,15 +38,16 @@ type OutpatientPaymentAdapterInput = {
 };
 
 /**
- * 2.6.33 文档明确冻结了 amount、billDeptName、billDocName、billDate 和费用标识等字段。
- * waitPayAmount、registerDept、registerDoctor 只来自旧端类型/调用线索，当前不是新的 contract，
- * 因此故意不读取它们：未确认字段不能参与金额计算、公共展示、日志或未来支付编排。
+ * 2.6.33 费用条目同时包含费用项目、数量、单价、费别和执行信息。这里只读取
+ * 患者端确实需要的展示字段；患者/订单标识、医保编码、诊断和原始响应仍留在
+ * adapter 内部，不能因为页面需要“更多内容”就整包透传。
  */
 type ProviderPaymentItem = {
 	amount?: unknown;
 	/**
 	 * 2.6.33 响应中的订单状态：1=待支付、2=已生成结算、3=已支付、
-	 * 4=退款中、5=已退款、9=作废。公共只读模型只能确认 1/3；其余状态
+	 * 4=退款中、5=已退款、9=作废。公共只读模型把 1 映射为待缴费，
+	 * 把 3/4 映射到已缴费列表，并用 paymentStatus 标记退款中；其余状态
 	 * 没有独立 contract，不能粗暴映射成 paid，只在 adapter 内 fail-closed。
 	 */
 	tradeStatus?: unknown;
@@ -58,6 +59,20 @@ type ProviderPaymentItem = {
 	billDeptName?: unknown;
 	billDocName?: unknown;
 	billDate?: unknown;
+	exeDeptName?: unknown;
+	exeDocName?: unknown;
+	itemName?: unknown;
+	price?: unknown;
+	quantity?: unknown;
+	unitName?: unknown;
+	spec?: unknown;
+	chargeClassName?: unknown;
+	tradePropName?: unknown;
+	networkPatClassName?: unknown;
+	typeMemo?: unknown;
+	preferentialAmount?: unknown;
+	ascendAmount?: unknown;
+	selfBurdenRatio?: unknown;
 	outTradeOrderId?: unknown;
 	registerId?: unknown;
 	visitRecordId?: unknown;
@@ -288,20 +303,62 @@ function amountFen(value: unknown, requestId: string): number {
 	return Number(fen);
 }
 
+/** 可选费用金额沿用 amount 的元→分精确转换；缺失字段保持缺省。 */
+function optionalAmountFen(
+	value: unknown,
+	field: string,
+	requestId: string,
+): number | undefined {
+	if (value === undefined || value === null || value === "") return undefined;
+	try {
+		return amountFen(value, requestId);
+	} catch (error) {
+		if (error instanceof ProviderRequestError) {
+			throw providerError(
+				`Zhongyang outpatient ${field} is invalid`,
+				requestId,
+			);
+		}
+		throw error;
+	}
+}
+
+/** 2.6.33 自付比例按 0～1 小数传递，页面只负责百分比格式化。 */
+function optionalRatio(
+	value: unknown,
+	field: string,
+	requestId: string,
+): number | undefined {
+	if (value === undefined || value === null || value === "") return undefined;
+	if (typeof value !== "number" && typeof value !== "string") {
+		throw providerError(`Zhongyang outpatient ${field} is invalid`, requestId);
+	}
+	const normalized = String(value).trim();
+	if (!/^\d+(?:\.\d+)?$/.test(normalized)) {
+		throw providerError(`Zhongyang outpatient ${field} is invalid`, requestId);
+	}
+	const ratio = Number(normalized);
+	if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
+		throw providerError(`Zhongyang outpatient ${field} is invalid`, requestId);
+	}
+	return ratio;
+}
+
 /**
  * 校验 Provider 返回的订单状态与本次查询条件一致。
  *
  * 不能只相信请求参数并给整批记录贴上 `unpaid`/`paid` 标签：Provider
  * 可能因为数据错配、查询条件失效或上游返回异常而返回另一种状态。
- * 2.6.33 已明确响应中的 `tradeStatus`，因此缺失或不一致都必须整批
- * 失败，避免把已支付记录展示成待支付，或把错误读模型带入未来支付编排。
+ * 2.6.33 已明确响应中的 `tradeStatus`。待缴费查询只能收到 1；已缴费
+ * 查询允许 3（已支付）和 4（退款中），其中 4 会在公共模型中保留为
+ * `paymentStatus: "refunding"`。未知、已退款或作废状态仍必须整批失败，
+ * 避免把不可支付或已失效记录伪装成可展示的已缴费事实。
  */
 function verifyTradeStatus(
 	value: unknown,
 	status: OutpatientPaymentStatus,
 	requestId: string,
-): void {
-	const expected = status === "unpaid" ? "1" : "3";
+): OutpatientPaymentRecord["paymentStatus"] {
 	if (typeof value !== "string" && typeof value !== "number") {
 		throw providerError(
 			"Zhongyang outpatient tradeStatus is missing or invalid",
@@ -309,12 +366,16 @@ function verifyTradeStatus(
 		);
 	}
 	const actual = String(value).trim();
-	if (actual !== expected) {
-		throw providerError(
-			"Zhongyang outpatient tradeStatus did not match the requested status",
-			requestId,
-		);
+	if (status === "unpaid") {
+		if (actual === "1") return undefined;
+	} else {
+		if (actual === "3") return undefined;
+		if (actual === "4") return "refunding";
 	}
+	throw providerError(
+		"Zhongyang outpatient tradeStatus did not match the requested status",
+		requestId,
+	);
 }
 
 /**
@@ -486,25 +547,89 @@ function mapRecord(
 	status: OutpatientPaymentStatus,
 	requestId: string,
 ): OutpatientPaymentRecord {
-	verifyTradeStatus(item.tradeStatus, status, requestId);
+	const paymentStatus = verifyTradeStatus(item.tradeStatus, status, requestId);
 	// 这里直接复用公开 contract 的上限：异常 provider 文本必须在 adapter
 	// 边界被拒绝，不能等到 Elysia 响应校验阶段才变成难定位的 500。
 	const billDate = billDateText(item.billDate, requestId);
+	const itemName = textField(item.itemName, "itemName", requestId, 256);
 	const departmentName = textField(
 		item.billDeptName,
 		"departmentName",
 		requestId,
 		128,
 	);
+	const executionDepartmentName = textField(
+		item.exeDeptName,
+		"executionDepartmentName",
+		requestId,
+		128,
+	);
 	const doctorName = textField(item.billDocName, "doctorName", requestId, 128);
+	const executionDoctorName = textField(
+		item.exeDocName,
+		"executionDoctorName",
+		requestId,
+		128,
+	);
+	const spec = textField(item.spec, "spec", requestId, 128);
+	const quantity = textField(item.quantity, "quantity", requestId, 64);
+	const unitName = textField(item.unitName, "unitName", requestId, 64);
+	const priceFen = optionalAmountFen(item.price, "price", requestId);
+	const chargeClassName = textField(
+		item.chargeClassName,
+		"chargeClassName",
+		requestId,
+		128,
+	);
+	const tradePropName = textField(
+		item.tradePropName,
+		"tradePropName",
+		requestId,
+		128,
+	);
+	const networkPatClassName = textField(
+		item.networkPatClassName,
+		"networkPatClassName",
+		requestId,
+		128,
+	);
+	const typeMemo = textField(item.typeMemo, "typeMemo", requestId, 128);
+	const preferentialAmountFen = optionalAmountFen(
+		item.preferentialAmount,
+		"preferentialAmount",
+		requestId,
+	);
+	const ascendAmountFen = optionalAmountFen(
+		item.ascendAmount,
+		"ascendAmount",
+		requestId,
+	);
+	const selfBurdenRatio = optionalRatio(
+		item.selfBurdenRatio,
+		"selfBurdenRatio",
+		requestId,
+	);
 	return {
 		recordId: opaqueRecordId(item, providerPatientId, requestId),
 		status,
+		...(paymentStatus ? { paymentStatus } : {}),
+		...(itemName ? { itemName } : {}),
 		...(departmentName ? { departmentName } : {}),
+		...(executionDepartmentName ? { executionDepartmentName } : {}),
 		...(doctorName ? { doctorName } : {}),
+		...(executionDoctorName ? { executionDoctorName } : {}),
+		...(spec ? { spec } : {}),
+		...(quantity ? { quantity } : {}),
+		...(unitName ? { unitName } : {}),
+		...(priceFen !== undefined ? { priceFen } : {}),
+		...(chargeClassName ? { chargeClassName } : {}),
+		...(tradePropName ? { tradePropName } : {}),
+		...(networkPatClassName ? { networkPatClassName } : {}),
+		...(typeMemo ? { typeMemo } : {}),
+		...(preferentialAmountFen !== undefined ? { preferentialAmountFen } : {}),
+		...(ascendAmountFen !== undefined ? { ascendAmountFen } : {}),
+		...(selfBurdenRatio !== undefined ? { selfBurdenRatio } : {}),
 		billDate,
-		// 2.6.33 只确认 amount 为应收金额；不能根据旧端候选字段
-		// waitPayAmount 推导待支付金额，避免将未经 Provider 确认的数值带入公共读模型。
 		amountFen: amountFen(item.amount, requestId),
 	};
 }
@@ -605,12 +730,15 @@ export class ZhongyangOutpatientPaymentApiGateway
 	 * `outTradeOrderId`。小程序只持有 opaque recordId，绝不直接提交 Provider
 	 * 单号或金额。
 	 */
-	async resolvePaymentContext(input: {
-		providerPatientId: string;
-		recordId: string;
-		startTime: string;
-		endTime: string;
-	}, context: import("@hospital/domain").AdapterCallContext) {
+	async resolvePaymentContext(
+		input: {
+			providerPatientId: string;
+			recordId: string;
+			startTime: string;
+			endTime: string;
+		},
+		context: import("@hospital/domain").AdapterCallContext,
+	) {
 		const providerPatientId = requiredConfig(input.providerPatientId);
 		const recordId = requiredConfig(input.recordId);
 		const startTime = requiredConfig(input.startTime);
@@ -636,7 +764,9 @@ export class ZhongyangOutpatientPaymentApiGateway
 		);
 		const items = responseItems(response.data, response.requestId);
 		const matched = items.find(
-			(item) => opaqueRecordId(item, providerPatientId, response.requestId) === recordId,
+			(item) =>
+				opaqueRecordId(item, providerPatientId, response.requestId) ===
+				recordId,
 		);
 		if (!matched) {
 			throw providerError(

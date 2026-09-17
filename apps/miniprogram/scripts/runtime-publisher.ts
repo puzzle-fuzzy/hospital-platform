@@ -15,10 +15,10 @@ export type MiniProgramRuntimeBuildMode = "development" | "release";
 /**
  * 获取小程序待发布候选的本机隔离路径。
  *
- * 待发布候选只是在微信开发者工具锁住正式或开发运行目录时的临时副本，不是源码，
+ * 待发布候选只是在微信开发者工具锁住唯一 dist 运行目录时的临时副本，不是源码，
  * 不能放在 `apps/` 下，否则根目录 Biome、Git 或开发者工具都可能把它当成
  * 第二套小程序工程。统一放到仓库 `.local/` 下，既保留故障恢复能力，也
- * 让候选与正式运行包、TypeScript 源码和文档完全隔离。
+ * 让候选与唯一 dist 运行包、TypeScript 源码和文档完全隔离。
  */
 export function getMiniProgramPendingRuntimePath(
 	packageRoot: string,
@@ -35,21 +35,13 @@ export function getMiniProgramPendingRuntimePath(
 }
 
 /**
- * 本地开发包必须与正式 `apps/miniprogram/dist/` 完全隔离。开发者工具打开
- * 此目录只能预览脏工作树快照，不能把它误传为正式候选或让父工程 watcher
- * 混入另一套页面图。
+ * 开发和正式构建共用唯一的微信运行根 `apps/miniprogram/dist/`。
+ * 两种模式只在 build-info.json 中区分来源：development 记录工作树快照，
+ * release 记录已提交 Git revision；不能再把 development 生成到另一套可打开
+ * 的小程序目录，否则开发者工具容易同时命中两份页面图。
  */
-export function getMiniProgramDevelopmentRuntimePath(
-	packageRoot: string,
-): string {
-	return join(
-		packageRoot,
-		"..",
-		"..",
-		".local",
-		"hospital-miniprogram",
-		"development",
-	);
+export function getMiniProgramRuntimePath(packageRoot: string): string {
+	return join(packageRoot, "dist");
 }
 
 function isMissingPath(error: unknown): boolean {
@@ -260,7 +252,8 @@ function developmentRuntimeFileOrder(relativePath: string): number {
  * 每个已变更文件先复制到运行根外的临时目录，再以单文件 rename 覆盖；所有
  * 页面文件先于 app.json，app.js 最后替换，旧模块路径始终存在。
  *
- * 正式 dist 继续使用上面的整目录原子发布，本函数只用于 development runtime。
+ * release 使用上面的整目录原子发布；development 也写入同一个 dist，但用单文件
+ * 同步保持开发者工具打开的根目录稳定。
  */
 export async function publishMiniProgramDevelopmentRuntime(
 	stagingRuntime: string,

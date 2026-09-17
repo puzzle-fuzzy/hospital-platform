@@ -165,6 +165,9 @@ function paymentActionMessage(error: unknown): string {
 		return "当前医保支付包含微信支付金额，请继续医保支付";
 	}
 	if (error instanceof ApiError) {
+		if (error.code === "medical-insurance-timeout") {
+			return "医保连接超时，请稍后重新挂号重试";
+		}
 		if (error.code === "payment-prepay-in-progress") {
 			return "支付结果正在确认，预约已保留，请稍后查看挂号详情；如已扣款请联系医院核实";
 		}
