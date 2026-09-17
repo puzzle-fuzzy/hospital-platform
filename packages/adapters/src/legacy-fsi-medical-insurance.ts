@@ -64,6 +64,25 @@ const DEFAULT_ULD_LATLNT = "112.928537,35.787393";
 
 type ProviderRecord = Record<string, unknown>;
 
+/**
+ * 挂号 2.6.65.1 必须使用预约创建返回的挂号流水。
+ * 高平众阳通常只返回 hisRegisterId；不能用 `in providerRegisterId`
+ * 判断是否进入挂号分支，否则属性被上层按需省略时会把 registerId 丢掉。
+ */
+export function resolveRegistrationProviderRegisterId(input: {
+	appointmentId?: string;
+	providerAppointmentId?: string;
+	providerRegisterId?: string;
+	providerHisRegisterId?: string;
+}): string | undefined {
+	if (!input.appointmentId) return undefined;
+	return (
+		input.providerRegisterId ??
+		input.providerHisRegisterId ??
+		input.providerAppointmentId
+	);
+}
+
 export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	legacyFsi: Pick<
 		LegacyFsiGateway,
@@ -2943,10 +2962,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					? business.providerAppointmentId
 					: business.recordId;
 			const registerId =
-				"providerRegisterId" in business
-					? (business.providerRegisterId ??
-						business.providerHisRegisterId ??
-						business.providerAppointmentId)
+				"providerAppointmentId" in business
+					? resolveRegistrationProviderRegisterId(business)
 					: undefined;
 			const totalFenExpected = business.totalFen;
 			const fallbackDepartmentId =

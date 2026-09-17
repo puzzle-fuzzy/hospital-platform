@@ -11,6 +11,7 @@ import {
 	mapSettlementDetails,
 	medicalTypeForBusiness,
 	offSiteTypeForInsuredArea,
+	resolveRegistrationProviderRegisterId,
 	settlementInsuTypeNameForInsutype,
 	settlementMedTypeNameForBusiness,
 } from "./legacy-fsi-medical-insurance";
@@ -128,6 +129,27 @@ test("挂号 .32 明细的 orderId 固定为 -1", () => {
 	);
 
 	expect(detail).toMatchObject({ orderId: -1 });
+});
+
+test("2.6.65.1 挂号参数优先使用 hisRegisterId", () => {
+	expect(
+		resolveRegistrationProviderRegisterId({
+			appointmentId: "appointment-register-id-001",
+			providerAppointmentId: "8842508330040721665",
+			providerHisRegisterId: "8842508330101318146",
+		}),
+	).toBe("8842508330101318146");
+	expect(
+		resolveRegistrationProviderRegisterId({
+			appointmentId: "appointment-register-id-002",
+			providerAppointmentId: "8842508330040721666",
+		}),
+	).toBe("8842508330040721666");
+	expect(
+		resolveRegistrationProviderRegisterId({
+			providerHisRegisterId: "should-not-be-used-without-appointment",
+		}),
+	).toBeUndefined();
 });
 
 function authorizationSelectionFixture(
