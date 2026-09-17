@@ -267,6 +267,36 @@ function isKnownEmptyReportEnvelope(
 	);
 }
 
+/**
+ * 体检报告目录使用另一套历史包络表达合法空结果。
+ *
+ * 目标环境实证响应为 `{ success:false, code:"10002", msg:"未查询到数据",
+ * data:{ patientName:"", report:[] } }`。这里只接受该来源、错误码、文案
+ * 和空 report 数组的精确组合；其它 `success=false` 仍按 Provider 拒绝处理。
+ */
+function isKnownEmptyPeisReportEnvelope(envelope: ProviderObject): boolean {
+	if (
+		envelope.success !== false ||
+		envelope.code !== "10002" ||
+		envelope.msg !== "未查询到数据"
+	) {
+		return false;
+	}
+	if (
+		typeof envelope.data !== "object" ||
+		envelope.data === null ||
+		Array.isArray(envelope.data)
+	) {
+		return false;
+	}
+	const data = envelope.data as ProviderObject;
+	return (
+		data.patientName === "" &&
+		Array.isArray(data.report) &&
+		data.report.length === 0
+	);
+}
+
 /** 兼容 provider 的数组响应和 `{ success, data }` 包装，但不接受任意对象透传。 */
 function responseItems(
 	value: unknown,
@@ -311,6 +341,12 @@ function peisResponseItems(
 	requestId: string,
 ): ProviderObject[] {
 	const envelope = objectValue(value, operation, requestId);
+	if (
+		operation === "reports-peis" &&
+		isKnownEmptyPeisReportEnvelope(envelope)
+	) {
+		return [];
+	}
 	requireSuccessfulEnvelope(envelope, operation, requestId);
 	const data = objectValue(envelope.data, operation, requestId);
 	if (!Array.isArray(data.report)) {

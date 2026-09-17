@@ -438,6 +438,43 @@ test("众阳心电报告不会把其它 0001 业务拒绝误判为空列表", as
 	});
 });
 
+test("众阳 PEIS 将已确认的 10002 未查询到数据包络映射为空列表", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: false,
+					code: "10002",
+					msg: "未查询到数据",
+					data: { patientName: "", report: [] },
+				}),
+				{ status: 200, headers: { "x-request-id": "peis-empty" } },
+			),
+	});
+
+	const result = await gateway.listReports(
+		{
+			providerPatientId: "his-patient-empty-peis",
+			providerIdentityNumber: "140581199001010001",
+			hospitalId: 10389001,
+			query: {
+				startDate: "2026-08-15",
+				endDate: "2026-09-14",
+				kind: "peis",
+			},
+		},
+		context,
+	);
+
+	expect(result.reports).toEqual([]);
+	expect(result.trace).toEqual({
+		provider: "zhongyang",
+		operation: "reports-directory",
+		requestId: "peis-empty",
+	});
+});
+
 test("众阳跨来源报告按严格可解析时间倒序，未知时间放在末尾", async () => {
 	const gateway = createZhongyangReportGateway({
 		baseUrl: "https://zhongyang.example.test",
