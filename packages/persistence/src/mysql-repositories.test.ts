@@ -1368,6 +1368,159 @@ test("MySQL medical insurance order insert keeps columns and values aligned", as
 	expect(values).toHaveLength(41);
 });
 
+test("MySQL 医保历史 MD5 调起参数隔离后仍可读取混合订单事实", async () => {
+	const cipher = createAesGcmSecretValueCipher(
+		Buffer.alloc(32, 9).toString("base64"),
+	);
+	const legacyMd5 = {
+		timeStamp: "1786752000",
+		nonceStr: "legacy-md5-nonce-001",
+		package: "prepay_id=legacy-md5-prepay-001",
+		signType: "MD5",
+		paySign: "A".repeat(32),
+		mixTradeNo: "mix-legacy-md5-001",
+	};
+	const row = {
+		medical_order_id: "medical-order-legacy-md5-001",
+		owner_user_id: "user-legacy-md5-001",
+		patient_id: "patient-legacy-md5-001",
+		business_type: "registration",
+		order_type: "RegPay",
+		business_id: "appointment-legacy-md5-001",
+		appointment_id: "appointment-legacy-md5-001",
+		authorization_id: null,
+		fee_upload_id: null,
+		idempotency_key: "legacy-md5-idempotency-001",
+		med_org_ord: "med-org-legacy-md5-001",
+		chrg_bchno: "batch-legacy-md5-001",
+		pay_ord_id: "pay-ord-legacy-md5-001",
+		pay_token_hash: null,
+		mdtrt_id: null,
+		acct_used_flag: null,
+		status: "cash_pending",
+		ord_stas: "2",
+		total_fen: 1000,
+		cash_fen: 200,
+		personal_account_fen: 300,
+		fund_fen: 500,
+		other_payment_fen: 0,
+		hospital_part_fen: 0,
+		personal_account_mutual_aid_fen: 0,
+		personal_account_self_fen: 0,
+		deposit_fen: 0,
+		delivery_fee_fen: 0,
+		setl_type: "ALL",
+		revs_token_hash: null,
+		revs_token_expires_at: null,
+		last_error: null,
+		med_ins_fail_reason: null,
+		wechat_mix_trade_no: "mix-legacy-md5-001",
+		wechat_out_trade_no: "out-legacy-md5-001",
+		wechat_payment_state: "prepay_ready",
+		wechat_pay_params_ciphertext: cipher.seal(JSON.stringify(legacyMd5)),
+		wechat_prepay_expires_at: "2026-09-17 12:00:00.000",
+		version: 7,
+		created_at: "2026-09-17 10:00:00.000",
+		updated_at: "2026-09-17 11:00:00.000",
+	};
+	const { pool } = createFakePool([[row], [row], [row]]);
+	const repositories = createMySqlRepositories(pool, { prepayCipher: cipher });
+
+	const loaded = await repositories.medicalInsuranceOrders.findByMedicalOrderId(
+		"medical-order-legacy-md5-001",
+	);
+	const loadedByMix =
+		await repositories.medicalInsuranceOrders.findByWechatMixTradeNo(
+			"mix-legacy-md5-001",
+		);
+	const loadedByOut =
+		await repositories.medicalInsuranceOrders.findByWechatOutTradeNo(
+			"out-legacy-md5-001",
+		);
+
+	for (const candidate of [loaded, loadedByMix, loadedByOut]) {
+		expect(candidate).toMatchObject({
+			medicalOrderId: "medical-order-legacy-md5-001",
+			status: "cash_pending",
+			wechatMixTradeNo: "mix-legacy-md5-001",
+			wechatOutTradeNo: "out-legacy-md5-001",
+			wechatPaymentState: "prepay_ready",
+			wechatPayParams: null,
+			wechatPayParamsFormat: "legacy_md5",
+		});
+		expect(candidate).not.toHaveProperty("paySign");
+	}
+});
+
+test("MySQL 医保调起参数不是合法 RSA 或历史 MD5 时仍拒绝损坏数据", async () => {
+	const cipher = createAesGcmSecretValueCipher(
+		Buffer.alloc(32, 9).toString("base64"),
+	);
+	const { pool } = createFakePool([
+		[
+			{
+				medical_order_id: "medical-order-invalid-medical-pay-001",
+				owner_user_id: "user-invalid-medical-pay-001",
+				patient_id: "patient-invalid-medical-pay-001",
+				business_type: "registration",
+				order_type: "RegPay",
+				business_id: null,
+				appointment_id: null,
+				authorization_id: null,
+				fee_upload_id: null,
+				idempotency_key: "invalid-medical-pay-idempotency-001",
+				med_org_ord: "med-org-invalid-medical-pay-001",
+				chrg_bchno: "batch-invalid-medical-pay-001",
+				pay_ord_id: null,
+				pay_token_hash: null,
+				mdtrt_id: null,
+				acct_used_flag: null,
+				status: "cash_pending",
+				ord_stas: "2",
+				total_fen: 100,
+				cash_fen: 20,
+				personal_account_fen: 30,
+				fund_fen: 50,
+				other_payment_fen: 0,
+				hospital_part_fen: 0,
+				personal_account_mutual_aid_fen: 0,
+				personal_account_self_fen: 0,
+				deposit_fen: 0,
+				delivery_fee_fen: 0,
+				setl_type: "ALL",
+				revs_token_hash: null,
+				revs_token_expires_at: null,
+				last_error: null,
+				med_ins_fail_reason: null,
+				wechat_mix_trade_no: "mix-invalid-medical-pay-001",
+				wechat_out_trade_no: "out-invalid-medical-pay-001",
+				wechat_payment_state: "prepay_ready",
+				wechat_pay_params_ciphertext: cipher.seal(
+					JSON.stringify({
+						timeStamp: "1786752000",
+						nonceStr: "invalid-md5-nonce-001",
+						package: "prepay_id=invalid-md5-prepay-001",
+						signType: "MD5",
+						paySign: "not-a-md5-signature",
+						mixTradeNo: "mix-invalid-medical-pay-001",
+					}),
+				),
+				wechat_prepay_expires_at: null,
+				version: 1,
+				created_at: "2026-09-17 10:00:00.000",
+				updated_at: "2026-09-17 10:00:00.000",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool, { prepayCipher: cipher });
+
+	await expect(
+		repositories.medicalInsuranceOrders.findByMedicalOrderId(
+			"medical-order-invalid-medical-pay-001",
+		),
+	).rejects.toThrow("Persistence returned invalid medical Wechat pay params");
+});
+
 test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 	const key = Buffer.alloc(32, 8).toString("base64");
 	const { pool, state } = createFakePool([

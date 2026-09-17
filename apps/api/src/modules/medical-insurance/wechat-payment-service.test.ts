@@ -335,6 +335,71 @@ test("医保查单失败原因会持久化并透传给支付小程序", async ()
 	});
 });
 
+test("历史医保 MD5 调起参数不会再次返回或触发重复混合下单", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			wechatPayParams: null,
+			wechatPayParamsFormat: "legacy_md5",
+		}),
+	);
+	let createCalls = 0;
+	let queryCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: {} as never,
+		wechatPayment: {
+			createMixedOrder: async () => {
+				createCalls += 1;
+				throw new Error("legacy MD5 order must not be recreated");
+			},
+			queryMixedOrder: async () => {
+				queryCalls += 1;
+				return {
+					mixState: "pending",
+					cashState: "pending",
+					insuranceState: "pending",
+					medInsPayStatus: "MED_INS_PAY_CREATED",
+					cashFen: 200,
+					totalFen: 1000,
+					providerStatus:
+						"MIX_PAY_CREATED/SELF_PAY_CREATED/MED_INS_PAY_CREATED",
+					trace: {
+						provider: "wechat-pay",
+						operation: "medical-mix-query",
+						requestId: "legacy-md5-query-001",
+					},
+				};
+			},
+		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		confirmCashPayment: async () => {
+			throw new Error("legacy MD5 order must not complete synchronously");
+		},
+		now: () => new Date(now),
+	});
+
+	const result = await service.create({
+		ownerUserId: "user-wechat-query-001",
+		orderId: "wechat-query-001",
+		context: {
+			traceId: "legacy-md5-create-001",
+			idempotencyKey: "legacy-md5-create-001",
+		},
+	});
+
+	expect(result).toMatchObject({
+		status: "cash_pending",
+		paymentState: "prepay_ready",
+		mixTradeNo: "mix-query-001",
+	});
+	expect(result).not.toHaveProperty("payParams");
+	expect(createCalls).toBe(0);
+	expect(queryCalls).toBe(1);
+});
+
 test("自费失败不会产生医保失败原因字段", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(order({ medInsFailReason: "旧医保失败原因" }));

@@ -324,6 +324,11 @@ export type MedicalInsuranceOrder = {
 	wechatOutTradeNo?: string | null;
 	/** 微信调起参数的读模型；MySQL 实现必须以密文保存。 */
 	wechatPayParams?: WechatMedicalInsurancePayParams | null;
+	/**
+	 * 仅供服务端识别历史众阳 MD5 调起参数；该参数永远不能返回给小程序。
+	 * 这是读取时推导的兼容标记，不是数据库字段，也不属于 API contract。
+	 */
+	wechatPayParamsFormat?: "legacy_md5";
 	/** JSAPI prepay_id 最迟可调起时间；过期参数不得再次返回给小程序。 */
 	wechatPrepayExpiresAt?: string | null;
 	wechatPaymentState?:

@@ -330,6 +330,7 @@ test("mixed worker marks cash paid only after both WeChat payment parts are paid
 			wechatMixTradeNo: "mix-worker-001",
 			wechatOutTradeNo: "out-worker-001",
 			wechatPaymentState: "prepay_ready",
+			wechatPayParamsFormat: "legacy_md5",
 		}),
 	);
 	await orders.saveSettlementContext(

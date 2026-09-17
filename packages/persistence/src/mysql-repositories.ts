@@ -1133,17 +1133,15 @@ function miOrder(
 	row: MIRow,
 	cipher?: SecretValueCipher,
 ): MedicalInsuranceOrder {
-	const storedPayParams = row.wechat_pay_params_ciphertext
+	const storedPayParamsResult = row.wechat_pay_params_ciphertext
 		? (() => {
 				if (!cipher) {
 					throw new PersistenceNotConfiguredError("payment-prepay-attempts");
 				}
-				return (
-					medicalWechatPayParams(row.wechat_pay_params_ciphertext, cipher) ??
-					null
-				);
+				return medicalWechatPayParams(row.wechat_pay_params_ciphertext, cipher);
 			})()
 		: null;
+	const storedPayParams = storedPayParamsResult?.params ?? null;
 	const businessId = row.business_id ?? row.appointment_id;
 	return {
 		medicalOrderId: row.medical_order_id,
@@ -1205,6 +1203,9 @@ function miOrder(
 		wechatMixTradeNo: row.wechat_mix_trade_no,
 		wechatOutTradeNo: row.wechat_out_trade_no,
 		wechatPayParams: storedPayParams,
+		...(storedPayParamsResult?.format === "legacy_md5"
+			? { wechatPayParamsFormat: "legacy_md5" as const }
+			: {}),
 		wechatPrepayExpiresAt: row.wechat_prepay_expires_at
 			? mysqlUtcDateTimeToIso(row.wechat_prepay_expires_at)
 			: null,
@@ -2176,10 +2177,15 @@ function payParams(
 	throw new Error("Persistence returned invalid Wechat pay params");
 }
 
+type MedicalWechatPayParamsReadResult = {
+	params?: WechatMedicalInsurancePayParams;
+	format?: "legacy_md5";
+};
+
 function medicalWechatPayParams(
 	value: string | null,
 	cipher: SecretValueCipher,
-): WechatMedicalInsurancePayParams | undefined {
+): MedicalWechatPayParamsReadResult | undefined {
 	if (value === null) return undefined;
 	const parsed = JSON.parse(cipher.open(value)) as unknown;
 	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -2211,16 +2217,32 @@ function medicalWechatPayParams(
 		Boolean(record.nonceStr) &&
 		Boolean(record.package) &&
 		Boolean(record.paySign);
+	const validMd5 =
+		record.signType === "MD5" &&
+		typeof record.timeStamp === "string" &&
+		/^\d{10}$/u.test(record.timeStamp) &&
+		typeof record.nonceStr === "string" &&
+		record.nonceStr.length > 0 &&
+		record.nonceStr.length <= 32 &&
+		typeof record.package === "string" &&
+		/^prepay_id=\S+$/u.test(record.package) &&
+		typeof record.paySign === "string" &&
+		/^[A-Fa-f0-9]{32}$/u.test(record.paySign);
 	if (
 		Object.keys(record).some((key) => !expectedFields.includes(key)) ||
 		typeof record.mixTradeNo !== "string" ||
 		!record.mixTradeNo ||
 		String(record.mixTradeNo).length > 32 ||
-		(hasJsapiFields && !validRsa)
+		(hasJsapiFields && !validRsa && !validMd5)
 	) {
 		throw new Error("Persistence returned invalid medical Wechat pay params");
 	}
-	return parsed as WechatMedicalInsurancePayParams;
+	if (validMd5) {
+		// 兼容读取旧订单，但绝不把众阳 APIv2/MD5 调起报文重新暴露给
+		// 小程序。订单的混合单号、商户单号和支付状态仍由调用方继续查单。
+		return { format: "legacy_md5" };
+	}
+	return { params: parsed as WechatMedicalInsurancePayParams };
 }
 
 function paymentPrepayAttempt(

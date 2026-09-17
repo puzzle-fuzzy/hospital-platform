@@ -387,6 +387,15 @@ export class MedicalInsuranceWechatPaymentService {
 		) {
 			return output(order, false);
 		}
+		if (order.wechatPayParamsFormat === "legacy_md5") {
+			// 历史众阳 MD5 只能作为订单读取兼容事实，不能再次返回给小程序，
+			// 也不能因 payParams 被隔离后落入“新建混合单”分支。已有混合单统一
+			// 走官方查单/Worker 补偿；没有完整关联事实时直接返回无调起参数。
+			if (order.wechatMixTradeNo && order.wechatOutTradeNo) {
+				return this.query(input);
+			}
+			return output(order, false);
+		}
 		const { businessType, orderType } = orderBusiness(order);
 		if (order.wechatPaymentState === "prepay_ready" && order.wechatPayParams) {
 			// 6202 hospPartAmt 属于 othFeeAmt 明细，不是 ownPayAmt 内的现金
