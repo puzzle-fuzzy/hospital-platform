@@ -307,7 +307,7 @@ export type WechatMedicalInsurancePayParams =
 			timeStamp: string;
 			nonceStr: string;
 			package: string;
-			signType: "MD5" | "RSA";
+			signType: "RSA";
 			paySign: string;
 			mixTradeNo: string;
 	  };

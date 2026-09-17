@@ -108,7 +108,7 @@ type MedicalWechatPayParams = {
 	timeStamp?: string;
 	nonceStr?: string;
 	package?: string;
-	signType?: "MD5" | "RSA";
+	signType?: "RSA";
 	paySign?: string;
 };
 
@@ -428,7 +428,7 @@ export function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 				(typeof params.timeStamp !== "string" ||
 					typeof params.nonceStr !== "string" ||
 					typeof params.package !== "string" ||
-					(params.signType !== "MD5" && params.signType !== "RSA") ||
+					params.signType !== "RSA" ||
 					typeof params.paySign !== "string" ||
 					!params.timeStamp ||
 					!params.nonceStr ||
@@ -444,7 +444,7 @@ export function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 					timeStamp: params.timeStamp as string,
 					nonceStr: params.nonceStr as string,
 					package: params.package as string,
-					signType: params.signType as "MD5" | "RSA",
+					signType: params.signType as "RSA",
 					paySign: params.paySign as string,
 					mixTradeNo: params.mixTradeNo,
 				}
@@ -769,7 +769,7 @@ function requestWechatMedicalInsurancePayment(
 					timeStamp?: string;
 					nonceStr?: string;
 					package?: string;
-					signType?: "MD5" | "RSA";
+					signType?: "RSA";
 					paySign?: string;
 					mixTradeNo: string;
 					success?: () => void;

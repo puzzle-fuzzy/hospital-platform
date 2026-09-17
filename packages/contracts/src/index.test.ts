@@ -85,7 +85,7 @@ test("微信医保 contract 区分纯医保参数与完整混合支付参数", (
 			signType: "MD5",
 			paySign: "A".repeat(32),
 		}),
-	).toBeTrue();
+	).toBeFalse();
 	expect(
 		medicalInsurancePayParamsSchema.Check({
 			mixTradeNo: "mix-partial-001",

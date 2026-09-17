@@ -279,8 +279,29 @@ test("微信支付响应接受众阳 MD5 参数并兼容历史 APIv3 RSA 参数"
 	expect(toWechatPaymentLaunch({ data: { payParams: {} } })).toBeNull();
 });
 
-test("医保支付接受服务端返回的 MD5 调起参数", () => {
+test("医保支付只接受服务端返回的 RSA 调起参数", () => {
 	expect(
+		readMedicalWechatPayment({
+			success: true,
+			data: {
+				orderId: "medical-order-001",
+				status: "cash_pending",
+				paymentState: "prepay_ready",
+				cashFen: 100,
+				payParams: {
+					timeStamp: "1789115826",
+					nonceStr: "nonce-md5-001",
+					package: "prepay_id=wx-md5-prepay",
+					signType: "RSA",
+					paySign: "rsa-signature",
+					mixTradeNo: "mix-md5-001",
+				},
+			},
+		}),
+	).toMatchObject({
+		payParams: { signType: "RSA", mixTradeNo: "mix-md5-001" },
+	});
+	expect(() =>
 		readMedicalWechatPayment({
 			success: true,
 			data: {
@@ -298,9 +319,7 @@ test("医保支付接受服务端返回的 MD5 调起参数", () => {
 				},
 			},
 		}),
-	).toMatchObject({
-		payParams: { signType: "MD5", mixTradeNo: "mix-md5-001" },
-	});
+	).toThrow("医保微信支付参数不可用");
 });
 
 test("预约记录请求的 all 范围不携带在线日期窗口", () => {

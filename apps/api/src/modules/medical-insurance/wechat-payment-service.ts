@@ -464,7 +464,8 @@ export class MedicalInsuranceWechatPaymentService {
 		});
 		let pluginCashPrepay: YunhealthMiniProgramPrepay | undefined;
 		// 临时联调：所有 6202 非零分项先完成 2.6.65.2，再创建微信医保订单；
-		// 微信现金分项直接复用 .2.result 的 MD5 prepay_id。
+		// 微信现金分项只复用 .2.result 的 prepay_id，调起参数由 adapter
+		// 使用商户私钥重新签名为官方医保控件要求的 RSA。
 		if (this.dependencies.pluginPaymentBridge) {
 			const prepared =
 				await this.dependencies.pluginPaymentBridge.prepareSplitPaymentsBeforeOfficialWechatPayment(

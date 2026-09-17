@@ -420,6 +420,78 @@ test("医保混合下单使用 APIv3 JSAPI 预下单和官方医保混合下单"
 	expect(result.payParams).not.toHaveProperty("appId");
 });
 
+test("众阳 .2 的 MD5 现金预支付只复用 prepay_id 并重新生成 RSA 医保调起参数", async () => {
+	const requests: string[] = [];
+	const responseBody = JSON.stringify({
+		mix_trade_no: "mix-md5-converted-001",
+	});
+	const gateway = createMedicalGateway(
+		async (_input, init) => {
+			const path = new URL(String(_input)).pathname;
+			const body = typeof init?.body === "string" ? init.body : "";
+			requests.push(path);
+			verifyRequestAuthorization(init, "POST", path, body);
+			return new Response(responseBody, {
+				status: 200,
+				headers: providerResponseHeaders(responseBody),
+			});
+		},
+		["medical-mix-request-nonce", "medical-rsa-nonce"],
+	);
+	const prepayId = "wx-yunhealth-md5-prepay-001";
+	const md5PaySign = "0123456789abcdef0123456789abcdef";
+
+	const result = await gateway.createMixedOrder(
+		{
+			...medicalCreateInput({ outTradeNo: "medical-out-md5-001" }),
+			cashPrepay: {
+				outTradeNo: "medical-out-md5-001",
+				prepayId,
+				payParams: {
+					appId: "wx-app-001",
+					timeStamp: "1786752000",
+					nonceStr: "yunhealth-md5-nonce",
+					package: `prepay_id=${prepayId}`,
+					signType: "MD5",
+					paySign: md5PaySign,
+				},
+			},
+		},
+		context,
+	);
+
+	expect(requests).toEqual(["/v3/med-ins/orders"]);
+	expect(result).toMatchObject({
+		mixTradeNo: "mix-md5-converted-001",
+		prepayId,
+		payParams: {
+			timeStamp: "1786752000",
+			nonceStr: "medical-rsa-nonce",
+			package: `prepay_id=${prepayId}`,
+			signType: "RSA",
+			mixTradeNo: "mix-md5-converted-001",
+		},
+	});
+	expect(result.payParams).not.toHaveProperty("appId");
+	if (!("paySign" in result.payParams)) {
+		throw new Error("expected RSA medical payment parameters");
+	}
+	expect(result.payParams.paySign).not.toBe(md5PaySign);
+
+	const verifier = createVerify("RSA-SHA256");
+	verifier.update(
+		`wx-app-001\n1786752000\nmedical-rsa-nonce\nprepay_id=${prepayId}\n`,
+		"utf8",
+	);
+	verifier.end();
+	expect(
+		verifier.verify(
+			merchantPublicKey,
+			Buffer.from(result.payParams.paySign, "base64"),
+		),
+	).toBe(true);
+});
+
 test("高平普通挂号现金自付全额优惠时直接创建INSURANCE_ONLY订单", async () => {
 	const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
 	const responses = [JSON.stringify({ mix_trade_no: "mix-reduce-001" })];

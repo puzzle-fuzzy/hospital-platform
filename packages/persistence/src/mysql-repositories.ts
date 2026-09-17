@@ -2211,23 +2211,12 @@ function medicalWechatPayParams(
 		Boolean(record.nonceStr) &&
 		Boolean(record.package) &&
 		Boolean(record.paySign);
-	const validMd5 =
-		record.signType === "MD5" &&
-		typeof record.timeStamp === "string" &&
-		/^\d{10}$/u.test(record.timeStamp) &&
-		typeof record.nonceStr === "string" &&
-		record.nonceStr.length > 0 &&
-		record.nonceStr.length <= 32 &&
-		typeof record.package === "string" &&
-		/^prepay_id=\S+$/u.test(record.package) &&
-		typeof record.paySign === "string" &&
-		/^[A-Fa-f0-9]{32}$/u.test(record.paySign);
 	if (
 		Object.keys(record).some((key) => !expectedFields.includes(key)) ||
 		typeof record.mixTradeNo !== "string" ||
 		!record.mixTradeNo ||
 		String(record.mixTradeNo).length > 32 ||
-		(hasJsapiFields && !validRsa && !validMd5)
+		(hasJsapiFields && !validRsa)
 	) {
 		throw new Error("Persistence returned invalid medical Wechat pay params");
 	}

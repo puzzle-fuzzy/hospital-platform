@@ -898,12 +898,20 @@ export class WechatPaymentApiGateway
 		requestIds: readonly (string | undefined)[];
 	}): MedicalMixedOrderResult {
 		const mixTradeNo = requiredInput(input.mixTradeNo, "mixTradeNo", 32);
-		const medicalPayParams: WechatMedicalInsurancePayParams = input.prepay
-			? (() => {
-					const { appId: _appId, ...withoutAppId } = input.prepay.payParams;
-					return { ...withoutAppId, mixTradeNo };
-				})()
-			: { mixTradeNo };
+		let medicalPayParams: WechatMedicalInsurancePayParams = { mixTradeNo };
+		if (input.prepay) {
+			// 众阳 .2 的 MD5 只证明现金腿已经拿到 prepay_id；官方医保
+			// 控件要求 RSA + paySign，不能把 .2 的 sign 原样透传到前端。
+			const generatedPayParams = payParams({
+				appId: this.appId,
+				prepayId: input.prepay.prepayId,
+				now: this.now,
+				nonce: this.nonce,
+				merchantPrivateKey: this.merchantPrivateKey,
+			});
+			const { appId: _appId, ...withoutAppId } = generatedPayParams;
+			medicalPayParams = { ...withoutAppId, mixTradeNo };
+		}
 		return {
 			mixTradeNo,
 			...(input.prepay ? { prepayId: input.prepay.prepayId } : {}),
