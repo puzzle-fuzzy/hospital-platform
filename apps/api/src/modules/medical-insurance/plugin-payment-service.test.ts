@@ -105,10 +105,14 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 		payModel: string;
 		payTypeId: string;
 		paymentSystemUserId?: string;
+		tradeTypeCode: string;
 	}> = [];
 	const service = new MedicalInsurancePluginPaymentService({
 		orders: {
-			findByMedicalOrderId: async () => medicalOrder(),
+			findByMedicalOrderId: async () => ({
+				...medicalOrder(),
+				businessType: "outpatient" as const,
+			}),
 			getSettlementContext: async () => currentSettlement,
 			saveSettlementContext: async (
 				_owner: string,
@@ -171,20 +175,40 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 	await service.prepareSplitPaymentsBeforeOfficialWechatPayment(request);
 
 	expect(
-		calls.map(({ amountFen, payModel, payTypeId, paymentSystemUserId }) => ({
-			amountFen,
-			payModel,
-			payTypeId,
-			...(paymentSystemUserId ? { paymentSystemUserId } : {}),
-		})),
+		calls.map(
+			({
+				amountFen,
+				payModel,
+				payTypeId,
+				paymentSystemUserId,
+				tradeTypeCode,
+			}) => ({
+				amountFen,
+				payModel,
+				payTypeId,
+				tradeTypeCode,
+				...(paymentSystemUserId ? { paymentSystemUserId } : {}),
+			}),
+		),
 	).toEqual([
-		{ amountFen: 500, payModel: "H5", payTypeId: "2" },
-		{ amountFen: 300, payModel: "H5", payTypeId: "5" },
+		{
+			amountFen: 500,
+			payModel: "H5",
+			payTypeId: "2",
+			tradeTypeCode: "2",
+		},
+		{
+			amountFen: 300,
+			payModel: "H5",
+			payTypeId: "5",
+			tradeTypeCode: "2",
+		},
 		{
 			amountFen: 200,
 			payModel: "MINI_PROGRAM",
 			payTypeId: "31",
 			paymentSystemUserId: "openid-001",
+			tradeTypeCode: "2",
 		},
 	]);
 	expect(
