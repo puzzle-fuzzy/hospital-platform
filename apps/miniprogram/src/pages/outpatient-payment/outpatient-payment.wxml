@@ -126,6 +126,5 @@
 	</view>
 
 
-	<view class="readonly-note">当前支持门诊费用查询和微信自费支付；医保授权、结算和退费功能正在完善中。</view>
 </view>
 </scroll-view>
