@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { pairRawLogInvocations } from "./raw-log-invocations";
-import { readRawLogTraceFromSerialized } from "./raw-logs";
+import { parseRawLogEntriesFromSerialized } from "./raw-logs";
 import type { RawLogEntry } from "./types";
 
 export const PAYMENT_BOUNDARY_BUFFER_MS = 30 * 60 * 1_000;
@@ -40,7 +40,7 @@ export type PaymentDayWindow = {
 	readUntil: Date;
 };
 
-type PaymentOrder = {
+export type PaymentOrder = {
 	orderId: string;
 	appointmentId?: string;
 	startedAt: string;
@@ -421,6 +421,15 @@ function hasIdentifier(entry: RawLogEntry, order: PaymentOrder): boolean {
 	);
 }
 
+function hasAnyIdentifier(
+	entry: RawLogEntry,
+	identifiers: Set<string>,
+): boolean {
+	return [entry.traceId, entry.requestId, entry.providerRequestId].some(
+		(value) => value !== undefined && identifiers.has(value),
+	);
+}
+
 function assignRawEntries(
 	entries: RawLogEntry[],
 	order: PaymentOrder,
@@ -488,27 +497,19 @@ function buildInternalFlow(
 	order: PaymentOrder,
 	allOrders: PaymentOrder[],
 	window: PaymentDayWindow,
-	serialized: string,
+	rawEntries: RawLogEntry[],
 ): InternalPaymentFlow {
-	const rawTrace = readRawLogTraceFromSerialized(
-		{
-			identifiers: [...order.identifiers],
-			since: window.readSince.toISOString(),
-			until: window.readUntil.toISOString(),
-			maxEntries: PAYMENT_MAX_INTERFACES,
-		},
-		serialized,
-	);
-	const assigned = assignRawEntries(rawTrace.entries, order, allOrders);
+	const assigned = assignRawEntries(rawEntries, order, allOrders);
+	const entries = assigned.entries.slice(0, PAYMENT_MAX_INTERFACES);
 	const invocations = pairRawLogInvocations({
-		entries: assigned.entries,
+		entries,
 		total: assigned.entries.length,
-		truncated: false,
+		truncated: assigned.entries.length > entries.length,
 		maxEntries: PAYMENT_MAX_INTERFACES,
 		identifiers: [...order.identifiers],
 		since: window.readSince.toISOString(),
 		until: window.readUntil.toISOString(),
-		matchedJournalRecords: rawTrace.matchedJournalRecords,
+		matchedJournalRecords: entries.length,
 	});
 	const primary = invocations.filter(
 		(invocation) => invocation.layer === "transport",
@@ -578,6 +579,12 @@ export function buildPaymentDaySnapshot(
 	}
 	const records = parsePaymentJournal(serialized);
 	const allOrders = collectPaymentOrders(records);
+	const allIdentifiers = new Set(
+		allOrders.flatMap((order) => [...order.identifiers]),
+	);
+	const rawEntries = parseRawLogEntriesFromSerialized(serialized).filter(
+		(entry) => hasAnyIdentifier(entry, allIdentifiers),
+	);
 	const orders = allOrders
 		.filter((order) => {
 			const started = Date.parse(order.startedAt);
@@ -587,7 +594,7 @@ export function buildPaymentDaySnapshot(
 			);
 		})
 		.slice(0, PAYMENT_MAX_ORDERS)
-		.map((order) => buildInternalFlow(order, allOrders, window, serialized));
+		.map((order) => buildInternalFlow(order, allOrders, window, rawEntries));
 	const unmatchedPaymentEventCount = records.filter(
 		(record) =>
 			ORDER_PAYMENT_EVENT.test(stringValue(record.message.event) || "") &&

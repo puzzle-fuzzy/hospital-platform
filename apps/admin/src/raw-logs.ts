@@ -502,6 +502,20 @@ export function readRawLogTraceFromSerialized(
 	const chunks = parseJournalRawChunks(serialized).filter((chunk) =>
 		identifierMatches(chunk, new Set(identifiers)),
 	);
+	const entries = reconstructRawEntries(chunks);
+	return {
+		entries: entries.slice(0, maxEntries),
+		total: entries.length,
+		truncated: entries.length > maxEntries,
+		maxEntries,
+		identifiers,
+		since: since.toISOString(),
+		until: until.toISOString(),
+		matchedJournalRecords: chunks.length,
+	};
+}
+
+function reconstructRawEntries(chunks: RawChunk[]): RawLogEntry[] {
 	const groups = new Map<string, RawChunk[][]>();
 	for (const chunk of chunks) {
 		const key = groupKey(chunk);
@@ -524,17 +538,17 @@ export function readRawLogTraceFromSerialized(
 		}
 		groups.set(key, sequences);
 	}
-	const entries = [...groups.values()]
+	return [...groups.values()]
 		.flatMap((sequences) => sequences.map(reconstruct))
 		.sort((left, right) => left.timestamp.localeCompare(right.timestamp));
-	return {
-		entries: entries.slice(0, maxEntries),
-		total: entries.length,
-		truncated: entries.length > maxEntries,
-		maxEntries,
-		identifiers,
-		since: since.toISOString(),
-		until: until.toISOString(),
-		matchedJournalRecords: chunks.length,
-	};
+}
+
+/**
+ * 一次性解析受控 journald JSONL 中的全部 raw invocation。
+ * 支付日汇总会为多笔订单复用这个结果，避免每笔订单重复扫描同一段日志。
+ */
+export function parseRawLogEntriesFromSerialized(
+	serialized: string,
+): RawLogEntry[] {
+	return reconstructRawEntries(parseJournalRawChunks(serialized));
 }
