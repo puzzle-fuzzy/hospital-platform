@@ -151,8 +151,10 @@ test("预约创建映射服务端患者资料、非支付预约字段和大整�
 		telephone: "13800000000",
 		hisScheduleId: "9007199254740993001",
 		sourceId: "9007199254740993123",
+		registerSource: 15,
+		settleWay: 6,
 		isPay: "0",
-		requestChannel: "3",
+		requestChannel: "my",
 		recordId: "appointment-record-001",
 	});
 	expect(result).toEqual({

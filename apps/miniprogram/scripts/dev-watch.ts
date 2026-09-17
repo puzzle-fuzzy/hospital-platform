@@ -7,8 +7,8 @@ const repositoryRoot = join(packageRoot, "..", "..");
 const rebuildDebounceMilliseconds = 200;
 
 /**
- * 只监听会影响 development runtime 的输入，绝不监听 `.local/` 开发产物。
- * 否则每次原子发布都会再次触发自己，造成无休止的重复构建。
+ * 只监听会影响小程序运行包的输入，绝不监听 `dist/` 生成产物。
+ * 否则每次运行包同步都会再次触发自己，造成无休止的重复构建。
  */
 const watchTargets = [
 	join(packageRoot, "src"),
@@ -68,11 +68,11 @@ async function runDevelopmentBuild(): Promise<void> {
 		const exitCode = await child.exited;
 		if (exitCode === 0) {
 			console.info(
-				"[小程序开发构建] 已更新 .local/hospital-miniprogram/development；请在开发者工具中执行普通编译。",
+				"[小程序开发构建] 已更新 apps/miniprogram/dist；请在同一个开发者工具项目中执行普通编译。",
 			);
 		} else {
 			console.error(
-				`[小程序开发构建] 失败（exit ${exitCode}）；上一份完整 development 运行包已保留，继续监听源码。`,
+				`[小程序开发构建] 失败（exit ${exitCode}）；上一份完整 dist 运行包已保留，继续监听源码。`,
 			);
 		}
 	})();
@@ -149,7 +149,7 @@ process.once("SIGINT", stopWatchingAndExit);
 process.once("SIGTERM", stopWatchingAndExit);
 
 console.info(
-	"[小程序开发构建] 正在监听源码；development 运行包与正式 dist 完全隔离。",
+	"[小程序开发构建] 正在监听源码；开发和正式模式共用 apps/miniprogram/dist。",
 );
 void runDevelopmentBuild();
 

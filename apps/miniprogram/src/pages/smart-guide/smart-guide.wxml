@@ -20,25 +20,32 @@
 				id="{{item.id}}"
 				class="guide-message guide-message--{{item.role}}"
 			>
-				<view class="guide-bubble {{item.pending ? 'guide-bubble--pending' : ''}}">
-					<text class="guide-message__content" user-select="true">{{item.content}}</text>
-					<view class="guide-summary" wx:if="{{item.summary && item.summary !== item.content}}">{{item.summary}}</view>
-					<view class="guide-disclaimer" wx:if="{{item.showDisclaimer}}">{{disclaimer}}</view>
+				<view class="guide-message__avatar" wx:if="{{item.role === 'assistant'}}">
+					<image src="/assets/legacy-user/doctor.svg" mode="aspectFit"></image>
 				</view>
-				<view class="guide-advice" wx:if="{{item.advice}}">{{item.advice}}</view>
-				<view class="guide-departments" wx:if="{{item.departments.length > 0}}">
-					<button
-						wx:for="{{item.departments}}"
-						wx:for-item="department"
-						wx:key="departmentId"
-						class="guide-department"
-						data-department-id="{{department.departmentId}}"
-						data-display-name="{{department.displayName}}"
-						bindtap="onDepartmentTap"
-					>
-						<text class="guide-department__name">{{department.displayName}}</text>
-						<text class="guide-department__action">去挂号</text>
-					</button>
+				<view class="guide-message__body">
+					<view class="guide-bubble {{item.pending ? 'guide-bubble--pending' : ''}} {{item.isError ? 'guide-bubble--error' : ''}}">
+						<view class="guide-bubble__heading" wx:if="{{item.isError}}">服务提示</view>
+						<text class="guide-message__content" user-select="true">{{item.content}}</text>
+						<text class="guide-bubble__code" wx:if="{{item.errorCode}}">错误码 {{item.errorCode}}</text>
+						<view class="guide-summary" wx:if="{{item.summary && item.summary !== item.content}}">{{item.summary}}</view>
+						<view class="guide-disclaimer" wx:if="{{item.showDisclaimer}}">{{disclaimer}}</view>
+					</view>
+					<view class="guide-advice" wx:if="{{item.advice}}">{{item.advice}}</view>
+					<view class="guide-departments" wx:if="{{item.departments.length > 0}}">
+						<button
+							wx:for="{{item.departments}}"
+							wx:for-item="department"
+							wx:key="departmentId"
+							class="guide-department"
+							data-department-id="{{department.departmentId}}"
+							data-display-name="{{department.displayName}}"
+							bindtap="onDepartmentTap"
+						>
+							<text class="guide-department__name">{{department.displayName}}</text>
+							<text class="guide-department__action">去挂号</text>
+						</button>
+					</view>
 				</view>
 			</view>
 		</view>
@@ -65,7 +72,14 @@
 			value="{{inputValue}}"
 			maxlength="50"
 			placeholder="请输入症状/药品/疾病..."
+			placeholder-class="guide-input__placeholder"
+			confirm-type="send"
+			show-confirm-bar="false"
+			adjust-position="true"
+			hold-keyboard="true"
+			cursor-spacing="16"
 			bindinput="onInput"
+			bindconfirm="onSend"
 		></textarea>
 		<button class="guide-send" disabled="{{sending}}" bindtap="onSend">{{sending ? '分析中' : '发送'}}</button>
 	</view>

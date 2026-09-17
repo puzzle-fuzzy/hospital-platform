@@ -345,6 +345,7 @@ test("native patient selectors do not report a selection error during loading", 
 	for (const pagePath of [
 		"pages/appointment-records/appointment-records.wxml",
 		"pages/outpatient-payment/outpatient-payment.wxml",
+		"pages/report-directory/report-directory.wxml",
 	]) {
 		const page = await source(pagePath);
 		expect(page).toContain(
@@ -399,7 +400,6 @@ test("native patient-scoped list errors do not fall through to empty patient sta
 		if (templatePath.includes("missed-appointments")) {
 			// 爽约页缺少患者上下文时只保留本页错误态，不能自动打开患者
 			// 选择模块；入口门禁和爽约查询的语义必须保持分离。
-			expect(template).not.toContain("请先选择就诊人");
 			expect(template).not.toContain("点击这里选择就诊人");
 			expect(page).not.toContain("redirectToPatientSelector");
 		} else {
@@ -657,6 +657,12 @@ test("native payment boundaries always end with a user-actionable result", async
 	const detailTemplate = await source(
 		"pages/appointment-detail/appointment-detail.wxml",
 	);
+	const appointmentDetailStyles = await source(
+		"pages/appointment-detail/appointment-detail.wxss",
+	);
+	const outpatientDetailStyles = await source(
+		"pages/outpatient-payment-detail/outpatient-payment-detail.wxss",
+	);
 
 	// 网络请求和微信收银台都必须有终点；支付未知时保留订单并引导查单，
 	// 不能让页面永久 loading，也不能把未知结果误报成失败。
@@ -692,26 +698,47 @@ test("native payment boundaries always end with a user-actionable result", async
 	// 挂号成功后的详情页只恢复“已预约”状态可用的取消动作；支付仍在独立流程中处理。
 	expect(detailPage).toContain("requestAppointmentCancellation");
 	expect(detailPage).toContain("onCancel(): void");
-	expect(detailPage).toContain('this.data.status !== "scheduled"');
+	expect(detailPage).toContain("this.data.canCancel");
+	expect(detailPage).toContain("sourceRecordStatus");
 	expect(detailPage).toContain("onBackHome(): void");
 	expect(detailPage).toContain('switchToPrimaryTab("/pages/index/index")');
 	expect(detailPage).not.toContain("onMedicalPay");
 	expect(detailPage).not.toContain("onSelfPay");
 	expect(detailTemplate).toContain('bindtap="onBackHome"');
 	expect(detailTemplate).toContain(">返回首页</button>");
-	expect(detailTemplate).toContain(
-		"wx:if=\"{{localDetail && appointmentId && status === 'scheduled'}}\"",
-	);
+	expect(detailTemplate).toContain('wx:if="{{canCancel}}"');
 	expect(detailTemplate).toContain('bindtap="onCancel"');
-	expect(detailPage).toContain("onHospitalGuide(): void");
-	expect(detailTemplate).toContain('bindtap="onHospitalGuide"');
-	expect(detailTemplate).toContain("detail-location-mask");
+	expect(detailPage).not.toContain("onHospitalGuide(): void");
+	expect(detailTemplate).not.toContain('bindtap="onHospitalGuide"');
+	expect(detailTemplate).not.toContain("detail-location-mask");
+	expect(detailTemplate).not.toContain(">去导航</button>");
 	expect(detailTemplate).toContain("取消预约");
 	expect(detailTemplate).not.toContain("医保支付");
 	expect(detailTemplate).not.toContain("微信支付");
 	expect(detailTemplate).toContain("detail-actions");
 	expect(detailTemplate).not.toContain("detail-payment-message");
 	expect(detailTemplate).not.toContain("detail-payment-error");
+	expect(appointmentDetailStyles).toContain(".detail-actions");
+	expect(appointmentDetailStyles).toContain(".detail-home-button");
+	expect(appointmentDetailStyles).toContain(".detail-cancel-button");
+	expect(appointmentDetailStyles).toContain("border-radius: 44rpx");
+	expect(appointmentDetailStyles).toContain("border: 2rpx solid #3d6df6");
+	expect(appointmentDetailStyles).toContain("border: 2rpx solid #16a34a");
+	expect(appointmentDetailStyles).toContain("background: transparent");
+	expect(appointmentDetailStyles).toContain("width: 100% !important");
+	expect(appointmentDetailStyles).toContain("align-items: stretch");
+	expect(outpatientDetailStyles).toContain(".payment-actions");
+	expect(outpatientDetailStyles).toContain("flex-direction: column");
+	expect(outpatientDetailStyles).toContain(".payment-button");
+	expect(outpatientDetailStyles).toContain("width: 100% !important");
+	expect(outpatientDetailStyles).toContain("align-items: stretch");
+	expect(outpatientDetailStyles).toContain(".medical-button");
+	expect(outpatientDetailStyles).toContain(".wechat-button");
+	expect(outpatientDetailStyles).toContain("border: 2rpx solid #3d6df6");
+	expect(outpatientDetailStyles).toContain("border: 2rpx solid #20b26b");
+	expect(outpatientDetailStyles).toContain(".home-button");
+	expect(outpatientDetailStyles).toContain("border: 2rpx solid #16a34a");
+	expect(outpatientDetailStyles).toContain("background: transparent");
 	expect(detailTemplate).not.toContain("返回挂号列表");
 	expect(detailTemplate).not.toContain('bindtap="onBack"');
 	expect(paymentTemplate).not.toContain('data-mode="medical"');
@@ -833,6 +860,7 @@ test("native mini program exposes a real patient selection page", async () => {
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const template = await source("pages/patient-select/patient-select.wxml");
+	const config = await source("pages/patient-select/patient-select.json");
 	const service = await source("services/patient-selection-service.ts");
 	const navigation = await source("services/patient-navigation.ts");
 
@@ -875,6 +903,11 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(template).toContain("patient-card-selected");
 	expect(template).toContain("patient-card-unavailable");
 	expect(template).toContain("暂不可查");
+	expect(config).toContain('"navigationBarTitleText": "选择就诊人"');
+	expect(template).not.toContain('<view class="page-header">');
+	expect(template).not.toContain(
+		"请选择要进行预约、查询报告或查看挂号记录的就诊人",
+	);
 	// 同步失败时保留已经读取的患者卡片，但通过 selectionReady 将其全部
 	// 标记为不可查询；错误不能把诊断用目录误渲染成成功空态。
 	expect(template).toContain('wx:if="{{loading || !patients.length}}"');
@@ -2051,15 +2084,20 @@ test("native intelligent guide matches the Lanhu chat composer on narrow screens
 		/\.guide-input\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?flex:\s*1;/,
 	);
 	expect(style).toMatch(
-		/\.guide-send\s*\{[\s\S]*?flex:\s*0 0 116rpx;[\s\S]*?margin:\s*0;/,
+		/\.guide-send\s*\{[\s\S]*?height:\s*76rpx;[\s\S]*?flex:\s*0 0 116rpx;[\s\S]*?margin:\s*0;/,
 	);
 	expect(style).toMatch(
-		/\.guide-tool\s*\{[\s\S]*?flex:\s*0 0 64rpx;[\s\S]*?margin:\s*0;/,
+		/\.guide-tool\s*\{[\s\S]*?width:\s*76rpx;[\s\S]*?height:\s*76rpx;[\s\S]*?flex:\s*0 0 76rpx;[\s\S]*?margin:\s*0;/,
+	);
+	expect(style).toMatch(
+		/\.guide-input\s*\{[\s\S]*?height:\s*76rpx;[\s\S]*?flex:\s*1;/,
 	);
 	expect(style).toContain("position: fixed;");
 	expect(template).toContain("请输入症状/药品/疾病...");
 	expect(template).toContain("/assets/legacy-user/microphone.svg");
 	expect(template).toContain("/assets/legacy-user/image.svg");
+	expect(template).toContain("guide-bubble__code");
+	expect(template).toContain("guide-input__placeholder");
 	expect(template).not.toContain("guide-voice-area");
 	expect(template).not.toContain("guide-restart");
 	// 页头只能使用正方形业务图标，不能把带文字的横幅压进方形图标框。
@@ -2127,7 +2165,8 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(52);
+	// 当前原生运行包包含门诊缴费列表和详情两个路由，共 53 个页面。
+	expect(app.pages).toHaveLength(53);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2449,7 +2488,7 @@ test("native mini program app entry remains a global script", async () => {
 	expect(build).toContain("app.ts global-script bundle failed");
 });
 
-test("native mini program separates dirty development runtime from release runtime", async () => {
+test("native mini program uses one runtime with separate provenance modes", async () => {
 	const packageConfig = JSON.parse(
 		await Bun.file(join(import.meta.dir, "..", "package.json")).text(),
 	) as { scripts?: Record<string, string> };
@@ -2466,8 +2505,8 @@ test("native mini program separates dirty development runtime from release runti
 		join(import.meta.dir, "..", "scripts", "runtime-provenance.ts"),
 	).text();
 
-	// 正式 build 仍是默认链；开发链必须显式使用独立运行目录、快照来源和
-	// verify 命令，不能通过环境变量或覆盖 dist 来绕过 release 的 clean gate。
+	// 正式 build 仍是默认链；开发链必须显式使用同一 dist 运行目录、快照来源和
+	// verify 命令，不能通过环境变量或覆盖来源门禁伪造正式候选。
 	expect(packageConfig.scripts?.build).toContain("--mode=release");
 	expect(packageConfig.scripts?.["build:dev"]).toContain("--mode=development");
 	expect(packageConfig.scripts?.["runtime:verify:dev"]).toContain(
@@ -2477,7 +2516,10 @@ test("native mini program separates dirty development runtime from release runti
 		"--mode=development",
 	);
 	expect(packageConfig.scripts?.dev).toContain("dev:watch");
-	expect(build).toContain("getMiniProgramDevelopmentRuntimePath");
+	expect(build).toContain("getMiniProgramRuntimePath");
+	expect(verify).toContain("getMiniProgramRuntimePath");
+	expect(publisher).toContain("getMiniProgramRuntimePath");
+	expect(publisher).toContain('return join(packageRoot, "dist");');
 	expect(build).toContain("runtime-input-snapshot");
 	expect(build).toContain("initialDevelopmentSnapshot");
 	expect(verify).toContain("development runtime snapshot mismatch");
@@ -2516,8 +2558,8 @@ test("native mini program runtime verification checks build provenance", async (
 		join(import.meta.dir, "..", "scripts", "runtime-provenance.ts"),
 	).text();
 
-	// release dist/ 可能被开发者工具持续监听；来源指纹必须先写入 staging
-	// 目录再原子发布。development 运行根则保持目录稳定，避免工具在目录
+	// 同一 dist/ 可能被开发者工具持续监听；来源指纹必须先写入 staging
+	// 目录再发布。development 模式保持 dist 根目录稳定，避免工具在目录
 	// rename 期间丢失 app.js 模块索引。
 	expect(build).toContain('join(stagingRuntime, "build-info.json")');
 	expect(build).toContain(
@@ -2738,20 +2780,25 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(recordsTemplate).not.toContain('class="selector-arrow"');
 	// 旧端挂号页是全宽 selector/tabs/list，不能回退成新端 710rpx 居中卡片。
 	expect(recordsStyle).toContain("width: 100%;");
+	expect(recordsStyle).toContain("margin: 0 0 20rpx;");
 	expect(recordsStyle).toContain("background: #f5f5f5;");
 	expect(recordsStyle).toContain("padding: 32rpx 32rpx 160rpx;");
 	expect(recordsStyle).toContain("min-height: 380rpx;");
 	expect(recordsStyle).toContain("padding: 40rpx 32rpx;");
 	expect(recordsStyle).not.toContain("legacy-tabbar");
-	// 旧端 py-4 的标签高度和 pb-20 的底部节奏必须固定，避免页面视觉逐步漂移。
-	expect(recordsStyle).toContain("height: 112rpx;");
+	// 就诊人行的原始 92rpx 高度作为基准，医院园区与三个标签保持一致。
+	expect(recordsStyle).toContain("height: 92rpx;");
+	expect(recordsStyle).toContain("min-height: 92rpx;");
+	expect(recordsStyle).toContain("width: 176rpx;");
+	expect(recordsStyle).toContain("position: absolute;");
 	expect(recordsStyle).toContain(
 		"transition: background-color 0.2s ease, transform 0.2s ease;",
 	);
 	expect(recordsStyle).toContain("transform: scale(0.99);");
-	expect(recordsTemplate).not.toContain(
+	expect(recordsTemplate).toContain(
 		"/assets/legacy-user/appointment-status.svg",
 	);
+	expect(recordsTemplate).toContain('class="record-status-stamp"');
 	expect(recordsTemplate).toContain("/assets/legacy-user/empty-record.svg");
 	expect(recordsTemplate).not.toContain(
 		"/assets/legacy-home/empty-services.png",
@@ -3350,6 +3397,9 @@ test("native mini program derives missed appointments from the normalized record
 	const my = await source("pages/my/my.ts");
 	const myTemplate = await source("pages/my/my.wxml");
 	const page = await source("pages/missed-appointments/missed-appointments.ts");
+	const config = await source(
+		"pages/missed-appointments/missed-appointments.json",
+	);
 	const navigation = await source("services/patient-navigation.ts");
 	const template = await source(
 		"pages/missed-appointments/missed-appointments.wxml",
@@ -3384,9 +3434,9 @@ test("native mini program derives missed appointments from the normalized record
 	expect(page).not.toContain("providerPatientId");
 	expect(page).not.toContain("thirdPatientId");
 	expect(template).toContain("暂无爽约记录");
-	expect(template).toContain("展示当前就诊人过去 90 天的爽约记录");
 	expect(template).toContain("查询范围为过去 90 天");
-	expect(template).toContain("更换就诊人");
+	expect(template).toContain('class="selector-label">就诊人</text>');
+	expect(template).toContain("selector-card-number");
 	expect(template).toContain("状态未知或服务异常时不会推断为爽约");
 	expect(template.indexOf('class="error-message"')).toBeGreaterThanOrEqual(0);
 	expect(template.indexOf('class="error-message"')).toBeLessThan(
@@ -3396,9 +3446,11 @@ test("native mini program derives missed appointments from the normalized record
 		'@import "../appointment-records/appointment-records.wxss"',
 	);
 	// 患者上下文错误留在本页可重试错误态，爽约空态只代表当前已确认患者
-	// 确实没有 missed 记录，不能把“选择就诊人”当作查询结果。
-	expect(template).not.toContain("请先选择就诊人");
+	// 确实没有 missed 记录；顶部选择器只提供统一的换人入口。
 	expect(template).not.toContain("点击这里选择就诊人");
+	expect(config).toContain('"navigationBarTitleText": "爽约记录"');
+	expect(template).not.toContain('<view class="page-header">');
+	expect(template).not.toContain("展示当前就诊人过去 90 天的爽约记录");
 	expect(page).not.toContain("redirectToPatientSelector");
 });
 
@@ -3452,13 +3504,15 @@ test("native mini program exposes outpatient payment and my pages through platfo
 		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
 	);
 	expect(outpatientTemplate).toContain(
-		"当前支持门诊费用查询和微信自费支付；医保授权、结算和退费功能正在完善中",
+		"门诊微信自费支付已接入；医保支付、结算和退费请以医院正式渠道为准",
 	);
 	// 旧端文案会暗示支付或医保已经可以在此页面执行；只读页面必须明确拒绝这种语义回流。
 	expect(outpatientTemplate).not.toContain("缴费后如需退费需至窗口办理");
 	expect(outpatientTemplate).not.toContain("目前支付宝支持");
 	expect(outpatientTemplate).toContain('bindtap="onRecordTap"');
-	expect(outpatientTemplate).toContain("医保授权、结算和退费功能正在完善中");
+	expect(outpatientTemplate).toContain(
+		"医保支付、结算和退费请以医院正式渠道为准",
+	);
 	expect(my).toContain("navigateToPatientSelector");
 	expect(my).toContain("navigateToPatientScopedPage");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
@@ -3468,6 +3522,29 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	// 小程序不能把 provider patId、provider 订单号或旧直连地址交给页面。
 	expect(outpatient).not.toContain("providerPatientId");
 	expect(outpatient).not.toContain("outTradeOrderId");
+});
+
+test("outpatient payment detail only spins the selected payment button", async () => {
+	const detailPage = await source(
+		"pages/outpatient-payment-detail/outpatient-payment-detail.ts",
+	);
+	const detailTemplate = await source(
+		"pages/outpatient-payment-detail/outpatient-payment-detail.wxml",
+	);
+
+	// 付款期间两个按钮都要禁用以避免重复提交，但 loading 只能反映本次
+	// 点击的支付方式，不能让医保支付和微信支付同时显示转圈。
+	expect(detailPage).toContain(
+		'type PaymentBusyKind = "medical" | "wechat" | "";',
+	);
+	expect(detailPage).toContain('paymentBusy: "medical"');
+	expect(detailPage).toContain('paymentBusy: "wechat"');
+	expect(detailTemplate).toContain(
+		"loading=\"{{paymentBusy === 'medical'}}\" disabled=\"{{paymentBusy !== ''}}\"",
+	);
+	expect(detailTemplate).toContain(
+		"loading=\"{{paymentBusy === 'wechat'}}\" disabled=\"{{paymentBusy !== ''}}\"",
+	);
 });
 
 test("patient list load-more events cannot mutate stale read-model windows", async () => {
@@ -3550,7 +3627,17 @@ test("patient-scoped empty states keep a reachable patient selector", async () =
 	expect(outpatientPage).toContain(
 		"const canSelectPatient = isPatientSelectionError(error)",
 	);
+	expect(outpatientPage).toContain("shouldRenderOutpatientEmptyState");
+	expect(outpatientPage).toContain(
+		'error.code === "provider-response-invalid"',
+	);
+	expect(outpatientPage).toContain(
+		'error: shouldRenderEmptyState ? "" : errorMessageWithCode(error, message)',
+	);
 	expect(outpatientPage).toContain("outpatient-payment-patient-not-found");
+	expect(
+		await source("pages/outpatient-payment/outpatient-payment.wxml"),
+	).toContain("未查询到待缴费记录");
 });
 
 test("native mini program migrates the legacy static indoor navigation page", async () => {
@@ -3684,6 +3771,7 @@ test("native report count comes from the report directory total", async () => {
 });
 
 test("native report directory renders an error once inside the page state", async () => {
+	const page = await source("pages/report-directory/report-directory.ts");
 	const template = await source("pages/report-directory/report-directory.wxml");
 	const style = await source("pages/report-directory/report-directory.wxss");
 
@@ -3700,6 +3788,13 @@ test("native report directory renders an error once inside the page state", asyn
 	expect(template).not.toContain("报告详情功能正在完善中");
 	expect(template).not.toContain("详情引用暂未开放");
 	expect(template).toContain("该报告暂无可查看详情");
+	// Provider 明确拒绝（10800）仍需保留服务端原始诊断，但患者端按
+	// 合法空目录展示，不能把上游错误码投影为“报告暂时无法获取”。
+	expect(page).toContain("shouldRenderReportEmptyState");
+	expect(page).toContain('error.code === "provider-request-rejected"');
+	expect(page).toContain(
+		'error: shouldRenderEmptyState ? "" : errorMessageWithCode(error, message)',
+	);
 });
 
 test("native report detail actions reject stale directory events", async () => {
@@ -3828,7 +3923,8 @@ test("native missed appointments never auto-opens the patient selector", async (
 	expect(missed).toContain("onChangePatient");
 	expect(missed).not.toContain("redirectToPatientSelector");
 	expect(template).not.toContain("正在打开就诊人选择");
-	expect(template).not.toContain("selector-card");
+	expect(template).toContain("selector-card");
+	expect(template).toContain("selector-card-number");
 	expect(template).not.toContain("pages/patient-select/patient-select");
 });
 
@@ -3870,6 +3966,9 @@ test("native homepage routes patient binding and report query to real pages", as
 	const home = await source("pages/index/index.ts");
 	const reportPage = await source("pages/report-directory/report-directory.ts");
 	const reportDetailPage = await source("pages/report-detail/report-detail.ts");
+	const reportConfig = await source(
+		"pages/report-directory/report-directory.json",
+	);
 	const reportTemplate = await source(
 		"pages/report-directory/report-directory.wxml",
 	);
@@ -3881,7 +3980,20 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(reportPage).toContain("loadReports");
 	expect(reportPage).toContain("onLoadMore");
 	expect(reportPage).toContain("loadCurrentPatient");
-	expect(reportTemplate).toContain("报告查询");
+	expect(reportConfig).toContain('"navigationBarTitleText": "报告查询"');
+	expect(reportTemplate).toContain("report-notice");
+	expect(reportTemplate).toContain(
+		"体检的检验及检查报告点击检验检查查询，体检报告下仅显示总检内容!",
+	);
+	expect(reportTemplate).toContain('class="selector-card"');
+	expect(reportTemplate).toContain(
+		'class="selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>',
+	);
+	expect(reportTemplate).toContain(
+		'src="/assets/legacy-user/selector-arrow-right.svg"',
+	);
+	expect(reportTemplate).not.toContain('<view class="page-header">');
+	expect(reportTemplate).not.toContain("按就诊人、日期和报告类型查询院内报告");
 	expect(reportTemplate).toContain("加载更多报告");
 	// 报告详情只接受服务端生成的 opaque reportId 和当前 patientId，目录不透传 provider 报告号。
 	expect(reportPage).not.toContain("providerReportId");

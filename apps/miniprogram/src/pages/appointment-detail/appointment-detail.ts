@@ -5,7 +5,6 @@ import {
 	requestAppointmentDetail,
 	safeApiErrorMessage,
 } from "../../services/api-client";
-import { searchDepartmentLocation } from "../../services/department-location";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
@@ -42,9 +41,6 @@ type AppointmentDetailPageMethods = {
 	loadPatientContext(patientId: string): Promise<void>;
 	onRetry(): void;
 	onCancel(): void;
-	onHospitalGuide(): void;
-	closeLocationModal(): void;
-	stopLocationPropagation(): void;
 	onBackHome(): void;
 	onUnload(): void;
 	showError(error: unknown): void;
@@ -64,11 +60,12 @@ type AppointmentDetailRouteOptions = {
 
 type AppointmentDetailPageState = AppointmentDetailPageData & {
 	location: string;
-	showLocationModal: boolean;
-	locationResults: Array<{
-		department: string;
-		location: string;
-	}>;
+	/**
+	 * 挂号列表已经从 Provider 确认的状态。详情接口读取的是本地预约引用，
+	 * 可能仍是 booked；这里仅用于收紧取消按钮，不能把列表状态当作写入事实。
+	 */
+	sourceRecordStatus: AppointmentDetailPageData["status"];
+	canCancel: boolean;
 };
 
 function decode(value: string | undefined): string {
@@ -144,8 +141,8 @@ function detailDefaults(): AppointmentDetailPageState {
 		sourcePatientId: "",
 		legacySummary: false,
 		location: "",
-		showLocationModal: false,
-		locationResults: [],
+		sourceRecordStatus: "",
+		canCancel: false,
 	};
 }
 
@@ -181,13 +178,17 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				localDetail: false,
 				legacySummary: false,
 				location: "",
-				showLocationModal: false,
-				locationResults: [],
+				sourceRecordStatus: "",
+				canCancel: false,
 			});
 		});
 
 		const patientId = safeRouteText(options?.patientId, 128);
 		const appointmentId = safeRouteText(options?.appointmentId, 64);
+		const routeStatus = safeRouteText(options?.status, 32);
+		const sourceRecordStatus = validStatus(routeStatus)
+			? (routeStatus as AppointmentDetailPageData["status"])
+			: "";
 		if (!patientId) {
 			this.showError(
 				new ApiError("当前就诊人引用无效", {
@@ -200,6 +201,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			sourcePatientId: patientId,
 			sourceAppointmentId: appointmentId,
 			patientId,
+			sourceRecordStatus,
+			canCancel: false,
 		});
 
 		if (appointmentId) {
@@ -213,7 +216,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		const departmentName = safeRouteText(options?.departmentName, 128);
 		const doctorName = safeRouteText(options?.doctorName, 128);
 		const workDate = safeRouteText(options?.workDate, 16);
-		const status = safeRouteText(options?.status, 32);
+		const status = routeStatus;
 		if (
 			!departmentName ||
 			!doctorName ||
@@ -242,11 +245,10 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			status: status as AppointmentDetailPageData["status"],
 			statusLabel: STATUS_LABELS[status as AppointmentDetailPageData["status"]],
 			location: safeRouteText(options.location, 256),
-			showLocationModal: false,
-			locationResults: [],
 			totalFen: 0,
 			totalLabel: "以医院实际收费记录为准",
 			canceling: false,
+			canCancel: false,
 		});
 		void this.loadPatientContext(patientId);
 	},
@@ -336,6 +338,14 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					return;
 				}
 				const detail = payload.data;
+				// 预约列表的 Provider 状态可能比本地详情引用更新。终态只允许
+				// 收紧展示和取消动作，不能把列表的“已预约”覆盖服务端更明确的终态。
+				const status =
+					this.data.sourceRecordStatus &&
+					this.data.sourceRecordStatus !== "scheduled" &&
+					detail.status === "scheduled"
+						? this.data.sourceRecordStatus
+						: detail.status;
 				this.setData({
 					loading: false,
 					error: "",
@@ -358,14 +368,13 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					sourceSerialNumber: detail.sourceSerialNumber,
 					totalFen: detail.totalFen,
 					totalLabel: moneyLabel(detail.totalFen),
-					status: detail.status,
-					statusLabel: STATUS_LABELS[detail.status],
+					status,
+					statusLabel: STATUS_LABELS[status],
 					canceling: false,
+					canCancel: status === "scheduled",
 					sessionGeneration: expectedSessionGeneration,
 					localDetail: true,
 					legacySummary: false,
-					showLocationModal: false,
-					locationResults: [],
 				});
 			})
 			.catch((error) => {
@@ -390,7 +399,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		if (
 			!this.data.localDetail ||
 			!this.data.appointmentId ||
-			this.data.status !== "scheduled" ||
+			!this.data.canCancel ||
 			this.data.canceling
 		) {
 			return;
@@ -426,6 +435,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						this.setData({
 							status: "cancelled",
 							statusLabel: STATUS_LABELS.cancelled,
+							canCancel: false,
 						});
 						wx.showToast({ title: "取消预约成功", icon: "success" });
 					})
@@ -438,24 +448,6 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					.finally(() => this.setData({ canceling: false }));
 			},
 		});
-	},
-
-	/** 复用预约记录页的静态位置资料，保持旧详情页“去导航”行为。 */
-	onHospitalGuide(): void {
-		if (!this.data.status || !this.data.departmentName) return;
-		this.setData({
-			showLocationModal: true,
-			locationResults: searchDepartmentLocation(this.data.departmentName),
-		});
-	},
-
-	closeLocationModal(): void {
-		this.setData({ showLocationModal: false, locationResults: [] });
-	},
-
-	/** 弹窗内容不应触发遮罩层关闭。 */
-	stopLocationPropagation(): void {
-		// `catchtap` 已阻止冒泡；保留显式方法让 WXML 绑定可审计。
 	},
 
 	onBackHome(): void {
@@ -476,9 +468,9 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			patientName: "",
 			patientCardLabel: "",
 			canceling: false,
+			canCancel: false,
+			sourceRecordStatus: "",
 			sessionGeneration: -1,
-			showLocationModal: false,
-			locationResults: [],
 		});
 		wx.showToast({ title: message, icon: "none" });
 	},

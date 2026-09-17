@@ -452,10 +452,6 @@ export async function readRawLogTrace(
 	}
 	if (until.getTime() < since.getTime())
 		throw new Error("raw-log-window-invalid");
-	const maxEntries = Math.min(
-		RAW_LOG_MAX_ENTRIES,
-		Math.max(1, Math.trunc(query.maxEntries ?? RAW_LOG_MAX_ENTRIES)),
-	);
 	const grep = identifiers.map(escapedRegexLiteral).join("|");
 	const args = [
 		"--all",
@@ -474,19 +470,39 @@ export async function readRawLogTrace(
 		grep,
 	] as const;
 	const serialized = await journalCommand(args);
+	return readRawLogTraceFromSerialized(query, serialized);
+}
+
+/**
+ * 使用已经通过 `journalctl --all -o json` 缓存的 JSONL 重建原始链路。
+ *
+ * 生产采集器可以先在受控位置保存一次完整 journald，再按订单/trace 复用
+ * 这份快照，避免为了每个接口重复 SSH 和重复读取生产日志。解析逻辑与
+ * `readRawLogTrace` 共用同一套 chunk、编码、长度和摘要校验。
+ */
+export function readRawLogTraceFromSerialized(
+	query: RawLogTraceQuery,
+	serialized: string,
+): RawLogTrace {
+	const identifiers = [
+		...new Set(query.identifiers.map((value) => value.trim())),
+	].filter((value) => value.length > 0);
+	if (identifiers.length === 0) throw new Error("raw-log-identifier-required");
+	const since = new Date(query.since);
+	const until = new Date(query.until);
+	if (Number.isNaN(since.getTime()) || Number.isNaN(until.getTime())) {
+		throw new Error("raw-log-window-invalid");
+	}
+	if (until.getTime() < since.getTime())
+		throw new Error("raw-log-window-invalid");
+	const maxEntries = Math.min(
+		RAW_LOG_MAX_ENTRIES,
+		Math.max(1, Math.trunc(query.maxEntries ?? RAW_LOG_MAX_ENTRIES)),
+	);
 	const chunks = parseJournalRawChunks(serialized).filter((chunk) =>
 		identifierMatches(chunk, new Set(identifiers)),
 	);
-	const groups = new Map<string, RawChunk[]>();
-	for (const chunk of chunks) {
-		const key = groupKey(chunk);
-		const current = groups.get(key);
-		if (current) current.push(chunk);
-		else groups.set(key, [chunk]);
-	}
-	const entries = [...groups.values()]
-		.map(reconstruct)
-		.sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+	const entries = reconstructRawEntries(chunks);
 	return {
 		entries: entries.slice(0, maxEntries),
 		total: entries.length,
@@ -497,4 +513,42 @@ export async function readRawLogTrace(
 		until: until.toISOString(),
 		matchedJournalRecords: chunks.length,
 	};
+}
+
+function reconstructRawEntries(chunks: RawChunk[]): RawLogEntry[] {
+	const groups = new Map<string, RawChunk[][]>();
+	for (const chunk of chunks) {
+		const key = groupKey(chunk);
+		const sequences = groups.get(key) ?? [];
+		const current = sequences.at(-1);
+		// 同一 trace/provider/operation 可能按需连续调用（例如多个 2.6.65.2
+		// 支付分项）。每次调用都会从 chunkIndex=0 开始；上一组已收齐后，
+		// 必须开启新序列，不能把两次原文拼成一个“重复 chunk”。
+		if (
+			current &&
+			chunk.chunkIndex === 0 &&
+			current.length > 0 &&
+			current.length >= (current[0]?.chunkCount ?? Number.POSITIVE_INFINITY)
+		) {
+			sequences.push([chunk]);
+		} else if (current) {
+			current.push(chunk);
+		} else {
+			sequences.push([chunk]);
+		}
+		groups.set(key, sequences);
+	}
+	return [...groups.values()]
+		.flatMap((sequences) => sequences.map(reconstruct))
+		.sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+}
+
+/**
+ * 一次性解析受控 journald JSONL 中的全部 raw invocation。
+ * 支付日汇总会为多笔订单复用这个结果，避免每笔订单重复扫描同一段日志。
+ */
+export function parseRawLogEntriesFromSerialized(
+	serialized: string,
+): RawLogEntry[] {
+	return reconstructRawEntries(parseJournalRawChunks(serialized));
 }

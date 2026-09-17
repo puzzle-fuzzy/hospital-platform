@@ -590,3 +590,32 @@ test("医保关单上下文缺失不再伪装成 Provider 502", async () => {
 		},
 	});
 });
+
+test("医保 6201/6202 内嵌 504 返回可重试的连接超时提示", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new ProviderRequestError({
+			provider: "legacy-fsi",
+			operation: "legacy-fsi.6201",
+			requestId: "relay-6201-timeout",
+			message: "Legacy FSI provider rejected the request",
+			retryable: true,
+			failureStage: "response",
+			responseInvalid: false,
+			providerErrorCode: "001",
+			providerErrorMessage:
+				"操作失败，Unexpected code Response{protocol=http/1.1, code=504, message=Gateway Time-out}",
+			requestOutcome: "unknown",
+		});
+	});
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(503);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "medical-insurance-timeout",
+			numericCode: 30570,
+			message: "医保连接超时，请稍后重新挂号重试",
+		},
+	});
+});

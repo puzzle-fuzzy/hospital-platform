@@ -17,6 +17,10 @@
 >
 > 本次只同步文档，不执行服务器部署、服务重启、数据库迁移或真实 Provider/医保/微信请求。线上 `test-hp.meiyi.pro` 的实际版本必须通过 `3090-local` 上的 release、systemd、公网 readiness 和业务日志证据单独确认，不能由 Git 状态推断。
 
+> **`miniprogram-pay` 退役边界（2026-09-17）**：`apps/miniprogram-pay` 已停止使用，暂时保留以便历史追溯，后续择机删除。它不再作为开发、修复、支付验收、运行包构建或 3090 发布入口；现行支付以主小程序和服务端当前合同为准。详见 [`docs/迁移/miniprogram-pay退役说明.md`](docs/迁移/miniprogram-pay退役说明.md)。
+
+> **主小程序运行入口（2026-09-17）**：开发、预览、真机调试和上传统一使用 `apps/miniprogram/dist/`；`.local/hospital-miniprogram/development/` 不再更新或打开。详见 [`docs/迁移/小程序运行入口统一说明.md`](docs/迁移/小程序运行入口统一说明.md)。
+
 当前仓库已经从“只读骨架”进入“统一支付核心 + 受控业务入口”阶段。最新代码已落地主小程序的预约写入、取消、详情和患者手动添加/绑定入口；新版 API 也注册了挂号自费、医保授权/费用/结算、医保混合支付和门诊费用只读接口。这里的“已落地/已注册”只表示代码和契约存在，不等于 Provider、数据库 schema、商户权限、线上 release 或真机业务已经验收；缺少证据时继续 fail-closed。
 
 ### 当前可用代码边界
@@ -24,14 +28,13 @@
 | 模块 | 当前实现 | 当前限制 |
 | --- | --- | --- |
 | `apps/api` | Bun + Elysia API、会话、患者目录/同步/手动绑定入口、预约目录/排班、预约写入/取消/详情、挂号自费、医保支付、门诊费用只读、报告和结构化日志 | 生产可用性以运行时 gate、实际数据库/schema、Provider 合同、商户权限、回调和线上 release 证据为准；路由注册不代表业务已验收 |
-| `apps/miniprogram` | 43 个原生微信页面；微信登录、会话恢复、就诊人选择/同步、患者绑定表单、预约目录/排班、主小程序预约写入/取消/详情、挂号记录、门诊费用列表/详情等链路 | 患者 Provider 查档/建档/绑卡、临床 Provider、实时叫号、未确认内容和主项目内支付入口仍按各自 gate 处理；支付由独立测试小程序承载 |
-| `apps/miniprogram-pay` | 挂号支付测试端：固定“内科风湿 + 后天优先/大后天顺延 + 上午 + 可用号源”，支持医保支付、医保混合支付、自费支付三条分支 | 真实医保/微信支付是否可调用由服务端配置和 Provider 验收决定；用户明确取消支付时由服务端作废订单并取消预约、释放号源 |
-| `apps/miniprogram-outpatient-pay` | 门诊支付测试端：登录、选择就诊人、读取待缴/已缴费用列表和已核对的摘要详情 | 当前只读，不创建门诊支付订单，不调用医保结算；门诊支付写入需先冻结正式 contract |
+| `apps/miniprogram` | 43 个原生微信页面；微信登录、会话恢复、就诊人选择/同步、患者绑定表单、预约目录/排班、主小程序预约写入/取消/详情、挂号记录、门诊费用列表/详情等链路 | 患者 Provider 查档/建档/绑卡、临床 Provider、实时叫号和未确认内容仍按各自 gate 处理；现行支付入口以主项目实际发布版本和服务端合同为准 |
+| `apps/miniprogram-pay` | 历史挂号支付测试端，暂保留用于代码和版本追溯 | 已停止使用，不再开发、修复、构建、验收或发布；后续择机删除 |
 | `apps/worker` | 医保订单/微信通知 outbox 的查单与补偿执行骨架、生产日志和 schema 前置检查 | 是否在线运行、是否接管生产订单必须通过服务器上的 systemd 和日志证据确认 |
 
-### 挂号支付测试端的实际流程
+### 历史挂号支付测试端流程（仅供追溯）
 
-`miniprogram-pay` 不使用“一条窄的快速挂号编排接口”，而是按业务阶段调用新版平台 API：
+以下内容只记录已退役测试端曾经使用的流程，不是当前开发或验收入口。`miniprogram-pay` 的退役和后续删除边界见 [`docs/迁移/miniprogram-pay退役说明.md`](docs/迁移/miniprogram-pay退役说明.md)。
 
 ```text
 POST /appointments/holds
@@ -45,7 +48,7 @@ POST /appointments/holds
   → 服务端查单确认最终状态
 ```
 
-服务端会在预约写入前检查重复预约；重复时不会再次挂号，用户确认后才调用独立取消接口，再重新读取号源并重试。医保结算返回自费金额时，纯医保分支不会偷偷切换为混合支付，而是提示用户明确选择医保混合支付。详细接口、状态和日志见 [`docs/miniprogram-pay-三个支付按钮业务说明.md`](docs/miniprogram-pay-三个支付按钮业务说明.md) 与 [`docs/医保支付操作流程图.md`](docs/医保支付操作流程图.md)。
+服务端会在预约写入前检查重复预约；重复时不会再次挂号，用户确认后才调用独立取消接口，再重新读取号源并重试。医保结算返回自费金额时，纯医保分支不会偷偷切换为混合支付，而是提示用户明确选择医保混合支付。退役前的接口、状态和日志记录见 [`docs/miniprogram-pay-三个支付按钮业务说明.md`](docs/miniprogram-pay-三个支付按钮业务说明.md) 与 [`docs/医保支付操作流程图.md`](docs/医保支付操作流程图.md)，仅供追溯。
 
 当前挂号支付统一走 HIS 收款：纯自费和医保各支付分项先由服务端调用众阳 `2.6.65.2`，微信现金分项使用 `.2.result` 返回的 APIv2/MD5 参数调起收银台；付款后继续调用 `2.6.65.5`，只有 `isSettle=1` 才视为医院结算完成。
 
@@ -61,8 +64,7 @@ POST /appointments/holds
 apps/
   api/                 Elysia API 服务
   miniprogram/         主项目原生微信小程序壳
-  miniprogram-pay/     挂号医保/混合/自费支付测试小程序
-  miniprogram-outpatient-pay/  门诊费用只读测试小程序
+  miniprogram-pay/     历史挂号支付测试端（已停止使用，待删除）
   worker/              异步查单、outbox 与回调处理进程
 packages/
   contracts/           HTTP/API 契约与 TypeBox schema
@@ -169,7 +171,8 @@ smoke 只执行 GET、默认要求 HTTPS，并使用 Pino 输出结构化验收�
 provider gate 配置完整不等于真实 provider 已授权或真机可用。
 
 预约写入、锁号、取消、挂号自费和医保支付接口已经形成独立的新版 contract 与服务层，
-由 [`apps/miniprogram-pay`](apps/miniprogram-pay/README.md) 作为测试入口；门诊支付小程序仍只读。
+现行入口以 [`apps/miniprogram`](apps/miniprogram/README.md) 和服务端当前发布版本为准；
+[`apps/miniprogram-pay`](apps/miniprogram-pay/README.md) 仅作历史追溯；门诊费用页面由主小程序承载，当前仍只读。
 真实 Provider、医保、微信支付和 HIS 回写仍必须按 [`docs/发布/支付验收.md`](docs/发布/支付验收.md)
 完成配置、部署和业务证据，不能把接口已注册当作生产业务已验收。
 

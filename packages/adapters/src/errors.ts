@@ -42,6 +42,8 @@ export type ProviderFailureReason =
 	| "payment-order-not-found"
 	/** 1101 返回有效参保列表，但没有当前医保支付要求的险种。 */
 	| "medical-insurance-insutype-unavailable"
+	/** 6201/6202 返回体包含医保核心 504 Gateway Time-out，结果需要重新挂号重试。 */
+	| "medical-insurance-timeout"
 	/** 众阳 2.6.33 明确返回已有支付流水，支付小程序可进入关单重开分支。 */
 	| "medical-insurance-payment-in-progress"
 	/** 新服务没有保存完整关单上下文时，禁止把本地前置校验伪装成 Provider 502。 */

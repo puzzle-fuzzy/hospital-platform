@@ -12,29 +12,11 @@ page {
 	padding: 28rpx 20rpx calc(48rpx + env(safe-area-inset-bottom));
 }
 
-.title-row,
+.patient-card-header,
 .detail-line {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-}
-
-.title-row {
-	margin-bottom: 24rpx;
-}
-
-.eyebrow {
-	margin-bottom: 10rpx;
-	color: #3d6df6;
-	font-size: 21rpx;
-	font-weight: 700;
-	letter-spacing: 4rpx;
-}
-
-.title {
-	color: #1f252d;
-	font-size: 48rpx;
-	font-weight: 700;
 }
 
 .status {
@@ -53,6 +35,11 @@ page {
 	color: #d97726;
 }
 
+.status-refunding {
+	background: #fff1d6;
+	color: #b66a00;
+}
+
 .card,
 .notice-card,
 .state-card {
@@ -67,6 +54,10 @@ page {
 	margin-bottom: 16rpx;
 	color: #8b949e;
 	font-size: 26rpx;
+}
+
+.patient-card-header .label {
+	margin-bottom: 0;
 }
 
 .patient-name,
@@ -103,6 +94,7 @@ page {
 
 .detail-value {
 	flex: 1;
+	word-break: break-all;
 	color: #20242b;
 	text-align: right;
 }
@@ -130,7 +122,8 @@ page {
 }
 
 .payment-card,
-.paid-card {
+.paid-card,
+.refunding-card {
 	box-sizing: border-box;
 	margin-bottom: 20rpx;
 	padding: 28rpx;
@@ -164,16 +157,24 @@ page {
 
 .payment-actions {
 	display: flex;
+	box-sizing: border-box;
+	width: 100%;
 	margin-top: 22rpx;
+	align-items: stretch;
+	flex-direction: column;
 	gap: 16rpx;
 }
 
 .payment-button {
 	box-sizing: border-box;
-	flex: 1;
+	display: block;
+	width: 100% !important;
+	max-width: none;
 	margin: 0;
+	padding: 0;
 	border-radius: 44rpx;
 	font-size: 28rpx;
+	line-height: 88rpx;
 }
 
 .payment-button::after,
@@ -182,18 +183,26 @@ page {
 }
 
 .medical-button {
-	background: #3d6df6;
-	color: #ffffff;
+	border: 2rpx solid #3d6df6;
+	background: transparent;
+	color: #3d6df6;
 }
 
 .wechat-button {
-	background: #20b26b;
-	color: #ffffff;
+	border: 2rpx solid #20b26b;
+	background: transparent;
+	color: #20b26b;
 }
 
 .paid-card {
 	border: 1rpx solid #d9f0e2;
 	background: #f3fbf6;
+	text-align: center;
+}
+
+.refunding-card {
+	border: 1rpx solid #f2d59d;
+	background: #fffaf0;
 	text-align: center;
 }
 
@@ -216,14 +225,27 @@ page {
 	font-weight: 700;
 }
 
+.refunding-icon {
+	background: #d98a16;
+}
+
+.refunding-title {
+	color: #a96500;
+}
+
 .home-button {
 	box-sizing: border-box;
-	width: 100%;
+	display: block;
+	width: 100% !important;
+	max-width: none;
 	margin: 0 0 18rpx;
+	padding: 0;
+	border: 2rpx solid #16a34a;
 	border-radius: 44rpx;
-	background: #3d6df6;
-	color: #ffffff;
-	font-size: 28rpx;
+	background: transparent;
+	color: #16a34a;
+	font-size: 30rpx;
+	line-height: 88rpx;
 }
 
 .state-home-button {
@@ -261,10 +283,11 @@ page {
 
 .retry-button,
 .back-button {
-	min-width: 180rpx;
-	margin-top: 24rpx;
+	box-sizing: border-box;
+	width: 100%;
+	margin: 24rpx 0 0;
 	border: 0;
-	border-radius: 10rpx;
+	border-radius: 44rpx;
 	font-size: 25rpx;
 }
 

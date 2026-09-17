@@ -369,9 +369,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		title: "费用记录详情",
 		readiness: "已接入安全子集",
 		description:
-			"门诊费用摘要详情和微信自费支付已接入；医保授权、结算和退费仍按 Provider 合同关闭。",
+			"门诊费用详情和微信自费支付已接入；医保授权、结算和退费仍按 Provider 合同关闭。",
 		contractHint:
-			"摘要使用 2.6.33 已确认字段；项目明细、医保分摊、电子票据和短期授权仍待正式合同。",
+			"详情展示 2.6.33 返回并经服务端校验的费用字段；医保分摊、电子票据和短期授权仍待正式合同。",
 		icon: "/assets/legacy-home/top-payment.svg",
 	},
 	"outpatient-payment-write": {

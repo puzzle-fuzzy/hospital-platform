@@ -664,7 +664,8 @@ test("pure insurance finalizes HIS through .32 without calling .5", async () => 
 	).toMatchObject({
 		status: "insurance_settled",
 		wechatPaymentState: "cash_paid",
-		ordStas: "isSettle=1",
+		// ord_stas 仅保留 6202/6301 的短状态，后置诊断值不写入 VARCHAR(8)。
+		ordStas: "1",
 		version: 3,
 	});
 });
@@ -798,11 +799,126 @@ test("mixed payment finalizes HIS through .32 then .5 without creating .2 or cal
 		"medical-order-worker-001",
 	);
 	expect(
+		await orders.findByMedicalOrderId("medical-order-worker-001"),
+	).toMatchObject({
+		status: "insurance_settled",
+		// 后置响应的诊断字符串不能写入 ord_stas VARCHAR(8)。
+		ordStas: "1",
+	});
+	expect(
 		settlement?.postPaymentComponents?.every(
 			(item) => item.state === "succeeded",
 		),
 	).toBeTrue();
 	expect(settlement?.postPaymentCompletedAt).toBe(now.toISOString());
+});
+
+test(".32 success settles the order when the optional .5 response is unavailable", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			amounts: {
+				totalFen: 100,
+				cashFen: 20,
+				personalAccountFen: 20,
+				fundFen: 50,
+				otherPaymentFen: 10,
+				hospitalPartFen: 10,
+			},
+			wechatMixTradeNo: "mix-writeback-success-worker-001",
+			wechatOutTradeNo: "out-writeback-success-worker-001",
+			wechatPaymentState: "prepay_ready",
+		}),
+	);
+	const context = {
+		businessId: "business-writeback-success-worker-001",
+		businessCode: "trade-code-writeback-success-worker-001",
+		hospitalId: "1001",
+		patientId: "2001",
+		insuredAreaCode: "140581",
+		networkRegister: {},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: ["trade-writeback-success-worker-001"],
+		postPaymentComponents: [
+			prePaymentComponent("hospital_reduce", 30, "H5", "50"),
+			prePaymentComponent("fund", 50, "H5", "2"),
+			prePaymentComponent("personal_account", 20, "H5", "5"),
+		],
+	};
+	await orders.saveSettlementContext(
+		"user-worker-001",
+		"medical-order-worker-001",
+		context,
+	);
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
+		orders,
+		medicalInsurance: {
+			query: async () => {
+				const current = await orders.getSettlementContext(
+					"user-worker-001",
+					"medical-order-worker-001",
+				);
+				if (!current) throw new Error("settlement context missing");
+				await orders.saveSettlementContext(
+					"user-worker-001",
+					"medical-order-worker-001",
+					{
+						...current,
+						settlementWriteback: {
+							attemptedAt: now.toISOString(),
+							status: "succeeded",
+							providerRequestId: "notify-writeback-success-worker-001",
+							providerStatus: "insur=SUCCESS,settle=SUCCESS",
+						},
+					},
+				);
+				throw new Error(".5 response unavailable after .32 success");
+			},
+		},
+		wechatPayment: {
+			createMixedOrder: async () => {
+				throw new Error("create is not used");
+			},
+			recoverMixedOrder: async () => {
+				throw new Error("recover is not used");
+			},
+			queryMixedOrder: async () => ({
+				mixState: "paid",
+				cashState: "paid",
+				insuranceState: "paid",
+				medInsPayStatus: "MED_INS_PAY_SUCCESS",
+				cashFen: 0,
+				totalFen: 100,
+				fundFen: 50,
+				personalAccountFen: 20,
+				otherPaymentFen: 10,
+				medicalCashFen: 20,
+				cashReduceDetails: [
+					{ cashReduceFen: 20, cashReduceType: "HOSPITAL_REDUCE" },
+				],
+				providerStatus: "MIX_PAY_SUCCESS/NO_SELF_PAY/MED_INS_PAY_SUCCESS",
+				trace: {
+					provider: "wechat-pay",
+					operation: "medical-mix-query",
+					requestId: "medical-writeback-success-worker-001",
+				},
+			}),
+		},
+		postPayment: {
+			createPreOrder: async () => {
+				throw new Error(".2 must not run after payment");
+			},
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("reconciled");
+	expect(
+		await orders.findByMedicalOrderId("medical-order-worker-001"),
+	).toMatchObject({ status: "insurance_settled", ordStas: "1" });
 });
 
 test(".32 failed writeback moves an otherwise paid mixed order to manual review without retry", async () => {

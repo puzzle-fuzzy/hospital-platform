@@ -6,8 +6,8 @@ import {
 } from "./runtime-provenance";
 import {
 	createMiniProgramRuntimeLockError,
-	getMiniProgramDevelopmentRuntimePath,
 	getMiniProgramPendingRuntimePath,
+	getMiniProgramRuntimePath,
 	isMiniProgramRuntimeLockError,
 	type MiniProgramRuntimeBuildMode,
 	publishMiniProgramDevelopmentRuntime,
@@ -37,12 +37,9 @@ function resolvePublishMode(): MiniProgramRuntimeBuildMode {
 }
 
 const buildMode = resolvePublishMode();
-const liveRuntime =
-	buildMode === "development"
-		? getMiniProgramDevelopmentRuntimePath(root)
-		: join(root, "dist");
+const liveRuntime = getMiniProgramRuntimePath(root);
 const pendingRuntime = getMiniProgramPendingRuntimePath(root, buildMode);
-const runtimeLabel = buildMode === "development" ? "development/" : "dist/";
+const runtimeLabel = "dist/";
 const publishCommand =
 	buildMode === "development"
 		? "pnpm --filter @hospital/miniprogram runtime:publish-pending:dev"
@@ -113,7 +110,7 @@ if (buildMode === "development") {
 /**
  * pending 只代表“上一次因运行目录被锁定而暂存的当前候选”，不能成为回滚旧
  * 源码的快捷入口。release 对照干净 Git 提交；development 对照当前输入快照，
- * 两个模式不共用 pending 路径或来源格式。
+ * 两个模式虽然使用不同 pending 路径和来源格式，但最终都发布到同一个 dist。
  */
 if (buildMode === "development") {
 	const expectedSnapshot =

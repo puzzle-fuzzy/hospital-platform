@@ -802,20 +802,9 @@ export class AppointmentWriteService {
 		if (!registration) throw new AppointmentRegistrationNotFoundError();
 		if (registration.status === "cancelled")
 			return { appointmentId, status: "cancelled" };
-		const medicalOrder =
-			await this.dependencies.medicalInsuranceOrders?.findByOwnerAndAppointmentId(
-				ownerUserId,
-				appointmentId,
-			);
-		if (
-			medicalOrder &&
-			medicalOrder.status !== "cancelled" &&
-			medicalOrder.status !== "failed" &&
-			(medicalOrder.status !== "created" ||
-				Boolean(medicalOrder.feeUploadId || medicalOrder.payOrdId))
-		) {
-			throw new AppointmentCancellationMedicalPaymentActiveError();
-		}
+		// 医保结算状态以 HIS/Provider 的取消结果为准，不再使用本地医保订单
+		// 状态拦截预约取消。旧订单可能已经完成医保结算，但本地状态仍停留在
+		// payment-in-progress，不能因此把取消请求挡在本地。
 		const selfPayOrder =
 			await this.dependencies.paymentOrders?.findByOwnerAndIdempotencyKey(
 				ownerUserId,

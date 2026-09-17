@@ -171,6 +171,43 @@ test("Redis connection failure releases the single-flight for a later retry", as
 	expect(client.status).toBe("ready");
 });
 
+test("Redis connection gate waits for an in-progress reconnect", async () => {
+	let connectCount = 0;
+	const client: { status: string; connect(): Promise<void> } = {
+		status: "reconnecting",
+		async connect() {
+			connectCount += 1;
+			throw new Error("must not race the reconnect");
+		},
+	};
+
+	setTimeout(() => {
+		client.status = "ready";
+	}, 5);
+
+	await createRedisConnectionGate(client)();
+
+	expect(connectCount).toBe(0);
+	expect(client.status).toBe("ready");
+});
+
+test("Redis connection gate does not wait forever after reconnect ends", async () => {
+	const client: { status: string; connect(): Promise<void> } = {
+		status: "reconnecting",
+		async connect() {
+			throw new Error("must not race the reconnect");
+		},
+	};
+
+	setTimeout(() => {
+		client.status = "end";
+	}, 5);
+
+	await expect(createRedisConnectionGate(client)()).rejects.toThrow(
+		"Redis connection did not become ready",
+	);
+});
+
 test("MySQL read-only probes retry once without replaying a business operation", async () => {
 	let calls = 0;
 	const attempts = await probeMySqlReadOnly(

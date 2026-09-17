@@ -57,3 +57,28 @@ test("门诊医保支付上下文保留 recordId 并通过本地恢复校验", a
 		patientId: "patient-local-001",
 	});
 });
+
+test("已完成支付记录保留医保与自费金额拆分", async () => {
+	const storage = new Map<string, unknown>();
+	Object.assign(globalThis, {
+		wx: {
+			getStorageSync: (key: string) => storage.get(key),
+			setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+			removeStorageSync: (key: string) => storage.delete(key),
+		},
+	});
+	const { readLastMedicalPaymentResult } = await import("./medical-insurance");
+	storage.set("hospital-platform.last-medical-payment-result", {
+		businessType: "outpatient",
+		appointmentId: "outpatient-record-result-001",
+		recordId: "outpatient-record-result-001",
+		orderId: "medical-order-result-001",
+		amounts: { totalFen: 10000, insuranceFen: 7000, cashFen: 3000 },
+		completedAt: Date.now(),
+	});
+
+	expect(readLastMedicalPaymentResult()).toMatchObject({
+		orderId: "medical-order-result-001",
+		amounts: { totalFen: 10000, insuranceFen: 7000, cashFen: 3000 },
+	});
+});

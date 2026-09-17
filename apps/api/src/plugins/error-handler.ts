@@ -164,6 +164,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-payment-in-progress": 30540,
 	"medical-insurance-cancellation-context-missing": 30550,
 	"medical-insurance-insutype-unavailable": 30560,
+	"medical-insurance-timeout": 30570,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -292,6 +293,24 @@ function adminProviderDiagnosticMessage(
 		return `医保 1101 查询暂时无法访问${suffix}，请稍后重试并查看接口调用日志`;
 	}
 	return `医保 1101 查询被外部服务拒绝${suffix}，请打开接口调用日志核对原始返回`;
+}
+
+function isMedicalInsuranceGatewayTimeout(
+	error: ProviderRequestError,
+): boolean {
+	if (error.reason === "medical-insurance-timeout") return true;
+	if (
+		!/^(?:legacy-fsi|medical-insurance)\.620[12](?:$|-)/u.test(error.operation)
+	) {
+		return false;
+	}
+	if (error.statusCode === 504 || error.providerErrorCode === "504")
+		return true;
+	const message = error.providerErrorMessage ?? "";
+	return (
+		/\bcode\b["']?\s*[:=]\s*["']?504\b/iu.test(message) &&
+		/\bmessage\b["']?\s*[:=]\s*["']?Gateway Time-out\b/iu.test(message)
+	);
 }
 
 export function errorHandlerPlugin() {
@@ -456,6 +475,13 @@ export function errorHandlerPlugin() {
 			}
 
 			if (error instanceof ProviderRequestError) {
+				if (isMedicalInsuranceGatewayTimeout(error)) {
+					set.status = 503;
+					return errorPayload(
+						"medical-insurance-timeout",
+						"医保连接超时，请稍后重新挂号重试",
+					);
+				}
 				if (error.reason === "appointment-source-unavailable") {
 					set.status = 409;
 					return errorPayload(

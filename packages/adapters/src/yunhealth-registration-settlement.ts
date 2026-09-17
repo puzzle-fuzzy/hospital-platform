@@ -1194,7 +1194,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						appCode: "WeChatSmallProg",
 						authSysCode,
 						autoSettle: 3,
-						body: "自费支付",
+						body: "支付",
 						businessId,
 						expire: 20,
 						hospitalId,

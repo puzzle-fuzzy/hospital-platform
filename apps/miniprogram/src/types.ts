@@ -174,7 +174,7 @@ export type OutpatientMedicalRecord =
 export type InpatientEpisode =
 	InpatientEpisodeListResponse["data"]["items"][number];
 export type OutpatientPaymentDetail = OutpatientPaymentDetailResponse["data"];
-/** 门诊费用详情页只展示服务端核对后的单笔摘要。 */
+/** 门诊费用详情页展示服务端核对后的单笔 2.6.33 费用字段。 */
 export type OutpatientPaymentDetailPageData = {
 	loading: boolean;
 	error: string;
@@ -189,7 +189,12 @@ export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
 	/** 仅用于当前费用查询批次的 WXML 事件回查，不是账单号或支付业务引用。 */
 	viewKey: string;
 	amountLabel: string;
-	/** 旧端列表只显示账单自然日；原始 billDate 仍保留用于业务校验。 */
+	priceLabel?: string;
+	preferentialAmountLabel?: string;
+	ascendAmountLabel?: string;
+	selfBurdenRatioLabel?: string;
+	specQuantityLabel?: string;
+	/** 页面展示完整的 2.6.33 账单时间；原始值仍保留用于业务校验。 */
 	billDateLabel: string;
 };
 export type Report = ReportListResponse["data"]["items"][number];

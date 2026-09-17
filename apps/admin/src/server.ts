@@ -1,5 +1,18 @@
 import { extname, join, normalize } from "node:path";
-import { readRawLogTrace } from "./raw-logs";
+import type { PaymentDaySnapshot } from "./payment-day";
+import {
+	buildPaymentDaySnapshot,
+	collectPaymentOrders,
+	PAYMENT_MAX_JOURNAL_BYTES,
+	PAYMENT_MAX_INTERFACES,
+	PAYMENT_MAX_ORDERS,
+	paymentDayWindow,
+	paymentInterfaceDetail,
+	parsePaymentJournal,
+	publicPaymentDay,
+} from "./payment-day";
+import { formatJournalTimestamp, readRawLogTrace } from "./raw-logs";
+import type { RawLogEntry } from "./types";
 
 type JsonObject = Record<string, unknown>;
 
@@ -29,6 +42,21 @@ const maxSessionTokenLength = 4096;
 // 使用受控 provider-trace-export 工具显式指定 since/until。
 const rawLogWindowMs = 15 * 60 * 1_000;
 const rawLogFallbackWindowMs = 30 * 60 * 1_000;
+const paymentJournalUnits = [
+	"hospital-platform-api-v2.service",
+	"hospital-platform-worker-v2.service",
+] as const;
+// 日汇总只需支付业务事件；原始 Provider 报文由 readPaymentRawEntries 按订单
+// 关联号定向读取，避免把全日 raw chunk 一次性装入内存并触发 64 MiB 门槛。
+const paymentJournalGrep =
+	'"event":"(medical-insurance\\.|payment\\.wechat_prepay\\.|outpatient\\.self-payment\\.|appointment\\.self-payment\\.|worker\\.payment\\.)';
+const paymentSnapshotCacheTtlMs = 30_000;
+const paymentSnapshotCacheMaxEntries = 2;
+const paymentSnapshotCache = new Map<
+	string,
+	{ expiresAt: number; snapshot: PaymentDaySnapshot }
+>();
+const paymentSnapshotInFlight = new Map<string, Promise<PaymentDaySnapshot>>();
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 	throw new Error("INSURANCE_QUERY_PORT must be a valid TCP port");
@@ -73,6 +101,213 @@ async function requestJson(request: Request): Promise<JsonObject> {
 	const parsed = JSON.parse(text) as unknown;
 	if (!isObject(parsed)) throw new Error("INVALID_JSON_OBJECT");
 	return parsed;
+}
+
+function currentShanghaiDate(): string {
+	return new Intl.DateTimeFormat("en-CA", {
+		timeZone: "Asia/Shanghai",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	}).format(new Date());
+}
+
+async function runPaymentJournal(
+	window: ReturnType<typeof paymentDayWindow>,
+): Promise<string> {
+	const args = [
+		"--all",
+		"-o",
+		"json",
+		"--no-pager",
+		...paymentJournalUnits.flatMap((unit) => ["-u", unit]),
+		"--grep",
+		paymentJournalGrep,
+		"--since",
+		formatJournalTimestamp(window.readSince),
+		"--until",
+		formatJournalTimestamp(window.readUntil),
+	] as const;
+	const process = Bun.spawn(["journalctl", ...args], {
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const [serialized, stderr, exitCode] = await Promise.all([
+		new Response(process.stdout).text(),
+		new Response(process.stderr).text(),
+		process.exited,
+	]);
+	if (
+		new TextEncoder().encode(serialized).byteLength > PAYMENT_MAX_JOURNAL_BYTES
+	) {
+		throw new Error("payment-day-journal-too-large");
+	}
+	if (exitCode !== 0) {
+		const suffix = stderr.trim().slice(-240);
+		throw new Error(`payment-day-journal-failed${suffix ? `:${suffix}` : ""}`);
+	}
+	return serialized;
+}
+
+function rawEntryKey(entry: RawLogEntry): string {
+	return [
+		entry.unit,
+		entry.direction,
+		entry.event,
+		entry.timestamp,
+		entry.traceId || "",
+		entry.requestId || "",
+		entry.providerRequestId || "",
+		entry.operation || "",
+		entry.integrity?.actualSha256 || "",
+	].join("\u0001");
+}
+
+async function readPaymentRawEntries(
+	date: string,
+	orders: ReturnType<typeof collectPaymentOrders>,
+): Promise<RawLogEntry[]> {
+	const window = paymentDayWindow(date);
+	const selectedOrders = orders.slice(0, PAYMENT_MAX_ORDERS);
+	const collected: RawLogEntry[] = [];
+	const batchSize = 6;
+	for (let offset = 0; offset < selectedOrders.length; offset += batchSize) {
+		const batch = selectedOrders.slice(offset, offset + batchSize);
+		const traces = await Promise.all(
+			batch.map(async (order) => {
+				const identifiers = [...order.identifiers];
+				if (identifiers.length === 0) return [] as RawLogEntry[];
+				try {
+					const trace = await readRawLogTrace({
+						identifiers,
+						since: window.readSince.toISOString(),
+						until: window.readUntil.toISOString(),
+						maxEntries: PAYMENT_MAX_INTERFACES,
+					});
+					return trace.entries as RawLogEntry[];
+				} catch {
+					// 某一笔 raw 日志过大或暂时不可读时，不影响同日其它订单汇总；
+					// 该笔保持现有“不完整”状态，刷新日期后可再次尝试读取。
+					return [] as RawLogEntry[];
+				}
+			}),
+		);
+		for (const entries of traces) collected.push(...entries);
+	}
+	const unique = new Map<string, RawLogEntry>();
+	for (const entry of collected) unique.set(rawEntryKey(entry), entry);
+	return [...unique.values()];
+}
+
+async function readPaymentJournal(date: string): Promise<string> {
+	const window = paymentDayWindow(date);
+	return runPaymentJournal(window);
+}
+
+async function paymentSnapshot(date: string): Promise<PaymentDaySnapshot> {
+	const now = Date.now();
+	const cached = paymentSnapshotCache.get(date);
+	if (cached && cached.expiresAt > now) return cached.snapshot;
+	if (cached) paymentSnapshotCache.delete(date);
+	const existing = paymentSnapshotInFlight.get(date);
+	if (existing) return existing;
+	const pending = readPaymentJournal(date)
+		.then(async (serialized) => {
+			const orders = collectPaymentOrders(parsePaymentJournal(serialized));
+			const rawEntries = await readPaymentRawEntries(date, orders);
+			return buildPaymentDaySnapshot(date, serialized, rawEntries);
+		})
+		.then((snapshot) => {
+			for (const [cachedDate, cachedSnapshot] of paymentSnapshotCache) {
+				if (cachedSnapshot.expiresAt <= Date.now()) {
+					paymentSnapshotCache.delete(cachedDate);
+				}
+			}
+			paymentSnapshotCache.set(date, {
+				expiresAt: Date.now() + paymentSnapshotCacheTtlMs,
+				snapshot,
+			});
+			while (paymentSnapshotCache.size > paymentSnapshotCacheMaxEntries) {
+				const oldestDate = paymentSnapshotCache.keys().next().value;
+				if (typeof oldestDate !== "string") break;
+				paymentSnapshotCache.delete(oldestDate);
+			}
+			return snapshot;
+		})
+		.finally(() => paymentSnapshotInFlight.delete(date));
+	paymentSnapshotInFlight.set(date, pending);
+	return pending;
+}
+
+async function paymentDayRequest(
+	request: Request,
+	url: URL,
+): Promise<Response> {
+	bearer(request);
+	const date = url.searchParams.get("date") || currentShanghaiDate();
+	try {
+		const snapshot = await paymentSnapshot(date);
+		console.info(
+			JSON.stringify({
+				event: "admin.payment_day.read",
+				date,
+				orderCount: snapshot.orders.length,
+				parsedRecords: snapshot.parsedRecords,
+				unmatchedPaymentEventCount: snapshot.unmatchedPaymentEventCount,
+				boundaryBufferMinutes: snapshot.window.boundaryBufferMinutes,
+			}),
+		);
+		return json({ code: 0, data: publicPaymentDay(snapshot) });
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : "UNKNOWN";
+		if (reason === "payment-day-date-invalid") {
+			return errorResponse("支付日期必须是有效的 YYYY-MM-DD", 422);
+		}
+		if (reason === "payment-day-journal-too-large") {
+			return errorResponse("支付日志窗口过大，请缩小日期范围", 413);
+		}
+		return errorResponse("支付日志暂时不可用，请稍后重试", 502);
+	}
+}
+
+async function paymentInterfaceRequest(
+	request: Request,
+	date: string,
+	flowId: string,
+	ordinalText: string,
+): Promise<Response> {
+	bearer(request);
+	if (!/^payment-[a-f0-9]{24}$/u.test(flowId)) {
+		return errorResponse("支付流程标识不合法", 400);
+	}
+	const ordinal = Number(ordinalText);
+	if (!Number.isSafeInteger(ordinal) || ordinal < 1 || ordinal > 300) {
+		return errorResponse("支付接口序号不合法", 400);
+	}
+	try {
+		const snapshot = await paymentSnapshot(date);
+		const detail = paymentInterfaceDetail(snapshot, flowId, ordinal);
+		if (!detail) return errorResponse("支付流程或接口不存在", 404);
+		console.info(
+			JSON.stringify({
+				event: "admin.payment_interface.read",
+				date,
+				flowId,
+				ordinal,
+				complete: detail.interface.complete,
+			}),
+		);
+		return json({ code: 0, data: detail });
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : "UNKNOWN";
+		if (reason === "payment-day-date-invalid") {
+			return errorResponse("支付日期必须是有效的 YYYY-MM-DD", 422);
+		}
+		if (reason === "payment-day-journal-too-large") {
+			return errorResponse("支付日志窗口过大，请缩小日期范围", 413);
+		}
+		return errorResponse("支付接口原文暂时不可用，请稍后重试", 502);
+	}
 }
 
 function requiredText(
@@ -541,6 +776,20 @@ const server = Bun.serve({
 			}
 			if (url.pathname === "/api/auth/logout" && request.method === "POST") {
 				return await logoutRequest(request);
+			}
+			const paymentInterfaceMatch = url.pathname.match(
+				/^\/api\/payments\/day\/(\d{4}-\d{2}-\d{2})\/(payment-[a-f0-9]{24})\/interfaces\/([1-9][0-9]*)$/u,
+			);
+			if (paymentInterfaceMatch && request.method === "GET") {
+				return await paymentInterfaceRequest(
+					request,
+					paymentInterfaceMatch[1] ?? "",
+					paymentInterfaceMatch[2] ?? "",
+					paymentInterfaceMatch[3] ?? "",
+				);
+			}
+			if (url.pathname === "/api/payments/day" && request.method === "GET") {
+				return await paymentDayRequest(request, url);
 			}
 			if (url.pathname === "/api/logs" && request.method === "GET") {
 				return await logsRequest(request, url);

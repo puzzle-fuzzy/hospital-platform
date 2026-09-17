@@ -125,6 +125,53 @@ type RedisConnectionClient = {
 	connect(): Promise<unknown>;
 };
 
+const REDIS_CONNECTING_STATUSES = new Set([
+	"connecting",
+	"connect",
+	"close",
+	"reconnecting",
+]);
+const REDIS_READY_WAIT_TIMEOUT_MS = 3_500;
+const REDIS_READY_WAIT_INTERVAL_MS = 25;
+
+function isRedisConnectingStatus(status: string): boolean {
+	return REDIS_CONNECTING_STATUSES.has(status);
+}
+
+async function waitForRedisReady(client: RedisConnectionClient): Promise<void> {
+	const deadline = Date.now() + REDIS_READY_WAIT_TIMEOUT_MS;
+	let lastError: unknown;
+
+	while (client.status !== "ready") {
+		const remainingMs = deadline - Date.now();
+		if (remainingMs <= 0) {
+			if (lastError) throw lastError;
+			throw new Error("Redis connection did not become ready");
+		}
+
+		if (!isRedisConnectingStatus(client.status)) {
+			if (client.status === "end") {
+				if (lastError) throw lastError;
+				throw new Error("Redis connection did not become ready");
+			}
+			try {
+				await client.connect();
+			} catch (error) {
+				lastError = error;
+				// ioredis may enter reconnecting between the status check and
+				// connect(). In that case another connection attempt already owns
+				// the socket; wait for it instead of turning the race into 503.
+				if (!isRedisConnectingStatus(client.status)) throw error;
+			}
+			continue;
+		}
+
+		await new Promise<void>((resolve) =>
+			setTimeout(resolve, Math.min(REDIS_READY_WAIT_INTERVAL_MS, remainingMs)),
+		);
+	}
+}
+
 /**
  * 为同一个 Redis 客户端建立共享连接单飞。
  *
@@ -143,21 +190,15 @@ export function createRedisConnectionGate(
 		if (client.status === "ready") return;
 
 		if (!connectionInFlight) {
-			const connection = Promise.resolve()
-				.then(() => client.connect())
-				.then(() => undefined)
-				.finally(() => {
-					if (connectionInFlight === connection) {
-						connectionInFlight = undefined;
-					}
-				});
+			const connection = waitForRedisReady(client).finally(() => {
+				if (connectionInFlight === connection) {
+					connectionInFlight = undefined;
+				}
+			});
 			connectionInFlight = connection;
 		}
 
 		await connectionInFlight;
-		if (client.status !== "ready") {
-			throw new Error("Redis connection did not become ready");
-		}
 	};
 }
 

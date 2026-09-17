@@ -3,6 +3,7 @@ import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
+	formatOutpatientRatioLabel,
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentRecords,
 } from "../../services/dashboard-service";
@@ -66,6 +67,19 @@ function findVisiblePayment(
 ): OutpatientPaymentRecordView | undefined {
 	if (typeof viewKey !== "string" || !viewKey) return undefined;
 	return items.find((item) => item.viewKey === viewKey);
+}
+
+/**
+ * Provider 读模型异常不向患者端投影内部错误码。
+ *
+ * 10820 表示上游响应没有通过服务端/客户端 contract 校验，不等同于
+ * 患者上下文失效。页面在这种情况下展示与空数组相同的“未查询到记录”
+ * 空态；服务端仍保留原始失败日志和 trace，维护者不会失去排障依据。
+ */
+function shouldRenderOutpatientEmptyState(error: unknown): boolean {
+	return (
+		error instanceof ApiError && error.code === "provider-response-invalid"
+	);
 }
 
 type OutpatientPaymentPageMethods = {
@@ -417,7 +431,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	},
 
 	/**
-	 * 费用卡片先进入 owner/patient-scoped 摘要详情。
+	 * 费用卡片先进入 owner/patient-scoped 费用详情。
 	 *
 	 * 详情页会再次确认当前患者和会话；这里只传当前查询批次中回查得到的
 	 * opaque recordId，不把 Provider 账单号或旧页面字段拼入导航参数。
@@ -444,6 +458,41 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			...record,
 			viewKey: `outpatient-payment-${renderGeneration}-${index}`,
 			amountLabel: formatOutpatientAmountLabel(record.amountFen),
+			...(record.spec || record.quantity || record.unitName
+				? {
+						specQuantityLabel: [
+							record.spec,
+							record.quantity ? `× ${record.quantity}` : undefined,
+							record.unitName,
+						]
+							.filter(Boolean)
+							.join(" "),
+					}
+				: {}),
+			...(record.priceFen !== undefined
+				? { priceLabel: formatOutpatientAmountLabel(record.priceFen) }
+				: {}),
+			...(record.preferentialAmountFen !== undefined
+				? {
+						preferentialAmountLabel: formatOutpatientAmountLabel(
+							record.preferentialAmountFen,
+						),
+					}
+				: {}),
+			...(record.ascendAmountFen !== undefined
+				? {
+						ascendAmountLabel: formatOutpatientAmountLabel(
+							record.ascendAmountFen,
+						),
+					}
+				: {}),
+			...(record.selfBurdenRatio !== undefined
+				? {
+						selfBurdenRatioLabel: formatOutpatientRatioLabel(
+							record.selfBurdenRatio,
+						),
+					}
+				: {}),
 			billDateLabel: formatOutpatientBillDateLabel(record.billDate),
 		};
 	},
@@ -459,6 +508,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	},
 
 	showError(error: unknown, _fallback: string): void {
+		const shouldRenderEmptyState = shouldRenderOutpatientEmptyState(error);
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
 				? "门诊缴费功能正在完善中，暂时无法使用"
@@ -477,7 +527,9 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			? null
 			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
-			error: errorMessageWithCode(error, message),
+			// Provider 响应异常仍由服务端和请求遥测记录；患者端只看到和
+			// 成功返回空数组一致的结果，避免把内部 10820 投影给用户。
+			error: shouldRenderEmptyState ? "" : errorMessageWithCode(error, message),
 			// “outpatient-payment-patient-not-found” 表示当前患者没有费用映射，
 			// 不等于应该换人；只有统一患者上下文错误才显示选择动作。
 			canSelectPatient,

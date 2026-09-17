@@ -41,6 +41,20 @@ test("众阳门诊费用 adapter 只使用已确认 amount 并把元转换为分
 							registerDept: "未经确认的科室",
 							billDocName: "李医生",
 							registerDoctor: "李医生",
+							exeDeptName: "检验科",
+							exeDocName: "王医生",
+							itemName: "血常规",
+							price: "8.50",
+							quantity: "2",
+							unitName: "次",
+							spec: "全血",
+							chargeClassName: "检查费",
+							tradePropName: "检查",
+							networkPatClassName: "甲类",
+							typeMemo: "甲类",
+							preferentialAmount: "1.00",
+							ascendAmount: 0,
+							selfBurdenRatio: 0.2,
 							billDate: "2026-08-16 09:00:00",
 						},
 					],
@@ -69,13 +83,72 @@ test("众阳门诊费用 adapter 只使用已确认 amount 并把元转换为分
 		{
 			recordId: expect.any(String),
 			status: "unpaid",
+			itemName: "血常规",
 			departmentName: "心内科",
+			executionDepartmentName: "检验科",
 			doctorName: "李医生",
+			executionDoctorName: "王医生",
+			spec: "全血",
+			quantity: "2",
+			unitName: "次",
+			priceFen: 850,
+			chargeClassName: "检查费",
+			tradePropName: "检查",
+			networkPatClassName: "甲类",
+			typeMemo: "甲类",
+			preferentialAmountFen: 100,
+			ascendAmountFen: 0,
+			selfBurdenRatio: 0.2,
 			billDate: "2026-08-16 09:00:00",
 			amountFen: 1230,
 		},
 	]);
 	expect(JSON.stringify(result)).not.toContain("provider-order-secret");
+});
+
+test("众阳门诊费用 adapter 允许费用类型未提供的可选展示字段", async () => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "optional-fields-order",
+							registerId: "optional-fields-register",
+							visitRecordId: "optional-fields-visit",
+							amount: 176,
+							tradeStatus: "1",
+							billDate: "2026-08-16 09:00:00",
+							spec: "",
+							quantity: 1,
+							typeMemo: null,
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "optional-fields" } },
+			),
+	});
+
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-patient-secret",
+			startTime: "2026-07-17 00:00:00",
+			endTime: "2026-08-16 23:59:59",
+			status: "unpaid",
+		},
+		context,
+	);
+
+	expect(result.records[0]).toMatchObject({
+		status: "unpaid",
+		amountFen: 17600,
+		quantity: "1",
+	});
+	expect(result.records[0]).not.toHaveProperty("spec");
+	expect(result.records[0]).not.toHaveProperty("typeMemo");
 });
 
 test("众阳门诊费用金额按十进制精确转换，并拒绝超过安全范围的分值", async () => {
@@ -788,7 +861,7 @@ test("众阳门诊费用 adapter 拒绝缺失或错配的 tradeStatus", async ()
 	}
 });
 
-test("众阳门诊费用 adapter 只把 1/3 映射为公共 unpaid/paid", async () => {
+test("众阳门诊费用 adapter 映射已支付和退款中状态", async () => {
 	const createGateway = (tradeStatus: string, requestId: string) =>
 		createZhongyangOutpatientPaymentGateway({
 			baseUrl: "https://zhongyang.example.test",
@@ -827,11 +900,18 @@ test("众阳门诊费用 adapter 只把 1/3 映射为公共 unpaid/paid", async 
 			context,
 		),
 	).resolves.toMatchObject({ records: [{ status: "paid" }] });
+	await expect(
+		createGateway("4", "valid-refunding").listRecords(
+			{ ...baseInput, status: "paid" },
+			context,
+		),
+	).resolves.toMatchObject({
+		records: [{ status: "paid", paymentStatus: "refunding" }],
+	});
 
 	for (const [providerStatus, requestedStatus] of [
 		["2", "unpaid"],
 		["2", "paid"],
-		["4", "paid"],
 		["5", "paid"],
 		["9", "paid"],
 	] as const) {
@@ -845,6 +925,52 @@ test("众阳门诊费用 adapter 只把 1/3 映射为公共 unpaid/paid", async 
 			retryable: false,
 		});
 	}
+});
+
+test("众阳门诊费用 adapter 保留同一批中的已支付和退款中记录", async () => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "order-paid-001",
+							amount: "1.00",
+							tradeStatus: "3",
+							billDate: "2026-08-16 09:00:00",
+						},
+						{
+							outTradeOrderId: "order-refunding-001",
+							amount: "2.00",
+							tradeStatus: "4",
+							billDate: "2026-08-16 10:00:00",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "mixed-paid-refunding" } },
+			),
+	});
+
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-patient-secret",
+			startTime: "2026-08-16 00:00:00",
+			endTime: "2026-08-16 23:59:59",
+			status: "paid",
+		},
+		context,
+	);
+
+	expect(result.records).toHaveLength(2);
+	expect(result.records[0]).toMatchObject({ status: "paid" });
+	expect(result.records[0]?.paymentStatus).toBeUndefined();
+	expect(result.records[1]).toMatchObject({
+		status: "paid",
+		paymentStatus: "refunding",
+	});
 });
 
 test("众阳门诊费用 adapter 拒绝运行时未知状态且不访问 Provider", async () => {

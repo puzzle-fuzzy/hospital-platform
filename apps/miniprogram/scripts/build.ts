@@ -17,8 +17,8 @@ import {
 	createMiniProgramRuntimeLockError,
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
-	getMiniProgramDevelopmentRuntimePath,
 	getMiniProgramPendingRuntimePath,
+	getMiniProgramRuntimePath,
 	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
 	type MiniProgramRuntimeBuildMode,
@@ -81,10 +81,7 @@ function resolveBuildMode(): MiniProgramRuntimeBuildMode {
 }
 
 const buildMode = resolveBuildMode();
-const runtime =
-	buildMode === "development"
-		? getMiniProgramDevelopmentRuntimePath(root)
-		: join(root, "dist");
+const runtime = getMiniProgramRuntimePath(root);
 const projectConfigPath = join(root, "project.config.json");
 const privateProjectConfigPath = join(root, "project.private.config.json");
 const nestedSourceProjectConfigPath = join(source, "project.config.json");
@@ -159,6 +156,9 @@ const requiredStaticFiles = [
 	"pages/registration-payment/registration-payment.json",
 	"pages/registration-payment/registration-payment.wxml",
 	"pages/registration-payment/registration-payment.wxss",
+	"pages/payment-result/payment-result.json",
+	"pages/payment-result/payment-result.wxml",
+	"pages/payment-result/payment-result.wxss",
 	"pages/medical-cashier/medical-cashier.json",
 	"pages/medical-cashier/medical-cashier.wxml",
 	"pages/medical-cashier/medical-cashier.wxss",
@@ -201,6 +201,7 @@ const requiredTypeScriptFiles = [
 	"pages/my/my.ts",
 	"pages/consultation/consultation.ts",
 	"pages/registration-payment/registration-payment.ts",
+	"pages/payment-result/payment-result.ts",
 	"pages/medical-cashier/medical-cashier.ts",
 ];
 const requiredAssetDirectories = ["assets"];
@@ -359,7 +360,7 @@ if (
  */
 if (await Bun.file(nestedSourceProjectConfigPath).exists()) {
 	throw new Error(
-		"apps/miniprogram/src/project.config.json must be removed; open apps/miniprogram as the only DevTools project root",
+		"apps/miniprogram/src/project.config.json must be removed; open apps/miniprogram/dist as the only DevTools project root",
 	);
 }
 
@@ -732,14 +733,16 @@ const stagingRuntime = await mkdtemp(
 	join(dirname(root), ".hospital-miniprogram-staging-"),
 );
 // 该目录位于小程序项目根之外，不会被微信工具当作运行包；只有完整构建
-// 校验通过、但运行目录被工具锁定时，才会短暂保留它作为待发布候选。开发与
-// release 的候选目录必须分开，避免脏工作区快照覆盖正式 dist。
+// 校验通过、但唯一 dist 运行目录被工具锁定时，才会短暂保留它作为待发布候选。
+// development 与 release 的候选目录仍分开，避免脏工作区快照覆盖正式来源，
+// 但它们最终都只发布到同一个 dist 项目。
 const pendingRuntime = getMiniProgramPendingRuntimePath(root, buildMode);
 const pendingPublishCommand =
 	buildMode === "development"
 		? "pnpm --filter @hospital/miniprogram runtime:publish-pending:dev"
 		: "pnpm --filter @hospital/miniprogram runtime:publish-pending";
-const runtimeLabel = buildMode === "development" ? "development/" : "dist/";
+// development 与 release 共用同一份 dist 运行目录；模式差异只写入来源元数据。
+const runtimeLabel = "dist/";
 try {
 	/**
 	 * tsconfig.build.json 会继续检查同一份 src 类型树，但明确排除 *.test.ts 和
@@ -807,9 +810,8 @@ try {
 	 * 指向运行目录；但开发者工具仍会以父目录为 watcher 根，扫描旁边的
 	 * `src/` 和 `scripts/`。当历史自定义底栏或隐式 TypeScript 输出残留时，
 	 * 它们就可能重新进入增量模块图，导致底栏闪动、selected 图标丢失和
-	 * 页面脚本 404。把配置随完整运行包一起生成：正式验收直接打开 `dist/`，
-	 * 本地开发只打开 `.local/hospital-miniprogram/development/`；两者都和
-	 * TypeScript 源码在文件系统上彻底隔离。
+	 * 页面脚本 404。把配置随完整运行包一起生成：日常开发、正式验收和真机调试
+	 * 都只打开 `apps/miniprogram/dist/`；它与 TypeScript 源码在文件系统上彻底隔离。
 	 *
 	 * 这里不复制开发者工具的 private 配置，也不把源码路径写入运行包；
 	 * 运行目录的 `project.private.config.json` 由工具按本机状态自行生成，
@@ -822,7 +824,9 @@ try {
 				: "高平医院原生微信小程序正式运行包",
 		compileType: "miniprogram",
 		miniprogramRoot: "./",
-		projectname: `${String(projectConfig.projectname ?? "hospital-platform")}-${buildMode === "development" ? "development" : "runtime"}`,
+		// 两种构建模式必须保持相同项目名，避免开发者工具把同一 dist 误登记为
+		// 两个小程序工程；当前模式和来源由 build-info.json 记录。
+		projectname: `${String(projectConfig.projectname ?? "hospital-platform")}-runtime`,
 		appid: String(projectConfig.appid ?? ""),
 		setting: {
 			urlCheck: true,
@@ -916,7 +920,7 @@ try {
 	};
 	/**
 	 * 把来源模式与标识写入 app.js 启动日志。正式包显示 Git 提交；开发包显示
-	 * workspace 快照，避免开发者工具/手机缓存把两个运行目录混为同一候选。
+	 * workspace 快照，避免开发者工具/手机缓存把不同来源误混为同一候选。
 	 */
 	const runtimeAppPath = join(stagingRuntime, "app.js");
 	const runtimeApp = await Bun.file(runtimeAppPath).text();

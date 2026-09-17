@@ -51,6 +51,7 @@
 		"pages/timeslot-source/timeslot-source",
 		"pages/confirm-registration/confirm-registration",
 		"pages/registration-payment/registration-payment",
+		"pages/payment-result/payment-result",
 		"pages/medical-cashier/medical-cashier"
 	],
 	"window": {

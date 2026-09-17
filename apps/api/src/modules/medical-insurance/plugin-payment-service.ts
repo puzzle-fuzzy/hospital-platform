@@ -492,7 +492,11 @@ export class MedicalInsurancePluginPaymentService {
 						payType: this.dependencies.pluginPayType,
 						workStationId: this.dependencies.pluginWorkStationId,
 						recordCode: attempted.recordCode,
-						tradeTypeCode: this.dependencies.pluginTradeTypeCode,
+						// 众阳 2.6.65.2 的门诊交易类型固定为 2；挂号继续沿用服务端配置。
+						tradeTypeCode:
+							medicalOrder.businessType === "outpatient"
+								? "2"
+								: this.dependencies.pluginTradeTypeCode,
 					},
 					{
 						...input.context,

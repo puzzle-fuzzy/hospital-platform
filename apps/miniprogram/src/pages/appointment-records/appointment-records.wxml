@@ -128,10 +128,15 @@
 				<view class="record-card-title-wrap">
 					<text class="record-department">{{item.departmentName || "门诊挂号"}}</text>
 				</view>
-				<view class="record-status-badge {{item.statusClass}}">
-					<text wx:if="{{item.status === 'scheduled'}}">待就诊</text>
-					<text wx:else>{{item.statusLabel}}</text>
-				</view>
+			</view>
+			<image
+				wx:if="{{item.status === 'scheduled'}}"
+				class="record-status-stamp"
+				src="/assets/legacy-user/appointment-status.svg"
+				mode="aspectFit"
+			/>
+			<view wx:else class="record-status-badge {{item.statusClass}}">
+				<text>{{item.statusLabel}}</text>
 			</view>
 
 			<view wx:if="{{item.doctorName || item.hospitalAreaName || item.location}}" class="record-primary-meta">

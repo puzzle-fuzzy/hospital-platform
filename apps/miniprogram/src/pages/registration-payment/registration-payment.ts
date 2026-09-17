@@ -19,6 +19,7 @@ import {
 	navigateToMedicalAuth,
 	type PaymentMode,
 	prepareFreshMedicalAuthorization,
+	readLastMedicalPaymentResult,
 	readPendingPayment,
 	resumeMedicalCashPaymentFromPending,
 	startMedicalPayment,
@@ -78,6 +79,22 @@ function appointmentDetailUrl(
 	patientId: string,
 ): string {
 	return `/pages/appointment-detail/appointment-detail?patientId=${encodeURIComponent(patientId)}&appointmentId=${encodeURIComponent(appointmentId)}`;
+}
+
+function paymentResultUrl(
+	appointmentId: string,
+	patientId: string,
+	channel: "medical" | "wechat",
+	options?: { orderId?: string; totalFen?: number },
+): string {
+	const orderId = options?.orderId
+		? `&orderId=${encodeURIComponent(options.orderId)}`
+		: "";
+	const totalFen =
+		options?.totalFen !== undefined
+			? `&totalFen=${encodeURIComponent(String(options.totalFen))}`
+			: "";
+	return `/pages/payment-result/payment-result?business=registration&channel=${channel}&patientId=${encodeURIComponent(patientId)}&appointmentId=${encodeURIComponent(appointmentId)}${orderId}${totalFen}`;
 }
 
 /** 纯医保订单和混合医保订单共用“医保支付”入口，每次点击都是新的尝试。 */
@@ -157,6 +174,9 @@ function paymentActionMessage(error: unknown): string {
 		return "当前医保支付包含微信支付金额，请继续医保支付";
 	}
 	if (error instanceof ApiError) {
+		if (error.code === "medical-insurance-timeout") {
+			return "医保连接超时，请稍后重新挂号重试";
+		}
 		if (error.code === "payment-prepay-in-progress") {
 			return "支付结果正在确认，预约已保留，请稍后查看挂号详情；如已扣款请联系医院核实";
 		}
@@ -390,12 +410,30 @@ Page<
 						return;
 					}
 					this.setData({
-						hasPendingPayment: false,
+						hasPendingPayment: true,
 						completed: false,
-						message: "上次医保支付未确认，支付上下文已清除，请重新点击医保支付",
+						stage: "cash-confirming",
+						message:
+							"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
 					});
 				})
 				.catch((error: unknown) => {
+					if (
+						error instanceof ApiError &&
+						["payment-prepay-unknown", "payment-prepay-in-progress"].includes(
+							error.code,
+						)
+					) {
+						this.setData({
+							hasPendingPayment: true,
+							completed: false,
+							stage: "cash-confirming",
+							error: paymentError(error),
+							message:
+								"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
+						});
+						return;
+					}
 					clearPendingPayment();
 					this.setData({
 						hasPendingPayment: false,
@@ -487,6 +525,7 @@ Page<
 		if (this.data.busy) return;
 		this.setData({
 			busy: true,
+			selectedMode: mode,
 			error: "",
 			stage: "preparing",
 			message:
@@ -609,9 +648,11 @@ Page<
 			);
 			if (!confirmed) {
 				this.setData({
-					hasPendingPayment: false,
+					hasPendingPayment: true,
 					completed: false,
-					message: "支付结果未确认，支付上下文已清除，请重新点击医保支付",
+					stage: "cash-confirming",
+					message:
+						"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
 				});
 				return;
 			}
@@ -635,9 +676,11 @@ Page<
 				return;
 			}
 			this.setData({
-				hasPendingPayment: false,
+				hasPendingPayment: true,
 				completed: false,
-				message: "支付结果未确认，支付上下文已清除，请重新点击医保支付",
+				stage: "cash-confirming",
+				message:
+					"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
 			});
 			return;
 		}
@@ -771,8 +814,23 @@ Page<
 			paymentCompletionRedirecting = false;
 			return;
 		}
+		const completed = readLastMedicalPaymentResult();
+		const completedForAppointment =
+			completed?.appointmentId === appointmentId ? completed : null;
 		wx.redirectTo({
-			url: appointmentDetailUrl(appointmentId, patientId),
+			url: paymentResultUrl(
+				appointmentId,
+				patientId,
+				this.data.selectedMode === "self" ? "wechat" : "medical",
+				completedForAppointment
+					? {
+							orderId: completedForAppointment.orderId,
+							...(completedForAppointment.amounts
+								? { totalFen: completedForAppointment.amounts.totalFen }
+								: {}),
+						}
+					: undefined,
+			),
 			fail: () => {
 				paymentCompletionRedirecting = false;
 				// 跳转失败时保留成功页和“查看挂号详情”按钮，不能把已完成支付误报为失败。

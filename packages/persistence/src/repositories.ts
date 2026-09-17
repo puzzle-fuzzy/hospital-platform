@@ -1990,6 +1990,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.settlementWriteback
 					? { settlementWriteback: { ...context.settlementWriteback } }
 					: {}),
+				...(context.settlementCompletion
+					? { settlementCompletion: { ...context.settlementCompletion } }
+					: {}),
 				...(context.postPaymentComponents
 					? {
 							postPaymentComponents: context.postPaymentComponents.map(
@@ -2030,6 +2033,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.settlementWriteback
 					? { settlementWriteback: { ...context.settlementWriteback } }
 					: {}),
+				...(context.settlementCompletion
+					? { settlementCompletion: { ...context.settlementCompletion } }
+					: {}),
 				...(context.postPaymentComponents
 					? {
 							postPaymentComponents: context.postPaymentComponents.map(
@@ -2067,6 +2073,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.plugin ? { plugin: { ...context.plugin } } : {}),
 				...(context.settlementWriteback
 					? { settlementWriteback: { ...context.settlementWriteback } }
+					: {}),
+				...(context.settlementCompletion
+					? { settlementCompletion: { ...context.settlementCompletion } }
 					: {}),
 				...(context.postPaymentComponents
 					? {

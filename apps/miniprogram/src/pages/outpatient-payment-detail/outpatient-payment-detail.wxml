@@ -12,32 +12,20 @@
 		</view>
 
 		<block wx:elif="{{item}}">
-			<view class="title-row">
-				<view>
-					<view class="eyebrow">OUTPATIENT PAYMENT</view>
-					<view class="title">门诊缴费</view>
-				</view>
-				<view class="status status-{{item.status}}">{{statusLabel(item.status)}}</view>
-			</view>
-
 			<view class="card patient-card">
-				<view class="label">就诊人</view>
+				<view class="patient-card-header">
+					<view class="label">就诊人</view>
+					<view class="status status-{{item.paymentStatus || item.status}}">{{statusLabel(item.status, item.paymentStatus)}}</view>
+				</view>
 				<view class="patient-name">{{selectedPatient.displayName}}</view>
 				<view class="muted">{{selectedPatient.cardNumberMasked}}</view>
 			</view>
 
-			<view class="card">
-				<view class="label">医院</view>
-				<view class="value">{{hospitalName}}</view>
-				<view class="detail-line"><text class="detail-label">就诊科室</text><text class="detail-value">{{item.departmentName || '门诊费用'}}</text></view>
-				<view wx:if="{{item.doctorName}}" class="detail-line"><text class="detail-label">就诊医生</text><text class="detail-value">{{item.doctorName}}</text></view>
-				<view class="detail-line"><text class="detail-label">费用日期</text><text class="detail-value">{{formatDate(item.billDate)}}</text></view>
-				<view class="detail-line detail-line-last"><text class="detail-label">账单金额</text><text class="amount">{{formatAmount(item.amountFen)}}</text></view>
-			</view>
-
-			<view class="notice-card">
-				<view class="notice-title">已核对的费用摘要</view>
-				<view class="muted notice-text">当前详情只展示众阳 2.6.33 已确认的摘要字段。项目级费用明细、医保分摊和电子票据需待正式接口合同确认后开放。</view>
+			<view class="card fee-card">
+				<view wx:if="{{hospitalName}}" class="detail-line"><text class="detail-label">医院</text><text class="detail-value">{{hospitalName}}</text></view>
+				<view wx:if="{{item.itemName}}" class="detail-line"><text class="detail-label">费用项目</text><text class="detail-value">{{item.itemName}}</text></view>
+				<view wx:if="{{item.billDate}}" class="detail-line"><text class="detail-label">费用日期</text><text class="detail-value">{{formatDate(item.billDate)}}</text></view>
+				<view wx:if="{{item.amountFen >= 0}}" class="detail-line detail-line-last"><text class="detail-label">缴费金额</text><text class="amount">{{formatAmount(item.amountFen)}}</text></view>
 			</view>
 
 			<view wx:if="{{item.status === 'unpaid'}}" class="payment-card">
@@ -45,9 +33,14 @@
 				<view class="payment-card-hint">请根据本次门诊费用选择支付方式</view>
 				<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
 				<view class="payment-actions">
-					<button class="payment-button medical-button" bindtap="onMedicalPay" loading="{{paymentBusy}}" disabled="{{paymentBusy}}">医保支付</button>
-					<button class="payment-button wechat-button" bindtap="onWechatPay" loading="{{paymentBusy}}" disabled="{{paymentBusy}}">微信支付</button>
+					<button class="payment-button medical-button" bindtap="onMedicalPay" loading="{{paymentBusy === 'medical'}}" disabled="{{paymentBusy !== ''}}">医保支付</button>
+					<button class="payment-button wechat-button" bindtap="onWechatPay" loading="{{paymentBusy === 'wechat'}}" disabled="{{paymentBusy !== ''}}">微信支付</button>
 				</view>
+			</view>
+			<view wx:elif="{{item.paymentStatus === 'refunding'}}" class="refunding-card">
+				<view class="paid-icon refunding-icon">!</view>
+				<view class="paid-title refunding-title">本笔费用退款中</view>
+				<view class="paid-hint">医保资金正在原路退回，到账时间以支付渠道处理结果为准</view>
 			</view>
 			<view wx:else class="paid-card">
 				<view class="paid-icon">✓</view>

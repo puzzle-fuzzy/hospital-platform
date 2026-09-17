@@ -776,8 +776,10 @@ export class ZhongyangAppointmentWriteApiGateway
 				telephone: input.patient.phone,
 				hisScheduleId: providerScheduleId,
 				sourceId: providerSourceId,
+				registerSource: 15,
+				settleWay: 6,
 				isPay: "0",
-				requestChannel: REQUEST_CHANNEL,
+				requestChannel: "my",
 				recordId: input.recordId,
 			},
 		);

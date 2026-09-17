@@ -57,6 +57,20 @@ const REPORT_STATUS_LABELS = Object.freeze({
 } as const);
 
 /**
+ * Provider 报告目录拒绝时，患者端按“合法空目录”展示。
+ *
+ * 10800 表示报告 Provider 明确拒绝了本次目录读取，不等同于患者没有
+ * 报告；真实错误仍由服务端的 `report.directory.failed` 和 Provider 原始
+ * trace 保留。报告页不把内部错误码投影给患者，避免把上游实现细节当作
+ * 用户可行动的信息，同时保留其它患者上下文/配置错误的原有提示。
+ */
+function shouldRenderReportEmptyState(error: unknown): boolean {
+	return (
+		error instanceof ApiError && error.code === "provider-request-rejected"
+	);
+}
+
+/**
  * 报告详情点击必须按当前渲染批次回查，而不能直接相信旧 WXML 携带的
  * `reportId`。`reportId` 是 owner-scoped 的短期详情引用；切换就诊人后，
  * 旧事件即使晚到，也不能继续把旧患者的报告带入详情页。
@@ -455,6 +469,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	},
 
 	showError(error: unknown, _fallback: string): void {
+		const shouldRenderEmptyState = shouldRenderReportEmptyState(error);
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
 				? "报告服务暂时不可用，请稍后再试"
@@ -467,7 +482,9 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			? null
 			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
-			error: errorMessageWithCode(error, message),
+			// Provider 拒绝仍由服务端和请求遥测记录；患者端只看到和
+			// 成功返回空数组一致的“所选日期内未查询到报告”空态。
+			error: shouldRenderEmptyState ? "" : errorMessageWithCode(error, message),
 			// 只有明确的患者上下文错误才允许错误态引导换人；网络、Provider、
 			// 持久化和依赖配置失败只保留重试，避免把服务故障误判成未选患者。
 			canSelectPatient,

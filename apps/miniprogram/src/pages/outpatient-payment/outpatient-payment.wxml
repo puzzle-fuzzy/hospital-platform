@@ -59,7 +59,7 @@
 	>
 		<block wx:if="{{loading}}">
 			<view class="state-loading-icon" aria-hidden="true"></view>
-			<text>正在加载门诊缴费记录...</text>
+			<text>正在加载费用记录...</text>
 		</block>
 		<block wx:elif="{{error}}">
 			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
@@ -81,12 +81,12 @@
 		</block>
 	</view>
 
-	<!-- 门诊费用卡片恢复旧端的信息层级；点击进入服务端核对过的摘要详情和微信自费支付。 -->
+	<!-- 门诊费用卡片恢复旧端的信息层级；点击进入服务端核对过的费用详情和微信自费支付。 -->
 	<view wx:elif="{{visibleItems.length}}" class="record-list">
 		<view
 			wx:for="{{visibleItems}}"
 			wx:key="recordId"
-			class="record-card record-card-{{item.status}}"
+			class="record-card record-card-{{item.paymentStatus || item.status}}"
 			bindtap="onRecordTap"
 			data-view-key="{{item.viewKey}}"
 		>
@@ -106,9 +106,33 @@
 				<text class="record-label">就诊科室</text>
 				<text class="record-value">{{item.departmentName || '门诊费用'}}</text>
 			</view>
+			<view wx:if="{{item.itemName}}" class="record-line">
+				<text class="record-label">费用项目</text>
+				<text class="record-value">{{item.itemName}}</text>
+			</view>
+			<view wx:if="{{item.executionDepartmentName}}" class="record-line">
+				<text class="record-label">执行科室</text>
+				<text class="record-value">{{item.executionDepartmentName}}</text>
+			</view>
 			<view wx:if="{{item.doctorName}}" class="record-line">
 				<text class="record-label">就诊医生</text>
 				<text class="record-value">{{item.doctorName}}</text>
+			</view>
+			<view wx:if="{{item.executionDoctorName}}" class="record-line">
+				<text class="record-label">执行医生</text>
+				<text class="record-value">{{item.executionDoctorName}}</text>
+			</view>
+			<view wx:if="{{item.specQuantityLabel}}" class="record-line">
+				<text class="record-label">规格数量</text>
+				<text class="record-value">{{item.specQuantityLabel}}</text>
+			</view>
+			<view wx:if="{{item.priceLabel}}" class="record-line">
+				<text class="record-label">单价</text>
+				<text class="record-value">{{item.priceLabel}}</text>
+			</view>
+			<view wx:if="{{item.chargeClassName || item.tradePropName || item.typeMemo}}" class="record-line">
+				<text class="record-label">费用类别</text>
+				<text class="record-value">{{item.chargeClassName || item.tradePropName || item.typeMemo}}</text>
 			</view>
 			<view class="record-line">
 				<text class="record-label">缴费金额</text>
@@ -119,13 +143,12 @@
 				<text class="record-time">{{item.billDateLabel}}</text>
 			</view>
 			<view class="record-status-wrap">
-				<text class="record-status">{{item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
+				<text class="record-status record-status-{{item.paymentStatus || item.status}}">{{item.paymentStatus === 'refunding' ? '退款中' : item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
 			</view>
 		</view>
 		<view wx:if="{{hasMoreItems}}" class="load-more" bindtap="onLoadMore">加载更多缴费记录</view>
 	</view>
 
 
-	<view class="readonly-note">当前支持门诊费用查询和微信自费支付；医保授权、结算和退费功能正在完善中。</view>
 </view>
 </scroll-view>

@@ -64,6 +64,25 @@ const DEFAULT_ULD_LATLNT = "112.928537,35.787393";
 
 type ProviderRecord = Record<string, unknown>;
 
+/**
+ * 挂号 2.6.65.1 必须使用预约创建返回的挂号流水。
+ * 高平众阳通常只返回 hisRegisterId；不能用 `in providerRegisterId`
+ * 判断是否进入挂号分支，否则属性被上层按需省略时会把 registerId 丢掉。
+ */
+export function resolveRegistrationProviderRegisterId(input: {
+	appointmentId?: string;
+	providerAppointmentId?: string;
+	providerRegisterId?: string;
+	providerHisRegisterId?: string;
+}): string | undefined {
+	if (!input.appointmentId) return undefined;
+	return (
+		input.providerRegisterId ??
+		input.providerHisRegisterId ??
+		input.providerAppointmentId
+	);
+}
+
 export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	legacyFsi: Pick<
 		LegacyFsiGateway,
@@ -2005,6 +2024,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 
 		let settlementContext: MedicalInsuranceSettlementContext = stored;
 		const previousWriteback = settlementContext.settlementWriteback;
+		const previousCompletion = settlementContext.settlementCompletion;
 		// 2.27.2.32 不是可重放查询。医保侧即使返回 HTTP 200 + settle=FAIL，
 		// 也可能已经占用结算 ID；一旦尝试过，后续查单任务不得再次提交。
 		if (previousWriteback?.status !== "succeeded" && previousWriteback) {
@@ -2368,6 +2388,40 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				authoritative: true,
 			};
 		}
+		// 含自费金额的订单，.5 只允许发起一次。成功直接复用已落库事实；
+		// 失败或结果未知也不能由后续查单自动重放，必须转人工核验。
+		if (previousCompletion) {
+			const completionTrace = trace(
+				"medical-insurance.2.6.65.5",
+				context,
+				previousCompletion.providerRequestId
+					? [previousCompletion.providerRequestId]
+					: [],
+				settlementContext.businessId,
+			);
+			if (previousCompletion.status === "succeeded") {
+				return {
+					state: "insurance_settled",
+					amounts: input.amounts,
+					trace: completionTrace,
+					source: "yunhealth",
+					providerStatus:
+						previousCompletion.providerStatus ?? "completion=succeeded",
+					finality: "paid",
+					authoritative: true,
+				};
+			}
+			return {
+				state: "awaiting_confirmation",
+				amounts: input.amounts,
+				trace: completionTrace,
+				source: "yunhealth",
+				providerStatus:
+					previousCompletion.providerStatus ?? "2.6.65.5_already_attempted",
+				finality: "settlement_candidate",
+				authoritative: false,
+			};
+		}
 		// 有微信自费金额时，必须等官方微信订单查单成功后由
 		// cashPaymentConfirmed 放行，再调用 .5 完成 HIS 结算。
 		if (!input.cashPaymentConfirmed) {
@@ -2385,10 +2439,29 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			};
 		}
 
+		const completionAttemptedAt = now().toISOString();
+		settlementContext = {
+			...settlementContext,
+			settlementCompletion: {
+				attemptedAt: completionAttemptedAt,
+				status: "unknown",
+			},
+		};
+		// 先持久化“已尝试”事实，阻止查单重试再次触发 .5；同时使用
+		// 订单稳定幂等键，避免 Provider 在并发/网络重试中重复扣款。
+		await options.orders.saveSettlementContext(
+			input.ownerUserId,
+			input.orderId,
+			settlementContext,
+		);
+		const completionContext = {
+			...context,
+			idempotencyKey: `medical-insurance-2.6.65.5:${settlementContext.businessId}`,
+		};
 		const completeResponse = await zhongyangPost(
 			"medical-insurance.2.6.65.5",
 			"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
-			context,
+			completionContext,
 			{
 				authSysCode: DEFAULT_AUTH_SYS_CODE,
 				autoSettle: 2,
@@ -2399,9 +2472,31 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			},
 		);
 		const completionMarker = completeSettleConfirmation(completeResponse.data);
+		const completionStatus =
+			providerSuccessFlag(completeResponse.data) !== false &&
+			completionMarker !== undefined
+				? "succeeded"
+				: "failed";
+		const completionProviderStatus = completionMarker
+			? `completion=${completionMarker}`
+			: "completion=UNKNOWN";
+		settlementContext = {
+			...settlementContext,
+			settlementCompletion: {
+				attemptedAt: completionAttemptedAt,
+				status: completionStatus,
+				providerRequestId: completeResponse.requestId,
+				providerStatus: completionProviderStatus,
+			},
+		};
+		await options.orders.saveSettlementContext(
+			input.ownerUserId,
+			input.orderId,
+			settlementContext,
+		);
 		const completeTrace = trace(
 			"medical-insurance.2.27.2.32/2.6.65.5",
-			context,
+			completionContext,
 			[
 				...(notifyRequestId ? [notifyRequestId] : []),
 				completeResponse.requestId,
@@ -2417,9 +2512,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				amounts: input.amounts,
 				trace: completeTrace,
 				source: "yunhealth",
-				providerStatus: completionMarker
-					? `completion=${completionMarker}`
-					: "completion=UNKNOWN",
+				providerStatus: completionProviderStatus,
 				finality: "settlement_candidate",
 				authoritative: false,
 			};
@@ -2429,7 +2522,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			amounts: input.amounts,
 			trace: completeTrace,
 			source: "yunhealth",
-			providerStatus: `completion=${completionMarker}`,
+			providerStatus: completionProviderStatus,
 			finality: "paid",
 			authoritative: true,
 		};
@@ -2869,10 +2962,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					? business.providerAppointmentId
 					: business.recordId;
 			const registerId =
-				"providerRegisterId" in business
-					? (business.providerRegisterId ??
-						business.providerHisRegisterId ??
-						business.providerAppointmentId)
+				"providerAppointmentId" in business
+					? resolveRegistrationProviderRegisterId(business)
 					: undefined;
 			const totalFenExpected = business.totalFen;
 			const fallbackDepartmentId =
@@ -3888,7 +3979,23 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"Medical insurance cancellation requested",
 			);
 
-			if (settlementContext.payingId) {
+			// 临时跳过重授权路径的 2.6.65.4：当前 Provider 对已有 payingId
+			// 返回 trade-payment@0002，导致明确的重授权请求无法进入受控关单。
+			// 2.6.65.11 仍是必经校验，只有 revokeStatus=3 才会继续 .6。
+			const shouldQueryPaymentStatus = input.reason !== "reauthorization";
+			if (settlementContext.payingId && !shouldQueryPaymentStatus) {
+				options.logger?.warn(
+					{
+						event: "medical-insurance.cancellation.2.6.65.4.skipped",
+						traceId: context.traceId,
+						orderId: input.orderId,
+						reason: input.reason,
+						providerStatus: "temporarily_disabled_for_reauthorization",
+					},
+					"Medical insurance payment status query skipped for reauthorization",
+				);
+			}
+			if (settlementContext.payingId && shouldQueryPaymentStatus) {
 				const queryResponse = await zhongyangPost(
 					"medical-insurance.2.6.65.4",
 					"/msun-middle-open-settlepay/api/v2/open/payment/pay-query",

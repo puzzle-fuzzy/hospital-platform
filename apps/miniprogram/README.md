@@ -1,6 +1,8 @@
 # Native WeChat Mini Program
 
 > 当前运行包：项目最终固定使用微信原生 `tabBar`。四个主入口由微信运行时统一持有，选中态不再依赖自定义组件生命周期；真机验收必须直接打开 `apps/miniprogram/dist/`。
+>
+> **运行入口已统一**：开发、预览、真机调试和正式上传都只管理 `apps/miniprogram/dist/`。源码 `src/` 只用于构建；`.local/hospital-miniprogram/development/` 已退出运行链路。详见 [`小程序运行入口统一说明`](../../docs/迁移/小程序运行入口统一说明.md)。
 
 ## Visual baseline
 
@@ -36,28 +38,29 @@
 
 微信开发者工具的 `project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
 
-仓库内的微信公共构建配置是 `apps/miniprogram/project.config.json`。运行包分为两条完全隔离的链路：
+仓库内的微信公共构建配置是 `apps/miniprogram/project.config.json`。源码与运行包职责分离，
+但微信开发者工具只管理一个独立项目：`apps/miniprogram/dist/`。开发和正式构建共用这份
+运行目录，区别只记录在 `dist/build-info.json` 的来源元数据中：
 
 | 用途 | 命令 | 开发者工具唯一打开目录 | 来源要求 |
 | --- | --- | --- | --- |
-| 日常开发 | `pnpm --filter @hospital/miniprogram dev` | `.local/hospital-miniprogram/development/` | 允许未提交改动，以 workspace SHA-256 快照标识 |
+| 日常开发 | `pnpm --filter @hospital/miniprogram dev` | `apps/miniprogram/dist/` | 允许未提交改动，以 workspace SHA-256 快照标识 |
 | 正式构建、预览与真机验收 | `pnpm --filter @hospital/miniprogram build` | `apps/miniprogram/dist/` | 仅接受干净 Git 运行输入与 40 位提交号 |
 
-`dev` 会监听源码并重新生成完整开发运行包；只需要单次生成时使用
-`pnpm --filter @hospital/miniprogram dev:once`。开发包仍会执行 TypeScript、页面、资源、相对依赖和
-测试脚本门禁，只是不再要求为了预览而提交代码。开发者工具在开发包更新后应执行一次“普通编译”。
+`dev` 会监听源码并重新生成同一份 `dist/` 运行包；只需要单次生成时使用
+`pnpm --filter @hospital/miniprogram dev:once`。开发模式仍会执行 TypeScript、页面、资源、相对依赖和
+测试脚本门禁，只是不再要求为了预览而提交代码。开发者工具在运行包更新后应执行一次“普通编译”。
 
 不要在 `src/` 下创建或恢复任何微信项目配置：嵌套配置会让开发者工具同时监听源码和运行包，旧的增量页面图
-可能造成主 Tab 闪动、选中态丢失和页面脚本 404。不要打开父目录、`src/`，也不要同时打开开发包和正式包。
-两种运行包自己的 `project.config.json` 都使用 `miniprogramRoot=./`，并关闭 `compileHotReLoad` 与
+可能造成主 Tab 闪动、选中态丢失和页面脚本 404。不要打开父目录、`src/` 或 `.local/`，只打开
+`apps/miniprogram/dist/`。运行包自己的 `project.config.json` 使用 `miniprogramRoot=./`，并关闭 `compileHotReLoad` 与
 `ignoreDevUnusedFiles`；这样 watcher 根只包含真实 JavaScript/WXML/WXSS 运行文件。父目录配置仍用于构建
-约束和正式发布前检查，不是本机开发者工具的打开入口。
+约束和构建前检查，不是本机开发者工具的打开入口。
 
 如果普通编译后仍出现底部 Tab 闪动、四项同时未选中、或页面看起来混入旧的
 `static/tabbar` 资源，先不要修改页面代码。开发者工具可能保留了旧项目或旧增量
 文件图；确认安全服务端口已经开启后，只重置当前使用的那一套运行包的文件缓存并重新打开它。
-下列示例是正式验收包；日常开发时把每个 `dist` 路径替换为
-`.local/hospital-miniprogram/development`，不要清理或打开另一条链路：
+下列示例统一针对唯一运行包 `apps/miniprogram/dist/`，不要再替换成其它开发目录：
 
 ```powershell
 Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist'
@@ -66,8 +69,7 @@ Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist'
 & 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist' --port 25799
 ```
 
-CLI 必须针对当前独立运行根执行（正式为 `apps/miniprogram/dist`，开发为
-`.local/hospital-miniprogram/development`）；如果从 monorepo 根目录或 `apps/miniprogram` 父目录打开，微信工具可能额外启动 watcher，把 `.turbo/`、README、`src/`
+CLI 必须针对唯一独立运行根 `apps/miniprogram/dist` 执行；如果从 monorepo 根目录或 `apps/miniprogram` 父目录打开，微信工具可能额外启动 watcher，把 `.turbo/`、README、`src/`
 或构建脚本的变化带入增量编译。若管理页仍保留父工程、`src/` 或旧 `dist/` 窗口，先执行一次
 `quit` 关闭全部开发者工具窗口，再从上述目录只打开这一套工程。随后在工具中执行一次“普通编译”。
 这两条命令只处理当前新项目的开发者工具文件
@@ -76,7 +78,7 @@ CLI 必须针对当前独立运行根执行（正式为 `apps/miniprogram/dist`�
 项目根目录，再检查 `dist/build-info.json`，不能通过新增页面级底栏来掩盖缓存问题。
 
 开发者工具“管理”页可能同时保留 `apps/miniprogram/`、其下的 `dist/`、其下的
-`src/`，以及旧 `mp-weixin` 工程卡片。日常开发只打开 development 运行包；正式验收才打开
+`src/`，以及旧 `mp-weixin` 工程卡片。日常开发、预览、真机验收和正式上传都只打开
 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`。父目录是构建工程，`src/` 不是可直接编译的微信项目。2026-08-24 的本机
 历史本机复核已确认根工程页面路径为 `pages/index/index`；本轮针对真机仍出现的底栏闪动和
 选中态消失时，不能再增加页面级底栏或第二份 selected 状态。本轮改用微信原生 tabBar，
@@ -139,7 +141,7 @@ CLI 必须针对当前独立运行根执行（正式为 `apps/miniprogram/dist`�
 这些页面只读展示服务端规范化结果；预约写入、锁号、取消和支付均由服务端统一生成订单并完成查单/结算确认。
 首页的“门诊缴费”进入 `pages/outpatient-payment/outpatient-payment`，按当前内部 `patientId` 查询门诊待缴/已缴摘要；
 “我的”进入 `pages/my/my`，提供就诊人管理、挂号记录和门诊缴费入口，并固定底部导航栏。门诊费用页面当前只接入查询，
-点击费用记录会进入服务端核对过的门诊费用摘要详情，不会伪造支付，也不会把 provider 订单号、医保字段或支付凭证交给小程序；一次完整查询结果首批只渲染 10 条，
+点击费用记录会进入服务端核对过的门诊费用详情，展示 2.6.33 返回的费用项目、规格数量、单价、费别、开单/执行科室和医生、账单时间和金额；不会伪造支付，也不会把 provider 订单号、医保字段或支付凭证交给小程序；一次完整查询结果首批只渲染 10 条，
 “加载更多缴费记录”只展开本地已取得的数据，不代表 provider 已支持分页。
 首页报告入口进入独立的 `pages/report-directory/report-directory`，只调用平台 API 的 `GET /reports`，传入平台内部 `patientId` 和有限日期范围；服务端负责解析众阳患者号，目录页按 10 条批次展示，避免报告较多时一次性渲染。
 本期只读 LIS/PACS/ECG 摘要；服务端已准备 gated LIS 详情的 opaque 引用客户端方法，
@@ -171,15 +173,15 @@ CLI 必须针对当前独立运行根执行（正式为 `apps/miniprogram/dist`�
 
 ### 日常开发
 
-`pnpm --filter @hospital/miniprogram dev` 会持续监听开发输入，生成 `.local/hospital-miniprogram/development/`。
-开发者工具只能打开该目录，并可用下列命令复核当前源码快照是否已经进入开发包：
+`pnpm --filter @hospital/miniprogram dev` 会持续监听开发输入，更新唯一运行包
+`apps/miniprogram/dist/`。开发者工具始终只打开该目录，并可用下列命令复核当前源码快照是否已经进入运行包：
 
 ```bash
 pnpm --filter @hospital/miniprogram runtime:verify:dev
 ```
 
-开发包的 `build-info.json` 使用 `schemaVersion: 2`、`buildMode: "development"` 和
-`workspace-sha256:*` 来源快照；它不能用于上传、真机验收、发布基线或替换 `dist/`。
+开发模式的 `dist/build-info.json` 使用 `schemaVersion: 2`、`buildMode: "development"` 和
+`workspace-sha256:*` 来源快照；它表示当前工作树预览，正式上传前必须切换为干净 Git 输入并执行 release 构建。
 
 ### 错误展示与排障
 

@@ -10,6 +10,7 @@ import {
 	clearPendingPayment,
 	continueMedicalPayment,
 	type PaymentProgress,
+	readLastMedicalPaymentResult,
 	readPendingPayment,
 	resumeMedicalCashPaymentFromPending,
 	startOutpatientMedicalPayment,
@@ -34,7 +35,24 @@ import type { OutpatientPaymentDetailPageData } from "../../types";
 
 const HOSPITAL_NAME = "高平市人民医院";
 
+function paymentResultUrl(
+	patientId: string,
+	recordId: string,
+	channel: "medical" | "wechat",
+	options?: { orderId?: string; totalFen?: number },
+): string {
+	const orderId = options?.orderId
+		? `&orderId=${encodeURIComponent(options.orderId)}`
+		: "";
+	const totalFen =
+		options?.totalFen !== undefined
+			? `&totalFen=${encodeURIComponent(String(options.totalFen))}`
+			: "";
+	return `/pages/payment-result/payment-result?business=outpatient&channel=${channel}&patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(recordId)}${orderId}${totalFen}`;
+}
+
 type PaymentStatus = "unpaid" | "paid";
+type PaymentBusyKind = "medical" | "wechat" | "";
 
 type MedicalApp = {
 	globalData: { medicalInsuranceAuthCode: string };
@@ -46,7 +64,7 @@ type MedicalApp = {
  * 由服务端重新调用 2.6.33 解析。
  */
 type OutpatientPaymentDetailPageState = OutpatientPaymentDetailPageData & {
-	paymentBusy: boolean;
+	paymentBusy: PaymentBusyKind;
 	paymentMessage: string;
 };
 
@@ -65,7 +83,7 @@ type OutpatientPaymentDetailPageMethods = {
 	onUnload(): void;
 	formatAmount(amountFen: number): string;
 	formatDate(value: string): string;
-	statusLabel(status: PaymentStatus): string;
+	statusLabel(status: PaymentStatus, paymentStatus?: "refunding"): string;
 	showError(error: unknown): void;
 };
 
@@ -95,13 +113,13 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 		sourcePatientId: "",
 		sourceRecordId: "",
 		sourceStatus: "",
-		paymentBusy: false,
+		paymentBusy: "",
 		paymentMessage: "",
 	},
 
 	onLoad(options: Record<string, string | undefined>): void {
 		registerPageSessionResetListener(this, () => {
-			// 会话变化时同时清理患者和费用摘要，禁止旧账号继续看到详情或重试。
+			// 会话变化时同时清理患者和费用记录，禁止旧账号继续看到详情或重试。
 			this.setData({
 				loading: false,
 				error: "登录状态已更新，请返回后重新选择就诊人",
@@ -110,7 +128,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 				sourcePatientId: "",
 				sourceRecordId: "",
 				sourceStatus: "",
-				paymentBusy: false,
+				paymentBusy: "",
 				paymentMessage: "",
 			});
 		});
@@ -164,7 +182,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 		if (app?.globalData) app.globalData.medicalInsuranceAuthCode = "";
 		resumingMedicalPayment = true;
 		this.setData({
-			paymentBusy: true,
+			paymentBusy: "medical",
 			paymentMessage: authCode
 				? "正在调用医保授权接口，请勿重复提交"
 				: "正在确认医保支付并回写医院，请勿重复付款",
@@ -179,17 +197,32 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			.then((result) => {
 				if (result === false) return;
 				if (!readPendingPayment()) {
-					this.setData({ paymentMessage: "门诊医保支付成功" });
-					wx.showModal({
-						title: "支付成功",
-						content: "本笔门诊费用已完成医保支付。",
-						showCancel: false,
-						confirmText: "知道了",
-						success: () => this.onBack(),
+					const completed = readLastMedicalPaymentResult();
+					wx.redirectTo({
+						url: paymentResultUrl(
+							this.data.sourcePatientId,
+							this.data.sourceRecordId,
+							"medical",
+							completed?.recordId === this.data.sourceRecordId
+								? { orderId: completed.orderId }
+								: undefined,
+						),
 					});
 				}
 			})
 			.catch((error: unknown) => {
+				if (
+					error instanceof ApiError &&
+					["payment-prepay-unknown", "payment-prepay-in-progress"].includes(
+						error.code,
+					)
+				) {
+					this.setData({
+						paymentMessage:
+							"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
+					});
+					return;
+				}
 				clearPendingPayment();
 				this.setData({
 					paymentMessage: errorMessageWithCode(
@@ -200,11 +233,11 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			})
 			.finally(() => {
 				resumingMedicalPayment = false;
-				this.setData({ paymentBusy: false });
+				this.setData({ paymentBusy: "" });
 			});
 	},
 
-	/** 重新确认 owner、患者和会话代际后，才读取单笔费用摘要。 */
+	/** 重新确认 owner、患者和会话代际后，才读取单笔费用记录。 */
 	loadDetail(
 		patientId: string,
 		recordId: string,
@@ -216,7 +249,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			loading: true,
 			error: "",
 			item: null,
-			paymentBusy: false,
+			paymentBusy: "",
 			paymentMessage: "",
 		});
 		let expectedSessionGeneration = -1;
@@ -304,7 +337,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 		const recordId = this.data.sourceRecordId;
 		if (!patientId || !recordId) return;
 		this.setData({
-			paymentBusy: true,
+			paymentBusy: "medical",
 			paymentMessage: "正在准备门诊医保支付，请勿重复点击",
 		});
 		void startOutpatientMedicalPayment(
@@ -321,7 +354,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 					),
 				});
 			})
-			.finally(() => this.setData({ paymentBusy: false }));
+			.finally(() => this.setData({ paymentBusy: "" }));
 	},
 
 	onWechatPay(): Promise<void> {
@@ -331,7 +364,10 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 		const patientId = this.data.sourcePatientId;
 		const recordId = this.data.sourceRecordId;
 		if (!patientId || !recordId) return Promise.resolve();
-		this.setData({ paymentBusy: true, paymentMessage: "正在准备门诊微信支付" });
+		this.setData({
+			paymentBusy: "wechat",
+			paymentMessage: "正在准备门诊微信支付",
+		});
 		return (async () => {
 			try {
 				const result = await startOutpatientSelfPay(
@@ -340,13 +376,13 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 					(_stage, message) => this.setData({ paymentMessage: message }),
 				);
 				if (result.data.status === "cash_paid") {
-					this.setData({ paymentMessage: "门诊支付已确认" });
-					wx.showModal({
-						title: "支付成功",
-						content: "本笔门诊费用已完成支付。",
-						showCancel: false,
-						confirmText: "知道了",
-						success: () => this.onBack(),
+					wx.redirectTo({
+						url: paymentResultUrl(
+							this.data.sourcePatientId,
+							this.data.sourceRecordId,
+							"wechat",
+							{ totalFen: result.data.totalFen },
+						),
 					});
 				}
 			} catch (error) {
@@ -357,7 +393,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 					),
 				});
 			} finally {
-				this.setData({ paymentBusy: false });
+				this.setData({ paymentBusy: "" });
 			}
 		})();
 	},
@@ -375,7 +411,8 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 		return formatOutpatientBillDateLabel(value);
 	},
 
-	statusLabel(status: PaymentStatus): string {
+	statusLabel(status: PaymentStatus, paymentStatus?: "refunding"): string {
+		if (paymentStatus === "refunding") return "退款中";
 		return status === "paid" ? "已缴费" : "待缴费";
 	},
 
@@ -385,7 +422,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			loading: false,
 			error: errorMessageWithCode(error, message),
 			item: null,
-			paymentBusy: false,
+			paymentBusy: "",
 			paymentMessage: "",
 		});
 	},

@@ -22,6 +22,8 @@ type GuideMessage = {
 	summary: string;
 	showDisclaimer: boolean;
 	pending: boolean;
+	isError: boolean;
+	errorCode: string;
 };
 
 type SmartGuidePageData = {
@@ -80,20 +82,33 @@ function assistantMessage(
 		summary: input.summary ?? "",
 		showDisclaimer: input.showDisclaimer ?? false,
 		pending: input.pending ?? false,
+		isError: input.isError ?? false,
+		errorCode: input.errorCode ?? "",
 	};
 }
 
-function guideErrorMessage(error: unknown): string {
+function guideErrorMessage(error: unknown): {
+	message: string;
+	displayText: string;
+	errorCode: string;
+} {
+	let message: string;
 	if (
 		error instanceof ApiError &&
 		error.code === "intelligent-guide-conversation-expired"
 	) {
-		return "本次导诊会话已失效，请点击“重新开始”后再试";
+		message = "本次导诊会话已失效，请点击“重新开始”后再试";
+	} else if (
+		error instanceof ApiError &&
+		error.code === "dependency-not-configured"
+	) {
+		message = "智能导诊服务暂未配置完成，请稍后再试";
+	} else {
+		message = "智能导诊暂时无法回复，请稍后再试";
 	}
-	if (error instanceof ApiError && error.code === "dependency-not-configured") {
-		return "智能导诊服务暂未配置完成，请稍后再试";
-	}
-	return errorMessageWithCode(error, "智能导诊暂时无法回复，请稍后再试");
+	const displayText = errorMessageWithCode(error, message);
+	const errorCode = displayText.match(/错误码\s+(\d+)/)?.[1] ?? "";
+	return { message, displayText, errorCode };
 }
 
 function recorderManager(): WechatMiniprogram.RecorderManager {
@@ -172,6 +187,8 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 			summary: "",
 			showDisclaimer: false,
 			pending: false,
+			isError: false,
+			errorCode: "",
 		};
 		const pendingMessage = assistantMessage("正在分析，请稍候…", {
 			pending: true,
@@ -221,13 +238,16 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 		} catch (error) {
 			if (!guard.isCurrent(token)) return;
 			const errorMessage = guideErrorMessage(error);
-			const failedMessage = assistantMessage(errorMessage);
+			const failedMessage = assistantMessage(errorMessage.message, {
+				isError: true,
+				errorCode: errorMessage.errorCode,
+			});
 			this.setData({
 				messages: this.data.messages
 					.filter((item) => item.id !== pendingMessage.id)
 					.concat(failedMessage),
 				sending: false,
-				error: errorMessage,
+				error: errorMessage.displayText,
 				scrollIntoView: failedMessage.id,
 			});
 		}
@@ -272,6 +292,8 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 			summary: "",
 			showDisclaimer: false,
 			pending: true,
+			isError: false,
+			errorCode: "",
 		};
 		const pendingMessage = assistantMessage("正在分析语音内容，请稍候…", {
 			pending: true,
@@ -329,7 +351,10 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 		} catch (error) {
 			if (!guard.isCurrent(token)) return;
 			const errorMessage = guideErrorMessage(error);
-			const failedMessage = assistantMessage(errorMessage);
+			const failedMessage = assistantMessage(errorMessage.message, {
+				isError: true,
+				errorCode: errorMessage.errorCode,
+			});
 			this.setData({
 				messages: this.data.messages
 					.filter((item) => item.id !== pendingMessage.id)
@@ -340,7 +365,7 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 					)
 					.concat(failedMessage),
 				sending: false,
-				error: errorMessage,
+				error: errorMessage.displayText,
 				scrollIntoView: failedMessage.id,
 			});
 		}
