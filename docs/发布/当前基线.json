@@ -1,8 +1,8 @@
 {
 	"schemaVersion": 1,
-	"updatedAt": "2026-09-16",
+	"updatedAt": "2026-09-17",
 	"server": {
-		"release": "ce1e871cfa99faf292203b4bfc2006ff962309b1",
+		"release": "004888a026938393b411200bd656200dd2c69267",
 		"service": "hospital-platform-api-v2.service",
 		"publicBaseUrl": "https://test-hp.meiyi.pro/api/v2"
 	},
@@ -13,7 +13,7 @@
 		"pageCount": 48
 	},
 	"persistence": {
-		"schemaHead": "0026_medical_insurance_fee_refs",
+		"schemaHead": "0049_appointment_display_context",
 		"migrationSource": "packages/persistence/src/migrate.ts"
 	},
 	"realDeviceEvidence": {
