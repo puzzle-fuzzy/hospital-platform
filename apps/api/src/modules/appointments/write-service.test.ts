@@ -492,3 +492,70 @@ test("预约存在活动自费支付关联时禁止取消", async () => {
 	).rejects.toBeInstanceOf(AppointmentCancellationPaymentActiveError);
 	expect(cancelCalls).toBe(0);
 });
+
+test("医保订单本地状态不再阻断预约取消", async () => {
+	const repository = createInMemoryAppointmentWriteRepository(
+		[],
+		[
+			{
+				appointmentId: "appointment-cancel-medical-001",
+				ownerUserId,
+				patientId,
+				holdId: "hold-medical-001",
+				idempotencyKey: "register-key-medical-001",
+				providerAppointmentId: "provider-appointment-medical-001",
+				providerPatientId,
+				departmentName: "测试科室",
+				doctorName: "测试医生",
+				workDate: "2026-09-20",
+				shiftName: "上午",
+				sourceSerialNumber: "1",
+				totalFen: 1000,
+				status: "booked",
+				createdAt: "2026-09-16T10:00:00.000Z",
+				updatedAt: "2026-09-16T10:00:00.000Z",
+			},
+		],
+	);
+	let cancelCalls = 0;
+	const defaults = createTestDependencies();
+	const service = new AppointmentWriteService({
+		...defaults,
+		repository,
+		medicalInsuranceOrders: {
+			findByOwnerAndAppointmentId: async () => ({
+				status: "cash_pending",
+				feeUploadId: "fee-upload-001",
+				payOrdId: "pay-order-001",
+			}),
+		},
+		gateway: {
+			...(defaults.gateway as Record<string, unknown>),
+			cancel: async () => {
+				cancelCalls += 1;
+				return {
+					trace: {
+						provider: "zhongyang",
+						operation: "cancel",
+						requestId: "cancel-medical-001",
+					},
+				};
+			},
+		},
+	} as never);
+
+	await expect(
+		service.cancel({
+			ownerUserId,
+			appointmentId: "appointment-cancel-medical-001",
+			context: {
+				traceId: "trace-cancel-medical-001",
+				idempotencyKey: "cancel-key-medical-001",
+			},
+		}),
+	).resolves.toEqual({
+		appointmentId: "appointment-cancel-medical-001",
+		status: "cancelled",
+	});
+	expect(cancelCalls).toBe(1);
+});
