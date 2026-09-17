@@ -1,4 +1,5 @@
 import { extname, join, normalize } from "node:path";
+import type { PaymentDaySnapshot } from "./payment-day";
 import {
 	buildPaymentDaySnapshot,
 	PAYMENT_MAX_JOURNAL_BYTES,
@@ -40,6 +41,13 @@ const paymentJournalUnits = [
 	"hospital-platform-api-v2.service",
 	"hospital-platform-worker-v2.service",
 ] as const;
+const paymentSnapshotCacheTtlMs = 30_000;
+const paymentSnapshotCacheMaxEntries = 2;
+const paymentSnapshotCache = new Map<
+	string,
+	{ expiresAt: number; snapshot: PaymentDaySnapshot }
+>();
+const paymentSnapshotInFlight = new Map<string, Promise<PaymentDaySnapshot>>();
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 	throw new Error("INSURANCE_QUERY_PORT must be a valid TCP port");
@@ -95,8 +103,9 @@ function currentShanghaiDate(): string {
 	}).format(new Date());
 }
 
-async function readPaymentJournal(date: string): Promise<string> {
-	const window = paymentDayWindow(date);
+async function runPaymentJournal(
+	window: ReturnType<typeof paymentDayWindow>,
+): Promise<string> {
 	const args = [
 		"--all",
 		"-o",
@@ -129,6 +138,42 @@ async function readPaymentJournal(date: string): Promise<string> {
 	return serialized;
 }
 
+async function readPaymentJournal(date: string): Promise<string> {
+	const window = paymentDayWindow(date);
+	return runPaymentJournal(window);
+}
+
+async function paymentSnapshot(date: string): Promise<PaymentDaySnapshot> {
+	const now = Date.now();
+	const cached = paymentSnapshotCache.get(date);
+	if (cached && cached.expiresAt > now) return cached.snapshot;
+	if (cached) paymentSnapshotCache.delete(date);
+	const existing = paymentSnapshotInFlight.get(date);
+	if (existing) return existing;
+	const pending = readPaymentJournal(date)
+		.then((serialized) => buildPaymentDaySnapshot(date, serialized))
+		.then((snapshot) => {
+			for (const [cachedDate, cachedSnapshot] of paymentSnapshotCache) {
+				if (cachedSnapshot.expiresAt <= Date.now()) {
+					paymentSnapshotCache.delete(cachedDate);
+				}
+			}
+			paymentSnapshotCache.set(date, {
+				expiresAt: Date.now() + paymentSnapshotCacheTtlMs,
+				snapshot,
+			});
+			while (paymentSnapshotCache.size > paymentSnapshotCacheMaxEntries) {
+				const oldestDate = paymentSnapshotCache.keys().next().value;
+				if (typeof oldestDate !== "string") break;
+				paymentSnapshotCache.delete(oldestDate);
+			}
+			return snapshot;
+		})
+		.finally(() => paymentSnapshotInFlight.delete(date));
+	paymentSnapshotInFlight.set(date, pending);
+	return pending;
+}
+
 async function paymentDayRequest(
 	request: Request,
 	url: URL,
@@ -136,10 +181,7 @@ async function paymentDayRequest(
 	bearer(request);
 	const date = url.searchParams.get("date") || currentShanghaiDate();
 	try {
-		const snapshot = buildPaymentDaySnapshot(
-			date,
-			await readPaymentJournal(date),
-		);
+		const snapshot = await paymentSnapshot(date);
 		console.info(
 			JSON.stringify({
 				event: "admin.payment_day.read",
@@ -178,10 +220,7 @@ async function paymentInterfaceRequest(
 		return errorResponse("支付接口序号不合法", 400);
 	}
 	try {
-		const snapshot = buildPaymentDaySnapshot(
-			date,
-			await readPaymentJournal(date),
-		);
+		const snapshot = await paymentSnapshot(date);
 		const detail = paymentInterfaceDetail(snapshot, flowId, ordinal);
 		if (!detail) return errorResponse("支付流程或接口不存在", 404);
 		console.info(
