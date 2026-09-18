@@ -137,7 +137,7 @@ export type MedicalInsurancePaymentCoreDependencies = {
  * 挂号和门诊共享的医保支付核心。
  *
  * 这里不读取预约或门诊页面字段，只处理两类业务都必需的事实：订单归属、
- * 6202/6301 结果归一化、金额校验、CAS 状态更新、非终态查单入队，以及
+ * 6202 结果归一化、金额校验、CAS 状态更新、非终态后置任务入队，以及
  * 微信现金完成后的服务端确认。业务入口负责把真实 6201 费用上下文交给
  * adapter；这条边界避免门诊为复用状态机而伪造 appointment。
  */
@@ -281,8 +281,8 @@ export class MedicalInsurancePaymentCore {
 			context,
 		);
 		const amounts = assertValidMedicalInsuranceAmounts({
-			// 6301 的公共 PaymentAmounts 只保留总额/现金/医保合计；6202 已经
-			// 确认的医院负担、个账细分等事实必须从订单原样带过，不能在查单
+			// 后置 .32 的公共 PaymentAmounts 只保留总额/现金/医保合计；6202 已经
+			// 确认的医院负担、个账细分等事实必须从订单原样带过，不能在后置
 			// 时重建成 0，否则后续高平优惠分项会被错误判成未映射。
 			...(order.amounts ?? {}),
 			totalFen: result.amounts.totalFen,

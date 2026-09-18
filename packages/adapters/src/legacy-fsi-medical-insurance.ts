@@ -35,7 +35,6 @@ import {
 } from "./legacy-fsi-contract";
 import type {
 	LegacyFsiGateway,
-	LegacyFsiSettlementQueryResult,
 	ProviderDiagnosticLogger,
 } from "./legacy-fsi-gateway";
 
@@ -86,10 +85,7 @@ export function resolveRegistrationProviderRegisterId(input: {
 }
 
 export type LegacyFsiMedicalInsuranceGatewayOptions = {
-	legacyFsi: Pick<
-		LegacyFsiGateway,
-		"uploadFees" | "createPaymentOrder" | "querySettlement"
-	>;
+	legacyFsi: Pick<LegacyFsiGateway, "uploadFees" | "createPaymentOrder">;
 	orders: MedicalInsuranceOrderRepository;
 	authorizations: MedicalInsuranceAuthorizationRepository;
 	credentials: MedicalInsuranceCredentialRepository;
@@ -654,8 +650,8 @@ function paymentAmounts(
 ): PaymentAmounts {
 	if (!amounts) {
 		throw responseError(
-			"medical-insurance.6301",
-			"医保查单没有权威或已落库金额",
+			"medical-insurance.2.27.2.32",
+			"6202 结算金额未落库，不能提交医院结算",
 			requestId,
 		);
 	}
@@ -1305,7 +1301,7 @@ function buildOutNetworkSettleMainFrom6202(
 	set("psnPartAmt", preValue(["psn_part_amt"]));
 	set("setlId", preValue(["medins_setl_id"]));
 	// .32 是支付完成后的 HIS 回写：setlTime 使用支付后置分项全部成功时
-	// 记录的 postPaymentCompletedAt，不读取 6301 的查询时间；历史上下文
+	// 记录的 postPaymentCompletedAt，不读取旧查单时间；历史上下文
 	// 没有该时间时，使用本次 .32 提交时刻作为可审计的服务端兜底。
 	const writebackTime =
 		settlementContext.postPaymentCompletedAt ?? dateTime(settlementTime);
@@ -1423,7 +1419,7 @@ function requiredProviderField(
 }
 
 /**
- * 2.27.2.32 的 upDetailList 只能在 6202/6301 之后使用真实 HIS 明细构造。
+ * 2.27.2.32 的 upDetailList 只能在 6202 后使用真实 HIS 明细构造。
  * 2.6.33 只用于确认待支付子项目和匹配事实，不能提前决定后置回写字段。
  */
 export function mapSettlementDetails(
@@ -1854,8 +1850,8 @@ function normalizeSettlementNetworkRegister(
 
 /**
  * 真实医保编排：授权解析 → 1101 → 2.6.65.1/2.27.2.27 → 2.1.9/2.1.13/2.6.33
- * → 6201 → 6202 → 6301。`.27` 的费用明细及 outSettlePat 三个 ID 在前置阶段持久化并复用，
- * 6301 候选结果也只查询一次；6201/6202 仍通过严格加密 FSI gateway，
+ * → 6201 → 6202 → 2.27.2.32。`.27` 的费用明细及 outSettlePat 三个 ID 在前置阶段持久化并复用；
+ * 6202 后不再调用 6301，微信支付成功后的后置编排直接回写 .32；6201/6202 仍通过严格加密 FSI gateway，
  * 前端既不能提交费用明细，也不能提交医保人员或科室编码。
  */
 export function createLegacyFsiMedicalInsuranceGateway(
@@ -2057,6 +2053,19 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			settlementContext.businessId,
 		);
 		if (previousWriteback?.status !== "succeeded") {
+			// 自费部分必须以微信成功通知后的服务端查单为准。通知本身只
+			// 唤醒 Worker；在 Worker 确认支付成功前，不能提前提交不可重放的 .32。
+			if (input.amounts.cashFen > 0 && !input.cashPaymentConfirmed) {
+				return {
+					state: "cash_pending",
+					amounts: input.amounts,
+					trace: notifyTrace,
+					source: "yunhealth",
+					providerStatus: "waiting_for_wechat_payment",
+					finality: "processing",
+					authoritative: false,
+				};
+			}
 			if (
 				settlementContext.postPaymentComponents?.some(
 					(component) => component.state !== "succeeded",
@@ -2065,23 +2074,6 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				throw responseError(
 					"medical-insurance.2.27.2.32",
 					"支付后置分项尚未全部成功",
-				);
-			}
-			// `.32` 必须严格位于 6301 之后。6202 的 ordStas=3/4/5/6
-			// 只是结算候选，只有 6301 候选事实落库后才允许回写 HIS。
-			if (
-				settlementContext.settlementQuery6301?.statusClass !==
-				"settlement_candidate"
-			) {
-				throw responseError(
-					"medical-insurance.2.27.2.32",
-					"6301 尚未返回可后置结算状态，不能提交医院结算",
-					undefined,
-					{
-						failureStage: "validation",
-						responseInvalid: false,
-						requestOutcome: "not_sent",
-					},
 				);
 			}
 			if (
@@ -2136,7 +2128,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						: settlementContext.nationalUpDetailList,
 				};
 				// 先记录“已读取”事实，哪怕明细映射失败也不能在后续
-				// 6301 重试中再次请求 .27；映射失败应停在人工核验。
+				// 后置重试中再次请求 .27；映射失败应停在人工核验。
 				await options.orders.saveSettlementContext(
 					input.ownerUserId,
 					input.orderId,
@@ -2280,8 +2272,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					event: "medical-insurance.2.27.2.32.requested",
 					traceId: context.traceId,
 					orderId: input.orderId,
-					settlementQueryProviderRequestId:
-						settlementContext.settlementQuery6301?.providerRequestId,
+					settlementSource: "6202-direct",
 					postPaymentComponentCount:
 						settlementContext.postPaymentComponents?.length ?? 0,
 					upDetailCount: settlementContext.upDetailList.length,
@@ -2290,7 +2281,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					hasPayingId: Boolean(finalPayingId),
 					hasTradingId: Boolean(finalTradingId),
 				},
-				"Medical insurance HIS settlement writeback requested after 6301",
+				"Medical insurance HIS settlement writeback requested directly after WeChat payment confirmation",
 			);
 			const attemptedAt = now().toISOString();
 			settlementContext = {
@@ -3707,7 +3698,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			);
 			const acctUsedFlag = accountFlag(auth.insuplcAdmdvs);
 			// .27 在 6201 前已经返回后置回写所需的费用明细和患者 ID；
-			// 这里一次性规范化并持久化，6202/6301 后直接复用，不能再次查询 .27。
+			// 这里一次性规范化并持久化，6202 后直接复用，不能再次查询 .27。
 			const upDetailList = preUpDetailList;
 			options.logger?.info(
 				{
@@ -4096,8 +4087,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			);
 			const amounts = mapMedicalAmounts(result.settlement);
 			const mapping = statusMapping(result);
-			// 6202 只确认医保结算候选并保存其 preSetl 主单事实；
-			// `.32` 必须等待后续 6301 候选查询完成后，由 query() 统一调用。
+			// 6202 确认医保结算候选并保存其 preSetl 主单事实；微信支付成功
+			// 后由 query() 直接回写 `.32`，不再查询 6301。
 			return {
 				...mapping,
 				amounts,
@@ -4367,212 +4358,68 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			const order = await options.orders.findByMedicalOrderId(input.orderId);
 			if (!order || order.ownerUserId !== input.ownerUserId)
 				throw responseError(
-					"medical-insurance.6301",
+					"medical-insurance.2.27.2.32",
 					"order context is unavailable",
 				);
-			const storedSettlementContext = await options.orders.getSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-			);
-			const cached6301 = storedSettlementContext?.settlementQuery6301;
-			let result: LegacyFsiSettlementQueryResult;
-			if (cached6301?.statusClass === "settlement_candidate") {
-				// 6301=3/4/5/6 的候选结果是同一笔结算的稳定事实；
-				// 后续重试只重放后置编排，不再向医保中心查询 6301。
-				result = {
-					settlement: {
-						payOrdId: cached6301.payOrdId,
-						ordStas: cached6301.ordStas,
-						...(cached6301.amounts
-							? {
-									amounts: {
-										totalFen: cached6301.amounts.totalFen,
-										cashFen: cached6301.amounts.cashFen,
-										personalAccountFen: cached6301.amounts.personalAccountFen,
-										fundFen: cached6301.amounts.fundFen,
-										...(cached6301.amounts.otherPaymentFen === undefined
-											? {}
-											: {
-													otherPaymentFen: cached6301.amounts.otherPaymentFen,
-												}),
-										...(cached6301.amounts.hospitalPartFen === undefined
-											? {}
-											: {
-													hospitalPartFen: cached6301.amounts.hospitalPartFen,
-												}),
-										...(cached6301.amounts.personalAccountMutualAidFen ===
-										undefined
-											? {}
-											: {
-													personalAccountMutualAidFen:
-														cached6301.amounts.personalAccountMutualAidFen,
-												}),
-										...(cached6301.amounts.personalAccountSelfFen === undefined
-											? {}
-											: {
-													personalAccountSelfFen:
-														cached6301.amounts.personalAccountSelfFen,
-												}),
-										...(cached6301.amounts.depositFen === undefined
-											? {}
-											: { depositFen: cached6301.amounts.depositFen }),
-										...(cached6301.amounts.deliveryFeeFen === undefined
-											? {}
-											: { deliveryFeeFen: cached6301.amounts.deliveryFeeFen }),
-									},
-								}
-							: {}),
-					},
-					statusClass: cached6301.statusClass,
-					trace: trace(
-						"medical-insurance.6301",
-						context,
-						[cached6301.providerRequestId],
-						input.orderId,
-					),
-				};
-				options.logger?.info(
-					{
-						event: "medical-insurance.6301.cached",
-						traceId: context.traceId,
-						orderId: input.orderId,
-						providerRequestId: cached6301.providerRequestId,
-						statusClass: cached6301.statusClass,
-						providerStatus: cached6301.ordStas,
-					},
-					"Medical insurance 6301 candidate reused from settlement context",
+			if (!order.amounts) {
+				throw responseError(
+					"medical-insurance.2.27.2.32",
+					"6202 结算金额未落库，不能提交医院结算",
 				);
-			} else {
-				const credential = await options.credentials.getActiveForOrder({
-					ownerUserId: input.ownerUserId,
-					medicalOrderId: input.orderId,
-					purpose: "query",
-					now: now().toISOString(),
-				});
-				if (!credential)
-					throw responseError(
-						"medical-insurance.6301",
-						"query context is unavailable",
-					);
-				options.logger?.info(
+			}
+			try {
+				const finalized = await finalizeStoredSettlement(
 					{
-						event: "medical-insurance.6301.payload.ready",
-						traceId: context.traceId,
 						orderId: input.orderId,
-						hasPayOrdId: Boolean(credential.payOrdId),
-						hasPayToken: Boolean(credential.payToken),
-					},
-					"Medical insurance 6301 payload is ready",
-				);
-				result = await options.legacyFsi.querySettlement(
-					{
-						payOrdId: credential.payOrdId,
-						payToken: credential.payToken,
-						...credential.providerQueryIdentity,
+						ownerUserId: input.ownerUserId,
+						amounts: order.amounts,
+						businessType:
+							order.businessType ??
+							(order.appointmentId ? "registration" : "outpatient"),
+						...(input.cashPaymentConfirmed === undefined
+							? {}
+							: { cashPaymentConfirmed: input.cashPaymentConfirmed }),
 					},
 					context,
 				);
-				options.logger?.info(
+				return {
+					...finalized,
+					amounts: paymentAmounts(finalized.amounts, finalized.trace.requestId),
+				};
+			} catch (error) {
+				if (!(error instanceof ProviderRequestError)) throw error;
+				options.logger?.warn(
 					{
-						event: "medical-insurance.6301.completed",
+						event: "medical-insurance.post-payment-finalize.failed",
 						traceId: context.traceId,
 						orderId: input.orderId,
-						providerRequestId: result.trace.requestId,
-						statusClass: result.statusClass,
-						providerStatus: result.settlement.ordStas,
+						operation: error.operation,
+						providerRequestId: error.requestId,
+						failureStage: error.failureStage,
+						requestOutcome: error.requestOutcome,
+						responseInvalid: error.responseInvalid,
+						...(error.providerErrorCode
+							? { providerErrorCode: error.providerErrorCode }
+							: {}),
+						providerErrorMessage: error.providerErrorMessage,
 					},
-					"Medical insurance 6301 completed",
+					"Medical insurance direct .32 finalization failed or is waiting",
 				);
-			}
-			const storedAmounts = order.amounts;
-			const resultAmounts = result.settlement.amounts
-				? mapMedicalAmounts(result.settlement.amounts)
-				: undefined;
-			const amounts = resultAmounts ?? storedAmounts;
-			if (!amounts)
-				throw responseError(
-					"medical-insurance.6301",
-					"医保查单没有权威或已落库金额",
-					result.trace.requestId,
-				);
-			const payment = paymentAmounts(amounts, result.trace.requestId);
-			const mapping = statusMapping(result);
-			if (
-				result.statusClass === "settlement_candidate" &&
-				storedSettlementContext &&
-				!cached6301
-			) {
-				await options.orders.saveSettlementContext(
-					input.ownerUserId,
-					input.orderId,
-					{
-						...storedSettlementContext,
-						settlementQuery6301: {
-							queriedAt: now().toISOString(),
-							providerRequestId: result.trace.requestId,
-							payOrdId: result.settlement.payOrdId,
-							ordStas: result.settlement.ordStas,
-							statusClass: result.statusClass,
-							...(resultAmounts ? { amounts: resultAmounts } : {}),
-							...(result.settlement.setlType
-								? { setlType: result.settlement.setlType }
-								: {}),
-						},
-					},
-				);
-			}
-			if (result.statusClass === "settlement_candidate") {
-				try {
-					const finalized = await finalizeStoredSettlement(
-						{
-							orderId: input.orderId,
-							ownerUserId: input.ownerUserId,
-							amounts,
-							businessType:
-								order.businessType ??
-								(order.appointmentId ? "registration" : "outpatient"),
-							...(input.cashPaymentConfirmed === undefined
-								? {}
-								: { cashPaymentConfirmed: input.cashPaymentConfirmed }),
-						},
+				return {
+					state: "cash_pending",
+					amounts: paymentAmounts(order.amounts, error.requestId),
+					trace: trace(
+						"medical-insurance.2.27.2.32",
 						context,
-					);
-					return {
-						...finalized,
-						amounts: paymentAmounts(
-							finalized.amounts,
-							finalized.trace.requestId,
-						),
-					};
-				} catch (error) {
-					if (!(error instanceof ProviderRequestError)) throw error;
-					options.logger?.warn(
-						{
-							event: "medical-insurance.post-payment-finalize.failed",
-							traceId: context.traceId,
-							orderId: input.orderId,
-							operation: error.operation,
-							providerRequestId: error.requestId,
-							failureStage: error.failureStage,
-							requestOutcome: error.requestOutcome,
-							responseInvalid: error.responseInvalid,
-							...(error.providerErrorCode
-								? { providerErrorCode: error.providerErrorCode }
-								: {}),
-							providerErrorMessage: error.providerErrorMessage,
-						},
-						"Medical insurance post-payment HIS finalization failed or is waiting",
-					);
-				}
+						error.requestId ? [error.requestId] : [],
+						input.orderId,
+					),
+					source: "6202",
+					providerStatus: order.ordStas ?? "6202_pending",
+					finality: "settlement_candidate",
+					authoritative: false,
+				};
 			}
-			return {
-				...mapping,
-				amounts: payment,
-				trace: result.trace,
-				source: "6301",
-				providerStatus: result.settlement.ordStas,
-				authoritative: mapping.authoritative,
-			};
 		},
 	};
 }

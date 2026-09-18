@@ -402,7 +402,7 @@ export class MedicalInsuranceWechatPaymentService {
 		}
 		if (breakdown.wechatCashFen <= 0) {
 			// 纯医保订单没有普通微信支付调起参数，但仍需让统一核心继续
-			// 查 6301，并由 adapter 按业务类型执行 .32/.5（门诊）闭环。
+			// 直接执行 .32/.5（门诊）后置闭环。
 			const confirmed = await this.dependencies.confirmCashPayment({
 				ownerUserId: input.ownerUserId,
 				orderId: input.orderId,

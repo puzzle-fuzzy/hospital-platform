@@ -391,7 +391,7 @@ function safeNextState(
 }
 
 /**
- * 新医保订单域的 6301/6302 补偿 Worker。
+ * 新医保订单域的支付成功后置结算 Worker。
  *
  * 旧的 `MedicalInsuranceReconciliationWorker` 面向历史 PaymentOrder 聚合，
  * 不能直接消费 `hp_medical_insurance_orders`；本 Worker 使用同一张查单任务表，

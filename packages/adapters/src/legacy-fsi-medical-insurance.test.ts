@@ -567,19 +567,7 @@ test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 			},
 			querySettlement: async () => {
 				querySettlementCalls += 1;
-				return {
-					settlement: {
-						payOrdId: medicalOrder.payOrdId,
-						ordStas: "6",
-						amounts: settlement,
-					},
-					statusClass: "settlement_candidate",
-					trace: {
-						provider: "medical-insurance",
-						operation: "medical-insurance.6301",
-						requestId: "fsi-6301-zero-cash",
-					},
-				};
+				throw new Error("6301 must not be called after WeChat payment success");
 			},
 		} as never,
 		orders: {
@@ -675,7 +663,7 @@ test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 			context,
 		),
 	).resolves.toMatchObject({ state: "insurance_settled" });
-	expect(querySettlementCalls).toBe(1);
+	expect(querySettlementCalls).toBe(0);
 });
 
 test("门诊医保和微信自费分别调用 .32 和 .5", async () => {
@@ -923,7 +911,7 @@ test(".32 失败后不重复提交同一结算 ID", async () => {
 	});
 });
 
-test("挂号 6202 后先落库 6301 候选并只调用 .32", async () => {
+test("挂号微信支付成功后才直接调用 .32，不调用 6301", async () => {
 	const medicalOrder = {
 		medicalOrderId: "medical-order-sequence-001",
 		ownerUserId: "user-sequence-001",
@@ -1063,15 +1051,7 @@ test("挂号 6202 后先落库 6301 候选并只调用 .32", async () => {
 			}),
 			querySettlement: async () => {
 				querySettlementCalls += 1;
-				return {
-					settlement: { ...settlement, amounts: settlement },
-					statusClass: "settlement_candidate",
-					trace: {
-						provider: "medical-insurance",
-						operation: "medical-insurance.6301",
-						requestId: "fsi-6301-sequence-001",
-					},
-				};
+				throw new Error("6301 must not be called after WeChat payment success");
 			},
 		} as never,
 		orders: {
@@ -1156,18 +1136,20 @@ test("挂号 6202 后先落库 6301 候选并只调用 .32", async () => {
 		setlTime: "2026-09-16 03:01:00",
 	});
 
-	const completed = await gateway.query(
+	const waitingForWechatPayment = await gateway.query(
 		{
 			orderId: medicalOrder.medicalOrderId,
 			ownerUserId: medicalOrder.ownerUserId,
 		},
 		context,
 	);
-	expect(completed.state).toBe("cash_pending");
-	expect(completed.authoritative).toBeTrue();
-	expect(providerPaths).toEqual([
-		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-	]);
+	expect(waitingForWechatPayment).toMatchObject({
+		state: "cash_pending",
+		providerStatus: "waiting_for_wechat_payment",
+		finality: "processing",
+		authoritative: false,
+	});
+	expect(providerPaths).toEqual([]);
 	const finalized = await gateway.query(
 		{
 			orderId: medicalOrder.medicalOrderId,
@@ -1230,9 +1212,6 @@ test("挂号 6202 后先落库 6301 候选并只调用 .32", async () => {
 		offSiteType: 0,
 		netRegSerial: "mdtrt-sequence-001",
 	});
-	expect(querySettlementCalls).toBe(1);
-	expect(settlementContext.settlementQuery6301).toMatchObject({
-		ordStas: "6",
-		statusClass: "settlement_candidate",
-	});
+	expect(querySettlementCalls).toBe(0);
+	expect(settlementContext.settlementQuery6301).toBeUndefined();
 });
