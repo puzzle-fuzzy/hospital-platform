@@ -1178,15 +1178,20 @@ async function assertSequencedRegistrationMedicalWriteback(
 		context,
 	);
 	expect(finalized).toMatchObject({
-		state: "insurance_settled",
-		providerStatus: "completion=outSettleVO.settleStatus=4",
+		state: includePendingWechatCash ? "cash_pending" : "insurance_settled",
+		providerStatus: includePendingWechatCash
+			? "medical_writeback_completed_cash_pending"
+			: "completion=outSettleVO.settleStatus=4",
 		finality: "paid",
 		authoritative: true,
 	});
-	expect(providerPaths).toEqual([
-		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
-	]);
+	const expectedProviderPaths = includePendingWechatCash
+		? ["/msun-yb-app-miop/outSettle/v2/settle-info/notify"]
+		: [
+				"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+				"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+			];
+	expect(providerPaths).toEqual(expectedProviderPaths);
 	const repeated = await gateway.query(
 		{
 			orderId: medicalOrder.medicalOrderId,
@@ -1196,15 +1201,29 @@ async function assertSequencedRegistrationMedicalWriteback(
 		context,
 	);
 	expect(repeated).toMatchObject({
-		state: "insurance_settled",
-		providerStatus: "completion=outSettleVO.settleStatus=4",
+		state: includePendingWechatCash ? "cash_pending" : "insurance_settled",
+		providerStatus: includePendingWechatCash
+			? "medical_writeback_completed_cash_pending"
+			: "completion=outSettleVO.settleStatus=4",
 		finality: "paid",
 		authoritative: true,
 	});
-	expect(providerPaths).toEqual([
-		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
-	]);
+	expect(providerPaths).toEqual(expectedProviderPaths);
+	expect(
+		providerPaths.filter((path) => path.endsWith("/complete-settle")),
+	).toHaveLength(includePendingWechatCash ? 0 : 1);
+	expect(settlementContext.settlementWriteback).toMatchObject({
+		status: "succeeded",
+		providerStatus: "insur=SUCCESS,settle=SUCCESS",
+	});
+	if (includePendingWechatCash) {
+		expect(settlementContext.settlementCompletion).toBeUndefined();
+	} else {
+		expect(settlementContext.settlementCompletion).toMatchObject({
+			status: "succeeded",
+			providerStatus: "completion=outSettleVO.settleStatus=4",
+		});
+	}
 	const notifyBody = providerBodies.find((request) =>
 		request.path.endsWith("/settle-info/notify"),
 	)?.body;
@@ -1249,6 +1268,6 @@ test("挂号医保流水严格按 .32 -> .5 完成且不调用 6301", async () =
 	await assertSequencedRegistrationMedicalWriteback(false);
 });
 
-test("sequenced-v1 带 pending wechat_cash 时绝不走第二次 .32 且只使用医保流水 ID", async () => {
+test("sequenced-v1 带 pending wechat_cash 时医保段只执行 .32 且最终 .5 留给自费段", async () => {
 	await assertSequencedRegistrationMedicalWriteback(true);
 });

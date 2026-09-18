@@ -386,7 +386,8 @@ export type MedicalInsuranceSettlementContext = {
 	plugin?: MedicalInsurancePluginPaymentContext;
 	/**
 	 * 2.6.65.2 流水。新订单保存 `medical` 与可选 `wechat_cash` 两个独立
-	 * 子流水：医保组先于微信支付创建，自费组只在医保 `.32/.5` 完成后创建。
+	 * 子流水：医保组先于微信支付创建；混合支付的自费组在医保 `.32` 完成后创建，
+	 * 最后由自费组执行整单唯一一次 `.5`。纯医保仍在 `.32` 后执行一次 `.5`。
 	 * `combined` 和旧分项记录仅用于安全续跑，不会被自动改写。
 	 */
 	postPaymentComponents?: readonly MedicalInsurancePostPaymentComponent[];
@@ -432,10 +433,10 @@ export type MedicalInsuranceSettlementContext = {
 		providerStatus?: string;
 	};
 	/**
-	 * 2.6.65.5 是门诊医保分项的 HIS 最终完成接口。该接口不可由查单任务
-	 * 自动重放：同一分项最多发起一次；成功、失败或请求结果未知均需持久化，
-	 * 后续只读取该事实，不再向 Provider 发送第二次请求。挂号和门诊的医保
-	 * 子流水都必须调用一次 `.5`，即使微信自费金额为 0 也不能跳过。
+	 * 2.6.65.5 是整笔 HIS 结算的最终完成接口。该接口不可由查单任务自动
+	 * 重放：整笔业务最多发起一次；成功、失败或请求结果未知均需持久化。
+	 * 新流程中纯医保由医保腿记录此事实；混合/纯自费则由最后的自费腿记录，
+	 * 混合支付不能在医保腿和自费腿各调用一次。
 	 */
 	settlementCompletion?: {
 		attemptedAt: string;
@@ -443,7 +444,7 @@ export type MedicalInsuranceSettlementContext = {
 		providerRequestId?: string;
 		providerStatus?: string;
 	};
-	/** 历史拆分门诊微信自费流水独立调用 2.6.65.5 的不可重放事实。 */
+	/** 混合/纯自费最后一次 2.6.65.5 的不可重放事实。 */
 	selfPaySettlementCompletion?: {
 		attemptedAt: string;
 		status: "succeeded" | "failed" | "unknown";

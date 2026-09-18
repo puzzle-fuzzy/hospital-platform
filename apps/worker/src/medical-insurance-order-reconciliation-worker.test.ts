@@ -868,15 +868,22 @@ test("pure insurance reaches terminal only after both .32 and .5 succeed", async
 			nationalUpDetailList: [],
 			upDetailList: [],
 			tradeOrderIds: ["trade-pure-worker-001"],
+			postPaymentPlanVersion: "sequenced-v1",
 			postPaymentComponents: [
-				prePaymentComponent("fund", 70, "H5", "2"),
-				prePaymentComponent("personal_account", 30, "H5", "5"),
+				{
+					...prePaymentComponent("medical", 100, "H5", "2"),
+					payTypeParams: [
+						{ kind: "fund", payTypeId: "2", amountFen: 70 },
+						{ kind: "personal_account", payTypeId: "5", amountFen: 30 },
+					],
+				},
 			],
 		},
 	);
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let cashPaymentConfirmed: boolean | undefined;
 	const componentInputs: unknown[] = [];
+	const completionCalls: string[] = [];
 	let medicalCompletionWrites = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
 		tasks,
@@ -884,12 +891,14 @@ test("pure insurance reaches terminal only after both .32 and .5 succeed", async
 		medicalInsurance: {
 			query: async (input) => {
 				cashPaymentConfirmed = input.cashPaymentConfirmed;
+				completionCalls.push("medical.32");
 				const current = await orders.getSettlementContext(
 					"user-worker-001",
 					"medical-order-worker-001",
 				);
 				if (!current) throw new Error("settlement context missing");
 				medicalCompletionWrites += 1;
+				completionCalls.push("medical.5");
 				await orders.saveSettlementContext(
 					"user-worker-001",
 					"medical-order-worker-001",
@@ -958,6 +967,8 @@ test("pure insurance reaches terminal only after both .32 and .5 succeed", async
 	expect(cashPaymentConfirmed).toBeTrue();
 	expect(componentInputs).toEqual([]);
 	expect(medicalCompletionWrites).toBe(1);
+	expect(completionCalls).toEqual(["medical.32", "medical.5"]);
+	expect(completionCalls.filter((call) => call.endsWith(".5"))).toHaveLength(1);
 	expect(
 		await orders.getSettlementContext(
 			"user-worker-001",
@@ -1137,7 +1148,7 @@ test("mixed payment validates one combined .2 before finalizing HIS once", async
 	expect(settlement?.postPaymentCompletedAt).toBe(now.toISOString());
 });
 
-test("sequenced-v1 mixed payment completes medical .32/.5 before cash .2/.29/.15/.5", async () => {
+test("sequenced-v1 mixed payment completes medical .32 before cash .2/.29/.15/.5 with one final .5", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -1184,7 +1195,6 @@ test("sequenced-v1 mixed payment completes medical .32/.5 before cash .2/.29/.15
 					"medical-order-worker-001",
 				);
 				if (!current) throw new Error("settlement context missing");
-				calls.push("medical.5");
 				await orders.saveSettlementContext(
 					"user-worker-001",
 					"medical-order-worker-001",
@@ -1196,21 +1206,15 @@ test("sequenced-v1 mixed payment completes medical .32/.5 before cash .2/.29/.15
 							providerRequestId: "medical-.32-sequenced-001",
 							providerStatus: "insur=SUCCESS,settle=SUCCESS",
 						},
-						settlementCompletion: {
-							attemptedAt: now.toISOString(),
-							status: "succeeded",
-							providerRequestId: "medical-.5-sequenced-001",
-							providerStatus: "completion=1",
-						},
 					},
 				);
 				return evidence({
 					amounts: { totalFen: 100, insuranceFen: 80, cashFen: 20 },
-					state: "insurance_settled",
+					state: "awaiting_confirmation",
 					source: "yunhealth",
-					providerStatus: "isSettle=1",
-					finality: "paid",
-					authoritative: true,
+					providerStatus: "medical_writeback_succeeded_cash_finalize_pending",
+					finality: "settlement_candidate",
+					authoritative: false,
 				});
 			},
 		},
@@ -1275,6 +1279,7 @@ test("sequenced-v1 mixed payment completes medical .32/.5 before cash .2/.29/.15
 		hospitalSettlement: {
 			writeBack: async (input) => {
 				expect(input.orderId).toBe("medical-order-worker-001:wechat_cash");
+				expect(input.skipCompleteSettlement).not.toBeTrue();
 				expect(input.registrationContext).toMatchObject({
 					payingId: "paying-cash-001",
 					tradingId: "trading-cash-001",
@@ -1308,12 +1313,12 @@ test("sequenced-v1 mixed payment completes medical .32/.5 before cash .2/.29/.15
 	expect(calls).toEqual([
 		"wechat.query",
 		"medical.32",
-		"medical.5",
 		"cash.2",
 		"cash.29",
 		"cash.15",
 		"cash.5",
 	]);
+	expect(calls.filter((call) => call.endsWith(".5"))).toHaveLength(1);
 	expect(
 		await orders.findByMedicalOrderId("medical-order-worker-001"),
 	).toMatchObject({ status: "insurance_settled" });
@@ -1341,11 +1346,11 @@ test("sequenced-v1 mixed payment completes medical .32/.5 before cash .2/.29/.15
 	expect(cashComponent?.tradingId).not.toBe(medicalComponent?.tradingId);
 	expect(settlement).toMatchObject({
 		settlementWriteback: { status: "succeeded" },
-		settlementCompletion: { status: "succeeded" },
 		selfPayThirdPartyWriteback: { status: "succeeded" },
 		selfPayPaymentNotify: { status: "succeeded" },
 		selfPaySettlementCompletion: { status: "succeeded" },
 	});
+	expect(settlement?.settlementCompletion).toBeUndefined();
 	expect(settlement?.postPaymentCompletedAt).toBeDefined();
 });
 
@@ -1476,6 +1481,7 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 		},
 		hospitalSettlement: {
 			writeBack: async (input) => {
+				expect(input.skipCompleteSettlement).not.toBeTrue();
 				expect(input.registrationContext).toMatchObject({
 					payingId: "paying-pure-cash-001",
 					tradingId: "trading-pure-cash-001",
@@ -1515,6 +1521,7 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 		"cash.15",
 		"cash.5",
 	]);
+	expect(calls.filter((call) => call.endsWith(".5"))).toHaveLength(1);
 	expect(await orders.findByMedicalOrderId(medicalOrderId)).toMatchObject({
 		status: "insurance_settled",
 		wechatPaymentState: "cash_paid",
@@ -1540,13 +1547,13 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 	expect(settlement?.settlementCompletion).toBeUndefined();
 });
 
-test("sequenced-v1 never creates cash .2 while medical .5 is not successful", async () => {
+test("sequenced-v1 never creates cash .2 while medical .32 is not successful", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
 			status: "cash_pending",
-			wechatMixTradeNo: "mix-medical-.5-failed-worker-001",
-			wechatOutTradeNo: "out-medical-.5-failed-worker-001",
+			wechatMixTradeNo: "mix-medical-.32-failed-worker-001",
+			wechatOutTradeNo: "out-medical-.32-failed-worker-001",
 			wechatPaymentState: "prepay_ready",
 		}),
 	);
@@ -1554,8 +1561,8 @@ test("sequenced-v1 never creates cash .2 while medical .5 is not successful", as
 		"user-worker-001",
 		"medical-order-worker-001",
 		{
-			businessId: "business-medical-.5-failed-worker-001",
-			businessCode: "trade-code-medical-.5-failed-worker-001",
+			businessId: "business-medical-.32-failed-worker-001",
+			businessCode: "trade-code-medical-.32-failed-worker-001",
 			hospitalId: "1001",
 			patientId: "2001",
 			insuredAreaCode: "140500",
@@ -1563,7 +1570,7 @@ test("sequenced-v1 never creates cash .2 while medical .5 is not successful", as
 			outNetworkSettleMain: {},
 			nationalUpDetailList: [],
 			upDetailList: [],
-			tradeOrderIds: ["trade-medical-.5-failed-worker-001"],
+			tradeOrderIds: ["trade-medical-.32-failed-worker-001"],
 			postPaymentPlanVersion: "sequenced-v1",
 			postPaymentComponents: sequencedPostPaymentComponents(),
 		},
@@ -1587,23 +1594,18 @@ test("sequenced-v1 never creates cash .2 while medical .5 is not successful", as
 						...current,
 						settlementWriteback: {
 							attemptedAt: now.toISOString(),
-							status: "succeeded",
-							providerStatus: "insur=SUCCESS,settle=SUCCESS",
-						},
-						settlementCompletion: {
-							attemptedAt: now.toISOString(),
 							status: "failed",
-							providerStatus: "completion=0",
+							providerStatus: "insur=SUCCESS,settle=FAIL",
 						},
 					},
 				);
 				return evidence({
 					amounts: { totalFen: 100, insuranceFen: 80, cashFen: 20 },
-					state: "insurance_settled",
+					state: "awaiting_confirmation",
 					source: "yunhealth",
-					providerStatus: "isSettle=1",
-					finality: "paid",
-					authoritative: true,
+					providerStatus: "insur=SUCCESS,settle=FAIL",
+					finality: "settlement_candidate",
+					authoritative: false,
 				});
 			},
 		},
@@ -1630,7 +1632,7 @@ test("sequenced-v1 never creates cash .2 while medical .5 is not successful", as
 				trace: {
 					provider: "wechat-pay",
 					operation: "medical-mix-query",
-					requestId: "wechat-medical-.5-failed-worker-001",
+					requestId: "wechat-medical-.32-failed-worker-001",
 				},
 			}),
 		},
@@ -1640,13 +1642,13 @@ test("sequenced-v1 never creates cash .2 while medical .5 is not successful", as
 		postPayment: {
 			createPreOrder: async () => {
 				cashPreOrderCalls += 1;
-				throw new Error("cash .2 must wait for medical .5 success");
+				throw new Error("cash .2 must wait for medical .32 success");
 			},
 		},
 		hospitalSettlement: {
 			writeBack: async () => {
 				cashWriteBackCalls += 1;
-				throw new Error("cash writeback must wait for medical .5 success");
+				throw new Error("cash writeback must wait for medical .32 success");
 			},
 		},
 	});
@@ -1657,6 +1659,280 @@ test("sequenced-v1 never creates cash .2 while medical .5 is not successful", as
 	expect(
 		await orders.findByMedicalOrderId("medical-order-worker-001"),
 	).toMatchObject({ status: "manual_review" });
+});
+
+test("sequenced-v1 legacy mixed order with an early successful .5 skips the final duplicate .5", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			wechatMixTradeNo: "mix-legacy-early-.5-worker-001",
+			wechatOutTradeNo: "out-legacy-early-.5-worker-001",
+			wechatPaymentState: "prepay_ready",
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-worker-001",
+		"medical-order-worker-001",
+		{
+			businessId: "business-legacy-early-.5-worker-001",
+			businessCode: "trade-code-legacy-early-.5-worker-001",
+			hospitalId: "1001",
+			patientId: "2001",
+			insuredAreaCode: "140500",
+			networkRegister: {
+				idNo: "140500199001010033",
+				netPatName: "存量提前完成测试人",
+				memberNo: "psn-legacy-early-.5-worker-001",
+				psnCertType: "01",
+			},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: ["trade-legacy-early-.5-worker-001"],
+			postPaymentPlanVersion: "sequenced-v1",
+			postPaymentComponents: sequencedPostPaymentComponents(),
+			settlementWriteback: {
+				attemptedAt: now.toISOString(),
+				status: "succeeded",
+				providerRequestId: "legacy-medical-.32-worker-001",
+				providerStatus: "insur=SUCCESS,settle=SUCCESS",
+			},
+			settlementCompletion: {
+				attemptedAt: now.toISOString(),
+				status: "succeeded",
+				providerRequestId: "legacy-medical-.5-worker-001",
+				providerStatus: "completion=1",
+			},
+		},
+	);
+
+	const calls: string[] = [];
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
+		orders,
+		medicalInsurance: {
+			query: async () => {
+				calls.push("medical.cached");
+				return evidence({
+					amounts: { totalFen: 100, insuranceFen: 80, cashFen: 20 },
+					state: "insurance_settled",
+					source: "yunhealth",
+					providerStatus: "completion=1",
+					finality: "paid",
+					authoritative: true,
+				});
+			},
+		},
+		wechatPayment: {
+			createMixedOrder: async () => {
+				throw new Error("create is not used");
+			},
+			recoverMixedOrder: async () => {
+				throw new Error("recover is not used");
+			},
+			queryMixedOrder: async () => {
+				calls.push("wechat.query");
+				return {
+					mixState: "paid",
+					cashState: "paid",
+					insuranceState: "paid",
+					medInsPayStatus: "MED_INS_PAY_SUCCESS",
+					cashFen: 20,
+					totalFen: 100,
+					fundFen: 50,
+					personalAccountFen: 30,
+					otherPaymentFen: 0,
+					medicalCashFen: 20,
+					cashReduceDetails: [],
+					providerStatus:
+						"MIX_PAY_SUCCESS/SELF_PAY_SUCCESS/MED_INS_PAY_SUCCESS",
+					trace: {
+						provider: "wechat-pay",
+						operation: "medical-mix-query",
+						requestId: "wechat-legacy-early-.5-worker-001",
+					},
+				};
+			},
+		},
+		postPaymentPayType: "CREDIT",
+		postPaymentWorkStationId: "",
+		postPaymentTradeTypeCode: "1",
+		postPayment: {
+			createPreOrder: async (input) => {
+				calls.push("cash.2");
+				return {
+					payingId: "paying-legacy-cash-001",
+					tradingId: "trading-legacy-cash-001",
+					payTypeId: input.payTypeId,
+					payType: "CREDIT",
+					workStationId: "",
+					tradeTypeCode: "1",
+					trace: {
+						provider: "yunhealth",
+						operation: "registration-self-pay.2.6.65.2.plugin",
+						requestId: "legacy-cash-.2-worker-001",
+					},
+				};
+			},
+		},
+		hospitalSettlement: {
+			writeBack: async (input) => {
+				expect(input.skipCompleteSettlement).toBeTrue();
+				calls.push("cash.29");
+				await input.onThirdPartPayAttempt?.();
+				await input.onThirdPartPayResponse?.({
+					rawResponse:
+						'{"success":true,"data":{"thirdPartPayRecordId":"third-part-legacy-cash-001"}}',
+					thirdPartPayRecordId: "third-part-legacy-cash-001",
+					requestId: "legacy-cash-.29-worker-001",
+				});
+				calls.push("cash.15");
+				await input.onPaymentNotifyAttempt?.();
+				await input.onPaymentNotifyResponse?.({
+					requestId: "legacy-cash-.15-worker-001",
+				});
+				return {
+					provider: "yunhealth",
+					operation: "registration-self-pay.2.6.65.15",
+					requestId: "legacy-cash-.15-worker-001",
+				};
+			},
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("reconciled");
+	expect(calls).toEqual([
+		"wechat.query",
+		"medical.cached",
+		"cash.2",
+		"cash.29",
+		"cash.15",
+	]);
+	const settlement = await orders.getSettlementContext(
+		"user-worker-001",
+		"medical-order-worker-001",
+	);
+	expect(settlement).toMatchObject({
+		settlementCompletion: { status: "succeeded" },
+		selfPayThirdPartyWriteback: { status: "succeeded" },
+		selfPayPaymentNotify: { status: "succeeded" },
+	});
+	expect(settlement?.selfPaySettlementCompletion).toBeUndefined();
+	expect(settlement?.postPaymentCompletedAt).toBeDefined();
+	// 存量单已经调用过一次医保 `.5`；本次自费补写不能再发第二次。
+	expect(1 + calls.filter((call) => call.endsWith(".5")).length).toBe(1);
+});
+
+test("sequenced-v1 legacy mixed order blocks cash when an early .5 is failed or unknown", async () => {
+	for (const completionStatus of ["failed", "unknown"] as const) {
+		const orders = createInMemoryMedicalInsuranceOrderRepository();
+		await orders.insert(
+			order({
+				status: "cash_pending",
+				wechatMixTradeNo: `mix-legacy-${completionStatus}-.5-worker-001`,
+				wechatOutTradeNo: `out-legacy-${completionStatus}-.5-worker-001`,
+				wechatPaymentState: "prepay_ready",
+			}),
+		);
+		await orders.saveSettlementContext(
+			"user-worker-001",
+			"medical-order-worker-001",
+			{
+				businessId: `business-legacy-${completionStatus}-.5-worker-001`,
+				businessCode: `trade-code-legacy-${completionStatus}-.5-worker-001`,
+				hospitalId: "1001",
+				patientId: "2001",
+				insuredAreaCode: "140500",
+				networkRegister: {},
+				outNetworkSettleMain: {},
+				nationalUpDetailList: [],
+				upDetailList: [],
+				tradeOrderIds: [`trade-legacy-${completionStatus}-.5-worker-001`],
+				postPaymentPlanVersion: "sequenced-v1",
+				postPaymentComponents: sequencedPostPaymentComponents(),
+				settlementWriteback: {
+					attemptedAt: now.toISOString(),
+					status: "succeeded",
+					providerStatus: "insur=SUCCESS,settle=SUCCESS",
+				},
+				settlementCompletion: {
+					attemptedAt: now.toISOString(),
+					status: completionStatus,
+					providerStatus: "completion=UNKNOWN",
+				},
+			},
+		);
+		let cashPreOrderCalls = 0;
+		let cashWriteBackCalls = 0;
+		const worker = new MedicalInsuranceOrderReconciliationWorker({
+			tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
+			orders,
+			medicalInsurance: {
+				query: async () =>
+					evidence({
+						amounts: { totalFen: 100, insuranceFen: 80, cashFen: 20 },
+						state: "awaiting_confirmation",
+						source: "yunhealth",
+						providerStatus: "2.6.65.5_already_attempted",
+						finality: "settlement_candidate",
+						authoritative: false,
+					}),
+			},
+			wechatPayment: {
+				createMixedOrder: async () => {
+					throw new Error("create is not used");
+				},
+				recoverMixedOrder: async () => {
+					throw new Error("recover is not used");
+				},
+				queryMixedOrder: async () => ({
+					mixState: "paid",
+					cashState: "paid",
+					insuranceState: "paid",
+					medInsPayStatus: "MED_INS_PAY_SUCCESS",
+					cashFen: 20,
+					totalFen: 100,
+					fundFen: 50,
+					personalAccountFen: 30,
+					otherPaymentFen: 0,
+					medicalCashFen: 20,
+					cashReduceDetails: [],
+					providerStatus:
+						"MIX_PAY_SUCCESS/SELF_PAY_SUCCESS/MED_INS_PAY_SUCCESS",
+					trace: {
+						provider: "wechat-pay",
+						operation: "medical-mix-query",
+						requestId: `wechat-legacy-${completionStatus}-.5-worker-001`,
+					},
+				}),
+			},
+			postPaymentPayType: "CREDIT",
+			postPaymentWorkStationId: "",
+			postPaymentTradeTypeCode: "1",
+			postPayment: {
+				createPreOrder: async () => {
+					cashPreOrderCalls += 1;
+					throw new Error("cash .2 must not run after an unsafe early .5");
+				},
+			},
+			hospitalSettlement: {
+				writeBack: async () => {
+					cashWriteBackCalls += 1;
+					throw new Error(
+						"cash writeback must not run after an unsafe early .5",
+					);
+				},
+			},
+		});
+
+		expect(await worker.runOnce(now)).toBe("manual_review");
+		expect(cashPreOrderCalls).toBe(0);
+		expect(cashWriteBackCalls).toBe(0);
+		expect(
+			await orders.findByMedicalOrderId("medical-order-worker-001"),
+		).toMatchObject({ status: "manual_review" });
+	}
 });
 
 test(".32 success without the required .5 remains non-terminal", async () => {

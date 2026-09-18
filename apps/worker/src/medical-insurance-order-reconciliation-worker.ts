@@ -933,7 +933,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		};
 	}
 
-	/** 医保 `.32/.5` 完成后，创建独立 5031 `.2` 并执行 `.29/.15/.5`。 */
+	/** 医保 `.32` 完成后，创建独立 5031 `.2` 并执行 `.29/.15/.5`。 */
 	private async completeSequencedSelfPay(
 		order: MedicalInsuranceOrder,
 		settlement: MedicalInsuranceSettlementContext,
@@ -1082,6 +1082,21 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			}
 			return true;
 		}
+		const reuseExistingFinalCompletion =
+			currentSettlement.settlementCompletion?.status === "succeeded";
+		if (
+			reuseExistingFinalCompletion &&
+			currentSettlement.selfPayThirdPartyWriteback?.status === "succeeded" &&
+			currentSettlement.selfPayPaymentNotify?.status === "succeeded"
+		) {
+			if (!currentSettlement.postPaymentCompletedAt) {
+				await this.updateSettlementContext(order, (current) => ({
+					...current,
+					postPaymentCompletedAt: now.toISOString(),
+				}));
+			}
+			return true;
+		}
 		for (const step of [
 			currentSettlement.selfPayThirdPartyWriteback,
 			currentSettlement.selfPayPaymentNotify,
@@ -1108,6 +1123,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 					trace: [],
 				},
 				registrationContext,
+				...(reuseExistingFinalCompletion
+					? { skipCompleteSettlement: true }
+					: {}),
 				onThirdPartPayAttempt: async () => {
 					await this.updateSettlementContext(order, (current) => ({
 						...current,
@@ -1173,13 +1191,18 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		await this.updateSettlementContext(order, (current) => ({
 			...current,
 			postPaymentCompletedAt: attemptedAt(),
-			selfPaySettlementCompletion: {
-				attemptedAt:
-					current.selfPaySettlementCompletion?.attemptedAt ?? attemptedAt(),
-				status: "succeeded",
-				providerRequestId: trace.requestId,
-				providerStatus: "completion=1",
-			},
+			...(reuseExistingFinalCompletion
+				? {}
+				: {
+						selfPaySettlementCompletion: {
+							attemptedAt:
+								current.selfPaySettlementCompletion?.attemptedAt ??
+								attemptedAt(),
+							status: "succeeded" as const,
+							providerRequestId: trace.requestId,
+							providerStatus: "completion=1",
+						},
+					}),
 		}));
 		return true;
 	}
@@ -1318,8 +1341,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 		}
 
-		// cashPaymentConfirmed=true 只完成第一段医保 `.32 -> .5`。新两段计划
-		// 必须等它成功后，才创建 5031 自费 `.2` 并进入 `.29 -> .15 -> .5`；
+		// cashPaymentConfirmed=true 完成医保 `.32`。混合支付随后才创建 5031
+		// 自费 `.2` 并进入 `.29 -> .15 -> .5`；纯医保则在本次查询中完成
+		// `.32 -> .5`。整笔业务只能出现一次 `.5`。
 		// 发布前的 combined/拆分计划仍按已持久化事实续跑。
 		let completion: MedicalInsuranceSettlementEvidence | undefined;
 		let completionError: unknown;
@@ -1343,20 +1367,32 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				order.ownerUserId,
 				order.medicalOrderId,
 			);
+		const sequencedSelfPayRequired = Boolean(
+			sequenced &&
+				settlementAfterFinalize?.postPaymentComponents?.some(
+					(component) => component.kind === "wechat_cash",
+				),
+		);
+		const medicalCompletionStatus =
+			settlementAfterFinalize?.settlementCompletion?.status;
 		const writebackSucceeded = sequenced
 			? settlementAfterFinalize?.settlementWriteback?.status === "succeeded" &&
-				settlementAfterFinalize.settlementCompletion?.status === "succeeded"
+				(sequencedSelfPayRequired
+					? medicalCompletionStatus === undefined ||
+						medicalCompletionStatus === "succeeded"
+					: medicalCompletionStatus === "succeeded")
 			: successfulSettlementWriteback(settlementAfterFinalize, order);
 		const completionAccepted = Boolean(
 			completion &&
-				completion.state === "insurance_settled" &&
+				completion.state ===
+					(sequencedSelfPayRequired ? "cash_pending" : "insurance_settled") &&
 				completion.finality === "paid" &&
 				completion.authoritative &&
 				sameAmounts(order, completion),
 		);
-		// 新串行流程只能以已经持久化成功的 `.32` 和医保 `.5` 作为进入
-		// 自费腿的门禁。查询返回 paid 只说明支付终态，绝不能替代 HIS
-		// 回写成功事实，否则会在医保 `.5` 失败后错误创建第二笔自费 `.2`。
+		// 新串行混合流程以已经持久化成功的 `.32` 作为进入自费腿的门禁；
+		// 纯医保仍要求 `.32 + .5`。若旧版本已提前成功执行 `.5`，允许补齐
+		// `.29/.15` 但会显式跳过第二次 `.5`；failed/unknown 仍阻断并人工核验。
 		if (sequenced && !writebackSucceeded) {
 			const nonReplayableWritebackBlocked = [
 				settlementAfterFinalize?.settlementWriteback?.status,

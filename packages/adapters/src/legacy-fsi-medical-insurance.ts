@@ -2391,9 +2391,10 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			}
 		}
 
-		// 新串行计划的医保腿在一次 .32 成功后继续医保 .5；待处理的微信
-		// 自费腿由 Worker 在医保腿完成后执行独立的 .2 -> .29 -> .15 -> .5。
-		// 只有发布前已经拆分保存的 5031 流水才继续其历史上的第二次 .32。
+		// 旧上下文若已成功写入 `.32`，但当前还没有确认微信现金终态，
+		// 只返回 cash_pending，不能提前完成整单。新串行混合单最终由 Worker
+		// 执行独立的自费 `.2 -> .29 -> .15 -> .5`；整单不再调用医保 `.5`。
+		// 只有发布前已经拆分保存的 5031 流水才继续其历史上的第二次 `.32`。
 		if (input.amounts.cashFen > 0 && !input.cashPaymentConfirmed) {
 			return {
 				state: "cash_pending",
@@ -2557,8 +2558,27 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			}
 		}
 
-		// 新两段流程和存量合单的医保子流水都完成一次 .5；发布前已经拆分
-		// 且落库的历史流水继续按原分项事实完成。
+		// 新串行混合支付在医保 `.32` 成功后直接进入自费腿，整笔唯一一次
+		// `.5` 留到 `.29/.15` 之后执行。纯医保没有 wechat_cash 组件，仍在
+		// 此处执行 `.32 -> .5`。combined/legacy 继续按既有落库事实续跑。
+		const sequencedSelfPayRequired = Boolean(
+			settlementContext.postPaymentPlanVersion === "sequenced-v1" &&
+				settlementContext.postPaymentComponents?.some(
+					(component) => component.kind === "wechat_cash",
+				),
+		);
+		if (sequencedSelfPayRequired) {
+			return {
+				state: "cash_pending",
+				amounts: input.amounts,
+				trace: notifyTrace,
+				source: "yunhealth",
+				providerStatus: "medical_writeback_completed_cash_pending",
+				finality: "paid",
+				authoritative: true,
+			};
+		}
+
 		// 每次调用都先落库 unknown，查单只读取已落库事实，不重复提交。
 		const completeSettlementLeg = async (
 			completionKey: "settlementCompletion" | "selfPaySettlementCompletion",

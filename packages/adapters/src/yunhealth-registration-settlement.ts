@@ -1081,6 +1081,31 @@ export function createYunhealthRegistrationSettlementGateway(
 				});
 			}
 
+			// aa7016ec 运行期间创建的 sequenced-v1 混合单可能已经在医保腿
+			// 提前成功调用过整单 `.5`。这类在途单仍需补齐 `.29/.15`，但
+			// 绝不能再次提交不可重放的 `.5`。调用方只允许以已持久化的
+			// settlementCompletion=succeeded 事实打开该兼容开关。
+			if (input.skipCompleteSettlement) {
+				const requestId = requestIds.at(-1);
+				if (!requestId) {
+					throw providerError(
+						PAYMENT_NOTIFY_OPERATION,
+						"No self-pay write-back request was sent before skipping final settlement",
+						{
+							failureStage: "validation",
+							requestOutcome: "not_sent",
+						},
+					);
+				}
+				return {
+					provider: "yunhealth",
+					operation: PAYMENT_NOTIFY_OPERATION,
+					requestId,
+					requestIds,
+					providerOrderId: normalizedContext.businessId,
+				};
+			}
+
 			await input.onCompleteSettlementAttempt?.();
 			const complete = await request<unknown>(
 				"2.6.65.5",

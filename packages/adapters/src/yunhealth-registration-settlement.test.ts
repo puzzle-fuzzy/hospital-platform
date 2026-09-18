@@ -861,6 +861,92 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并逐步持久化", as
 	]);
 });
 
+test("云健康自费回写可跳过 .5 但仍严格执行 .29 -> .15", async () => {
+	const requestPaths: string[] = [];
+	const events: string[] = [];
+	let completeSettlementAttempted = false;
+	let call = 0;
+	const gatewayInstance = gateway(async (input) => {
+		const path = new URL(String(input)).pathname;
+		requestPaths.push(path);
+		if (path.endsWith("/complete-settle")) {
+			throw new Error("skipCompleteSettlement must not request .5");
+		}
+		call += 1;
+		return new Response(
+			JSON.stringify(
+				path.endsWith("/thirdPartPay/start")
+					? {
+							success: true,
+							data: { thirdPartPayRecordId: "9007199254740994" },
+						}
+					: { success: true, data: {} },
+			),
+			{
+				status: 200,
+				headers: { "x-request-id": `yunhealth-skip-complete-${call}` },
+			},
+		);
+	});
+
+	const trace = await gatewayInstance.writeBack(
+		{
+			orderId: "payment-order-skip-complete-001",
+			settlement: {
+				orderId: "payment-order-skip-complete-001",
+				state: "cash_paid",
+				totalFen: 1234,
+				insuranceFen: 0,
+				cashFen: 1234,
+				trace: [],
+			},
+			registrationContext: {
+				...registrationContext,
+				outTradeNo: "payment-order-skip-complete-001",
+				payingId: "1952638941030000012",
+				tradingId: "1952638941030000013",
+				payTypeId: "5031",
+			},
+			skipCompleteSettlement: true,
+			onThirdPartPayAttempt() {
+				events.push("attempt:.29");
+			},
+			onThirdPartPayResponse() {
+				events.push("response:.29");
+			},
+			onPaymentNotifyAttempt() {
+				events.push("attempt:.15");
+			},
+			onPaymentNotifyResponse({ requestId }) {
+				events.push(`response:.15:${requestId}`);
+			},
+			onCompleteSettlementAttempt() {
+				completeSettlementAttempted = true;
+			},
+		},
+		context,
+	);
+
+	expect(requestPaths).toEqual([
+		"/msun-yb-app-miop/thirdPartPay/start",
+		"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
+	]);
+	expect(events).toEqual([
+		"attempt:.29",
+		"response:.29",
+		"attempt:.15",
+		"response:.15:yunhealth-skip-complete-2",
+	]);
+	expect(completeSettlementAttempted).toBeFalse();
+	expect(trace).toEqual({
+		provider: "yunhealth",
+		operation: "registration-self-pay.2.6.65.15",
+		requestId: "yunhealth-skip-complete-2",
+		requestIds: ["yunhealth-skip-complete-1", "yunhealth-skip-complete-2"],
+		providerOrderId: "settlement-business-001",
+	});
+});
+
 test("云健康自费回写复用已保存 .29 并以精确 64 位数字 token 发送 .15", async () => {
 	const requests: Array<{ path: string; bodyText: string }> = [];
 	let thirdPartAttempted = false;

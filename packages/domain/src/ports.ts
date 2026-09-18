@@ -742,6 +742,12 @@ export interface HospitalSettlementGateway {
 			settlement: PaymentOrderSnapshot;
 			/** 服务端从同一预约的医保结算上下文解析出的 Provider 关联键。 */
 			registrationContext?: RegistrationSelfPaySettlementContext;
+			/**
+			 * 仅用于兼容已经由旧 sequenced-v1 提前成功调用过整单 `.5` 的混合单。
+			 * 为 true 时仍执行未完成的 `.29/.15`，但不得再次调用不可重放的 `.5`。
+			 * 新订单、普通自费和旧 plugin 链路必须保持 false/undefined。
+			 */
+			skipCompleteSettlement?: boolean;
 			/** 旧插件链路兼容字段；非 HIS .5/.9 adapter 会忽略。 */
 			onThirdPartPayResponse?: (
 				response: HospitalSettlementThirdPartPayResponse,
