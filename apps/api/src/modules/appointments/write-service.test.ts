@@ -493,6 +493,81 @@ test("预约存在活动自费支付关联时禁止取消", async () => {
 	expect(cancelCalls).toBe(0);
 });
 
+test("仅退款编排可在已完成自费订单仍保留时取消预约", async () => {
+	const repository = createInMemoryAppointmentWriteRepository(
+		[],
+		[
+			{
+				appointmentId: "appointment-cancel-refunded-001",
+				ownerUserId,
+				patientId,
+				holdId: "hold-refunded-001",
+				idempotencyKey: "register-key-refunded-001",
+				providerAppointmentId: "provider-appointment-refunded-001",
+				providerPatientId,
+				departmentName: "测试科室",
+				doctorName: "测试医生",
+				workDate: "2026-09-20",
+				shiftName: "上午",
+				sourceSerialNumber: "1",
+				totalFen: 1000,
+				status: "booked",
+				createdAt: "2026-09-16T10:00:00.000Z",
+				updatedAt: "2026-09-16T10:00:00.000Z",
+			},
+		],
+	);
+	let cancelCalls = 0;
+	const defaults = createTestDependencies();
+	const service = new AppointmentWriteService({
+		...defaults,
+		repository,
+		paymentOrders: {
+			findByOwnerAndIdempotencyKey: async () => ({ state: "completed" }),
+		},
+		gateway: {
+			...(defaults.gateway as Record<string, unknown>),
+			cancel: async () => {
+				cancelCalls += 1;
+				return {
+					trace: {
+						provider: "zhongyang",
+						operation: "cancel",
+						requestId: "cancel-refunded-001",
+					},
+				};
+			},
+		},
+	} as never);
+
+	await expect(
+		service.cancel({
+			ownerUserId,
+			appointmentId: "appointment-cancel-refunded-001",
+			context: {
+				traceId: "trace-cancel-refunded-direct",
+				idempotencyKey: "cancel-refunded-direct",
+			},
+		}),
+	).rejects.toBeInstanceOf(AppointmentCancellationPaymentActiveError);
+	expect(cancelCalls).toBe(0);
+
+	await expect(
+		service.cancelAfterConfirmedSelfPayRefund({
+			ownerUserId,
+			appointmentId: "appointment-cancel-refunded-001",
+			context: {
+				traceId: "trace-cancel-refunded-internal",
+				idempotencyKey: "cancel-refunded-internal",
+			},
+		}),
+	).resolves.toEqual({
+		appointmentId: "appointment-cancel-refunded-001",
+		status: "cancelled",
+	});
+	expect(cancelCalls).toBe(1);
+});
+
 test("医保订单本地状态不再阻断预约取消", async () => {
 	const repository = createInMemoryAppointmentWriteRepository(
 		[],

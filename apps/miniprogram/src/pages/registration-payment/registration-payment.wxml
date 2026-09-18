@@ -42,7 +42,6 @@
 				<view class="message-dot {{stage === 'success' ? 'message-success' : ''}}"></view>
 				<text>{{message}}</text>
 			</view>
-			<view wx:if="{{error}}" class="error-text">{{error}}</view>
 			<view wx:if="{{!completed}}" class="payment-section">
 				<view class="section-title">选择支付方式</view>
 				<view class="payment-actions">

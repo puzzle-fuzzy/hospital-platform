@@ -213,3 +213,31 @@ export type WechatRefund = {
 	createdAt: string;
 	updatedAt: string;
 };
+
+/** 管理端退款页使用的最小历史支付读模型；不含患者、凭证或支付调起参数。 */
+export type AdminWechatRefundPaymentRecord = {
+	source: WechatRefundSource;
+	orderId: string;
+	business: "registration" | "outpatient" | "other";
+	paymentState: string;
+	cashPaymentConfirmed: boolean;
+	cashFen: number;
+	refundReservedFen: number;
+	refundableFen: number;
+	refundCount: number;
+	latestRefund?: {
+		merchantRefundNo: string;
+		status: WechatRefund["status"];
+		refundFen: number;
+		updatedAt: string;
+	};
+	refundRoute: "admin" | "appointment_cancel" | "unavailable";
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type AdminWechatRefundPaymentHistoryQuery = {
+	source?: WechatRefundSource;
+	orderId?: string;
+	limit?: number;
+};

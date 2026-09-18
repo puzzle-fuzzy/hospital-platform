@@ -1,6 +1,12 @@
 <scroll-view class="settlement-scroll" scroll-y="true" enhanced="true">
 	<view class="settlement-page">
-		<view wx:if="{{error}}" class="state-card error-state">
+		<view wx:if="{{loading}}" class="state-card loading-state">
+			<view class="loading-spinner" aria-hidden="true"></view>
+			<text class="state-title">正在处理医保结算</text>
+			<text class="state-message">{{paymentMessage || '正在调用医保授权、费用上传和 6202 结算接口，请稍候'}}</text>
+		</view>
+
+		<view wx:elif="{{error}}" class="state-card error-state">
 			<text class="state-title">结算页面不可用</text>
 			<text class="state-message">{{error}}</text>
 			<button class="back-button" bindtap="onBack">返回门诊缴费</button>
@@ -29,11 +35,13 @@
 				<text class="amount-source">金额来自服务端医保 6202 结算结果，客户端不重新计算或修改。</text>
 			</view>
 
-			<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
-			<view class="settlement-bottom-bar">
-				<text class="settlement-remaining-label">您还需支付：</text>
-				<text class="settlement-remaining-amount">{{cashAmountLabel}}</text>
-				<button
+				<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
+				<view class="settlement-bottom-bar">
+					<view class="settlement-remaining">
+						<text class="settlement-remaining-label">您还需支付：</text>
+						<text class="settlement-remaining-amount">{{cashAmountLabel}}</text>
+					</view>
+					<button
 					class="primary-button"
 					bindtap="onPay"
 					loading="{{paymentBusy}}"

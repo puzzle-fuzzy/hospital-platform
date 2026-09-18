@@ -903,6 +903,7 @@ const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"psnNo",
 	"patInHosId",
 	"outTradeNo",
+	"outTradeNoSource",
 	"recordCode",
 	"payTypeId",
 	"payType",
@@ -910,6 +911,7 @@ const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"payParams",
 	"thirdPartPayRecordId",
 	"thirdPartPayRawResponse",
+	"refundWriteBack",
 ]);
 
 const YUNHEALTH_PAY_PARAM_FIELDS = new Set([
@@ -919,6 +921,12 @@ const YUNHEALTH_PAY_PARAM_FIELDS = new Set([
 	"package",
 	"signType",
 	"paySign",
+]);
+
+const REGISTRATION_SELF_PAY_REFUND_WRITE_BACK_FIELDS = new Set([
+	"merchantRefundNo",
+	"refundFen",
+	"syncedAt",
 ]);
 
 function validYunhealthPayParams(value: unknown): boolean {
@@ -944,6 +952,26 @@ function validYunhealthPayParams(value: unknown): boolean {
 		params.signType === "MD5" &&
 		typeof params.paySign === "string" &&
 		/^[A-Fa-f0-9]{32}$/u.test(params.paySign)
+	);
+}
+
+function validRegistrationSelfPayRefundWriteBack(value: unknown): boolean {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const record = value as Record<string, unknown>;
+	return (
+		!Object.keys(record).some(
+			(field) => !REGISTRATION_SELF_PAY_REFUND_WRITE_BACK_FIELDS.has(field),
+		) &&
+		typeof record.merchantRefundNo === "string" &&
+		record.merchantRefundNo.trim().length > 0 &&
+		record.merchantRefundNo.length <= 64 &&
+		typeof record.refundFen === "number" &&
+		Number.isSafeInteger(record.refundFen) &&
+		record.refundFen > 0 &&
+		typeof record.syncedAt === "string" &&
+		Number.isFinite(Date.parse(record.syncedAt))
 	);
 }
 
@@ -989,6 +1017,10 @@ function deserializeRegistrationSelfPayContext(
 		(record.businessCode !== undefined &&
 			(typeof record.businessCode !== "string" ||
 				!record.businessCode.trim())) ||
+		(record.outTradeNoSource !== undefined &&
+			record.outTradeNoSource !== "yunhealth_2_6_65_2") ||
+		(record.outTradeNoSource === "yunhealth_2_6_65_2" &&
+			!validYunhealthPayParams(record.payParams)) ||
 		!new Set(["CREDIT", "POS", "CROWD_FUNDING"]).has(String(record.payType)) ||
 		(record.thirdPartPayRecordId !== undefined &&
 			(typeof record.thirdPartPayRecordId !== "string" ||
@@ -996,7 +1028,11 @@ function deserializeRegistrationSelfPayContext(
 		(record.thirdPartPayRawResponse !== undefined &&
 			typeof record.thirdPartPayRawResponse !== "string") ||
 		(record.payParams !== undefined &&
-			!validYunhealthPayParams(record.payParams))
+			!validYunhealthPayParams(record.payParams)) ||
+		(record.refundWriteBack !== undefined &&
+			(!validRegistrationSelfPayRefundWriteBack(record.refundWriteBack) ||
+				record.outTradeNoSource !== "yunhealth_2_6_65_2" ||
+				!validYunhealthPayParams(record.payParams)))
 	) {
 		throw new Error("Registration self-pay context is invalid");
 	}
@@ -1224,6 +1260,12 @@ function medicalInsuranceCredentialHandle(
 
 const MI_SELECT =
 	"SELECT medical_order_id, owner_user_id, patient_id, business_type, order_type, business_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, other_payment_fen, hospital_part_fen, personal_account_mutual_aid_fen, personal_account_self_fen, deposit_fen, delivery_fee_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, med_ins_fail_reason, wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext, wechat_prepay_expires_at, version, created_at, updated_at FROM hp_medical_insurance_orders";
+
+/** 管理端退款历史无须、也不得解密微信调起参数。 */
+const MI_ADMIN_REFUND_SELECT = MI_SELECT.replace(
+	"wechat_pay_params_ciphertext",
+	"NULL AS wechat_pay_params_ciphertext",
+);
 
 const MI_WECHAT_PAYMENT_STATES = [
 	"not_started",
@@ -3344,6 +3386,23 @@ export function createMySqlRepositories(
 			);
 			return rows[0] ? paymentOrder(rows[0]) : undefined;
 		},
+		async listRecentForAdmin(input) {
+			if (!Number.isSafeInteger(input.limit) || input.limit < 1) {
+				throw new Error("Admin payment history limit is invalid");
+			}
+			const limit = Math.min(input.limit, 100);
+			const orderId = input.orderId?.trim();
+			const rows = await execute<PaymentOrderRow[]>(
+				pool,
+				`SELECT order_id, owner_user_id, patient_id, idempotency_key, total_fen, insurance_fen, cash_fen, state, version, created_at, updated_at
+				 FROM hp_payment_orders
+				 ${orderId ? "WHERE order_id = ?" : ""}
+				 ORDER BY updated_at DESC, order_id DESC
+				 LIMIT ?`,
+				orderId ? [orderId, limit] : [limit],
+			);
+			return rows.map(paymentOrder);
+		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			const rows = await execute<PaymentOrderRow[]>(
 				pool,
@@ -3597,6 +3656,17 @@ export function createMySqlRepositories(
 				[merchantRefundNo],
 			);
 			return rows[0] ? wechatRefund(rows[0]) : undefined;
+		},
+		async findBySourceAndSourceOrder(source, sourceOrderId) {
+			const rows = await execute<WechatRefundRow[]>(
+				pool,
+				`SELECT refund_record_id, merchant_refund_no, idempotency_key, source, source_order_id, out_trade_no, total_fen, refund_fen, reason, status, provider_status, provider_refund_id, provider_transaction_id, provider_request_id, success_time, last_error_code, version, created_at, updated_at
+				 FROM hp_wechat_refunds
+				 WHERE source = ? AND source_order_id = ?
+				 ORDER BY updated_at DESC, refund_record_id DESC`,
+				[source, sourceOrderId],
+			);
+			return rows.map(wechatRefund);
 		},
 		async update(record, expectedVersion) {
 			const result = await execute<ResultSetHeader>(
@@ -4593,6 +4663,22 @@ export function createMySqlRepositories(
 				[medicalOrderId],
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
+		},
+		async listRecentForAdmin(input) {
+			if (!Number.isSafeInteger(input.limit) || input.limit < 1) {
+				throw new Error("Admin medical payment history limit is invalid");
+			}
+			const limit = Math.min(input.limit, 100);
+			const orderId = input.orderId?.trim();
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_ADMIN_REFUND_SELECT}
+				 ${orderId ? "WHERE medical_order_id = ?" : ""}
+				 ORDER BY updated_at DESC, medical_order_id DESC
+				 LIMIT ?`,
+				orderId ? [orderId, limit] : [limit],
+			);
+			return rows.map((row) => miOrder(row));
 		},
 		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {
 			const rows = await execute<MIRow[]>(

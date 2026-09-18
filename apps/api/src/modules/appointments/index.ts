@@ -144,8 +144,9 @@ export function appointmentsModule(
 			"/appointments/registrations/:appointmentId/cancel",
 			async ({ request, headers, params }) => {
 				const principal = await authentication.get(request);
-				// 详情页取消也必须走支付退出编排：未支付订单先安全失效，
-				// 已支付或 Provider 结果未知则保持预约，不允许直接释放号源。
+				// 详情页取消也必须走支付退出编排：未支付订单先安全失效；已完成
+				// 的挂号自费必须退款并完成医院回写，其余已支付或 Provider 未知
+				// 的状态保持预约，不允许直接释放号源。
 				return success(
 					registrationPaymentExit
 						? await registrationPaymentExit.abandon({

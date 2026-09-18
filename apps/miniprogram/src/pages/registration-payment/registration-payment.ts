@@ -6,7 +6,6 @@ import {
 	requestAppointmentPaymentExit,
 } from "../../services/api-client";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
-import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	canSwitchMedicalAuthorizationToSelfPay,
 	clearPendingPayment,
@@ -151,24 +150,20 @@ function paymentError(error: unknown): string {
 	if (error instanceof MedicalCashRequiredError)
 		return "当前医保支付包含微信支付金额，请继续医保支付";
 	if (error instanceof MedicalInsurancePaymentFailureError)
-		return error.userMessage;
-	// 50240 只表示前端确认窗口结束，不是用户需要看到的内部数字码。
-	// .32 成功并形成最终订单状态时会进入成功分支；未确认时保留普通提示。
+		return "医保支付未完成，请联系医院确认支付状态";
+	// 支付确认窗口结束时只展示当前状态，不向用户暴露内部数字码或上游原因。
 	if (
 		error instanceof ApiError &&
 		error.code === "payment-prepay-in-progress"
 	) {
 		return "支付结果正在确认，请稍后查看挂号详情";
 	}
-	return errorMessageWithCode(
-		error,
-		contextualApiErrorMessage(error, "支付流程未完成，请稍后重试"),
-	);
+	return contextualApiErrorMessage(error, "支付流程未完成，请稍后重试");
 }
 
 function paymentActionMessage(error: unknown): string {
 	if (error instanceof MedicalInsurancePaymentFailureError) {
-		return "医保扣款失败，系统已停止继续结算；退款状态需医院核实，请勿重复付款，并联系医院确认";
+		return "医保支付未完成，预约已保留；请勿重复付款，联系医院确认支付状态";
 	}
 	if (error instanceof MedicalCashRequiredError) {
 		return "当前医保支付包含微信支付金额，请继续医保支付";
@@ -428,7 +423,7 @@ Page<
 							hasPendingPayment: true,
 							completed: false,
 							stage: "cash-confirming",
-							error: paymentError(error),
+							error: "",
 							message:
 								"支付结果正在确认，请稍后点击医保支付继续；如已扣款请勿重复付款",
 						});
@@ -437,7 +432,7 @@ Page<
 					clearPendingPayment();
 					this.setData({
 						hasPendingPayment: false,
-						error: paymentError(error),
+						error: "",
 						message: paymentActionMessage(error),
 					});
 				})
@@ -542,9 +537,35 @@ Page<
 				pending.appointmentId !== this.data.appointmentId &&
 				mode !== "mixed"
 			) {
-				throw new ApiError("已有其他挂号支付在处理中，请先完成或退出", {
-					code: "payment-prepay-in-progress",
-				});
+				// 旧预约已由服务端安全取消后，本地 storage 仍可能保留上一次
+				// 微信支付的恢复上下文。它不能继续拦住一笔新的预约；先以服务端
+				// 预约状态为准，只在明确 cancelled 时清掉本地残留。未知、待确认、
+				// 已支付等状态一律保留原来的保护门禁，避免并行支付。
+				if (mode === "self") {
+					const previousDetail = await requestAppointmentDetail(
+						pending.appointmentId,
+						pending.patientId,
+						this.data.sessionGeneration,
+					);
+					assertSessionGeneration(
+						this.data.sessionGeneration,
+						"Registration payment page session changed while recovering a cancelled payment context",
+					);
+					if (previousDetail.data.status === "cancelled") {
+						clearPendingPayment();
+						this.setData({
+							hasPendingPayment: false,
+							completed: false,
+							message: "已清除已取消预约的旧支付状态，正在准备微信支付",
+						});
+						pending = null;
+					}
+				}
+				if (pending) {
+					throw new ApiError("已有其他挂号支付在处理中，请先完成或退出", {
+						code: "payment-prepay-in-progress",
+					});
+				}
 			}
 			// 混合支付是一次新的支付尝试，不恢复本地旧的医保订单或 504 状态。
 			if (mode === "mixed" && pending) {
@@ -792,7 +813,7 @@ Page<
 		}
 		this.setData({
 			hasPendingPayment: false,
-			error: paymentError(error),
+			error: "",
 			message: paymentActionMessage(error),
 			completed: false,
 		});

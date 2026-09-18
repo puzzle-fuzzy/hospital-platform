@@ -109,12 +109,6 @@ export type LastMedicalPaymentResult = {
 	completedAt: number;
 };
 
-type MedicalCancellation = {
-	orderId: string;
-	status: "cancelled" | "awaiting_confirmation" | "manual_review";
-	restartAllowed: boolean;
-};
-
 type MedicalWechatPayParams = {
 	mixTradeNo?: string;
 	appId?: string;
@@ -351,28 +345,6 @@ export function readLastMedicalPaymentResult(): LastMedicalPaymentResult | null 
 		wx.removeStorageSync(MINIPROGRAM_STORAGE_KEYS.lastMedicalPaymentResult);
 	}
 	return result;
-}
-
-function readMedicalCancellation(value: unknown): MedicalCancellation {
-	const payload = requireSuccessDataResponse<unknown>(value);
-	const data = payload.data;
-	if (
-		!isRecord(data) ||
-		!isOpaque(data.orderId) ||
-		(data.status !== "cancelled" &&
-			data.status !== "awaiting_confirmation" &&
-			data.status !== "manual_review") ||
-		typeof data.restartAllowed !== "boolean"
-	) {
-		throw new ApiError("医保关单响应不可用", {
-			code: "provider-response-invalid",
-		});
-	}
-	return {
-		orderId: data.orderId,
-		status: data.status,
-		restartAllowed: data.restartAllowed,
-	};
 }
 
 export function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
@@ -914,18 +886,6 @@ async function orderCommand(
 	return readMedicalOrder(response);
 }
 
-async function cancelPaymentInProgress(
-	orderId: string,
-): Promise<MedicalCancellation> {
-	const response = await requestWithSession<unknown>({
-		url: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/cancel`,
-		method: "POST",
-		data: { reason: "payment_in_progress" },
-		idempotencyKey: createIdempotencyKey("medical-cancel-in-progress"),
-	});
-	return readMedicalCancellation(response);
-}
-
 function finishMedicalPayment(
 	pending: PendingPayment,
 	onProgress: Progress,
@@ -1241,35 +1201,10 @@ export async function continueMedicalPayment(
 		if (fees.cashierUrl)
 			savePendingPayment({ ...current, cashierUrl: fees.cashierUrl });
 	} catch (error) {
-		if (
-			error instanceof ApiError &&
-			error.code === "medical-insurance-payment-in-progress"
-		) {
-			onProgress("settling", "检测到已有支付进行中，正在安全关闭旧支付订单");
-			const cancellation = await cancelPaymentInProgress(orderId);
-			if (cancellation.status !== "cancelled" || !cancellation.restartAllowed) {
-				throw new ApiError("当前支付订单未能安全关闭", {
-					code: "medical-insurance-cancellation-context-missing",
-				});
-			}
-			const replacement = prepareFreshMedicalAuthorization(
-				current,
-				current.mode === "mixed" ? "mixed" : "medical",
-			);
-			onProgress(
-				"authorizing",
-				"旧支付已关闭，请重新完成医保授权；请勿重复付款或重新预约",
-			);
-			if (replacement.businessType === "outpatient") {
-				await navigateToOutpatientMedicalAuth(
-					replacement.recordId ?? replacement.appointmentId,
-					replacement.patientId,
-				);
-			} else {
-				await navigateToMedicalAuth(replacement.appointmentId);
-			}
-			return;
-		}
+		// 测试期重复订单规则：Provider 提示“支付中”时，本次尝试直接停止；
+		// 不查询、不拦截、不关单，也不处理任何旧订单。尤其不能请求
+		// /cancel，否则会进入众阳 2.6.65.4、2.6.65.11（以及后续 .6）链路。
+		// 用户下一次明确点击支付会创建一笔独立的新尝试，旧订单保持不动。
 		clearPendingPayment();
 		throw error;
 	}

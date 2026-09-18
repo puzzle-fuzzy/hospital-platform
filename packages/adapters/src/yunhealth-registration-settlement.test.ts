@@ -3,6 +3,7 @@ import type { ProviderFetcher, ProviderRequestLogger } from "./http";
 import {
 	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSelfPayPreparationGateway,
+	createYunhealthRegistrationSelfPayRefundNotificationGateway,
 	createYunhealthRegistrationSettlementGateway,
 } from "./yunhealth-registration-settlement";
 
@@ -195,7 +196,115 @@ test("云健康 .2 将 result 的 MD5 sign 安全投影为小程序 paySign", as
 	expect(result.outTradeNo).toBe("REGISTRATION-001");
 });
 
-test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", async () => {
+test("微信退款确认成功后按原插件上下文回写云健康 .15 退款分支", async () => {
+	let request:
+		| {
+				url: string;
+				bodyText: string;
+				body: Record<string, unknown>;
+				headers: Headers;
+		  }
+		| undefined;
+	const gatewayInstance =
+		createYunhealthRegistrationSelfPayRefundNotificationGateway({
+			baseUrl: "https://yunhealth.example.test",
+			authorizationToken: "server-token",
+			paymentOrgId: "10756",
+			pluginPayTypeId: "5031",
+			pluginPayType: "CREDIT",
+			workStationId: "registration-machine-01",
+			paymentSource: "1",
+			authSysCode: "thirdSelfMachine",
+			tradeTypeCode: "10",
+			fetcher: async (input, init) => {
+				const bodyText = String(init?.body);
+				request = {
+					url: String(input),
+					bodyText,
+					body: JSON.parse(bodyText) as Record<string, unknown>,
+					headers: new Headers(init?.headers),
+				};
+				return new Response(JSON.stringify({ success: true, data: {} }), {
+					status: 200,
+					headers: { "x-request-id": "yunhealth-refund-notify-15" },
+				});
+			},
+		});
+
+	const trace = await gatewayInstance.notifyRefund(
+		{
+			orderId: "payment-order-refund-001",
+			merchantRefundNo: "RF-PO-registration-001",
+			refundFen: 1234,
+			registrationContext: {
+				...registrationContext,
+				tradeTypeCode: "10",
+				payingId: "1952638941030000002",
+				payTypeId: "5032",
+				workStationId: "registration-machine-01",
+				outTradeNo: "REGISTRATION-SELF-001",
+				outTradeNoSource: "yunhealth_2_6_65_2",
+				payParams: {
+					appId: yunhealthMd5Result.appId,
+					timeStamp: yunhealthMd5Result.timeStamp,
+					nonceStr: yunhealthMd5Result.nonceStr,
+					package: yunhealthMd5Result.package,
+					signType: "MD5",
+					paySign: yunhealthMd5Result.sign,
+				},
+			},
+		},
+		context,
+	);
+
+	expect(request?.url).toBe(
+		"https://yunhealth.example.test/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
+	);
+	expect(request?.headers.get("authorization")).toBe("Bearer server-token");
+	expect(request?.body).toMatchObject({
+		authSysCode: "thirdSelfMachine",
+		hospitalId: 10389001,
+		orgId: 10756,
+		tradeTypeCode: "10",
+		workStationId: "registration-machine-01",
+	});
+	// 既要保持旧服务的 JSON number 类型，也要确保超过 Number.MAX_SAFE_INTEGER
+	// 的雪花 ID 没有被 JSON.parse/Number 静默舍入。
+	expect(request?.bodyText).toContain('"payingId":1952638941030000002');
+	expect(String(request?.body.requestParam)).toContain(
+		'"payingId":1952638941030000002',
+	);
+	expect(request?.body.nonce).toMatch(/^[A-Fa-f0-9]{32}$/u);
+	expect(String(request?.body.requestParam)).toContain('"payTypeId":5032');
+	expect(String(request?.body.requestParam)).toContain('"receiveAmount":12.34');
+	expect(String(request?.body.requestParam)).toContain(
+		'"recordCode":"0123456789abcdef0123456789abcdef"',
+	);
+	expect(trace).toMatchObject({
+		provider: "yunhealth",
+		operation: "registration-self-pay.2.6.65.15.refund",
+		requestId: "yunhealth-refund-notify-15",
+		providerOrderId: "settlement-business-001",
+	});
+});
+
+test("云健康 .15 退款回写在缺少服务端授权时拒绝初始化", () => {
+	expect(() =>
+		createYunhealthRegistrationSelfPayRefundNotificationGateway({
+			baseUrl: "https://yunhealth.example.test",
+			authorizationToken: "",
+			paymentOrgId: "10756",
+			pluginPayTypeId: "5031",
+			pluginPayType: "CREDIT",
+			workStationId: "",
+			paymentSource: "1",
+			authSysCode: "thirdSelfMachine",
+			tradeTypeCode: "10",
+		}),
+	).toThrow("authorizationToken is invalid");
+});
+
+test("医保支付合单 .2 固定外层 H5/2 并把全部支付腿写入 payTypeParams", async () => {
 	let body: Record<string, unknown> | undefined;
 	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
 		baseUrl: "https://yunhealth.example.test",
@@ -818,7 +927,9 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		payModel: "MINI_PROGRAM",
 		payTypeId: 5032,
 		paymentSystemUserId: "openid-self-001",
-		payTypeParams: [{ payTypeId: 5032, paymentSystemUserId: "openid-self-001" }],
+		payTypeParams: [
+			{ payTypeId: 5032, paymentSystemUserId: "openid-self-001" },
+		],
 	});
 	expect(requests[1]?.method).toBe("GET");
 	expect(requests[1]?.url).toBe(
@@ -831,7 +942,8 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		payingId: "1952638941030000002",
 		tradingId: "1952638941030000003",
 		patientId: "1952638941030000200",
-		outTradeNo: "payment-order-prepare-001",
+		outTradeNo: "REGISTRATION-SELF-001",
+		outTradeNoSource: "yunhealth_2_6_65_2",
 		payParams: {
 			appId: yunhealthMd5Result.appId,
 			timeStamp: yunhealthMd5Result.timeStamp,

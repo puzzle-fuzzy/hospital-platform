@@ -2,6 +2,8 @@ import type {
 	AdminLogPage,
 	AdminLogQuery,
 	AdminLogRecord,
+	AdminWechatRefundPaymentHistoryQuery,
+	AdminWechatRefundPaymentRecord,
 	CaptchaState,
 	LoginValues,
 	PaymentDayResult,
@@ -280,6 +282,26 @@ export async function queryWechatRefund(
 	try {
 		return await request<WechatRefund>(
 			`/api/refunds/wechat/${encodeURIComponent(merchantRefundNo)}`,
+			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function fetchWechatRefundPaymentHistory(
+	input: AdminWechatRefundPaymentHistoryQuery,
+	session: Session,
+): Promise<readonly AdminWechatRefundPaymentRecord[]> {
+	const query = new URLSearchParams();
+	if (input.source) query.set("source", input.source);
+	if (input.orderId?.trim()) query.set("orderId", input.orderId.trim());
+	if (input.limit !== undefined) query.set("limit", String(input.limit));
+	const suffix = query.size > 0 ? `?${query.toString()}` : "";
+	try {
+		return await request<readonly AdminWechatRefundPaymentRecord[]>(
+			`/api/refunds/wechat/payments${suffix}`,
 			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
 		);
 	} catch (error) {

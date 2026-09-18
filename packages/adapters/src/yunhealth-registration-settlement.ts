@@ -1,10 +1,11 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type {
 	AdapterCallContext,
 	ExternalTrace,
 	HospitalSettlementGateway,
 	PaymentOrderSnapshot,
 	RegistrationSelfPayPreparationGateway,
+	RegistrationSelfPayRefundNotificationGateway,
 	RegistrationSelfPaySettlementContext,
 	YunhealthMiniProgramPayParams,
 	YunhealthRegistrationPluginPaymentGateway,
@@ -19,6 +20,8 @@ import {
 
 const COMPLETE_SETTLE_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle";
+const PAYMENT_NOTIFY_PATH =
+	"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify";
 const APPLY_SETTLE_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/settle/apply-pay-settle";
 const SETTLE_DETAILS_PATH = "/msun-yb-app-miop/v1/out-insur-settle-infos";
@@ -571,6 +574,212 @@ function settleFlag(value: unknown): boolean {
 	return String(value ?? "").trim() === "1";
 }
 
+/** JSON.stringify 对超过 safe integer 的雪花 ID 会悄悄改写数值；这里值已通过
+ * positiveIntegerText 校验，作为 JSON 数字 token 原样写入，和旧服务的 Python
+ * int/json.dumps 合同保持一致。 */
+function quoteJsonText(value: string): string {
+	const serialized = JSON.stringify(value);
+	if (typeof serialized !== "string") {
+		throw new Error("Failed to serialize JSON text");
+	}
+	return serialized;
+}
+
+function yuanJsonNumber(fen: number): string {
+	const yuan = Math.floor(fen / 100);
+	const cents = fen % 100;
+	return cents === 0
+		? `${yuan}.0`
+		: `${yuan}.${String(cents).padStart(2, "0")}`;
+}
+
+/**
+ * 2.6.65.15 与旧服务保持同一 wire type：外层和 requestParam 内的 payingId、
+ * payTypeId 均为 JSON 数字。不能先 Number(payingId)，否则 64 位雪花 ID 会丢
+ * 精度，可能回写到错误的收费流水。
+ */
+function yunhealthRefundNotifyBody(input: {
+	authSysCode: string;
+	hospitalId: number;
+	nonce: string;
+	orgId: number;
+	payingId: string;
+	payTypeId: string;
+	refundFen: number;
+	recordCode: string;
+	paymentSource: string;
+	tradeTypeCode: string;
+	workStationId: string;
+}): string {
+	const requestParam = [
+		"{",
+		'"payingType":"3",',
+		'"recordList":[{',
+		`"payingId":${input.payingId},`,
+		`"payTypeId":${input.payTypeId},`,
+		`"receiveAmount":${yuanJsonNumber(input.refundFen)},`,
+		`"recordCode":${quoteJsonText(input.recordCode)},`,
+		'"status":"3",',
+		`"source":${quoteJsonText(input.paymentSource)}`,
+		"}]",
+		"}",
+	].join("");
+	return [
+		"{",
+		`"authSysCode":${quoteJsonText(input.authSysCode)},`,
+		`"hospitalId":${input.hospitalId},`,
+		`"nonce":${quoteJsonText(input.nonce)},`,
+		`"orgId":${input.orgId},`,
+		`"payingId":${input.payingId},`,
+		`"requestParam":${quoteJsonText(requestParam)},`,
+		`"tradeTypeCode":${quoteJsonText(input.tradeTypeCode)},`,
+		`"workStationId":${quoteJsonText(input.workStationId)}`,
+		"}",
+	].join("");
+}
+
+/**
+ * 新 MD5 自费订单退款时，微信退款 SUCCESS 还不能直接取消预约。必须复用
+ * .2 下单时保存的关联键，走旧服务相同的 2.6.65.15 payingType=3 回写，
+ * 确认 HIS 已收到退款事实后才允许释放号源。
+ */
+export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
+	options: YunhealthRegistrationSettlementGatewayOptions,
+): RegistrationSelfPayRefundNotificationGateway {
+	const baseUrl = requiredText(options.baseUrl, "baseUrl");
+	const providerBaseUrl = providerUrl(baseUrl, "");
+	// 旧服务 `_notify_plugin_payment` 对 .15 明确要求服务端授权。退款前必须
+	// 确认它存在，不能在微信已经退款后才发现 HIS 回写没有凭证。
+	const authorization = normalizedAuthorization(
+		requiredText(options.authorizationToken ?? "", "authorizationToken"),
+	);
+	if (!authorization) {
+		throw providerError(
+			"registration-self-pay.2.6.65.15.refund",
+			"authorizationToken is invalid",
+			{ failureStage: "validation", requestOutcome: "not_sent" },
+		);
+	}
+	const paymentOrgId = positiveInteger(options.paymentOrgId, "paymentOrgId");
+	const paymentSource = requiredText(
+		options.paymentSource ?? "",
+		"paymentSource",
+	);
+	const authSysCode = requiredText(
+		options.authSysCode ?? "thirdSelfMachine",
+		"authSysCode",
+	);
+	const tradeTypeCode = requiredText(
+		options.tradeTypeCode ?? "10",
+		"tradeTypeCode",
+	);
+	const workStationId = textAllowEmpty(options.workStationId, "workStationId");
+	const fetcher = options.fetcher ?? fetch;
+
+	return {
+		async notifyRefund(input, context) {
+			const orderId = requiredText(input.orderId, "orderId", 128);
+			const merchantRefundNo = requiredText(
+				input.merchantRefundNo,
+				"merchantRefundNo",
+				64,
+			);
+			const refundFen = positiveInteger(input.refundFen, "refundFen");
+			const registrationContext = input.registrationContext;
+			const normalizedContext = normalizeContext(registrationContext);
+			const payTypeId = positiveIntegerText(
+				registrationContext.payTypeId,
+				"payTypeId",
+			);
+			const recordCode = requiredText(
+				registrationContext.recordCode,
+				"recordCode",
+				32,
+			);
+			if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
+				throw providerError(
+					"registration-self-pay.2.6.65.15.refund",
+					"recordCode is invalid",
+					{
+						failureStage: "validation",
+						requestOutcome: "not_sent",
+					},
+				);
+			}
+			const storedTradeTypeCode = requiredText(
+				registrationContext.tradeTypeCode,
+				"tradeTypeCode",
+			);
+			if (storedTradeTypeCode !== tradeTypeCode) {
+				throw providerError(
+					"registration-self-pay.2.6.65.15.refund",
+					"stored tradeTypeCode does not match server configuration",
+					{
+						failureStage: "validation",
+						requestOutcome: "not_sent",
+					},
+				);
+			}
+			const storedWorkStationId = textAllowEmpty(
+				registrationContext.workStationId,
+				"workStationId",
+			);
+			if (storedWorkStationId !== workStationId) {
+				throw providerError(
+					"registration-self-pay.2.6.65.15.refund",
+					"stored plugin workStationId does not match server configuration",
+					{
+						failureStage: "validation",
+						requestOutcome: "not_sent",
+					},
+				);
+			}
+
+			const operation = "registration-self-pay.2.6.65.15.refund";
+			const bodyText = yunhealthRefundNotifyBody({
+				authSysCode,
+				hospitalId: normalizedContext.hospitalId,
+				nonce: randomUUID().replaceAll("-", ""),
+				orgId: paymentOrgId,
+				payingId: normalizedContext.payingId,
+				payTypeId,
+				refundFen,
+				recordCode,
+				paymentSource,
+				tradeTypeCode: storedTradeTypeCode,
+				workStationId: storedWorkStationId,
+			});
+			const response = await requestJson<unknown>(
+				{
+					provider: "yunhealth",
+					operation,
+					url: `${providerBaseUrl}${PAYMENT_NOTIFY_PATH}`,
+					method: "POST",
+					context: {
+						...context,
+						idempotencyKey: stableStepIdempotencyKey(
+							"2.6.65.15-refund",
+							`${orderId}:${merchantRefundNo}`,
+						),
+					},
+					headers: { Authorization: authorization },
+					bodyText,
+					...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
+					...(options.logger ? { logger: options.logger } : {}),
+				},
+				fetcher,
+			);
+			requireYunhealthSuccess(response, operation, context, options.logger);
+			return {
+				provider: "yunhealth",
+				operation,
+				requestId: response.requestId,
+				providerOrderId: normalizedContext.businessId,
+			};
+		},
+	};
+}
+
 export function createYunhealthRegistrationSettlementGateway(
 	options: YunhealthRegistrationSettlementGatewayOptions,
 ): HospitalSettlementGateway {
@@ -1017,7 +1226,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 				context,
 			);
 			requestIds.push(plugin.trace.requestId);
-			if (!plugin.payParams) {
+			if (!plugin.payParams || !plugin.outTradeNo) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
 					"2.6.65.2 did not return mini-program payment parameters",
@@ -1044,7 +1253,8 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 					psnName: patientName,
 					psnNo: patientCardNo,
 					patInHosId: "0",
-					outTradeNo: orderId,
+					outTradeNo: plugin.outTradeNo,
+					outTradeNoSource: "yunhealth_2_6_65_2",
 					recordCode,
 					payTypeId: plugin.payTypeId,
 					payType: plugin.payType,

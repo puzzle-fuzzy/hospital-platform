@@ -84,17 +84,7 @@
 			wx:for="{{visibleItems}}"
 			wx:key="recordId"
 			class="record-card record-card-{{item.paymentStatus || item.status}}"
-			bindtap="onRecordTap"
-			data-view-key="{{item.viewKey}}"
 		>
-			<view class="record-header">
-				<text class="record-hospital">{{hospitalName}}</text>
-				<image
-					class="record-arrow-image"
-					src="/assets/legacy-user/selector-arrow-right.svg"
-					mode="aspectFit"
-				/>
-			</view>
 			<view class="record-line">
 				<text class="record-label">患者姓名</text>
 				<text class="record-value">{{selectedPatient.displayName}}</text>
@@ -133,19 +123,19 @@
 			</view>
 			<view class="record-line record-amount-line">
 				<text class="record-label">缴费金额</text>
-				<view class="record-amount-right">
-					<text class="record-amount">{{item.amountLabel}}</text>
-					<view wx:if="{{item.status === 'unpaid'}}" class="record-payment-action" catchtap="onPaymentTap" data-view-key="{{item.viewKey}}">
-						<button class="record-pay-button">缴费</button>
-					</view>
-				</view>
+				<text class="record-amount">{{item.amountLabel}}</text>
 			</view>
 			<view class="record-line record-line-last">
 				<text class="record-label">就诊时间</text>
 				<text class="record-time">{{item.billDateLabel}}</text>
 			</view>
-			<view wx:if="{{item.status !== 'unpaid'}}" class="record-status-wrap">
-				<text class="record-status record-status-{{item.paymentStatus || item.status}}">{{item.paymentStatus === 'refunding' ? '退款中' : item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
+			<view class="record-footer">
+				<view wx:if="{{item.status === 'unpaid'}}" class="record-payment-action" catchtap="onPaymentTap" data-view-key="{{item.viewKey}}">
+					<button class="record-pay-button">缴费</button>
+				</view>
+				<view wx:if="{{item.status !== 'unpaid'}}" class="record-status-wrap">
+					<text class="record-status record-status-{{item.paymentStatus || item.status}}">{{item.paymentStatus === 'refunding' ? '退款中' : item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
+				</view>
 			</view>
 		</view>
 		<view wx:if="{{hasMoreItems}}" class="load-more" bindtap="onLoadMore">加载更多缴费记录</view>

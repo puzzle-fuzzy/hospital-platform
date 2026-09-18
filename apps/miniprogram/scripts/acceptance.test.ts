@@ -676,6 +676,8 @@ test("native payment boundaries always end with a user-actionable result", async
 		expect(paymentSource).toContain("请勿重复付款");
 	}
 	expect(paymentPage).toContain("paymentActionMessage");
+	expect(paymentPage).not.toContain("errorMessageWithCode");
+	expect(paymentTemplate).not.toContain('class="error-text"');
 	expect(paymentPage).toContain("支付上下文已清除");
 	expect(paymentPage).toContain("如已扣款请联系医院核实");
 	expect(paymentPage).toContain("canSwitchMedicalAuthorizationToSelfPay");
@@ -792,6 +794,19 @@ test("native mixed payment resumes by querying the existing order", async () => 
 	expect(page).toContain("resumeMedicalCashPaymentFromPending");
 	expect(page).toContain("正在确认微信医保支付并回写医院");
 	expect(page).toContain("请勿重复付款");
+});
+
+test("native self payment clears only a server-cancelled stale context", async () => {
+	const page = await source(
+		"pages/registration-payment/registration-payment.ts",
+	);
+
+	// 本地 pending 不足以判定上一笔支付失效；必须先读取服务端预约详情，
+	// 并且只在明确 cancelled 时解除对新预约微信支付的拦截。
+	expect(page).toContain("while recovering a cancelled payment context");
+	expect(page).toContain('previousDetail.data.status === "cancelled"');
+	expect(page).toContain("已清除已取消预约的旧支付状态");
+	expect(page).toContain("已有其他挂号支付在处理中，请先完成或退出");
 });
 
 test("native client requests patient synchronization through the Hospital API", async () => {
@@ -2995,6 +3010,21 @@ test("outpatient payment cards reject stale status events", async () => {
 	expect(template).not.toContain('data-status="{{item.status}}"');
 });
 
+test("outpatient payment can retry a stale authorization without duplicating an order", async () => {
+	const payment = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+
+	// 授权页取消或回跳丢失时，本地只有 authorization 阶段且没有 orderId；
+	// 这类上下文必须清掉并允许重新授权。已经有服务端订单的上下文则必须
+	// 保留，不能让再次点击创建第二笔医保订单。
+	expect(payment).toContain("clearPendingPayment");
+	expect(payment).toContain('pending?.phase === "authorization"');
+	expect(payment).toContain("if (pending.orderId)");
+	expect(payment).toContain("上一笔医保订单正在处理中，请稍后再试");
+	expect(payment).not.toContain('title: "请先完成医保授权"');
+});
+
 test("outpatient payment preserves the legacy patient and hospital selector rows", async () => {
 	const payment = await source(
 		"pages/outpatient-payment/outpatient-payment.ts",
@@ -3469,15 +3499,22 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	const outpatientTemplate = await source(
 		"pages/outpatient-payment/outpatient-payment.wxml",
 	);
+	const outpatientStyle = await source(
+		"pages/outpatient-payment/outpatient-payment.wxss",
+	);
 	const my = await source("pages/my/my.ts");
 	const myTemplate = await source("pages/my/my.wxml");
 	const navigation = await source("services/patient-navigation.ts");
 	const settlementTemplate = await source(
 		"pages/outpatient-medical-settlement/outpatient-medical-settlement.wxml",
 	);
+	const settlementPage = await source(
+		"pages/outpatient-medical-settlement/outpatient-medical-settlement.ts",
+	);
 	const settlementStyle = await source(
 		"pages/outpatient-medical-settlement/outpatient-medical-settlement.wxss",
 	);
+	const medicalInsurance = await source("services/medical-insurance.ts");
 
 	expect(app).toContain('"pages/outpatient-payment/outpatient-payment"');
 	expect(app).toContain('"pages/my/my"');
@@ -3511,9 +3548,6 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatientTemplate).toContain("加载更多缴费记录");
 	expect(outpatientTemplate).toContain("{{item.billDateLabel}}");
 	expect(outpatient).toContain("formatOutpatientBillDateLabel");
-	expect(outpatient).toContain(
-		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
-	);
 	expect(outpatient).toContain("startOutpatientMedicalPayment");
 	expect(outpatient).toContain("onPaymentTap(event: ViewKeyEvent)");
 	expect(outpatient).toContain(
@@ -3538,14 +3572,34 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	// 列表直缴、医保授权、6202 明细和用户确认后继续支付边界。
 	expect(outpatientTemplate).not.toContain("缴费后如需退费需至窗口办理");
 	expect(outpatientTemplate).not.toContain("目前支付宝支持");
-	expect(outpatientTemplate).toContain('bindtap="onRecordTap"');
+	expect(outpatientTemplate).not.toContain('bindtap="onRecordTap"');
+	expect(outpatientTemplate).not.toContain('class="record-header"');
+	const visitTimeIndex = outpatientTemplate.indexOf(
+		'<text class="record-label">就诊时间</text>',
+	);
+	const recordPayButtonIndex = outpatientTemplate.indexOf(
+		'<button class="record-pay-button">缴费</button>',
+	);
+	expect(recordPayButtonIndex).toBeGreaterThan(visitTimeIndex);
+	expect(outpatientStyle).toContain("width: 100rpx;");
 	expect(outpatientTemplate).toContain(">支付</button>");
 	expect(settlementTemplate).toContain("服务端医保 6202 结算结果");
+	expect(settlementTemplate).toContain(
+		"正在调用医保授权、费用上传和 6202 结算接口",
+	);
 	expect(settlementTemplate).toContain("settlement-bottom-bar");
 	expect(settlementTemplate).toContain("您还需支付：");
 	expect(settlementTemplate).toContain('bindtap="onPay"');
+	expect(settlementPage).toContain("resumeAuthorizedPayment");
+	expect(settlementPage).toContain("continueMedicalPayment");
+	expect(settlementPage).toContain("settlementProgressMessage");
 	expect(settlementStyle).toContain("position: fixed;");
 	expect(settlementStyle).toContain(".settlement-bottom-bar");
+	// 测试期不对同一医保订单自动做支付中拦截：不能从小程序调用
+	// /cancel，否则会进入 Provider 的 .4/.11/.6 关单链路。
+	expect(medicalInsurance).toContain("测试期重复订单规则");
+	expect(medicalInsurance).not.toContain("cancelPaymentInProgress");
+	expect(medicalInsurance).not.toContain("medical-cancel-in-progress");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(my).toContain("navigateToPatientScopedPage");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
@@ -4194,7 +4248,7 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	expect(reportDetail).toContain('navigateToFeatureStatus("report-share")');
 	expect(reportDetail).toContain("onShareReport");
 	expect(reportDirectory).toContain('navigateToFeatureStatus("report-detail")');
-	expect(outpatientPayment).toContain(
+	expect(outpatientPayment).not.toContain(
 		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
 	);
 	expect(outpatientPayment).not.toContain("navigateToFeatureStatus");

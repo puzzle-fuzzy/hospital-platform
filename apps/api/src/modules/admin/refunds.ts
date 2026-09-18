@@ -1,16 +1,17 @@
 import { success } from "@hospital/contracts";
-import { Elysia, t } from "elysia";
-import { HttpError } from "../../errors";
-import { adapterContextFromHeaders } from "../../plugins/request-context";
-import {
-	AdminWechatRefundInputError,
-	type AdminWechatRefundService,
-} from "./wechat-refund-service";
 import {
 	WechatRefundAmountExceededError,
 	WechatRefundIdempotencyConflictError,
 	WechatRefundNotFoundError,
 } from "@hospital/domain";
+import { Elysia, t } from "elysia";
+import { HttpError } from "../../errors";
+import { adapterContextFromHeaders } from "../../plugins/request-context";
+import {
+	AdminWechatRefundHistoryNotConfiguredError,
+	AdminWechatRefundInputError,
+	type AdminWechatRefundService,
+} from "./wechat-refund-service";
 
 const AdminRefundHeaders = t.Object({
 	"x-admin-refund-token": t.String({ minLength: 1, maxLength: 512 }),
@@ -34,6 +35,17 @@ const AdminRefundBody = t.Object(
 const AdminRefundParams = t.Object({
 	merchantRefundNo: t.String({ minLength: 1, maxLength: 64 }),
 });
+
+const AdminRefundHistoryQuery = t.Object(
+	{
+		source: t.Optional(
+			t.Union([t.Literal("payment_order"), t.Literal("medical_insurance")]),
+		),
+		orderId: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+		limit: t.Optional(t.String({ minLength: 1, maxLength: 3 })),
+	},
+	{ additionalProperties: false },
+);
 
 function constantTimeEqual(left: string, right: string): boolean {
 	const encoder = new TextEncoder();
@@ -82,11 +94,29 @@ function mapError(error: unknown): never {
 			"退费幂等键与已有退款不一致",
 		);
 	}
+	if (error instanceof AdminWechatRefundHistoryNotConfiguredError) {
+		throw new HttpError(503, "admin-not-configured", "管理端退费历史尚未配置");
+	}
 	throw error;
 }
 
+function historyLimit(value: string | undefined): number {
+	if (value === undefined) return 50;
+	if (!/^[1-9][0-9]*$/u.test(value)) {
+		throw new HttpError(400, "validation", "limit 必须是 1 到 100 的整数");
+	}
+	const limit = Number(value);
+	if (!Number.isSafeInteger(limit) || limit > 100) {
+		throw new HttpError(400, "validation", "limit 必须是 1 到 100 的整数");
+	}
+	return limit;
+}
+
 export function adminWechatRefundModule(
-	service: Pick<AdminWechatRefundService, "request" | "query">,
+	service: Pick<
+		AdminWechatRefundService,
+		"request" | "query" | "listPaymentHistory"
+	>,
 	adminRefundToken: string,
 ) {
 	return new Elysia({ name: "admin-wechat-refunds-module" })
@@ -105,6 +135,30 @@ export function adminWechatRefundModule(
 			{
 				headers: AdminRefundHeaders,
 				body: AdminRefundBody,
+				detail: { hide: true },
+			},
+		)
+		.get(
+			"/admin/wechat-refund-payments",
+			async ({ headers, query }) => {
+				authorize(adminRefundToken, headers);
+				try {
+					return success(
+						await service.listPaymentHistory({
+							limit: historyLimit(query.limit),
+							...(query.source ? { source: query.source } : {}),
+							...(query.orderId?.trim()
+								? { orderId: query.orderId.trim() }
+								: {}),
+						}),
+					);
+				} catch (error) {
+					return mapError(error);
+				}
+			},
+			{
+				headers: AdminRefundHeaders,
+				query: AdminRefundHistoryQuery,
 				detail: { hide: true },
 			},
 		)

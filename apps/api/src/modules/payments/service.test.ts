@@ -17,6 +17,9 @@ import {
 } from "@hospital/persistence";
 import {
 	RegistrationPaymentExitInputError,
+	RegistrationPaymentExitRefundContextError,
+	RegistrationPaymentExitRefundPendingError,
+	RegistrationPaymentExitRefundSyncPendingError,
 	RegistrationPaymentExitService,
 } from "./registration-payment-exit-service";
 import { registrationSelfPayOrderKey } from "./registration-self-pay-service";
@@ -419,6 +422,482 @@ test("支付退出不会把已确认收款的自费订单误作废", async () =>
 		}),
 	).rejects.toBeInstanceOf(RegistrationPaymentExitInputError);
 	expect(appointmentCancelCalls).toBe(0);
+});
+
+test("已完成的挂号自费会全额退款确认后才取消预约", async () => {
+	let normalCancellationCalls = 0;
+	let refundedCancellationCalls = 0;
+	let refundRequests = 0;
+	let refundInput: Record<string, unknown> | undefined;
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository([
+			{
+				...order,
+				idempotencyKey: registrationSelfPayOrderKey(
+					"appointment-exit-refund-001",
+				),
+				state: "completed",
+			},
+		]),
+	});
+	const service = new RegistrationPaymentExitService({
+		appointments: {
+			cancel: async () => {
+				normalCancellationCalls += 1;
+				throw new Error(
+					"normal cancellation must not run after a confirmed refund",
+				);
+			},
+			cancelAfterConfirmedSelfPayRefund: async () => {
+				refundedCancellationCalls += 1;
+				return {
+					appointmentId: "appointment-exit-refund-001",
+					status: "cancelled" as const,
+				};
+			},
+		} as never,
+		medicalInsurance: { cancel: async () => undefined } as never,
+		medicalInsuranceWechatPayment: { query: async () => undefined } as never,
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		paymentOrders,
+		wechatPrepay: {
+			cancel: async () => ({ orderId: order.orderId, status: "paid" as const }),
+		} as never,
+		selfPayRefund: {
+			requestTrustedPaymentOrder: async (input) => {
+				refundRequests += 1;
+				refundInput = input;
+				return {
+					status: "success",
+					merchantRefundNo: "refund-registration-001",
+				} as never;
+			},
+			query: async () => {
+				throw new Error("a confirmed refund must not be queried again");
+			},
+		},
+	});
+
+	await expect(
+		service.abandon({
+			ownerUserId: order.ownerUserId,
+			appointmentId: "appointment-exit-refund-001",
+			mode: "auto",
+			context: {
+				traceId: "trace-exit-refund-001",
+				idempotencyKey: "exit-refund-001",
+			},
+		}),
+	).resolves.toEqual({
+		appointmentId: "appointment-exit-refund-001",
+		status: "cancelled",
+	});
+
+	expect(refundRequests).toBe(1);
+	expect(refundInput).toEqual({
+		orderId: order.orderId,
+		outTradeNo: order.orderId,
+		refundFen: order.amounts.cashFen,
+		idempotencyKey: "registration-self-pay-refund:appointment-exit-refund-001",
+		reason: "挂号预约取消退款",
+	});
+	expect(normalCancellationCalls).toBe(0);
+	expect(refundedCancellationCalls).toBe(1);
+});
+
+test("MD5 挂号自费使用 .2 返回的商户单号退款并在 .15 回写后取消", async () => {
+	const appointmentId = "appointment-exit-refund-md5-001";
+	const completedOrder = {
+		...order,
+		idempotencyKey: registrationSelfPayOrderKey(appointmentId),
+		state: "completed" as const,
+	};
+	const orders = createInMemoryPaymentOrderRepository([completedOrder]);
+	const saveContext = orders.saveRegistrationSelfPayContext;
+	const getContext = orders.getRegistrationSelfPayContext;
+	if (!saveContext || !getContext)
+		throw new Error("self-pay context repository unavailable");
+	const registrationContext = {
+		businessId: "yunhealth-business-refund-001",
+		tradeTypeCode: "10",
+		businessCode: "REG-REFUND-001",
+		payingId: "1952638941030000002",
+		tradingId: "1952638941030000003",
+		hospitalId: "10389001",
+		patientId: "1952638941030000200",
+		certNo: "11010519900101007X",
+		psnCertType: "01",
+		psnName: "测试患者",
+		psnNo: "P000001",
+		patInHosId: "0",
+		outTradeNo: "YUNHEALTH-WX-OUT-001",
+		outTradeNoSource: "yunhealth_2_6_65_2" as const,
+		recordCode: "0123456789abcdef0123456789abcdef",
+		payTypeId: "5032",
+		payType: "CREDIT" as const,
+		workStationId: "",
+		payParams: {
+			appId: "wx1234567890abcdef",
+			timeStamp: "1789000000",
+			nonceStr: "0123456789abcdef0123456789abcdef",
+			package: "prepay_id=wx-provider-prepay-001",
+			signType: "MD5" as const,
+			paySign: "0123456789abcdef0123456789abcdef",
+		},
+	};
+	await saveContext(
+		completedOrder.ownerUserId,
+		completedOrder.orderId,
+		registrationContext,
+	);
+	let refundInput: Record<string, unknown> | undefined;
+	let notificationInput: Record<string, unknown> | undefined;
+	let cancellations = 0;
+	const paymentOrders = new PaymentOrderService({ orders });
+	const service = new RegistrationPaymentExitService({
+		appointments: {
+			cancel: async () => {
+				throw new Error("normal cancellation must not run after refund");
+			},
+			cancelAfterConfirmedSelfPayRefund: async () => {
+				cancellations += 1;
+				return { appointmentId, status: "cancelled" as const };
+			},
+		} as never,
+		medicalInsurance: { cancel: async () => undefined } as never,
+		medicalInsuranceWechatPayment: { query: async () => undefined } as never,
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		paymentOrders,
+		wechatPrepay: {
+			cancel: async () => ({
+				orderId: completedOrder.orderId,
+				status: "paid" as const,
+			}),
+		} as never,
+		selfPayRefund: {
+			requestTrustedPaymentOrder: async (input) => {
+				refundInput = input;
+				return {
+					status: "success",
+					merchantRefundNo: "RF-PO-YUNHEALTH-001",
+				} as never;
+			},
+			query: async () => {
+				throw new Error("a confirmed refund must not be queried again");
+			},
+		},
+		selfPayRefundNotification: {
+			notifyRefund: async (input) => {
+				notificationInput = input;
+				return {
+					provider: "yunhealth",
+					operation: "registration-self-pay.2.6.65.15.refund",
+					requestId: "yunhealth-refund-notify-001",
+				};
+			},
+		},
+		resolveRegistrationContext: async (input) =>
+			getContext(input.ownerUserId, input.orderId),
+		saveRegistrationContext: async (input) =>
+			saveContext(input.ownerUserId, input.orderId, input.registrationContext),
+	});
+
+	await expect(
+		service.abandon({
+			ownerUserId: completedOrder.ownerUserId,
+			appointmentId,
+			mode: "auto",
+			context: {
+				traceId: "trace-exit-refund-md5-001",
+				idempotencyKey: "exit-refund-md5-001",
+			},
+		}),
+	).resolves.toEqual({ appointmentId, status: "cancelled" });
+
+	expect(refundInput).toMatchObject({
+		orderId: completedOrder.orderId,
+		outTradeNo: "YUNHEALTH-WX-OUT-001",
+		refundFen: completedOrder.amounts.cashFen,
+	});
+	expect(notificationInput).toMatchObject({
+		orderId: completedOrder.orderId,
+		merchantRefundNo: "RF-PO-YUNHEALTH-001",
+		refundFen: completedOrder.amounts.cashFen,
+		registrationContext,
+	});
+	expect(cancellations).toBe(1);
+	await expect(
+		getContext(completedOrder.ownerUserId, completedOrder.orderId),
+	).resolves.toMatchObject({
+		refundWriteBack: {
+			merchantRefundNo: "RF-PO-YUNHEALTH-001",
+			refundFen: completedOrder.amounts.cashFen,
+		},
+	});
+});
+
+test("缺少 .2 原始 out_trade_no 的旧 MD5 订单不会猜测退款目标", async () => {
+	const appointmentId = "appointment-exit-refund-md5-legacy-001";
+	const completedOrder = {
+		...order,
+		idempotencyKey: registrationSelfPayOrderKey(appointmentId),
+		state: "completed" as const,
+	};
+	let refundRequests = 0;
+	let cancellations = 0;
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository([completedOrder]),
+	});
+	const service = new RegistrationPaymentExitService({
+		appointments: {
+			cancel: async () => {
+				cancellations += 1;
+				return { appointmentId, status: "cancelled" as const };
+			},
+			cancelAfterConfirmedSelfPayRefund: async () => {
+				cancellations += 1;
+				return { appointmentId, status: "cancelled" as const };
+			},
+		} as never,
+		medicalInsurance: { cancel: async () => undefined } as never,
+		medicalInsuranceWechatPayment: { query: async () => undefined } as never,
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		paymentOrders,
+		wechatPrepay: {
+			cancel: async () => ({
+				orderId: completedOrder.orderId,
+				status: "paid" as const,
+			}),
+		} as never,
+		selfPayRefund: {
+			requestTrustedPaymentOrder: async () => {
+				refundRequests += 1;
+				throw new Error("refund request must not be reached");
+			},
+			query: async () => {
+				throw new Error("refund query must not be reached");
+			},
+		},
+		resolveRegistrationContext: async () => ({
+			businessId: "yunhealth-business-legacy-001",
+			payingId: "1952638941030000002",
+			tradingId: "1952638941030000003",
+			hospitalId: "10389001",
+			patientId: "1952638941030000200",
+			certNo: "11010519900101007X",
+			psnCertType: "01",
+			psnName: "测试患者",
+			psnNo: "P000001",
+			patInHosId: "0",
+			outTradeNo: completedOrder.orderId,
+			recordCode: "0123456789abcdef0123456789abcdef",
+			payTypeId: "5032",
+			payType: "CREDIT" as const,
+			workStationId: "",
+			payParams: {
+				appId: "wx1234567890abcdef",
+				timeStamp: "1789000000",
+				nonceStr: "0123456789abcdef0123456789abcdef",
+				package: "prepay_id=wx-provider-prepay-001",
+				signType: "MD5" as const,
+				paySign: "0123456789abcdef0123456789abcdef",
+			},
+		}),
+	});
+
+	await expect(
+		service.abandon({
+			ownerUserId: completedOrder.ownerUserId,
+			appointmentId,
+			mode: "self",
+			context: {
+				traceId: "trace-exit-refund-md5-legacy-001",
+				idempotencyKey: "exit-refund-md5-legacy-001",
+			},
+		}),
+	).rejects.toBeInstanceOf(RegistrationPaymentExitRefundContextError);
+	expect(refundRequests).toBe(0);
+	expect(cancellations).toBe(0);
+});
+
+test("微信退款成功但 .15 回写未知时保留预约", async () => {
+	const appointmentId = "appointment-exit-refund-md5-sync-001";
+	const completedOrder = {
+		...order,
+		idempotencyKey: registrationSelfPayOrderKey(appointmentId),
+		state: "completed" as const,
+	};
+	let cancellations = 0;
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository([completedOrder]),
+	});
+	const md5Context = {
+		businessId: "yunhealth-business-sync-001",
+		tradeTypeCode: "10",
+		payingId: "1952638941030000002",
+		tradingId: "1952638941030000003",
+		hospitalId: "10389001",
+		patientId: "1952638941030000200",
+		certNo: "11010519900101007X",
+		psnCertType: "01",
+		psnName: "测试患者",
+		psnNo: "P000001",
+		patInHosId: "0",
+		outTradeNo: "YUNHEALTH-WX-OUT-SYNC-001",
+		outTradeNoSource: "yunhealth_2_6_65_2" as const,
+		recordCode: "0123456789abcdef0123456789abcdef",
+		payTypeId: "5032",
+		payType: "CREDIT" as const,
+		workStationId: "",
+		payParams: {
+			appId: "wx1234567890abcdef",
+			timeStamp: "1789000000",
+			nonceStr: "0123456789abcdef0123456789abcdef",
+			package: "prepay_id=wx-provider-prepay-001",
+			signType: "MD5" as const,
+			paySign: "0123456789abcdef0123456789abcdef",
+		},
+	};
+	const service = new RegistrationPaymentExitService({
+		appointments: {
+			cancel: async () => {
+				cancellations += 1;
+				return { appointmentId, status: "cancelled" as const };
+			},
+			cancelAfterConfirmedSelfPayRefund: async () => {
+				cancellations += 1;
+				return { appointmentId, status: "cancelled" as const };
+			},
+		} as never,
+		medicalInsurance: { cancel: async () => undefined } as never,
+		medicalInsuranceWechatPayment: { query: async () => undefined } as never,
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		paymentOrders,
+		wechatPrepay: {
+			cancel: async () => ({
+				orderId: completedOrder.orderId,
+				status: "paid" as const,
+			}),
+		} as never,
+		selfPayRefund: {
+			requestTrustedPaymentOrder: async () =>
+				({
+					status: "success",
+					merchantRefundNo: "RF-PO-YUNHEALTH-SYNC-001",
+				}) as never,
+			query: async () => {
+				throw new Error("refund query must not be reached");
+			},
+		},
+		selfPayRefundNotification: {
+			notifyRefund: async () => {
+				throw new Error("yunhealth response is unknown");
+			},
+		},
+		resolveRegistrationContext: async () => md5Context,
+		saveRegistrationContext: async () => undefined,
+	});
+
+	await expect(
+		service.abandon({
+			ownerUserId: completedOrder.ownerUserId,
+			appointmentId,
+			mode: "self",
+			context: {
+				traceId: "trace-exit-refund-md5-sync-001",
+				idempotencyKey: "exit-refund-md5-sync-001",
+			},
+		}),
+	).rejects.toBeInstanceOf(RegistrationPaymentExitRefundSyncPendingError);
+	expect(cancellations).toBe(0);
+});
+
+test("挂号退款处理中保留预约，满一分钟后查单确认才取消", async () => {
+	let now = new Date("2026-09-18T01:00:30.000Z");
+	let refundQueries = 0;
+	let appointmentCancellationCalls = 0;
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository([
+			{
+				...order,
+				idempotencyKey: registrationSelfPayOrderKey(
+					"appointment-exit-refund-002",
+				),
+				state: "completed",
+			},
+		]),
+	});
+	const service = new RegistrationPaymentExitService({
+		appointments: {
+			cancel: async () => {
+				throw new Error(
+					"normal cancellation must not run after a confirmed refund",
+				);
+			},
+			cancelAfterConfirmedSelfPayRefund: async () => {
+				appointmentCancellationCalls += 1;
+				return {
+					appointmentId: "appointment-exit-refund-002",
+					status: "cancelled" as const,
+				};
+			},
+		} as never,
+		medicalInsurance: { cancel: async () => undefined } as never,
+		medicalInsuranceWechatPayment: { query: async () => undefined } as never,
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		paymentOrders,
+		wechatPrepay: {
+			cancel: async () => ({ orderId: order.orderId, status: "paid" as const }),
+		} as never,
+		selfPayRefund: {
+			requestTrustedPaymentOrder: async () =>
+				({
+					status: "processing",
+					merchantRefundNo: "refund-registration-002",
+					updatedAt: "2026-09-18T01:00:00.000Z",
+				}) as never,
+			query: async () => {
+				refundQueries += 1;
+				return {
+					status: "success",
+					merchantRefundNo: "refund-registration-002",
+				} as never;
+			},
+		},
+		now: () => now,
+	});
+
+	await expect(
+		service.abandon({
+			ownerUserId: order.ownerUserId,
+			appointmentId: "appointment-exit-refund-002",
+			mode: "self",
+			context: {
+				traceId: "trace-exit-refund-002a",
+				idempotencyKey: "exit-refund-002a",
+			},
+		}),
+	).rejects.toBeInstanceOf(RegistrationPaymentExitRefundPendingError);
+	expect(refundQueries).toBe(0);
+	expect(appointmentCancellationCalls).toBe(0);
+
+	now = new Date("2026-09-18T01:01:01.000Z");
+	await expect(
+		service.abandon({
+			ownerUserId: order.ownerUserId,
+			appointmentId: "appointment-exit-refund-002",
+			mode: "self",
+			context: {
+				traceId: "trace-exit-refund-002b",
+				idempotencyKey: "exit-refund-002b",
+			},
+		}),
+	).resolves.toEqual({
+		appointmentId: "appointment-exit-refund-002",
+		status: "cancelled",
+	});
+	expect(refundQueries).toBe(1);
+	expect(appointmentCancellationCalls).toBe(1);
 });
 
 test("支付退出会在自费订单失效后取消预约并释放号源", async () => {

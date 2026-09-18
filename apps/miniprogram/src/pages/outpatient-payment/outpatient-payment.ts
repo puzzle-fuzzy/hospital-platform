@@ -8,8 +8,7 @@ import {
 } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
-	continueMedicalPayment,
-	readLastMedicalPaymentResult,
+	clearPendingPayment,
 	readPendingPayment,
 	startOutpatientMedicalPayment,
 } from "../../services/medical-insurance";
@@ -128,7 +127,6 @@ type OutpatientPaymentPageMethods = {
 		patientId: string,
 	): Promise<void>;
 	resumePendingMedicalPayment(): Promise<void>;
-	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
@@ -236,7 +234,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 		this.loadPage();
 	},
 
-	/** 医保小程序回跳后，只完成授权到 6202；门诊链路停在结算明细页。 */
+	/** 医保小程序回跳后立即进入结算页，由结算页展示并继续处理接口进度。 */
 	async resumePendingMedicalPayment(): Promise<void> {
 		if (resumingOutpatientPayment) return;
 		const pending = readPendingPayment();
@@ -254,48 +252,18 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 				app.globalData.medicalInsuranceAuthCode = "";
 			return;
 		}
-		if (app?.globalData) app.globalData.medicalInsuranceAuthCode = "";
 		resumingOutpatientPayment = true;
-		this.setData({
-			paymentBusy: "medical",
-			error: "",
+		wx.navigateTo({
+			url: "/pages/outpatient-medical-settlement/outpatient-medical-settlement",
+			fail: () => {
+				resumingOutpatientPayment = false;
+				if (app?.globalData) app.globalData.medicalInsuranceAuthCode = authCode;
+				showPaymentToast("结算页面打开失败，请稍后重试");
+			},
+			success: () => {
+				resumingOutpatientPayment = false;
+			},
 		});
-		showPaymentToast("正在处理医保授权，请勿重复操作");
-		try {
-			const result = await continueMedicalPayment(
-				authCode,
-				pending,
-				(_stage, message) => showPaymentToast(message),
-			);
-			if (result?.kind === "settlement") {
-				showPaymentToast("医保结算完成，正在打开结算明细");
-				wx.navigateTo({
-					url: "/pages/outpatient-medical-settlement/outpatient-medical-settlement",
-				});
-				return;
-			}
-			if (!readPendingPayment()) {
-				const completed = readLastMedicalPaymentResult();
-				if (completed?.recordId === pending.recordId) {
-					wx.redirectTo({
-						url: paymentResultUrl(
-							pending.patientId,
-							pending.recordId,
-							"medical",
-							{ orderId: completed.orderId },
-						),
-					});
-					return;
-				}
-			}
-		} catch (error) {
-			showPaymentToast(
-				errorMessageWithCode(error, "门诊医保授权未完成，请稍后重试"),
-			);
-		} finally {
-			resumingOutpatientPayment = false;
-			this.setData({ paymentBusy: "" });
-		}
 	},
 
 	/** 先确认当前患者归属，再读取门诊费用，避免把临床患者映射交给页面。 */
@@ -570,7 +538,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 		wx.showToast({ title: "当前仅支持高平市人民医院", icon: "none" });
 	},
 
-	/** 待缴费卡片直接展示缴费按钮；卡片主体仍可进入只读费用详情。 */
+	/** 待缴费卡片直接展示缴费按钮；费用卡片本身不再打开详情页。 */
 	onPaymentTap(event: ViewKeyEvent): void {
 		if (!this.isPatientContextCurrent()) return;
 		const record = findVisiblePayment(
@@ -591,11 +559,27 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 				return;
 			}
 			if (pending?.phase === "authorization") {
-				wx.showToast({
-					title: "请先完成医保授权",
-					icon: "none",
-				});
-				return;
+				const app = getApp<MedicalApp>();
+				const authCode = String(
+					app?.globalData?.medicalInsuranceAuthCode || "",
+				).trim();
+				if (authCode) {
+					// 回跳结果已经到达但 onShow 尚未完成恢复时，直接把同一
+					// 个授权上下文交给结算页，避免点击事件与生命周期竞争。
+					void this.resumePendingMedicalPayment();
+					return;
+				}
+				if (pending.orderId) {
+					// 已有服务端订单时不能覆盖本地上下文并创建第二笔订单。
+					wx.showToast({
+						title: "上一笔医保订单正在处理中，请稍后再试",
+						icon: "none",
+					});
+					return;
+				}
+				// 只有本地授权尚未换成服务端订单的残留上下文，才允许
+				// 重新打开支付方式并发起一次全新的医保授权。
+				clearPendingPayment();
 			}
 		}
 		this.setData({
@@ -693,25 +677,6 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 		} finally {
 			this.setData({ paymentBusy: "" });
 		}
-	},
-
-	/**
-	 * 费用卡片先进入 owner/patient-scoped 费用详情。
-	 *
-	 * 详情页会再次确认当前患者和会话；这里只传当前查询批次中回查得到的
-	 * opaque recordId，不把 Provider 账单号或旧页面字段拼入导航参数。
-	 */
-	onRecordTap(event: ViewKeyEvent): void {
-		if (!this.isPatientContextCurrent()) return;
-		const record = findVisiblePayment(
-			this.data.visibleItems,
-			event.currentTarget?.dataset?.viewKey,
-		);
-		const patientId = this.data.selectedPatient?.id;
-		if (!record || !patientId) return;
-		wx.navigateTo({
-			url: `/pages/outpatient-payment-detail/outpatient-payment-detail?patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(record.recordId)}&status=${encodeURIComponent(record.status)}`,
-		});
 	},
 
 	toView(

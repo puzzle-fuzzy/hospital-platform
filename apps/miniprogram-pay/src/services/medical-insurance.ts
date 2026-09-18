@@ -359,17 +359,7 @@ type MedicalOrder = {
 	cashierUrl?: string;
 };
 
-export type MedicalPaymentContinuationResult =
-	| { kind: "cashier_opened" }
-	| { kind: "reauthorization_started" };
-
-type MedicalCancellation = {
-	orderId: string;
-	status: "cancelled" | "awaiting_confirmation" | "manual_review";
-	paymentState: "not_created" | "processing" | "closed" | "paid" | "unknown";
-	settlementState: "not_created" | "cancelled" | "unknown";
-	restartAllowed: boolean;
-};
+export type MedicalPaymentContinuationResult = { kind: "cashier_opened" };
 
 type MedicalWechatPayParams = {
 	appId?: string;
@@ -434,25 +424,6 @@ async function orderCommand(
 	idempotencyKey: string,
 ): Promise<MedicalOrder> {
 	return request<MedicalOrder>({ path, method: "POST", idempotencyKey });
-}
-
-/** 只由 miniprogram-pay 在 2.6.33 返回“支付中”后调用，门诊查询小程序不调用。 */
-async function cancelMedicalOrder(
-	orderId: string,
-	reason: "payment_in_progress" | "reauthorization",
-): Promise<MedicalCancellation> {
-	return request<MedicalCancellation>({
-		path: `/payments/medical-insurance/orders/${encodeURIComponent(orderId)}/cancel`,
-		method: "POST",
-		idempotencyKey: newIdempotencyKey("medical-cancel-in-progress"),
-		data: { reason },
-	});
-}
-
-async function cancelPaymentInProgress(
-	orderId: string,
-): Promise<MedicalCancellation> {
-	return cancelMedicalOrder(orderId, "payment_in_progress");
 }
 
 function requestWechatSelfPayment(params: {
@@ -934,23 +905,9 @@ export async function continueMedicalPayment(
 			savePending(pending);
 		}
 	} catch (error) {
-		if (
-			error instanceof ApiError &&
-			error.code === "medical-insurance-payment-in-progress"
-		) {
-			onProgress("settling", "检测到已有支付进行中，正在关闭旧支付订单");
-			const cancellation = await cancelPaymentInProgress(orderId);
-			if (cancellation.status !== "cancelled" || !cancellation.restartAllowed) {
-				throw new Error("当前支付订单未能安全关闭，请稍后重试");
-			}
-			const replacement = prepareFreshMedicalAuthorization(
-				pending,
-				pending.mode === "mixed" ? "mixed" : "medical",
-			);
-			onProgress("authorizing", "旧支付已关闭，请重新完成医保授权");
-			await navigateToMedicalAuth(replacement.appointmentId);
-			return { kind: "reauthorization_started" };
-		}
+		// 测试期重复订单规则：Provider 返回“支付中”时，本次尝试直接结束，
+		// 不查询、不拦截、不关单，也不处理旧订单。不能调用 /cancel，
+		// 否则会触发众阳 2.6.65.4、2.6.65.11（以及后续 .6）链路。
 		clearPendingPayment();
 		throw error;
 	}

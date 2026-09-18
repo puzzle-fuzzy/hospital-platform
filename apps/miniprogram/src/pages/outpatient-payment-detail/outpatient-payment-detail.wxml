@@ -1,9 +1,9 @@
 <scroll-view class="detail-scroll" scroll-y="true" enhanced="true">
 	<view class="page">
 		<view wx:if="{{loading || error}}" class="state-card {{error ? 'error-state' : ''}}">
-			<text wx:if="{{loading}}">正在加载门诊费用详情...</text>
+			<text wx:if="{{loading}}">{{paymentMessage || '正在加载门诊费用详情...'}}</text>
 			<block wx:else>
-				<text class="state-title">门诊费用详情暂不可用</text>
+				<text class="state-title">{{paidDetailConfirming ? '支付结果确认中' : '门诊费用详情暂不可用'}}</text>
 				<text class="state-message">{{error}}</text>
 				<button wx:if="{{sourcePatientId && sourceRecordId && sourceStatus}}" class="retry-button" size="mini" bindtap="onRetry">重新加载</button>
 				<button class="back-button" size="mini" bindtap="onBack">返回费用记录</button>

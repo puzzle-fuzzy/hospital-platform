@@ -234,6 +234,12 @@ export type RegistrationSelfPaySettlementContext = {
 	patInHosId?: string;
 	/** 众阳 .9 最终用于微信查单的 out_trade_no。 */
 	outTradeNo?: string;
+	/**
+	 * 只有 .2 已明确返回并由服务端保存的 out_trade_no 才允许作为原路退款
+	 * 的微信商户单号。旧记录未带此事实时必须先人工核验，不能猜测使用平台
+	 * payment order id。
+	 */
+	outTradeNoSource?: "yunhealth_2_6_65_2";
 	/** 订单创建时固化的 32 位 recordCode；重试不得重新生成。 */
 	recordCode?: string;
 	payTypeId?: string;
@@ -244,6 +250,17 @@ export type RegistrationSelfPaySettlementContext = {
 	thirdPartPayRecordId?: string;
 	/** 仅允许保存在服务端 AES-GCM 密文中，不得写入日志或 API 响应。 */
 	thirdPartPayRawResponse?: string;
+	/**
+	 * 微信退款 SUCCESS 后，众阳 .15 退款回写已经确认成功的事实。该字段同样
+	 * 只存入服务端密文；没有它时重试会复用同一退款单并再次安全回写。
+	 */
+	refundWriteBack?: RegistrationSelfPayRefundWriteBack;
+};
+
+export type RegistrationSelfPayRefundWriteBack = {
+	merchantRefundNo: string;
+	refundFen: number;
+	syncedAt: string;
 };
 
 /** 旧插件链路兼容回调；非 HIS .5/.9 流程不会调用。 */
@@ -606,6 +623,23 @@ export interface RegistrationSelfPayPreparationGateway {
 		registrationContext: RegistrationSelfPaySettlementContext;
 		trace: ExternalTrace;
 	}>;
+}
+
+/**
+ * 众阳插件版微信自费退款在微信确认成功后的 2.6.65.15 回写边界。
+ * 此接口不负责发起微信退款；调用方必须先使用同一笔已保存的 out_trade_no
+ * 查到微信退款 SUCCESS，才能通知 HIS。
+ */
+export interface RegistrationSelfPayRefundNotificationGateway {
+	notifyRefund(
+		input: {
+			orderId: string;
+			merchantRefundNo: string;
+			refundFen: number;
+			registrationContext: RegistrationSelfPaySettlementContext;
+		},
+		context: AdapterCallContext,
+	): Promise<ExternalTrace>;
 }
 
 /** 预约写入已经取得的实名资料；只在服务端医保 adapter 调用帧中出现。 */

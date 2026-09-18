@@ -24,6 +24,7 @@ import type {
 	PatientProviderAuthorizationGateway,
 	PaymentOrder,
 	RegistrationSelfPayPreparationGateway,
+	RegistrationSelfPayRefundNotificationGateway,
 	RegistrationSelfPaySettlementContext,
 	ReportAttachmentGateway,
 	ReportDetailGateway,
@@ -144,6 +145,8 @@ export type ApplicationServiceOptions = {
 	hospitalSettlementGateway?: HospitalSettlementGateway;
 	/** 普通挂号自费在微信下单前固定执行 .1 -> .32 -> .2。 */
 	registrationSelfPayPreparationGateway?: RegistrationSelfPayPreparationGateway;
+	/** 仅在微信退款 SUCCESS 后回写众阳 .15；未配置时新 MD5 自费退款 fail-closed。 */
+	registrationSelfPayRefundNotificationGateway?: RegistrationSelfPayRefundNotificationGateway;
 	/** 只有完成众阳/HIS 合同和真实环境验收后才打开。 */
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 新增或绑定就诊人必须使用独立的查档/建档/绑卡 adapter。 */
@@ -634,6 +637,14 @@ export function createDefaultApplicationServices(
 			),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const wechatRefund = options.wechatRefundGateway
+		? new AdminWechatRefundService({
+				refunds: repositories.wechatRefunds,
+				paymentOrders: repositories.paymentOrders,
+				medicalInsuranceOrders: repositories.medicalInsuranceOrders,
+				gateway: options.wechatRefundGateway,
+			})
+		: undefined;
 	const registrationPaymentExit = new RegistrationPaymentExitService({
 		appointments: appointmentWrites,
 		medicalInsurance,
@@ -641,6 +652,24 @@ export function createDefaultApplicationServices(
 		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
 		paymentOrders,
 		wechatPrepay: registrationWechatPrepay,
+		...(wechatRefund ? { selfPayRefund: wechatRefund } : {}),
+		...(options.registrationSelfPayRefundNotificationGateway
+			? {
+					selfPayRefundNotification:
+						options.registrationSelfPayRefundNotificationGateway,
+				}
+			: {}),
+		resolveRegistrationContext: resolveRegistrationSelfPayContext(repositories),
+		saveRegistrationContext: async (input) => {
+			if (!repositories.paymentOrders.saveRegistrationSelfPayContext) {
+				throw new DependencyNotConfiguredError("payment-orders");
+			}
+			await repositories.paymentOrders.saveRegistrationSelfPayContext(
+				input.ownerUserId,
+				input.orderId,
+				input.registrationContext,
+			);
+		},
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const yunhealthPaymentQuery = new YunhealthPaymentQueryService({
@@ -661,14 +690,6 @@ export function createDefaultApplicationServices(
 				...(options.adminInsuranceQueryInstitutionName
 					? { institutionName: options.adminInsuranceQueryInstitutionName }
 					: {}),
-			})
-		: undefined;
-	const wechatRefund = options.wechatRefundGateway
-		? new AdminWechatRefundService({
-				refunds: repositories.wechatRefunds,
-				paymentOrders: repositories.paymentOrders,
-				medicalInsuranceOrders: repositories.medicalInsuranceOrders,
-				gateway: options.wechatRefundGateway,
 			})
 		: undefined;
 	const patients = new PatientService(repositories.patients, {

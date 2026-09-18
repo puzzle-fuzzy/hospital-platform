@@ -3,12 +3,12 @@ import type { PaymentDaySnapshot } from "./payment-day";
 import {
 	buildPaymentDaySnapshot,
 	collectPaymentOrders,
-	PAYMENT_MAX_JOURNAL_BYTES,
 	PAYMENT_MAX_INTERFACES,
+	PAYMENT_MAX_JOURNAL_BYTES,
 	PAYMENT_MAX_ORDERS,
+	parsePaymentJournal,
 	paymentDayWindow,
 	paymentInterfaceDetail,
-	parsePaymentJournal,
 	publicPaymentDay,
 } from "./payment-day";
 import { formatJournalTimestamp, readRawLogTrace } from "./raw-logs";
@@ -616,6 +616,51 @@ async function adminRefundQueryRequest(
 	);
 }
 
+/** 管理端退款历史只允许转发白名单查询字段，不能成为任意上游代理。 */
+async function adminRefundHistoryRequest(
+	request: Request,
+	url: URL,
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务退费接口尚未配置", 503);
+	}
+	const forwarded = new URLSearchParams();
+	const source = url.searchParams.get("source");
+	if (source) {
+		if (source !== "payment_order" && source !== "medical_insurance") {
+			return errorResponse("资金来源参数不合法", 400);
+		}
+		forwarded.set("source", source);
+	}
+	const orderId = url.searchParams.get("orderId");
+	if (orderId) {
+		if (orderId.length > 64) return errorResponse("订单号参数不合法", 400);
+		forwarded.set("orderId", orderId);
+	}
+	const limit = url.searchParams.get("limit");
+	if (limit) {
+		if (!/^[1-9][0-9]{0,2}$/u.test(limit)) {
+			return errorResponse("查询条数参数不合法", 400);
+		}
+		forwarded.set("limit", limit);
+	}
+	const query = forwarded.toString();
+	return upstreamRequest(
+		adminRefundsUpstream,
+		`/admin/wechat-refund-payments${query ? `?${query}` : ""}`,
+		{
+			method: "GET",
+			headers: {
+				Authorization: authorization,
+				"X-Admin-Refund-Token": adminRefundsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务退费接口暂时不可用，请稍后重试",
+	);
+}
+
 async function logDetailRequest(
 	request: Request,
 	id: string,
@@ -857,6 +902,12 @@ const server = Bun.serve({
 			}
 			if (url.pathname === "/api/refunds/wechat" && request.method === "POST") {
 				return await adminRefundRequest(request, "/admin/wechat-refunds");
+			}
+			if (
+				url.pathname === "/api/refunds/wechat/payments" &&
+				request.method === "GET"
+			) {
+				return await adminRefundHistoryRequest(request, url);
 			}
 			const refundQueryMatch = url.pathname.match(
 				/^\/api\/refunds\/wechat\/([A-Za-z0-9_@*|-]{1,64})$/u,

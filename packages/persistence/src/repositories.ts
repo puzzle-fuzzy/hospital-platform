@@ -800,6 +800,16 @@ export function createInMemoryPaymentOrderRepository(
 		async findById(orderId) {
 			return orders.get(orderId);
 		},
+		async listRecentForAdmin(input) {
+			return [...orders.values()]
+				.filter((order) => !input.orderId || order.orderId === input.orderId)
+				.sort((left, right) => {
+					const updated = right.updatedAt.localeCompare(left.updatedAt);
+					return updated || right.orderId.localeCompare(left.orderId);
+				})
+				.slice(0, input.limit)
+				.map((order) => ({ ...order, amounts: { ...order.amounts } }));
+		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			return [...orders.values()].find(
 				(order) =>
@@ -927,6 +937,20 @@ export function createInMemoryWechatRefundRepository(
 		async findByMerchantRefundNo(merchantRefundNo) {
 			const record = findByMerchantNo(merchantRefundNo);
 			return record ? { ...record } : undefined;
+		},
+		async findBySourceAndSourceOrder(source, sourceOrderId) {
+			return [...records.values()]
+				.filter(
+					(record) =>
+						record.source === source && record.sourceOrderId === sourceOrderId,
+				)
+				.sort((left, right) => {
+					const updated = right.updatedAt.localeCompare(left.updatedAt);
+					return (
+						updated || right.refundRecordId.localeCompare(left.refundRecordId)
+					);
+				})
+				.map((record) => ({ ...record }));
 		},
 		async update(record, expectedVersion) {
 			const current = records.get(record.refundRecordId);
@@ -2029,6 +2053,23 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 		},
 		async findByMedicalOrderId(medicalOrderId) {
 			return orders.get(medicalOrderId);
+		},
+		async listRecentForAdmin(input) {
+			return [...orders.values()]
+				.filter(
+					(order) => !input.orderId || order.medicalOrderId === input.orderId,
+				)
+				.sort((left, right) => {
+					const updated = right.updatedAt.localeCompare(left.updatedAt);
+					return (
+						updated || right.medicalOrderId.localeCompare(left.medicalOrderId)
+					);
+				})
+				.slice(0, input.limit)
+				.map((order) => ({
+					...order,
+					...(order.amounts ? { amounts: { ...order.amounts } } : {}),
+				}));
 		},
 		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {
 			return [...orders.values()]

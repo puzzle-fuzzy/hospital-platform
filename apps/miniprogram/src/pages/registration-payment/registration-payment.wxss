@@ -164,13 +164,6 @@
 	background: #20b26b;
 }
 
-.error-text {
-	margin: -4rpx 8rpx 16rpx;
-	color: #d92d20;
-	font-size: 24rpx;
-	line-height: 1.6;
-}
-
 .recovery-card {
 	box-sizing: border-box;
 	margin-bottom: 20rpx;
@@ -217,8 +210,12 @@
 
 .payment-actions {
 	display: flex;
+	box-sizing: border-box;
+	width: 100%;
+	margin-top: 22rpx;
+	align-items: stretch;
 	flex-direction: column;
-	gap: 20rpx;
+	gap: 16rpx;
 }
 
 .payment-button,
@@ -232,10 +229,12 @@
 }
 
 .payment-button {
-	margin-bottom: 0;
-	border: 2rpx solid #3d6df6;
-	background: #ffffff;
-	color: #3d6df6;
+	display: block;
+	width: 100% !important;
+	max-width: none;
+	margin: 0;
+	padding: 0;
+	line-height: 88rpx;
 }
 
 .payment-button::after {
@@ -243,9 +242,15 @@
 }
 
 .mixed-button {
-	border-color: #3d6df6;
-	background: #3d6df6;
-	color: #ffffff;
+	border: 2rpx solid #3d6df6;
+	background: transparent;
+	color: #3d6df6;
+}
+
+.self-button {
+	border: 2rpx solid #20b26b;
+	background: transparent;
+	color: #20b26b;
 }
 
 .primary-button {

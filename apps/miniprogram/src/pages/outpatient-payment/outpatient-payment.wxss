@@ -144,29 +144,11 @@ page {
 	background: #fffaf0;
 }
 
-.record-header,
 .record-line {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	min-width: 0;
-}
-
-.record-hospital {
-	overflow: hidden;
-	color: #222222;
-	font-size: 29rpx;
-	font-weight: 700;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.record-arrow-image {
-	display: block;
-	flex: 0 0 28rpx;
-	width: 28rpx;
-	height: 28rpx;
-	margin-left: 14rpx;
 }
 
 .record-line {
@@ -205,12 +187,19 @@ page {
 	color: #ee875e;
 }
 
-.record-status-wrap {
+.record-footer {
 	display: flex;
+	align-items: center;
 	justify-content: flex-end;
 	margin-top: 18rpx;
 	padding-top: 16rpx;
 	border-top: 1rpx solid rgba(0, 0, 0, 0.05);
+}
+
+.record-status-wrap,
+.record-payment-action {
+	display: flex;
+	justify-content: flex-end;
 }
 
 .record-status {
@@ -227,33 +216,27 @@ page {
 	color: #b66a00;
 }
 
-.record-amount-right {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	flex: 1;
-	min-width: 0;
-}
-
 .record-payment-action {
-	display: flex;
-	justify-content: flex-end;
-	margin-left: 18rpx;
+	margin: 0;
 }
 
 .record-pay-button {
 	box-sizing: border-box;
-	display: block;
-	width: 116rpx;
-	height: 54rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 82rpx;
+	height: 52rpx;
 	margin: 0;
 	padding: 0;
-	border: 1rpx solid #16b8c4;
-	border-radius: 10rpx;
-	background: #ffffff;
-	color: #0aa7b5;
-	font-size: 24rpx;
-	line-height: 52rpx;
+	border: 0;
+	border-radius: 26rpx;
+	background: #3d6df6;
+	color: #ffffff;
+	font-size: 28rpx;
+	font-weight: 600;
+	line-height: 1;
+	text-align: center;
 }
 
 .record-pay-button::after {
@@ -454,13 +437,14 @@ page {
 
 .payment-radio-active::after {
 	position: absolute;
-	top: 7rpx;
-	left: 7rpx;
+	top: 50%;
+	left: 50%;
 	width: 14rpx;
 	height: 14rpx;
 	border-radius: 50%;
 	background: #3d6df6;
 	content: "";
+	transform: translate(-50%, -50%);
 }
 
 .payment-radio-wechat.payment-radio-active {

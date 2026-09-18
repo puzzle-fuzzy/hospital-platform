@@ -2,7 +2,9 @@ import { ApiError } from "../../services/api-client";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	continueMedicalCashPayment,
+	continueMedicalPayment,
 	type MedicalPaymentAmounts,
+	type PaymentProgress,
 	type PendingPayment,
 	readLastMedicalPaymentResult,
 	readPendingPayment,
@@ -35,6 +37,8 @@ type OutpatientMedicalSettlementPageData = {
 type OutpatientMedicalSettlementPageMethods = {
 	onLoad(): void;
 	onShow(): void;
+	hasAuthorizationContext(): boolean;
+	resumeAuthorizedPayment(): Promise<void>;
 	onPay(): void;
 	payment(): Promise<void>;
 	onBack(): void;
@@ -70,8 +74,35 @@ function isSettlementPending(
 	);
 }
 
+function isOutpatientAuthorizationPending(
+	value: ReturnType<typeof readPendingPayment>,
+): value is PendingPayment & {
+	businessType: "outpatient";
+	recordId: string;
+	phase: "authorization";
+} {
+	return Boolean(
+		value?.businessType === "outpatient" &&
+			value.recordId &&
+			value.phase === "authorization",
+	);
+}
+
+type MedicalApp = {
+	globalData: { medicalInsuranceAuthCode: string };
+};
+
 function formatFen(value: number): string {
 	return `${(value / 100).toFixed(2)} 元`;
+}
+
+function settlementProgressMessage(
+	stage: PaymentProgress,
+	message: string,
+): string {
+	if (stage === "insuring") return `6201：${message}`;
+	if (stage === "settling" || stage === "polling") return `6202：${message}`;
+	return message;
 }
 
 function paymentResultUrl(
@@ -111,13 +142,97 @@ Page<
 				paymentMessage: "",
 			});
 		});
-		this.renderPending();
+		if (this.hasAuthorizationContext()) {
+			void this.resumeAuthorizedPayment();
+		} else {
+			this.renderPending();
+		}
 	},
 
 	onShow(): void {
 		// 微信支付返回时，onPay 仍在等待官方支付 API 的结果；不能用旧的
 		// 本地快照覆盖进度文案。用户返回列表再重新进入时才重新读取上下文。
-		if (!this.data.paymentBusy) this.renderPending();
+		if (this.data.paymentBusy) return;
+		if (this.hasAuthorizationContext()) {
+			void this.resumeAuthorizedPayment();
+			return;
+		}
+		this.renderPending();
+	},
+
+	hasAuthorizationContext(): boolean {
+		const pending = readPendingPayment();
+		const app = getApp<MedicalApp>();
+		return Boolean(
+			String(app?.globalData?.medicalInsuranceAuthCode || "").trim() &&
+				isOutpatientAuthorizationPending(pending),
+		);
+	},
+
+	async resumeAuthorizedPayment(): Promise<void> {
+		if (this.data.paymentBusy) return;
+		const pending = readPendingPayment();
+		const app = getApp<MedicalApp>();
+		const authCode = String(
+			app?.globalData?.medicalInsuranceAuthCode || "",
+		).trim();
+		if (!authCode || !isOutpatientAuthorizationPending(pending)) {
+			if (authCode && app?.globalData)
+				app.globalData.medicalInsuranceAuthCode = "";
+			return;
+		}
+		if (app?.globalData) app.globalData.medicalInsuranceAuthCode = "";
+		this.setData({
+			loading: true,
+			hasPending: false,
+			error: "",
+			paymentBusy: true,
+			paymentMessage: "正在处理医保授权接口（6201），请勿重复操作",
+		});
+		try {
+			const result = await continueMedicalPayment(
+				authCode,
+				pending,
+				(stage, message) =>
+					this.setData({
+						paymentMessage: settlementProgressMessage(stage, message),
+					}),
+			);
+			if (result?.kind === "settlement") {
+				this.renderPending();
+				return;
+			}
+			if (!readPendingPayment()) {
+				const completed = readLastMedicalPaymentResult();
+				if (completed?.recordId === pending.recordId) {
+					wx.redirectTo({
+						url: paymentResultUrl(
+							pending.patientId,
+							pending.recordId,
+							completed.orderId,
+						),
+					});
+					return;
+				}
+			}
+			this.setData({
+				loading: false,
+				hasPending: false,
+				error: "医保结算尚未完成，请按页面提示继续授权",
+			});
+		} catch (error) {
+			this.setData({
+				loading: false,
+				hasPending: false,
+				error: "医保结算处理失败，请返回门诊缴费列表重试",
+				paymentMessage: errorMessageWithCode(
+					error,
+					"门诊医保授权未完成，请稍后重试",
+				),
+			});
+		} finally {
+			this.setData({ paymentBusy: false });
+		}
 	},
 
 	renderPending(): void {

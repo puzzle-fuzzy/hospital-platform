@@ -186,6 +186,12 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 			"该预约已有医保支付流水，不能直接取消，请先完成或由收费端处理",
 		"appointment-payment-active":
 			"该预约已有微信支付流水，不能直接取消，请先完成或继续支付",
+		"appointment-refund-context-unavailable":
+			"该支付记录缺少可核验退款信息，预约未取消，请联系收费端处理",
+		"appointment-refund-pending":
+			"退款或医院收费同步处理中，预约暂未取消，请稍后查看",
+		"appointment-refund-failed": "退款未成功，预约暂未取消，请联系收费端处理",
+		"appointment-refund-not-configured": "自费退款通道尚未配置，预约未取消",
 		"appointment-source-unavailable": "指定号源刚刚发生变化，请刷新后重试",
 		"medical-insurance-invalid": "医保请求参数或流程状态不合法，请稍后再试",
 		"medical-insurance-appointment-not-found": "未找到可进行医保支付的预约",
@@ -193,7 +199,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"medical-insurance-appointment-stale":
 			"当前预约已失效，请重新获取号源并预约",
 		"medical-insurance-payment-in-progress":
-			"当前已有一笔医保支付在进行中，请完成后再试",
+			"测试期间不自动处理已有医保订单，请重新发起一笔独立测试",
 		"medical-insurance-cancellation-context-missing":
 			"当前医保订单需要人工处理，请联系工作人员",
 		"medical-insurance-insutype-unavailable":

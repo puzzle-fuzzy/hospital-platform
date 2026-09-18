@@ -134,12 +134,12 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/appointments/holds` | Bearer + 幂等键 | body 为 `{patientId, scheduleId, sourceSerialNumber}`；服务端重新读取有效排班、号源和挂号费，创建 60 秒服务端占位 |
 | `POST` | `/api/v2/appointments/registrations` | Bearer + 幂等键 | body 为 `{patientId, holdId}`；服务端执行重复预约检查、预约写入并保存 owner-scoped 取消映射 |
 | `GET` | `/api/v2/appointments/registrations/{appointmentId}` | Bearer | 必填 query `patientId`；仅返回当前账号、当前就诊人对应的挂号详情和脱敏就诊卡；Provider 历史记录没有平台详情引用时由小程序按已核实摘要展示 |
-| `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射调用取消接口；重复取消返回已取消，不接收 provider 预约号 |
+| `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射取消预约；未支付订单先安全失效，已完成的插件自费先以服务端保存的真实 `out_trade_no` 原路退款并回写医院 `.15`，两边确认后才取消；重复取消返回已取消，不接收 provider 预约号 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
 | `GET` | `/api/v2/medical-records` | Bearer | 必填内部 `patientId`、`startDate`、`endDate`，跨度最多 30 天；只返回门诊就诊摘要，生产 Provider gate 默认关闭 |
 | `GET` | `/api/v2/inpatient/episodes` | Bearer | 必填内部 `patientId`；只返回旧服务住院摘要，费用、账单和支付不属于此路由，生产 Provider gate 默认关闭 |
 | `POST` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 必填幂等键 | 从已写入预约读取服务端挂号费，按 HIS 收款顺序完成 `.1 → .27 → .2`，返回 `.2.result` 中经校验的 APIv2/MD5 小程序调起参数；不会进入医保授权 |
-| `POST` | `/api/v2/payments/appointments/{appointmentId}/payment-exit` | Bearer + 必填幂等键 | 用户明确退出医保、医保混合或自费支付；服务端查单/关单并作废未支付订单，再取消预约释放号源；已支付或未知状态 fail-closed |
+| `POST` | `/api/v2/payments/appointments/{appointmentId}/payment-exit` | Bearer + 必填幂等键 | 用户明确退出医保、医保混合或自费支付；服务端查单/关单并作废未支付订单；已完成的插件自费仅在微信原路退款和医院 `.15` 退款回写均确认后取消预约，退款未知/处理中或历史订单缺少可核验 `out_trade_no` 时 fail-closed |
 | `GET` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 幂等键可选 | 服务端幂等调用 HIS `.5` 并返回 `awaiting_confirmation`、`cash_paid` 或 `failed`；只有 `isSettle=1` 才完成，调起成功不代表支付完成 |
 | `GET` | `/api/v2/payments/medical-insurance/appointments/{appointmentId}/authorization-context` | Bearer + 幂等键可选 | 按预约锁定的就诊人返回医保授权跳转上下文；本人只返回 `payForRelatives=false`，亲属只额外返回官方格式的 `familyId` 摘要，不返回实名资料 |
 | `POST` | `/api/v2/payments/medical-insurance/authorize` | Bearer + 必填幂等键 | body 为 `{appointmentId, authCode}`；授权码只在服务端调用医保授权 adapter，成功后返回服务端 `orderId` |
@@ -500,6 +500,10 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 30450 | `appointment-medical-payment-active` | 医保支付结果已支付或未知，不能释放预约号源，请由支付/收费流程处理 |
 | 409 | 30455 | `appointment-payment-active` | 挂号自费支付结果已支付或未知，不能释放预约号源，请由支付/收费流程处理 |
 | 409 | 30460 | `appointment-source-unavailable` | 服务端重新读取号源时，提交的号源序号已不可用；可刷新号源后重试 |
+| 409 | 30465 | `appointment-refund-context-unavailable` | 已完成的插件自费订单缺少经核验的 `.2 out_trade_no` 或退款关联上下文；不会猜测退款目标，预约保留 |
+| 409 | 30470 | `appointment-refund-pending` | 微信退款或退款后的医院收费系统 `.15` 回写尚未确认；预约保留，稍后可重试同一取消动作 |
+| 409 | 30480 | `appointment-refund-failed` | 微信退款已明确失败；预约保留，由收费端处理 |
+| 503 | 30490 | `appointment-refund-not-configured` | 自费退款或医院收费系统回写通道未配置；预约保留 |
 | 400 | 30500 | `medical-insurance-invalid` | 医保授权、费用上传或结算请求状态不合法 |
 | 404 | 30510 | `medical-insurance-appointment-not-found` | 关联预约不存在、已取消或不属于当前用户 |
 | 404 | 30520 | `medical-insurance-order-not-found` | 医保订单不存在或不属于当前用户 |

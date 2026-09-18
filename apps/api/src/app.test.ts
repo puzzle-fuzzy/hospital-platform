@@ -55,6 +55,13 @@ import {
 	WechatPaymentNotificationService,
 	WechatPrepayService,
 } from "./modules/payments";
+import {
+	RegistrationPaymentExitRefundContextError,
+	RegistrationPaymentExitRefundFailedError,
+	RegistrationPaymentExitRefundNotConfiguredError,
+	RegistrationPaymentExitRefundPendingError,
+	RegistrationPaymentExitRefundSyncPendingError,
+} from "./modules/payments/registration-payment-exit-service";
 import { UserProfileService } from "./modules/profile";
 import { ReportService } from "./modules/reports";
 import { adapterContextFromHeaders } from "./plugins/request-context";
@@ -575,6 +582,10 @@ test("public API documentation lists every stable public error code", async () =
 		"appointment-registration-not-found",
 		"appointment-medical-payment-active",
 		"appointment-payment-active",
+		"appointment-refund-context-unavailable",
+		"appointment-refund-pending",
+		"appointment-refund-failed",
+		"appointment-refund-not-configured",
 		"medical-insurance-invalid",
 		"medical-insurance-appointment-not-found",
 		"medical-insurance-appointment-stale",
@@ -772,6 +783,87 @@ test("预约取消路由通过支付退出编排先收敛未支付订单", async
 			idempotencyKey: "appointment-cancel-auto-key",
 		},
 	});
+});
+
+test("预约退款取消的安全错误以稳定契约返回且保留预约", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("appointment-refund-error-owner");
+	const errorsByAppointment = new Map([
+		[
+			"appointment-refund-context",
+			new RegistrationPaymentExitRefundContextError(),
+		],
+		[
+			"appointment-refund-pending",
+			new RegistrationPaymentExitRefundPendingError(),
+		],
+		[
+			"appointment-refund-sync",
+			new RegistrationPaymentExitRefundSyncPendingError(),
+		],
+		[
+			"appointment-refund-failed",
+			new RegistrationPaymentExitRefundFailedError(),
+		],
+		[
+			"appointment-refund-not-configured",
+			new RegistrationPaymentExitRefundNotConfiguredError(),
+		],
+	]);
+	const app = createApp({
+		services: {
+			...createDefaultApplicationServices(),
+			sessions,
+			registrationPaymentExit: {
+				abandon: async (input: { appointmentId: string }) => {
+					throw errorsByAppointment.get(input.appointmentId);
+				},
+			} as unknown as NonNullable<
+				ApplicationServices["registrationPaymentExit"]
+			>,
+		},
+	});
+	const expected = [
+		[
+			"appointment-refund-context",
+			409,
+			"appointment-refund-context-unavailable",
+			30465,
+		],
+		["appointment-refund-pending", 409, "appointment-refund-pending", 30470],
+		["appointment-refund-sync", 409, "appointment-refund-pending", 30470],
+		["appointment-refund-failed", 409, "appointment-refund-failed", 30480],
+		[
+			"appointment-refund-not-configured",
+			503,
+			"appointment-refund-not-configured",
+			30490,
+		],
+	] as const;
+
+	for (const [appointmentId, status, code, numericCode] of expected) {
+		const response = await app.handle(
+			new Request(
+				`http://localhost/api/v1/appointments/registrations/${appointmentId}/cancel`,
+				{
+					method: "POST",
+					headers: {
+						authorization: `Bearer ${issued.accessToken}`,
+						"content-type": "application/json",
+						"idempotency-key": `appointment-refund-error:${appointmentId}`,
+						"x-request-id": `appointment-refund-error:${appointmentId}`,
+					},
+					body: "{}",
+				},
+			),
+		);
+
+		expect(response.status).toBe(status);
+		expect(await response.json()).toMatchObject({
+			success: false,
+			error: { code, numericCode },
+		});
+	}
 });
 
 test("health knowledge routes remain fail-closed until reviewed content is ready", async () => {

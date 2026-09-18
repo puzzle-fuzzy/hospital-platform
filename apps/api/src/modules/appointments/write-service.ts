@@ -792,6 +792,29 @@ export class AppointmentWriteService {
 		appointmentId: string;
 		context: unknown;
 	}): Promise<{ appointmentId: string; status: "cancelled" }> {
+		return this.cancelInternal(input, false);
+	}
+
+	/**
+	 * 仅供挂号退款编排在微信退款已明确成功后调用；患者端路由始终使用 cancel，
+	 * 因而不能利用此分支绕过活动支付订单保护。
+	 */
+	async cancelAfterConfirmedSelfPayRefund(input: {
+		ownerUserId: string;
+		appointmentId: string;
+		context: unknown;
+	}): Promise<{ appointmentId: string; status: "cancelled" }> {
+		return this.cancelInternal(input, true);
+	}
+
+	private async cancelInternal(
+		input: {
+			ownerUserId: string;
+			appointmentId: string;
+			context: unknown;
+		},
+		confirmedSelfPayRefund: boolean,
+	): Promise<{ appointmentId: string; status: "cancelled" }> {
 		const context = contextOf(input.context);
 		const ownerUserId = id(input.ownerUserId, "ownerUserId");
 		const appointmentId = id(input.appointmentId, "appointmentId");
@@ -813,7 +836,8 @@ export class AppointmentWriteService {
 		if (
 			selfPayOrder &&
 			selfPayOrder.state !== "failed" &&
-			selfPayOrder.state !== "cancelled"
+			selfPayOrder.state !== "cancelled" &&
+			!confirmedSelfPayRefund
 		) {
 			throw new AppointmentCancellationPaymentActiveError();
 		}

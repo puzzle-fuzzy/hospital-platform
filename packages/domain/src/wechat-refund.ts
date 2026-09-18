@@ -1,4 +1,4 @@
-import type { ExternalTrace, AdapterCallContext } from "./ports";
+import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 export type WechatRefundSource = "payment_order" | "medical_insurance";
 
@@ -49,6 +49,14 @@ export type WechatRefundRepository = {
 	findByMerchantRefundNo(
 		merchantRefundNo: string,
 	): Promise<WechatRefund | undefined>;
+	/**
+	 * 退款管理读模型按同一原支付订单读取台账。仅限受控 Admin 查询，不可用于
+	 * 修改退款状态或绕过 reserve 的金额并发保护。
+	 */
+	findBySourceAndSourceOrder?(
+		source: WechatRefundSource,
+		sourceOrderId: string,
+	): Promise<readonly WechatRefund[]>;
 	update(
 		record: WechatRefund,
 		expectedVersion: number,

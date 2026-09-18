@@ -135,6 +135,7 @@ export {
 export {
 	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSelfPayPreparationGateway,
+	createYunhealthRegistrationSelfPayRefundNotificationGateway,
 	createYunhealthRegistrationSettlementGateway,
 	type YunhealthRegistrationPluginPayType,
 	type YunhealthRegistrationSettlementGatewayOptions,

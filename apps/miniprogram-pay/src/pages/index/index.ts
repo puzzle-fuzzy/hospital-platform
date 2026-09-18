@@ -93,6 +93,12 @@ function friendlyError(error: unknown): string {
 		return "";
 	if (error instanceof MedicalInsurancePaymentFailureError)
 		return error.message;
+	if (
+		error instanceof ApiError &&
+		error.code === "medical-insurance-payment-in-progress"
+	) {
+		return "测试期间不自动处理已有医保订单，请重新发起一笔独立测试";
+	}
 	const message =
 		error instanceof Error
 			? error.message
@@ -404,15 +410,6 @@ Page<
 			setProgress(this, stage, message),
 		)
 			.then((result) => {
-				if (result?.kind === "reauthorization_started") {
-					this.setData({
-						hasPendingPayment: true,
-						stage: "authorizing",
-						error: "",
-						message: "旧支付已关闭，请在医保小程序重新完成授权",
-					});
-					return;
-				}
 				if (result?.kind === "cashier_opened") {
 					this.setData({
 						hasPendingPayment: true,

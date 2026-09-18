@@ -5,7 +5,6 @@ import {
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentDetail,
 } from "../../services/dashboard-service";
-import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	clearPendingPayment,
 	continueMedicalPayment,
@@ -34,6 +33,22 @@ import { getSessionGeneration } from "../../services/session-generation";
 import type { OutpatientPaymentDetailPageData } from "../../types";
 
 const HOSPITAL_NAME = "高平市人民医院";
+const PAID_DETAIL_RETRY_DELAYS_MS = [800, 1_200, 2_000] as const;
+
+function waitForPaidDetailSync(delayMs: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+/**
+ * 支付成功后的医院费用读模型可能需要极短时间同步。这里只对已支付详情的
+ * 明确「记录未找到」状态重试，不能把患者、会话或 Provider 失败误报为同步中。
+ */
+function isPaidDetailSyncPending(error: unknown): boolean {
+	return (
+		error instanceof ApiError &&
+		error.code === "outpatient-payment-record-not-found"
+	);
+}
 
 function paymentResultUrl(
 	patientId: string,
@@ -66,6 +81,7 @@ type MedicalApp = {
 type OutpatientPaymentDetailPageState = OutpatientPaymentDetailPageData & {
 	paymentBusy: PaymentBusyKind;
 	paymentMessage: string;
+	paidDetailConfirming: boolean;
 };
 
 type OutpatientPaymentDetailPageMethods = {
@@ -115,6 +131,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 		sourceStatus: "",
 		paymentBusy: "",
 		paymentMessage: "",
+		paidDetailConfirming: false,
 	},
 
 	onLoad(options: Record<string, string | undefined>): void {
@@ -130,6 +147,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 				sourceStatus: "",
 				paymentBusy: "",
 				paymentMessage: "",
+				paidDetailConfirming: false,
 			});
 		});
 
@@ -234,10 +252,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 				}
 				clearPendingPayment();
 				this.setData({
-					paymentMessage: errorMessageWithCode(
-						error,
-						"门诊医保支付未完成，请稍后重试",
-					),
+					paymentMessage: "门诊医保支付未完成，请稍后重试",
 				});
 			})
 			.finally(() => {
@@ -260,6 +275,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 			item: null,
 			paymentBusy: "",
 			paymentMessage: "",
+			paidDetailConfirming: false,
 		});
 		let expectedSessionGeneration = -1;
 		return getCurrentUser()
@@ -284,12 +300,34 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 					});
 				}
 				this.setData({ selectedPatient: patientContext.patient });
-				return loadOutpatientPaymentDetail(
-					patientId,
-					recordId,
-					status,
-					expectedSessionGeneration,
-				);
+				return (async () => {
+					let lastSyncError: unknown;
+					for (const delayMs of [0, ...PAID_DETAIL_RETRY_DELAYS_MS]) {
+						if (delayMs > 0) {
+							if (!guard.isCurrent(token)) return undefined;
+							this.setData({
+								paidDetailConfirming: true,
+								paymentMessage: "支付已完成，正在确认费用明细，请稍候",
+							});
+							await waitForPaidDetailSync(delayMs);
+						}
+						if (!guard.isCurrent(token)) return undefined;
+						try {
+							return await loadOutpatientPaymentDetail(
+								patientId,
+								recordId,
+								status,
+								expectedSessionGeneration,
+							);
+						} catch (error) {
+							if (status !== "paid" || !isPaidDetailSyncPending(error)) {
+								throw error;
+							}
+							lastSyncError = error;
+						}
+					}
+					throw lastSyncError;
+				})();
 			})
 			.then((detail) => {
 				if (!detail || !guard.isCurrent(token)) return;
@@ -306,6 +344,8 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 					selectedPatient: this.data.selectedPatient,
 					item: detail.item,
 					error: "",
+					paymentMessage: "",
+					paidDetailConfirming: false,
 				});
 			})
 			.catch((error) => {
@@ -357,10 +397,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 		)
 			.catch((error: unknown) => {
 				this.setData({
-					paymentMessage: errorMessageWithCode(
-						error,
-						"门诊医保支付未完成，请稍后重试",
-					),
+					paymentMessage: "门诊医保支付未完成，请稍后重试",
 				});
 			})
 			.finally(() => this.setData({ paymentBusy: "" }));
@@ -396,10 +433,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 				}
 			} catch (error) {
 				this.setData({
-					paymentMessage: errorMessageWithCode(
-						error,
-						"门诊微信支付未完成，请稍后重试",
-					),
+					paymentMessage: "门诊微信支付未完成，请稍后重试",
 				});
 			} finally {
 				this.setData({ paymentBusy: "" });
@@ -426,13 +460,21 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 	},
 
 	showError(error: unknown): void {
-		const message = patientContextErrorMessage(error, "门诊费用详情加载失败");
+		const paidDetailConfirming =
+			this.data.sourceStatus === "paid" && isPaidDetailSyncPending(error);
+		const message = paidDetailConfirming
+			? "支付已完成，费用明细正在同步，请稍后点击“重新加载”"
+			: patientContextErrorMessage(
+					error,
+					"暂时无法加载门诊费用详情，请稍后重试",
+				);
 		this.setData({
 			loading: false,
-			error: errorMessageWithCode(error, message),
+			error: message,
 			item: null,
 			paymentBusy: "",
 			paymentMessage: "",
+			paidDetailConfirming,
 		});
 	},
 });

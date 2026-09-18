@@ -10,6 +10,7 @@ import {
 	createWechatPaymentNotificationDecoder,
 	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSelfPayPreparationGateway,
+	createYunhealthRegistrationSelfPayRefundNotificationGateway,
 	createYunhealthRegistrationSettlementGateway,
 	createZhongyangAppointmentGateway,
 	createZhongyangAppointmentPatientProfileGateway,
@@ -401,6 +402,30 @@ const registrationSelfPayPreparationGateway =
 				logger,
 			})
 		: undefined;
+const registrationSelfPayRefundNotificationGateway =
+	yunhealthRegistrationSettlementStatus === "configured" &&
+	config.yunhealthAuthorizationToken
+		? createYunhealthRegistrationSelfPayRefundNotificationGateway({
+				baseUrl: config.yunhealthBaseUrl ?? "",
+				authorizationToken: config.yunhealthAuthorizationToken ?? "",
+				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
+				pluginPayTypeId: config.yunhealthRegistrationPluginPayTypeId ?? "",
+				pluginPayType: (config.yunhealthRegistrationPluginPayType ?? "") as
+					| "CREDIT"
+					| "POS"
+					| "CROWD_FUNDING",
+				workStationId: config.yunhealthRegistrationWorkStationId ?? "",
+				paymentSource: config.yunhealthRegistrationPaymentSource,
+				authSysCode: config.yunhealthRegistrationAuthSysCode,
+				tradeTypeCode: config.yunhealthRegistrationTradeTypeCode,
+				logger,
+			})
+		: undefined;
+const registrationSelfPayRefundMissing =
+	yunhealthRegistrationSettlementStatus === "configured" &&
+	!config.yunhealthAuthorizationToken
+		? ["YUNHEALTH_AUTH_TOKEN"]
+		: [];
 const yunhealthRegistrationPluginPaymentGateway =
 	yunhealthRegistrationSettlementStatus === "configured"
 		? createYunhealthRegistrationPluginPaymentGateway({
@@ -638,6 +663,9 @@ const services = createDefaultApplicationServices({
 	...(registrationSelfPayPreparationGateway
 		? { registrationSelfPayPreparationGateway }
 		: {}),
+	...(registrationSelfPayRefundNotificationGateway
+		? { registrationSelfPayRefundNotificationGateway }
+		: {}),
 	...(yunhealthRegistrationPluginPaymentGateway
 		? {
 				yunhealthRegistrationPluginPaymentGateway,
@@ -844,6 +872,10 @@ logger.info(
 		registrationSelfPayPreparationRuntime: registrationSelfPayPreparationGateway
 			? "enabled"
 			: "fail_closed",
+		registrationSelfPayRefundRuntime:
+			wechatPaymentGateway && registrationSelfPayRefundNotificationGateway
+				? "enabled"
+				: "fail_closed",
 		yunhealthRegistrationPluginPaymentRuntime:
 			yunhealthRegistrationPluginPaymentGateway ? "enabled" : "fail_closed",
 		medicalInsuranceResponseVerification: config.medicalInsuranceVerifyStrict
@@ -863,6 +895,9 @@ logger.info(
 		...(wechatPaymentMissing.length > 0 ? { wechatPaymentMissing } : {}),
 		...(wechatMedicalInsuranceMissing.length > 0
 			? { wechatMedicalInsuranceMissing }
+			: {}),
+		...(registrationSelfPayRefundMissing.length > 0
+			? { registrationSelfPayRefundMissing }
 			: {}),
 		...(medicalInsuranceMissing.length > 0 ? { medicalInsuranceMissing } : {}),
 		...(patientDirectoryMissing.length > 0 ? { patientDirectoryMissing } : {}),

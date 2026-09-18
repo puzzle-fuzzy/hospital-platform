@@ -822,6 +822,14 @@ export interface MedicalInsuranceOrderRepository {
 	findByMedicalOrderId(
 		medicalOrderId: string,
 	): Promise<MedicalInsuranceOrder | undefined>;
+	/**
+	 * 管理端微信退款历史的最小只读来源。实现不得为此解密微信调起参数、医保
+	 * 凭证或结算上下文；输出仍需由 Admin 服务投影后才能离开 API。
+	 */
+	listRecentForAdmin?(input: {
+		limit: number;
+		orderId?: string;
+	}): Promise<readonly MedicalInsuranceOrder[]>;
 	findByPayOrdId(payOrdId: string): Promise<MedicalInsuranceOrder | undefined>;
 	/** 微信医保混合回调只携带 mix_trade_no，必须用服务端订单关联查询。 */
 	findByWechatMixTradeNo(

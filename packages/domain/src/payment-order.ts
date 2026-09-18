@@ -455,6 +455,14 @@ export interface PaymentQuoteRepository {
 export interface PaymentOrderRepository {
 	/** 后台 worker 不持有用户会话，必须使用只读内部订单 id 查询。 */
 	findById(orderId: string): Promise<PaymentOrder | undefined>;
+	/**
+	 * 管理端退款只读历史。实现只返回订单事实，不得携带预支付参数、支付上下文
+	 * 或患者身份信息；调用方还必须继续投影成最小 Admin 读模型。
+	 */
+	listRecentForAdmin?(input: {
+		limit: number;
+		orderId?: string;
+	}): Promise<readonly PaymentOrder[]>;
 	findByOwnerAndIdempotencyKey(
 		ownerUserId: string,
 		idempotencyKey: string,

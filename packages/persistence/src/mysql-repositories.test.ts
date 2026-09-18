@@ -269,11 +269,25 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 		psnName: "测试患者",
 		psnNo: "P000001",
 		patInHosId: "0",
-		outTradeNo: "payment-order-new-001",
+		outTradeNo: "YUNHEALTH-WX-OUT-001",
+		outTradeNoSource: "yunhealth_2_6_65_2" as const,
 		recordCode: "0123456789abcdef0123456789abcdef",
-		payTypeId: "50",
+		payTypeId: "5032",
 		payType: "CREDIT" as const,
 		workStationId: "",
+		payParams: {
+			appId: "wx1234567890abcdef",
+			timeStamp: "1789000000",
+			nonceStr: "0123456789abcdef0123456789abcdef",
+			package: "prepay_id=wx-provider-prepay-001",
+			signType: "MD5" as const,
+			paySign: "0123456789abcdef0123456789abcdef",
+		},
+		refundWriteBack: {
+			merchantRefundNo: "RF-PO-YUNHEALTH-001",
+			refundFen: 1000,
+			syncedAt: "2026-09-18T01:02:00.000Z",
+		},
 	};
 	const save = repositories.paymentOrders.saveRegistrationSelfPayContext;
 	const read = repositories.paymentOrders.getRegistrationSelfPayContext;

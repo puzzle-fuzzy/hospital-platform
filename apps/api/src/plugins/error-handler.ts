@@ -108,7 +108,14 @@ import {
 } from "../modules/patients/binding-service";
 import { PatientServiceInputError } from "../modules/patients/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
-import { RegistrationPaymentExitInputError } from "../modules/payments/registration-payment-exit-service";
+import {
+	RegistrationPaymentExitInputError,
+	RegistrationPaymentExitRefundContextError,
+	RegistrationPaymentExitRefundFailedError,
+	RegistrationPaymentExitRefundNotConfiguredError,
+	RegistrationPaymentExitRefundPendingError,
+	RegistrationPaymentExitRefundSyncPendingError,
+} from "../modules/payments/registration-payment-exit-service";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 import {
 	ReportNotFoundError,
@@ -157,6 +164,10 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-medical-payment-active": 30450,
 	"appointment-payment-active": 30455,
 	"appointment-source-unavailable": 30460,
+	"appointment-refund-context-unavailable": 30465,
+	"appointment-refund-pending": 30470,
+	"appointment-refund-failed": 30480,
+	"appointment-refund-not-configured": 30490,
 	"medical-insurance-invalid": 30500,
 	"medical-insurance-appointment-not-found": 30510,
 	"medical-insurance-order-not-found": 30520,
@@ -795,6 +806,46 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"appointment-payment-active",
 					"该预约已有自费支付流水，不能直接取消，请先完成或继续支付",
+				);
+			}
+
+			if (error instanceof RegistrationPaymentExitRefundPendingError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-refund-pending",
+					"退款或医院收费同步处理中，预约暂未取消，请稍后查看",
+				);
+			}
+
+			if (error instanceof RegistrationPaymentExitRefundSyncPendingError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-refund-pending",
+					"退款已成功，正在同步医院收费系统，预约暂未取消，请稍后查看",
+				);
+			}
+
+			if (error instanceof RegistrationPaymentExitRefundFailedError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-refund-failed",
+					"退款未成功，预约暂未取消，请联系收费端处理",
+				);
+			}
+
+			if (error instanceof RegistrationPaymentExitRefundNotConfiguredError) {
+				set.status = 503;
+				return errorPayload(
+					"appointment-refund-not-configured",
+					"自费退款通道尚未配置，预约未取消",
+				);
+			}
+
+			if (error instanceof RegistrationPaymentExitRefundContextError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-refund-context-unavailable",
+					"该支付记录缺少可核验的退款信息，预约未取消，请联系收费端处理",
 				);
 			}
 
