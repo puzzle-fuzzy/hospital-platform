@@ -25,6 +25,7 @@ const JOURNAL_UNITS = Object.freeze([
 ]);
 const MAX_JOURNAL_BYTES = 64 * 1024 * 1024;
 const MAX_OUTPUT_ENTRIES = 300;
+const LATEST_LOOKBACK_MS = 2 * 60 * 1000;
 const PAYMENT_EVENT =
 	/^(?:medical-insurance\.|payment\.wechat_prepay\.|outpatient\.self-payment\.|appointment\.self-payment\.|worker\.payment\.)/u;
 const ORDER_PAYMENT_EVENT =
@@ -145,6 +146,10 @@ function shanghaiIso(value) {
 	return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.${String(date.getMilliseconds()).padStart(3, "0")}+08:00`;
 }
 
+function shanghaiJournalTime(value) {
+	return shanghaiIso(value).slice(0, 19).replace("T", " ");
+}
+
 function shanghaiWindow(date, since, until) {
 	const start = new Date(`${date}T00:00:00+08:00`);
 	const end = new Date(`${date}T23:59:59+08:00`);
@@ -163,6 +168,17 @@ function shanghaiWindow(date, since, until) {
 		untilText: until,
 		sinceIso: sinceDate.toISOString(),
 		untilIso: untilDate.toISOString(),
+	};
+}
+
+function latestCaptureWindow(window) {
+	const requestedSince = Date.parse(window.sinceIso);
+	const dayStart = window.start.getTime();
+	const captureSince = Math.max(dayStart, requestedSince - LATEST_LOOKBACK_MS);
+	return {
+		...window,
+		sinceText: shanghaiJournalTime(captureSince),
+		sinceIso: new Date(captureSince).toISOString(),
 	};
 }
 
@@ -324,7 +340,11 @@ function addIdentifier(set, value) {
 function orderSeed(record) {
 	const m = record.message;
 	const orderId = stringValue(m.orderId);
+	// 后台查单重试属于已有支付订单的生命周期事件，不能单独生成一笔
+	// “最新支付”，否则会把完整支付误选成只有查单响应的孤立订单。
+	const isBackgroundRetry = m.event.startsWith("worker.payment.");
 	return orderId &&
+		!isBackgroundRetry &&
 		(ORDER_SEED_EVENTS.has(m.event) || ORDER_PAYMENT_EVENT.test(m.event))
 		? orderId
 		: undefined;
@@ -993,6 +1013,9 @@ function markdownIndex(date, orders, { latest = false } = {}) {
 		"JSON 文件直接展示明文请求/返回；`request-body.raw` / `response-body.raw` 保留 Provider 原始正文，供完整性核验。",
 		"",
 	];
+	if (orders.length === 0) {
+		lines.push("指定时间窗口内未识别到带 `orderId` 的支付订单。", "");
+	}
 	for (const [index, order] of orders.entries()) {
 		lines.push(`## ${index + 1}. ${order.orderId}`, "");
 		if (order.appointmentId)
@@ -1058,11 +1081,21 @@ function defaultOutputDir(date, latest = false) {
 
 async function main(args = process.argv.slice(2)) {
 	const options = parseArgs(args);
-	const window = shanghaiWindow(options.date, options.since, options.until);
+	const requestedWindow = shanghaiWindow(
+		options.date,
+		options.since,
+		options.until,
+	);
+	const window = options.latest
+		? latestCaptureWindow(requestedWindow)
+		: requestedWindow;
 	const outputDir = resolve(
 		options.outputDir || defaultOutputDir(options.date, options.latest),
 	);
 	await ensureControlledDirectory(outputDir);
+	const ordersRoot = join(outputDir, "orders");
+	await mkdir(ordersRoot, { recursive: true, mode: 0o700 });
+	await chmod(ordersRoot, 0o700);
 
 	const serialized = options.inputFile
 		? await readFile(options.inputFile, "utf8")
@@ -1077,7 +1110,13 @@ async function main(args = process.argv.slice(2)) {
 
 	const parsed = parseRecords(serialized);
 	const allOrders = collectOrders(parsed.records);
-	const orders = options.latest ? allOrders.slice(-1) : allOrders;
+	const requestedSince = Date.parse(requestedWindow.sinceIso);
+	const requestedUntil = Date.parse(requestedWindow.untilIso);
+	const eligibleOrders = allOrders.filter((order) => {
+		const started = Date.parse(order.started);
+		return started >= requestedSince && started <= requestedUntil;
+	});
+	const orders = options.latest ? eligibleOrders.slice(-1) : allOrders;
 	const orderResults = [];
 	for (const order of orders) {
 		orderResults.push(
@@ -1123,7 +1162,8 @@ async function main(args = process.argv.slice(2)) {
 			? "latest-payment-provider-raw-trace"
 			: "all-payments-day-provider-raw-traces",
 		createdAt: new Date().toISOString(),
-		captureWindow: `${options.date} 00:00:00+08:00 to ${options.date} 23:59:59+08:00`,
+		requestedWindow: `${shanghaiIso(requestedWindow.sinceIso)} to ${shanghaiIso(requestedWindow.untilIso)}`,
+		captureWindow: `${shanghaiIso(window.sinceIso)} to ${shanghaiIso(window.untilIso)}`,
 		services: JOURNAL_UNITS,
 		journalSource: {
 			path: journalPath,
@@ -1179,7 +1219,9 @@ async function main(args = process.argv.slice(2)) {
 		notes: [
 			`识别到 ${orderResults.length} 个带 orderId 的支付订单记录；脚本不会把未来尚未产生的订单计入本快照。`,
 			...(options.latest
-				? ["本次为最新一笔模式，只保留开始时间最新的支付订单。"]
+				? [
+						"本次为最新一笔模式，只保留请求时间窗口内开始时间最新的支付订单；采集窗口自动向前回看 2 分钟以收齐首个请求。",
+					]
 				: []),
 			...(unmatchedPaymentEvents.length > 0
 				? [

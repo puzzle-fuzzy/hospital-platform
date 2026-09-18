@@ -34,6 +34,8 @@ export type PendingPayment = {
 	recordId?: string;
 	createdAt: number;
 	orderId?: string;
+	/** 6202 已确认的金额快照；用于微信收银台返回后结果页的即时展示。 */
+	amounts?: MedicalPaymentAmounts;
 	authorizeIdempotencyKey: string;
 	feesIdempotencyKey: string;
 	settleIdempotencyKey: string;
@@ -473,6 +475,8 @@ function readPending(value: unknown): value is PendingPayment {
 		isOpaque(value.feesIdempotencyKey) &&
 		isOpaque(value.settleIdempotencyKey) &&
 		(value.orderId === undefined || isOpaque(value.orderId)) &&
+		(value.amounts === undefined ||
+			readMedicalPaymentAmounts(value.amounts) !== null) &&
 		(value.businessType === undefined ||
 			value.businessType === "registration" ||
 			(value.businessType === "outpatient" && isOpaque(value.recordId))) &&
@@ -984,6 +988,7 @@ async function queryMedicalCashPayment(
 				onProgress,
 				current.orderId,
 				"挂号和医保支付成功",
+				current.amounts,
 			);
 			return true;
 		}
@@ -1257,10 +1262,14 @@ export async function continueMedicalPayment(
 					...latest,
 					orderId,
 					phase: "medical_cash_required",
+					amounts: order.amounts,
 				});
 				throw new MedicalCashRequiredError();
 			}
-			await continueMedicalCashPayment({ ...latest, orderId }, onProgress);
+			await continueMedicalCashPayment(
+				{ ...latest, orderId, amounts: order.amounts },
+				onProgress,
+			);
 			return;
 		}
 		if (order.status === "failed" || order.status === "manual_review") {

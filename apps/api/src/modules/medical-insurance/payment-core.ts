@@ -84,6 +84,22 @@ function needsMedicalInsuranceQuery(
 	);
 }
 
+/**
+ * 这些状态已经是服务端可供结果页展示的最终事实。
+ * 结果页查单不能为了刷新金额再次访问医保上游，否则上游短暂超时会
+ * 把已经落库的 6202/6301 金额变成“查询失败”，导致前端费用明细空白。
+ */
+function isTerminalMedicalOrderStatus(
+	status: MedicalInsuranceOrder["status"],
+): boolean {
+	return (
+		status === "insurance_settled" ||
+		status === "failed" ||
+		status === "manual_review" ||
+		status === "cancelled"
+	);
+}
+
 function logBusiness(order: MedicalInsuranceOrder): Record<string, unknown> {
 	const businessType =
 		order.businessType ?? (order.appointmentId ? "registration" : undefined);
@@ -253,6 +269,9 @@ export class MedicalInsurancePaymentCore {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		const order = await this.order(ownerUserId, orderId);
+		if (isTerminalMedicalOrderStatus(order.status)) {
+			return output(order);
+		}
 		const result = await this.dependencies.medicalInsurance.query(
 			{
 				orderId,

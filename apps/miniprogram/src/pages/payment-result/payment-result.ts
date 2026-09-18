@@ -86,11 +86,16 @@ function matchesPaymentResult(
 	appointmentId: string,
 	recordId: string,
 ): result is NonNullable<ReturnType<typeof readLastMedicalPaymentResult>> {
+	// 门诊结果页的业务引用是 recordId，路由不会额外携带 appointmentId；
+	// 兼容旧版本地结果把门诊 recordId 写入 appointmentId 的情况。
+	const matchesBusinessReference =
+		business === "outpatient"
+			? result?.recordId === recordId || result?.appointmentId === recordId
+			: result?.appointmentId === appointmentId;
 	return Boolean(
 		result &&
-			result.appointmentId === appointmentId &&
+			matchesBusinessReference &&
 			(!result.businessType || result.businessType === business) &&
-			(business !== "outpatient" || result.recordId === recordId) &&
 			Boolean(patientId),
 	);
 }

@@ -75,6 +75,68 @@ test("6301查单不丢失6202已经确认的扩展金额", async () => {
 	expect(updated?.amounts).toEqual(original.amounts);
 });
 
+test("已完成门诊订单查单直接返回已落库金额，不依赖医保上游", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const original: MedicalInsuranceOrder = {
+		medicalOrderId: "medical-order-outpatient-settled-001",
+		ownerUserId: "owner-outpatient-settled-001",
+		patientId: "patient-outpatient-settled-001",
+		businessType: "outpatient",
+		orderType: "DiagPay",
+		businessId: "outpatient-record-settled-001",
+		idempotencyKey: "medical-idem-outpatient-settled-001",
+		medOrgOrd: "medical-org-outpatient-settled-001",
+		chrgBchno: "batch-outpatient-settled-001",
+		payOrdId: "pay-order-outpatient-settled-001",
+		payTokenHash: "pay-token-hash-outpatient-settled-001",
+		status: "insurance_settled",
+		ordStas: "6",
+		amounts: {
+			totalFen: 10000,
+			cashFen: 3000,
+			personalAccountFen: 2000,
+			fundFen: 5000,
+			otherPaymentFen: 0,
+			hospitalPartFen: 0,
+			personalAccountMutualAidFen: 0,
+			personalAccountSelfFen: 2000,
+			depositFen: 0,
+			deliveryFeeFen: 0,
+		},
+		setlType: "CASH",
+		revsTokenHash: null,
+		revsTokenExpiresAt: null,
+		lastError: null,
+		version: 3,
+		createdAt: "2026-09-18T00:00:00.000Z",
+		updatedAt: "2026-09-18T00:01:00.000Z",
+	};
+	await orders.insert(original);
+	let upstreamCalls = 0;
+	const core = new MedicalInsurancePaymentCore({
+		orders,
+		medicalInsurance: {
+			query: async () => {
+				upstreamCalls += 1;
+				throw new Error("医保上游暂时不可用");
+			},
+		} as never,
+	});
+
+	await expect(
+		core.query({
+			ownerUserId: original.ownerUserId,
+			orderId: original.medicalOrderId,
+			context,
+		}),
+	).resolves.toEqual({
+		orderId: original.medicalOrderId,
+		status: "insurance_settled",
+		amounts: { totalFen: 10000, insuranceFen: 7000, cashFen: 3000 },
+	});
+	expect(upstreamCalls).toBe(0);
+});
+
 test("2.6.65.1已创建但6201未完成时重授权会取消上游结算", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	const original: MedicalInsuranceOrder = {
