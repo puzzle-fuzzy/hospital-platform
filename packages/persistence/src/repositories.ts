@@ -1704,6 +1704,11 @@ export function createInMemoryMedicalInsuranceQueryTaskRepository(
 			const leaseUntil = new Date(nowMs + leaseMs).toISOString();
 			const due = [...tasks.values()]
 				.filter((task) => {
+					if (task.status === "in_progress") {
+						if (!task.claimedUntil) return false;
+						const claimedUntilMs = new Date(task.claimedUntil).getTime();
+						return !Number.isFinite(claimedUntilMs) || claimedUntilMs <= nowMs;
+					}
 					if (task.status !== "pending") return false;
 					const nextAttemptMs = new Date(task.nextAttemptAt).getTime();
 					if (!Number.isFinite(nextAttemptMs) || nextAttemptMs > nowMs) {

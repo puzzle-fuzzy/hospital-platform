@@ -250,6 +250,8 @@ export type RegistrationSelfPaySettlementContext = {
 	thirdPartPayRecordId?: string;
 	/** 仅允许保存在服务端 AES-GCM 密文中，不得写入日志或 API 响应。 */
 	thirdPartPayRawResponse?: string;
+	/** .15 已明确成功；自费 .5 失败后的续跑必须跳过 .15。 */
+	paymentNotifyCompleted?: boolean;
 	/**
 	 * 微信退款 SUCCESS 后，众阳 .15 退款回写已经确认成功的事实。该字段同样
 	 * 只存入服务端密文；没有它时重试会复用同一退款单并再次安全回写。
@@ -267,6 +269,7 @@ export type RegistrationSelfPayRefundWriteBack = {
 export type HospitalSettlementThirdPartPayResponse = {
 	rawResponse: string;
 	thirdPartPayRecordId: string;
+	requestId?: string;
 };
 
 /**
@@ -534,16 +537,16 @@ export interface MedicalInsuranceWechatPaymentGateway {
 	}>;
 }
 
-/** 云健康 2.6.65.2 下单；医保订单只允许在微信支付终态成功后调用。 */
+/** 云健康 2.6.65.2 下单；调用时机由医保/自费分段编排严格控制。 */
 export interface YunhealthRegistrationPluginPaymentGateway {
 	createPreOrder(
 		input: {
 			orderId: string;
 			businessId: string;
 			tradeCode: string;
-			/** 整笔结算总额。合单时必须等于全部 payTypeParams 金额之和。 */
+			/** 整笔结算总额；分组 .2 时可大于本组 payTypeParams 金额之和。 */
 			totalFen: number;
-			/** 历史单分项调用的金额；合单请求不得传此字段。 */
+			/** 本次 .2 登记的金额；分组 payTypeParams 时等于组内金额之和。 */
 			amountFen?: number;
 			hospitalId: string;
 			patientId: string;
@@ -743,6 +746,16 @@ export interface HospitalSettlementGateway {
 			onThirdPartPayResponse?: (
 				response: HospitalSettlementThirdPartPayResponse,
 			) => void | Promise<void>;
+			/** 不可重放步骤发出前的持久化 hook。 */
+			onThirdPartPayAttempt?: () => void | Promise<void>;
+			/** .15 发出前先保存 unknown，进程中断后不得自动重复提交。 */
+			onPaymentNotifyAttempt?: () => void | Promise<void>;
+			/** .15 明确成功后保存 succeeded，供 .5 失败后的安全续跑。 */
+			onPaymentNotifyResponse?: (response: {
+				requestId: string;
+			}) => void | Promise<void>;
+			/** 自费 .5 发出前保存 unknown。 */
+			onCompleteSettlementAttempt?: () => void | Promise<void>;
 		},
 		context: AdapterCallContext,
 	): Promise<ExternalTrace>;

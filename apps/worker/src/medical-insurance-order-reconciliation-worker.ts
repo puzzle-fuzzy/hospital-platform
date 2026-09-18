@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
 	AdapterCallContext,
+	HospitalSettlementGateway,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
 	MedicalInsurancePostPaymentComponent,
@@ -11,6 +12,7 @@ import type {
 	MedicalInsuranceSettlementEvidenceFinality,
 	MedicalInsuranceWechatPaymentGateway,
 	PatientRepository,
+	RegistrationSelfPaySettlementContext,
 	UserIdentityRepository,
 	WechatPaymentGateway,
 	YunhealthRegistrationPluginPaymentGateway,
@@ -44,11 +46,27 @@ export type MedicalInsuranceOrderQueryGateway = {
 const BASE_QUERY_DELAY_MS = 15_000;
 const MAX_QUERY_DELAY_MS = 15 * 60 * 1000;
 const QUERY_BATCH_SIZE = 1;
-const QUERY_CLAIM_LEASE_MS = 60_000;
+// 两段结算包含微信查单及最多六个串行 Provider 写入；一分钟租约会在流程尚未
+// 完成时被另一 Worker 抢占。五分钟覆盖正常调用窗口，崩溃后仍可自动回收。
+const QUERY_CLAIM_LEASE_MS = 5 * 60_000;
 const WECHAT_PREPAY_VALIDITY_MS = 2 * 60 * 60 * 1000;
 
 function stableComponentCode(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 32);
+}
+
+function settlementContextText(
+	value: Record<string, unknown>,
+	keys: readonly string[],
+): string | undefined {
+	for (const key of keys) {
+		const candidate = value[key];
+		if (typeof candidate !== "string" && typeof candidate !== "number")
+			continue;
+		const normalized = String(candidate).trim();
+		if (normalized) return normalized;
+	}
+	return undefined;
 }
 
 type CombinedPayTypeParam = NonNullable<
@@ -106,7 +124,7 @@ function expectedPrePaymentComponents(input: {
 	order: MedicalInsuranceOrder;
 	insuredAreaCode: string;
 	now: Date;
-	mode: "combined" | "legacy";
+	mode: "sequenced" | "combined" | "legacy";
 }): readonly MedicalInsurancePostPaymentComponent[] {
 	const amounts = input.order.amounts;
 	if (!amounts) throw new Error("medical payment amounts are unavailable");
@@ -117,6 +135,53 @@ function expectedPrePaymentComponents(input: {
 			amounts.totalFen
 	) {
 		throw new Error("medical-insurance-combined-payment-amount-mismatch");
+	}
+	if (input.mode === "sequenced") {
+		const medicalLegs = payTypeParams.filter(
+			(component) => component.kind !== "wechat_cash",
+		);
+		const cashLeg = payTypeParams.find(
+			(component) => component.kind === "wechat_cash",
+		);
+		const medicalFen = medicalLegs.reduce(
+			(sum, component) => sum + component.amountFen,
+			0,
+		);
+		const components: MedicalInsurancePostPaymentComponent[] = [];
+		if (medicalFen > 0) {
+			components.push({
+				componentId: `${input.order.medicalOrderId}:medical`,
+				kind: "medical",
+				totalFen: amounts.totalFen,
+				amountFen: medicalFen,
+				payModel: "H5",
+				payTypeId: "2",
+				payTypeParams: medicalLegs,
+				recordCode: stableComponentCode(
+					`medical-post-payment:${input.order.medicalOrderId}:medical`,
+				),
+				state: "pending",
+				attempts: 0,
+				updatedAt: input.now.toISOString(),
+			});
+		}
+		if (cashLeg) {
+			components.push({
+				componentId: `${input.order.medicalOrderId}:wechat_cash`,
+				kind: "wechat_cash",
+				totalFen: amounts.totalFen,
+				amountFen: cashLeg.amountFen,
+				payModel: "H5",
+				payTypeId: "5031",
+				recordCode: stableComponentCode(
+					`medical-post-payment:${input.order.medicalOrderId}:wechat_cash`,
+				),
+				state: "pending",
+				attempts: 0,
+				updatedAt: input.now.toISOString(),
+			});
+		}
+		return components;
 	}
 	if (input.mode === "combined") {
 		return [
@@ -370,11 +435,11 @@ function successfulSettlementWriteback(
 		(context?.selfPaySettlementWriteback?.status === "succeeded" &&
 			/(^|,)insur=SUCCESS(,|$)/u.test(selfPayProviderStatus) &&
 			/(^|,)settle=SUCCESS(,|$)/u.test(selfPayProviderStatus));
-	const completionRequired = order.businessType === "outpatient";
+	const completionRequired = true;
 	const completionSucceeded =
 		!completionRequired ||
 		context?.settlementCompletion?.status === "succeeded";
-	const selfPayCompletionRequired = completionRequired && selfPayRequired;
+	const selfPayCompletionRequired = selfPayRequired;
 	const selfPayCompletionSucceeded =
 		!selfPayCompletionRequired ||
 		context?.selfPaySettlementCompletion?.status === "succeeded";
@@ -467,6 +532,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			postPaymentPayType?: "CREDIT" | "POS" | "CROWD_FUNDING";
 			postPaymentWorkStationId?: string;
 			postPaymentTradeTypeCode?: string;
+			/** 新两段流程中自费子流水的 .29 -> .15 -> .5 回写。 */
+			hospitalSettlement?: HospitalSettlementGateway;
 			completeWechatPayment?: (
 				input: {
 					ownerUserId: string;
@@ -762,6 +829,404 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			: "retry_scheduled";
 	}
 
+	private async updateSettlementContext(
+		order: MedicalInsuranceOrder,
+		update: (
+			current: MedicalInsuranceSettlementContext,
+		) => MedicalInsuranceSettlementContext,
+	): Promise<MedicalInsuranceSettlementContext> {
+		const current = await this.dependencies.orders.getSettlementContext(
+			order.ownerUserId,
+			order.medicalOrderId,
+		);
+		if (!current) {
+			throw new Error("medical-insurance-settlement-context-missing");
+		}
+		const next = update(current);
+		await this.dependencies.orders.saveSettlementContext(
+			order.ownerUserId,
+			order.medicalOrderId,
+			next,
+		);
+		return next;
+	}
+
+	private registrationSelfPayContext(
+		order: MedicalInsuranceOrder,
+		settlement: MedicalInsuranceSettlementContext,
+		component: MedicalInsurancePostPaymentComponent,
+	): RegistrationSelfPaySettlementContext {
+		const register = settlement.networkRegister;
+		const certNo = settlementContextText(register, [
+			"idNo",
+			"id_no",
+			"certNo",
+			"cert_no",
+		]);
+		const psnName = settlementContextText(register, [
+			"netPatName",
+			"net_pat_name",
+			"psnName",
+			"psn_name",
+		]);
+		const psnNo = settlementContextText(register, [
+			"memberNo",
+			"member_no",
+			"psnNo",
+			"psn_no",
+		]);
+		if (
+			!component.payingId ||
+			!component.tradingId ||
+			!order.wechatOutTradeNo ||
+			!certNo ||
+			!psnName ||
+			!psnNo ||
+			!this.dependencies.postPaymentPayType ||
+			this.dependencies.postPaymentWorkStationId === undefined ||
+			!this.dependencies.postPaymentTradeTypeCode
+		) {
+			throw new Error("medical-insurance-self-pay-writeback-context-missing");
+		}
+		const thirdParty = settlement.selfPayThirdPartyWriteback;
+		return {
+			businessId: settlement.businessId,
+			...(settlement.businessCode
+				? { businessCode: settlement.businessCode }
+				: {}),
+			tradeTypeCode:
+				order.businessType === "outpatient"
+					? "2"
+					: this.dependencies.postPaymentTradeTypeCode,
+			payingId: component.payingId,
+			tradingId: component.tradingId,
+			hospitalId: settlement.hospitalId,
+			patientId: settlement.patientId,
+			certNo,
+			psnCertType:
+				settlementContextText(register, [
+					"psnCertType",
+					"psn_cert_type",
+					"idType",
+					"id_type",
+				]) ?? "01",
+			psnName,
+			psnNo,
+			patInHosId:
+				settlementContextText(register, ["patInHosId", "pat_in_hos_id"]) ?? "0",
+			outTradeNo: order.wechatOutTradeNo,
+			recordCode: component.recordCode,
+			payTypeId: component.payTypeId,
+			payType: this.dependencies.postPaymentPayType,
+			workStationId: this.dependencies.postPaymentWorkStationId,
+			...(thirdParty?.status === "succeeded" && thirdParty.thirdPartPayRecordId
+				? {
+						thirdPartPayRecordId: thirdParty.thirdPartPayRecordId,
+						...(thirdParty.rawResponse
+							? { thirdPartPayRawResponse: thirdParty.rawResponse }
+							: {}),
+					}
+				: {}),
+			...(settlement.selfPayPaymentNotify?.status === "succeeded"
+				? { paymentNotifyCompleted: true }
+				: {}),
+		};
+	}
+
+	/** 医保 `.32/.5` 完成后，创建独立 5031 `.2` 并执行 `.29/.15/.5`。 */
+	private async completeSequencedSelfPay(
+		order: MedicalInsuranceOrder,
+		settlement: MedicalInsuranceSettlementContext,
+		now: Date,
+		context: AdapterCallContext,
+	): Promise<boolean> {
+		const preOrderGateway = this.dependencies.postPayment;
+		const writeBackGateway = this.dependencies.hospitalSettlement;
+		const cashComponent = settlement.postPaymentComponents?.find(
+			(component) => component.kind === "wechat_cash",
+		);
+		if (!cashComponent) {
+			if (!settlement.postPaymentCompletedAt) {
+				await this.updateSettlementContext(order, (current) => ({
+					...current,
+					postPaymentCompletedAt: now.toISOString(),
+				}));
+			}
+			return true;
+		}
+		if (
+			!preOrderGateway ||
+			!writeBackGateway ||
+			!settlement.businessCode ||
+			!this.dependencies.postPaymentPayType ||
+			this.dependencies.postPaymentWorkStationId === undefined ||
+			!this.dependencies.postPaymentTradeTypeCode
+		) {
+			return false;
+		}
+
+		let currentSettlement = settlement;
+		let currentComponent = cashComponent;
+		if (currentComponent.state === "succeeded") {
+			await this.dependencies.orders.saveYunhealthPaymentQueryReference({
+				ownerUserId: order.ownerUserId,
+				medicalOrderId: order.medicalOrderId,
+				componentId: currentComponent.componentId,
+				recordCode: currentComponent.recordCode,
+			});
+		}
+		if (currentComponent.state !== "succeeded") {
+			const attempted: MedicalInsurancePostPaymentComponent = {
+				...currentComponent,
+				state: "pending",
+				attempts: currentComponent.attempts + 1,
+				updatedAt: now.toISOString(),
+			};
+			currentSettlement = await this.updateSettlementContext(
+				order,
+				(current) => ({
+					...current,
+					postPaymentComponents: (current.postPaymentComponents ?? []).map(
+						(component) =>
+							component.componentId === attempted.componentId
+								? attempted
+								: component,
+					),
+				}),
+			);
+			try {
+				const result = await preOrderGateway.createPreOrder(
+					{
+						orderId: attempted.componentId,
+						businessId: currentSettlement.businessId,
+						tradeCode: currentSettlement.businessCode as string,
+						totalFen: attempted.totalFen,
+						amountFen: attempted.amountFen,
+						hospitalId: currentSettlement.hospitalId,
+						patientId: currentSettlement.patientId,
+						payTypeId: attempted.payTypeId,
+						payModel: "H5",
+						payType: this.dependencies.postPaymentPayType,
+						workStationId: this.dependencies.postPaymentWorkStationId,
+						recordCode: attempted.recordCode,
+						tradeTypeCode:
+							order.businessType === "outpatient"
+								? "2"
+								: this.dependencies.postPaymentTradeTypeCode,
+					},
+					{
+						...context,
+						idempotencyKey: `medical-self-pay-preorder:${attempted.componentId}`,
+					},
+				);
+				currentComponent = {
+					...attempted,
+					state: "succeeded",
+					payingId: result.payingId,
+					tradingId: result.tradingId,
+					providerRequestId: result.trace.requestId,
+					updatedAt: new Date().toISOString(),
+				};
+				currentSettlement = await this.updateSettlementContext(
+					order,
+					(current) => ({
+						...current,
+						postPaymentComponents: (current.postPaymentComponents ?? []).map(
+							(component) =>
+								component.componentId === currentComponent.componentId
+									? currentComponent
+									: component,
+						),
+					}),
+				);
+				await this.dependencies.orders.saveYunhealthPaymentQueryReference({
+					ownerUserId: order.ownerUserId,
+					medicalOrderId: order.medicalOrderId,
+					componentId: currentComponent.componentId,
+					recordCode: currentComponent.recordCode,
+				});
+			} catch (error) {
+				const metadata = providerFailureMetadata(error);
+				await this.updateSettlementContext(order, (current) => ({
+					...current,
+					postPaymentComponents: (current.postPaymentComponents ?? []).map(
+						(component) =>
+							component.componentId === attempted.componentId
+								? {
+										...attempted,
+										state: "failed",
+										lastErrorCode:
+											metadata.providerErrorCode ??
+											metadata.providerFailureReason ??
+											"self-pay-preorder-failed",
+										updatedAt: new Date().toISOString(),
+									}
+								: component,
+					),
+				}));
+				throw error;
+			}
+		}
+
+		currentSettlement =
+			(await this.dependencies.orders.getSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+			)) ?? currentSettlement;
+		if (currentSettlement.selfPaySettlementCompletion?.status === "succeeded") {
+			if (!currentSettlement.postPaymentCompletedAt) {
+				await this.updateSettlementContext(order, (current) => ({
+					...current,
+					postPaymentCompletedAt: now.toISOString(),
+				}));
+			}
+			return true;
+		}
+		for (const step of [
+			currentSettlement.selfPayThirdPartyWriteback,
+			currentSettlement.selfPayPaymentNotify,
+			currentSettlement.selfPaySettlementCompletion,
+		]) {
+			if (step && step.status !== "succeeded") return false;
+		}
+
+		const registrationContext = this.registrationSelfPayContext(
+			order,
+			currentSettlement,
+			currentComponent,
+		);
+		const attemptedAt = () => new Date().toISOString();
+		const trace = await writeBackGateway.writeBack(
+			{
+				orderId: currentComponent.componentId,
+				settlement: {
+					orderId: currentComponent.componentId,
+					state: "cash_paid",
+					totalFen: currentComponent.amountFen,
+					insuranceFen: 0,
+					cashFen: currentComponent.amountFen,
+					trace: [],
+				},
+				registrationContext,
+				onThirdPartPayAttempt: async () => {
+					await this.updateSettlementContext(order, (current) => ({
+						...current,
+						selfPayThirdPartyWriteback: {
+							attemptedAt: attemptedAt(),
+							status: "unknown",
+						},
+					}));
+				},
+				onThirdPartPayResponse: async (response) => {
+					await this.updateSettlementContext(order, (current) => ({
+						...current,
+						selfPayThirdPartyWriteback: {
+							attemptedAt:
+								current.selfPayThirdPartyWriteback?.attemptedAt ??
+								attemptedAt(),
+							status: "succeeded",
+							...(response.requestId
+								? { providerRequestId: response.requestId }
+								: {}),
+							providerStatus: "2.27.2.29_success",
+							thirdPartPayRecordId: response.thirdPartPayRecordId,
+							rawResponse: response.rawResponse,
+						},
+					}));
+				},
+				onPaymentNotifyAttempt: async () => {
+					await this.updateSettlementContext(order, (current) => ({
+						...current,
+						selfPayPaymentNotify: {
+							attemptedAt: attemptedAt(),
+							status: "unknown",
+						},
+					}));
+				},
+				onPaymentNotifyResponse: async (response) => {
+					await this.updateSettlementContext(order, (current) => ({
+						...current,
+						selfPayPaymentNotify: {
+							attemptedAt:
+								current.selfPayPaymentNotify?.attemptedAt ?? attemptedAt(),
+							status: "succeeded",
+							providerRequestId: response.requestId,
+							providerStatus: "2.6.65.15_success",
+						},
+					}));
+				},
+				onCompleteSettlementAttempt: async () => {
+					await this.updateSettlementContext(order, (current) => ({
+						...current,
+						selfPaySettlementCompletion: {
+							attemptedAt: attemptedAt(),
+							status: "unknown",
+						},
+					}));
+				},
+			},
+			{
+				...context,
+				idempotencyKey: `medical-self-pay-writeback:${currentComponent.componentId}`,
+			},
+		);
+		await this.updateSettlementContext(order, (current) => ({
+			...current,
+			postPaymentCompletedAt: attemptedAt(),
+			selfPaySettlementCompletion: {
+				attemptedAt:
+					current.selfPaySettlementCompletion?.attemptedAt ?? attemptedAt(),
+				status: "succeeded",
+				providerRequestId: trace.requestId,
+				providerStatus: "completion=1",
+			},
+		}));
+		return true;
+	}
+
+	private async markInsuranceOrderSettled(
+		order: MedicalInsuranceOrder,
+	): Promise<boolean> {
+		const latest = await this.dependencies.orders.findByMedicalOrderId(
+			order.medicalOrderId,
+		);
+		if (!latest) return false;
+		if (latest.status === "insurance_settled") return true;
+		const completed = await this.dependencies.orders.applySettlement(
+			latest.medicalOrderId,
+			latest.version,
+			{
+				status: "insurance_settled",
+				ordStas: latest.ordStas,
+				amounts: latest.amounts,
+				setlType: latest.setlType,
+				revsTokenHash: latest.revsTokenHash,
+				revsTokenExpiresAt: latest.revsTokenExpiresAt,
+				wechatPaymentState: "cash_paid",
+			},
+		);
+		if (completed?.status === "insurance_settled") return true;
+		const refreshed = await this.dependencies.orders.findByMedicalOrderId(
+			latest.medicalOrderId,
+		);
+		if (!refreshed) return false;
+		if (refreshed.status === "insurance_settled") return true;
+		const retried = await this.dependencies.orders.applySettlement(
+			refreshed.medicalOrderId,
+			refreshed.version,
+			{
+				status: "insurance_settled",
+				ordStas: refreshed.ordStas,
+				amounts: refreshed.amounts,
+				setlType: refreshed.setlType,
+				revsTokenHash: refreshed.revsTokenHash,
+				revsTokenExpiresAt: refreshed.revsTokenExpiresAt,
+				wechatPaymentState: "cash_paid",
+			},
+		);
+		return retried?.status === "insurance_settled";
+	}
+
 	private async completePrePaymentComponents(
 		order: MedicalInsuranceOrder,
 		wechatResult: Awaited<
@@ -799,23 +1264,41 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		if (!saved) {
 			throw new Error("medical-insurance-pre-payment-components-missing");
 		}
+		const sequenced = settlement.postPaymentPlanVersion === "sequenced-v1";
 		const combined = saved.some((component) => component.kind === "combined");
 		const planned = expectedPrePaymentComponents({
 			order,
 			insuredAreaCode: settlement.insuredAreaCode,
 			now,
-			mode: combined ? "combined" : "legacy",
+			mode: sequenced ? "sequenced" : combined ? "combined" : "legacy",
 		});
-		// 合单必须精确匹配唯一请求体；历史拆分计划仍只按旧事实安全续跑。
+		// 新两段计划、旧合单必须精确匹配；历史拆分只按既有事实续跑。
 		if (
-			(combined && !samePrePaymentPlan(saved, planned)) ||
-			(!combined &&
+			((sequenced || combined) && !samePrePaymentPlan(saved, planned)) ||
+			(!sequenced &&
+				!combined &&
 				!sameOrCompletedLegacyMiniProgramPrePaymentPlan(saved, planned))
 		) {
 			throw new Error("medical-insurance-pre-payment-plan-changed");
 		}
-		if (saved.some((component) => component.state !== "succeeded")) {
+		const medicalComponent = saved.find(
+			(component) => component.kind === "medical",
+		);
+		if (
+			sequenced
+				? Boolean(medicalComponent && medicalComponent.state !== "succeeded")
+				: saved.some((component) => component.state !== "succeeded")
+		) {
 			throw new Error("medical-insurance-pre-payment-components-incomplete");
+		}
+		if (sequenced && !medicalComponent) {
+			const selfPayCompleted = await this.completeSequencedSelfPay(
+				order,
+				settlement,
+				now,
+				context,
+			);
+			return selfPayCompleted ? this.markInsuranceOrderSettled(order) : false;
 		}
 
 		settlement =
@@ -823,7 +1306,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				order.ownerUserId,
 				order.medicalOrderId,
 			)) ?? settlement;
-		if (!settlement.postPaymentCompletedAt) {
+		if (!sequenced && !settlement.postPaymentCompletedAt) {
 			settlement = {
 				...settlement,
 				postPaymentCompletedAt: now.toISOString(),
@@ -835,9 +1318,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 		}
 
-		// cashPaymentConfirmed=true 进入 legacy FSI 最终确认：先调用 2.27.2.32
-		// 回写医保支付结果；合单只会执行一次 `.32` 和一次门诊 `.5`。
-		// 发布前的拆分计划仍按已持久化的历史事实续跑。
+		// cashPaymentConfirmed=true 只完成第一段医保 `.32 -> .5`。新两段计划
+		// 必须等它成功后，才创建 5031 自费 `.2` 并进入 `.29 -> .15 -> .5`；
+		// 发布前的 combined/拆分计划仍按已持久化事实续跑。
 		let completion: MedicalInsuranceSettlementEvidence | undefined;
 		let completionError: unknown;
 		try {
@@ -860,10 +1343,10 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				order.ownerUserId,
 				order.medicalOrderId,
 			);
-		const writebackSucceeded = successfulSettlementWriteback(
-			settlementAfterFinalize,
-			order,
-		);
+		const writebackSucceeded = sequenced
+			? settlementAfterFinalize?.settlementWriteback?.status === "succeeded" &&
+				settlementAfterFinalize.settlementCompletion?.status === "succeeded"
+			: successfulSettlementWriteback(settlementAfterFinalize, order);
 		const completionAccepted = Boolean(
 			completion &&
 				completion.state === "insurance_settled" &&
@@ -871,6 +1354,19 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				completion.authoritative &&
 				sameAmounts(order, completion),
 		);
+		// 新串行流程只能以已经持久化成功的 `.32` 和医保 `.5` 作为进入
+		// 自费腿的门禁。查询返回 paid 只说明支付终态，绝不能替代 HIS
+		// 回写成功事实，否则会在医保 `.5` 失败后错误创建第二笔自费 `.2`。
+		if (sequenced && !writebackSucceeded) {
+			const nonReplayableWritebackBlocked = [
+				settlementAfterFinalize?.settlementWriteback?.status,
+				settlementAfterFinalize?.settlementCompletion?.status,
+			].some((status) => status === "failed" || status === "unknown");
+			if (completionError && !nonReplayableWritebackBlocked) {
+				throw completionError;
+			}
+			return false;
+		}
 		if (completionError && !writebackSucceeded) throw completionError;
 		if (!completionAccepted && !writebackSucceeded) return false;
 		if (writebackSucceeded && !completionAccepted) {
@@ -885,48 +1381,16 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				"Medical insurance .32 writeback succeeded; treating payment as settled",
 			);
 		}
-		const latest = await this.dependencies.orders.findByMedicalOrderId(
-			order.medicalOrderId,
-		);
-		if (!latest) return false;
-		if (latest.status === "insurance_settled") return true;
-		const completed = await this.dependencies.orders.applySettlement(
-			latest.medicalOrderId,
-			latest.version,
-			{
-				status: "insurance_settled",
-				// ord_stas 是 VARCHAR(8)，只保存 6202/6301 的短状态快照；
-				// .32/.5 的完整诊断值留在 settlement context 中。
-				ordStas: latest.ordStas,
-				amounts: latest.amounts,
-				setlType: latest.setlType,
-				revsTokenHash: latest.revsTokenHash,
-				revsTokenExpiresAt: latest.revsTokenExpiresAt,
-				wechatPaymentState: "cash_paid",
-			},
-		);
-		if (completed?.status === "insurance_settled") return true;
-		// API 通知或另一轮 Worker 可能在完成 HIS 回写期间先推进了版本；
-		// 重新读取一次，避免已确认订单继续停在 pending。
-		const refreshed = await this.dependencies.orders.findByMedicalOrderId(
-			latest.medicalOrderId,
-		);
-		if (!refreshed) return false;
-		if (refreshed.status === "insurance_settled") return true;
-		const retried = await this.dependencies.orders.applySettlement(
-			refreshed.medicalOrderId,
-			refreshed.version,
-			{
-				status: "insurance_settled",
-				ordStas: refreshed.ordStas,
-				amounts: refreshed.amounts,
-				setlType: refreshed.setlType,
-				revsTokenHash: refreshed.revsTokenHash,
-				revsTokenExpiresAt: refreshed.revsTokenExpiresAt,
-				wechatPaymentState: "cash_paid",
-			},
-		);
-		return retried?.status === "insurance_settled";
+		if (sequenced) {
+			const selfPayCompleted = await this.completeSequencedSelfPay(
+				order,
+				settlementAfterFinalize ?? settlement,
+				now,
+				context,
+			);
+			if (!selfPayCompleted) return false;
+		}
+		return this.markInsuranceOrderSettled(order);
 	}
 
 	private async reconcileWechatMixedOrder(
@@ -1039,7 +1503,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			if (
 				this.dependencies.postPayment &&
 				settlementBeforeQuery?.insuredAreaCode &&
-				settlementBeforeQuery.businessCode
+				settlementBeforeQuery.businessCode &&
+				settlementBeforeQuery.postPaymentComponents?.length
 			) {
 				hisCompleted = await this.completePrePaymentComponents(
 					updated,
@@ -1113,6 +1578,10 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				settlementAfterCompletion?.settlementCompletion?.status;
 			const selfPayCompletionStatus =
 				settlementAfterCompletion?.selfPaySettlementCompletion?.status;
+			const selfPayThirdPartyStatus =
+				settlementAfterCompletion?.selfPayThirdPartyWriteback?.status;
+			const selfPayPaymentNotifyStatus =
+				settlementAfterCompletion?.selfPayPaymentNotify?.status;
 			// `.32` 和 `.5` 都是不可重放的 HIS 写入；任一已经失败或结果未知，
 			// 后续查单只能进入人工核验，不能再次向 Provider 发起请求。
 			hisWritebackBlocked =
@@ -1120,6 +1589,10 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				writebackStatus === "unknown" ||
 				selfPayWritebackStatus === "failed" ||
 				selfPayWritebackStatus === "unknown" ||
+				selfPayThirdPartyStatus === "failed" ||
+				selfPayThirdPartyStatus === "unknown" ||
+				selfPayPaymentNotifyStatus === "failed" ||
+				selfPayPaymentNotifyStatus === "unknown" ||
 				completionStatus === "failed" ||
 				completionStatus === "unknown" ||
 				selfPayCompletionStatus === "failed" ||
@@ -1251,17 +1724,24 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			if (
 				order.status === "cash_pending" &&
 				!order.wechatMixTradeNo &&
-				order.wechatOutTradeNo &&
-				this.dependencies.wechatCashPayment
-			) {
-				return await this.reconcileOwnWechatOrder(task, order, now, context);
-			}
-			if (
-				order.status === "cash_pending" &&
-				order.wechatPaymentState === "unknown" &&
 				order.wechatOutTradeNo
 			) {
-				return await this.recoverWechatMixedOrder(task, order, now, context);
+				const paymentSettlement =
+					await this.dependencies.orders.getSettlementContext(
+						order.ownerUserId,
+						order.medicalOrderId,
+					);
+				if (paymentSettlement?.postPaymentPlanVersion === "sequenced-v1") {
+					// 新计划的 out_trade_no 属于官方医保混合订单恢复键。即使普通
+					// 微信 gateway 同时存在，也绝不能把它送入 JSAPI 单独查单。
+					return await this.recoverWechatMixedOrder(task, order, now, context);
+				}
+				if (this.dependencies.wechatCashPayment) {
+					return await this.reconcileOwnWechatOrder(task, order, now, context);
+				}
+				if (order.wechatPaymentState === "unknown") {
+					return await this.recoverWechatMixedOrder(task, order, now, context);
+				}
 			}
 			if (order.status === "cash_pending") {
 				await this.updateTask(task, now, {

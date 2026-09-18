@@ -571,6 +571,23 @@ function deserializeMedicalInsuranceSettlementContext(
 			? (parsed as { selfPaySettlementWriteback: unknown })
 					.selfPaySettlementWriteback
 			: undefined;
+	const selfPayThirdPartyWriteback =
+		typeof parsed === "object" &&
+		parsed !== null &&
+		!Array.isArray(parsed) &&
+		(parsed as { selfPayThirdPartyWriteback?: unknown })
+			.selfPayThirdPartyWriteback !== undefined
+			? (parsed as { selfPayThirdPartyWriteback: unknown })
+					.selfPayThirdPartyWriteback
+			: undefined;
+	const selfPayPaymentNotify =
+		typeof parsed === "object" &&
+		parsed !== null &&
+		!Array.isArray(parsed) &&
+		(parsed as { selfPayPaymentNotify?: unknown }).selfPayPaymentNotify !==
+			undefined
+			? (parsed as { selfPayPaymentNotify: unknown }).selfPayPaymentNotify
+			: undefined;
 	const settlementCompletion =
 		typeof parsed === "object" &&
 		parsed !== null &&
@@ -616,6 +633,47 @@ function deserializeMedicalInsuranceSettlementContext(
 		)
 			return true;
 		const value = selfPaySettlementWriteback as Record<string, unknown>;
+		return (
+			typeof value.attemptedAt !== "string" ||
+			!value.attemptedAt.trim() ||
+			!new Set(["succeeded", "failed", "unknown"]).has(String(value.status)) ||
+			(value.providerRequestId !== undefined &&
+				typeof value.providerRequestId !== "string") ||
+			(value.providerStatus !== undefined &&
+				typeof value.providerStatus !== "string")
+		);
+	})();
+	const invalidSelfPayThirdPartyWriteback = (() => {
+		if (selfPayThirdPartyWriteback === undefined) return false;
+		if (
+			!selfPayThirdPartyWriteback ||
+			typeof selfPayThirdPartyWriteback !== "object" ||
+			Array.isArray(selfPayThirdPartyWriteback)
+		)
+			return true;
+		const value = selfPayThirdPartyWriteback as Record<string, unknown>;
+		return (
+			typeof value.attemptedAt !== "string" ||
+			!value.attemptedAt.trim() ||
+			!new Set(["succeeded", "failed", "unknown"]).has(String(value.status)) ||
+			(value.providerRequestId !== undefined &&
+				typeof value.providerRequestId !== "string") ||
+			(value.providerStatus !== undefined &&
+				typeof value.providerStatus !== "string") ||
+			(value.thirdPartPayRecordId !== undefined &&
+				typeof value.thirdPartPayRecordId !== "string") ||
+			(value.rawResponse !== undefined && typeof value.rawResponse !== "string")
+		);
+	})();
+	const invalidSelfPayPaymentNotify = (() => {
+		if (selfPayPaymentNotify === undefined) return false;
+		if (
+			!selfPayPaymentNotify ||
+			typeof selfPayPaymentNotify !== "object" ||
+			Array.isArray(selfPayPaymentNotify)
+		)
+			return true;
+		const value = selfPayPaymentNotify as Record<string, unknown>;
 		return (
 			typeof value.attemptedAt !== "string" ||
 			!value.attemptedAt.trim() ||
@@ -714,40 +772,48 @@ function deserializeMedicalInsuranceSettlementContext(
 					return true;
 				const value = component as Record<string, unknown>;
 				const payTypeParams = value.payTypeParams;
-				const invalidPayTypeParams =
-					value.kind === "combined"
-						? !Array.isArray(payTypeParams) ||
-							payTypeParams.length === 0 ||
-							value.payModel !== "H5" ||
-							value.payTypeId !== "2" ||
-							Number(value.amountFen) !== Number(value.totalFen) ||
-							payTypeParams.some((item) => {
-								if (!item || typeof item !== "object" || Array.isArray(item))
-									return true;
-								const parameter = item as Record<string, unknown>;
-								return (
-									![
-										"hospital_reduce",
-										"fund",
-										"personal_account",
-										"wechat_cash",
-									].includes(String(parameter.kind)) ||
-									!["2", "5", "50", "5031"].includes(
-										String(parameter.payTypeId),
-									) ||
-									!Number.isSafeInteger(parameter.amountFen) ||
-									Number(parameter.amountFen) <= 0
-								);
-							}) ||
-							payTypeParams.reduce(
-								(sum, item) =>
-									sum + Number((item as Record<string, unknown>).amountFen),
-								0,
-							) !== Number(value.totalFen)
-						: payTypeParams !== undefined;
+				const grouped = value.kind === "combined" || value.kind === "medical";
+				const invalidPayTypeParams = grouped
+					? !Array.isArray(payTypeParams) ||
+						payTypeParams.length === 0 ||
+						value.payModel !== "H5" ||
+						value.payTypeId !== "2" ||
+						payTypeParams.some((item) => {
+							if (!item || typeof item !== "object" || Array.isArray(item))
+								return true;
+							const parameter = item as Record<string, unknown>;
+							return (
+								![
+									"hospital_reduce",
+									"fund",
+									"personal_account",
+									"wechat_cash",
+								].includes(String(parameter.kind)) ||
+								!["2", "5", "50", "5031"].includes(
+									String(parameter.payTypeId),
+								) ||
+								(value.kind === "medical" &&
+									(parameter.kind === "wechat_cash" ||
+										parameter.payTypeId === "5031")) ||
+								!Number.isSafeInteger(parameter.amountFen) ||
+								Number(parameter.amountFen) <= 0
+							);
+						}) ||
+						payTypeParams.reduce(
+							(sum, item) =>
+								sum + Number((item as Record<string, unknown>).amountFen),
+							0,
+						) !==
+							(value.kind === "combined"
+								? Number(value.totalFen)
+								: Number(value.amountFen)) ||
+						(value.kind === "combined" &&
+							Number(value.amountFen) !== Number(value.totalFen))
+					: payTypeParams !== undefined;
 				return (
 					![
 						"combined",
+						"medical",
 						"hospital_reduce",
 						"fund",
 						"personal_account",
@@ -808,6 +874,10 @@ function deserializeMedicalInsuranceSettlementContext(
 			undefined &&
 			typeof (parsed as { postPaymentCompletedAt?: unknown })
 				.postPaymentCompletedAt !== "string") ||
+		((parsed as { postPaymentPlanVersion?: unknown }).postPaymentPlanVersion !==
+			undefined &&
+			(parsed as { postPaymentPlanVersion?: unknown })
+				.postPaymentPlanVersion !== "sequenced-v1") ||
 		((parsed as { settlementDetailsFetchedAt?: unknown })
 			.settlementDetailsFetchedAt !== undefined &&
 			typeof (parsed as { settlementDetailsFetchedAt?: unknown })
@@ -819,6 +889,8 @@ function deserializeMedicalInsuranceSettlementContext(
 		invalidSettlementQuery6301 ||
 		invalidSettlementWriteback ||
 		invalidSelfPaySettlementWriteback ||
+		invalidSelfPayThirdPartyWriteback ||
+		invalidSelfPayPaymentNotify ||
 		invalidSettlementCompletion ||
 		invalidSelfPaySettlementCompletion ||
 		invalidPostPaymentComponents ||
@@ -5047,12 +5119,14 @@ export function createMySqlRepositories(
 						version, next_attempt_at, claimed_until, terminal_ord_stas,
 						last_error_code, created_at, updated_at
 					 FROM hp_medical_insurance_query_tasks
-					 WHERE status = 'pending'
-					   AND next_attempt_at <= ?
-					   AND (claimed_until IS NULL OR claimed_until <= ?)
+					 WHERE (
+						(status = 'pending' AND next_attempt_at <= ?
+						 AND (claimed_until IS NULL OR claimed_until <= ?))
+						OR (status = 'in_progress' AND claimed_until <= ?)
+					 )
 					 ORDER BY next_attempt_at ASC, task_id ASC
 					 LIMIT ${boundedLimit} FOR UPDATE`,
-					[nowValue, nowValue],
+					[nowValue, nowValue, nowValue],
 				);
 				const claimed: MedicalInsuranceQueryTask[] = [];
 				for (const row of rows) {
@@ -5066,8 +5140,8 @@ export function createMySqlRepositories(
 						`UPDATE hp_medical_insurance_query_tasks
 						 SET status = 'in_progress', claimed_until = ?,
 						     version = version + 1, updated_at = ?
-						 WHERE task_id = ? AND status = 'pending' AND version = ?`,
-						[leaseUntil, nowValue, row.task_id, currentVersion],
+						 WHERE task_id = ? AND status = ? AND version = ?`,
+						[leaseUntil, nowValue, row.task_id, row.status, currentVersion],
 					);
 					if (result.affectedRows !== 1) continue;
 					claimed.push(

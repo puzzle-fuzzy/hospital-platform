@@ -76,7 +76,8 @@ function sameReference(
 		integerText(input.patId, "patId") === context.patientId &&
 		integerText(input.payingId, "payingId") === context.payingId &&
 		integerText(input.payTypeId, "payTypeId") === context.payTypeId &&
-		requiredText(input.tradeType, "tradeType", 32) === "10" &&
+		requiredText(input.tradeType, "tradeType", 32) ===
+			(context.tradeTypeCode ?? "10") &&
 		(input.hospitalId === undefined ||
 			integerText(input.hospitalId, "hospitalId") === context.hospitalId)
 	);
@@ -228,7 +229,8 @@ export class YunhealthPaymentQueryService {
 						medical.component.payingId &&
 					integerText(input.payTypeId, "payTypeId") ===
 						medical.component.payTypeId &&
-					requiredText(input.tradeType, "tradeType", 32) === "10" &&
+					requiredText(input.tradeType, "tradeType", 32) ===
+						(medical.order.businessType === "outpatient" ? "2" : "10") &&
 					(input.hospitalId === undefined ||
 						integerText(input.hospitalId, "hospitalId") ===
 							medical.context.hospitalId);

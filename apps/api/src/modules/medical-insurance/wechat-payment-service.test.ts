@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
-import type {
-	MedicalInsuranceOrder,
-	MedicalInsuranceQueryTask,
-	MedicalInsuranceWechatPaymentGateway,
-	WechatPaymentNotification,
-	WechatPaymentGateway,
+import {
+	DependencyNotConfiguredError,
+	type MedicalInsuranceOrder,
+	type MedicalInsuranceQueryTask,
+	type MedicalInsuranceWechatPaymentGateway,
+	type WechatPaymentGateway,
+	type WechatPaymentNotification,
 } from "@hospital/domain";
 import { type AppLogger, createLogger } from "@hospital/observability";
 import {
@@ -88,7 +89,7 @@ function makeService(
 	});
 }
 
-test("新医保订单的微信自费使用普通 APIv3/RSA 下单并在查单后进入统一后置确认", async () => {
+test("发布前旧计划医保订单沿用普通 APIv3/RSA 下单并在查单后进入统一后置确认", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -111,6 +112,8 @@ test("新医保订单的微信自费使用普通 APIv3/RSA 下单并在查单后
 		nationalUpDetailList: [],
 		upDetailList: [],
 		tradeOrderIds: [],
+		payingId: "legacy-paying-own-001",
+		tradingId: "legacy-trading-own-001",
 	});
 	const authorizations =
 		createInMemoryMedicalInsuranceAuthorizationRepository();
@@ -238,6 +241,271 @@ test("新医保订单的微信自费使用普通 APIv3/RSA 下单并在查单后
 		paymentState: "cash_paid",
 		cashFen: 200,
 	});
+});
+
+test("已有普通 out_trade_no 的 unknown/cash_paid 订单只查原普通单且不调用 bridge", async () => {
+	const ordinaryQueryOrderIds: string[] = [];
+	let ordinaryCreateCalls = 0;
+	let bridgeCalls = 0;
+	let officialMixedCreateCalls = 0;
+	let officialMixedQueryCalls = 0;
+
+	for (const paymentState of ["unknown", "cash_paid"] as const) {
+		const orderId = `wechat-historical-${paymentState}`;
+		const ownerUserId = `user-historical-${paymentState}`;
+		const outTradeNo = `out-historical-${paymentState}`;
+		const orders = createInMemoryMedicalInsuranceOrderRepository();
+		await orders.insert(
+			order({
+				medicalOrderId: orderId,
+				ownerUserId,
+				wechatMixTradeNo: null,
+				wechatOutTradeNo: outTradeNo,
+				wechatPaymentState: paymentState,
+				wechatPayParams: null,
+			}),
+		);
+		const service = new MedicalInsuranceWechatPaymentService({
+			orders,
+			queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
+			authorizations: {} as never,
+			identityUsers: {} as never,
+			patients: {} as never,
+			wechatPayment: {
+				createMixedOrder: async () => {
+					officialMixedCreateCalls += 1;
+					throw new Error(
+						"historical ordinary order must not create a mixed order",
+					);
+				},
+				queryMixedOrder: async () => {
+					officialMixedQueryCalls += 1;
+					throw new Error(
+						"historical ordinary order must not query a mixed order",
+					);
+				},
+			} as never,
+			wechatCashPayment: {
+				createJsapiOrder: async () => {
+					ordinaryCreateCalls += 1;
+					throw new Error("historical ordinary order must not be recreated");
+				},
+				query: async (input) => {
+					ordinaryQueryOrderIds.push(input.orderId);
+					return {
+						state: "cash_pending",
+						totalFen: 200,
+						trace: {
+							provider: "wechat-pay",
+							operation: "order-query",
+							requestId: `query-${paymentState}`,
+						},
+					};
+				},
+				close: async () => {
+					throw new Error("historical ordinary order must not be closed");
+				},
+			} as WechatPaymentGateway,
+			confirmCashPayment: async () => {
+				throw new Error("pending historical order must not be confirmed");
+			},
+			pluginPaymentBridge: {
+				prepareSplitPaymentsBeforeOfficialWechatPayment: async () => {
+					bridgeCalls += 1;
+					throw new Error("historical ordinary order must not be migrated");
+				},
+			} as never,
+			now: () => new Date(now),
+		});
+
+		await service.create({
+			ownerUserId,
+			orderId,
+			context: {
+				traceId: `trace-${paymentState}`,
+				idempotencyKey: `request-${paymentState}`,
+			},
+		});
+	}
+
+	expect(ordinaryQueryOrderIds).toEqual([
+		"out-historical-unknown",
+		"out-historical-cash_paid",
+	]);
+	expect(ordinaryCreateCalls).toBe(0);
+	expect(bridgeCalls).toBe(0);
+	expect(officialMixedCreateCalls).toBe(0);
+	expect(officialMixedQueryCalls).toBe(0);
+});
+
+test("已有 sequenced-v1 计划但缺少 bridge 时 fail-closed 且不调用普通网关", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "wechat-sequenced-no-bridge-001",
+			ownerUserId: "user-sequenced-no-bridge-001",
+			wechatMixTradeNo: null,
+			wechatOutTradeNo: null,
+			wechatPaymentState: "not_started",
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-sequenced-no-bridge-001",
+		"wechat-sequenced-no-bridge-001",
+		{
+			businessId: "business-sequenced-no-bridge-001",
+			businessCode: "registration-sequenced-no-bridge-001",
+			hospitalId: "10389001",
+			patientId: "provider-sequenced-no-bridge-001",
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: [],
+			postPaymentPlanVersion: "sequenced-v1",
+		},
+	);
+	let ordinaryCreateCalls = 0;
+	let ordinaryQueryCalls = 0;
+	let officialMixedCreateCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: {} as never,
+		wechatPayment: {
+			createMixedOrder: async () => {
+				officialMixedCreateCalls += 1;
+				throw new Error("missing bridge must fail before official create");
+			},
+		} as never,
+		wechatCashPayment: {
+			createJsapiOrder: async () => {
+				ordinaryCreateCalls += 1;
+				throw new Error("sequenced-v1 must not downgrade to ordinary create");
+			},
+			query: async () => {
+				ordinaryQueryCalls += 1;
+				throw new Error("sequenced-v1 must not downgrade to ordinary query");
+			},
+			close: async () => {
+				throw new Error("sequenced-v1 must not close an ordinary order");
+			},
+		} as WechatPaymentGateway,
+		confirmCashPayment: async () => {
+			throw new Error("missing bridge must fail before HIS confirmation");
+		},
+		now: () => new Date(now),
+	});
+
+	await expect(
+		service.create({
+			ownerUserId: "user-sequenced-no-bridge-001",
+			orderId: "wechat-sequenced-no-bridge-001",
+			context: {
+				traceId: "trace-sequenced-no-bridge-001",
+				idempotencyKey: "request-sequenced-no-bridge-001",
+			},
+		}),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+	expect(ordinaryCreateCalls).toBe(0);
+	expect(ordinaryQueryCalls).toBe(0);
+	expect(officialMixedCreateCalls).toBe(0);
+});
+
+test("sequenced-v1 已有 out_trade_no 但缺少 mix_trade_no 时查单只唤醒官方恢复任务", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "wechat-sequenced-recovery-001",
+			ownerUserId: "user-sequenced-recovery-001",
+			wechatMixTradeNo: null,
+			wechatOutTradeNo: "out-sequenced-recovery-001",
+			wechatPaymentState: "unknown",
+			wechatPayParams: null,
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-sequenced-recovery-001",
+		"wechat-sequenced-recovery-001",
+		{
+			businessId: "business-sequenced-recovery-001",
+			businessCode: "registration-sequenced-recovery-001",
+			hospitalId: "10389001",
+			patientId: "provider-sequenced-recovery-001",
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: [],
+			postPaymentPlanVersion: "sequenced-v1",
+		},
+	);
+	const queryTasks = createInMemoryMedicalInsuranceQueryTaskRepository();
+	let ordinaryCreateCalls = 0;
+	let ordinaryQueryCalls = 0;
+	let officialMixedQueryCalls = 0;
+	let bridgeCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks,
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		patients: {} as never,
+		wechatPayment: {
+			queryMixedOrder: async () => {
+				officialMixedQueryCalls += 1;
+				throw new Error("API query must leave official recovery to the Worker");
+			},
+		} as never,
+		wechatCashPayment: {
+			createJsapiOrder: async () => {
+				ordinaryCreateCalls += 1;
+				throw new Error("recovery query must not create an ordinary order");
+			},
+			query: async () => {
+				ordinaryQueryCalls += 1;
+				throw new Error("recovery query must not query an ordinary order");
+			},
+			close: async () => {
+				throw new Error("recovery query must not close an ordinary order");
+			},
+		} as WechatPaymentGateway,
+		confirmCashPayment: async () => {
+			throw new Error("recovery query must not confirm HIS");
+		},
+		pluginPaymentBridge: {
+			prepareSplitPaymentsBeforeOfficialWechatPayment: async () => {
+				bridgeCalls += 1;
+				throw new Error(
+					"query recovery must not recreate Provider pre-payment",
+				);
+			},
+		} as never,
+		now: () => new Date(now),
+	});
+
+	await expect(
+		service.query({
+			ownerUserId: "user-sequenced-recovery-001",
+			orderId: "wechat-sequenced-recovery-001",
+			context: {
+				traceId: "trace-sequenced-recovery-001",
+				idempotencyKey: "request-sequenced-recovery-001",
+			},
+		}),
+	).resolves.toMatchObject({
+		status: "cash_pending",
+		paymentState: "unknown",
+	});
+	expect(ordinaryCreateCalls).toBe(0);
+	expect(ordinaryQueryCalls).toBe(0);
+	expect(officialMixedQueryCalls).toBe(0);
+	expect(bridgeCalls).toBe(0);
+	expect(
+		await queryTasks.claimDueForQuery(new Date(now), 1, 60_000),
+	).toHaveLength(1);
 });
 
 test("医院负担不掩盖已过期的微信现金预支付", async () => {
@@ -373,6 +641,9 @@ test("6202纯医保且关系为空时按本人创建官方INSURANCE_ONLY订单",
 	let createInput:
 		| Parameters<MedicalInsuranceWechatPaymentGateway["createMixedOrder"]>[0]
 		| undefined;
+	let officialMixedCreateCalls = 0;
+	let ordinaryCashCreateCalls = 0;
+	let ordinaryCashQueryCalls = 0;
 	const service = new MedicalInsuranceWechatPaymentService({
 		orders,
 		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
@@ -390,6 +661,7 @@ test("6202纯医保且关系为空时按本人创建官方INSURANCE_ONLY订单",
 					MedicalInsuranceWechatPaymentGateway["createMixedOrder"]
 				>[0],
 			) => {
+				officialMixedCreateCalls += 1;
 				createInput = input;
 				return {
 					mixTradeNo: "mix-pure-001",
@@ -403,9 +675,45 @@ test("6202纯医保且关系为空时按本人创建官方INSURANCE_ONLY订单",
 				};
 			},
 		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		wechatCashPayment: {
+			createJsapiOrder: async () => {
+				ordinaryCashCreateCalls += 1;
+				throw new Error(
+					"INSURANCE_ONLY must not create an ordinary JSAPI order",
+				);
+			},
+			query: async () => {
+				ordinaryCashQueryCalls += 1;
+				throw new Error(
+					"INSURANCE_ONLY must not query an ordinary JSAPI order",
+				);
+			},
+			close: async () => {
+				throw new Error(
+					"INSURANCE_ONLY must not close an ordinary JSAPI order",
+				);
+			},
+		} as WechatPaymentGateway,
 		confirmCashPayment: async () => {
 			throw new Error("payment creation must not finalize HIS");
 		},
+		pluginPaymentBridge: {
+			prepareSplitPaymentsBeforeOfficialWechatPayment: async (input: {
+				ownerUserId: string;
+				orderId: string;
+			}) => {
+				const current = await orders.getSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+				);
+				if (!current) throw new Error("settlement fixture is missing");
+				await orders.saveSettlementContext(input.ownerUserId, input.orderId, {
+					...current,
+					postPaymentPlanVersion: "sequenced-v1",
+				});
+				return {};
+			},
+		} as never,
 		now: () => new Date(now),
 	});
 
@@ -418,6 +726,15 @@ test("6202纯医保且关系为空时按本人创建官方INSURANCE_ONLY订单",
 		},
 	});
 
+	expect(officialMixedCreateCalls).toBe(1);
+	expect(ordinaryCashCreateCalls).toBe(0);
+	expect(ordinaryCashQueryCalls).toBe(0);
+	expect(
+		await orders.getSettlementContext(
+			"user-wechat-query-001",
+			"wechat-query-001",
+		),
+	).toMatchObject({ postPaymentPlanVersion: "sequenced-v1" });
 	expect(createInput).toMatchObject({
 		orderType: "RegPay",
 		amounts: { cashFen: 0 },
@@ -724,8 +1041,6 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 			nationalUpDetailList: [],
 			upDetailList: [],
 			tradeOrderIds: [],
-			payingId: "paying-relative-001",
-			tradingId: "trading-relative-001",
 		},
 	);
 	const authorizations =
@@ -774,6 +1089,9 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 	let paymentIdentity: unknown;
 	const recoverFirstValues: Array<boolean | undefined> = [];
 	const paymentSequence: string[] = [];
+	let officialMixedCreateCalls = 0;
+	let ordinaryCashCreateCalls = 0;
+	let ordinaryCashQueryCalls = 0;
 	const service = new MedicalInsuranceWechatPaymentService({
 		orders,
 		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
@@ -814,6 +1132,7 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 					MedicalInsuranceWechatPaymentGateway["createMixedOrder"]
 				>[0],
 			) => {
+				officialMixedCreateCalls += 1;
 				paymentSequence.push("wechat-medical-mix");
 				paymentIdentity = input.paymentIdentity;
 				recoverFirstValues.push(input.recoverFirst);
@@ -837,12 +1156,37 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 				};
 			},
 		} as unknown as MedicalInsuranceWechatPaymentGateway,
+		wechatCashPayment: {
+			createJsapiOrder: async () => {
+				ordinaryCashCreateCalls += 1;
+				throw new Error("sequenced-v1 must not create an ordinary JSAPI order");
+			},
+			query: async () => {
+				ordinaryCashQueryCalls += 1;
+				throw new Error("sequenced-v1 must not query an ordinary JSAPI order");
+			},
+			close: async () => {
+				throw new Error("sequenced-v1 must not close an ordinary JSAPI order");
+			},
+		} as WechatPaymentGateway,
 		confirmCashPayment: async () => {
 			throw new Error("payment creation must not complete HIS");
 		},
 		pluginPaymentBridge: {
-			prepareSplitPaymentsBeforeOfficialWechatPayment: async () => {
+			prepareSplitPaymentsBeforeOfficialWechatPayment: async (input: {
+				ownerUserId: string;
+				orderId: string;
+			}) => {
 				paymentSequence.push("yunhealth-2.6.65.2");
+				const current = await orders.getSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+				);
+				if (!current) throw new Error("settlement fixture is missing");
+				await orders.saveSettlementContext(input.ownerUserId, input.orderId, {
+					...current,
+					postPaymentPlanVersion: "sequenced-v1",
+				});
 				return {};
 			},
 		} as never,
@@ -857,6 +1201,15 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 			idempotencyKey: "relative-payment-request-001",
 		},
 	});
+	expect(officialMixedCreateCalls).toBe(1);
+	expect(ordinaryCashCreateCalls).toBe(0);
+	expect(ordinaryCashQueryCalls).toBe(0);
+	expect(
+		await orders.getSettlementContext(
+			"user-wechat-query-001",
+			"wechat-query-001",
+		),
+	).toMatchObject({ postPaymentPlanVersion: "sequenced-v1" });
 	expect(paymentIdentity).toEqual({
 		payForRelatives: true,
 		payer: {
@@ -952,6 +1305,9 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		wechatPayParams: null,
 		wechatPrepayExpiresAt: "2026-09-08T07:59:59.000Z",
 	});
+	expect(officialMixedCreateCalls).toBe(3);
+	expect(ordinaryCashCreateCalls).toBe(0);
+	expect(ordinaryCashQueryCalls).toBe(0);
 });
 
 test("云健康混合查单只唤醒 Worker，不在 API 内并发查 Provider 或回写 HIS", async () => {

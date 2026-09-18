@@ -1155,3 +1155,44 @@ test("in-memory medical insurance query tasks use a lease and version CAS", asyn
 	);
 	expect(await tasks.claimDueForQuery(now, 1, 60_000)).toEqual([]);
 });
+
+test("in-memory medical insurance query tasks reclaim an expired in-progress lease", async () => {
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([
+		{
+			taskId: "medical-query-task-expired-001",
+			medicalOrderId: "medical-order-expired-001",
+			status: "in_progress",
+			version: 4,
+			attempts: 2,
+			maxAttempts: 12,
+			nextAttemptAt: "2026-09-03T00:00:00.000Z",
+			claimedUntil: "2026-09-03T00:04:59.999Z",
+			terminalOrdStas: null,
+			lastErrorCode: "provider-query-failed",
+			createdAt: "2026-09-03T00:00:00.000Z",
+			updatedAt: "2026-09-03T00:00:00.000Z",
+		},
+	]);
+
+	await expect(
+		tasks.claimDueForQuery(new Date("2026-09-03T00:05:00.000Z"), 1, 5 * 60_000),
+	).resolves.toEqual([
+		{
+			taskId: "medical-query-task-expired-001",
+			medicalOrderId: "medical-order-expired-001",
+			status: "in_progress",
+			version: 5,
+			attempts: 2,
+			maxAttempts: 12,
+			nextAttemptAt: "2026-09-03T00:00:00.000Z",
+			claimedUntil: "2026-09-03T00:10:00.000Z",
+			terminalOrdStas: null,
+			lastErrorCode: "provider-query-failed",
+			createdAt: "2026-09-03T00:00:00.000Z",
+			updatedAt: "2026-09-03T00:05:00.000Z",
+		},
+	]);
+	await expect(
+		tasks.claimDueForQuery(new Date("2026-09-03T00:09:59.999Z"), 1, 5 * 60_000),
+	).resolves.toEqual([]);
+});

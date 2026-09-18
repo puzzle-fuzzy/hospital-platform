@@ -96,17 +96,24 @@ function serviceWith(input: {
 	});
 }
 
-test("医保支付在微信前只创建一个合单 .65.2，重试不重复", async () => {
+test("医保支付在微信前只创建 medical .65.2，自费 5031 保持 pending", async () => {
 	let currentSettlement: Record<string, unknown> = {
 		...settlement(),
 		insuredAreaCode: "140500",
 	};
 	const calls: Array<{
 		totalFen: number;
+		amountFen?: number;
 		payModel: string;
 		payTypeId: string;
 		payTypeParams?: readonly { payTypeId: string; amountFen: number }[];
 		tradeTypeCode: string;
+	}> = [];
+	const queryReferences: Array<{
+		ownerUserId: string;
+		medicalOrderId: string;
+		componentId: string;
+		recordCode: string;
 	}> = [];
 	const service = new MedicalInsurancePluginPaymentService({
 		orders: {
@@ -121,6 +128,11 @@ test("医保支付在微信前只创建一个合单 .65.2，重试不重复", as
 				value: unknown,
 			) => {
 				currentSettlement = value as Record<string, unknown>;
+			},
+			saveYunhealthPaymentQueryReference: async (
+				reference: (typeof queryReferences)[number],
+			) => {
+				queryReferences.push(reference);
 			},
 		} as never,
 		authorizations: { get: async () => ({}) } as never,
@@ -171,19 +183,41 @@ test("医保支付在微信前只创建一个合单 .65.2，重试不重复", as
 	expect(calls).toHaveLength(1);
 	expect(calls[0]).toMatchObject({
 		totalFen: 1000,
+		amountFen: 800,
 		payModel: "H5",
 		payTypeId: "2",
 		tradeTypeCode: "2",
 		payTypeParams: [
 			{ payTypeId: "2", amountFen: 500 },
 			{ payTypeId: "5", amountFen: 300 },
-			{ payTypeId: "5031", amountFen: 200 },
 		],
 	});
+	expect(
+		calls[0]?.payTypeParams?.some(
+			(parameter) => parameter.payTypeId === "5031",
+		),
+	).toBeFalse();
+	const components = currentSettlement.postPaymentComponents as Array<{
+		componentId: string;
+		kind: string;
+		recordCode: string;
+		state: string;
+		attempts: number;
+		payTypeParams?: readonly { payTypeId: string; amountFen: number }[];
+	}>;
+	const medicalComponent = components.find(
+		(component) => component.kind === "medical",
+	);
+	if (!medicalComponent) {
+		throw new Error("expected medical post-payment component");
+	}
+	expect(currentSettlement.postPaymentPlanVersion).toBe("sequenced-v1");
+	expect(components).toHaveLength(2);
 	expect(currentSettlement.postPaymentComponents).toMatchObject([
 		{
-			kind: "combined",
-			amountFen: 1000,
+			componentId: "medical-order-001:medical",
+			kind: "medical",
+			amountFen: 800,
 			payModel: "H5",
 			payTypeId: "2",
 			state: "succeeded",
@@ -191,14 +225,33 @@ test("医保支付在微信前只创建一个合单 .65.2，重试不重复", as
 			payTypeParams: [
 				{ payTypeId: "2", amountFen: 500 },
 				{ payTypeId: "5", amountFen: 300 },
-				{ payTypeId: "5031", amountFen: 200 },
 			],
 		},
+		{
+			componentId: "medical-order-001:wechat_cash",
+			kind: "wechat_cash",
+			amountFen: 200,
+			payModel: "H5",
+			payTypeId: "5031",
+			state: "pending",
+			attempts: 0,
+		},
 	]);
+	expect(components[0]?.componentId).not.toBe(components[1]?.componentId);
+	expect(components[0]?.recordCode).not.toBe(components[1]?.recordCode);
 	expect(currentSettlement).toMatchObject({
 		payingId: "paying-1",
 		tradingId: "trading-1",
 	});
+	expect(queryReferences.length).toBeGreaterThanOrEqual(1);
+	expect(queryReferences).toEqual(
+		queryReferences.map(() => ({
+			ownerUserId: "user-001",
+			medicalOrderId: "medical-order-001",
+			componentId: "medical-order-001:medical",
+			recordCode: medicalComponent.recordCode,
+		})),
+	);
 });
 
 test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试", async () => {
@@ -251,6 +304,7 @@ test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试"
 			) => {
 				currentSettlement = value as Record<string, unknown>;
 			},
+			saveYunhealthPaymentQueryReference: async () => undefined,
 		} as never,
 		authorizations: { get: async () => ({}) } as never,
 		identityUsers: {
@@ -315,7 +369,7 @@ test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试"
 	]);
 });
 
-test("高平普通挂号授权过期后仍以一个合单写入医保统筹和医院优惠", async () => {
+test("高平普通挂号授权过期后只创建 medical .2，不创建 wechat_cash", async () => {
 	let currentSettlement: Record<string, unknown> = {
 		...settlement(),
 		insuredAreaCode: "140581",
@@ -348,6 +402,7 @@ test("高平普通挂号授权过期后仍以一个合单写入医保统筹和�
 			) => {
 				currentSettlement = value as Record<string, unknown>;
 			},
+			saveYunhealthPaymentQueryReference: async () => undefined,
 		} as never,
 		authorizations: {
 			get: async () => {
@@ -395,6 +450,7 @@ test("高平普通挂号授权过期后仍以一个合单写入医保统筹和�
 	expect(calls).toHaveLength(1);
 	expect(calls[0]).toMatchObject({
 		totalFen: 1000,
+		amountFen: 1000,
 		payModel: "H5",
 		payTypeId: "2",
 		payTypeParams: [
@@ -402,13 +458,26 @@ test("高平普通挂号授权过期后仍以一个合单写入医保统筹和�
 			{ payTypeId: "50", amountFen: 200 },
 		],
 	});
+	expect(currentSettlement.postPaymentPlanVersion).toBe("sequenced-v1");
+	expect(currentSettlement.postPaymentComponents).toMatchObject([
+		{
+			componentId: "medical-order-001:medical",
+			kind: "medical",
+			amountFen: 1000,
+			state: "succeeded",
+			payTypeParams: [
+				{ kind: "fund", payTypeId: "2", amountFen: 800 },
+				{ kind: "hospital_reduce", payTypeId: "50", amountFen: 200 },
+			],
+		},
+	]);
 	expect(
 		(
 			currentSettlement.postPaymentComponents as Array<{
-				state: string;
+				kind: string;
 			}>
-		).every((component) => component.state === "succeeded"),
-	).toBeTrue();
+		).some((component) => component.kind === "wechat_cash"),
+	).toBeFalse();
 });
 
 test("fresh旧插件入口在付款和2.6.65.2前拒绝", async () => {

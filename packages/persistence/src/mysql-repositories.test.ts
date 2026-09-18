@@ -1593,35 +1593,33 @@ test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 	expect(state.values[0]?.[0]).not.toContain(context.businessId);
 });
 
-test("MySQL 医保上下文可读回一个合单 .65.2 及其全部 payTypeParams", async () => {
+test("MySQL 医保上下文可加密读回 sequenced-v1 两段 .2 及自费回写事实", async () => {
 	const key = Buffer.alloc(32, 12).toString("base64");
 	const cipher = createAesGcmSecretValueCipher(key, {
 		keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
 		valueName: "medical insurance credential",
 	});
 	const context: MedicalInsuranceSettlementContext = {
-		businessId: "provider-combined-001",
+		businessId: "provider-sequenced-001",
 		hospitalId: "10389001",
-		patientId: "provider-patient-combined-001",
+		patientId: "provider-patient-sequenced-001",
 		networkRegister: {},
 		outNetworkSettleMain: {},
 		nationalUpDetailList: [],
 		upDetailList: [],
-		tradeOrderIds: ["provider-trade-combined-001"],
+		tradeOrderIds: ["provider-trade-sequenced-001"],
 		payingId: "260650000000011",
 		tradingId: "260650000000012",
+		postPaymentPlanVersion: "sequenced-v1",
 		postPaymentComponents: [
 			{
-				componentId: "medical-combined-001:combined",
-				kind: "combined",
+				componentId: "medical-sequenced-001:medical",
+				kind: "medical",
 				totalFen: 17_600,
-				amountFen: 17_600,
+				amountFen: 3_588,
 				payModel: "H5",
 				payTypeId: "2",
-				payTypeParams: [
-					{ kind: "fund", payTypeId: "2", amountFen: 3_588 },
-					{ kind: "wechat_cash", payTypeId: "5031", amountFen: 14_012 },
-				],
+				payTypeParams: [{ kind: "fund", payTypeId: "2", amountFen: 3_588 }],
 				recordCode: "0123456789abcdef0123456789abcdef",
 				state: "succeeded",
 				attempts: 1,
@@ -1629,12 +1627,43 @@ test("MySQL 医保上下文可读回一个合单 .65.2 及其全部 payTypeParam
 				tradingId: "260650000000012",
 				updatedAt: "2026-09-18T09:00:00.000Z",
 			},
+			{
+				componentId: "medical-sequenced-001:wechat_cash",
+				kind: "wechat_cash",
+				totalFen: 17_600,
+				amountFen: 14_012,
+				payModel: "H5",
+				payTypeId: "5031",
+				recordCode: "fedcba9876543210fedcba9876543210",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "260650000000021",
+				tradingId: "260650000000022",
+				updatedAt: "2026-09-18T09:01:00.000Z",
+			},
 		],
+		selfPayThirdPartyWriteback: {
+			attemptedAt: "2026-09-18T09:02:00.000Z",
+			status: "succeeded",
+			providerRequestId: "provider-2.27.2.29-001",
+			providerStatus: "SUCCESS",
+			thirdPartPayRecordId: "9007199254740993",
+			rawResponse:
+				'{"success":true,"data":{"thirdPartPayRecordId":"9007199254740993"}}',
+		},
+		selfPayPaymentNotify: {
+			attemptedAt: "2026-09-18T09:03:00.000Z",
+			status: "succeeded",
+			providerRequestId: "provider-2.6.65.15-001",
+			providerStatus: "SUCCESS",
+		},
 	};
+	const ciphertext = cipher.seal(JSON.stringify(context));
+	expect(ciphertext).not.toContain("9007199254740993");
 	const { pool } = createFakePool([
 		[
 			{
-				settlement_context_ciphertext: cipher.seal(JSON.stringify(context)),
+				settlement_context_ciphertext: ciphertext,
 			},
 		],
 	]);
@@ -1644,22 +1673,40 @@ test("MySQL 医保上下文可读回一个合单 .65.2 及其全部 payTypeParam
 
 	await expect(
 		repositories.medicalInsuranceOrders.getSettlementContext(
-			"user-combined-001",
-			"medical-combined-001",
+			"user-sequenced-001",
+			"medical-sequenced-001",
 		),
 	).resolves.toMatchObject({
-		businessId: "provider-combined-001",
+		businessId: "provider-sequenced-001",
+		postPaymentPlanVersion: "sequenced-v1",
 		postPaymentComponents: [
 			{
-				kind: "combined",
+				componentId: "medical-sequenced-001:medical",
+				kind: "medical",
 				payTypeId: "2",
-				amountFen: 17_600,
-				payTypeParams: [
-					{ kind: "fund", payTypeId: "2", amountFen: 3_588 },
-					{ kind: "wechat_cash", payTypeId: "5031", amountFen: 14_012 },
-				],
+				amountFen: 3_588,
+				payTypeParams: [{ kind: "fund", payTypeId: "2", amountFen: 3_588 }],
+			},
+			{
+				componentId: "medical-sequenced-001:wechat_cash",
+				kind: "wechat_cash",
+				payTypeId: "5031",
+				amountFen: 14_012,
+				recordCode: "fedcba9876543210fedcba9876543210",
+				payingId: "260650000000021",
+				tradingId: "260650000000022",
 			},
 		],
+		selfPayThirdPartyWriteback: {
+			status: "succeeded",
+			thirdPartPayRecordId: "9007199254740993",
+			rawResponse:
+				'{"success":true,"data":{"thirdPartPayRecordId":"9007199254740993"}}',
+		},
+		selfPayPaymentNotify: {
+			status: "succeeded",
+			providerRequestId: "provider-2.6.65.15-001",
+		},
 	});
 });
 
@@ -1809,6 +1856,58 @@ test("MySQL medical insurance query tasks claim and update with a version fence"
 		version: 3,
 		attempts: 1,
 	});
+});
+
+test("MySQL medical insurance query tasks reclaim an expired in-progress lease", async () => {
+	const row = {
+		task_id: "medical-query-task-expired-001",
+		medical_order_id: "medical-order-expired-001",
+		status: "in_progress",
+		attempts: "2",
+		max_attempts: "12",
+		version: "4",
+		next_attempt_at: "2026-09-03 00:00:00.000",
+		claimed_until: "2026-09-03 00:04:59.999",
+		terminal_ord_stas: null,
+		last_error_code: "provider-query-failed",
+		created_at: "2026-09-03 00:00:00.000",
+		updated_at: "2026-09-03 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([[row], { affectedRows: 1 }]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.medicalInsuranceQueryTasks.claimDueForQuery(
+			new Date("2026-09-03T00:05:00.000Z"),
+			1,
+			5 * 60_000,
+		),
+	).resolves.toMatchObject([
+		{
+			taskId: "medical-query-task-expired-001",
+			medicalOrderId: "medical-order-expired-001",
+			status: "in_progress",
+			attempts: 2,
+			version: 5,
+			claimedUntil: "2026-09-03T00:10:00.000Z",
+		},
+	]);
+	expect(state.committed).toBe(true);
+	expect(state.statements[0]).toContain(
+		"OR (status = 'in_progress' AND claimed_until <= ?)",
+	);
+	expect(state.values[0]).toEqual([
+		"2026-09-03 00:05:00.000",
+		"2026-09-03 00:05:00.000",
+		"2026-09-03 00:05:00.000",
+	]);
+	expect(state.values[1]).toEqual([
+		"2026-09-03 00:10:00.000",
+		"2026-09-03 00:05:00.000",
+		"medical-query-task-expired-001",
+		"in_progress",
+		4,
+	]);
 });
 
 test("MySQL medical insurance requeue preserves an active Worker lease", async () => {

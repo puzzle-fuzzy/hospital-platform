@@ -664,6 +664,9 @@ export function createWorkerRuntime(
 				...(medicalPostPaymentGateway
 					? {
 							postPayment: medicalPostPaymentGateway,
+							...(settlementGateway
+								? { hospitalSettlement: settlementGateway }
+								: {}),
 							postPaymentPayType:
 								(runtimeConfig.yunhealthRegistrationPluginPayType ??
 									"CREDIT") as "CREDIT" | "POS" | "CROWD_FUNDING",

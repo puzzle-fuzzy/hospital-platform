@@ -399,9 +399,11 @@ test("医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结�
 			);
 		},
 	});
+	const completeSettlement = gatewayInstance.completeSettlement;
+	if (!completeSettlement) throw new Error("completeSettlement is unavailable");
 
 	await expect(
-		gatewayInstance.completeSettlement!(
+		completeSettlement(
 			{
 				businessId: "settlement-business-001",
 				hospitalId: "10389001",
@@ -716,21 +718,34 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 	expect(headers?.get("authorization")).toBeNull();
 });
 
-test("云健康非 HIS 收款只调用 .5 并要求最终结算确认", async () => {
+test("云健康自费回写严格执行 .29 -> .15 -> .5 并逐步持久化", async () => {
 	const requests: Array<{
 		path: string;
+		bodyText: string;
 		body: Record<string, unknown>;
 		headers: Headers;
 	}> = [];
+	const events: string[] = [];
+	let savedThirdPart:
+		| { rawResponse: string; thirdPartPayRecordId: string; requestId?: string }
+		| undefined;
 	let call = 0;
 	const gatewayInstance = gateway(async (input, init) => {
+		const path = new URL(String(input)).pathname;
+		const bodyText = String(init?.body);
+		events.push(`request:${path}`);
 		requests.push({
-			path: new URL(String(input)).pathname,
-			body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+			path,
+			bodyText,
+			body: JSON.parse(bodyText) as Record<string, unknown>,
 			headers: new Headers(init?.headers),
 		});
 		call += 1;
-		const body = { success: true, data: { isSettle: 1 } };
+		const body = path.endsWith("/thirdPartPay/start")
+			? { success: true, data: { thirdPartPayRecordId: "9007199254740993" } }
+			: path.endsWith("/complete-settle")
+				? { success: true, data: { isSettle: 1 } }
+				: { success: true, data: {} };
 		return new Response(JSON.stringify(body), {
 			status: 200,
 			headers: { "x-request-id": `yunhealth-request-${call}` },
@@ -748,12 +763,35 @@ test("云健康非 HIS 收款只调用 .5 并要求最终结算确认", async ()
 				cashFen: 1234,
 				trace: [],
 			},
-			registrationContext,
+			registrationContext: {
+				...registrationContext,
+				payingId: "1952638941030000002",
+				tradingId: "1952638941030000003",
+				payTypeId: "5031",
+			},
+			onThirdPartPayAttempt() {
+				events.push("attempt:.29");
+			},
+			onThirdPartPayResponse(response) {
+				events.push("response:.29");
+				savedThirdPart = response;
+			},
+			onPaymentNotifyAttempt() {
+				events.push("attempt:.15");
+			},
+			onPaymentNotifyResponse({ requestId }) {
+				events.push(`response:.15:${requestId}`);
+			},
+			onCompleteSettlementAttempt() {
+				events.push("attempt:.5");
+			},
 		},
 		context,
 	);
 
 	expect(requests.map((request) => request.path)).toEqual([
+		"/msun-yb-app-miop/thirdPartPay/start",
+		"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
 		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
 	expect(
@@ -762,7 +800,34 @@ test("云健康非 HIS 收款只调用 .5 并要求最终结算确认", async ()
 				request.headers.get("authorization") === "Bearer server-token",
 		),
 	).toBeTrue();
-	expect(requests[0]?.body).toEqual({
+	expect(requests[0]?.body).toMatchObject({
+		agreementNo: "payment-order-001",
+		payFee: 12.34,
+		payType: "CREDIT",
+		payTypeId: 5031,
+		payingId: "1952638941030000002",
+		settleId: "settlement-business-001",
+		tradingId: "1952638941030000003",
+		transStatus: "0",
+	});
+	expect(savedThirdPart).toEqual({
+		rawResponse: JSON.stringify({
+			success: true,
+			data: { thirdPartPayRecordId: "9007199254740993" },
+		}),
+		thirdPartPayRecordId: "9007199254740993",
+		requestId: "yunhealth-request-1",
+	});
+	expect(requests[1]?.bodyText).toContain('"payingId":1952638941030000002');
+	expect(String(requests[1]?.body.requestParam)).toContain('"payingType":"1"');
+	expect(String(requests[1]?.body.requestParam)).toContain(
+		'"payingId":1952638941030000002',
+	);
+	expect(String(requests[1]?.body.requestParam)).toContain('"payTypeId":5031');
+	expect(String(requests[1]?.body.requestParam)).toContain(
+		'"receiveAmount":12.34',
+	);
+	expect(requests[2]?.body).toEqual({
 		appCode: "WeChatSmallProg",
 		authSysCode: "WeChatSmallProg",
 		autoSettle: 2,
@@ -776,15 +841,90 @@ test("云健康非 HIS 收款只调用 .5 并要求最终结算确认", async ()
 	expect(trace).toEqual({
 		provider: "yunhealth",
 		operation: "registration-self-pay.2.6.65.5",
-		requestId: "yunhealth-request-1",
-		requestIds: ["yunhealth-request-1"],
+		requestId: "yunhealth-request-3",
+		requestIds: [
+			"yunhealth-request-1",
+			"yunhealth-request-2",
+			"yunhealth-request-3",
+		],
 		providerOrderId: "settlement-business-001",
 	});
+	expect(events).toEqual([
+		"attempt:.29",
+		"request:/msun-yb-app-miop/thirdPartPay/start",
+		"response:.29",
+		"attempt:.15",
+		"request:/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
+		"response:.15:yunhealth-request-2",
+		"attempt:.5",
+		"request:/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	]);
 });
 
-test("门诊自费 .5 沿用保存的 tradeTypeCode=2", async () => {
+test("云健康自费回写复用已保存 .29 并以精确 64 位数字 token 发送 .15", async () => {
+	const requests: Array<{ path: string; bodyText: string }> = [];
+	let thirdPartAttempted = false;
+	const gatewayInstance = gateway(async (input, init) => {
+		const path = new URL(String(input)).pathname;
+		requests.push({ path, bodyText: String(init?.body) });
+		return new Response(
+			JSON.stringify(
+				path.endsWith("/complete-settle")
+					? { success: true, data: { isSettle: 1 } }
+					: { success: true, data: {} },
+			),
+			{
+				status: 200,
+				headers: { "x-request-id": `resume-${requests.length}` },
+			},
+		);
+	});
+
+	await gatewayInstance.writeBack(
+		{
+			orderId: "payment-order-resume-001",
+			settlement: {
+				orderId: "payment-order-resume-001",
+				state: "cash_paid",
+				totalFen: 100,
+				insuranceFen: 0,
+				cashFen: 100,
+				trace: [],
+			},
+			registrationContext: {
+				...registrationContext,
+				payingId: "1952638941030000002",
+				payTypeId: "1952638941030000003",
+				thirdPartPayRecordId: "1952638941030000004",
+			},
+			onThirdPartPayAttempt() {
+				thirdPartAttempted = true;
+			},
+		},
+		context,
+	);
+
+	expect(thirdPartAttempted).toBeFalse();
+	expect(requests.map((request) => request.path)).toEqual([
+		"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	]);
+	expect(requests[0]?.bodyText).toContain('"payingId":1952638941030000002');
+	const paymentNotifyBody = JSON.parse(requests[0]?.bodyText ?? "{}") as Record<
+		string,
+		unknown
+	>;
+	expect(String(paymentNotifyBody.requestParam)).toContain(
+		'"payTypeId":1952638941030000003',
+	);
+});
+
+test("门诊自费在 .29/.15 已完成后只续跑 .5 并沿用 tradeTypeCode=2", async () => {
 	let body: Record<string, unknown> | undefined;
+	let path: string | undefined;
+	let completeAttempted = false;
 	const gatewayInstance = gateway(async (_input, init) => {
+		path = new URL(String(_input)).pathname;
 		body = JSON.parse(String(init?.body)) as Record<string, unknown>;
 		return new Response(
 			JSON.stringify({ success: true, data: { isSettle: 1 } }),
@@ -806,11 +946,29 @@ test("门诊自费 .5 沿用保存的 tradeTypeCode=2", async () => {
 				cashFen: 1000,
 				trace: [],
 			},
-			registrationContext: { ...registrationContext, tradeTypeCode: "2" },
+			registrationContext: {
+				...registrationContext,
+				tradeTypeCode: "2",
+				thirdPartPayRecordId: "9007199254740993",
+				paymentNotifyCompleted: true,
+			},
+			onThirdPartPayAttempt() {
+				throw new Error("completed .29 must not be replayed");
+			},
+			onPaymentNotifyAttempt() {
+				throw new Error("completed .15 must not be replayed");
+			},
+			onCompleteSettlementAttempt() {
+				completeAttempted = true;
+			},
 		},
 		context,
 	);
 
+	expect(path).toBe(
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	);
+	expect(completeAttempted).toBeTrue();
 	expect(body).toMatchObject({ autoSettle: 2, tradeTypeCode: "2" });
 });
 
@@ -1102,7 +1260,11 @@ test("云健康 .5 返回未结算时不返回成功 trace", async () => {
 					cashFen: 100,
 					trace: [],
 				},
-				registrationContext,
+				registrationContext: {
+					...registrationContext,
+					thirdPartPayRecordId: "9007199254740993",
+					paymentNotifyCompleted: true,
+				},
 			},
 			context,
 		),

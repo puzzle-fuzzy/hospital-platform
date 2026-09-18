@@ -2016,7 +2016,20 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		const legacyPluginContext = Boolean(
 			stored.plugin || (stored.payingId && stored.tradingId),
 		);
-		if (!stored.postPaymentCompletedAt && !legacyPluginContext) {
+		const sequencedMedicalReady = Boolean(
+			stored.postPaymentPlanVersion === "sequenced-v1" &&
+				stored.postPaymentComponents?.some(
+					(component) =>
+						component.kind === "medical" &&
+						component.state === "succeeded" &&
+						Boolean(component.payingId && component.tradingId),
+				),
+		);
+		if (
+			!stored.postPaymentCompletedAt &&
+			!legacyPluginContext &&
+			!sequencedMedicalReady
+		) {
 			throw responseError(
 				"medical-insurance.2.27.2.32",
 				"支付后置分项尚未完成，不能提前提交医院结算",
@@ -2068,11 +2081,16 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					authoritative: false,
 				};
 			}
-			if (
-				settlementContext.postPaymentComponents?.some(
-					(component) => component.state !== "succeeded",
-				)
-			) {
+			const hasIncompleteRequiredPaymentComponent =
+				settlementContext.postPaymentPlanVersion === "sequenced-v1"
+					? settlementContext.postPaymentComponents?.some(
+							(component) =>
+								component.kind === "medical" && component.state !== "succeeded",
+						)
+					: settlementContext.postPaymentComponents?.some(
+							(component) => component.state !== "succeeded",
+						);
+			if (hasIncompleteRequiredPaymentComponent) {
 				throw responseError(
 					"medical-insurance.2.27.2.32",
 					"支付后置分项尚未全部成功",
@@ -2222,7 +2240,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			const primaryMedicalComponent =
 				settlementContext.postPaymentComponents?.find(
 					(component) =>
-						(component.kind === "combined" || component.kind === "fund") &&
+						(component.kind === "medical" ||
+							component.kind === "combined" ||
+							component.kind === "fund") &&
 						component.payTypeId === "2" &&
 						component.state === "succeeded" &&
 						Boolean(component.payingId && component.tradingId),
@@ -2371,8 +2391,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			}
 		}
 
-		// 新合单在一次 .32 成功后即可继续；只有发布前已经拆分保存的 5031
-		// 流水才需要其历史上的第二次 .32。挂号仍不调用 .5。
+		// 新串行计划的医保腿在一次 .32 成功后继续医保 .5；待处理的微信
+		// 自费腿由 Worker 在医保腿完成后执行独立的 .2 -> .29 -> .15 -> .5。
+		// 只有发布前已经拆分保存的 5031 流水才继续其历史上的第二次 .32。
 		if (input.amounts.cashFen > 0 && !input.cashPaymentConfirmed) {
 			return {
 				state: "cash_pending",
@@ -2391,12 +2412,13 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				component.state === "succeeded" &&
 				Boolean(component.payingId && component.tradingId),
 		);
-		const hasNewSplitPaymentContext = Boolean(
-			settlementContext.postPaymentComponents?.some(
-				(component) => component.kind === "wechat_cash",
-			),
+		const hasLegacySplitPaymentContext = Boolean(
+			settlementContext.postPaymentPlanVersion !== "sequenced-v1" &&
+				settlementContext.postPaymentComponents?.some(
+					(component) => component.kind === "wechat_cash",
+				),
 		);
-		if (input.amounts.cashFen > 0 && hasNewSplitPaymentContext) {
+		if (input.amounts.cashFen > 0 && hasLegacySplitPaymentContext) {
 			if (!selfPayComponent) {
 				throw responseError(
 					"medical-insurance.2.27.2.32",
@@ -2535,18 +2557,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			}
 		}
 
-		if (input.businessType === "registration") {
-			return {
-				state: "insurance_settled",
-				amounts: input.amounts,
-				trace: notifyTrace,
-				source: "yunhealth",
-				providerStatus: "insur=SUCCESS,settle=SUCCESS",
-				finality: "paid",
-				authoritative: true,
-			};
-		}
-		// 新合单只完成一次 .5；发布前已拆分的历史流水继续按原分项事实完成。
+		// 新两段流程和存量合单的医保子流水都完成一次 .5；发布前已经拆分
+		// 且落库的历史流水继续按原分项事实完成。
 		// 每次调用都先落库 unknown，查单只读取已落库事实，不重复提交。
 		const completeSettlementLeg = async (
 			completionKey: "settlementCompletion" | "selfPaySettlementCompletion",
@@ -2587,7 +2599,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					autoSettle: 2,
 					businessId: settlementContext.businessId,
 					hospitalId: settlementContext.hospitalId,
-					tradeTypeCode: "2",
+					tradeTypeCode: input.businessType === "outpatient" ? "2" : "10",
 					workStationId: "",
 				},
 			);

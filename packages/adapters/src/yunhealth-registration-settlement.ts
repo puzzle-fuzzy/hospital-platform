@@ -21,12 +21,15 @@ import {
 const COMPLETE_SETTLE_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle";
 const COMPLETE_SETTLE_AUTH_SYS_CODE = "WeChatSmallProg";
+const THIRD_PART_PAY_START_PATH = "/msun-yb-app-miop/thirdPartPay/start";
 const PAYMENT_NOTIFY_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify";
 const APPLY_SETTLE_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/settle/apply-pay-settle";
 const SETTLE_DETAILS_PATH = "/msun-yb-app-miop/v1/out-insur-settle-infos";
 const THIRD_PART_OPERATION = "yunhealth-registration.validation";
+const THIRD_PART_PAY_OPERATION = "registration-self-pay.2.27.2.29";
+const PAYMENT_NOTIFY_OPERATION = "registration-self-pay.2.6.65.15";
 const COMPLETE_SETTLE_OPERATION = "registration-self-pay.2.6.65.5";
 const ALLOWED_PAY_TYPES = new Set(["CREDIT", "POS", "CROWD_FUNDING"]);
 /** 点击医保支付后产生的微信自费腿，2.6.65.2 固定使用 5031。 */
@@ -640,6 +643,51 @@ function yunhealthRefundNotifyBody(input: {
 }
 
 /**
+ * 正常收款 .15 必须把 payingId/payTypeId 作为 JSON number 发送，但这两个值
+ * 都可能超过 Number.MAX_SAFE_INTEGER。直接构造对象再 JSON.stringify 会改写
+ * 雪花 ID，因此只接受已经过十进制整数校验的字符串并原样写入数字 token。
+ */
+function yunhealthPaymentNotifyBody(input: {
+	authSysCode: string;
+	hospitalId: number;
+	nonce: string;
+	orgId: number;
+	payingId: string;
+	payTypeId: string;
+	paymentFen: number;
+	recordCode: string;
+	paymentSource: string;
+	tradeTypeCode: string;
+	workStationId: string;
+}): string {
+	const requestParam = [
+		"{",
+		'"payingType":"1",',
+		'"recordList":[{',
+		`"payingId":${input.payingId},`,
+		`"payTypeId":${input.payTypeId},`,
+		`"receiveAmount":${yuanJsonNumber(input.paymentFen)},`,
+		`"recordCode":${quoteJsonText(input.recordCode)},`,
+		'"status":"3",',
+		`"source":${quoteJsonText(input.paymentSource)}`,
+		"}]",
+		"}",
+	].join("");
+	return [
+		"{",
+		`"authSysCode":${quoteJsonText(input.authSysCode)},`,
+		`"hospitalId":${input.hospitalId},`,
+		`"nonce":${quoteJsonText(input.nonce)},`,
+		`"orgId":${input.orgId},`,
+		`"payingId":${input.payingId},`,
+		`"requestParam":${quoteJsonText(requestParam)},`,
+		`"tradeTypeCode":${quoteJsonText(input.tradeTypeCode)},`,
+		`"workStationId":${quoteJsonText(input.workStationId)}`,
+		"}",
+	].join("");
+}
+
+/**
  * 新 MD5 自费订单退款时，微信退款 SUCCESS 还不能直接取消预约。必须复用
  * .2 下单时保存的关联键，走旧服务相同的 2.6.65.15 payingType=3 回写，
  * 确认 HIS 已收到退款事实后才允许释放号源。
@@ -787,7 +835,11 @@ export function createYunhealthRegistrationSettlementGateway(
 	const baseUrl = requiredText(options.baseUrl, "baseUrl");
 	const providerBaseUrl = providerUrl(baseUrl, "");
 	const authorization = normalizedAuthorization(options.authorizationToken);
-	positiveInteger(options.pluginPayTypeId, "pluginPayTypeId");
+	const paymentOrgId = positiveInteger(options.paymentOrgId, "paymentOrgId");
+	const pluginPayTypeId = positiveIntegerText(
+		options.pluginPayTypeId,
+		"pluginPayTypeId",
+	);
 	const pluginPayType = requiredText(
 		options.pluginPayType,
 		"pluginPayType",
@@ -795,6 +847,10 @@ export function createYunhealthRegistrationSettlementGateway(
 	if (!ALLOWED_PAY_TYPES.has(pluginPayType))
 		throw new AdapterNotConfiguredError("yunhealth");
 	const workStationId = textAllowEmpty(options.workStationId, "workStationId");
+	const paymentSource = requiredText(
+		options.paymentSource ?? "1",
+		"paymentSource",
+	);
 	const authSysCode = requiredText(
 		options.authSysCode ?? "thirdSelfMachine",
 		"authSysCode",
@@ -822,7 +878,7 @@ export function createYunhealthRegistrationSettlementGateway(
 					},
 				);
 			}
-			validatePureCashSettlement(input.settlement);
+			const payFee = validatePureCashSettlement(input.settlement);
 			const registrationContext = input.registrationContext;
 			const outTradeNo = registrationContext?.outTradeNo
 				? requiredText(registrationContext.outTradeNo, "outTradeNo", 64)
@@ -833,14 +889,22 @@ export function createYunhealthRegistrationSettlementGateway(
 				32,
 			);
 			if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
-				throw providerError(
-					COMPLETE_SETTLE_OPERATION,
-					"recordCode is invalid",
-					{
-						failureStage: "validation",
-						requestOutcome: "not_sent",
-					},
-				);
+				throw providerError(THIRD_PART_OPERATION, "recordCode is invalid", {
+					failureStage: "validation",
+					requestOutcome: "not_sent",
+				});
+			}
+			const requestPayTypeId = registrationContext?.payTypeId
+				? positiveIntegerText(registrationContext.payTypeId, "payTypeId")
+				: pluginPayTypeId;
+			const requestPayType = registrationContext?.payType
+				? requiredText(registrationContext.payType, "payType")
+				: pluginPayType;
+			if (!ALLOWED_PAY_TYPES.has(requestPayType)) {
+				throw providerError(THIRD_PART_OPERATION, "payType is invalid", {
+					failureStage: "validation",
+					requestOutcome: "not_sent",
+				});
 			}
 			const requestWorkStationId =
 				registrationContext?.workStationId !== undefined
@@ -892,6 +956,132 @@ export function createYunhealthRegistrationSettlementGateway(
 				requestIds.push(response.requestId);
 				return response;
 			};
+			const requestBodyText = async <T>(
+				step: string,
+				operation: string,
+				path: string,
+				bodyText: string,
+			) => {
+				const response = await requestJson<T>(
+					{
+						provider: "yunhealth",
+						operation,
+						url: `${providerBaseUrl}${path}`,
+						method: "POST",
+						context: {
+							...context,
+							idempotencyKey: stableStepIdempotencyKey(step, outTradeNo),
+						},
+						...(authorization
+							? { headers: { Authorization: authorization } }
+							: {}),
+						bodyText,
+						...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
+						...(options.logger ? { logger: options.logger } : {}),
+					},
+					fetcher,
+				);
+				requestIds.push(response.requestId);
+				return response;
+			};
+
+			const thirdPartPayRecordId = registrationContext?.thirdPartPayRecordId
+				? positiveIntegerText(
+						registrationContext.thirdPartPayRecordId,
+						"thirdPartPayRecordId",
+					)
+				: undefined;
+			if (!thirdPartPayRecordId) {
+				await input.onThirdPartPayAttempt?.();
+				const thirdPart = await request<unknown>(
+					"2.27.2.29",
+					THIRD_PART_PAY_OPERATION,
+					THIRD_PART_PAY_START_PATH,
+					{
+						agreementNo: outTradeNo,
+						bankCode: "-",
+						certNo: normalizedContext.certNo,
+						commercialInsuranceId: 0,
+						creditUserId: "",
+						patId: normalizedContext.patientId,
+						patInHosId: normalizedContext.patInHosId,
+						payFee,
+						payType: requestPayType,
+						payTypeId: positiveInteger(requestPayTypeId, "payTypeId"),
+						payingId: normalizedContext.payingId,
+						psnCertType: normalizedContext.psnCertType,
+						psnName: normalizedContext.psnName,
+						psnNo: normalizedContext.psnNo,
+						sceneCode: "OUT",
+						settleId: normalizedContext.businessId,
+						tradingId: normalizedContext.tradingId,
+						transStatus: "0",
+					},
+					true,
+				);
+				requireYunhealthSuccess(
+					thirdPart,
+					THIRD_PART_PAY_OPERATION,
+					context,
+					options.logger,
+				);
+				const resolvedThirdPartPayRecordId = positiveIntegerText(
+					nestedValue(thirdPart.data, [
+						"thirdPartPayRecordId",
+						"third_part_pay_record_id",
+					]),
+					"thirdPartPayRecordId",
+				);
+				if (typeof thirdPart.rawBodyText !== "string") {
+					throw providerError(
+						THIRD_PART_PAY_OPERATION,
+						"2.27.2.29 raw response was not captured",
+						{
+							requestId: thirdPart.requestId,
+							failureStage: "response",
+							requestOutcome: "unknown",
+						},
+					);
+				}
+				await input.onThirdPartPayResponse?.({
+					rawResponse: thirdPart.rawBodyText,
+					thirdPartPayRecordId: resolvedThirdPartPayRecordId,
+					requestId: thirdPart.requestId,
+				});
+			}
+
+			if (!registrationContext?.paymentNotifyCompleted) {
+				await input.onPaymentNotifyAttempt?.();
+				const paymentNotify = await requestBodyText<unknown>(
+					"2.6.65.15",
+					PAYMENT_NOTIFY_OPERATION,
+					PAYMENT_NOTIFY_PATH,
+					yunhealthPaymentNotifyBody({
+						authSysCode,
+						hospitalId: normalizedContext.hospitalId,
+						nonce: stableRecordCode(`${orderId}:nonce`),
+						orgId: paymentOrgId,
+						payingId: normalizedContext.payingId,
+						payTypeId: requestPayTypeId,
+						paymentFen: input.settlement.cashFen,
+						recordCode,
+						paymentSource,
+						tradeTypeCode: requestTradeTypeCode,
+						workStationId: requestWorkStationId,
+					}),
+				);
+				requireYunhealthSuccess(
+					paymentNotify,
+					PAYMENT_NOTIFY_OPERATION,
+					context,
+					options.logger,
+				);
+				await input.onPaymentNotifyResponse?.({
+					requestId: paymentNotify.requestId,
+				});
+			}
+
+			await input.onCompleteSettlementAttempt?.();
 			const complete = await request<unknown>(
 				"2.6.65.5",
 				COMPLETE_SETTLE_OPERATION,
@@ -1275,9 +1465,9 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 }
 
 /**
- * 医保混合支付使用一个 2.6.65.2 合单：外层固定 H5/payTypeId=2，所有
- * 实际支付腿放到 payTypeParams。手动纯自费前置工厂仍复用本 gateway 的
- * 5032 单分项兼容路径。
+ * 医保支付的第一笔 2.6.65.2 只聚合医保基金、医院优惠和个人账户；微信
+ * 自费金额在医保 .32/.5 完成后另建一笔 5031。外层仍固定 H5/payTypeId=2，
+ * 组内实际支付腿放到 payTypeParams。历史整单合并请求继续兼容。
  *
  * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的
  * payingId/tradingId 连同 recordCode/outTradeNo 写入医保订单密文上下文，
@@ -1357,31 +1547,28 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 				return { payTypeId, amountFen };
 			});
 			const isCombinedMedicalPayment = rawPayTypeParams !== undefined;
-			if (
-				isCombinedMedicalPayment &&
-				(!combinedPayTypeParams?.length || input.amountFen !== undefined)
-			) {
+			if (isCombinedMedicalPayment && !combinedPayTypeParams?.length) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
-					"combined payment requires non-empty payTypeParams and no amountFen",
+					"grouped payment requires non-empty payTypeParams",
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);
 			}
+			const groupedAmountFen = combinedPayTypeParams?.reduce(
+				(sum, item) => sum + item.amountFen,
+				0,
+			);
 			const amountFen = isCombinedMedicalPayment
-				? totalFen
+				? positiveInteger(input.amountFen ?? groupedAmountFen, "amountFen")
 				: positiveInteger(input.amountFen ?? input.totalFen, "amountFen");
 			if (
-				(!isCombinedMedicalPayment && amountFen > totalFen) ||
-				(isCombinedMedicalPayment &&
-					combinedPayTypeParams?.reduce(
-						(sum, item) => sum + item.amountFen,
-						0,
-					) !== totalFen)
+				amountFen > totalFen ||
+				(isCombinedMedicalPayment && groupedAmountFen !== amountFen)
 			) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
 					isCombinedMedicalPayment
-						? "combined payTypeParams amount does not equal settlement total"
+						? "grouped payTypeParams amount does not equal component amount"
 						: "component amount exceeds settlement total",
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);

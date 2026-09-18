@@ -905,7 +905,9 @@ test(".32 失败后不重复提交同一结算 ID", async () => {
 	});
 });
 
-test("挂号微信支付成功后才直接调用 .32，不调用 6301", async () => {
+async function assertSequencedRegistrationMedicalWriteback(
+	includePendingWechatCash: boolean,
+) {
 	const medicalOrder = {
 		medicalOrderId: "medical-order-sequence-001",
 		ownerUserId: "user-sequence-001",
@@ -916,9 +918,10 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 		orderType: "RegPay",
 		amounts: {
 			totalFen: 1000,
-			cashFen: 200,
+			cashFen: includePendingWechatCash ? 200 : 0,
 			personalAccountFen: 0,
 			fundFen: 800,
+			otherPaymentFen: includePendingWechatCash ? 0 : 200,
 		},
 	} as MedicalInsuranceOrder;
 	let settlementContext: MedicalInsuranceSettlementContext = {
@@ -935,7 +938,7 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 			networkPatClassId: "network-class-sequence-001",
 			outVisitRecordId: "visit-sequence-001",
 		},
-		outNetworkSettleMain: { transId: "paying-hospital-reduce" },
+		outNetworkSettleMain: { transId: "paying-sequence-001" },
 		nationalUpDetailList: [],
 		upDetailList: [
 			{
@@ -953,31 +956,29 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 			},
 		],
 		tradeOrderIds: ["trade-sequence-001"],
-		postPaymentCompletedAt: "2026-09-15T19:01:00.000Z",
+		postPaymentPlanVersion: "sequenced-v1",
 		payingId: "paying-sequence-001",
 		tradingId: "trading-sequence-001",
 		postPaymentComponents: [
 			{
-				componentId: "medical-order-sequence-001:hospital-reduce",
-				kind: "hospital_reduce",
+				componentId: "medical-order-sequence-001:medical",
+				kind: "medical",
 				totalFen: 1000,
-				amountFen: 200,
-				payModel: "H5",
-				payTypeId: "50",
-				recordCode: "record-hospital-reduce-001",
-				state: "succeeded",
-				attempts: 1,
-				payingId: "paying-hospital-reduce",
-				tradingId: "trading-hospital-reduce",
-				updatedAt: "2026-09-15T19:01:00.000Z",
-			},
-			{
-				componentId: "medical-order-sequence-001:fund",
-				kind: "fund",
-				totalFen: 1000,
-				amountFen: 800,
+				amountFen: includePendingWechatCash ? 800 : 1000,
 				payModel: "H5",
 				payTypeId: "2",
+				payTypeParams: [
+					{ kind: "fund", payTypeId: "2", amountFen: 800 },
+					...(includePendingWechatCash
+						? []
+						: [
+								{
+									kind: "hospital_reduce" as const,
+									payTypeId: "50" as const,
+									amountFen: 200,
+								},
+							]),
+				],
 				recordCode: "record-sequence-001",
 				state: "succeeded",
 				attempts: 1,
@@ -985,20 +986,22 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 				tradingId: "trading-sequence-001",
 				updatedAt: "2026-09-15T19:01:00.000Z",
 			},
-			{
-				componentId: "medical-order-sequence-001:wechat_cash",
-				kind: "wechat_cash",
-				totalFen: 1000,
-				amountFen: 200,
-				payModel: "MINI_PROGRAM",
-				payTypeId: "5031",
-				recordCode: "record-wechat-cash-sequence-001",
-				state: "succeeded",
-				attempts: 1,
-				payingId: "paying-wechat-cash-sequence-001",
-				tradingId: "trading-wechat-cash-sequence-001",
-				updatedAt: "2026-09-15T19:01:00.000Z",
-			},
+			...(includePendingWechatCash
+				? [
+						{
+							componentId: "medical-order-sequence-001:wechat_cash",
+							kind: "wechat_cash" as const,
+							totalFen: 1000,
+							amountFen: 200,
+							payModel: "H5" as const,
+							payTypeId: "5031" as const,
+							recordCode: "record-wechat-cash-sequence-001",
+							state: "pending" as const,
+							attempts: 0,
+							updatedAt: "2026-09-15T19:01:00.000Z",
+						},
+					]
+				: []),
 		],
 	};
 	const providerPaths: string[] = [];
@@ -1011,9 +1014,10 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 		payOrdId: medicalOrder.payOrdId,
 		ordStas: "6",
 		totalFen: 1000,
-		cashFen: 200,
+		cashFen: includePendingWechatCash ? 200 : 0,
 		personalAccountFen: 0,
 		fundFen: 800,
+		otherPaymentFen: includePendingWechatCash ? 0 : 200,
 	};
 	const gateway = createLegacyFsiMedicalInsuranceGateway({
 		legacyFsi: {
@@ -1025,7 +1029,7 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 						feeSumamt: 10,
 						fundPay: 8,
 						psnAcctPay: 0,
-						ownPayAmt: 2,
+						ownPayAmt: includePendingWechatCash ? 2 : 0,
 					},
 					preSetl: {
 						mdtrt_id: "mdtrt-sequence-001",
@@ -1082,6 +1086,7 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 		relayAuthorizationToken: "synthetic-token",
 		foundationBaseUrl: "https://foundation.example",
 		zhongyangBaseUrl: "https://zhongyang.example",
+		now: () => new Date("2026-09-15T19:01:00.000Z"),
 		fetcher: async (input, init) => {
 			const path = new URL(String(input)).pathname;
 			providerPaths.push(path);
@@ -1129,21 +1134,41 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 		insutype: "310",
 		setlTime: "2026-09-16 03:01:00",
 	});
+	expect(settlementContext.postPaymentCompletedAt).toBeUndefined();
+	expect(
+		settlementContext.postPaymentComponents?.reduce(
+			(sum, component) => sum + component.amountFen,
+			0,
+		),
+	).toBe(settlement.totalFen);
+	if (includePendingWechatCash) {
+		const pendingWechatCash = settlementContext.postPaymentComponents?.find(
+			(component) => component.kind === "wechat_cash",
+		);
+		expect(pendingWechatCash).toMatchObject({
+			state: "pending",
+			amountFen: 200,
+		});
+		expect(pendingWechatCash?.payingId).toBeUndefined();
+		expect(pendingWechatCash?.tradingId).toBeUndefined();
+	}
 
-	const waitingForWechatPayment = await gateway.query(
-		{
-			orderId: medicalOrder.medicalOrderId,
-			ownerUserId: medicalOrder.ownerUserId,
-		},
-		context,
-	);
-	expect(waitingForWechatPayment).toMatchObject({
-		state: "cash_pending",
-		providerStatus: "waiting_for_wechat_payment",
-		finality: "processing",
-		authoritative: false,
-	});
-	expect(providerPaths).toEqual([]);
+	if (includePendingWechatCash) {
+		const waitingForWechatPayment = await gateway.query(
+			{
+				orderId: medicalOrder.medicalOrderId,
+				ownerUserId: medicalOrder.ownerUserId,
+			},
+			context,
+		);
+		expect(waitingForWechatPayment).toMatchObject({
+			state: "cash_pending",
+			providerStatus: "waiting_for_wechat_payment",
+			finality: "processing",
+			authoritative: false,
+		});
+		expect(providerPaths).toEqual([]);
+	}
 	const finalized = await gateway.query(
 		{
 			orderId: medicalOrder.medicalOrderId,
@@ -1154,13 +1179,13 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 	);
 	expect(finalized).toMatchObject({
 		state: "insurance_settled",
-		providerStatus: "insur=SUCCESS,settle=SUCCESS",
+		providerStatus: "completion=outSettleVO.settleStatus=4",
 		finality: "paid",
 		authoritative: true,
 	});
 	expect(providerPaths).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
 	const repeated = await gateway.query(
 		{
@@ -1172,13 +1197,13 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 	);
 	expect(repeated).toMatchObject({
 		state: "insurance_settled",
-		providerStatus: "insur=SUCCESS,settle=SUCCESS",
+		providerStatus: "completion=outSettleVO.settleStatus=4",
 		finality: "paid",
 		authoritative: true,
 	});
 	expect(providerPaths).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
 	const notifyBody = providerBodies.find((request) =>
 		request.path.endsWith("/settle-info/notify"),
@@ -1194,10 +1219,20 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 	const notifyBodies = providerBodies
 		.filter((request) => request.path.endsWith("/settle-info/notify"))
 		.map((request) => request.body);
-	expect(notifyBodies[1]?.outNetworkSettleMain).toMatchObject({
-		transId: "paying-wechat-cash-sequence-001",
-		settleSource: 4003,
+	expect(notifyBodies).toHaveLength(1);
+	expect(notifyBodies[0]).toMatchObject({
+		tradingId: "trading-sequence-001",
+		outNetworkSettleMain: {
+			transId: "paying-sequence-001",
+			settleSource: 4003,
+		},
 	});
+	expect(JSON.stringify(providerBodies)).not.toContain(
+		"paying-wechat-cash-sequence-001",
+	);
+	expect(JSON.stringify(providerBodies)).not.toContain(
+		"trading-wechat-cash-sequence-001",
+	);
 	expect(notifyBody?.networkRegister).toMatchObject({
 		insuTypeName: "职工基本医疗保险",
 		medTypeName: "门诊挂号",
@@ -1208,4 +1243,12 @@ test("挂号微信支付成功后才直接调用 .32，不调用 6301", async ()
 	});
 	expect(querySettlementCalls).toBe(0);
 	expect(settlementContext.settlementQuery6301).toBeUndefined();
+}
+
+test("挂号医保流水严格按 .32 -> .5 完成且不调用 6301", async () => {
+	await assertSequencedRegistrationMedicalWriteback(false);
+});
+
+test("sequenced-v1 带 pending wechat_cash 时绝不走第二次 .32 且只使用医保流水 ID", async () => {
+	await assertSequencedRegistrationMedicalWriteback(true);
 });

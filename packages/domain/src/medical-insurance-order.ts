@@ -385,11 +385,13 @@ export type MedicalInsuranceSettlementContext = {
 	 */
 	plugin?: MedicalInsurancePluginPaymentContext;
 	/**
-	 * 微信/医保最终成功后提交的 2.6.65.2 流水。新订单使用一个
-	 * `kind=combined` 条目，所有支付腿放在该条目的 payTypeParams；历史分项
-	 * 记录仅用于安全续跑，不会被自动改写。
+	 * 2.6.65.2 流水。新订单保存 `medical` 与可选 `wechat_cash` 两个独立
+	 * 子流水：医保组先于微信支付创建，自费组只在医保 `.32/.5` 完成后创建。
+	 * `combined` 和旧分项记录仅用于安全续跑，不会被自动改写。
 	 */
 	postPaymentComponents?: readonly MedicalInsurancePostPaymentComponent[];
+	/** 新两段串行计划标记；缺失表示按存量 combined/legacy 事实续跑。 */
+	postPaymentPlanVersion?: "sequenced-v1";
 	postPaymentCompletedAt?: string;
 	/**
 	 * 2.27.2.32 是医保侧不可重放的结算回写：一次请求失败后不能由查单任务
@@ -410,10 +412,30 @@ export type MedicalInsuranceSettlementContext = {
 		providerStatus?: string;
 	};
 	/**
+	 * 微信自费子流水的 2.27.2.29 写入事实。发送前先保存 unknown；只有
+	 * succeeded 才允许继续 .15。unknown/failed 必须人工核验，禁止盲目重放。
+	 */
+	selfPayThirdPartyWriteback?: {
+		attemptedAt: string;
+		status: "succeeded" | "failed" | "unknown";
+		providerRequestId?: string;
+		providerStatus?: string;
+		thirdPartPayRecordId?: string;
+		/** 仅保存在 AES-GCM 密文上下文，不得进入 API 或普通业务日志。 */
+		rawResponse?: string;
+	};
+	/** 微信自费子流水的 2.6.65.15 支付成功通知事实。 */
+	selfPayPaymentNotify?: {
+		attemptedAt: string;
+		status: "succeeded" | "failed" | "unknown";
+		providerRequestId?: string;
+		providerStatus?: string;
+	};
+	/**
 	 * 2.6.65.5 是门诊医保分项的 HIS 最终完成接口。该接口不可由查单任务
 	 * 自动重放：同一分项最多发起一次；成功、失败或请求结果未知均需持久化，
-	 * 后续只读取该事实，不再向 Provider 发送第二次请求。挂号不创建这些字段，
-	 * 也不调用 .5；门诊医保分项即使微信自费金额为 0 也要调用一次。
+	 * 后续只读取该事实，不再向 Provider 发送第二次请求。挂号和门诊的医保
+	 * 子流水都必须调用一次 `.5`，即使微信自费金额为 0 也不能跳过。
 	 */
 	settlementCompletion?: {
 		attemptedAt: string;
@@ -457,7 +479,13 @@ export type MedicalInsuranceSettlementQuerySnapshot = {
 
 export type MedicalInsurancePostPaymentComponentKind =
 	/** 一个 2.6.65.2 合单，内部 payTypeParams 保留每种支付方式和金额。 */
-	"combined" | "hospital_reduce" | "fund" | "personal_account" | "wechat_cash";
+	| "combined"
+	/** 新流程第一笔 .2：只包含医保基金、医院优惠和个人账户。 */
+	| "medical"
+	| "hospital_reduce"
+	| "fund"
+	| "personal_account"
+	| "wechat_cash";
 
 export type MedicalInsurancePostPaymentComponentState =
 	| "pending"
@@ -472,11 +500,15 @@ export type MedicalInsurancePostPaymentComponent = {
 	payModel: "H5" | "MINI_PROGRAM";
 	payTypeId: "2" | "3" | "5" | "31" | "50" | "5027" | "5031" | "5032";
 	/**
-	 * `kind=combined` 时唯一的 2.6.65.2 请求体内的支付腿，按 Provider
-	 * 要求的顺序保存。旧分项记录不带此字段，继续按原事实处理。
+	 * `kind=combined|medical` 时 2.6.65.2 请求体内的支付腿，按 Provider
+	 * 要求的顺序保存。`medical` 不得包含 wechat_cash；旧分项记录不带
+	 * 此字段，继续按原事实处理。
 	 */
 	payTypeParams?: readonly {
-		kind: Exclude<MedicalInsurancePostPaymentComponentKind, "combined">;
+		kind: Exclude<
+			MedicalInsurancePostPaymentComponentKind,
+			"combined" | "medical"
+		>;
 		payTypeId: "2" | "3" | "5" | "31" | "50" | "5027" | "5031" | "5032";
 		amountFen: number;
 	}[];
