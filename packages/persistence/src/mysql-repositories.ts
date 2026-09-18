@@ -857,6 +857,7 @@ function deserializeMedicalInsuranceSettlementContext(
 
 const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"businessId",
+	"tradeTypeCode",
 	"businessCode",
 	"payingId",
 	"tradingId",

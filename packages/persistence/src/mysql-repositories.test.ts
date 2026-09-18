@@ -258,6 +258,7 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 	});
 	const context = {
 		businessId: "1952638941030000001",
+		tradeTypeCode: "10",
 		businessCode: "REG-20260907-001",
 		payingId: "1952638941030000002",
 		tradingId: "1952638941030000003",
