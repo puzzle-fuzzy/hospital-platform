@@ -711,6 +711,69 @@ test("appointment write routes are registered and remain auth-protected", async 
 	}
 });
 
+test("预约取消路由通过支付退出编排先收敛未支付订单", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const ownerUserId = "appointment-cancel-auto-owner";
+	const issued = await sessions.issue(ownerUserId);
+	let received:
+		| {
+				ownerUserId: string;
+				appointmentId: string;
+				mode: string;
+				context: unknown;
+		  }
+		| undefined;
+	const app = createApp({
+		services: {
+			...createDefaultApplicationServices(),
+			sessions,
+			registrationPaymentExit: {
+				abandon: async (input) => {
+					received = input;
+					return {
+						appointmentId: input.appointmentId,
+						status: "cancelled" as const,
+					};
+				},
+			} as NonNullable<ApplicationServices["registrationPaymentExit"]>,
+		},
+	});
+
+	const response = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/registrations/appointment-cancel-auto/cancel",
+			{
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${issued.accessToken}`,
+					"content-type": "application/json",
+					"idempotency-key": "appointment-cancel-auto-key",
+					"x-request-id": "appointment-cancel-auto-trace",
+				},
+				body: "{}",
+			},
+		),
+	);
+
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({
+		success: true,
+		data: {
+			appointmentId: "appointment-cancel-auto",
+			status: "cancelled",
+		},
+	});
+	expect(received).toMatchObject({
+		ownerUserId,
+		appointmentId: "appointment-cancel-auto",
+		mode: "auto",
+		context: {
+			traceId: "appointment-cancel-auto-trace",
+			idempotencyKey: "appointment-cancel-auto-key",
+		},
+	});
+});
+
 test("health knowledge routes remain fail-closed until reviewed content is ready", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/api/v1/knowledge/health/part/list"),

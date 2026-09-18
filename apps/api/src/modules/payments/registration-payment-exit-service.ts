@@ -11,7 +11,12 @@ import type { MedicalInsuranceWechatPaymentService } from "../medical-insurance/
 import { registrationSelfPayOrderKey } from "./registration-self-pay-service";
 import type { WechatPrepayService } from "./service";
 
-export type RegistrationPaymentExitMode = "medical" | "mixed" | "self";
+export type RegistrationPaymentExitMode =
+	| "medical"
+	| "mixed"
+	| "self"
+	/** 预约详情取消使用；由服务端按实际关联订单自动判断支付路线。 */
+	| "auto";
 
 export class RegistrationPaymentExitInputError extends Error {
 	constructor(message = "Registration payment exit input is invalid") {
@@ -72,7 +77,8 @@ export class RegistrationPaymentExitService {
 		if (
 			input.mode !== "medical" &&
 			input.mode !== "mixed" &&
-			input.mode !== "self"
+			input.mode !== "self" &&
+			input.mode !== "auto"
 		)
 			throw new RegistrationPaymentExitInputError("payment mode is invalid");
 
@@ -115,7 +121,7 @@ export class RegistrationPaymentExitService {
 			if (
 				medicalOrder.wechatMixTradeNo &&
 				medicalOrder.status === "cash_pending" &&
-				input.mode === "mixed"
+				(input.mode === "mixed" || input.mode === "auto")
 			) {
 				const payment =
 					await this.dependencies.medicalInsuranceWechatPayment.query({

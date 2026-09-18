@@ -16,6 +16,7 @@ import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
+import type { RegistrationPaymentExitService } from "../payments/registration-payment-exit-service";
 import type { AppointmentService } from "./service";
 import type { AppointmentWriteService } from "./write-service";
 
@@ -77,6 +78,7 @@ export function appointmentsModule(
 	appointmentService: AppointmentService,
 	appointmentWrites: AppointmentWriteService,
 	sessions: SessionTokenService,
+	registrationPaymentExit?: RegistrationPaymentExitService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions);
 	return new Elysia({ name: "appointments-module" })
@@ -142,12 +144,21 @@ export function appointmentsModule(
 			"/appointments/registrations/:appointmentId/cancel",
 			async ({ request, headers, params }) => {
 				const principal = await authentication.get(request);
+				// 详情页取消也必须走支付退出编排：未支付订单先安全失效，
+				// 已支付或 Provider 结果未知则保持预约，不允许直接释放号源。
 				return success(
-					await appointmentWrites.cancel({
-						ownerUserId: principal.userId,
-						appointmentId: params.appointmentId,
-						context: adapterContextFromHeaders(headers),
-					}),
+					registrationPaymentExit
+						? await registrationPaymentExit.abandon({
+								ownerUserId: principal.userId,
+								appointmentId: params.appointmentId,
+								mode: "auto",
+								context: adapterContextFromHeaders(headers),
+							})
+						: await appointmentWrites.cancel({
+								ownerUserId: principal.userId,
+								appointmentId: params.appointmentId,
+								context: adapterContextFromHeaders(headers),
+							}),
 				);
 			},
 			{

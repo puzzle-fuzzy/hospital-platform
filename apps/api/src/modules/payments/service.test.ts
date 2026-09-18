@@ -454,7 +454,7 @@ test("支付退出会在自费订单失效后取消预约并释放号源", async
 		service.abandon({
 			ownerUserId: order.ownerUserId,
 			appointmentId: "appointment-exit-002",
-			mode: "self",
+			mode: "auto",
 			context: { traceId: "trace-exit-002", idempotencyKey: "exit-002" },
 		}),
 	).resolves.toEqual({
