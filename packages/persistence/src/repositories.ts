@@ -45,6 +45,8 @@ import type {
 	UserProfileUpdate,
 	WechatPaymentNotification,
 	WechatPaymentNotificationRepository,
+	WechatRefund,
+	WechatRefundRepository,
 } from "@hospital/domain";
 import {
 	isValidMedicalInsuranceProviderQueryIdentity,
@@ -61,6 +63,8 @@ import {
 	validateMyDoctorCreateInput,
 	validatePatientFeedbackCreateInput,
 	validateReportReference,
+	WechatRefundAmountExceededError,
+	WechatRefundIdempotencyConflictError,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
 import { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
@@ -865,6 +869,75 @@ export function createInMemoryPaymentQuoteRepository(
 	};
 }
 
+/** 仅用于 Admin 退款服务测试；生产使用 MySQL 的行锁和唯一键实现。 */
+export function createInMemoryWechatRefundRepository(
+	seed: readonly WechatRefund[] = [],
+): WechatRefundRepository {
+	const records = new Map(
+		seed.map((record) => [record.refundRecordId, record]),
+	);
+	const activeStatuses = new Set([
+		"requested",
+		"processing",
+		"success",
+		"unknown",
+	]);
+	const findByMerchantNo = (merchantRefundNo: string) =>
+		[...records.values()].find(
+			(candidate) => candidate.merchantRefundNo === merchantRefundNo,
+		);
+	const sameIdentity = (left: WechatRefund, right: WechatRefund) =>
+		left.source === right.source &&
+		left.sourceOrderId === right.sourceOrderId &&
+		left.outTradeNo === right.outTradeNo &&
+		left.totalFen === right.totalFen &&
+		left.refundFen === right.refundFen;
+	return {
+		async reserve(record) {
+			const existingByIdempotency = [...records.values()].find(
+				(candidate) => candidate.idempotencyKey === record.idempotencyKey,
+			);
+			if (existingByIdempotency) {
+				if (!sameIdentity(existingByIdempotency, record)) {
+					throw new WechatRefundIdempotencyConflictError();
+				}
+				return { status: "existing", record: { ...existingByIdempotency } };
+			}
+			const existingByMerchantNo = findByMerchantNo(record.merchantRefundNo);
+			if (existingByMerchantNo) {
+				if (!sameIdentity(existingByMerchantNo, record)) {
+					throw new WechatRefundIdempotencyConflictError();
+				}
+				return { status: "existing", record: { ...existingByMerchantNo } };
+			}
+			const reservedFen = [...records.values()]
+				.filter(
+					(candidate) =>
+						candidate.source === record.source &&
+						candidate.sourceOrderId === record.sourceOrderId &&
+						activeStatuses.has(candidate.status),
+				)
+				.reduce((sum, candidate) => sum + candidate.refundFen, 0);
+			if (reservedFen + record.refundFen > record.totalFen) {
+				throw new WechatRefundAmountExceededError();
+			}
+			records.set(record.refundRecordId, { ...record });
+			return { status: "inserted", record: { ...record } };
+		},
+		async findByMerchantRefundNo(merchantRefundNo) {
+			const record = findByMerchantNo(merchantRefundNo);
+			return record ? { ...record } : undefined;
+		},
+		async update(record, expectedVersion) {
+			const current = records.get(record.refundRecordId);
+			if (!current || current.version !== expectedVersion) return undefined;
+			const next = { ...record };
+			records.set(record.refundRecordId, next);
+			return { ...next };
+		},
+	};
+}
+
 /** 仅用于应用层和并发语义测试；生产实现必须使用数据库唯一键和版本更新。 */
 export function createInMemoryPaymentPrepayAttemptRepository(
 	seed: readonly PaymentPrepayAttempt[] = [],
@@ -1238,6 +1311,7 @@ export function createNotConfiguredRepositories(): {
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
+	wechatRefunds: WechatRefundRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	appointmentWrites: AppointmentWriteRepository;
 	myDoctors: MyDoctorRepository;
@@ -1440,6 +1514,17 @@ export function createNotConfiguredRepositories(): {
 		wechatPaymentNotifications: {
 			record: async () => {
 				throw new PersistenceNotConfiguredError("wechat-payment-notifications");
+			},
+		},
+		wechatRefunds: {
+			reserve: async () => {
+				throw new PersistenceNotConfiguredError("wechat-refunds");
+			},
+			findByMerchantRefundNo: async () => {
+				throw new PersistenceNotConfiguredError("wechat-refunds");
+			},
+			update: async () => {
+				throw new PersistenceNotConfiguredError("wechat-refunds");
 			},
 		},
 		appointmentScheduleSnapshots: {

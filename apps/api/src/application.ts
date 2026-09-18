@@ -30,6 +30,7 @@ import type {
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
+	WechatRefundGateway,
 	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import {
@@ -45,6 +46,7 @@ import { createNotConfiguredRepositories } from "@hospital/persistence";
 import {
 	type AdminInsuranceQueryGateway,
 	AdminInsuranceQueryService,
+	AdminWechatRefundService,
 } from "./modules/admin";
 import { AppointmentService } from "./modules/appointments";
 import { AppointmentWriteService } from "./modules/appointments/write-service";
@@ -120,6 +122,8 @@ export type ApplicationServices = {
 	profile?: UserProfileService;
 	/** 新服务独立 Admin 1101 只读查询；未配置时保持不可用。 */
 	adminInsuranceQuery?: AdminInsuranceQueryService;
+	/** Admin 发起/查询微信自费退款；未配置微信退款 adapter 时保持不可用。 */
+	wechatRefund?: AdminWechatRefundService;
 	sessions: SessionTokenService;
 };
 
@@ -134,6 +138,8 @@ export type ApplicationServiceOptions = {
 	identityGateway?: WechatIdentityGateway;
 	/** 只有完成微信支付商户配置和回调验收后才打开。 */
 	wechatPaymentGateway?: WechatPaymentGateway;
+	/** 普通商户 APIv3 微信退款 adapter；可与支付 adapter 复用同一实例。 */
+	wechatRefundGateway?: WechatRefundGateway;
 	/** 微信自费支付成功后，必须由该网关完成 HIS 回写；未配置时保持 pending。 */
 	hospitalSettlementGateway?: HospitalSettlementGateway;
 	/** 普通挂号自费在微信下单前固定执行 .1 -> .32 -> .2。 */
@@ -657,6 +663,14 @@ export function createDefaultApplicationServices(
 					: {}),
 			})
 		: undefined;
+	const wechatRefund = options.wechatRefundGateway
+		? new AdminWechatRefundService({
+				refunds: repositories.wechatRefunds,
+				paymentOrders: repositories.paymentOrders,
+				medicalInsuranceOrders: repositories.medicalInsuranceOrders,
+				gateway: options.wechatRefundGateway,
+			})
+		: undefined;
 	const patients = new PatientService(repositories.patients, {
 		identityUsers: repositories.identityUsers,
 		directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
@@ -805,6 +819,7 @@ export function createDefaultApplicationServices(
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		...(adminInsuranceQuery ? { adminInsuranceQuery } : {}),
+		...(wechatRefund ? { wechatRefund } : {}),
 		sessions,
 	};
 }

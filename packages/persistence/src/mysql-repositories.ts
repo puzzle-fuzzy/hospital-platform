@@ -55,6 +55,8 @@ import type {
 	WechatPaymentLaunchParams,
 	WechatPaymentNotification,
 	WechatPaymentNotificationRepository,
+	WechatRefund,
+	WechatRefundRepository,
 } from "@hospital/domain";
 import {
 	isValidMedicalInsuranceProviderQueryIdentity,
@@ -74,6 +76,8 @@ import {
 	validateMyDoctorCreateInput,
 	validatePatientFeedbackCreateInput,
 	validateReportReference,
+	WechatRefundAmountExceededError,
+	WechatRefundIdempotencyConflictError,
 } from "@hospital/domain";
 import type {
 	Pool,
@@ -351,6 +355,28 @@ type WechatPaymentNotificationRow = RowDataPacket & {
 	total_fen: number | string;
 	provider_transaction_id: string;
 	received_at: string;
+};
+
+type WechatRefundRow = RowDataPacket & {
+	refund_record_id: string;
+	merchant_refund_no: string;
+	idempotency_key: string;
+	source: string;
+	source_order_id: string;
+	out_trade_no: string;
+	total_fen: number | string;
+	refund_fen: number | string;
+	reason: string | null;
+	status: string;
+	provider_status: string | null;
+	provider_refund_id: string | null;
+	provider_transaction_id: string | null;
+	provider_request_id: string | null;
+	success_time: string | null;
+	last_error_code: string | null;
+	version: number | string;
+	created_at: string;
+	updated_at: string;
 };
 
 type OutboxEventRow = RowDataPacket & {
@@ -1286,6 +1312,7 @@ export type MySqlRepositories = {
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
+	wechatRefunds: WechatRefundRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	appointmentWrites: AppointmentWriteRepository;
 	myDoctors: MyDoctorRepository;
@@ -2184,6 +2211,73 @@ function paymentOrder(row: PaymentOrderRow): PaymentOrder {
 		),
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
+	};
+}
+
+const WECHAT_REFUND_STATUSES: readonly WechatRefund["status"][] = [
+	"requested",
+	"processing",
+	"success",
+	"closed",
+	"abnormal",
+	"unknown",
+	"request_failed",
+];
+
+function wechatRefundStatus(value: string): WechatRefund["status"] {
+	if (WECHAT_REFUND_STATUSES.includes(value as WechatRefund["status"])) {
+		return value as WechatRefund["status"];
+	}
+	throw new Error("Persistence returned an unknown Wechat refund status");
+}
+
+function wechatRefundSource(value: string): WechatRefund["source"] {
+	if (value === "payment_order" || value === "medical_insurance") return value;
+	throw new Error("Persistence returned an unknown Wechat refund source");
+}
+
+function wechatRefundProviderStatus(
+	value: string | null,
+): WechatRefund["providerStatus"] {
+	if (value === null) return null;
+	if (
+		value === "SUCCESS" ||
+		value === "CLOSED" ||
+		value === "PROCESSING" ||
+		value === "ABNORMAL"
+	) {
+		return value;
+	}
+	throw new Error(
+		"Persistence returned an unknown Wechat provider refund status",
+	);
+}
+
+function wechatRefund(row: WechatRefundRow): WechatRefund {
+	return {
+		refundRecordId: row.refund_record_id,
+		merchantRefundNo: row.merchant_refund_no,
+		idempotencyKey: row.idempotency_key,
+		source: wechatRefundSource(row.source),
+		sourceOrderId: row.source_order_id,
+		outTradeNo: row.out_trade_no,
+		totalFen: safeFen(row.total_fen),
+		refundFen: safeFen(row.refund_fen),
+		reason: row.reason,
+		status: wechatRefundStatus(row.status),
+		providerStatus: wechatRefundProviderStatus(row.provider_status),
+		providerRefundId: row.provider_refund_id,
+		providerTransactionId: row.provider_transaction_id,
+		providerRequestId: row.provider_request_id,
+		successTime: row.success_time,
+		lastErrorCode: row.last_error_code,
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid Wechat refund version",
+		),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
 	};
 }
 
@@ -3370,6 +3464,134 @@ export function createMySqlRepositories(
 			);
 			if (context.recordCode !== recordCode) return undefined;
 			return { order: paymentOrder(row), context };
+		},
+	};
+
+	const wechatRefunds: WechatRefundRepository = {
+		async reserve(record) {
+			return withTransaction(pool, async (connection) => {
+				const columns =
+					"refund_record_id, merchant_refund_no, idempotency_key, source, source_order_id, out_trade_no, total_fen, refund_fen, reason, status, provider_status, provider_refund_id, provider_transaction_id, provider_request_id, success_time, last_error_code, version, created_at, updated_at";
+				const existingRows = await execute<WechatRefundRow[]>(
+					connection,
+					`SELECT ${columns} FROM hp_wechat_refunds WHERE idempotency_key = ? FOR UPDATE`,
+					[record.idempotencyKey],
+				);
+				const existing = existingRows[0];
+				const sameIdentity = (candidate: WechatRefund) =>
+					candidate.source === record.source &&
+					candidate.sourceOrderId === record.sourceOrderId &&
+					candidate.outTradeNo === record.outTradeNo &&
+					candidate.totalFen === record.totalFen &&
+					candidate.refundFen === record.refundFen;
+				if (existing) {
+					const existingRecord = wechatRefund(existing);
+					if (!sameIdentity(existingRecord)) {
+						throw new WechatRefundIdempotencyConflictError();
+					}
+					return { status: "existing" as const, record: existingRecord };
+				}
+				const merchantRows = await execute<WechatRefundRow[]>(
+					connection,
+					`SELECT ${columns} FROM hp_wechat_refunds WHERE merchant_refund_no = ? FOR UPDATE`,
+					[record.merchantRefundNo],
+				);
+				const merchantExisting = merchantRows[0];
+				if (merchantExisting) {
+					const existingRecord = wechatRefund(merchantExisting);
+					if (!sameIdentity(existingRecord)) {
+						throw new WechatRefundIdempotencyConflictError();
+					}
+					return { status: "existing" as const, record: existingRecord };
+				}
+				const sumRows = await execute<
+					(RowDataPacket & { reserved_fen: number | string })[]
+				>(
+					connection,
+					`SELECT COALESCE(SUM(refund_fen), 0) AS reserved_fen
+					 FROM hp_wechat_refunds
+					 WHERE source = ? AND source_order_id = ?
+					   AND status IN ('requested', 'processing', 'success', 'unknown')
+					 FOR UPDATE`,
+					[record.source, record.sourceOrderId],
+				);
+				const reservedFen = safeFen(sumRows[0]?.reserved_fen ?? 0);
+				if (reservedFen + record.refundFen > record.totalFen) {
+					throw new WechatRefundAmountExceededError();
+				}
+				await execute<ResultSetHeader>(
+					connection,
+					`INSERT INTO hp_wechat_refunds
+						(refund_record_id, merchant_refund_no, idempotency_key, source,
+						 source_order_id, out_trade_no, total_fen, refund_fen, reason,
+						 status, provider_status, provider_refund_id, provider_transaction_id,
+						 provider_request_id, success_time, last_error_code, version,
+						 created_at, updated_at)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					[
+						record.refundRecordId,
+						record.merchantRefundNo,
+						record.idempotencyKey,
+						record.source,
+						record.sourceOrderId,
+						record.outTradeNo,
+						record.totalFen,
+						record.refundFen,
+						record.reason,
+						record.status,
+						record.providerStatus,
+						record.providerRefundId,
+						record.providerTransactionId,
+						record.providerRequestId,
+						record.successTime,
+						record.lastErrorCode,
+						record.version,
+						mysqlDateTime(record.createdAt),
+						mysqlDateTime(record.updatedAt),
+					],
+				);
+				return { status: "inserted" as const, record };
+			});
+		},
+		async findByMerchantRefundNo(merchantRefundNo) {
+			const columns =
+				"refund_record_id, merchant_refund_no, idempotency_key, source, source_order_id, out_trade_no, total_fen, refund_fen, reason, status, provider_status, provider_refund_id, provider_transaction_id, provider_request_id, success_time, last_error_code, version, created_at, updated_at";
+			const rows = await execute<WechatRefundRow[]>(
+				pool,
+				`SELECT ${columns} FROM hp_wechat_refunds WHERE merchant_refund_no = ? LIMIT 1`,
+				[merchantRefundNo],
+			);
+			return rows[0] ? wechatRefund(rows[0]) : undefined;
+		},
+		async update(record, expectedVersion) {
+			const result = await execute<ResultSetHeader>(
+				pool,
+				`UPDATE hp_wechat_refunds SET
+					status = ?, provider_status = ?, provider_refund_id = ?,
+					provider_transaction_id = ?, provider_request_id = ?, success_time = ?,
+					last_error_code = ?, version = ?, updated_at = ?
+				 WHERE refund_record_id = ? AND version = ?`,
+				[
+					record.status,
+					record.providerStatus,
+					record.providerRefundId,
+					record.providerTransactionId,
+					record.providerRequestId,
+					record.successTime,
+					record.lastErrorCode,
+					record.version,
+					mysqlDateTime(record.updatedAt),
+					record.refundRecordId,
+					expectedVersion,
+				],
+			);
+			if (result.affectedRows !== 1) return undefined;
+			const rows = await execute<WechatRefundRow[]>(
+				pool,
+				`SELECT refund_record_id, merchant_refund_no, idempotency_key, source, source_order_id, out_trade_no, total_fen, refund_fen, reason, status, provider_status, provider_refund_id, provider_transaction_id, provider_request_id, success_time, last_error_code, version, created_at, updated_at FROM hp_wechat_refunds WHERE refund_record_id = ? LIMIT 1`,
+				[record.refundRecordId],
+			);
+			return rows[0] ? wechatRefund(rows[0]) : undefined;
 		},
 	};
 
@@ -5089,6 +5311,7 @@ export function createMySqlRepositories(
 		paymentQuotes,
 		paymentPrepayAttempts,
 		wechatPaymentNotifications,
+		wechatRefunds,
 		appointmentScheduleSnapshots,
 		appointmentWrites,
 		myDoctors,

@@ -250,6 +250,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0049_appointment_display_context.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0050_wechat_refunds",
+		file: "../migrations/0050_wechat_refunds.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -281,6 +286,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_my_doctors",
 	"hp_report_references",
 	"hp_health_knowledge_publications",
+	"hp_wechat_refunds",
 	"hp_health_knowledge_items",
 	"hp_health_knowledge_disease_details",
 	"hp_health_knowledge_drug_details",

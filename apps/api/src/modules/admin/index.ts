@@ -8,6 +8,8 @@ import {
 } from "./insurance-query-service";
 
 export { adminLogsModule } from "./logs";
+export { adminWechatRefundModule } from "./refunds";
+export { AdminWechatRefundService } from "./wechat-refund-service";
 
 const AdminInsuranceQueryHeaders = t.Object({
 	"x-admin-query-token": t.String({ minLength: 1, maxLength: 512 }),

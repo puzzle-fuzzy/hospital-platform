@@ -18,7 +18,11 @@ import {
 	createReadinessService,
 	type ReadinessService,
 } from "./infrastructure/readiness";
-import { adminInsuranceQueryModule, adminLogsModule } from "./modules/admin";
+import {
+	adminInsuranceQueryModule,
+	adminLogsModule,
+	adminWechatRefundModule,
+} from "./modules/admin";
 import type { AppointmentWriteService } from "./modules/appointments";
 import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
@@ -87,6 +91,8 @@ export type AppOptions = {
 	adminLogStore?: AdminLogStore;
 	/** 管理端日志读模型的独立服务间令牌。 */
 	adminLogsToken?: string;
+	/** 管理端微信退款的独立服务间令牌；不下发浏览器或小程序。 */
+	adminRefundToken?: string;
 	/** Worker 上送安全日志元数据的独立服务间令牌。 */
 	adminLogsIngestToken?: string;
 };
@@ -281,6 +287,14 @@ export function createApp(options: AppOptions = {}) {
 						options.adminLogsToken,
 						options.adminLogsIngestToken,
 					),
+				)
+				.use(
+					services.wechatRefund && options.adminRefundToken?.trim()
+						? adminWechatRefundModule(
+								services.wechatRefund,
+								options.adminRefundToken,
+							)
+						: new Elysia({ name: "admin-wechat-refund-not-configured" }),
 				)
 				.use(systemModule())
 				.use(authModule(services.auth, services.sessions))

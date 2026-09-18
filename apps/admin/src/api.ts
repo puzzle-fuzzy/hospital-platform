@@ -8,6 +8,8 @@ import type {
 	PaymentInterfaceDetail,
 	RawLogTrace,
 	Session,
+	WechatRefund,
+	WechatRefundSource,
 } from "./types";
 
 const SESSION_KEY = "admin.session";
@@ -239,6 +241,46 @@ export async function fetchPaymentInterface(
 			{
 				headers: { Authorization: `Bearer ${session.accessToken}` },
 			},
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function requestWechatRefund(
+	input: {
+		source: WechatRefundSource;
+		orderId: string;
+		refundFen: number;
+		idempotencyKey: string;
+		reason?: string;
+	},
+	session: Session,
+): Promise<WechatRefund> {
+	try {
+		return await request<WechatRefund>("/api/refunds/wechat", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${session.accessToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(input),
+		});
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function queryWechatRefund(
+	merchantRefundNo: string,
+	session: Session,
+): Promise<WechatRefund> {
+	try {
+		return await request<WechatRefund>(
+			`/api/refunds/wechat/${encodeURIComponent(merchantRefundNo)}`,
+			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
 		);
 	} catch (error) {
 		if (error instanceof ApiError && error.status === 401) clearSession();

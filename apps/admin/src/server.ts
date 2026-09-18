@@ -27,6 +27,12 @@ const adminLogsUpstream = adminLogsUpstreamValue
 	? new URL(adminLogsUpstreamValue)
 	: undefined;
 const adminLogsToken = Bun.env.ADMIN_LOGS_API_TOKEN?.trim() || "";
+const adminRefundsUpstreamValue =
+	Bun.env.ADMIN_REFUNDS_API_BASE_URL?.trim() || "";
+const adminRefundsUpstream = adminRefundsUpstreamValue
+	? new URL(adminRefundsUpstreamValue)
+	: undefined;
+const adminRefundsToken = Bun.env.ADMIN_REFUNDS_API_TOKEN?.trim() || "";
 const allowHttpUpstream =
 	Bun.env.INSURANCE_QUERY_ALLOW_HTTP_UPSTREAM === "true";
 const clientRoot = join(import.meta.dir, "client");
@@ -71,6 +77,15 @@ if (
 ) {
 	throw new Error(
 		"Admin logs API must use HTTPS unless HTTP is explicitly enabled",
+	);
+}
+if (
+	adminRefundsUpstream &&
+	adminRefundsUpstream.protocol !== "https:" &&
+	!(allowHttpUpstream && adminRefundsUpstream.protocol === "http:")
+) {
+	throw new Error(
+		"Admin refunds API must use HTTPS unless HTTP is explicitly enabled",
 	);
 }
 
@@ -552,6 +567,55 @@ async function logsRequest(request: Request, url: URL): Promise<Response> {
 	);
 }
 
+async function adminRefundRequest(
+	request: Request,
+	path: string,
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务退费接口尚未配置", 503);
+	}
+	const input = await requestJson(request);
+	return upstreamRequest(
+		adminRefundsUpstream,
+		path,
+		{
+			method: "POST",
+			headers: {
+				Authorization: authorization,
+				"Content-Type": "application/json",
+				"X-Admin-Refund-Token": adminRefundsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+			body: JSON.stringify(input),
+		},
+		"新服务退费接口暂时不可用，请稍后重试",
+	);
+}
+
+async function adminRefundQueryRequest(
+	request: Request,
+	merchantRefundNo: string,
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务退费接口尚未配置", 503);
+	}
+	return upstreamRequest(
+		adminRefundsUpstream,
+		`/admin/wechat-refunds/${encodeURIComponent(merchantRefundNo)}`,
+		{
+			method: "GET",
+			headers: {
+				Authorization: authorization,
+				"X-Admin-Refund-Token": adminRefundsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务退费接口暂时不可用，请稍后重试",
+	);
+}
+
 async function logDetailRequest(
 	request: Request,
 	id: string,
@@ -791,6 +855,18 @@ const server = Bun.serve({
 			if (url.pathname === "/api/payments/day" && request.method === "GET") {
 				return await paymentDayRequest(request, url);
 			}
+			if (url.pathname === "/api/refunds/wechat" && request.method === "POST") {
+				return await adminRefundRequest(request, "/admin/wechat-refunds");
+			}
+			const refundQueryMatch = url.pathname.match(
+				/^\/api\/refunds\/wechat\/([A-Za-z0-9_@*|-]{1,64})$/u,
+			);
+			if (refundQueryMatch && request.method === "GET") {
+				return await adminRefundQueryRequest(
+					request,
+					refundQueryMatch[1] ?? "",
+				);
+			}
 			if (url.pathname === "/api/logs" && request.method === "GET") {
 				return await logsRequest(request, url);
 			}
@@ -832,5 +908,6 @@ console.info(
 		port: server.port,
 		legacyUpstreamProtocol: legacyUpstream.protocol,
 		adminLogsConfigured: Boolean(adminLogsUpstream && adminLogsToken),
+		adminRefundsConfigured: Boolean(adminRefundsUpstream && adminRefundsToken),
 	}),
 );

@@ -561,6 +561,9 @@ const services = createDefaultApplicationServices({
 	...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
 	...(identityGateway ? { identityGateway } : {}),
 	...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
+	...(wechatPaymentGateway
+		? { wechatRefundGateway: wechatPaymentGateway }
+		: {}),
 	...(medicalInsuranceWechatPaymentGateway
 		? { medicalInsuranceWechatPaymentGateway }
 		: {}),
@@ -711,6 +714,9 @@ const app = createApp({
 		: {}),
 	adminLogStore,
 	...(config.adminLogsToken ? { adminLogsToken: config.adminLogsToken } : {}),
+	...(config.adminRefundToken
+		? { adminRefundToken: config.adminRefundToken }
+		: {}),
 	...(config.adminLogsIngestToken
 		? { adminLogsIngestToken: config.adminLogsIngestToken }
 		: {}),

@@ -18,6 +18,9 @@ import type {
 	WechatPaymentNotification as WechatPaymentNotificationRecord,
 	WechatPaymentProviderState,
 	WechatPaymentQueryState,
+	WechatRefundGateway,
+	WechatRefundProviderResult,
+	WechatRefundProviderStatus,
 } from "@hospital/domain";
 import {
 	assertValidMedicalInsuranceAmounts,
@@ -35,6 +38,8 @@ import { type ProviderFetcher, requestJson } from "./http";
 const DEFAULT_WECHAT_PAY_BASE_URL = "https://api.mch.weixin.qq.com";
 const JSAPI_ORDER_PATH = "/v3/pay/transactions/jsapi";
 const JSAPI_CLOSE_PATH_PREFIX = "/v3/pay/transactions/out-trade-no";
+const REFUND_PATH = "/v3/refund/domestic/refunds";
+const REFUND_QUERY_PATH_PREFIX = "/v3/refund/domestic/refunds";
 const MEDICAL_MIX_ORDER_PATH = "/v3/med-ins/orders";
 const MEDICAL_MIX_ORDER_OUT_TRADE_NO_PATH_PREFIX =
 	"/v3/med-ins/orders/out-trade-no";
@@ -51,6 +56,16 @@ type WechatOrderQueryResponse = {
 	transaction_id?: unknown;
 	amount?: unknown;
 	success_time?: unknown;
+};
+
+type WechatRefundResponse = {
+	refund_id?: unknown;
+	out_refund_no?: unknown;
+	transaction_id?: unknown;
+	out_trade_no?: unknown;
+	status?: unknown;
+	success_time?: unknown;
+	amount?: unknown;
 };
 
 type WechatPaymentNotificationEnvelope = {
@@ -773,7 +788,10 @@ function decryptNotificationResource(input: {
 }
 
 export class WechatPaymentApiGateway
-	implements WechatPaymentGateway, MedicalInsuranceWechatPaymentGateway
+	implements
+		WechatPaymentGateway,
+		WechatRefundGateway,
+		MedicalInsuranceWechatPaymentGateway
 {
 	private readonly appId: string;
 	private readonly mchId: string;
@@ -1357,6 +1375,192 @@ export class WechatPaymentApiGateway
 		return {
 			trace: paymentTrace("order-close", response.requestId, orderId),
 		};
+	}
+
+	private refundResult(input: {
+		data: WechatRefundResponse;
+		requestId: string;
+		operation: "refund-request" | "refund-query";
+	}): WechatRefundProviderResult {
+		const refundId =
+			typeof input.data.refund_id === "string"
+				? input.data.refund_id.trim()
+				: "";
+		const merchantRefundNo =
+			typeof input.data.out_refund_no === "string"
+				? input.data.out_refund_no.trim()
+				: "";
+		const outTradeNo =
+			typeof input.data.out_trade_no === "string"
+				? input.data.out_trade_no.trim()
+				: "";
+		const rawStatus = input.data.status;
+		const status: WechatRefundProviderStatus | undefined =
+			rawStatus === "SUCCESS" ||
+			rawStatus === "CLOSED" ||
+			rawStatus === "PROCESSING" ||
+			rawStatus === "ABNORMAL"
+				? rawStatus
+				: undefined;
+		const amount = input.data.amount;
+		if (
+			!refundId ||
+			!merchantRefundNo ||
+			!outTradeNo ||
+			!status ||
+			typeof amount !== "object" ||
+			amount === null ||
+			Array.isArray(amount) ||
+			!Number.isSafeInteger((amount as { total?: unknown }).total) ||
+			!Number.isSafeInteger((amount as { refund?: unknown }).refund)
+		) {
+			throw providerError({
+				operation: input.operation,
+				message: "Wechat refund response was invalid",
+				requestId: input.requestId,
+			});
+		}
+		const successTime =
+			typeof input.data.success_time === "string"
+				? input.data.success_time.trim()
+				: undefined;
+		const transactionId =
+			typeof input.data.transaction_id === "string"
+				? input.data.transaction_id.trim()
+				: undefined;
+		return {
+			status,
+			merchantRefundNo,
+			providerRefundId: refundId,
+			outTradeNo,
+			totalFen: (amount as { total: number }).total,
+			refundFen: (amount as { refund: number }).refund,
+			...(transactionId ? { providerTransactionId: transactionId } : {}),
+			...(successTime ? { successTime } : {}),
+			trace: paymentTrace(input.operation, input.requestId, refundId),
+		};
+	}
+
+	async requestRefund(
+		input: {
+			outTradeNo: string;
+			merchantRefundNo: string;
+			totalFen: number;
+			refundFen: number;
+			reason?: string;
+		},
+		context: AdapterCallContext,
+	): Promise<WechatRefundProviderResult> {
+		const outTradeNo = requiredInput(input.outTradeNo, "outTradeNo", 32);
+		const merchantRefundNo = requiredInput(
+			input.merchantRefundNo,
+			"merchantRefundNo",
+			64,
+		);
+		const totalFen = requiredPositiveFen(input.totalFen);
+		const refundFen = requiredPositiveFen(input.refundFen);
+		if (refundFen > totalFen) {
+			throw providerError({
+				operation: "refund-validation",
+				message: "Wechat refund amount exceeded the original amount",
+				failureStage: "validation",
+				requestOutcome: "not_sent",
+			});
+		}
+		const reason = input.reason?.trim();
+		const body = JSON.stringify({
+			out_trade_no: outTradeNo,
+			out_refund_no: merchantRefundNo,
+			...(reason ? { reason } : {}),
+			amount: { refund: refundFen, total: totalFen, currency: "CNY" },
+		});
+		const nonce = this.nonce();
+		const timestamp = unixSeconds(this.now);
+		const response = await requestJson<WechatRefundResponse>(
+			{
+				provider: "wechat-pay",
+				operation: "refund-request",
+				url: new URL(REFUND_PATH, this.baseUrl).toString(),
+				method: "POST",
+				context,
+				bodyText: body,
+				headers: {
+					Authorization: apiV3Authorization({
+						method: "POST",
+						path: REFUND_PATH,
+						timestamp,
+						nonce,
+						body,
+						mchId: this.mchId,
+						merchantCertificateSerial: this.merchantCertificateSerial,
+						merchantPrivateKey: this.merchantPrivateKey,
+					}),
+				},
+				verifyResponse: (verification) =>
+					verifyPlatformSignature({
+						...verification,
+						platformCertificateSerial: this.platformCertificateSerial,
+						platformPublicKey: this.platformPublicKey,
+						now: this.now,
+						operation: "refund-request",
+					}),
+			},
+			this.fetcher,
+		);
+		return this.refundResult({
+			data: response.data,
+			requestId: response.requestId,
+			operation: "refund-request",
+		});
+	}
+
+	async queryRefund(
+		input: { merchantRefundNo: string },
+		context: AdapterCallContext,
+	): Promise<WechatRefundProviderResult> {
+		const merchantRefundNo = requiredInput(
+			input.merchantRefundNo,
+			"merchantRefundNo",
+			64,
+		);
+		const path = `${REFUND_QUERY_PATH_PREFIX}/${encodeURIComponent(merchantRefundNo)}`;
+		const nonce = this.nonce();
+		const timestamp = unixSeconds(this.now);
+		const response = await requestJson<WechatRefundResponse>(
+			{
+				provider: "wechat-pay",
+				operation: "refund-query",
+				url: new URL(path, this.baseUrl).toString(),
+				method: "GET",
+				context,
+				headers: {
+					Authorization: apiV3Authorization({
+						method: "GET",
+						path,
+						timestamp,
+						nonce,
+						body: "",
+						mchId: this.mchId,
+						merchantCertificateSerial: this.merchantCertificateSerial,
+						merchantPrivateKey: this.merchantPrivateKey,
+					}),
+				},
+				verifyResponse: (verification) =>
+					verifyPlatformSignature({
+						...verification,
+						platformCertificateSerial: this.platformCertificateSerial,
+						platformPublicKey: this.platformPublicKey,
+						now: this.now,
+						operation: "refund-query",
+					}),
+			},
+			this.fetcher,
+		);
+		return this.refundResult({
+			data: response.data,
+			requestId: response.requestId,
+			operation: "refund-query",
+		});
 	}
 
 	/**

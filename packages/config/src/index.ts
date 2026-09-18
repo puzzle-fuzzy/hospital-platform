@@ -119,6 +119,8 @@ export type RuntimeConfig = {
 	adminQueryToken: string | undefined;
 	/** 新服务独立 Admin 日志查看令牌；与 1101 查询令牌分离。 */
 	adminLogsToken: string | undefined;
+	/** 新服务 Admin 微信退款令牌；必须与日志/1101 查询令牌分离。 */
+	adminRefundToken: string | undefined;
 	/** Worker 上送安全日志元数据的内部地址；不向浏览器暴露。 */
 	adminLogsIngestUrl: string | undefined;
 	/** Worker 上送日志使用的独立服务间令牌；不复用读令牌。 */
@@ -1248,6 +1250,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		adminQueryToken: optional(env.ADMIN_QUERY_TOKEN),
 		adminLogsToken: optional(env.ADMIN_LOGS_TOKEN),
+		adminRefundToken: optional(env.ADMIN_REFUND_TOKEN),
 		adminLogsIngestUrl: optional(env.ADMIN_LOGS_INGEST_URL),
 		adminLogsIngestToken: optional(env.ADMIN_LOGS_INGEST_TOKEN),
 		yunhealthRegistrationSettlementReady: boolean(

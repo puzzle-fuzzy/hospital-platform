@@ -25,6 +25,7 @@ import { useCallback, useEffect, useState } from "react";
 import { clearSession, loadCaptcha, loadSession, login, logout } from "./api";
 import { LogPanel } from "./LogPanel";
 import { PaymentPanel } from "./PaymentPanel";
+import { RefundPanel } from "./RefundPanel";
 import type { CaptchaState, LoginValues, Session } from "./types";
 
 const { Header, Sider } = Layout;
@@ -184,7 +185,11 @@ function Console() {
 					<div>
 						<Text strong>高平市人民医院</Text>
 						<Text type="secondary" className="header-subtitle">
-							{activeKey === "logs" ? "实时接口日志" : "支付流程查看"}
+							{activeKey === "logs"
+								? "实时接口日志"
+								: activeKey === "payments"
+									? "支付流程查看"
+									: "微信退费"}
 						</Text>
 					</div>
 				</div>
@@ -221,6 +226,11 @@ function Console() {
 								icon: <WalletOutlined />,
 								label: "查看支付",
 							},
+							{
+								key: "refunds",
+								icon: <WalletOutlined />,
+								label: "微信退费",
+							},
 						]}
 					/>
 				</Sider>
@@ -232,8 +242,16 @@ function Console() {
 							setSession(undefined);
 						}}
 					/>
-				) : (
+				) : activeKey === "payments" ? (
 					<PaymentPanel
+						session={session}
+						onExpired={() => {
+							clearSession();
+							setSession(undefined);
+						}}
+					/>
+				) : (
+					<RefundPanel
 						session={session}
 						onExpired={() => {
 							clearSession();

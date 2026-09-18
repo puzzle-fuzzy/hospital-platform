@@ -182,3 +182,34 @@ export type PaymentInterfaceDetail = {
 	request?: RawLogEntry;
 	response?: RawLogEntry;
 };
+
+export type WechatRefundSource = "payment_order" | "medical_insurance";
+
+export type WechatRefund = {
+	refundRecordId: string;
+	merchantRefundNo: string;
+	source: WechatRefundSource;
+	sourceOrderId: string;
+	outTradeNo: string;
+	totalFen: number;
+	refundFen: number;
+	reason: string | null;
+	idempotencyKey: string;
+	status:
+		| "requested"
+		| "processing"
+		| "success"
+		| "closed"
+		| "abnormal"
+		| "unknown"
+		| "request_failed";
+	providerStatus: "SUCCESS" | "CLOSED" | "PROCESSING" | "ABNORMAL" | null;
+	providerRefundId: string | null;
+	providerTransactionId: string | null;
+	providerRequestId: string | null;
+	successTime: string | null;
+	lastErrorCode: string | null;
+	version: number;
+	createdAt: string;
+	updatedAt: string;
+};

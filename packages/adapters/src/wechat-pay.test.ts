@@ -1570,3 +1570,51 @@ test("微信支付通知签名被篡改时不进入解密流程", () => {
 		}),
 	).toThrow(ProviderRequestError);
 });
+
+test("微信普通商户退款使用 APIv3 RSA 签名并读取退款状态", async () => {
+	const responseBody = JSON.stringify({
+		refund_id: "refund-provider-001",
+		out_refund_no: "RF-PO-refund001",
+		transaction_id: "transaction-001",
+		out_trade_no: "payment-order-refund-001",
+		status: "PROCESSING",
+		amount: { total: 300, refund: 100, currency: "CNY" },
+	});
+	const gateway = createGateway(
+		async (input, init) => {
+			const url = new URL(String(input));
+			expect(url.pathname).toBe("/v3/refund/domestic/refunds");
+			const body = String(init?.body ?? "");
+			expect(JSON.parse(body)).toEqual({
+				out_trade_no: "payment-order-refund-001",
+				out_refund_no: "RF-PO-refund001",
+				reason: "测试退费",
+				amount: { refund: 100, total: 300, currency: "CNY" },
+			});
+			verifyRequestAuthorization(
+				init,
+				"POST",
+				"/v3/refund/domestic/refunds",
+				body,
+			);
+			return new Response(responseBody, {
+				status: 200,
+				headers: providerResponseHeaders(responseBody),
+			});
+		},
+		["refund-request-nonce-001"],
+	);
+	const result = await gateway.requestRefund(
+		{
+			outTradeNo: "payment-order-refund-001",
+			merchantRefundNo: "RF-PO-refund001",
+			totalFen: 300,
+			refundFen: 100,
+			reason: "测试退费",
+		},
+		context,
+	);
+	expect(result.status).toBe("PROCESSING");
+	expect(result.refundFen).toBe(100);
+	expect(result.trace.operation).toBe("refund-request");
+});

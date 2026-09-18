@@ -444,6 +444,20 @@ export type {
 	WechatPaymentNotificationRecordResult,
 	WechatPaymentNotificationRepository,
 } from "./payment-provider";
+export type {
+	WechatRefund,
+	WechatRefundGateway,
+	WechatRefundProviderResult,
+	WechatRefundProviderStatus,
+	WechatRefundRepository,
+	WechatRefundSource,
+	WechatRefundStatus,
+} from "./wechat-refund";
+export {
+	WechatRefundAmountExceededError,
+	WechatRefundIdempotencyConflictError,
+	WechatRefundNotFoundError,
+} from "./wechat-refund";
 export {
 	createWechatPaymentNotificationEvent,
 	PaymentNotificationConflictError,
