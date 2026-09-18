@@ -98,7 +98,7 @@ function expectedPrePaymentComponents(input: {
 		{
 			kind: "wechat_cash" as const,
 			amountFen: breakdown.wechatCashFen,
-			payModel: "MINI_PROGRAM" as const,
+			payModel: "H5" as const,
 			payTypeId: "5031" as const,
 		},
 	].filter((component) => component.amountFen > 0);
@@ -145,6 +145,52 @@ function samePrePaymentPlan(
 			),
 		)
 	);
+}
+
+/**
+ * 本次修复前可能已有 5031/MINI_PROGRAM 的 .2 分项成功落库。该流水不能
+ * 在支付完成后改写；Worker 只允许它作为已完成的历史事实进入最终回写。
+ * 新订单和任何 failed/pending 旧流水仍须使用 H5/5031。
+ */
+function sameOrCompletedLegacyMiniProgramPrePaymentPlan(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): boolean {
+	if (samePrePaymentPlan(saved, planned)) return true;
+	if (saved.length !== planned.length) return false;
+	const plannedById = new Map(
+		planned.map((component) => [component.componentId, component]),
+	);
+	if (plannedById.size !== planned.length) return false;
+
+	let legacyCashComponent = false;
+	const seen = new Set<string>();
+	for (const savedComponent of saved) {
+		if (seen.has(savedComponent.componentId)) return false;
+		seen.add(savedComponent.componentId);
+		const plannedComponent = plannedById.get(savedComponent.componentId);
+		if (!plannedComponent) return false;
+		if (samePrePaymentComponent(savedComponent, plannedComponent)) continue;
+		if (
+			legacyCashComponent ||
+			savedComponent.kind !== "wechat_cash" ||
+			plannedComponent.kind !== "wechat_cash" ||
+			savedComponent.payTypeId !== "5031" ||
+			plannedComponent.payTypeId !== "5031" ||
+			savedComponent.payModel !== "MINI_PROGRAM" ||
+			plannedComponent.payModel !== "H5" ||
+			savedComponent.state !== "succeeded" ||
+			!savedComponent.payingId ||
+			!savedComponent.tradingId ||
+			savedComponent.totalFen !== plannedComponent.totalFen ||
+			savedComponent.amountFen !== plannedComponent.amountFen ||
+			savedComponent.recordCode !== plannedComponent.recordCode
+		) {
+			return false;
+		}
+		legacyCashComponent = true;
+	}
+	return legacyCashComponent;
 }
 
 export type MedicalInsuranceOrderReconciliationWorkerResult =
@@ -706,7 +752,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			throw new Error("medical-insurance-pre-payment-components-missing");
 		}
 		// 兼容发布前以旧顺序保存的在途订单；这里只核验计划内容，不要求数组顺序一致。
-		if (!samePrePaymentPlan(saved, planned)) {
+		if (!sameOrCompletedLegacyMiniProgramPrePaymentPlan(saved, planned)) {
 			throw new Error("medical-insurance-pre-payment-plan-changed");
 		}
 		if (saved.some((component) => component.state !== "succeeded")) {

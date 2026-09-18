@@ -105,7 +105,9 @@ function prePaymentComponents(input: {
 		{
 			kind: "wechat_cash" as const,
 			amountFen: breakdown.wechatCashFen,
-			payModel: "MINI_PROGRAM" as const,
+			// 5031 是医保入口的自费记账分项，而不是众阳的小程序医保收银。
+			// 实际微信收款随后由自有 APIv3/RSA 订单完成，不能在 .2 中附带 openid。
+			payModel: "H5" as const,
 			payTypeId: "5031" as const,
 		},
 	].filter((component) => component.amountFen > 0);
@@ -152,6 +154,64 @@ function samePrePaymentPlan(
 			),
 		)
 	);
+}
+
+/**
+ * 仅修复本次发布产生的失败记录：5031 被错误以 MINI_PROGRAM 提交时，
+ * Provider 在未创建任何可继续完成的交易前即拒绝。其他历史流水一律不迁移，
+ * 避免改写已成功、进行中或结果未知的支付事实。
+ */
+function migrateRejectedMiniProgramWechatCashPlan(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): MedicalInsurancePostPaymentComponent[] | undefined {
+	if (saved.length !== planned.length) return undefined;
+	const plannedById = new Map(
+		planned.map((component) => [component.componentId, component]),
+	);
+	if (plannedById.size !== planned.length) return undefined;
+
+	let migrated = false;
+	const seen = new Set<string>();
+	const components: MedicalInsurancePostPaymentComponent[] = [];
+	for (const savedComponent of saved) {
+		if (seen.has(savedComponent.componentId)) return undefined;
+		seen.add(savedComponent.componentId);
+		const plannedComponent = plannedById.get(savedComponent.componentId);
+		if (!plannedComponent) return undefined;
+		if (samePrePaymentComponent(savedComponent, plannedComponent)) {
+			components.push(savedComponent);
+			continue;
+		}
+		if (
+			migrated ||
+			savedComponent.kind !== "wechat_cash" ||
+			plannedComponent.kind !== "wechat_cash" ||
+			savedComponent.payTypeId !== WECHAT_SELF_PAY_TYPE_ID ||
+			plannedComponent.payTypeId !== WECHAT_SELF_PAY_TYPE_ID ||
+			savedComponent.payModel !== "MINI_PROGRAM" ||
+			plannedComponent.payModel !== "H5" ||
+			savedComponent.state !== "failed" ||
+			savedComponent.payingId ||
+			savedComponent.tradingId ||
+			savedComponent.providerRequestId ||
+			savedComponent.payParams ||
+			savedComponent.wechatOutTradeNo ||
+			savedComponent.totalFen !== plannedComponent.totalFen ||
+			savedComponent.amountFen !== plannedComponent.amountFen ||
+			savedComponent.recordCode !== plannedComponent.recordCode
+		) {
+			return undefined;
+		}
+		migrated = true;
+		components.push({
+			...plannedComponent,
+			state: "failed",
+			attempts: savedComponent.attempts,
+			updatedAt: savedComponent.updatedAt,
+		});
+	}
+	return migrated ? components : undefined;
 }
 
 function pluginOrderKey(medicalOrderId: string): string {
@@ -430,7 +490,19 @@ export class MedicalInsurancePluginPaymentService {
 		if (saved) {
 			// 兼容发布前按“优惠挂号、医保统筹”保存的在途计划；真正执行仍按 planned 新顺序。
 			if (!samePrePaymentPlan(saved, planned)) {
-				throw new Error("medical-insurance-pre-payment-plan-changed");
+				const migrated = migrateRejectedMiniProgramWechatCashPlan(
+					saved,
+					planned,
+				);
+				if (!migrated) {
+					throw new Error("medical-insurance-pre-payment-plan-changed");
+				}
+				settlement = { ...settlement, postPaymentComponents: migrated };
+				await this.dependencies.orders.saveSettlementContext(
+					ownerUserId,
+					orderId,
+					settlement,
+				);
 			}
 		} else {
 			settlement = { ...settlement, postPaymentComponents: planned };

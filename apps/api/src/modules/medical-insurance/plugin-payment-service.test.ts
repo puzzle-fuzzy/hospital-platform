@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
 const context = { traceId: "trace-001", idempotencyKey: "idempotency-001" };
@@ -129,7 +130,13 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 		paymentOrders: {} as never,
 		wechatPrepay: {} as never,
 		pluginPayment: {
-			createPreOrder: async (input) => {
+			createPreOrder: async (input: {
+				amountFen?: number;
+				payModel: string;
+				payTypeId: string;
+				paymentSystemUserId?: string;
+				tradeTypeCode: string;
+			}) => {
 				calls.push(input);
 				return {
 					payingId: `paying-${calls.length}`,
@@ -205,9 +212,8 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 		},
 		{
 			amountFen: 200,
-			payModel: "MINI_PROGRAM",
+			payModel: "H5",
 			payTypeId: "5031",
-			paymentSystemUserId: "openid-001",
 			tradeTypeCode: "2",
 		},
 	]);
@@ -222,6 +228,120 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 		payingId: "paying-1",
 		tradingId: "trading-1",
 	});
+});
+
+test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试", async () => {
+	const component = (
+		kind: "fund" | "personal_account" | "wechat_cash",
+		amountFen: number,
+		payModel: "H5" | "MINI_PROGRAM",
+		payTypeId: "2" | "5" | "5031",
+		state: "succeeded" | "failed",
+	) => ({
+		componentId: `medical-order-001:${kind}`,
+		kind,
+		totalFen: 1000,
+		amountFen,
+		payModel,
+		payTypeId,
+		recordCode: createHash("sha256")
+			.update(`medical-post-payment:medical-order-001:${kind}`)
+			.digest("hex")
+			.slice(0, 32),
+		state,
+		attempts: 1,
+		...(state === "succeeded"
+			? { payingId: `paying-${kind}`, tradingId: `trading-${kind}` }
+			: { lastErrorCode: "5" }),
+		updatedAt: "2026-09-18T08:22:56.000Z",
+	});
+	let currentSettlement: Record<string, unknown> = {
+		...settlement(),
+		insuredAreaCode: "140500",
+		postPaymentComponents: [
+			component("fund", 500, "H5", "2", "succeeded"),
+			component("personal_account", 300, "H5", "5", "succeeded"),
+			component("wechat_cash", 200, "MINI_PROGRAM", "5031", "failed"),
+		],
+	};
+	const calls: Array<{
+		payModel: string;
+		payTypeId: string;
+		paymentSystemUserId?: string;
+	}> = [];
+	const service = new MedicalInsurancePluginPaymentService({
+		orders: {
+			findByMedicalOrderId: async () => medicalOrder(),
+			getSettlementContext: async () => currentSettlement,
+			saveSettlementContext: async (
+				_owner: string,
+				_order: string,
+				value: unknown,
+			) => {
+				currentSettlement = value as Record<string, unknown>;
+			},
+		} as never,
+		authorizations: { get: async () => ({}) } as never,
+		identityUsers: {
+			findByUserId: async () => ({ providerSubject: "openid-001" }),
+		} as never,
+		paymentOrders: {} as never,
+		wechatPrepay: {} as never,
+		pluginPayment: {
+			createPreOrder: async (input: {
+				payModel: string;
+				payTypeId: string;
+				paymentSystemUserId?: string;
+			}) => {
+				calls.push({
+					payModel: input.payModel,
+					payTypeId: input.payTypeId,
+					...(input.paymentSystemUserId
+						? { paymentSystemUserId: input.paymentSystemUserId }
+						: {}),
+				});
+				return {
+					payingId: "paying-wechat-cash",
+					tradingId: "trading-wechat-cash",
+					payTypeId: "5031" as const,
+					payType: "CREDIT" as const,
+					workStationId: "",
+					tradeTypeCode: "10",
+					trace: {
+						provider: "yunhealth",
+						operation: "registration-self-pay.2.6.65.2.plugin",
+						requestId: "provider-wechat-cash",
+					},
+				};
+			},
+		} as never,
+		hospitalSettlement: {} as never,
+		pluginPayTypeId: "5031",
+		pluginPayType: "CREDIT",
+		pluginWorkStationId: "",
+		pluginTradeTypeCode: "10",
+	});
+
+	await service.prepareSplitPaymentsBeforeOfficialWechatPayment({
+		ownerUserId: "user-001",
+		orderId: "medical-order-001",
+		context,
+	});
+
+	expect(calls).toEqual([{ payModel: "H5", payTypeId: "5031" }]);
+	expect(currentSettlement.postPaymentComponents).toMatchObject([
+		{ kind: "fund", state: "succeeded", attempts: 1 },
+		{ kind: "personal_account", state: "succeeded", attempts: 1 },
+		{
+			kind: "wechat_cash",
+			payModel: "H5",
+			payTypeId: "5031",
+			state: "succeeded",
+			attempts: 2,
+			payingId: "paying-wechat-cash",
+			tradingId: "trading-wechat-cash",
+		},
+	]);
 });
 
 test("高平普通挂号授权过期后仍可补交医院优惠H5/50且不创建微信现金分项", async () => {
