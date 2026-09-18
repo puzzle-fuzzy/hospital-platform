@@ -213,6 +213,8 @@ export class OutpatientSelfPayService {
 		const outpatientPayments = this.dependencies.outpatientPayments;
 		if (!outpatientPayments.resolvePaymentContext)
 			throw new DependencyNotConfiguredError("outpatient-payment-context");
+		// 门诊费用/结算使用 HIS patId；微信身份绑定接口使用患者目录中的
+		// thirdPatientId。两者在众阳侧是不同的引用，不能复用同一个映射。
 		const reference = await this.dependencies.patients.resolveProviderReference(
 			{
 				ownerUserId,
@@ -225,6 +227,17 @@ export class OutpatientSelfPayService {
 			throw new PaymentOrderInputError(
 				"Outpatient patient mapping is unavailable",
 			);
+		const directoryReference =
+			await this.dependencies.patients.resolveProviderReference({
+				ownerUserId,
+				patientId,
+				provider: "zhongyang",
+				referenceKind: "directory",
+			});
+		if (!directoryReference)
+			throw new PaymentOrderInputError(
+				"Outpatient patient directory mapping is unavailable",
+			);
 		const now = this.dependencies.now?.() ?? new Date();
 		const resolvedContext = await outpatientPayments.resolvePaymentContext(
 			{
@@ -235,7 +248,7 @@ export class OutpatientSelfPayService {
 			},
 			context,
 		);
-		return { reference, providerContext: resolvedContext };
+		return { reference, directoryReference, providerContext: resolvedContext };
 	}
 
 	private async prepare(
@@ -251,7 +264,7 @@ export class OutpatientSelfPayService {
 		const profile = await this.dependencies.patientProfile.resolve(
 			{
 				unionId: identity.unionId,
-				providerPatientId: provider.reference.providerPatientId,
+				providerPatientId: provider.directoryReference.providerPatientId,
 			},
 			context,
 		);

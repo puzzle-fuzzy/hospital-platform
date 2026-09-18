@@ -62,10 +62,15 @@ test("门诊自费支付调用网关方法时保留网关 this 上下文", async
 		paymentOrders,
 		outpatientPayments: gateway,
 		patients: {
-			resolveProviderReference: async () => ({
+			resolveProviderReference: async (input: {
+				referenceKind?: "directory" | "his-patient";
+			}) => ({
 				patientId,
 				provider: "zhongyang",
-				providerPatientId: "provider-patient-001",
+				providerPatientId:
+					input.referenceKind === "directory"
+						? "directory-patient-001"
+						: "provider-patient-001",
 			}),
 		} as never,
 		identityUsers: {
@@ -76,42 +81,48 @@ test("门诊自费支付调用网关方法时保留网关 this 上下文", async
 			}),
 		} as never,
 		patientProfile: {
-			resolve: async () => ({
-				patient: {
-					providerPatientId: "provider-patient-001",
-					name: "测试患者",
-					cardNo: "P000001",
-					idNo: "11010519900101007X",
-					phone: "13800000000",
-				},
-				trace: {
-					provider: "zhongyang",
-					operation: "appointment-patient-profile",
-					requestId: "profile-request-001",
-				},
-			}),
+			resolve: async (input: { providerPatientId: string }) => {
+				expect(input.providerPatientId).toBe("directory-patient-001");
+				return {
+					patient: {
+						providerPatientId: "provider-patient-001",
+						name: "测试患者",
+						cardNo: "P000001",
+						idNo: "11010519900101007X",
+						phone: "13800000000",
+					},
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-patient-profile",
+						requestId: "profile-request-001",
+					},
+				};
+			},
 		} as never,
 		preparation: {
-			prepare: async () => ({
-				registrationContext: {
-					businessId: "business-001",
-					payingId: "paying-001",
-					tradingId: "trading-001",
-					payParams: {
-						appId: "wx-test",
-						timeStamp: "1",
-						nonceStr: "nonce",
-						package: "prepay_id=prepay-test",
-						signType: "MD5" as const,
-						paySign: "signature",
+			prepare: async (input: { providerPatientId: string }) => {
+				expect(input.providerPatientId).toBe("provider-patient-001");
+				return {
+					registrationContext: {
+						businessId: "business-001",
+						payingId: "paying-001",
+						tradingId: "trading-001",
+						payParams: {
+							appId: "wx-test",
+							timeStamp: "1",
+							nonceStr: "nonce",
+							package: "prepay_id=prepay-test",
+							signType: "MD5" as const,
+							paySign: "signature",
+						},
 					},
-				},
-				trace: {
-					provider: "yunhealth",
-					operation: "outpatient-self-pay.2.6.65.2",
-					requestId: "prepare-request-001",
-				},
-			}),
+					trace: {
+						provider: "yunhealth",
+						operation: "outpatient-self-pay.2.6.65.2",
+						requestId: "prepare-request-001",
+					},
+				};
+			},
 		} as never,
 		hospitalSettlement: {} as never,
 		saveContext: async () => undefined,
