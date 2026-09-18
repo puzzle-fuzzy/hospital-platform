@@ -713,8 +713,41 @@ function deserializeMedicalInsuranceSettlementContext(
 				)
 					return true;
 				const value = component as Record<string, unknown>;
+				const payTypeParams = value.payTypeParams;
+				const invalidPayTypeParams =
+					value.kind === "combined"
+						? !Array.isArray(payTypeParams) ||
+							payTypeParams.length === 0 ||
+							value.payModel !== "H5" ||
+							value.payTypeId !== "2" ||
+							Number(value.amountFen) !== Number(value.totalFen) ||
+							payTypeParams.some((item) => {
+								if (!item || typeof item !== "object" || Array.isArray(item))
+									return true;
+								const parameter = item as Record<string, unknown>;
+								return (
+									![
+										"hospital_reduce",
+										"fund",
+										"personal_account",
+										"wechat_cash",
+									].includes(String(parameter.kind)) ||
+									!["2", "5", "50", "5031"].includes(
+										String(parameter.payTypeId),
+									) ||
+									!Number.isSafeInteger(parameter.amountFen) ||
+									Number(parameter.amountFen) <= 0
+								);
+							}) ||
+							payTypeParams.reduce(
+								(sum, item) =>
+									sum + Number((item as Record<string, unknown>).amountFen),
+								0,
+							) !== Number(value.totalFen)
+						: payTypeParams !== undefined;
 				return (
 					![
+						"combined",
 						"hospital_reduce",
 						"fund",
 						"personal_account",
@@ -751,7 +784,8 @@ function deserializeMedicalInsuranceSettlementContext(
 							value.wechatOutTradeNo.length > 32 ||
 							!/^[A-Za-z0-9_\-*]+$/u.test(value.wechatOutTradeNo))) ||
 					(value.payParams === undefined) !==
-						(value.wechatOutTradeNo === undefined)
+						(value.wechatOutTradeNo === undefined) ||
+					invalidPayTypeParams
 				);
 			}));
 	if (

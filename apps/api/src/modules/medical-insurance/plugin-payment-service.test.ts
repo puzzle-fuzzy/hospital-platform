@@ -96,16 +96,16 @@ function serviceWith(input: {
 	});
 }
 
-test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重试不重复", async () => {
+test("医保支付在微信前只创建一个合单 .65.2，重试不重复", async () => {
 	let currentSettlement: Record<string, unknown> = {
 		...settlement(),
 		insuredAreaCode: "140500",
 	};
 	const calls: Array<{
-		amountFen?: number;
+		totalFen: number;
 		payModel: string;
 		payTypeId: string;
-		paymentSystemUserId?: string;
+		payTypeParams?: readonly { payTypeId: string; amountFen: number }[];
 		tradeTypeCode: string;
 	}> = [];
 	const service = new MedicalInsurancePluginPaymentService({
@@ -131,10 +131,10 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 		wechatPrepay: {} as never,
 		pluginPayment: {
 			createPreOrder: async (input: {
-				amountFen?: number;
+				totalFen: number;
 				payModel: string;
 				payTypeId: string;
-				paymentSystemUserId?: string;
+				payTypeParams?: readonly { payTypeId: string; amountFen: number }[];
 				tradeTypeCode: string;
 			}) => {
 				calls.push(input);
@@ -145,19 +145,6 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 					payType: "CREDIT" as const,
 					workStationId: "",
 					tradeTypeCode: "10",
-					...(input.payModel === "MINI_PROGRAM"
-						? {
-								outTradeNo: "wechat-cash-out-trade-001",
-								payParams: {
-									appId: "wx1234567890abcdef",
-									timeStamp: "1789000000",
-									nonceStr: "0123456789abcdef0123456789abcdef",
-									package: "prepay_id=wx-provider-prepay-001",
-									signType: "MD5" as const,
-									paySign: "0123456789abcdef0123456789abcdef",
-								},
-							}
-						: {}),
 					trace: {
 						provider: "yunhealth",
 						operation: "registration-self-pay.2.6.65.2.plugin",
@@ -181,49 +168,33 @@ test("临时联调在微信支付前按 6202 分项完成全部 2.6.65.2 且重�
 	await service.prepareSplitPaymentsBeforeOfficialWechatPayment(request);
 	await service.prepareSplitPaymentsBeforeOfficialWechatPayment(request);
 
-	expect(
-		calls.map(
-			({
-				amountFen,
-				payModel,
-				payTypeId,
-				paymentSystemUserId,
-				tradeTypeCode,
-			}) => ({
-				amountFen,
-				payModel,
-				payTypeId,
-				tradeTypeCode,
-				...(paymentSystemUserId ? { paymentSystemUserId } : {}),
-			}),
-		),
-	).toEqual([
+	expect(calls).toHaveLength(1);
+	expect(calls[0]).toMatchObject({
+		totalFen: 1000,
+		payModel: "H5",
+		payTypeId: "2",
+		tradeTypeCode: "2",
+		payTypeParams: [
+			{ payTypeId: "2", amountFen: 500 },
+			{ payTypeId: "5", amountFen: 300 },
+			{ payTypeId: "5031", amountFen: 200 },
+		],
+	});
+	expect(currentSettlement.postPaymentComponents).toMatchObject([
 		{
-			amountFen: 500,
+			kind: "combined",
+			amountFen: 1000,
 			payModel: "H5",
 			payTypeId: "2",
-			tradeTypeCode: "2",
-		},
-		{
-			amountFen: 300,
-			payModel: "H5",
-			payTypeId: "5",
-			tradeTypeCode: "2",
-		},
-		{
-			amountFen: 200,
-			payModel: "H5",
-			payTypeId: "5031",
-			tradeTypeCode: "2",
+			state: "succeeded",
+			attempts: 1,
+			payTypeParams: [
+				{ payTypeId: "2", amountFen: 500 },
+				{ payTypeId: "5", amountFen: 300 },
+				{ payTypeId: "5031", amountFen: 200 },
+			],
 		},
 	]);
-	expect(
-		(
-			currentSettlement.postPaymentComponents as Array<{
-				state: string;
-			}>
-		).every((component) => component.state === "succeeded"),
-	).toBeTrue();
 	expect(currentSettlement).toMatchObject({
 		payingId: "paying-1",
 		tradingId: "trading-1",
@@ -344,15 +315,17 @@ test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试"
 	]);
 });
 
-test("高平普通挂号授权过期后仍可补交医院优惠H5/50且不创建微信现金分项", async () => {
+test("高平普通挂号授权过期后仍以一个合单写入医保统筹和医院优惠", async () => {
 	let currentSettlement: Record<string, unknown> = {
 		...settlement(),
 		insuredAreaCode: "140581",
 	};
 	const calls: Array<{
 		amountFen?: number;
+		totalFen?: number;
 		payModel: string;
 		payTypeId: string;
+		payTypeParams?: readonly { payTypeId: string; amountFen: number }[];
 		paymentSystemUserId?: string;
 	}> = [];
 	const service = new MedicalInsurancePluginPaymentService({
@@ -419,17 +392,16 @@ test("高平普通挂号授权过期后仍可补交医院优惠H5/50且不创建
 		context,
 	});
 
-	expect(
-		calls.map(({ amountFen, payModel, payTypeId, paymentSystemUserId }) => ({
-			amountFen,
-			payModel,
-			payTypeId,
-			...(paymentSystemUserId ? { paymentSystemUserId } : {}),
-		})),
-	).toEqual([
-		{ amountFen: 800, payModel: "H5", payTypeId: "2" },
-		{ amountFen: 200, payModel: "H5", payTypeId: "50" },
-	]);
+	expect(calls).toHaveLength(1);
+	expect(calls[0]).toMatchObject({
+		totalFen: 1000,
+		payModel: "H5",
+		payTypeId: "2",
+		payTypeParams: [
+			{ payTypeId: "2", amountFen: 800 },
+			{ payTypeId: "50", amountFen: 200 },
+		],
+	});
 	expect(
 		(
 			currentSettlement.postPaymentComponents as Array<{

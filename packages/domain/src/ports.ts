@@ -517,19 +517,27 @@ export interface MedicalInsuranceWechatPaymentGateway {
 	}>;
 }
 
-/** 云健康 2.6.65.2 分项登记；医保订单只允许在微信支付终态成功后调用。 */
+/** 云健康 2.6.65.2 下单；医保订单只允许在微信支付终态成功后调用。 */
 export interface YunhealthRegistrationPluginPaymentGateway {
 	createPreOrder(
 		input: {
 			orderId: string;
 			businessId: string;
 			tradeCode: string;
-			/** 整笔结算总额；每个分项调用保持不变。 */
+			/** 整笔结算总额。合单时必须等于全部 payTypeParams 金额之和。 */
 			totalFen: number;
-			/** 当前这一次 2.6.65.2 对应的分项金额。 */
+			/** 历史单分项调用的金额；合单请求不得传此字段。 */
 			amountFen?: number;
 			hospitalId: string;
 			patientId: string;
+			/**
+			 * 合单医保支付的全部非零支付腿。传入时外层必须固定为 H5/payTypeId=2，
+			 * 每个条目只决定其内部 payTypeId 和金额。
+			 */
+			payTypeParams?: readonly {
+				payTypeId: string;
+				amountFen: number;
+			}[];
 			payTypeId: string;
 			payModel: "H5" | "MINI_PROGRAM";
 			/** MINI_PROGRAM 时传当前微信付款人的 openid；H5 分项留空。 */

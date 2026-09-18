@@ -1579,6 +1579,76 @@ test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 	expect(state.values[0]?.[0]).not.toContain(context.businessId);
 });
 
+test("MySQL 医保上下文可读回一个合单 .65.2 及其全部 payTypeParams", async () => {
+	const key = Buffer.alloc(32, 12).toString("base64");
+	const cipher = createAesGcmSecretValueCipher(key, {
+		keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+		valueName: "medical insurance credential",
+	});
+	const context: MedicalInsuranceSettlementContext = {
+		businessId: "provider-combined-001",
+		hospitalId: "10389001",
+		patientId: "provider-patient-combined-001",
+		networkRegister: {},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: ["provider-trade-combined-001"],
+		payingId: "260650000000011",
+		tradingId: "260650000000012",
+		postPaymentComponents: [
+			{
+				componentId: "medical-combined-001:combined",
+				kind: "combined",
+				totalFen: 17_600,
+				amountFen: 17_600,
+				payModel: "H5",
+				payTypeId: "2",
+				payTypeParams: [
+					{ kind: "fund", payTypeId: "2", amountFen: 3_588 },
+					{ kind: "wechat_cash", payTypeId: "5031", amountFen: 14_012 },
+				],
+				recordCode: "0123456789abcdef0123456789abcdef",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "260650000000011",
+				tradingId: "260650000000012",
+				updatedAt: "2026-09-18T09:00:00.000Z",
+			},
+		],
+	};
+	const { pool } = createFakePool([
+		[
+			{
+				settlement_context_ciphertext: cipher.seal(JSON.stringify(context)),
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool, {
+		medicalInsuranceCredentialEncryptionKey: key,
+	});
+
+	await expect(
+		repositories.medicalInsuranceOrders.getSettlementContext(
+			"user-combined-001",
+			"medical-combined-001",
+		),
+	).resolves.toMatchObject({
+		businessId: "provider-combined-001",
+		postPaymentComponents: [
+			{
+				kind: "combined",
+				payTypeId: "2",
+				amountFen: 17_600,
+				payTypeParams: [
+					{ kind: "fund", payTypeId: "2", amountFen: 3_588 },
+					{ kind: "wechat_cash", payTypeId: "5031", amountFen: 14_012 },
+				],
+			},
+		],
+	});
+});
+
 test("MySQL notification repository commits the safe fact and outbox together", async () => {
 	const { pool, state } = createFakePool();
 	const repositories = createMySqlRepositories(pool);

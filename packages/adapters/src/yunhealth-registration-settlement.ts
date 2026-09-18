@@ -35,6 +35,13 @@ const WECHAT_SELF_PAY_TYPE_IDS = new Set([
 ]);
 /** 6202 返回有个人账户实际支付金额时使用的支付方式。 */
 const PERSONAL_ACCOUNT_PAY_TYPE_ID = 5;
+/** 医保合单 2.6.65.2 的内部支付腿；外层固定 H5/payTypeId=2。 */
+const COMBINED_MEDICAL_PAY_TYPE_IDS = new Set([
+	2,
+	PERSONAL_ACCOUNT_PAY_TYPE_ID,
+	50,
+	MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID,
+]);
 /** 已创建的历史支付流水仍需按原支付方式完成 HIS 回写，不能中途改号。 */
 const LEGACY_PAYMENT_TYPE_IDS = [3, 50, 5027] as const;
 
@@ -1057,8 +1064,9 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 }
 
 /**
- * 医保混合支付的第二次 2.6.65.2 预下单，或由手动纯自费前置工厂复用的
- * 5032 支付方式。
+ * 医保混合支付使用一个 2.6.65.2 合单：外层固定 H5/payTypeId=2，所有
+ * 实际支付腿放到 payTypeParams。手动纯自费前置工厂仍复用本 gateway 的
+ * 5032 单分项兼容路径。
  *
  * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的
  * payingId/tradingId 连同 recordCode/outTradeNo 写入医保订单密文上下文，
@@ -1118,14 +1126,52 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			const hospitalId = positiveInteger(input.hospitalId, "hospitalId");
 			positiveIntegerText(input.patientId, "patientId");
 			const totalFen = positiveInteger(input.totalFen, "totalFen");
-			const amountFen = positiveInteger(
-				input.amountFen ?? input.totalFen,
-				"amountFen",
-			);
-			if (amountFen > totalFen) {
+			const rawPayTypeParams = input.payTypeParams;
+			const combinedPayTypeParams = rawPayTypeParams?.map((item, index) => {
+				const payTypeId = positiveInteger(
+					item.payTypeId,
+					`payTypeParams[${index}].payTypeId`,
+				);
+				const amountFen = positiveInteger(
+					item.amountFen,
+					`payTypeParams[${index}].amountFen`,
+				);
+				if (!COMBINED_MEDICAL_PAY_TYPE_IDS.has(payTypeId)) {
+					throw providerError(
+						"registration-self-pay.2.6.65.2.plugin",
+						"combined payTypeParams contains an unsupported payTypeId",
+						{ failureStage: "validation", requestOutcome: "not_sent" },
+					);
+				}
+				return { payTypeId, amountFen };
+			});
+			const isCombinedMedicalPayment = rawPayTypeParams !== undefined;
+			if (
+				isCombinedMedicalPayment &&
+				(!combinedPayTypeParams?.length || input.amountFen !== undefined)
+			) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
-					"component amount exceeds settlement total",
+					"combined payment requires non-empty payTypeParams and no amountFen",
+					{ failureStage: "validation", requestOutcome: "not_sent" },
+				);
+			}
+			const amountFen = isCombinedMedicalPayment
+				? totalFen
+				: positiveInteger(input.amountFen ?? input.totalFen, "amountFen");
+			if (
+				(!isCombinedMedicalPayment && amountFen > totalFen) ||
+				(isCombinedMedicalPayment &&
+					combinedPayTypeParams?.reduce(
+						(sum, item) => sum + item.amountFen,
+						0,
+					) !== totalFen)
+			) {
+				throw providerError(
+					"registration-self-pay.2.6.65.2.plugin",
+					isCombinedMedicalPayment
+						? "combined payTypeParams amount does not equal settlement total"
+						: "component amount exceeds settlement total",
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);
 			}
@@ -1142,11 +1188,24 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			}
 			const requestPayTypeId = positiveInteger(input.payTypeId, "payTypeId");
 			const payModel = input.payModel ?? "H5";
+			if (
+				isCombinedMedicalPayment &&
+				(payModel !== "H5" ||
+					requestPayTypeId !== 2 ||
+					Boolean(input.paymentSystemUserId?.trim()))
+			) {
+				throw providerError(
+					"registration-self-pay.2.6.65.2.plugin",
+					"combined payment outer fields must be H5/payTypeId=2 without openid",
+					{ failureStage: "validation", requestOutcome: "not_sent" },
+				);
+			}
 			const paymentSystemUserId =
-				payModel === "MINI_PROGRAM"
+				!isCombinedMedicalPayment && payModel === "MINI_PROGRAM"
 					? requiredText(input.paymentSystemUserId, "paymentSystemUserId", 128)
 					: "";
 			const allowedComponent =
+				isCombinedMedicalPayment ||
 				(payModel === "H5" &&
 					[
 						2,
@@ -1156,11 +1215,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						...LEGACY_PAYMENT_TYPE_IDS,
 					].includes(requestPayTypeId)) ||
 				(payModel === "MINI_PROGRAM" &&
-					[
-						...WECHAT_SELF_PAY_TYPE_IDS,
-						3,
-						5027,
-					].includes(requestPayTypeId));
+					[...WECHAT_SELF_PAY_TYPE_IDS, 3, 5027].includes(requestPayTypeId));
 			if (!allowedComponent) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
@@ -1212,14 +1267,21 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						notifyUrl: "",
 						payModel,
 						payTypeId: requestPayTypeId,
-						payTypeParams: [
-							{
-								payTypeId: requestPayTypeId,
-								amount: Number((amountFen / 100).toFixed(2)),
-								paymentSystemUserId,
-								spbillCreateIp: "",
-							},
-						],
+						payTypeParams: isCombinedMedicalPayment
+							? combinedPayTypeParams?.map((item) => ({
+									payTypeId: item.payTypeId,
+									amount: Number((item.amountFen / 100).toFixed(2)),
+									paymentSystemUserId: "",
+									spbillCreateIp: "",
+								}))
+							: [
+									{
+										payTypeId: requestPayTypeId,
+										amount: Number((amountFen / 100).toFixed(2)),
+										paymentSystemUserId,
+										spbillCreateIp: "",
+									},
+								],
 						paymentSystemUserId,
 						recordCode,
 						requestId: recordCode,

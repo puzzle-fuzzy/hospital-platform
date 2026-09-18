@@ -2095,7 +2095,18 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.postPaymentComponents
 					? {
 							postPaymentComponents: context.postPaymentComponents.map(
-								(component) => ({ ...component }),
+								(component) => ({
+									...component,
+									...(component.payTypeParams
+										? {
+												payTypeParams: component.payTypeParams.map(
+													(parameter) => ({
+														...parameter,
+													}),
+												),
+											}
+										: {}),
+								}),
 							),
 						}
 					: {}),
@@ -2152,7 +2163,18 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.postPaymentComponents
 					? {
 							postPaymentComponents: context.postPaymentComponents.map(
-								(component) => ({ ...component }),
+								(component) => ({
+									...component,
+									...(component.payTypeParams
+										? {
+												payTypeParams: component.payTypeParams.map(
+													(parameter) => ({
+														...parameter,
+													}),
+												),
+											}
+										: {}),
+								}),
 							),
 						}
 					: {}),
@@ -2207,7 +2229,18 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.postPaymentComponents
 					? {
 							postPaymentComponents: context.postPaymentComponents.map(
-								(component) => ({ ...component }),
+								(component) => ({
+									...component,
+									...(component.payTypeParams
+										? {
+												payTypeParams: component.payTypeParams.map(
+													(parameter) => ({
+														...parameter,
+													}),
+												),
+											}
+										: {}),
+								}),
 							),
 						}
 					: {}),
@@ -2284,6 +2317,13 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 					...context,
 					postPaymentComponents: postPaymentComponents.map((candidate) => ({
 						...candidate,
+						...(candidate.payTypeParams
+							? {
+									payTypeParams: candidate.payTypeParams.map((parameter) => ({
+										...parameter,
+									})),
+								}
+							: {}),
 					})),
 					...(context.settlementQuery6301
 						? {

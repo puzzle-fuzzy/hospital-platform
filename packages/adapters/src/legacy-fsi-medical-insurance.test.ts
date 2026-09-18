@@ -666,8 +666,9 @@ test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 	expect(querySettlementCalls).toBe(0);
 });
 
-test("门诊医保和微信自费分别调用 .32 和 .5", async () => {
+test("门诊医保合单只调用一次 .32 和一次 .5", async () => {
 	const providerPaths: string[] = [];
+	const providerBodies: Record<string, unknown>[] = [];
 	let settlementContext: MedicalInsuranceSettlementContext = {
 		businessId: "business-outpatient-split-001",
 		hospitalId: "10389001",
@@ -693,31 +694,21 @@ test("门诊医保和微信自费分别调用 .32 和 .5", async () => {
 		},
 		postPaymentComponents: [
 			{
-				componentId: "medical-order-outpatient-split-001:fund",
-				kind: "fund",
+				componentId: "medical-order-outpatient-split-001:combined",
+				kind: "combined",
 				totalFen: 100,
-				amountFen: 80,
+				amountFen: 100,
 				payModel: "H5",
 				payTypeId: "2",
-				recordCode: "record-outpatient-split-fund-001",
+				payTypeParams: [
+					{ kind: "fund", payTypeId: "2", amountFen: 80 },
+					{ kind: "wechat_cash", payTypeId: "5031", amountFen: 20 },
+				],
+				recordCode: "record-outpatient-combined-001",
 				state: "succeeded",
 				attempts: 1,
-				payingId: "paying-outpatient-medical-001",
-				tradingId: "trading-outpatient-medical-001",
-				updatedAt: "2026-09-16T03:00:00.000Z",
-			},
-			{
-				componentId: "medical-order-outpatient-split-001:wechat_cash",
-				kind: "wechat_cash",
-				totalFen: 100,
-				amountFen: 20,
-				payModel: "MINI_PROGRAM",
-				payTypeId: "5031",
-				recordCode: "record-outpatient-split-cash-001",
-				state: "succeeded",
-				attempts: 1,
-				payingId: "paying-outpatient-self-001",
-				tradingId: "trading-outpatient-self-001",
+				payingId: "paying-outpatient-combined-001",
+				tradingId: "trading-outpatient-combined-001",
 				updatedAt: "2026-09-16T03:00:00.000Z",
 			},
 		],
@@ -753,9 +744,12 @@ test("门诊医保和微信自费分别调用 .32 和 .5", async () => {
 		relayAuthorizationToken: "synthetic-token",
 		foundationBaseUrl: "https://foundation.example",
 		zhongyangBaseUrl: "https://zhongyang.example",
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const path = new URL(String(input)).pathname;
 			providerPaths.push(path);
+			if (typeof init?.body === "string") {
+				providerBodies.push(JSON.parse(init.body) as Record<string, unknown>);
+			}
 			const data = path.endsWith("/complete-settle")
 				? {
 						success: true,
@@ -787,14 +781,14 @@ test("门诊医保和微信自费分别调用 .32 和 .5", async () => {
 	});
 	expect(providerPaths).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
+	expect(providerBodies[0]?.outNetworkSettleMain).toMatchObject({
+		transId: "paying-outpatient-combined-001",
+	});
 	expect(settlementContext.settlementCompletion?.status).toBe("succeeded");
-	expect(settlementContext.selfPaySettlementCompletion?.status).toBe(
-		"succeeded",
-	);
+	expect(settlementContext.selfPaySettlementWriteback).toBeUndefined();
+	expect(settlementContext.selfPaySettlementCompletion).toBeUndefined();
 });
 
 test(".32 失败后不重复提交同一结算 ID", async () => {

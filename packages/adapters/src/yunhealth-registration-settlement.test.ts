@@ -223,16 +223,18 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 
 	await gatewayInstance.createPreOrder(
 		{
-			orderId: "medical-order-001:wechat_cash",
+			orderId: "medical-order-001:combined",
 			businessId: "settlement-business-001",
 			tradeCode: "REGISTRATION-001",
-			totalFen: 10_000,
-			amountFen: 3_000,
+			totalFen: 17_600,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "5031",
-			payModel: "MINI_PROGRAM",
-			paymentSystemUserId: "openid-component-001",
+			payTypeId: "2",
+			payModel: "H5",
+			payTypeParams: [
+				{ payTypeId: "2", amountFen: 3_588 },
+				{ payTypeId: "5031", amountFen: 14_012 },
+			],
 			payType: "CREDIT",
 			workStationId: "registration-machine-01",
 			recordCode: "fedcba9876543210fedcba9876543210",
@@ -243,10 +245,25 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 
 	expect(body).toMatchObject({
 		autoSettle: 3,
-		total: 100,
-		payModel: "MINI_PROGRAM",
-		payTypeId: 5031,
-		payTypeParams: [{ payTypeId: 5031, amount: 30 }],
+		total: 176,
+		payModel: "H5",
+		payTypeId: 2,
+		paymentSystemUserId: "",
+		spbillCreateIp: "",
+		payTypeParams: [
+			{
+				payTypeId: 2,
+				amount: 35.88,
+				paymentSystemUserId: "",
+				spbillCreateIp: "",
+			},
+			{
+				payTypeId: 5031,
+				amount: 140.12,
+				paymentSystemUserId: "",
+				spbillCreateIp: "",
+			},
+		],
 	});
 });
 

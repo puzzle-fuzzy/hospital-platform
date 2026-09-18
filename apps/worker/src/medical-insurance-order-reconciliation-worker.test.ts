@@ -671,7 +671,7 @@ test("pure insurance finalizes HIS through .32 without calling .5", async () => 
 	});
 });
 
-test("mixed payment finalizes HIS through .32 then .5 without creating .2 or calling .5 early", async () => {
+test("mixed payment validates one combined .2 before finalizing HIS once", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
 		order({
@@ -702,9 +702,29 @@ test("mixed payment finalizes HIS through .32 then .5 without creating .2 or cal
 			upDetailList: [],
 			tradeOrderIds: ["trade-component-worker-001"],
 			postPaymentComponents: [
-				prePaymentComponent("fund", 50, "H5", "2"),
-				prePaymentComponent("personal_account", 30, "H5", "5"),
-				prePaymentComponent("wechat_cash", 20, "MINI_PROGRAM", "5031"),
+				{
+					componentId: "medical-order-worker-001:combined",
+					kind: "combined",
+					totalFen: 100,
+					amountFen: 100,
+					payModel: "H5",
+					payTypeId: "2",
+					payTypeParams: [
+						{ kind: "fund", payTypeId: "2", amountFen: 50 },
+						{ kind: "personal_account", payTypeId: "5", amountFen: 30 },
+						{ kind: "wechat_cash", payTypeId: "5031", amountFen: 20 },
+					],
+					recordCode: createHash("sha256")
+						.update("medical-post-payment:medical-order-worker-001:combined")
+						.digest("hex")
+						.slice(0, 32),
+					state: "succeeded",
+					attempts: 1,
+					payingId: "paying-combined",
+					tradingId: "trading-combined",
+					providerRequestId: "pre-payment-combined",
+					updatedAt: now.toISOString(),
+				},
 			],
 		},
 	);

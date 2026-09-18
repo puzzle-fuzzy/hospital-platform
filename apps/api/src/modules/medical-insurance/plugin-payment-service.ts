@@ -57,11 +57,14 @@ function stableCode(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 32);
 }
 
-function prePaymentComponents(input: {
+type CombinedPayTypeParam = NonNullable<
+	MedicalInsurancePostPaymentComponent["payTypeParams"]
+>[number];
+
+function paymentLegs(input: {
 	order: MedicalInsuranceOrder;
 	insuredAreaCode: string;
-	now: Date;
-}): readonly MedicalInsurancePostPaymentComponent[] {
+}): readonly CombinedPayTypeParam[] {
 	const amounts = input.order.amounts;
 	if (!amounts) throw new Error("medical payment amounts are unavailable");
 	if ((amounts.otherPaymentFen ?? 0) !== (amounts.hospitalPartFen ?? 0)) {
@@ -78,45 +81,86 @@ function prePaymentComponents(input: {
 	);
 	const hospitalPaymentFen = (amounts.hospitalPartFen ?? 0) + hospitalReduceFen;
 	// HIS 要求 2.6.65.2 严格按医保统筹、优惠挂号、个人账户、微信自费的顺序写入。
-	// 数组顺序就是实际调用顺序，不能把医院优惠提前到医保统筹之前。
-	const definitions = [
+	// 数组顺序就是合单 payTypeParams 的实际顺序，不能把医院优惠提前到医保统筹之前。
+	const definitions: CombinedPayTypeParam[] = [
 		{
-			kind: "fund" as const,
+			kind: "fund",
 			amountFen: amounts.fundFen,
-			payModel: "H5" as const,
-			payTypeId: "2" as const,
+			payTypeId: "2",
 		},
-		...(hospitalPaymentFen > 0
-			? [
-					{
-						kind: "hospital_reduce" as const,
-						amountFen: hospitalPaymentFen,
-						payModel: "H5" as const,
-						payTypeId: "50" as const,
-					},
-				]
-			: []),
 		{
-			kind: "personal_account" as const,
+			kind: "personal_account",
 			amountFen: amounts.personalAccountFen,
-			payModel: "H5" as const,
-			payTypeId: "5" as const,
+			payTypeId: "5",
 		},
 		{
-			kind: "wechat_cash" as const,
+			kind: "wechat_cash",
 			amountFen: breakdown.wechatCashFen,
 			// 5031 是医保入口的自费记账分项，而不是众阳的小程序医保收银。
 			// 实际微信收款随后由自有 APIv3/RSA 订单完成，不能在 .2 中附带 openid。
-			payModel: "H5" as const,
-			payTypeId: "5031" as const,
+			payTypeId: "5031",
 		},
-	].filter((component) => component.amountFen > 0);
+	];
+	if (hospitalPaymentFen > 0) {
+		definitions.splice(1, 0, {
+			kind: "hospital_reduce",
+			amountFen: hospitalPaymentFen,
+			payTypeId: "50",
+		});
+	}
+	return definitions.filter((component) => component.amountFen > 0);
+}
+
+/** 新订单只发一个 .65.2；每种支付方式作为其内部 payTypeParams 保存。 */
+function combinedPrePaymentComponents(input: {
+	order: MedicalInsuranceOrder;
+	insuredAreaCode: string;
+	now: Date;
+}): readonly MedicalInsurancePostPaymentComponent[] {
+	const amounts = input.order.amounts;
+	if (!amounts) throw new Error("medical payment amounts are unavailable");
+	const payTypeParams = paymentLegs(input);
+	if (
+		payTypeParams.length === 0 ||
+		payTypeParams.reduce((sum, component) => sum + component.amountFen, 0) !==
+			amounts.totalFen
+	) {
+		throw new Error("medical-insurance-combined-payment-amount-mismatch");
+	}
+	return [
+		{
+			componentId: `${input.order.medicalOrderId}:combined`,
+			kind: "combined",
+			totalFen: amounts.totalFen,
+			amountFen: amounts.totalFen,
+			payModel: "H5",
+			payTypeId: "2",
+			payTypeParams,
+			recordCode: stableCode(
+				`medical-post-payment:${input.order.medicalOrderId}:combined`,
+			),
+			state: "pending",
+			attempts: 0,
+			updatedAt: input.now.toISOString(),
+		},
+	];
+}
+
+/** 发布前已持久化的拆分计划只能按原事实继续完成，不能自动合并。 */
+function legacyPrePaymentComponents(input: {
+	order: MedicalInsuranceOrder;
+	insuredAreaCode: string;
+	now: Date;
+}): readonly MedicalInsurancePostPaymentComponent[] {
+	const amounts = input.order.amounts;
+	if (!amounts) throw new Error("medical payment amounts are unavailable");
+	const definitions = paymentLegs(input);
 	return definitions.map((component) => ({
 		componentId: `${input.order.medicalOrderId}:${component.kind}`,
 		kind: component.kind,
 		totalFen: amounts.totalFen,
 		amountFen: component.amountFen,
-		payModel: component.payModel,
+		payModel: "H5" as const,
 		payTypeId: component.payTypeId,
 		recordCode: stableCode(
 			`medical-post-payment:${input.order.medicalOrderId}:${component.kind}`,
@@ -125,6 +169,23 @@ function prePaymentComponents(input: {
 		attempts: 0,
 		updatedAt: input.now.toISOString(),
 	}));
+}
+
+function samePayTypeParams(
+	left: MedicalInsurancePostPaymentComponent["payTypeParams"],
+	right: MedicalInsurancePostPaymentComponent["payTypeParams"],
+): boolean {
+	const leftParams = left ?? [];
+	const rightParams = right ?? [];
+	return (
+		leftParams.length === rightParams.length &&
+		leftParams.every(
+			(parameter, index) =>
+				parameter.kind === rightParams[index]?.kind &&
+				parameter.payTypeId === rightParams[index]?.payTypeId &&
+				parameter.amountFen === rightParams[index]?.amountFen,
+		)
+	);
 }
 
 function samePrePaymentComponent(
@@ -138,6 +199,7 @@ function samePrePaymentComponent(
 		left.amountFen === right.amountFen &&
 		left.payModel === right.payModel &&
 		left.payTypeId === right.payTypeId &&
+		samePayTypeParams(left.payTypeParams, right.payTypeParams) &&
 		left.recordCode === right.recordCode
 	);
 }
@@ -457,7 +519,10 @@ export class MedicalInsurancePluginPaymentService {
 		);
 	}
 
-	/** 临时验证顺序：所有非零 6202 分项先完成 .2，之后才允许创建微信订单。 */
+	/**
+	 * 新订单先以一个合单 .2 固化全部非零 6202 支付腿，之后才允许创建微信
+	 * 订单。发布前已经拆分保存的计划只按原事实续跑，绝不在半途重组。
+	 */
 	async prepareSplitPaymentsBeforeOfficialWechatPayment(input: {
 		ownerUserId: string;
 		orderId: string;
@@ -480,37 +545,167 @@ export class MedicalInsurancePluginPaymentService {
 				"Medical insurance pre-payment component context is incomplete",
 			);
 		}
-		const planned = prePaymentComponents({
+		const combinedPlan = combinedPrePaymentComponents({
 			order: medicalOrder,
 			insuredAreaCode: loadedSettlement.insuredAreaCode,
 			now: this.now(),
 		});
+		let planned = combinedPlan;
 		let settlement = loadedSettlement;
 		const saved = settlement.postPaymentComponents;
 		if (saved) {
-			// 兼容发布前按“优惠挂号、医保统筹”保存的在途计划；真正执行仍按 planned 新顺序。
-			if (!samePrePaymentPlan(saved, planned)) {
-				const migrated = migrateRejectedMiniProgramWechatCashPlan(
-					saved,
-					planned,
-				);
-				if (!migrated) {
+			if (saved.some((component) => component.kind === "combined")) {
+				if (!samePrePaymentPlan(saved, combinedPlan)) {
 					throw new Error("medical-insurance-pre-payment-plan-changed");
 				}
-				settlement = { ...settlement, postPaymentComponents: migrated };
-				await this.dependencies.orders.saveSettlementContext(
-					ownerUserId,
-					orderId,
-					settlement,
-				);
+			} else {
+				// 历史拆分计划可能已经有真实 Provider 流水；不能改成一个新的
+				// recordCode 或复用新的 idempotency key，否则会丢失不可逆支付事实。
+				planned = legacyPrePaymentComponents({
+					order: medicalOrder,
+					insuredAreaCode: loadedSettlement.insuredAreaCode,
+					now: this.now(),
+				});
+				if (!samePrePaymentPlan(saved, planned)) {
+					const migrated = migrateRejectedMiniProgramWechatCashPlan(
+						saved,
+						planned,
+					);
+					if (!migrated) {
+						throw new Error("medical-insurance-pre-payment-plan-changed");
+					}
+					settlement = { ...settlement, postPaymentComponents: migrated };
+					await this.dependencies.orders.saveSettlementContext(
+						ownerUserId,
+						orderId,
+						settlement,
+					);
+				}
 			}
 		} else {
-			settlement = { ...settlement, postPaymentComponents: planned };
+			settlement = { ...settlement, postPaymentComponents: combinedPlan };
 			await this.dependencies.orders.saveSettlementContext(
 				ownerUserId,
 				orderId,
 				settlement,
 			);
+		}
+
+		const combinedComponent = planned[0];
+		if (planned.length === 1 && combinedComponent?.kind === "combined") {
+			settlement =
+				(await this.dependencies.orders.getSettlementContext(
+					ownerUserId,
+					orderId,
+				)) ?? settlement;
+			const components: MedicalInsurancePostPaymentComponent[] = [
+				...(settlement.postPaymentComponents ?? planned),
+			];
+			const index = components.findIndex(
+				(component) => component.componentId === combinedComponent.componentId,
+			);
+			const current = components[index];
+			if (current?.kind !== "combined") {
+				throw new Error("medical-insurance-combined-pre-payment-missing");
+			}
+			if (current.state === "succeeded") return {};
+			const payTypeParams = current.payTypeParams;
+			if (!payTypeParams?.length) {
+				throw new Error(
+					"medical-insurance-combined-pre-payment-params-missing",
+				);
+			}
+			const attempted: MedicalInsurancePostPaymentComponent = {
+				...current,
+				state: "pending",
+				attempts: current.attempts + 1,
+				updatedAt: this.now().toISOString(),
+			};
+			components[index] = attempted;
+			settlement = { ...settlement, postPaymentComponents: components };
+			await this.dependencies.orders.saveSettlementContext(
+				ownerUserId,
+				orderId,
+				settlement,
+			);
+
+			try {
+				const result = await this.dependencies.pluginPayment.createPreOrder(
+					{
+						orderId: attempted.componentId,
+						businessId: settlement.businessId,
+						tradeCode: loadedSettlement.businessCode,
+						totalFen: attempted.totalFen,
+						hospitalId: settlement.hospitalId,
+						patientId: settlement.patientId,
+						payTypeId: "2",
+						payModel: "H5",
+						payTypeParams: payTypeParams.map(({ payTypeId, amountFen }) => ({
+							payTypeId,
+							amountFen,
+						})),
+						payType: this.dependencies.pluginPayType,
+						workStationId: this.dependencies.pluginWorkStationId,
+						recordCode: attempted.recordCode,
+						tradeTypeCode:
+							medicalOrder.businessType === "outpatient"
+								? "2"
+								: this.dependencies.pluginTradeTypeCode,
+					},
+					{
+						...input.context,
+						idempotencyKey: `medical-post-payment:${attempted.componentId}`,
+					},
+				);
+				components[index] = {
+					...attempted,
+					state: "succeeded",
+					payingId: result.payingId,
+					tradingId: result.tradingId,
+					providerRequestId: result.trace.requestId,
+					updatedAt: this.now().toISOString(),
+				};
+				settlement = {
+					...settlement,
+					payingId: result.payingId,
+					tradingId: result.tradingId,
+					postPaymentComponents: components,
+				};
+				await this.dependencies.orders.saveSettlementContext(
+					ownerUserId,
+					orderId,
+					settlement,
+				);
+				this.logger.info(
+					{
+						event: "medical-insurance.pre-payment.combined.succeeded",
+						traceId: input.context.traceId,
+						orderId,
+						amountFen: attempted.amountFen,
+						payTypeParamCount: payTypeParams.length,
+						providerRequestId: result.trace.requestId,
+					},
+					"Medical insurance combined pre-payment persisted before WeChat",
+				);
+				return {};
+			} catch (error) {
+				const metadata = providerFailureMetadata(error);
+				components[index] = {
+					...attempted,
+					state: "failed",
+					lastErrorCode:
+						metadata.providerErrorCode ??
+						metadata.providerFailureReason ??
+						"pre-payment-combined-failed",
+					updatedAt: this.now().toISOString(),
+				};
+				await this.dependencies.orders.saveSettlementContext(
+					ownerUserId,
+					orderId,
+					{ ...settlement, postPaymentComponents: components },
+				);
+				throw error;
+			}
 		}
 
 		for (const plannedComponent of planned) {

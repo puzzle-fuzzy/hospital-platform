@@ -51,11 +51,14 @@ function stableComponentCode(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 32);
 }
 
-function expectedPrePaymentComponents(input: {
+type CombinedPayTypeParam = NonNullable<
+	MedicalInsurancePostPaymentComponent["payTypeParams"]
+>[number];
+
+function expectedPaymentLegs(input: {
 	order: MedicalInsuranceOrder;
 	insuredAreaCode: string;
-	now: Date;
-}): readonly MedicalInsurancePostPaymentComponent[] {
+}): readonly CombinedPayTypeParam[] {
 	const amounts = input.order.amounts;
 	if (!amounts) throw new Error("medical payment amounts are unavailable");
 	const breakdown = medicalInsurancePaymentBreakdown({
@@ -71,43 +74,75 @@ function expectedPrePaymentComponents(input: {
 		0,
 	);
 	const hospitalPaymentFen = (amounts.hospitalPartFen ?? 0) + hospitalReduceFen;
-	// 必须与 API 前置 2.6.65.2 计划保持一致：先医保统筹，再优惠挂号。
-	const definitions = [
+	// 必须与 API 前置合单 2.6.65.2 保持一致：先医保统筹，再优惠挂号。
+	const definitions: CombinedPayTypeParam[] = [
 		{
-			kind: "fund" as const,
+			kind: "fund",
 			amountFen: amounts.fundFen,
-			payModel: "H5" as const,
-			payTypeId: "2" as const,
+			payTypeId: "2",
 		},
-		...(hospitalPaymentFen > 0
-			? [
-					{
-						kind: "hospital_reduce" as const,
-						amountFen: hospitalPaymentFen,
-						payModel: "H5" as const,
-						payTypeId: "50" as const,
-					},
-				]
-			: []),
 		{
-			kind: "personal_account" as const,
+			kind: "personal_account",
 			amountFen: amounts.personalAccountFen,
-			payModel: "H5" as const,
-			payTypeId: "5" as const,
+			payTypeId: "5",
 		},
 		{
-			kind: "wechat_cash" as const,
+			kind: "wechat_cash",
 			amountFen: breakdown.wechatCashFen,
-			payModel: "H5" as const,
-			payTypeId: "5031" as const,
+			payTypeId: "5031",
 		},
-	].filter((component) => component.amountFen > 0);
-	return definitions.map((component) => ({
+	];
+	if (hospitalPaymentFen > 0) {
+		definitions.splice(1, 0, {
+			kind: "hospital_reduce",
+			amountFen: hospitalPaymentFen,
+			payTypeId: "50",
+		});
+	}
+	return definitions.filter((component) => component.amountFen > 0);
+}
+
+function expectedPrePaymentComponents(input: {
+	order: MedicalInsuranceOrder;
+	insuredAreaCode: string;
+	now: Date;
+	mode: "combined" | "legacy";
+}): readonly MedicalInsurancePostPaymentComponent[] {
+	const amounts = input.order.amounts;
+	if (!amounts) throw new Error("medical payment amounts are unavailable");
+	const payTypeParams = expectedPaymentLegs(input);
+	if (
+		payTypeParams.length === 0 ||
+		payTypeParams.reduce((sum, component) => sum + component.amountFen, 0) !==
+			amounts.totalFen
+	) {
+		throw new Error("medical-insurance-combined-payment-amount-mismatch");
+	}
+	if (input.mode === "combined") {
+		return [
+			{
+				componentId: `${input.order.medicalOrderId}:combined`,
+				kind: "combined",
+				totalFen: amounts.totalFen,
+				amountFen: amounts.totalFen,
+				payModel: "H5",
+				payTypeId: "2",
+				payTypeParams,
+				recordCode: stableComponentCode(
+					`medical-post-payment:${input.order.medicalOrderId}:combined`,
+				),
+				state: "pending",
+				attempts: 0,
+				updatedAt: input.now.toISOString(),
+			},
+		];
+	}
+	return payTypeParams.map((component) => ({
 		componentId: `${input.order.medicalOrderId}:${component.kind}`,
 		kind: component.kind,
 		totalFen: amounts.totalFen,
 		amountFen: component.amountFen,
-		payModel: component.payModel,
+		payModel: "H5" as const,
 		payTypeId: component.payTypeId,
 		recordCode: stableComponentCode(
 			`medical-post-payment:${input.order.medicalOrderId}:${component.kind}`,
@@ -116,6 +151,23 @@ function expectedPrePaymentComponents(input: {
 		attempts: 0,
 		updatedAt: input.now.toISOString(),
 	}));
+}
+
+function samePayTypeParams(
+	left: MedicalInsurancePostPaymentComponent["payTypeParams"],
+	right: MedicalInsurancePostPaymentComponent["payTypeParams"],
+): boolean {
+	const leftParams = left ?? [];
+	const rightParams = right ?? [];
+	return (
+		leftParams.length === rightParams.length &&
+		leftParams.every(
+			(parameter, index) =>
+				parameter.kind === rightParams[index]?.kind &&
+				parameter.payTypeId === rightParams[index]?.payTypeId &&
+				parameter.amountFen === rightParams[index]?.amountFen,
+		)
+	);
 }
 
 function samePrePaymentComponent(
@@ -129,6 +181,7 @@ function samePrePaymentComponent(
 		left.amountFen === right.amountFen &&
 		left.payModel === right.payModel &&
 		left.payTypeId === right.payTypeId &&
+		samePayTypeParams(left.payTypeParams, right.payTypeParams) &&
 		left.recordCode === right.recordCode
 	);
 }
@@ -742,17 +795,23 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			throw new Error("medical-insurance-wechat-component-amount-mismatch");
 		}
 
-		const planned = expectedPrePaymentComponents({
-			order,
-			insuredAreaCode: settlement.insuredAreaCode,
-			now,
-		});
 		const saved = settlement.postPaymentComponents;
 		if (!saved) {
 			throw new Error("medical-insurance-pre-payment-components-missing");
 		}
-		// 兼容发布前以旧顺序保存的在途订单；这里只核验计划内容，不要求数组顺序一致。
-		if (!sameOrCompletedLegacyMiniProgramPrePaymentPlan(saved, planned)) {
+		const combined = saved.some((component) => component.kind === "combined");
+		const planned = expectedPrePaymentComponents({
+			order,
+			insuredAreaCode: settlement.insuredAreaCode,
+			now,
+			mode: combined ? "combined" : "legacy",
+		});
+		// 合单必须精确匹配唯一请求体；历史拆分计划仍只按旧事实安全续跑。
+		if (
+			(combined && !samePrePaymentPlan(saved, planned)) ||
+			(!combined &&
+				!sameOrCompletedLegacyMiniProgramPrePaymentPlan(saved, planned))
+		) {
 			throw new Error("medical-insurance-pre-payment-plan-changed");
 		}
 		if (saved.some((component) => component.state !== "succeeded")) {
@@ -777,8 +836,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		}
 
 		// cashPaymentConfirmed=true 进入 legacy FSI 最终确认：先调用 2.27.2.32
-		// 回写医保支付结果；`.32` 的 SUCCESS 是可判定的分项回写事实，
-		// 门诊还必须完成医保、微信自费各自的 `.5`，挂号不调用 `.5`。
+		// 回写医保支付结果；合单只会执行一次 `.32` 和一次门诊 `.5`。
+		// 发布前的拆分计划仍按已持久化的历史事实续跑。
 		let completion: MedicalInsuranceSettlementEvidence | undefined;
 		let completionError: unknown;
 		try {

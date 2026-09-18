@@ -2220,7 +2220,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			const primaryMedicalComponent =
 				settlementContext.postPaymentComponents?.find(
 					(component) =>
-						component.kind === "fund" &&
+						(component.kind === "combined" || component.kind === "fund") &&
 						component.payTypeId === "2" &&
 						component.state === "succeeded" &&
 						Boolean(component.payingId && component.tradingId),
@@ -2250,7 +2250,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						existingTransId: existingTransIdText,
 						finalPayingId,
 					},
-					"Medical insurance .32 transId corrected to payTypeId=2 payingId",
+					"Medical insurance .32 transId corrected to combined payTypeId=2 payingId",
 				);
 			}
 
@@ -2369,9 +2369,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			}
 		}
 
-		// 新拆分流程在医保分项 .32 成功后，只有普通微信自费查单确认成功，
-		// 才允许提交 5031 分项自己的 .32。挂号也必须完成这两个 .32，
-		// 但挂号不调用 .5。
+		// 新合单在一次 .32 成功后即可继续；只有发布前已经拆分保存的 5031
+		// 流水才需要其历史上的第二次 .32。挂号仍不调用 .5。
 		if (input.amounts.cashFen > 0 && !input.cashPaymentConfirmed) {
 			return {
 				state: "cash_pending",
@@ -2545,9 +2544,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				authoritative: true,
 			};
 		}
-		// 门诊每个支付分项都独立完成 .5：医保分项使用 settlementCompletion，
-		// 微信自费分项使用 selfPaySettlementCompletion。每个分项都先落库
-		// unknown，再调用 Provider，查单只读取已落库事实，不重复提交。
+		// 新合单只完成一次 .5；发布前已拆分的历史流水继续按原分项事实完成。
+		// 每次调用都先落库 unknown，查单只读取已落库事实，不重复提交。
 		const completeSettlementLeg = async (
 			completionKey: "settlementCompletion" | "selfPaySettlementCompletion",
 			leg: "medical" | "self_pay",

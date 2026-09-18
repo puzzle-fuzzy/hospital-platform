@@ -384,7 +384,11 @@ export type MedicalInsuranceSettlementContext = {
 	 * 仅用于继续完成发布前已存在的订单；新订单不再创建该前置流水。
 	 */
 	plugin?: MedicalInsurancePluginPaymentContext;
-	/** 微信/医保最终成功后，按金额分项后置提交的 2.6.65.2 流水。 */
+	/**
+	 * 微信/医保最终成功后提交的 2.6.65.2 流水。新订单使用一个
+	 * `kind=combined` 条目，所有支付腿放在该条目的 payTypeParams；历史分项
+	 * 记录仅用于安全续跑，不会被自动改写。
+	 */
 	postPaymentComponents?: readonly MedicalInsurancePostPaymentComponent[];
 	postPaymentCompletedAt?: string;
 	/**
@@ -398,7 +402,7 @@ export type MedicalInsuranceSettlementContext = {
 		providerRequestId?: string;
 		providerStatus?: string;
 	};
-	/** 微信自费 5031 分项完成后独立调用 2.27.2.32 的不可重放事实。 */
+	/** 历史拆分 5031 流水独立调用 2.27.2.32 的不可重放事实。 */
 	selfPaySettlementWriteback?: {
 		attemptedAt: string;
 		status: "succeeded" | "failed" | "unknown";
@@ -417,7 +421,7 @@ export type MedicalInsuranceSettlementContext = {
 		providerRequestId?: string;
 		providerStatus?: string;
 	};
-	/** 门诊微信自费分项独立调用 2.6.65.5 的不可重放事实。 */
+	/** 历史拆分门诊微信自费流水独立调用 2.6.65.5 的不可重放事实。 */
 	selfPaySettlementCompletion?: {
 		attemptedAt: string;
 		status: "succeeded" | "failed" | "unknown";
@@ -452,10 +456,8 @@ export type MedicalInsuranceSettlementQuerySnapshot = {
 };
 
 export type MedicalInsurancePostPaymentComponentKind =
-	| "hospital_reduce"
-	| "fund"
-	| "personal_account"
-	| "wechat_cash";
+	/** 一个 2.6.65.2 合单，内部 payTypeParams 保留每种支付方式和金额。 */
+	"combined" | "hospital_reduce" | "fund" | "personal_account" | "wechat_cash";
 
 export type MedicalInsurancePostPaymentComponentState =
 	| "pending"
@@ -469,6 +471,15 @@ export type MedicalInsurancePostPaymentComponent = {
 	amountFen: number;
 	payModel: "H5" | "MINI_PROGRAM";
 	payTypeId: "2" | "3" | "5" | "31" | "50" | "5027" | "5031" | "5032";
+	/**
+	 * `kind=combined` 时唯一的 2.6.65.2 请求体内的支付腿，按 Provider
+	 * 要求的顺序保存。旧分项记录不带此字段，继续按原事实处理。
+	 */
+	payTypeParams?: readonly {
+		kind: Exclude<MedicalInsurancePostPaymentComponentKind, "combined">;
+		payTypeId: "2" | "3" | "5" | "31" | "50" | "5027" | "5031" | "5032";
+		amountFen: number;
+	}[];
 	recordCode: string;
 	state: MedicalInsurancePostPaymentComponentState;
 	attempts: number;
