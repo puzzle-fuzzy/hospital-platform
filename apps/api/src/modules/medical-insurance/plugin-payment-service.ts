@@ -29,9 +29,9 @@ import { MedicalInsuranceRegistrationInputError } from "./errors";
 
 const PLUGIN_ORDER_PREFIX = "registration-medical-plugin-self-pay:";
 const PLUGIN_PREPAY_PREFIX = "registration-medical-plugin-prepay:";
-const WECHAT_SELF_PAY_TYPE_ID = "5031";
+const WECHAT_SELF_PAY_TYPE_ID = "5033";
 /** 已经落库的旧流水只允许继续完成，不用于创建新的 2.6.65.2 微信自费流水。 */
-const LEGACY_WECHAT_SELF_PAY_TYPE_IDS = new Set(["5", "50", "5027"]);
+const LEGACY_WECHAT_SELF_PAY_TYPE_IDS = new Set(["5", "50", "5027", "5031"]);
 
 function opaque(value: unknown, label: string): string {
 	if (!isBoundedOpaqueIdentifier(value))
@@ -96,10 +96,10 @@ function paymentLegs(input: {
 		{
 			kind: "wechat_cash",
 			amountFen: breakdown.wechatCashFen,
-			// 5031 是医保入口的自费记账分项，而不是众阳的小程序医保收银。
+			// 5033 是医保入口的自费记账分项，而不是众阳的小程序医保收银。
 			// 官方医保网关会先建 APIv3/RSA 现金预支付，再关联腾讯医保订单；
 			// 这笔 HIS `.2` 不能附带 openid 或承担微信调起。
-			payTypeId: "5031",
+			payTypeId: "5033",
 		},
 	];
 	if (hospitalPaymentFen > 0) {
@@ -199,7 +199,7 @@ function sequencedPrePaymentComponents(input: {
 			totalFen: amounts.totalFen,
 			amountFen: wechatCash.amountFen,
 			payModel: "H5",
-			payTypeId: "5031",
+			payTypeId: "5033",
 			recordCode: stableCode(
 				`medical-post-payment:${input.order.medicalOrderId}:wechat_cash`,
 			),
@@ -239,6 +239,7 @@ function legacyPrePaymentComponents(input: {
 function samePayTypeParams(
 	left: MedicalInsurancePostPaymentComponent["payTypeParams"],
 	right: MedicalInsurancePostPaymentComponent["payTypeParams"],
+	allowLegacyWechatCash = false,
 ): boolean {
 	const leftParams = left ?? [];
 	const rightParams = right ?? [];
@@ -247,7 +248,11 @@ function samePayTypeParams(
 		leftParams.every(
 			(parameter, index) =>
 				parameter.kind === rightParams[index]?.kind &&
-				parameter.payTypeId === rightParams[index]?.payTypeId &&
+				(parameter.payTypeId === rightParams[index]?.payTypeId ||
+					(allowLegacyWechatCash &&
+						parameter.kind === "wechat_cash" &&
+						parameter.payTypeId === "5031" &&
+						rightParams[index]?.payTypeId === WECHAT_SELF_PAY_TYPE_ID)) &&
 				parameter.amountFen === rightParams[index]?.amountFen,
 		)
 	);
@@ -256,6 +261,7 @@ function samePayTypeParams(
 function samePrePaymentComponent(
 	left: MedicalInsurancePostPaymentComponent,
 	right: MedicalInsurancePostPaymentComponent,
+	allowLegacyWechatCash = false,
 ): boolean {
 	return (
 		left.componentId === right.componentId &&
@@ -263,9 +269,32 @@ function samePrePaymentComponent(
 		left.totalFen === right.totalFen &&
 		left.amountFen === right.amountFen &&
 		left.payModel === right.payModel &&
-		left.payTypeId === right.payTypeId &&
-		samePayTypeParams(left.payTypeParams, right.payTypeParams) &&
+		(left.payTypeId === right.payTypeId ||
+			(allowLegacyWechatCash &&
+				left.kind === "wechat_cash" &&
+				left.payTypeId === "5031" &&
+				right.payTypeId === WECHAT_SELF_PAY_TYPE_ID)) &&
+		samePayTypeParams(
+			left.payTypeParams,
+			right.payTypeParams,
+			allowLegacyWechatCash,
+		) &&
 		left.recordCode === right.recordCode
+	);
+}
+
+/** 发布前已落库的 5031 计划按原号续跑，新计划只创建 5033。 */
+function samePrePaymentPlanWithLegacyWechatCash(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): boolean {
+	return (
+		saved.length === planned.length &&
+		planned.every((plannedComponent) =>
+			saved.some((savedComponent) =>
+				samePrePaymentComponent(savedComponent, plannedComponent, true),
+			),
+		)
 	);
 }
 
@@ -284,7 +313,7 @@ function samePrePaymentPlan(
 }
 
 /**
- * 仅修复本次发布产生的失败记录：5031 被错误以 MINI_PROGRAM 提交时，
+ * 仅修复已明确拒绝且未创建交易的旧记录：5031 被错误以 MINI_PROGRAM 提交时，
  * Provider 在未创建任何可继续完成的交易前即拒绝。其他历史流水一律不迁移，
  * 避免改写已成功、进行中或结果未知的支付事实。
  */
@@ -314,7 +343,8 @@ function migrateRejectedMiniProgramWechatCashPlan(
 			migrated ||
 			savedComponent.kind !== "wechat_cash" ||
 			plannedComponent.kind !== "wechat_cash" ||
-			savedComponent.payTypeId !== WECHAT_SELF_PAY_TYPE_ID ||
+			(savedComponent.payTypeId !== "5031" &&
+				savedComponent.payTypeId !== WECHAT_SELF_PAY_TYPE_ID) ||
 			plannedComponent.payTypeId !== WECHAT_SELF_PAY_TYPE_ID ||
 			savedComponent.payModel !== "MINI_PROGRAM" ||
 			plannedComponent.payModel !== "H5" ||
@@ -352,7 +382,7 @@ function pluginPrepayKey(medicalOrderId: string): string {
 function pluginPayTypeIdForOrder(configuredPayTypeId: string): string {
 	if (configuredPayTypeId !== WECHAT_SELF_PAY_TYPE_ID) {
 		throw new DependencyNotConfiguredError(
-			"yunhealth-wechat-self-pay-type-id-5031",
+			"yunhealth-wechat-self-pay-type-id-5033",
 		);
 	}
 	return WECHAT_SELF_PAY_TYPE_ID;
@@ -586,7 +616,8 @@ export class MedicalInsurancePluginPaymentService {
 
 	/**
 	 * 新订单只在微信支付前创建医保组 `.2`；自费组保持 pending，等待 Worker
-	 * 在医保 `.32/.5` 成功后创建。存量 combined/旧拆分订单按原事实续跑。
+	 * 在医保 `.32` 成功后创建；整单唯一的 `.5` 留到最终分支。存量
+	 * combined/旧拆分订单按原事实续跑。
 	 */
 	async prepareSplitPaymentsBeforeOfficialWechatPayment(input: {
 		ownerUserId: string;
@@ -620,19 +651,26 @@ export class MedicalInsurancePluginPaymentService {
 		const saved = settlement.postPaymentComponents;
 		if (saved) {
 			if (settlement.postPaymentPlanVersion === "sequenced-v1") {
-				if (!samePrePaymentPlan(saved, sequencedPlan)) {
+				if (
+					!samePrePaymentPlan(saved, sequencedPlan) &&
+					!samePrePaymentPlanWithLegacyWechatCash(saved, sequencedPlan)
+				) {
 					throw new Error("medical-insurance-pre-payment-plan-changed");
 				}
+				planned = saved;
 			} else if (saved.some((component) => component.kind === "combined")) {
 				const combinedPlan = combinedPrePaymentComponents({
 					order: medicalOrder,
 					insuredAreaCode: loadedSettlement.insuredAreaCode,
 					now: this.now(),
 				});
-				if (!samePrePaymentPlan(saved, combinedPlan)) {
+				if (
+					!samePrePaymentPlan(saved, combinedPlan) &&
+					!samePrePaymentPlanWithLegacyWechatCash(saved, combinedPlan)
+				) {
 					throw new Error("medical-insurance-pre-payment-plan-changed");
 				}
-				planned = combinedPlan;
+				planned = saved;
 			} else {
 				// 历史拆分计划可能已经有真实 Provider 流水；不能改成一个新的
 				// recordCode 或复用新的 idempotency key，否则会丢失不可逆支付事实。
@@ -641,7 +679,12 @@ export class MedicalInsurancePluginPaymentService {
 					insuredAreaCode: loadedSettlement.insuredAreaCode,
 					now: this.now(),
 				});
-				if (!samePrePaymentPlan(saved, planned)) {
+				if (
+					samePrePaymentPlan(saved, planned) ||
+					samePrePaymentPlanWithLegacyWechatCash(saved, planned)
+				) {
+					planned = saved;
+				} else {
 					const migrated = migrateRejectedMiniProgramWechatCashPlan(
 						saved,
 						planned,
@@ -650,6 +693,7 @@ export class MedicalInsurancePluginPaymentService {
 						throw new Error("medical-insurance-pre-payment-plan-changed");
 					}
 					settlement = { ...settlement, postPaymentComponents: migrated };
+					planned = migrated;
 					await this.dependencies.orders.saveSettlementContext(
 						ownerUserId,
 						orderId,
@@ -967,7 +1011,7 @@ export class MedicalInsurancePluginPaymentService {
 				throw error;
 			}
 		}
-		// 微信现金分项只在这里建立 Provider 的 5031 关联流水；实际收款由
+		// 微信现金分项只在这里建立 Provider 的 5033 关联流水；实际收款由
 		// 自有微信 APIv3/RSA 订单完成，不再复用 .2 返回的旧 MD5 参数。
 		return {};
 	}

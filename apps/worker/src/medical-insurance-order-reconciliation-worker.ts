@@ -50,6 +50,7 @@ const QUERY_BATCH_SIZE = 1;
 // 完成时被另一 Worker 抢占。五分钟覆盖正常调用窗口，崩溃后仍可自动回收。
 const QUERY_CLAIM_LEASE_MS = 5 * 60_000;
 const WECHAT_PREPAY_VALIDITY_MS = 2 * 60 * 60 * 1000;
+const WECHAT_SELF_PAY_TYPE_ID = "5033";
 
 function stableComponentCode(value: string): string {
 	return createHash("sha256").update(value).digest("hex").slice(0, 32);
@@ -107,7 +108,7 @@ function expectedPaymentLegs(input: {
 		{
 			kind: "wechat_cash",
 			amountFen: breakdown.wechatCashFen,
-			payTypeId: "5031",
+			payTypeId: WECHAT_SELF_PAY_TYPE_ID,
 		},
 	];
 	if (hospitalPaymentFen > 0) {
@@ -172,7 +173,7 @@ function expectedPrePaymentComponents(input: {
 				totalFen: amounts.totalFen,
 				amountFen: cashLeg.amountFen,
 				payModel: "H5",
-				payTypeId: "5031",
+				payTypeId: WECHAT_SELF_PAY_TYPE_ID,
 				recordCode: stableComponentCode(
 					`medical-post-payment:${input.order.medicalOrderId}:wechat_cash`,
 				),
@@ -221,6 +222,7 @@ function expectedPrePaymentComponents(input: {
 function samePayTypeParams(
 	left: MedicalInsurancePostPaymentComponent["payTypeParams"],
 	right: MedicalInsurancePostPaymentComponent["payTypeParams"],
+	allowLegacyWechatCash = false,
 ): boolean {
 	const leftParams = left ?? [];
 	const rightParams = right ?? [];
@@ -229,7 +231,11 @@ function samePayTypeParams(
 		leftParams.every(
 			(parameter, index) =>
 				parameter.kind === rightParams[index]?.kind &&
-				parameter.payTypeId === rightParams[index]?.payTypeId &&
+				(parameter.payTypeId === rightParams[index]?.payTypeId ||
+					(allowLegacyWechatCash &&
+						parameter.kind === "wechat_cash" &&
+						parameter.payTypeId === "5031" &&
+						rightParams[index]?.payTypeId === WECHAT_SELF_PAY_TYPE_ID)) &&
 				parameter.amountFen === rightParams[index]?.amountFen,
 		)
 	);
@@ -238,6 +244,7 @@ function samePayTypeParams(
 function samePrePaymentComponent(
 	left: MedicalInsurancePostPaymentComponent,
 	right: MedicalInsurancePostPaymentComponent,
+	allowLegacyWechatCash = false,
 ): boolean {
 	return (
 		left.componentId === right.componentId &&
@@ -245,9 +252,32 @@ function samePrePaymentComponent(
 		left.totalFen === right.totalFen &&
 		left.amountFen === right.amountFen &&
 		left.payModel === right.payModel &&
-		left.payTypeId === right.payTypeId &&
-		samePayTypeParams(left.payTypeParams, right.payTypeParams) &&
+		(left.payTypeId === right.payTypeId ||
+			(allowLegacyWechatCash &&
+				left.kind === "wechat_cash" &&
+				left.payTypeId === "5031" &&
+				right.payTypeId === WECHAT_SELF_PAY_TYPE_ID)) &&
+		samePayTypeParams(
+			left.payTypeParams,
+			right.payTypeParams,
+			allowLegacyWechatCash,
+		) &&
 		left.recordCode === right.recordCode
+	);
+}
+
+/** 新单规划 5033；已落库的 5031 仅作为原号续跑的历史事实。 */
+function samePrePaymentPlanWithLegacyWechatCash(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): boolean {
+	return (
+		saved.length === planned.length &&
+		planned.every((plannedComponent) =>
+			saved.some((savedComponent) =>
+				samePrePaymentComponent(savedComponent, plannedComponent, true),
+			),
+		)
 	);
 }
 
@@ -266,15 +296,16 @@ function samePrePaymentPlan(
 }
 
 /**
- * 本次修复前可能已有 5031/MINI_PROGRAM 的 .2 分项成功落库。该流水不能
+ * 旧版可能已有 5031/MINI_PROGRAM 的 .2 分项成功落库。该流水不能
  * 在支付完成后改写；Worker 只允许它作为已完成的历史事实进入最终回写。
- * 新订单和任何 failed/pending 旧流水仍须使用 H5/5031。
+ * 新订单使用 H5/5033；其他已落库 5031 计划按原事实续跑。
  */
 function sameOrCompletedLegacyMiniProgramPrePaymentPlan(
 	saved: readonly MedicalInsurancePostPaymentComponent[],
 	planned: readonly MedicalInsurancePostPaymentComponent[],
 ): boolean {
 	if (samePrePaymentPlan(saved, planned)) return true;
+	if (samePrePaymentPlanWithLegacyWechatCash(saved, planned)) return true;
 	if (saved.length !== planned.length) return false;
 	const plannedById = new Map(
 		planned.map((component) => [component.componentId, component]),
@@ -294,7 +325,7 @@ function sameOrCompletedLegacyMiniProgramPrePaymentPlan(
 			savedComponent.kind !== "wechat_cash" ||
 			plannedComponent.kind !== "wechat_cash" ||
 			savedComponent.payTypeId !== "5031" ||
-			plannedComponent.payTypeId !== "5031" ||
+			plannedComponent.payTypeId !== WECHAT_SELF_PAY_TYPE_ID ||
 			savedComponent.payModel !== "MINI_PROGRAM" ||
 			plannedComponent.payModel !== "H5" ||
 			savedComponent.state !== "succeeded" ||
@@ -933,7 +964,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		};
 	}
 
-	/** 医保 `.32` 完成后，创建独立 5031 `.2` 并执行 `.29/.15/.5`。 */
+	/** 医保 `.32` 完成后，创建独立 5033 `.2` 并执行 `.29/.15/.5`。 */
 	private async completeSequencedSelfPay(
 		order: MedicalInsuranceOrder,
 		settlement: MedicalInsuranceSettlementContext,
@@ -1297,7 +1328,9 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		});
 		// 新两段计划、旧合单必须精确匹配；历史拆分只按既有事实续跑。
 		if (
-			((sequenced || combined) && !samePrePaymentPlan(saved, planned)) ||
+			((sequenced || combined) &&
+				!samePrePaymentPlan(saved, planned) &&
+				!samePrePaymentPlanWithLegacyWechatCash(saved, planned)) ||
 			(!sequenced &&
 				!combined &&
 				!sameOrCompletedLegacyMiniProgramPrePaymentPlan(saved, planned))
@@ -1341,7 +1374,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 		}
 
-		// cashPaymentConfirmed=true 完成医保 `.32`。混合支付随后才创建 5031
+		// cashPaymentConfirmed=true 完成医保 `.32`。混合支付随后才创建 5033
 		// 自费 `.2` 并进入 `.29 -> .15 -> .5`；纯医保则在本次查询中完成
 		// `.32 -> .5`。整笔业务只能出现一次 `.5`。
 		// 发布前的 combined/拆分计划仍按已持久化事实续跑。

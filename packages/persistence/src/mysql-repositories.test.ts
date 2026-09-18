@@ -1593,7 +1593,7 @@ test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 	expect(state.values[0]?.[0]).not.toContain(context.businessId);
 });
 
-test("MySQL 医保上下文可加密读回 sequenced-v1 两段 .2 及自费回写事实", async () => {
+test("MySQL 医保上下文可加密读回历史 5031 自费回写事实", async () => {
 	const key = Buffer.alloc(32, 12).toString("base64");
 	const cipher = createAesGcmSecretValueCipher(key, {
 		keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
@@ -1707,6 +1707,66 @@ test("MySQL 医保上下文可加密读回 sequenced-v1 两段 .2 及自费回�
 			status: "succeeded",
 			providerRequestId: "provider-2.6.65.15-001",
 		},
+	});
+});
+
+test("MySQL 医保上下文可加密读回新 5033 自费计划", async () => {
+	const key = Buffer.alloc(32, 13).toString("base64");
+	const cipher = createAesGcmSecretValueCipher(key, {
+		keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+		valueName: "medical insurance credential",
+	});
+	const context: MedicalInsuranceSettlementContext = {
+		businessId: "provider-sequenced-5033",
+		hospitalId: "10389001",
+		patientId: "provider-patient-sequenced-5033",
+		networkRegister: {},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: ["provider-trade-sequenced-5033"],
+		postPaymentPlanVersion: "sequenced-v1",
+		postPaymentComponents: [
+			{
+				componentId: "medical-sequenced-5033:wechat_cash",
+				kind: "wechat_cash",
+				totalFen: 14_012,
+				amountFen: 14_012,
+				payModel: "H5",
+				payTypeId: "5033",
+				recordCode: "abcdef0123456789abcdef0123456789",
+				state: "pending",
+				attempts: 0,
+				updatedAt: "2026-09-18T09:04:00.000Z",
+			},
+		],
+	};
+	const { pool } = createFakePool([
+		[
+			{
+				settlement_context_ciphertext: cipher.seal(JSON.stringify(context)),
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool, {
+		medicalInsuranceCredentialEncryptionKey: key,
+	});
+
+	await expect(
+		repositories.medicalInsuranceOrders.getSettlementContext(
+			"user-sequenced-5033",
+			"medical-sequenced-5033",
+		),
+	).resolves.toMatchObject({
+		postPaymentPlanVersion: "sequenced-v1",
+		postPaymentComponents: [
+			{
+				kind: "wechat_cash",
+				payModel: "H5",
+				payTypeId: "5033",
+				state: "pending",
+			},
+		],
 	});
 });
 

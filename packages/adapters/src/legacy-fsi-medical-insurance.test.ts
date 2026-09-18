@@ -666,7 +666,7 @@ test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 	expect(querySettlementCalls).toBe(0);
 });
 
-test("门诊医保合单只调用一次 .32 和一次 .5", async () => {
+test("历史 5031 门诊医保合单只调用一次 .32 和一次 .5", async () => {
 	const providerPaths: string[] = [];
 	const providerBodies: Record<string, unknown>[] = [];
 	let settlementContext: MedicalInsuranceSettlementContext = {
@@ -994,7 +994,7 @@ async function assertSequencedRegistrationMedicalWriteback(
 							totalFen: 1000,
 							amountFen: 200,
 							payModel: "H5" as const,
-							payTypeId: "5031" as const,
+							payTypeId: "5033" as const,
 							recordCode: "record-wechat-cash-sequence-001",
 							state: "pending" as const,
 							attempts: 0,
@@ -1148,6 +1148,7 @@ async function assertSequencedRegistrationMedicalWriteback(
 		expect(pendingWechatCash).toMatchObject({
 			state: "pending",
 			amountFen: 200,
+			payTypeId: "5033",
 		});
 		expect(pendingWechatCash?.payingId).toBeUndefined();
 		expect(pendingWechatCash?.tradingId).toBeUndefined();
@@ -1268,6 +1269,6 @@ test("挂号医保流水严格按 .32 -> .5 完成且不调用 6301", async () =
 	await assertSequencedRegistrationMedicalWriteback(false);
 });
 
-test("sequenced-v1 带 pending wechat_cash 时医保段只执行 .32 且最终 .5 留给自费段", async () => {
+test("sequenced-v1 新 5033 pending wechat_cash 只让医保段执行 .32", async () => {
 	await assertSequencedRegistrationMedicalWriteback(true);
 });

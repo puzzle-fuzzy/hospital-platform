@@ -394,7 +394,7 @@ export class MedicalInsuranceWechatPaymentService {
 			this.dependencies.pluginPaymentBridge &&
 			!input.skipProviderPlanPreparation
 		) {
-			// 微信前只建立医保组 Provider 流水；5031 自费组必须等医保
+			// 微信前只建立医保组 Provider 流水；5033 自费组必须等医保
 			// `.32/.5` 完成后再由 Worker 创建。
 			await this.dependencies.pluginPaymentBridge.prepareSplitPaymentsBeforeOfficialWechatPayment(
 				{
@@ -764,7 +764,7 @@ export class MedicalInsuranceWechatPaymentService {
 			insuredAreaCode: authorization.insuplcAdmdvs,
 		});
 		let pluginCashPrepay: YunhealthMiniProgramPrepay | undefined;
-		// 微信前只创建第一笔医保组 2.6.65.2；第二笔 5031 自费 .2 必须等
+		// 微信前只创建第一笔医保组 2.6.65.2；第二笔 5033 自费 .2 必须等
 		// 官方混合查单确认支付、且医保 `.32/.5` 成功后才由 Worker 创建。
 		if (
 			this.dependencies.pluginPaymentBridge &&
@@ -1134,7 +1134,7 @@ export class MedicalInsuranceWechatPaymentService {
 	}
 
 	/**
-	 * 普通 JSAPI 回调承载新 5031 微信自费订单。按已落库的 out_trade_no 精确
+	 * 普通 JSAPI 回调承载新 5033 微信自费订单。按已落库的 out_trade_no 精确
 	 * 关联医保订单后，只唤醒医保混合查单，不写普通支付通知表，也不允许
 	 * 普通支付 Worker 单独据此完成医院回写。不能依赖平台自行生成的前缀：
 	 * 复用众阳 .2 预支付时，out_trade_no 可能是众阳返回的 MZJSD...。

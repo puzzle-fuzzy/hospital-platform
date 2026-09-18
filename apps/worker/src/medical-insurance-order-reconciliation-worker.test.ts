@@ -44,7 +44,9 @@ function prePaymentComponent(
 	};
 }
 
-function sequencedPostPaymentComponents(): readonly MedicalInsurancePostPaymentComponent[] {
+function sequencedPostPaymentComponents(
+	cashPayTypeId: "5031" | "5033" = "5033",
+): readonly MedicalInsurancePostPaymentComponent[] {
 	const medicalOrderId = "medical-order-worker-001";
 	return [
 		{
@@ -75,7 +77,7 @@ function sequencedPostPaymentComponents(): readonly MedicalInsurancePostPaymentC
 			totalFen: 100,
 			amountFen: 20,
 			payModel: "H5",
-			payTypeId: "5031",
+			payTypeId: cashPayTypeId,
 			recordCode: createHash("sha256")
 				.update(`medical-post-payment:${medicalOrderId}:wechat_cash`)
 				.digest("hex")
@@ -1259,12 +1261,12 @@ test("sequenced-v1 mixed payment completes medical .32 before cash .2/.29/.15/.5
 					orderId: "medical-order-worker-001:wechat_cash",
 					amountFen: 20,
 					payModel: "H5",
-					payTypeId: "5031",
+					payTypeId: "5033",
 				});
 				return {
 					payingId: "paying-cash-001",
 					tradingId: "trading-cash-001",
-					payTypeId: "5031",
+					payTypeId: "5033",
 					payType: "CREDIT",
 					workStationId: "",
 					tradeTypeCode: "1",
@@ -1283,7 +1285,7 @@ test("sequenced-v1 mixed payment completes medical .32 before cash .2/.29/.15/.5
 				expect(input.registrationContext).toMatchObject({
 					payingId: "paying-cash-001",
 					tradingId: "trading-cash-001",
-					payTypeId: "5031",
+					payTypeId: "5033",
 				});
 				calls.push("cash.29");
 				await input.onThirdPartPayAttempt?.();
@@ -1399,7 +1401,7 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 				totalFen: 100,
 				amountFen: 100,
 				payModel: "H5",
-				payTypeId: "5031",
+				payTypeId: "5033",
 				recordCode: cashRecordCode,
 				state: "pending",
 				attempts: 0,
@@ -1461,13 +1463,13 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 					totalFen: 100,
 					amountFen: 100,
 					payModel: "H5",
-					payTypeId: "5031",
+					payTypeId: "5033",
 					recordCode: cashRecordCode,
 				});
 				return {
 					payingId: "paying-pure-cash-001",
 					tradingId: "trading-pure-cash-001",
-					payTypeId: "5031",
+					payTypeId: "5033",
 					payType: "CREDIT",
 					workStationId: "",
 					tradeTypeCode: "1",
@@ -1486,7 +1488,7 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 					payingId: "paying-pure-cash-001",
 					tradingId: "trading-pure-cash-001",
 					recordCode: cashRecordCode,
-					payTypeId: "5031",
+					payTypeId: "5033",
 				});
 				calls.push("cash.29");
 				await input.onThirdPartPayAttempt?.();
@@ -1691,7 +1693,7 @@ test("sequenced-v1 legacy mixed order with an early successful .5 skips the fina
 			upDetailList: [],
 			tradeOrderIds: ["trade-legacy-early-.5-worker-001"],
 			postPaymentPlanVersion: "sequenced-v1",
-			postPaymentComponents: sequencedPostPaymentComponents(),
+			postPaymentComponents: sequencedPostPaymentComponents("5031"),
 			settlementWriteback: {
 				attemptedAt: now.toISOString(),
 				status: "succeeded",
@@ -1761,6 +1763,7 @@ test("sequenced-v1 legacy mixed order with an early successful .5 skips the fina
 		postPayment: {
 			createPreOrder: async (input) => {
 				calls.push("cash.2");
+				expect(input.payTypeId).toBe("5031");
 				return {
 					payingId: "paying-legacy-cash-001",
 					tradingId: "trading-legacy-cash-001",
@@ -1817,6 +1820,13 @@ test("sequenced-v1 legacy mixed order with an early successful .5 skips the fina
 		settlementCompletion: { status: "succeeded" },
 		selfPayThirdPartyWriteback: { status: "succeeded" },
 		selfPayPaymentNotify: { status: "succeeded" },
+		postPaymentComponents: expect.arrayContaining([
+			expect.objectContaining({
+				kind: "wechat_cash",
+				payTypeId: "5031",
+				state: "succeeded",
+			}),
+		]),
 	});
 	expect(settlement?.selfPaySettlementCompletion).toBeUndefined();
 	expect(settlement?.postPaymentCompletedAt).toBeDefined();

@@ -316,7 +316,7 @@ export type WechatPaymentLaunchParams = WechatMiniProgramPayParams;
 /**
  * 微信小程序医保支付调起参数；字段名和 wx.requestMedicalInsurancePay 保持一致。
  *
- * 历史/官方医保收银台使用 mixTradeNo；新 5031 自费使用普通 APIv3/RSA
+ * 历史/官方医保收银台使用 mixTradeNo；新 5033 自费使用普通 APIv3/RSA
  * JSAPI 参数。adapter 和 API schema 会在运行时继续校验这一互斥关系。
  */
 export type WechatMedicalInsurancePayParams =

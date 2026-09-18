@@ -32,11 +32,14 @@ const THIRD_PART_PAY_OPERATION = "registration-self-pay.2.27.2.29";
 const PAYMENT_NOTIFY_OPERATION = "registration-self-pay.2.6.65.15";
 const COMPLETE_SETTLE_OPERATION = "registration-self-pay.2.6.65.5";
 const ALLOWED_PAY_TYPES = new Set(["CREDIT", "POS", "CROWD_FUNDING"]);
-/** 点击医保支付后产生的微信自费腿，2.6.65.2 固定使用 5031。 */
-const MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID = 5031;
+/** 点击医保支付后产生的微信自费腿，新 2.6.65.2 固定使用 5033。 */
+const MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID = 5033;
+/** 已落库的旧医保微信自费流水按原支付方式续跑。 */
+const LEGACY_MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID = 5031;
 /** 用户主动点击微信支付的纯自费订单，2.6.65.2 固定使用 5032。 */
 const MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID = 5032;
 const WECHAT_SELF_PAY_TYPE_IDS = new Set([
+	LEGACY_MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID,
 	MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID,
 	MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID,
 ]);
@@ -47,6 +50,7 @@ const COMBINED_MEDICAL_PAY_TYPE_IDS = new Set([
 	2,
 	PERSONAL_ACCOUNT_PAY_TYPE_ID,
 	50,
+	LEGACY_MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID,
 	MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID,
 ]);
 /** 已创建的历史支付流水仍需按原支付方式完成 HIS 回写，不能中途改号。 */
@@ -66,7 +70,7 @@ export type YunhealthRegistrationSettlementGatewayOptions = {
 	paymentOrgId?: string;
 	/** 2.6.65.1 / 2.27.2.27 使用的医院 ID。 */
 	hospitalId?: string;
-	/** 医保混合支付插件的 payTypeId；当前固定配置为 5031。手动纯自费由前置工厂固定为 5032。 */
+	/** 医保混合支付的 payTypeId；当前固定配置为 5033。手动纯自费由前置工厂固定为 5032。 */
 	pluginPayTypeId: string;
 	pluginPayType: YunhealthRegistrationPluginPayType;
 	/** 众阳收款工作站号；当前合同允许为空字符串。 */
@@ -1491,7 +1495,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 
 /**
  * 医保支付的第一笔 2.6.65.2 只聚合医保基金、医院优惠和个人账户；微信
- * 自费金额在医保 .32/.5 完成后另建一笔 5031。外层仍固定 H5/payTypeId=2，
+ * 自费金额在医保 `.32` 完成后另建一笔 5033。外层仍固定 H5/payTypeId=2，
  * 组内实际支付腿放到 payTypeParams。历史整单合并请求继续兼容。
  *
  * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的

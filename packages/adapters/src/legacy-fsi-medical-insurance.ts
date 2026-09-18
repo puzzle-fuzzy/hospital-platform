@@ -2394,7 +2394,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		// 旧上下文若已成功写入 `.32`，但当前还没有确认微信现金终态，
 		// 只返回 cash_pending，不能提前完成整单。新串行混合单最终由 Worker
 		// 执行独立的自费 `.2 -> .29 -> .15 -> .5`；整单不再调用医保 `.5`。
-		// 只有发布前已经拆分保存的 5031 流水才继续其历史上的第二次 `.32`。
+		// 只有发布前已经拆分保存的历史微信自费流水才继续其第二次 `.32`。
 		if (input.amounts.cashFen > 0 && !input.cashPaymentConfirmed) {
 			return {
 				state: "cash_pending",
@@ -2409,7 +2409,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		const selfPayComponent = settlementContext.postPaymentComponents?.find(
 			(component) =>
 				component.kind === "wechat_cash" &&
-				(component.payTypeId === "5031" || component.payTypeId === "31") &&
+				(component.payTypeId === "31" ||
+					component.payTypeId === "5031" ||
+					component.payTypeId === "5033") &&
 				component.state === "succeeded" &&
 				Boolean(component.payingId && component.tradingId),
 		);
@@ -2423,7 +2425,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			if (!selfPayComponent) {
 				throw responseError(
 					"medical-insurance.2.27.2.32",
-					"微信自费 5031 分项尚未生成有效 payingId/tradingId",
+					"微信自费分项尚未生成有效 payingId/tradingId",
 				);
 			}
 			const previousSelfPayWriteback =

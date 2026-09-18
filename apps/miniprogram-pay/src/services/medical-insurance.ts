@@ -639,7 +639,7 @@ export function resumeMedicalCashPaymentFromPending(
 
 /**
  * 医保订单的收款调起：带 mixTradeNo 的历史/官方医保单使用医保收银台；
- * 新 5031 自费单使用服务端 APIv3/RSA 生成的普通 JSAPI 参数。两者返回后
+ * 新 5033 自费单使用服务端 APIv3/RSA 生成的普通 JSAPI 参数。两者返回后
  * 都只通过服务端查单确认，不能把小程序 success 当作结算完成。
  */
 export async function continueMedicalCashPayment(

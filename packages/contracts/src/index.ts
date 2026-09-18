@@ -1267,7 +1267,7 @@ export const RegistrationSelfPayLaunchParamsSchema = Type.Union([
 /** 所有普通微信自费入口统一使用 APIv3 JSAPI 小程序调起参数。 */
 export const WechatPaymentLaunchParamsSchema = WechatMiniProgramPayParamsSchema;
 
-/** 微信医保调起参数：历史官方医保单含 mixTradeNo，新 5031 自费使用普通 RSA JSAPI。 */
+/** 微信医保调起参数：历史官方医保单含 mixTradeNo，新 5033 自费使用普通 RSA JSAPI。 */
 export const WechatMedicalInsurancePayParamsSchema = Type.Union([
 	Type.Object(
 		{ mixTradeNo: Type.String({ minLength: 1, maxLength: 32 }) },

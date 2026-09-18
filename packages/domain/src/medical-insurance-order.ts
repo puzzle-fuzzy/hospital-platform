@@ -405,7 +405,7 @@ export type MedicalInsuranceSettlementContext = {
 		providerRequestId?: string;
 		providerStatus?: string;
 	};
-	/** 历史拆分 5031 流水独立调用 2.27.2.32 的不可重放事实。 */
+	/** 历史拆分微信自费流水独立调用 2.27.2.32 的不可重放事实。 */
 	selfPaySettlementWriteback?: {
 		attemptedAt: string;
 		status: "succeeded" | "failed" | "unknown";
@@ -499,7 +499,7 @@ export type MedicalInsurancePostPaymentComponent = {
 	totalFen: number;
 	amountFen: number;
 	payModel: "H5" | "MINI_PROGRAM";
-	payTypeId: "2" | "3" | "5" | "31" | "50" | "5027" | "5031" | "5032";
+	payTypeId: "2" | "3" | "5" | "31" | "50" | "5027" | "5031" | "5032" | "5033";
 	/**
 	 * `kind=combined|medical` 时 2.6.65.2 请求体内的支付腿，按 Provider
 	 * 要求的顺序保存。`medical` 不得包含 wechat_cash；旧分项记录不带
@@ -510,7 +510,16 @@ export type MedicalInsurancePostPaymentComponent = {
 			MedicalInsurancePostPaymentComponentKind,
 			"combined" | "medical"
 		>;
-		payTypeId: "2" | "3" | "5" | "31" | "50" | "5027" | "5031" | "5032";
+		payTypeId:
+			| "2"
+			| "3"
+			| "5"
+			| "31"
+			| "50"
+			| "5027"
+			| "5031"
+			| "5032"
+			| "5033";
 		amountFen: number;
 	}[];
 	recordCode: string;

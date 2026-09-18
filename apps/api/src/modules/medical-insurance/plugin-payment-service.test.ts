@@ -89,14 +89,14 @@ function serviceWith(input: {
 			},
 		} as never,
 		hospitalSettlement: {} as never,
-		pluginPayTypeId: "5031",
+		pluginPayTypeId: "5033",
 		pluginPayType: "CREDIT",
 		pluginWorkStationId: "",
 		pluginTradeTypeCode: "10",
 	});
 }
 
-test("医保支付在微信前只创建 medical .65.2，自费 5031 保持 pending", async () => {
+test("医保支付在微信前只创建 medical .65.2，自费 5033 保持 pending", async () => {
 	let currentSettlement: Record<string, unknown> = {
 		...settlement(),
 		insuredAreaCode: "140500",
@@ -166,7 +166,7 @@ test("医保支付在微信前只创建 medical .65.2，自费 5031 保持 pendi
 			},
 		},
 		hospitalSettlement: {} as never,
-		pluginPayTypeId: "5031",
+		pluginPayTypeId: "5033",
 		pluginPayType: "CREDIT",
 		pluginWorkStationId: "",
 		pluginTradeTypeCode: "10",
@@ -194,7 +194,7 @@ test("医保支付在微信前只创建 medical .65.2，自费 5031 保持 pendi
 	});
 	expect(
 		calls[0]?.payTypeParams?.some(
-			(parameter) => parameter.payTypeId === "5031",
+			(parameter) => parameter.payTypeId === "5033",
 		),
 	).toBeFalse();
 	const components = currentSettlement.postPaymentComponents as Array<{
@@ -232,7 +232,7 @@ test("医保支付在微信前只创建 medical .65.2，自费 5031 保持 pendi
 			kind: "wechat_cash",
 			amountFen: 200,
 			payModel: "H5",
-			payTypeId: "5031",
+			payTypeId: "5033",
 			state: "pending",
 			attempts: 0,
 		},
@@ -254,7 +254,7 @@ test("医保支付在微信前只创建 medical .65.2，自费 5031 保持 pendi
 	);
 });
 
-test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试", async () => {
+test("仅将未创建交易的历史失败 5031 小程序流水安全迁移为 H5/5033", async () => {
 	const component = (
 		kind: "fund" | "personal_account" | "wechat_cash",
 		amountFen: number,
@@ -328,7 +328,7 @@ test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试"
 				return {
 					payingId: "paying-wechat-cash",
 					tradingId: "trading-wechat-cash",
-					payTypeId: "5031" as const,
+					payTypeId: "5033" as const,
 					payType: "CREDIT" as const,
 					workStationId: "",
 					tradeTypeCode: "10",
@@ -341,7 +341,7 @@ test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试"
 			},
 		} as never,
 		hospitalSettlement: {} as never,
-		pluginPayTypeId: "5031",
+		pluginPayTypeId: "5033",
 		pluginPayType: "CREDIT",
 		pluginWorkStationId: "",
 		pluginTradeTypeCode: "10",
@@ -353,14 +353,14 @@ test("仅将未创建交易的失败 5031 小程序流水迁移为 H5 后重试"
 		context,
 	});
 
-	expect(calls).toEqual([{ payModel: "H5", payTypeId: "5031" }]);
+	expect(calls).toEqual([{ payModel: "H5", payTypeId: "5033" }]);
 	expect(currentSettlement.postPaymentComponents).toMatchObject([
 		{ kind: "fund", state: "succeeded", attempts: 1 },
 		{ kind: "personal_account", state: "succeeded", attempts: 1 },
 		{
 			kind: "wechat_cash",
 			payModel: "H5",
-			payTypeId: "5031",
+			payTypeId: "5033",
 			state: "succeeded",
 			attempts: 2,
 			payingId: "paying-wechat-cash",
@@ -435,7 +435,7 @@ test("高平普通挂号授权过期后只创建 medical .2，不创建 wechat_c
 			},
 		},
 		hospitalSettlement: {} as never,
-		pluginPayTypeId: "5031",
+		pluginPayTypeId: "5033",
 		pluginPayType: "CREDIT",
 		pluginWorkStationId: "",
 		pluginTradeTypeCode: "10",

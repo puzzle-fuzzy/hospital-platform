@@ -322,7 +322,7 @@ test("医保支付只接受服务端返回的 RSA 调起参数", () => {
 	).toThrow("医保微信支付参数不可用");
 });
 
-test("医保新 5031 自费接受普通 APIv3/RSA 调起参数", () => {
+test("医保新 5033 自费接受普通 APIv3/RSA 调起参数", () => {
 	expect(
 		readMedicalWechatPayment({
 			success: true,

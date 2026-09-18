@@ -508,9 +508,9 @@ export function yunhealthRegistrationSettlementConfigurationMissingFields(
 	}
 	if (
 		runtimeConfig.yunhealthRegistrationPluginPayTypeId &&
-		runtimeConfig.yunhealthRegistrationPluginPayTypeId !== "5031"
+		runtimeConfig.yunhealthRegistrationPluginPayTypeId !== "5033"
 	) {
-		missing.push("YUNHEALTH_PLUGIN_PAY_TYPE_ID(5031)");
+		missing.push("YUNHEALTH_PLUGIN_PAY_TYPE_ID(5033)");
 	}
 	if (
 		runtimeConfig.yunhealthRegistrationPluginPayType &&

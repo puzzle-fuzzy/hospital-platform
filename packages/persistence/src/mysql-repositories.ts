@@ -789,12 +789,13 @@ function deserializeMedicalInsuranceSettlementContext(
 									"personal_account",
 									"wechat_cash",
 								].includes(String(parameter.kind)) ||
-								!["2", "5", "50", "5031"].includes(
+								!["2", "5", "50", "5031", "5033"].includes(
 									String(parameter.payTypeId),
 								) ||
 								(value.kind === "medical" &&
 									(parameter.kind === "wechat_cash" ||
-										parameter.payTypeId === "5031")) ||
+										parameter.payTypeId === "5031" ||
+										parameter.payTypeId === "5033")) ||
 								!Number.isSafeInteger(parameter.amountFen) ||
 								Number(parameter.amountFen) <= 0
 							);
@@ -821,7 +822,7 @@ function deserializeMedicalInsuranceSettlementContext(
 					].includes(String(value.kind)) ||
 					!["pending", "succeeded", "failed"].includes(String(value.state)) ||
 					!["H5", "MINI_PROGRAM"].includes(String(value.payModel)) ||
-					!["2", "3", "5", "31", "50", "5027", "5031", "5032"].includes(
+					!["2", "3", "5", "31", "50", "5027", "5031", "5032", "5033"].includes(
 						String(value.payTypeId),
 					) ||
 					!["componentId", "recordCode", "updatedAt"].every(
