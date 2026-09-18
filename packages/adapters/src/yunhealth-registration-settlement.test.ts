@@ -420,7 +420,7 @@ test("医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结�
 	expect(request?.headers.get("authorization")).toBe("Bearer server-token");
 	expect(request?.body).toEqual({
 		appCode: "WeChatSmallProg",
-		authSysCode: "thirdSelfMachine",
+		authSysCode: "WeChatSmallProg",
 		autoSettle: 2,
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,
@@ -764,7 +764,7 @@ test("云健康非 HIS 收款只调用 .5 并要求最终结算确认", async ()
 	).toBeTrue();
 	expect(requests[0]?.body).toEqual({
 		appCode: "WeChatSmallProg",
-		authSysCode: "thirdSelfMachine",
+		authSysCode: "WeChatSmallProg",
 		autoSettle: 2,
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,

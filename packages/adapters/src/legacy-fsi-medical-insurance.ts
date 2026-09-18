@@ -42,6 +42,8 @@ const DEFAULT_USER_QUERY_BASE_URL = "https://test-receiver.wecity.qq.com";
 const DEFAULT_USER_QUERY_PATH = "/api/mipuserquery/userQuery/50010828";
 const DEFAULT_FOUNDATION_PATH = "/mbs-fsi/web/api/fsi/callService";
 const DEFAULT_AUTH_SYS_CODE = "thirdSelfMachine";
+// 2.6.65.5 完成结算使用微信小程序渠道标识；其他支付查询/关单接口仍沿用 DEFAULT_AUTH_SYS_CODE。
+const COMPLETE_SETTLE_AUTH_SYS_CODE = "WeChatSmallProg";
 const DEFAULT_APP_CODE = "WeChatSmallProg";
 const DEFAULT_SCENE_CODE = "WeChatSmallProgram";
 const DEFAULT_TRADE_TYPE_CODE = "10";
@@ -2581,7 +2583,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 				completionContext,
 				{
-					authSysCode: DEFAULT_AUTH_SYS_CODE,
+					authSysCode: COMPLETE_SETTLE_AUTH_SYS_CODE,
 					autoSettle: 2,
 					businessId: settlementContext.businessId,
 					hospitalId: settlementContext.hospitalId,

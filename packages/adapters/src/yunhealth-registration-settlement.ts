@@ -20,6 +20,7 @@ import {
 
 const COMPLETE_SETTLE_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle";
+const COMPLETE_SETTLE_AUTH_SYS_CODE = "WeChatSmallProg";
 const PAYMENT_NOTIFY_PATH =
 	"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify";
 const APPLY_SETTLE_PATH =
@@ -897,7 +898,7 @@ export function createYunhealthRegistrationSettlementGateway(
 				COMPLETE_SETTLE_PATH,
 				{
 					appCode: "WeChatSmallProg",
-					authSysCode,
+					authSysCode: COMPLETE_SETTLE_AUTH_SYS_CODE,
 					autoSettle: 2,
 					businessId: normalizedContext.businessId,
 					hospitalId: normalizedContext.hospitalId,
@@ -1605,7 +1606,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						: {}),
 					body: {
 						appCode: "WeChatSmallProg",
-						authSysCode,
+						authSysCode: COMPLETE_SETTLE_AUTH_SYS_CODE,
 						autoSettle: 2,
 						businessId,
 						hospitalId,
