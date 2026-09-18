@@ -210,8 +210,8 @@ export class OutpatientSelfPayService {
 		recordId: string,
 		context: AdapterCallContext,
 	) {
-		const resolved = this.dependencies.outpatientPayments.resolvePaymentContext;
-		if (!resolved)
+		const outpatientPayments = this.dependencies.outpatientPayments;
+		if (!outpatientPayments.resolvePaymentContext)
 			throw new DependencyNotConfiguredError("outpatient-payment-context");
 		const reference = await this.dependencies.patients.resolveProviderReference(
 			{
@@ -226,7 +226,7 @@ export class OutpatientSelfPayService {
 				"Outpatient patient mapping is unavailable",
 			);
 		const now = this.dependencies.now?.() ?? new Date();
-		const resolvedContext = await resolved(
+		const resolvedContext = await outpatientPayments.resolvePaymentContext(
 			{
 				providerPatientId: reference.providerPatientId,
 				recordId,
