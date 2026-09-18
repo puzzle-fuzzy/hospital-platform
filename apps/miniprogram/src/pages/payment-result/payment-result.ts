@@ -94,9 +94,10 @@ function matchesPaymentResult(
 			: result?.appointmentId === appointmentId;
 	return Boolean(
 		result &&
+			result.patientId === patientId &&
 			matchesBusinessReference &&
 			(!result.businessType || result.businessType === business) &&
-			Boolean(patientId),
+			patientId,
 	);
 }
 

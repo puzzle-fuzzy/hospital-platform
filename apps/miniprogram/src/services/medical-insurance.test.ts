@@ -71,6 +71,7 @@ test("已完成支付记录保留医保与自费金额拆分", async () => {
 	storage.set("hospital-platform.last-medical-payment-result", {
 		businessType: "outpatient",
 		appointmentId: "outpatient-record-result-001",
+		patientId: "patient-local-result-001",
 		recordId: "outpatient-record-result-001",
 		orderId: "medical-order-result-001",
 		amounts: { totalFen: 10000, insuranceFen: 7000, cashFen: 3000 },
@@ -78,7 +79,20 @@ test("已完成支付记录保留医保与自费金额拆分", async () => {
 	});
 
 	expect(readLastMedicalPaymentResult()).toMatchObject({
+		patientId: "patient-local-result-001",
 		orderId: "medical-order-result-001",
 		amounts: { totalFen: 10000, insuranceFen: 7000, cashFen: 3000 },
 	});
+
+	storage.set("hospital-platform.last-medical-payment-result", {
+		businessType: "outpatient",
+		appointmentId: "outpatient-record-result-legacy",
+		recordId: "outpatient-record-result-legacy",
+		orderId: "medical-order-result-legacy",
+		completedAt: Date.now(),
+	});
+	expect(readLastMedicalPaymentResult()).toBeNull();
+	expect(
+		storage.has("hospital-platform.last-medical-payment-result"),
+	).toBeFalse();
 });

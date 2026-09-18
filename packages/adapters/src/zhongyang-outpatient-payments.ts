@@ -362,8 +362,10 @@ function optionalRatio(
  * 可能因为数据错配、查询条件失效或上游返回异常而返回另一种状态。
  * 2.6.33 已明确响应中的 `tradeStatus`。待缴费查询只能收到 1；已缴费
  * 查询允许 3（已支付）和 4（退款中），其中 4 会在公共模型中保留为
- * `paymentStatus: "refunding"`。未知、已退款或作废状态仍必须整批失败，
- * 避免把不可支付或已失效记录伪装成可展示的已缴费事实。
+ * `paymentStatus: "refunding"`。Provider 的已缴查询实际还会夹带历史状态 5
+ * （已退款）；这类记录只能在确认不与可见记录指向同一费用后排除，不能把它
+ * 映射成 paid，也不能让无关历史记录阻断真实详情。未知、结算中或作废状态
+ * 仍整批失败。
  */
 function verifyTradeStatus(
 	value: unknown,
@@ -667,6 +669,56 @@ function ensureUniqueRecordIds(
 	}
 }
 
+/**
+ * 已缴查询可能夹带其它历史订单的已退款记录。先为状态 5 计算同一套稳定
+ * recordId，再映射 3/4：若两边身份相同，说明 Provider 对同一费用给出了
+ * 冲突状态，必须整批拒绝；只有身份明确不同的历史退款才可以从公共读模型
+ * 中排除。待缴查询不允许状态 5，仍由 `mapRecord` 严格拒绝。
+ */
+function mapVisiblePaymentRecords(
+	items: readonly ProviderPaymentItem[],
+	providerPatientId: string,
+	status: OutpatientPaymentStatus,
+	requestId: string,
+): OutpatientPaymentRecord[] {
+	const historicalRefundedRecordIds = new Set<string>();
+	const visibleItems: ProviderPaymentItem[] = [];
+
+	for (const item of items) {
+		const actualStatus =
+			typeof item.tradeStatus === "string" ||
+			typeof item.tradeStatus === "number"
+				? String(item.tradeStatus).trim()
+				: undefined;
+		if (status === "paid" && actualStatus === "5") {
+			const recordId = opaqueRecordId(item, providerPatientId, requestId);
+			if (historicalRefundedRecordIds.has(recordId)) {
+				throw providerError(
+					"Zhongyang outpatient response contained duplicate refunded record ids",
+					requestId,
+				);
+			}
+			historicalRefundedRecordIds.add(recordId);
+			continue;
+		}
+		visibleItems.push(item);
+	}
+
+	const records = visibleItems.map((item) =>
+		mapRecord(item, providerPatientId, status, requestId),
+	);
+	ensureUniqueRecordIds(records, requestId);
+	if (
+		records.some((record) => historicalRefundedRecordIds.has(record.recordId))
+	) {
+		throw providerError(
+			"Zhongyang outpatient response contained conflicting payment statuses",
+			requestId,
+		);
+	}
+	return records;
+}
+
 function trace(requestId: string): ExternalTrace {
 	return { provider: "zhongyang", operation: OPERATION, requestId };
 }
@@ -726,15 +778,12 @@ export class ZhongyangOutpatientPaymentApiGateway
 			this.fetcher,
 		);
 		const items = responseItems(response.data, response.requestId);
-		const records = items.map((item) =>
-			mapRecord(
-				item,
-				providerPatientId,
-				normalizedInput.status,
-				response.requestId,
-			),
+		const records = mapVisiblePaymentRecords(
+			items,
+			providerPatientId,
+			normalizedInput.status,
+			response.requestId,
 		);
-		ensureUniqueRecordIds(records, response.requestId);
 		return {
 			records,
 			trace: trace(response.requestId),

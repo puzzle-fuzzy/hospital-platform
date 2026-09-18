@@ -58,7 +58,7 @@ function isNonNegativeInteger(value: unknown): value is number {
 function isSettlementPending(
 	value: ReturnType<typeof readPendingPayment>,
 ): value is SettlementPending {
-	if (!value || value.businessType !== "outpatient") return false;
+	if (value?.businessType !== "outpatient") return false;
 	if (
 		!value.recordId ||
 		!value.orderId ||
@@ -204,7 +204,10 @@ Page<
 			}
 			if (!readPendingPayment()) {
 				const completed = readLastMedicalPaymentResult();
-				if (completed?.recordId === pending.recordId) {
+				if (
+					completed?.patientId === pending.patientId &&
+					completed.recordId === pending.recordId
+				) {
 					wx.redirectTo({
 						url: paymentResultUrl(
 							pending.patientId,
@@ -284,7 +287,11 @@ Page<
 				this.setData({ paymentMessage: message }),
 			);
 			const completed = readLastMedicalPaymentResult();
-			if (!completed || completed.recordId !== pending.recordId) {
+			if (
+				!completed ||
+				completed.patientId !== pending.patientId ||
+				completed.recordId !== pending.recordId
+			) {
 				throw new ApiError("医保支付结果不可用", {
 					code: "provider-response-invalid",
 				});

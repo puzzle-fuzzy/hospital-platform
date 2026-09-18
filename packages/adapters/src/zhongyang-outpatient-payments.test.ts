@@ -912,7 +912,6 @@ test("众阳门诊费用 adapter 映射已支付和退款中状态", async () =>
 	for (const [providerStatus, requestedStatus] of [
 		["2", "unpaid"],
 		["2", "paid"],
-		["5", "paid"],
 		["9", "paid"],
 	] as const) {
 		await expect(
@@ -925,6 +924,13 @@ test("众阳门诊费用 adapter 映射已支付和退款中状态", async () =>
 			retryable: false,
 		});
 	}
+
+	await expect(
+		createGateway("5", "historical-refunded").listRecords(
+			{ ...baseInput, status: "paid" },
+			context,
+		),
+	).resolves.toMatchObject({ records: [] });
 });
 
 test("众阳门诊费用 adapter 保留同一批中的已支付和退款中记录", async () => {
@@ -948,6 +954,12 @@ test("众阳门诊费用 adapter 保留同一批中的已支付和退款中记�
 							tradeStatus: "4",
 							billDate: "2026-08-16 10:00:00",
 						},
+						{
+							outTradeOrderId: "order-refunded-history",
+							amount: "3.00",
+							tradeStatus: "5",
+							billDate: "2026-08-15 10:00:00",
+						},
 					],
 				}),
 				{ status: 200, headers: { "x-request-id": "mixed-paid-refunding" } },
@@ -970,6 +982,138 @@ test("众阳门诊费用 adapter 保留同一批中的已支付和退款中记�
 	expect(result.records[1]).toMatchObject({
 		status: "paid",
 		paymentStatus: "refunding",
+	});
+});
+
+test("众阳门诊费用 adapter 不让历史已退款记录阻断已支付详情", async () => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "order-paid-target",
+							amount: "176.00",
+							tradeStatus: "3",
+							billDate: "2026-09-18 16:50:13",
+						},
+						{
+							outTradeOrderId: "order-refunded-history",
+							amount: "10.00",
+							tradeStatus: "5",
+							billDate: "2026-09-17 10:56:12",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "paid-with-history" } },
+			),
+	});
+
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-patient-secret",
+			startTime: "2026-08-20 00:00:00",
+			endTime: "2026-09-18 23:59:59",
+			status: "paid",
+		},
+		context,
+	);
+
+	expect(result.records).toHaveLength(1);
+	expect(result.records[0]).toMatchObject({
+		status: "paid",
+		amountFen: 17_600,
+	});
+});
+
+test("众阳门诊费用 adapter 拒绝同一费用同时返回已支付和已退款", async () => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "same-order",
+							amount: "176.00",
+							tradeStatus: "3",
+							billDate: "2026-09-18 16:50:13",
+						},
+						{
+							outTradeOrderId: "same-order",
+							amount: "176.00",
+							tradeStatus: "5",
+							billDate: "2026-09-18 16:50:13",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "conflicting-status" } },
+			),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-secret",
+				startTime: "2026-08-20 00:00:00",
+				endTime: "2026-09-18 23:59:59",
+				status: "paid",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		requestId: "conflicting-status",
+		responseInvalid: true,
+	});
+});
+
+test("众阳门诊费用 adapter 不在待缴查询中隐藏已退款状态", async () => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "order-unpaid",
+							amount: "1.00",
+							tradeStatus: "1",
+							billDate: "2026-09-18 09:00:00",
+						},
+						{
+							outTradeOrderId: "order-refunded",
+							amount: "1.00",
+							tradeStatus: "5",
+							billDate: "2026-09-17 09:00:00",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "unpaid-with-refund" } },
+			),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-secret",
+				startTime: "2026-08-20 00:00:00",
+				endTime: "2026-09-18 23:59:59",
+				status: "unpaid",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		requestId: "unpaid-with-refund",
+		responseInvalid: true,
 	});
 });
 

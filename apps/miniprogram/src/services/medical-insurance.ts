@@ -103,6 +103,7 @@ export type MedicalOrder = {
 export type LastMedicalPaymentResult = {
 	businessType?: "registration" | "outpatient";
 	appointmentId: string;
+	patientId: string;
 	recordId?: string;
 	orderId: string;
 	amounts?: MedicalPaymentAmounts;
@@ -313,6 +314,7 @@ function readLastMedicalPaymentResultValue(
 			value.businessType !== "registration" &&
 			value.businessType !== "outpatient") ||
 		!isOpaque(value.appointmentId) ||
+		!isOpaque(value.patientId) ||
 		(value.recordId !== undefined && !isOpaque(value.recordId)) ||
 		!isOpaque(value.orderId) ||
 		typeof value.completedAt !== "number" ||
@@ -329,6 +331,7 @@ function readLastMedicalPaymentResultValue(
 	return {
 		...(value.businessType ? { businessType: value.businessType } : {}),
 		appointmentId: value.appointmentId,
+		patientId: value.patientId,
 		...(value.recordId ? { recordId: value.recordId } : {}),
 		orderId: value.orderId,
 		...(amounts ? { amounts } : {}),
@@ -441,7 +444,7 @@ export function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 					package: params.package as string,
 					signType: params.signType as "RSA",
 					paySign: params.paySign as string,
-				  }
+				}
 			: hasJsapiParams
 				? {
 						timeStamp: params.timeStamp as string,
@@ -450,7 +453,7 @@ export function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 						signType: params.signType as "RSA",
 						paySign: params.paySign as string,
 						mixTradeNo: params.mixTradeNo as string,
-					  }
+					}
 				: { mixTradeNo: params.mixTradeNo as string };
 	}
 	return {
@@ -830,9 +833,7 @@ function requestWechatMedicalInsurancePayment(
 	});
 }
 
-function requestWechatSelfPayment(
-	params: WechatSelfPayParams,
-): Promise<void> {
+function requestWechatSelfPayment(params: WechatSelfPayParams): Promise<void> {
 	return new Promise((resolve, reject) => {
 		let settled = false;
 		const timer = setTimeout(() => {
@@ -897,6 +898,7 @@ function finishMedicalPayment(
 	wx.setStorageSync(MINIPROGRAM_STORAGE_KEYS.lastMedicalPaymentResult, {
 		...(pending.businessType ? { businessType: pending.businessType } : {}),
 		appointmentId: pending.appointmentId,
+		patientId: pending.patientId,
 		...(pending.recordId ? { recordId: pending.recordId } : {}),
 		orderId,
 		...(amounts ? { amounts } : {}),
@@ -1102,7 +1104,9 @@ export async function continueMedicalCashPayment(
 		);
 		try {
 			if (isOwnWechatSelfPay) {
-				await requestWechatSelfPayment(payment.payParams as WechatSelfPayParams);
+				await requestWechatSelfPayment(
+					payment.payParams as WechatSelfPayParams,
+				);
 			} else {
 				await requestWechatMedicalInsurancePayment(
 					payment.payParams as MedicalWechatPayParams & { mixTradeNo: string },

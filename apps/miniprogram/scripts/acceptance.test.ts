@@ -3581,7 +3581,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 		'<button class="record-pay-button">缴费</button>',
 	);
 	expect(recordPayButtonIndex).toBeGreaterThan(visitTimeIndex);
-	expect(outpatientStyle).toContain("width: 100rpx;");
+	expect(outpatientStyle).toContain("width: 82rpx;");
 	expect(outpatientTemplate).toContain(">支付</button>");
 	expect(settlementTemplate).toContain("服务端医保 6202 结算结果");
 	expect(settlementTemplate).toContain(
@@ -3618,6 +3618,9 @@ test("outpatient payment detail keeps unpaid fees read-only", async () => {
 	const detailTemplate = await source(
 		"pages/outpatient-payment-detail/outpatient-payment-detail.wxml",
 	);
+	const detailStyle = await source(
+		"pages/outpatient-payment-detail/outpatient-payment-detail.wxss",
+	);
 
 	// 付款入口统一收口到门诊费用列表；详情页只保留费用事实和回跳恢复兼容，
 	// 不能再提供一条绕过列表半窗口的旧支付路径。
@@ -3626,6 +3629,18 @@ test("outpatient payment detail keeps unpaid fees read-only", async () => {
 	expect(detailTemplate).toContain("点击本笔记录的“缴费”按钮");
 	expect(detailTemplate).not.toContain('bindtap="onMedicalPay"');
 	expect(detailTemplate).not.toContain('bindtap="onWechatPay"');
+	// 支付完成后的详情读取是独立读链路；只有同笔近期完成结果才能把
+	// Provider/网络失败降级为成功提示，患者或会话错误不得被掩盖。
+	expect(detailPage).toContain("isRecentCompletedOutpatientPayment");
+	expect(detailPage).toContain("isPaidDetailReadUnavailable");
+	expect(detailPage).not.toContain('"provider-response-invalid",');
+	expect(detailPage).toContain("completed.patientId !== patientId");
+	expect(detailPage).toContain(
+		"支付已成功，不影响本次结算；费用详情暂时无法同步",
+	);
+	expect(detailTemplate).toContain("paid-sync-state");
+	expect(detailTemplate).toContain("支付已成功");
+	expect(detailStyle).toContain(".paid-sync-state");
 });
 
 test("patient list load-more events cannot mutate stale read-model windows", async () => {

@@ -837,7 +837,10 @@ Page<
 		}
 		const completed = readLastMedicalPaymentResult();
 		const completedForAppointment =
-			completed?.appointmentId === appointmentId ? completed : null;
+			completed?.patientId === patientId &&
+			completed.appointmentId === appointmentId
+				? completed
+				: null;
 		wx.redirectTo({
 			url: paymentResultUrl(
 				appointmentId,
