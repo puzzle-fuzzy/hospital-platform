@@ -2,11 +2,8 @@
 	<view class="page">
 	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
-	<!-- 微信自费已接入详情页；医保授权、结算和退费仍按未发布能力处理。 -->
-	<view class="notice">门诊微信自费支付已接入；医保支付、结算和退费请以医院正式渠道为准。</view>
-
 	<!--
-		旧端 PatientHospitalSelector 的两行布局必须保留在提示下方：
+		旧端 PatientHospitalSelector 的两行布局必须保留在页面顶部：
 		患者行进入独立选择页，院区行只展示已核对的单院区配置。
 	-->
 	<view class="selector-card">
@@ -81,7 +78,7 @@
 		</block>
 	</view>
 
-	<!-- 门诊费用卡片恢复旧端的信息层级；点击进入服务端核对过的费用详情和微信自费支付。 -->
+	<!-- 卡片主体进入只读详情；待缴费记录的缴费按钮直接打开支付方式半窗口。 -->
 	<view wx:elif="{{visibleItems.length}}" class="record-list">
 		<view
 			wx:for="{{visibleItems}}"
@@ -134,21 +131,49 @@
 				<text class="record-label">费用类别</text>
 				<text class="record-value">{{item.chargeClassName || item.tradePropName || item.typeMemo}}</text>
 			</view>
-			<view class="record-line">
+			<view class="record-line record-amount-line">
 				<text class="record-label">缴费金额</text>
-				<text class="record-amount">{{item.amountLabel}}</text>
+				<view class="record-amount-right">
+					<text class="record-amount">{{item.amountLabel}}</text>
+					<view wx:if="{{item.status === 'unpaid'}}" class="record-payment-action" catchtap="onPaymentTap" data-view-key="{{item.viewKey}}">
+						<button class="record-pay-button">缴费</button>
+					</view>
+				</view>
 			</view>
 			<view class="record-line record-line-last">
 				<text class="record-label">就诊时间</text>
 				<text class="record-time">{{item.billDateLabel}}</text>
 			</view>
-			<view class="record-status-wrap">
+			<view wx:if="{{item.status !== 'unpaid'}}" class="record-status-wrap">
 				<text class="record-status record-status-{{item.paymentStatus || item.status}}">{{item.paymentStatus === 'refunding' ? '退款中' : item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
 			</view>
 		</view>
 		<view wx:if="{{hasMoreItems}}" class="load-more" bindtap="onLoadMore">加载更多缴费记录</view>
 	</view>
-
-
-</view>
+	</view>
 </scroll-view>
+
+	<view wx:if="{{paymentSheetVisible}}" class="payment-mask" catchtap="onClosePaymentSheet">
+	<view class="payment-sheet" catchtap="onStopPaymentSheet">
+		<view class="payment-sheet-header">
+			<text class="payment-sheet-close" bindtap="onClosePaymentSheet">×</text>
+		</view>
+		<view class="payment-method-list">
+			<view class="payment-method {{paymentMethod === 'medical' ? 'payment-method-active' : ''}}" bindtap="onPaymentMethodTap" data-method="medical">
+				<view class="payment-method-icon medical-payment-icon">医保</view>
+				<view class="payment-method-copy">
+					<text class="payment-method-title">医保支付</text>
+				</view>
+				<view class="payment-radio {{paymentMethod === 'medical' ? 'payment-radio-active' : ''}}"></view>
+			</view>
+			<view class="payment-method {{paymentMethod === 'wechat' ? 'payment-method-active' : ''}}" bindtap="onPaymentMethodTap" data-method="wechat">
+				<view class="payment-method-icon wechat-payment-icon">微</view>
+				<view class="payment-method-copy">
+					<text class="payment-method-title">微信支付</text>
+				</view>
+				<view class="payment-radio payment-radio-wechat {{paymentMethod === 'wechat' ? 'payment-radio-active' : ''}}"></view>
+			</view>
+		</view>
+		<button class="sheet-pay-button" bindtap="onConfirmPayment" loading="{{paymentBusy !== ''}}" disabled="{{!paymentMethod || paymentBusy}}">支付</button>
+	</view>
+</view>

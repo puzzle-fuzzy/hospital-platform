@@ -10,7 +10,6 @@ import {
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsurancePostPaymentComponent,
 	type MedicalInsuranceSettlementContext,
-	medicalInsuranceCashPrepay,
 	medicalInsurancePaymentBreakdown,
 	type PaymentOrder,
 	PaymentOrderInputError,
@@ -30,7 +29,7 @@ import { MedicalInsuranceRegistrationInputError } from "./errors";
 
 const PLUGIN_ORDER_PREFIX = "registration-medical-plugin-self-pay:";
 const PLUGIN_PREPAY_PREFIX = "registration-medical-plugin-prepay:";
-const WECHAT_SELF_PAY_TYPE_ID = "31";
+const WECHAT_SELF_PAY_TYPE_ID = "5031";
 /** 已经落库的旧流水只允许继续完成，不用于创建新的 2.6.65.2 微信自费流水。 */
 const LEGACY_WECHAT_SELF_PAY_TYPE_IDS = new Set(["5", "50", "5027"]);
 
@@ -107,7 +106,7 @@ function prePaymentComponents(input: {
 			kind: "wechat_cash" as const,
 			amountFen: breakdown.wechatCashFen,
 			payModel: "MINI_PROGRAM" as const,
-			payTypeId: "31" as const,
+			payTypeId: "5031" as const,
 		},
 	].filter((component) => component.amountFen > 0);
 	return definitions.map((component) => ({
@@ -166,7 +165,7 @@ function pluginPrepayKey(medicalOrderId: string): string {
 function pluginPayTypeIdForOrder(configuredPayTypeId: string): string {
 	if (configuredPayTypeId !== WECHAT_SELF_PAY_TYPE_ID) {
 		throw new DependencyNotConfiguredError(
-			"yunhealth-wechat-self-pay-type-id-31",
+			"yunhealth-wechat-self-pay-type-id-5031",
 		);
 	}
 	return WECHAT_SELF_PAY_TYPE_ID;
@@ -503,14 +502,6 @@ export class MedicalInsurancePluginPaymentService {
 						idempotencyKey: `medical-post-payment:${attempted.componentId}`,
 					},
 				);
-				if (
-					attempted.kind === "wechat_cash" &&
-					(!result.payParams || !result.outTradeNo)
-				) {
-					throw new MedicalInsuranceRegistrationInputError(
-						"Yunhealth .2 did not return the WeChat MD5 prepay parameters",
-					);
-				}
 				components[index] = {
 					...attempted,
 					state: "succeeded",
@@ -588,21 +579,9 @@ export class MedicalInsurancePluginPaymentService {
 				throw error;
 			}
 		}
-		const completedSettlement =
-			(await this.dependencies.orders.getSettlementContext(
-				ownerUserId,
-				orderId,
-			)) ?? settlement;
-		const cashPrepay = medicalInsuranceCashPrepay(completedSettlement);
-		if (
-			planned.some((component) => component.kind === "wechat_cash") &&
-			!cashPrepay
-		) {
-			throw new MedicalInsuranceRegistrationInputError(
-				"Yunhealth .2 WeChat MD5 prepay context is incomplete",
-			);
-		}
-		return cashPrepay ? { cashPrepay } : {};
+		// 微信现金分项只在这里建立 Provider 的 5031 关联流水；实际收款由
+		// 自有微信 APIv3/RSA 订单完成，不再复用 .2 返回的旧 MD5 参数。
+		return {};
 	}
 
 	/** 仅续跑发布前已经存在 plugin 上下文的旧订单。 */

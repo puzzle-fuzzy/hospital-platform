@@ -17,6 +17,7 @@
 		"pages/medical-record/medical-record",
 		"pages/outpatient-payment/outpatient-payment",
 		"pages/outpatient-payment-detail/outpatient-payment-detail",
+		"pages/outpatient-medical-settlement/outpatient-medical-settlement",
 		"pages/profile/profile",
 		"pages/hospital-navigation/hospital-navigation",
 		"pages/patient-agreement/patient-agreement",

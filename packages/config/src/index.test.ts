@@ -127,7 +127,7 @@ test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", (
 		YUNHEALTH_BASE_URL: "https://yunhealth.example.test",
 		YUNHEALTH_AUTH_TOKEN: "server-token",
 		YUNHEALTH_PAYMENT_ORG_ID: "10756",
-		YUNHEALTH_PLUGIN_PAY_TYPE_ID: "31",
+		YUNHEALTH_PLUGIN_PAY_TYPE_ID: "5031",
 		YUNHEALTH_PLUGIN_PAY_TYPE: "CREDIT",
 		YUNHEALTH_PLUGIN_WORK_STATION_ID: "",
 	});
@@ -139,7 +139,7 @@ test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", (
 		YUNHEALTH_REGISTRATION_SETTLEMENT_READY: "true",
 		YUNHEALTH_BASE_URL: "https://yunhealth.example.test",
 		YUNHEALTH_PAYMENT_ORG_ID: "10756",
-		YUNHEALTH_PLUGIN_PAY_TYPE_ID: "31",
+		YUNHEALTH_PLUGIN_PAY_TYPE_ID: "5031",
 		YUNHEALTH_PLUGIN_PAY_TYPE: "CREDIT",
 		YUNHEALTH_PLUGIN_WORK_STATION_ID: "",
 	});
@@ -159,7 +159,7 @@ test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", (
 		yunhealthRegistrationSettlementConfigurationMissingFields(
 			obsoleteWechatSelfPayType,
 		),
-	).toContain("YUNHEALTH_PLUGIN_PAY_TYPE_ID(31)");
+	).toContain("YUNHEALTH_PLUGIN_PAY_TYPE_ID(5031)");
 });
 
 test("production runtime listens on container interfaces by default", () => {

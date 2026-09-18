@@ -15,6 +15,7 @@ import {
 	type MedicalInsuranceSettlementContext,
 	type MedicalInsuranceWechatPaymentGateway,
 	type MedicalInsuranceWechatPaymentIdentity,
+	type WechatPaymentGateway,
 	medicalInsuranceOrderTypeForBusiness,
 	medicalInsurancePaymentBreakdown,
 	type PatientRepository,
@@ -174,6 +175,8 @@ export type MedicalInsuranceWechatPaymentServiceDependencies = {
 	patients: PatientRepository;
 	patientProfile?: AppointmentPatientProfileGateway;
 	wechatPayment: MedicalInsuranceWechatPaymentGateway;
+	/** 新订单的微信自费 APIv3/RSA 收款边界；旧订单仍由 mixed gateway 兼容查单。 */
+	wechatCashPayment?: WechatPaymentGateway;
 	/** 微信现金支付确认后回到统一医保订单核心，而不是绑定挂号 service。 */
 	confirmCashPayment: (input: {
 		ownerUserId: string;
@@ -366,6 +369,191 @@ export class MedicalInsuranceWechatPaymentService {
 		return this.dependencies.confirmCashPayment(input);
 	}
 
+	private async createOwnCashPayment(input: {
+		ownerUserId: string;
+		orderId: string;
+		order: MedicalInsuranceOrder;
+		orderType: "RegPay" | "DiagPay";
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<MedicalInsuranceWechatPayPayload["data"]> {
+		const gateway = this.dependencies.wechatCashPayment;
+		if (!gateway || !input.order.amounts) {
+			throw new DependencyNotConfiguredError("wechat-pay");
+		}
+		const { openid, settlement } = await this.contexts(
+			input.order,
+			input.ownerUserId,
+		);
+		const breakdown = medicalInsurancePaymentBreakdown({
+			amounts: input.order.amounts,
+			orderType: input.orderType,
+			insuredAreaCode: settlement.insuredAreaCode ?? "",
+		});
+		if (this.dependencies.pluginPaymentBridge) {
+			// 先建立医保/5031 的 Provider 分项流水；自费金额随后由自有
+			// APIv3/RSA 订单收款，不再读取 .2 返回的旧调起参数。
+			await this.dependencies.pluginPaymentBridge.prepareSplitPaymentsBeforeOfficialWechatPayment(
+				{
+					ownerUserId: input.ownerUserId,
+					orderId: input.orderId,
+					context: input.context,
+				},
+			);
+		}
+		if (breakdown.wechatCashFen <= 0) {
+			// 纯医保订单没有普通微信支付调起参数，但仍需让统一核心继续
+			// 查 6301，并由 adapter 按业务类型执行 .32/.5（门诊）闭环。
+			const confirmed = await this.dependencies.confirmCashPayment({
+				ownerUserId: input.ownerUserId,
+				orderId: input.orderId,
+				context: input.context,
+			});
+			const latest = await this.order(input.ownerUserId, input.orderId);
+			return {
+				...output(latest, false),
+				status:
+					confirmed.status as MedicalInsuranceWechatPayPayload["data"]["status"],
+				paymentState: "cash_paid",
+				cashFen: confirmed.amounts?.cashFen ?? latest.amounts?.cashFen ?? 0,
+			};
+		}
+		const paymentOutTradeNo =
+			input.order.wechatOutTradeNo ?? outTradeNo(input.orderId);
+		const expiresAt =
+			input.order.wechatPrepayExpiresAt ??
+			new Date(this.now().getTime() + WECHAT_PREPAY_VALIDITY_MS).toISOString();
+		if (
+			input.order.wechatPaymentState === "prepay_ready" &&
+			input.order.wechatPayParams &&
+			input.order.wechatOutTradeNo === paymentOutTradeNo &&
+			Date.parse(expiresAt) > this.now().getTime()
+		) {
+			await this.requeue(input.orderId);
+			return output(input.order);
+		}
+
+		let order = input.order;
+		const marked = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				...settlementPatch(order),
+				wechatOutTradeNo: paymentOutTradeNo,
+				wechatPrepayExpiresAt: expiresAt,
+				wechatPaymentState: "unknown",
+			},
+		);
+		if (marked) {
+			order = marked;
+		} else {
+			order = await this.order(input.ownerUserId, input.orderId);
+			if (
+				order.wechatPaymentState === "prepay_ready" &&
+				order.wechatPayParams
+			) {
+				return output(order);
+			}
+		}
+		const result = await gateway.createJsapiOrder(
+			{
+				orderId: paymentOutTradeNo,
+				openid,
+				totalFen: breakdown.wechatCashFen,
+				orderType: input.orderType,
+			},
+			input.context,
+		);
+		const updated = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				...settlementPatch(order),
+				wechatOutTradeNo: paymentOutTradeNo,
+				wechatPayParams: result.payParams,
+				wechatPrepayExpiresAt: expiresAt,
+				wechatPaymentState: "prepay_ready",
+			},
+		);
+		if (!updated) {
+			const latest = await this.order(input.ownerUserId, input.orderId);
+			if (latest.wechatPayParams && latest.wechatOutTradeNo === paymentOutTradeNo) {
+				await this.requeue(input.orderId);
+				return output(latest);
+			}
+			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		}
+		await this.requeue(input.orderId);
+		this.logger.info(
+			{
+				event: "medical-insurance.wechat-self-pay.ready",
+				traceId: input.context.traceId,
+				orderId: input.orderId,
+				cashFen: breakdown.wechatCashFen,
+				providerRequestId: result.trace.requestId,
+			},
+			"Medical insurance own WeChat RSA self-pay is ready",
+		);
+		return output(updated);
+	}
+
+	private async queryOwnCashPayment(input: {
+		ownerUserId: string;
+		orderId: string;
+		order: MedicalInsuranceOrder;
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<MedicalInsuranceWechatPayPayload["data"]> {
+		const gateway = this.dependencies.wechatCashPayment;
+		const outTradeNo = input.order.wechatOutTradeNo;
+		if (!gateway || !outTradeNo || !input.order.amounts) {
+			return output(input.order, false);
+		}
+		const result = await gateway.query(
+			{ orderId: outTradeNo },
+			input.context,
+		);
+		if (result.totalFen !== input.order.amounts.cashFen) {
+			throw new MedicalInsuranceWechatPaymentInputError(
+				"Wechat self-pay query amount does not match 6202 cash amount",
+			);
+		}
+		if (result.state === "cash_pending") {
+			await this.requeue(input.orderId);
+			return output(input.order, false);
+		}
+		if (result.state === "failed") {
+			const updated = await this.dependencies.orders.applySettlement(
+				input.order.medicalOrderId,
+				input.order.version,
+				{
+					...settlementPatch(input.order),
+					wechatPaymentState: "failed",
+					status: "manual_review",
+				},
+			);
+			return output(updated ?? (await this.order(input.ownerUserId, input.orderId)), false);
+		}
+		await this.dependencies.orders.applySettlement(
+			input.order.medicalOrderId,
+			input.order.version,
+			{
+				...settlementPatch(input.order),
+				wechatPaymentState: "cash_paid",
+			},
+		);
+		const confirmed = await this.dependencies.confirmCashPayment({
+			ownerUserId: input.ownerUserId,
+			orderId: input.orderId,
+			context: input.context,
+		});
+		const latest = await this.order(input.ownerUserId, input.orderId);
+		return {
+			...output(latest, false),
+			status: confirmed.status as MedicalInsuranceWechatPayPayload["data"]["status"],
+			paymentState: "cash_paid",
+			cashFen: confirmed.amounts?.cashFen ?? latest.amounts?.cashFen ?? 0,
+		};
+	}
+
 	async create(input: {
 		ownerUserId: string;
 		orderId: string;
@@ -397,6 +585,29 @@ export class MedicalInsuranceWechatPaymentService {
 			return output(order, false);
 		}
 		const { businessType, orderType } = orderBusiness(order);
+		if (!order.wechatMixTradeNo && this.dependencies.wechatCashPayment) {
+			if (
+				order.wechatOutTradeNo &&
+				(order.wechatPaymentState === "unknown" ||
+					order.wechatPaymentState === "cash_paid")
+			) {
+				// 创建结果未知或已标记支付成功时只查同一个普通微信订单，
+				// 不允许再次 POST 创建新的 APIv3 订单。
+				return this.queryOwnCashPayment({
+					ownerUserId,
+					orderId,
+					order,
+					context: input.context,
+				});
+			}
+			return this.createOwnCashPayment({
+				ownerUserId,
+				orderId,
+				order,
+				orderType,
+				context: input.context,
+			});
+		}
 		if (order.wechatPaymentState === "prepay_ready" && order.wechatPayParams) {
 			// 6202 hospPartAmt 属于 othFeeAmt 明细，不是 ownPayAmt 内的现金
 			// 减免；是否存在微信现金腿只能看 ownPayAmt/cashFen。
@@ -659,6 +870,14 @@ export class MedicalInsuranceWechatPaymentService {
 			return output(order, false);
 		}
 		const { businessType, orderType } = orderBusiness(order);
+		if (!order.wechatMixTradeNo && order.wechatOutTradeNo && this.dependencies.wechatCashPayment) {
+			return this.queryOwnCashPayment({
+				ownerUserId,
+				orderId,
+				order,
+				context: input.context,
+			});
+		}
 		if (
 			!order.wechatMixTradeNo ||
 			!order.wechatOutTradeNo ||
@@ -814,7 +1033,7 @@ export class MedicalInsuranceWechatPaymentService {
 	}
 
 	/**
-	 * 普通 JSAPI 回调承载混合订单的现金段。按已落库的 out_trade_no 精确
+	 * 普通 JSAPI 回调承载新 5031 微信自费订单。按已落库的 out_trade_no 精确
 	 * 关联医保订单后，只唤醒医保混合查单，不写普通支付通知表，也不允许
 	 * 普通支付 Worker 单独据此完成医院回写。不能依赖平台自行生成的前缀：
 	 * 复用众阳 .2 预支付时，out_trade_no 可能是众阳返回的 MZJSD...。

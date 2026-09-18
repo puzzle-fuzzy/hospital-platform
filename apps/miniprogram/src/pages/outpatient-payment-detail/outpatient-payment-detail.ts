@@ -189,13 +189,22 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 		});
 		const progress = (_stage: PaymentProgress, message: string) =>
 			this.setData({ paymentMessage: message });
-		const task: Promise<boolean | { kind: "cashier_opened" } | undefined> =
-			authCode
-				? continueMedicalPayment(authCode, pending, progress)
-				: resumeMedicalCashPaymentFromPending(pending, progress);
+		const task = authCode
+			? continueMedicalPayment(authCode, pending, progress)
+			: resumeMedicalCashPaymentFromPending(pending, progress);
 		void task
 			.then((result) => {
 				if (result === false) return;
+				if (
+					result &&
+					typeof result === "object" &&
+					result.kind === "settlement"
+				) {
+					wx.navigateTo({
+						url: "/pages/outpatient-medical-settlement/outpatient-medical-settlement",
+					});
+					return;
+				}
 				if (!readPendingPayment()) {
 					const completed = readLastMedicalPaymentResult();
 					wx.redirectTo({

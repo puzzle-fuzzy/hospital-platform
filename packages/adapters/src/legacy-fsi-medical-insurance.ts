@@ -1318,7 +1318,7 @@ function buildOutNetworkSettleMainFrom6202(
 		),
 	);
 	set("settleNo", preValue(["medins_setl_id"]));
-	set("settleSource", 3002);
+	set("settleSource", 4001);
 	set("settleType", "1");
 	return main;
 }
@@ -1395,7 +1395,8 @@ function composeOutNetworkSettleMain(
 		setIfMissing("amount", fenToYuan(options.amounts.totalFen));
 		setIfMissing("getAmount", fenToYuan(options.amounts.cashFen));
 	}
-	setIfMissing("settleSource", 3002);
+	// 2.27.2.32 结算来源按新业务合同固定为 4001，不能沿用旧的 3002。
+	main.settleSource = 4001;
 	setIfMissing("settleType", "1");
 	return main;
 }
@@ -2024,7 +2025,6 @@ export function createLegacyFsiMedicalInsuranceGateway(
 
 		let settlementContext: MedicalInsuranceSettlementContext = stored;
 		const previousWriteback = settlementContext.settlementWriteback;
-		const previousCompletion = settlementContext.settlementCompletion;
 		// 2.27.2.32 不是可重放查询。医保侧即使返回 HTTP 200 + settle=FAIL，
 		// 也可能已经占用结算 ID；一旦尝试过，后续查单任务不得再次提交。
 		if (previousWriteback?.status !== "succeeded" && previousWriteback) {
@@ -2376,8 +2376,172 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			}
 		}
 
-		// 纯医保没有微信自费金额：.32 成功即完成医保结算，不调用 .5。
-		if (input.amounts.cashFen <= 0) {
+		// 新拆分流程在医保分项 .32 成功后，只有普通微信自费查单确认成功，
+		// 才允许提交 5031 分项自己的 .32。挂号也必须完成这两个 .32，
+		// 但挂号不调用 .5。
+		if (input.amounts.cashFen > 0 && !input.cashPaymentConfirmed) {
+			return {
+				state: "cash_pending",
+				amounts: input.amounts,
+				trace: notifyTrace,
+				source: "yunhealth",
+				providerStatus: "notify_success_cash_pending",
+				finality: "paid",
+				authoritative: true,
+			};
+		}
+		const selfPayComponent = settlementContext.postPaymentComponents?.find(
+			(component) =>
+				component.kind === "wechat_cash" &&
+				(component.payTypeId === "5031" || component.payTypeId === "31") &&
+				component.state === "succeeded" &&
+				Boolean(component.payingId && component.tradingId),
+		);
+		const hasNewSplitPaymentContext = Boolean(
+			settlementContext.postPaymentComponents?.some(
+				(component) => component.kind === "wechat_cash",
+			),
+		);
+		if (input.amounts.cashFen > 0 && hasNewSplitPaymentContext) {
+			if (!selfPayComponent) {
+				throw responseError(
+					"medical-insurance.2.27.2.32",
+					"微信自费 5031 分项尚未生成有效 payingId/tradingId",
+				);
+			}
+			const previousSelfPayWriteback =
+				settlementContext.selfPaySettlementWriteback;
+			if (
+				previousSelfPayWriteback?.status !== "succeeded" &&
+				previousSelfPayWriteback
+			) {
+				return {
+					state: "awaiting_confirmation",
+					amounts: input.amounts,
+					trace: trace(
+						"medical-insurance.2.27.2.32",
+						context,
+						previousSelfPayWriteback.providerRequestId
+							? [previousSelfPayWriteback.providerRequestId]
+							: [],
+						settlementContext.businessId,
+					),
+					source: "yunhealth",
+					providerStatus:
+						previousSelfPayWriteback.providerStatus ??
+						"2.27.2.32_self_pay_writeback_already_attempted",
+					finality: "settlement_candidate",
+					authoritative: false,
+				};
+			}
+			if (settlementContext.settlementWriteback?.status !== "succeeded") {
+				return {
+					state: "awaiting_confirmation",
+					amounts: input.amounts,
+					trace: notifyTrace,
+					source: "yunhealth",
+					providerStatus: "medical_writeback_not_confirmed",
+					finality: "settlement_candidate",
+					authoritative: false,
+				};
+			}
+			if (!previousSelfPayWriteback) {
+				const normalizedNetworkRegister = normalizeSettlementNetworkRegister(
+					settlementContext.networkRegister,
+					input.businessType,
+					settlementContext.insuredAreaCode,
+					settlementContext.outNetworkSettleMain,
+				);
+				const selfPayNotifyPayload: Record<string, unknown> = {
+					hospitalId: settlementContext.hospitalId,
+					nationalUpDetailList: settlementContext.nationalUpDetailList,
+					networkRegister: normalizedNetworkRegister,
+					outNetworkSettleMain: {
+						...settlementContext.outNetworkSettleMain,
+						settleSource: 4001,
+						transId: selfPayComponent.payingId,
+					},
+					outSettleMainId: settlementContext.businessId,
+					patId: settlementContext.patientId,
+					tradingId: selfPayComponent.tradingId,
+					upDetailList: settlementContext.upDetailList,
+				};
+				const selfPayAttemptedAt = now().toISOString();
+				settlementContext = {
+					...settlementContext,
+					selfPaySettlementWriteback: {
+						attemptedAt: selfPayAttemptedAt,
+						status: "unknown",
+					},
+				};
+				await options.orders.saveSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+					settlementContext,
+				);
+				const selfPayNotifyResponse = await zhongyangPost(
+					"medical-insurance.2.27.2.32",
+					"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+					context,
+					selfPayNotifyPayload,
+				);
+				const selfPayInsur = String(
+					providerDeepValue(selfPayNotifyResponse.data, ["insur"]) ?? "",
+				)
+					.trim()
+					.toUpperCase();
+				const selfPaySettle = String(
+					providerDeepValue(selfPayNotifyResponse.data, ["settle"]) ?? "",
+				)
+					.trim()
+					.toUpperCase();
+				const selfPayWritebackStatus =
+					providerSuccessFlag(selfPayNotifyResponse.data) !== false &&
+					selfPayInsur === "SUCCESS" &&
+					selfPaySettle === "SUCCESS"
+						? "succeeded"
+						: "failed";
+				settlementContext = {
+					...settlementContext,
+					selfPaySettlementWriteback: {
+						attemptedAt: selfPayAttemptedAt,
+						status: selfPayWritebackStatus,
+						providerRequestId: selfPayNotifyResponse.requestId,
+						providerStatus: `insur=${selfPayInsur || "UNKNOWN"},settle=${selfPaySettle || "UNKNOWN"}`,
+					},
+				};
+				await options.orders.saveSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+					settlementContext,
+				);
+				notifyTrace = trace(
+					"medical-insurance.2.27.2.32",
+					context,
+					[
+						...(notifyRequestId ? [notifyRequestId] : []),
+						selfPayNotifyResponse.requestId,
+					],
+					settlementContext.businessId,
+				);
+				if (
+					selfPayWritebackStatus !== "succeeded" ||
+					providerSuccessFlag(selfPayNotifyResponse.data) === false
+				) {
+					return {
+						state: "awaiting_confirmation",
+						amounts: input.amounts,
+						trace: notifyTrace,
+						source: "yunhealth",
+						providerStatus: `insur=${selfPayInsur || "UNKNOWN"},settle=${selfPaySettle || "UNKNOWN"}`,
+						finality: "settlement_candidate",
+						authoritative: false,
+					};
+				}
+			}
+		}
+
+		if (input.businessType === "registration") {
 			return {
 				state: "insurance_settled",
 				amounts: input.amounts,
@@ -2388,141 +2552,159 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				authoritative: true,
 			};
 		}
-		// 含自费金额的订单，.5 只允许发起一次。成功直接复用已落库事实；
-		// 失败或结果未知也不能由后续查单自动重放，必须转人工核验。
-		if (previousCompletion) {
-			const completionTrace = trace(
-				"medical-insurance.2.6.65.5",
-				context,
-				previousCompletion.providerRequestId
-					? [previousCompletion.providerRequestId]
-					: [],
-				settlementContext.businessId,
-			);
-			if (previousCompletion.status === "succeeded") {
+		// 门诊每个支付分项都独立完成 .5：医保分项使用 settlementCompletion，
+		// 微信自费分项使用 selfPaySettlementCompletion。每个分项都先落库
+		// unknown，再调用 Provider，查单只读取已落库事实，不重复提交。
+		const completeSettlementLeg = async (
+			completionKey: "settlementCompletion" | "selfPaySettlementCompletion",
+			leg: "medical" | "self_pay",
+		) => {
+			const previous = settlementContext[completionKey];
+			if (previous) {
 				return {
-					state: "insurance_settled",
-					amounts: input.amounts,
-					trace: completionTrace,
-					source: "yunhealth",
+					succeeded: previous.status === "succeeded",
+					providerRequestId: previous.providerRequestId,
 					providerStatus:
-						previousCompletion.providerStatus ?? "completion=succeeded",
-					finality: "paid",
-					authoritative: true,
+						previous.providerStatus ?? "2.6.65.5_already_attempted",
 				};
 			}
+			const attemptedAt = now().toISOString();
+			settlementContext = {
+				...settlementContext,
+				[completionKey]: {
+					attemptedAt,
+					status: "unknown",
+				},
+			} as MedicalInsuranceSettlementContext;
+			await options.orders.saveSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+				settlementContext,
+			);
+			const completionContext = {
+				...context,
+				idempotencyKey: `medical-insurance-2.6.65.5:${settlementContext.businessId}:${leg}`,
+			};
+			const completeResponse = await zhongyangPost(
+				"medical-insurance.2.6.65.5",
+				"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+				completionContext,
+				{
+					authSysCode: DEFAULT_AUTH_SYS_CODE,
+					autoSettle: 2,
+					businessId: settlementContext.businessId,
+					hospitalId: settlementContext.hospitalId,
+					tradeTypeCode: "2",
+					workStationId: "",
+				},
+			);
+			const completionMarker = completeSettleConfirmation(
+				completeResponse.data,
+			);
+			const completionStatus =
+				providerSuccessFlag(completeResponse.data) !== false &&
+				completionMarker !== undefined
+					? "succeeded"
+					: "failed";
+			const completionProviderStatus = completionMarker
+				? `completion=${completionMarker}`
+				: "completion=UNKNOWN";
+			settlementContext = {
+				...settlementContext,
+				[completionKey]: {
+					attemptedAt,
+					status: completionStatus,
+					providerRequestId: completeResponse.requestId,
+					providerStatus: completionProviderStatus,
+				},
+			} as MedicalInsuranceSettlementContext;
+			await options.orders.saveSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+				settlementContext,
+			);
+			return {
+				succeeded: completionStatus === "succeeded",
+				providerRequestId: completeResponse.requestId,
+				providerStatus: completionProviderStatus,
+			};
+		};
+
+		const medicalCompletion = await completeSettlementLeg(
+			"settlementCompletion",
+			"medical",
+		);
+		const medicalCompletionTrace = trace(
+			"medical-insurance.2.27.2.32/2.6.65.5",
+			context,
+			[
+				...(notifyRequestId ? [notifyRequestId] : []),
+				...(medicalCompletion.providerRequestId
+					? [medicalCompletion.providerRequestId]
+					: []),
+			],
+			settlementContext.businessId,
+		);
+		if (!medicalCompletion.succeeded) {
 			return {
 				state: "awaiting_confirmation",
 				amounts: input.amounts,
-				trace: completionTrace,
+				trace: medicalCompletionTrace,
 				source: "yunhealth",
-				providerStatus:
-					previousCompletion.providerStatus ?? "2.6.65.5_already_attempted",
+				providerStatus: medicalCompletion.providerStatus,
 				finality: "settlement_candidate",
 				authoritative: false,
 			};
 		}
-		// 有微信自费金额时，必须等官方微信订单查单成功后由
-		// cashPaymentConfirmed 放行，再调用 .5 完成 HIS 结算。
-		if (!input.cashPaymentConfirmed) {
+
+		const selfPayCompletionRequired = Boolean(selfPayComponent);
+		if (selfPayCompletionRequired) {
+			const selfPayCompletion = await completeSettlementLeg(
+				"selfPaySettlementCompletion",
+				"self_pay",
+			);
+			const selfPayCompletionTrace = trace(
+				"medical-insurance.2.27.2.32/2.6.65.5",
+				context,
+				[
+					...(notifyRequestId ? [notifyRequestId] : []),
+					...(medicalCompletion.providerRequestId
+						? [medicalCompletion.providerRequestId]
+						: []),
+					...(selfPayCompletion.providerRequestId
+						? [selfPayCompletion.providerRequestId]
+						: []),
+				],
+				settlementContext.businessId,
+			);
+			if (!selfPayCompletion.succeeded) {
+				return {
+					state: "awaiting_confirmation",
+					amounts: input.amounts,
+					trace: selfPayCompletionTrace,
+					source: "yunhealth",
+					providerStatus: selfPayCompletion.providerStatus,
+					finality: "settlement_candidate",
+					authoritative: false,
+				};
+			}
 			return {
-				state: "cash_pending",
+				state: "insurance_settled",
 				amounts: input.amounts,
-				trace: notifyTrace,
+				trace: selfPayCompletionTrace,
 				source: "yunhealth",
-				providerStatus:
-					input.amounts.cashFen === 0
-						? "notify_success_zero_cash_cashier_pending"
-						: "notify_success_cash_pending",
+				providerStatus: `${medicalCompletion.providerStatus};self_pay_${selfPayCompletion.providerStatus}`,
 				finality: "paid",
 				authoritative: true,
 			};
 		}
 
-		const completionAttemptedAt = now().toISOString();
-		settlementContext = {
-			...settlementContext,
-			settlementCompletion: {
-				attemptedAt: completionAttemptedAt,
-				status: "unknown",
-			},
-		};
-		// 先持久化“已尝试”事实，阻止查单重试再次触发 .5；同时使用
-		// 订单稳定幂等键，避免 Provider 在并发/网络重试中重复扣款。
-		await options.orders.saveSettlementContext(
-			input.ownerUserId,
-			input.orderId,
-			settlementContext,
-		);
-		const completionContext = {
-			...context,
-			idempotencyKey: `medical-insurance-2.6.65.5:${settlementContext.businessId}`,
-		};
-		const completeResponse = await zhongyangPost(
-			"medical-insurance.2.6.65.5",
-			"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
-			completionContext,
-			{
-				authSysCode: DEFAULT_AUTH_SYS_CODE,
-				autoSettle: 2,
-				businessId: settlementContext.businessId,
-				hospitalId: settlementContext.hospitalId,
-				tradeTypeCode: DEFAULT_TRADE_TYPE_CODE,
-				workStationId: "",
-			},
-		);
-		const completionMarker = completeSettleConfirmation(completeResponse.data);
-		const completionStatus =
-			providerSuccessFlag(completeResponse.data) !== false &&
-			completionMarker !== undefined
-				? "succeeded"
-				: "failed";
-		const completionProviderStatus = completionMarker
-			? `completion=${completionMarker}`
-			: "completion=UNKNOWN";
-		settlementContext = {
-			...settlementContext,
-			settlementCompletion: {
-				attemptedAt: completionAttemptedAt,
-				status: completionStatus,
-				providerRequestId: completeResponse.requestId,
-				providerStatus: completionProviderStatus,
-			},
-		};
-		await options.orders.saveSettlementContext(
-			input.ownerUserId,
-			input.orderId,
-			settlementContext,
-		);
-		const completeTrace = trace(
-			"medical-insurance.2.27.2.32/2.6.65.5",
-			completionContext,
-			[
-				...(notifyRequestId ? [notifyRequestId] : []),
-				completeResponse.requestId,
-			],
-			settlementContext.businessId,
-		);
-		if (
-			providerSuccessFlag(completeResponse.data) === false ||
-			completionMarker === undefined
-		) {
-			return {
-				state: "awaiting_confirmation",
-				amounts: input.amounts,
-				trace: completeTrace,
-				source: "yunhealth",
-				providerStatus: completionProviderStatus,
-				finality: "settlement_candidate",
-				authoritative: false,
-			};
-		}
 		return {
 			state: "insurance_settled",
 			amounts: input.amounts,
-			trace: completeTrace,
+			trace: medicalCompletionTrace,
 			source: "yunhealth",
-			providerStatus: completionProviderStatus,
+			providerStatus: medicalCompletion.providerStatus,
 			finality: "paid",
 			authoritative: true,
 		};
@@ -3979,9 +4161,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"Medical insurance cancellation requested",
 			);
 
-			// 临时跳过重授权路径的 2.6.65.4：当前 Provider 对已有 payingId
-			// 返回 trade-payment@0002，导致明确的重授权请求无法进入受控关单。
-			// 2.6.65.11 仍是必经校验，只有 revokeStatus=3 才会继续 .6。
+			// 重授权/旧订单场景不再校验或关闭既有支付流水：当前业务只创建
+			// 新医保订单，且不再依赖 2.6.65.4/2.6.65.11。正常支付中取消
+			// 仍保留原有 .4 -> .11 -> .6 安全关单路径。
 			const shouldQueryPaymentStatus = input.reason !== "reauthorization";
 			if (settlementContext.payingId && !shouldQueryPaymentStatus) {
 				options.logger?.warn(
@@ -3990,9 +4172,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						traceId: context.traceId,
 						orderId: input.orderId,
 						reason: input.reason,
-						providerStatus: "temporarily_disabled_for_reauthorization",
+						providerStatus: "disabled_for_reauthorization",
 					},
-					"Medical insurance payment status query skipped for reauthorization",
+					"Medical insurance payment validation skipped for reauthorization",
 				);
 			}
 			if (settlementContext.payingId && shouldQueryPaymentStatus) {
@@ -4068,11 +4250,11 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			if (
 				settlementContext.payingId &&
 				paymentState !== "closed" &&
-				paymentState !== "not_created"
+				paymentState !== "not_created" &&
+				input.reason !== "reauthorization"
 			) {
-				// 2.6.33 已确认“正在收款中”，或用户明确要求安全重新授权时，
-				// pay-query 未返回可识别文字状态也可以进入受控关单；关单本身
-				// 必须拿到 success=true 才能继续取消结算。
+				// 2.6.33 已确认“正在收款中”或 pay-query 未返回可识别文字状态
+				// 时进入受控关单；关单本身必须拿到 success=true 才能继续 .6。
 				const closeResponse = await zhongyangPost(
 					"medical-insurance.2.6.65.11",
 					"/msun-middle-open-settlepay/api/v2/open/payment/pay-close",

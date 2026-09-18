@@ -25,8 +25,14 @@ const SETTLE_DETAILS_PATH = "/msun-yb-app-miop/v1/out-insur-settle-infos";
 const THIRD_PART_OPERATION = "yunhealth-registration.validation";
 const COMPLETE_SETTLE_OPERATION = "registration-self-pay.2.6.65.5";
 const ALLOWED_PAY_TYPES = new Set(["CREDIT", "POS", "CROWD_FUNDING"]);
-/** 纯自费和医保混合现金腿通过微信支付时，2.6.65.2 固定使用该支付方式。 */
-const SELF_PAY_WECHAT_PAY_TYPE_ID = 31;
+/** 点击医保支付后产生的微信自费腿，2.6.65.2 固定使用 5031。 */
+const MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID = 5031;
+/** 用户主动点击微信支付的纯自费订单，2.6.65.2 固定使用 5032。 */
+const MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID = 5032;
+const WECHAT_SELF_PAY_TYPE_IDS = new Set([
+	MEDICAL_INSURANCE_SELF_PAY_WECHAT_PAY_TYPE_ID,
+	MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID,
+]);
 /** 6202 返回有个人账户实际支付金额时使用的支付方式。 */
 const PERSONAL_ACCOUNT_PAY_TYPE_ID = 5;
 /** 已创建的历史支付流水仍需按原支付方式完成 HIS 回写，不能中途改号。 */
@@ -46,7 +52,7 @@ export type YunhealthRegistrationSettlementGatewayOptions = {
 	paymentOrgId?: string;
 	/** 2.6.65.1 / 2.27.2.27 使用的医院 ID。 */
 	hospitalId?: string;
-	/** 医保自费混合插件的 payTypeId，必须是正整数文本。 */
+	/** 医保混合支付插件的 payTypeId；当前固定配置为 5031。手动纯自费由前置工厂固定为 5032。 */
 	pluginPayTypeId: string;
 	pluginPayType: YunhealthRegistrationPluginPayType;
 	/** 众阳收款工作站号；当前合同允许为空字符串。 */
@@ -753,7 +759,7 @@ function stableNumericRequestId(value: string): number {
 }
 
 /**
- * 普通挂号自费的众阳前置流程。
+ * 普通挂号/门诊自费的众阳前置流程。
  *
  * 旧服务在第二次 `.2` 前调用只读的 `.27` 获取门诊结算信息；`.27`
  * 未确认成功或没有真实费用明细时立即停止，绝不会创建云健康 `.2`
@@ -766,7 +772,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 	const providerBaseUrl = providerUrl(baseUrl, "");
 	const authorization = normalizedAuthorization(options.authorizationToken);
 	const hospitalId = positiveInteger(options.hospitalId, "hospitalId");
-	const selfPayPayTypeId = SELF_PAY_WECHAT_PAY_TYPE_ID;
+	const selfPayPayTypeId = MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID;
 	const pluginPayType = requiredText(
 		options.pluginPayType,
 		"pluginPayType",
@@ -1051,7 +1057,8 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 }
 
 /**
- * 旧挂号医保混合支付的第二次 2.6.65.2 预下单。
+ * 医保混合支付的第二次 2.6.65.2 预下单，或由手动纯自费前置工厂复用的
+ * 5032 支付方式。
  *
  * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的
  * payingId/tradingId 连同 recordCode/outTradeNo 写入医保订单密文上下文，
@@ -1067,7 +1074,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 		options.pluginPayTypeId,
 		"pluginPayTypeId",
 	);
-	if (pluginPayTypeId !== SELF_PAY_WECHAT_PAY_TYPE_ID)
+	if (!WECHAT_SELF_PAY_TYPE_IDS.has(pluginPayTypeId))
 		throw new AdapterNotConfiguredError("yunhealth");
 	const pluginPayType = requiredText(
 		options.pluginPayType,
@@ -1145,11 +1152,15 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						2,
 						PERSONAL_ACCOUNT_PAY_TYPE_ID,
 						50,
-						SELF_PAY_WECHAT_PAY_TYPE_ID,
+						...WECHAT_SELF_PAY_TYPE_IDS,
 						...LEGACY_PAYMENT_TYPE_IDS,
 					].includes(requestPayTypeId)) ||
 				(payModel === "MINI_PROGRAM" &&
-					[SELF_PAY_WECHAT_PAY_TYPE_ID, 3, 5027].includes(requestPayTypeId));
+					[
+						...WECHAT_SELF_PAY_TYPE_IDS,
+						3,
+						5027,
+					].includes(requestPayTypeId));
 			if (!allowedComponent) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",

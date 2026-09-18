@@ -372,12 +372,13 @@ type MedicalCancellation = {
 };
 
 type MedicalWechatPayParams = {
+	appId?: string;
 	timeStamp?: string;
 	nonceStr?: string;
 	package?: string;
 	signType?: "RSA";
 	paySign?: string;
-	mixTradeNo: string;
+	mixTradeNo?: string;
 };
 
 type MedicalWechatPayment = {
@@ -483,7 +484,7 @@ function requestWechatSelfPayment(params: {
  * 这里只在客户端边界补充官方字段类型；支付签名仍全部来自服务端。
  */
 function requestWechatMedicalInsurancePayment(
-	params: MedicalWechatPayParams,
+	params: MedicalWechatPayParams & { mixTradeNo: string },
 ): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const medicalPayment = (
@@ -666,9 +667,9 @@ export function resumeMedicalCashPaymentFromPending(
 }
 
 /**
- * 官方微信医保自费混合收款：服务端先完成 JSAPI 预下单和医保混合下单，
- * 小程序使用 mixTradeNo 调起官方医保收银台，返回后只通过服务端查单确认。
- * 旧云健康插件支付已暂停，不再从这里进入。
+ * 医保订单的收款调起：带 mixTradeNo 的历史/官方医保单使用医保收银台；
+ * 新 5031 自费单使用服务端 APIv3/RSA 生成的普通 JSAPI 参数。两者返回后
+ * 都只通过服务端查单确认，不能把小程序 success 当作结算完成。
  */
 export async function continueMedicalCashPayment(
 	pending: PendingPayment,
@@ -698,9 +699,21 @@ export async function continueMedicalCashPayment(
 	}
 	let paymentWasCancelled = false;
 	if (payment.payParams) {
-		onProgress("cash-paying", "正在打开微信医保支付收银台");
+		const isOwnWechatSelfPay = !payment.payParams.mixTradeNo;
+		onProgress(
+			"cash-paying",
+			isOwnWechatSelfPay
+				? "正在打开微信自费支付收银台"
+				: "正在打开微信医保支付收银台",
+		);
 		try {
-			await requestWechatMedicalInsurancePayment(payment.payParams);
+			if (isOwnWechatSelfPay) {
+				await requestWechatSelfPayment(payment.payParams as SelfPayParams);
+			} else {
+				await requestWechatMedicalInsurancePayment(
+					payment.payParams as MedicalWechatPayParams & { mixTradeNo: string },
+				);
+			}
 		} catch (error) {
 			if (error instanceof WechatPaymentCancelledError) {
 				paymentWasCancelled = true;

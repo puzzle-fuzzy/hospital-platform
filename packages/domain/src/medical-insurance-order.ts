@@ -398,13 +398,27 @@ export type MedicalInsuranceSettlementContext = {
 		providerRequestId?: string;
 		providerStatus?: string;
 	};
+	/** 微信自费 5031 分项完成后独立调用 2.27.2.32 的不可重放事实。 */
+	selfPaySettlementWriteback?: {
+		attemptedAt: string;
+		status: "succeeded" | "failed" | "unknown";
+		providerRequestId?: string;
+		providerStatus?: string;
+	};
 	/**
-	 * 2.6.65.5 是含自费金额订单的 HIS 最终完成接口。该接口不可由查单任务
-	 * 自动重放：同一订单最多发起一次；成功、失败或请求结果未知均需持久化，
-	 * 后续只读取该事实，不再向 Provider 发送第二次请求。纯医保（cashFen=0）
-	 * 不创建此字段，也不调用 .5。
+	 * 2.6.65.5 是门诊医保分项的 HIS 最终完成接口。该接口不可由查单任务
+	 * 自动重放：同一分项最多发起一次；成功、失败或请求结果未知均需持久化，
+	 * 后续只读取该事实，不再向 Provider 发送第二次请求。挂号不创建这些字段，
+	 * 也不调用 .5；门诊医保分项即使微信自费金额为 0 也要调用一次。
 	 */
 	settlementCompletion?: {
+		attemptedAt: string;
+		status: "succeeded" | "failed" | "unknown";
+		providerRequestId?: string;
+		providerStatus?: string;
+	};
+	/** 门诊微信自费分项独立调用 2.6.65.5 的不可重放事实。 */
+	selfPaySettlementCompletion?: {
 		attemptedAt: string;
 		status: "succeeded" | "failed" | "unknown";
 		providerRequestId?: string;
@@ -454,7 +468,7 @@ export type MedicalInsurancePostPaymentComponent = {
 	totalFen: number;
 	amountFen: number;
 	payModel: "H5" | "MINI_PROGRAM";
-	payTypeId: "2" | "3" | "5" | "31" | "50" | "5027";
+	payTypeId: "2" | "3" | "5" | "31" | "50" | "5027" | "5031" | "5032";
 	recordCode: string;
 	state: MedicalInsurancePostPaymentComponentState;
 	attempts: number;
@@ -665,10 +679,9 @@ export function normalizeMedicalInsuranceSettlementNotification(
 }
 
 /**
- * 依据 6302 通知推导订单目标状态。6302 只证明医保侧产生了结算结果，纯医保
- * 和混合支付都必须继续走微信官方医保订单查单；有微信自费金额时还需医院
- * .5 回写，纯医保在 .32 成功后即可进入 insurance_settled。金额一致时先停在
- * cash_pending，等待官方订单终态。
+ * 依据 6302 通知推导订单目标状态。6302 只证明医保侧产生了结算结果，仍需
+ * 继续走支付后置编排；门诊还需医院 .5 回写，挂号则在各自 .32 成功后进入
+ * insurance_settled。金额一致时先停在 cash_pending，等待后置终态。
  * 通知金额与订单已落库 6202 金额不一致时进入 awaiting_confirmation，
  * 不允许直接覆盖（权威差异必须人工对账）。
  */

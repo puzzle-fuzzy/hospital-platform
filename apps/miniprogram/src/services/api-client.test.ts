@@ -322,6 +322,30 @@ test("医保支付只接受服务端返回的 RSA 调起参数", () => {
 	).toThrow("医保微信支付参数不可用");
 });
 
+test("医保新 5031 自费接受普通 APIv3/RSA 调起参数", () => {
+	expect(
+		readMedicalWechatPayment({
+			success: true,
+			data: {
+				orderId: "medical-order-own-001",
+				status: "cash_pending",
+				paymentState: "prepay_ready",
+				cashFen: 100,
+				payParams: {
+					appId: "wx-app-own-001",
+					timeStamp: "1789115826",
+					nonceStr: "nonce-own-001",
+					package: "prepay_id=wx-own-prepay",
+					signType: "RSA",
+					paySign: "rsa-own-signature",
+				},
+			},
+		}),
+	).toMatchObject({
+		payParams: { appId: "wx-app-own-001", signType: "RSA" },
+	});
+});
+
 test("预约记录请求的 all 范围不携带在线日期窗口", () => {
 	expect(
 		buildAppointmentRecordQuery({

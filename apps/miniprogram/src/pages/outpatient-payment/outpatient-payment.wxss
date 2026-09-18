@@ -9,7 +9,6 @@ page {
 }
 
 .error-message,
-.notice,
 .selector-card,
 .tabs,
 .record-list,
@@ -30,16 +29,6 @@ page {
 	font-size: 26rpx;
 	line-height: 1.5;
 	text-align: center;
-}
-
-.notice {
-	margin-bottom: 18rpx;
-	padding: 18rpx 20rpx;
-	border-radius: 14rpx;
-	background: #fff3e9;
-	color: #fe7527;
-	font-size: 25rpx;
-	line-height: 1.6;
 }
 
 /* 旧端 PatientHospitalSelector：白色两行、分割线和右侧灰色箭头。 */
@@ -238,6 +227,39 @@ page {
 	color: #b66a00;
 }
 
+.record-amount-right {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex: 1;
+	min-width: 0;
+}
+
+.record-payment-action {
+	display: flex;
+	justify-content: flex-end;
+	margin-left: 18rpx;
+}
+
+.record-pay-button {
+	box-sizing: border-box;
+	display: block;
+	width: 116rpx;
+	height: 54rpx;
+	margin: 0;
+	padding: 0;
+	border: 1rpx solid #16b8c4;
+	border-radius: 10rpx;
+	background: #ffffff;
+	color: #0aa7b5;
+	font-size: 24rpx;
+	line-height: 52rpx;
+}
+
+.record-pay-button::after {
+	border: 0;
+}
+
 .load-more {
 	box-sizing: border-box;
 	margin: 4rpx auto 20rpx;
@@ -317,4 +339,152 @@ page {
 	color: #d56d2a;
 	font-size: 24rpx;
 	line-height: 1.6;
+}
+
+.payment-mask {
+	position: fixed;
+	z-index: 20;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	background: rgba(0, 0, 0, 0.45);
+}
+
+.payment-sheet {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	box-sizing: border-box;
+	padding: 10rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+	border-radius: 28rpx 28rpx 0 0;
+	background: #ffffff;
+}
+
+.payment-sheet-header {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	height: 54rpx;
+}
+
+.payment-sheet-close {
+	padding: 0 0 8rpx 24rpx;
+	color: #8b949e;
+	font-size: 52rpx;
+	font-weight: 300;
+	line-height: 48rpx;
+}
+
+.payment-method-list {
+	margin-top: 0;
+}
+
+.payment-method {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 92rpx;
+	margin-top: 4rpx;
+	padding: 12rpx 12rpx;
+	border-bottom: 1rpx solid #f0f1f3;
+	background: #ffffff;
+}
+
+.payment-method:first-child {
+	margin-top: 0;
+}
+
+.payment-method-active {
+	background: #fbffff;
+}
+
+.payment-method-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 52rpx;
+	width: 52rpx;
+	height: 52rpx;
+	margin-right: 18rpx;
+	border-radius: 12rpx;
+	font-size: 22rpx;
+	font-weight: 700;
+}
+
+.medical-payment-icon {
+	background: #e9f7ff;
+	color: #22a6d8;
+}
+
+.wechat-payment-icon {
+	border-radius: 16rpx;
+	background: #35c759;
+	color: #ffffff;
+}
+
+.payment-method-copy {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.payment-method-title {
+	color: #20242b;
+	font-size: 29rpx;
+	font-weight: 700;
+}
+
+.payment-radio {
+	position: relative;
+	flex: 0 0 34rpx;
+	width: 34rpx;
+	height: 34rpx;
+	margin-left: 24rpx;
+	border: 3rpx solid #cbd2da;
+	border-radius: 50%;
+}
+
+.payment-radio-active {
+	border-color: #3d6df6;
+}
+
+.payment-radio-active::after {
+	position: absolute;
+	top: 7rpx;
+	left: 7rpx;
+	width: 14rpx;
+	height: 14rpx;
+	border-radius: 50%;
+	background: #3d6df6;
+	content: "";
+}
+
+.payment-radio-wechat.payment-radio-active {
+	border-color: #20b26b;
+}
+
+.payment-radio-wechat.payment-radio-active::after {
+	background: #20b26b;
+}
+
+.sheet-pay-button {
+	box-sizing: border-box;
+	display: block;
+	width: 100%;
+	height: 84rpx;
+	margin: 22rpx 0 0;
+	padding: 0;
+	border-radius: 8rpx;
+	background: #08a9b8;
+	color: #ffffff;
+	font-size: 30rpx;
+	line-height: 84rpx;
+}
+
+.sheet-pay-button::after {
+	border: 0;
 }

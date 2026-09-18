@@ -676,6 +676,9 @@ export function createWorkerRuntime(
 				...(medicalWechatPaymentReady && wechatPayment
 					? { wechatPayment }
 					: {}),
+				...(medicalWechatPaymentReady && wechatPayment
+					? { wechatCashPayment: wechatPayment }
+					: {}),
 				...(reconciliation
 					? {
 							completeWechatPayment: (input, context) =>

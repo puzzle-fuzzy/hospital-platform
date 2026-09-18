@@ -422,7 +422,7 @@ test("医保授权后尚未产生 6201 支付流水时可以直接作废订单",
 	).resolves.toMatchObject({ status: "cancelled" });
 });
 
-test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 和 6202", async () => {
+test("重新展码直接创建新订单，不校验或关闭重复旧订单", async () => {
 	const authorizations =
 		createInMemoryMedicalInsuranceAuthorizationRepository();
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
@@ -595,10 +595,7 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 		orderId: "medical-reauth-new",
 		status: "authorized",
 	});
-	expect(calls).toEqual([
-		"cancel:reauthorization:medical-reauth-old",
-		"authorize:fresh-auth-code:medical-reauth-new",
-	]);
+	expect(calls).toEqual(["authorize:fresh-auth-code:medical-reauth-new"]);
 	await expect(
 		service.authorize({
 			ownerUserId: "user-service-001",
@@ -613,7 +610,7 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 		orderId: "medical-reauth-new",
 		status: "authorized",
 	});
-	expect(calls).toHaveLength(2);
+	expect(calls).toHaveLength(1);
 	await expect(
 		service.uploadFees({
 			ownerUserId: "user-service-001",
@@ -641,7 +638,6 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 		status: "insurance_settled",
 	});
 	expect(calls).toEqual([
-		"cancel:reauthorization:medical-reauth-old",
 		"authorize:fresh-auth-code:medical-reauth-new",
 		"6201:medical-reauth-new",
 		"6202:medical-reauth-new",
@@ -649,7 +645,7 @@ test("重新展码使用新授权并在安全关闭旧单后重新执行 6201 �
 	await expect(
 		orders.findByMedicalOrderId("medical-reauth-old"),
 	).resolves.toMatchObject({
-		status: "cancelled",
+		status: "fee_uploaded",
 	});
 	await expect(
 		orders.findByMedicalOrderId("medical-reauth-new"),

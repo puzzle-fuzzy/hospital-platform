@@ -1,4 +1,3 @@
-import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	formatOutpatientAmountLabel,
@@ -7,6 +6,14 @@ import {
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentRecords,
 } from "../../services/dashboard-service";
+import { errorMessageWithCode } from "../../services/error-presentation";
+import {
+	continueMedicalPayment,
+	readLastMedicalPaymentResult,
+	readPendingPayment,
+	startOutpatientMedicalPayment,
+} from "../../services/medical-insurance";
+import { startOutpatientSelfPay } from "../../services/outpatient-self-pay";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -30,6 +37,7 @@ import {
 	sessionStateAfterAuthenticatedReadError,
 } from "../../services/session-service";
 import type {
+	DatasetEvent,
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
 	OutpatientPaymentRecordView,
@@ -82,6 +90,20 @@ function shouldRenderOutpatientEmptyState(error: unknown): boolean {
 	);
 }
 
+type PaymentMethod = "medical" | "wechat";
+type PaymentBusyKind = PaymentMethod | "";
+type PaymentMethodEvent = DatasetEvent<{ method?: string }>;
+type OutpatientPaymentPageState = OutpatientPaymentPageData & {
+	paymentSheetVisible: boolean;
+	paymentRecord: OutpatientPaymentRecordView | null;
+	paymentMethod: PaymentMethod | "";
+	paymentBusy: PaymentBusyKind;
+};
+
+type MedicalApp = {
+	globalData: { medicalInsuranceAuthCode: string };
+};
+
 type OutpatientPaymentPageMethods = {
 	loadPage(): Promise<void>;
 	loadRecords(
@@ -95,6 +117,17 @@ type OutpatientPaymentPageMethods = {
 	onRetry(): void;
 	onChangePatient(): void;
 	onHospitalTap(): void;
+	onPaymentTap(event: ViewKeyEvent): void;
+	onPaymentMethodTap(event: PaymentMethodEvent): void;
+	onClosePaymentSheet(): void;
+	onStopPaymentSheet(): void;
+	onConfirmPayment(): void;
+	startPayment(
+		method: PaymentMethod,
+		record: OutpatientPaymentRecordView,
+		patientId: string,
+	): Promise<void>;
+	resumePendingMedicalPayment(): Promise<void>;
 	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
@@ -107,7 +140,43 @@ type OutpatientPaymentPageMethods = {
 	isPatientContextCurrent(): boolean;
 };
 
-Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
+let resumingOutpatientPayment = false;
+
+function paymentResultUrl(
+	patientId: string,
+	recordId: string,
+	channel: PaymentMethod,
+	options?: { orderId?: string; totalFen?: number },
+): string {
+	const orderId = options?.orderId
+		? `&orderId=${encodeURIComponent(options.orderId)}`
+		: "";
+	const totalFen =
+		options?.totalFen !== undefined
+			? `&totalFen=${encodeURIComponent(String(options.totalFen))}`
+			: "";
+	return `/pages/payment-result/payment-result?business=outpatient&channel=${channel}&patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(recordId)}${orderId}${totalFen}`;
+}
+
+function showPaymentToast(message: string): void {
+	const title = message.replace(/\s+/gu, " ").trim().slice(0, 32);
+	if (!title) return;
+	wx.showToast({ title, icon: "none", duration: 2600 });
+}
+
+function isPendingForRecord(
+	pending: ReturnType<typeof readPendingPayment>,
+	patientId: string,
+	recordId: string,
+): boolean {
+	return Boolean(
+		pending?.businessType === "outpatient" &&
+			pending.patientId === patientId &&
+			pending.recordId === recordId,
+	);
+}
+
+Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 	data: {
 		hasShown: false,
 		sessionState: "checking",
@@ -122,6 +191,10 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		loading: true,
 		error: "",
 		canSelectPatient: false,
+		paymentSheetVisible: false,
+		paymentRecord: null,
+		paymentMethod: "",
+		paymentBusy: "",
 	},
 
 	onLoad() {
@@ -143,6 +216,10 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 					loading: true,
 					error: "",
 					canSelectPatient: false,
+					paymentSheetVisible: false,
+					paymentRecord: null,
+					paymentMethod: "",
+					paymentBusy: "",
 				});
 			},
 			() => this.loadPage(),
@@ -155,7 +232,70 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			this.setData({ hasShown: true });
 			return;
 		}
+		void this.resumePendingMedicalPayment();
 		this.loadPage();
+	},
+
+	/** 医保小程序回跳后，只完成授权到 6202；门诊链路停在结算明细页。 */
+	async resumePendingMedicalPayment(): Promise<void> {
+		if (resumingOutpatientPayment) return;
+		const pending = readPendingPayment();
+		const app = getApp<MedicalApp>();
+		const authCode = String(
+			app?.globalData?.medicalInsuranceAuthCode || "",
+		).trim();
+		if (
+			!authCode ||
+			!pending ||
+			pending.businessType !== "outpatient" ||
+			!pending.recordId
+		) {
+			if (authCode && app?.globalData)
+				app.globalData.medicalInsuranceAuthCode = "";
+			return;
+		}
+		if (app?.globalData) app.globalData.medicalInsuranceAuthCode = "";
+		resumingOutpatientPayment = true;
+		this.setData({
+			paymentBusy: "medical",
+			error: "",
+		});
+		showPaymentToast("正在处理医保授权，请勿重复操作");
+		try {
+			const result = await continueMedicalPayment(
+				authCode,
+				pending,
+				(_stage, message) => showPaymentToast(message),
+			);
+			if (result?.kind === "settlement") {
+				showPaymentToast("医保结算完成，正在打开结算明细");
+				wx.navigateTo({
+					url: "/pages/outpatient-medical-settlement/outpatient-medical-settlement",
+				});
+				return;
+			}
+			if (!readPendingPayment()) {
+				const completed = readLastMedicalPaymentResult();
+				if (completed?.recordId === pending.recordId) {
+					wx.redirectTo({
+						url: paymentResultUrl(
+							pending.patientId,
+							pending.recordId,
+							"medical",
+							{ orderId: completed.orderId },
+						),
+					});
+					return;
+				}
+			}
+		} catch (error) {
+			showPaymentToast(
+				errorMessageWithCode(error, "门诊医保授权未完成，请稍后重试"),
+			);
+		} finally {
+			resumingOutpatientPayment = false;
+			this.setData({ paymentBusy: "" });
+		}
 	},
 
 	/** 先确认当前患者归属，再读取门诊费用，避免把临床患者映射交给页面。 */
@@ -428,6 +568,131 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	 */
 	onHospitalTap(): void {
 		wx.showToast({ title: "当前仅支持高平市人民医院", icon: "none" });
+	},
+
+	/** 待缴费卡片直接展示缴费按钮；卡片主体仍可进入只读费用详情。 */
+	onPaymentTap(event: ViewKeyEvent): void {
+		if (!this.isPatientContextCurrent()) return;
+		const record = findVisiblePayment(
+			this.data.visibleItems,
+			event.currentTarget?.dataset?.viewKey,
+		);
+		const patientId = this.data.selectedPatient?.id;
+		if (!record || record.status !== "unpaid" || !patientId) return;
+		const pending = readPendingPayment();
+		if (isPendingForRecord(pending, patientId, record.recordId)) {
+			if (
+				pending?.phase === "medical_cash_required" ||
+				pending?.phase === "cash_payment"
+			) {
+				wx.navigateTo({
+					url: "/pages/outpatient-medical-settlement/outpatient-medical-settlement",
+				});
+				return;
+			}
+			if (pending?.phase === "authorization") {
+				wx.showToast({
+					title: "请先完成医保授权",
+					icon: "none",
+				});
+				return;
+			}
+		}
+		this.setData({
+			paymentSheetVisible: true,
+			paymentRecord: record,
+			paymentMethod: "",
+			paymentBusy: "",
+		});
+	},
+
+	onPaymentMethodTap(event: PaymentMethodEvent): void {
+		if (this.data.paymentBusy) return;
+		const method = event.currentTarget?.dataset?.method;
+		if (method !== "medical" && method !== "wechat") return;
+		this.setData({ paymentMethod: method });
+	},
+
+	onClosePaymentSheet(): void {
+		if (this.data.paymentBusy) return;
+		this.setData({
+			paymentSheetVisible: false,
+			paymentRecord: null,
+			paymentMethod: "",
+		});
+	},
+
+	onStopPaymentSheet(): void {
+		// 阻止点击半窗口内容时冒泡关闭面板。
+	},
+
+	onConfirmPayment(): void {
+		if (this.data.paymentBusy) return;
+		const method = this.data.paymentMethod;
+		const record = this.data.paymentRecord;
+		const patientId = this.data.selectedPatient?.id;
+		if (!method || !record || !patientId) {
+			wx.showToast({ title: "请选择支付方式", icon: "none" });
+			return;
+		}
+		if (!this.isPatientContextCurrent()) return;
+		void this.startPayment(method, record, patientId);
+	},
+
+	async startPayment(
+		method: PaymentMethod,
+		record: OutpatientPaymentRecordView,
+		patientId: string,
+	): Promise<void> {
+		if (this.data.paymentBusy) return;
+		if (!this.isPatientContextCurrent()) return;
+		this.setData({
+			paymentSheetVisible: false,
+			paymentRecord: null,
+			paymentBusy: method,
+		});
+		showPaymentToast(
+			method === "medical"
+				? "正在准备医保支付，请在医保小程序完成授权"
+				: "正在准备微信支付",
+		);
+		if (method === "medical") {
+			try {
+				await startOutpatientMedicalPayment(
+					record.recordId,
+					patientId,
+					(_stage, message) => showPaymentToast(message),
+					"mixed",
+				);
+			} catch (error) {
+				showPaymentToast(
+					errorMessageWithCode(error, "门诊医保支付未完成，请稍后重试"),
+				);
+			} finally {
+				this.setData({ paymentBusy: "" });
+			}
+			return;
+		}
+		try {
+			const result = await startOutpatientSelfPay(
+				record.recordId,
+				patientId,
+				(_stage, message) => showPaymentToast(message),
+			);
+			if (result.data.status === "cash_paid") {
+				wx.redirectTo({
+					url: paymentResultUrl(patientId, record.recordId, "wechat", {
+						totalFen: result.data.totalFen,
+					}),
+				});
+			}
+		} catch (error) {
+			showPaymentToast(
+				errorMessageWithCode(error, "门诊微信支付未完成，请稍后重试"),
+			);
+		} finally {
+			this.setData({ paymentBusy: "" });
+		}
 	},
 
 	/**

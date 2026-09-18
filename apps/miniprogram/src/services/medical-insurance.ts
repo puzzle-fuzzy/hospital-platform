@@ -83,6 +83,16 @@ export type MedicalPaymentAmounts = {
 	cashFen: number;
 };
 
+/**
+ * 医保授权和 6201/6202 结算完成后，门诊支付必须先停在结算明细页。
+ * 只有用户点击“去支付”，调用方才允许继续执行 `.2` 及后续查单/回写。
+ */
+export type MedicalPaymentContinuation = {
+	kind: "settlement";
+	orderId: string;
+	amounts: MedicalPaymentAmounts;
+};
+
 export type MedicalOrder = {
 	orderId: string;
 	status: MedicalOrderStatus;
@@ -106,13 +116,18 @@ type MedicalCancellation = {
 };
 
 type MedicalWechatPayParams = {
-	mixTradeNo: string;
+	mixTradeNo?: string;
+	appId?: string;
 	timeStamp?: string;
 	nonceStr?: string;
 	package?: string;
 	signType?: "RSA";
 	paySign?: string;
 };
+
+type WechatSelfPayParams = NonNullable<
+	RegistrationSelfPayResponse["data"]["payParams"]
+>;
 
 type MedicalAuthorizationContext =
 	| { payForRelatives: false }
@@ -423,34 +438,48 @@ export function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 			params.paySign,
 		];
 		const hasJsapiParams = jsapiValues.some((value) => value !== undefined);
+		const hasMixTradeNo =
+			typeof params.mixTradeNo === "string" && Boolean(params.mixTradeNo);
+		const hasAppId = typeof params.appId === "string" && Boolean(params.appId);
+		const hasCompleteJsapiParams =
+			typeof params.timeStamp === "string" &&
+			typeof params.nonceStr === "string" &&
+			typeof params.package === "string" &&
+			params.signType === "RSA" &&
+			typeof params.paySign === "string" &&
+			Boolean(params.timeStamp) &&
+			Boolean(params.nonceStr) &&
+			Boolean(params.package) &&
+			Boolean(params.paySign);
 		if (
-			typeof params.mixTradeNo !== "string" ||
-			!params.mixTradeNo ||
-			(hasJsapiParams &&
-				(typeof params.timeStamp !== "string" ||
-					typeof params.nonceStr !== "string" ||
-					typeof params.package !== "string" ||
-					params.signType !== "RSA" ||
-					typeof params.paySign !== "string" ||
-					!params.timeStamp ||
-					!params.nonceStr ||
-					!params.package ||
-					!params.paySign))
+			(!hasMixTradeNo && !hasAppId) ||
+			(hasJsapiParams && !hasCompleteJsapiParams) ||
+			(hasAppId && (!hasCompleteJsapiParams || hasMixTradeNo)) ||
+			(!hasAppId && !hasMixTradeNo)
 		) {
 			throw new ApiError("医保微信支付参数不可用", {
 				code: "wechat-pay-params-missing",
 			});
 		}
-		payParams = hasJsapiParams
+		payParams = hasAppId
 			? {
+					appId: params.appId as string,
 					timeStamp: params.timeStamp as string,
 					nonceStr: params.nonceStr as string,
 					package: params.package as string,
 					signType: params.signType as "RSA",
 					paySign: params.paySign as string,
-					mixTradeNo: params.mixTradeNo,
-				}
-			: { mixTradeNo: params.mixTradeNo };
+				  }
+			: hasJsapiParams
+				? {
+						timeStamp: params.timeStamp as string,
+						nonceStr: params.nonceStr as string,
+						package: params.package as string,
+						signType: params.signType as "RSA",
+						paySign: params.paySign as string,
+						mixTradeNo: params.mixTradeNo as string,
+					  }
+				: { mixTradeNo: params.mixTradeNo as string };
 	}
 	return {
 		orderId: data.orderId,
@@ -764,7 +793,7 @@ export async function startOutpatientMedicalPayment(
 }
 
 function requestWechatMedicalInsurancePayment(
-	params: MedicalWechatPayParams,
+	params: MedicalWechatPayParams & { mixTradeNo: string },
 ): Promise<void> {
 	return new Promise((resolve, reject) => {
 		const payment = (
@@ -830,7 +859,7 @@ function requestWechatMedicalInsurancePayment(
 }
 
 function requestWechatSelfPayment(
-	params: NonNullable<RegistrationSelfPayResponse["data"]["payParams"]>,
+	params: WechatSelfPayParams,
 ): Promise<void> {
 	return new Promise((resolve, reject) => {
 		let settled = false;
@@ -1104,9 +1133,21 @@ export async function continueMedicalCashPayment(
 	}
 	let paymentWasCancelled = false;
 	if (payment.payParams) {
-		onProgress("cash-paying", "正在打开微信医保支付收银台，请勿重复点击");
+		const isOwnWechatSelfPay = !payment.payParams.mixTradeNo;
+		onProgress(
+			"cash-paying",
+			isOwnWechatSelfPay
+				? "正在打开微信自费支付收银台，请勿重复点击"
+				: "正在打开微信医保支付收银台，请勿重复点击",
+		);
 		try {
-			await requestWechatMedicalInsurancePayment(payment.payParams);
+			if (isOwnWechatSelfPay) {
+				await requestWechatSelfPayment(payment.payParams as WechatSelfPayParams);
+			} else {
+				await requestWechatMedicalInsurancePayment(
+					payment.payParams as MedicalWechatPayParams & { mixTradeNo: string },
+				);
+			}
 		} catch (error) {
 			if (error instanceof WechatPaymentCancelledError) {
 				paymentWasCancelled = true;
@@ -1153,7 +1194,7 @@ export async function continueMedicalPayment(
 	authCode: string,
 	pending: PendingPayment,
 	onProgress: Progress,
-): Promise<{ kind: "cashier_opened" } | undefined> {
+): Promise<MedicalPaymentContinuation | undefined> {
 	if (!authCode.trim())
 		throw new ApiError("医保授权结果为空", {
 			code: "medical-insurance-invalid",
@@ -1256,6 +1297,16 @@ export async function continueMedicalPayment(
 				throw new ApiError("医保结算金额不可用", {
 					code: "provider-response-invalid",
 				});
+			}
+			if (outpatient) {
+				savePendingPayment({
+					...latest,
+					orderId,
+					phase: "medical_cash_required",
+					amounts: order.amounts,
+				});
+				onProgress("settling", "医保结算已完成，请确认结算明细后点击去支付");
+				return { kind: "settlement", orderId, amounts: order.amounts };
 			}
 			if (latest.mode === "medical" && order.amounts.cashFen > 0) {
 				savePendingPayment({

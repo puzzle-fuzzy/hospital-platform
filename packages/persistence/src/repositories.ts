@@ -1990,8 +1990,22 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.settlementWriteback
 					? { settlementWriteback: { ...context.settlementWriteback } }
 					: {}),
+				...(context.selfPaySettlementWriteback
+					? {
+							selfPaySettlementWriteback: {
+								...context.selfPaySettlementWriteback,
+							},
+						}
+					: {}),
 				...(context.settlementCompletion
 					? { settlementCompletion: { ...context.settlementCompletion } }
+					: {}),
+				...(context.selfPaySettlementCompletion
+					? {
+							selfPaySettlementCompletion: {
+								...context.selfPaySettlementCompletion,
+							},
+						}
 					: {}),
 				...(context.postPaymentComponents
 					? {
@@ -2033,8 +2047,22 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.settlementWriteback
 					? { settlementWriteback: { ...context.settlementWriteback } }
 					: {}),
+				...(context.selfPaySettlementWriteback
+					? {
+							selfPaySettlementWriteback: {
+								...context.selfPaySettlementWriteback,
+							},
+						}
+					: {}),
 				...(context.settlementCompletion
 					? { settlementCompletion: { ...context.settlementCompletion } }
+					: {}),
+				...(context.selfPaySettlementCompletion
+					? {
+							selfPaySettlementCompletion: {
+								...context.selfPaySettlementCompletion,
+							},
+						}
 					: {}),
 				...(context.postPaymentComponents
 					? {
@@ -2074,8 +2102,22 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(context.settlementWriteback
 					? { settlementWriteback: { ...context.settlementWriteback } }
 					: {}),
+				...(context.selfPaySettlementWriteback
+					? {
+							selfPaySettlementWriteback: {
+								...context.selfPaySettlementWriteback,
+							},
+						}
+					: {}),
 				...(context.settlementCompletion
 					? { settlementCompletion: { ...context.settlementCompletion } }
+					: {}),
+				...(context.selfPaySettlementCompletion
+					? {
+							selfPaySettlementCompletion: {
+								...context.selfPaySettlementCompletion,
+							},
+						}
 					: {}),
 				...(context.postPaymentComponents
 					? {

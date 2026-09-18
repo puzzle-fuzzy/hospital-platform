@@ -445,7 +445,7 @@ test("缺少关单上下文时在 Provider 边界前返回可识别错误", asyn
 	expect(providerCalled).toBe(false);
 });
 
-test("重授权暂时跳过 .4 但仍强制 .11 和 .6 成功", async () => {
+test("重授权不校验旧支付流水，只调用 .6 取消结算", async () => {
 	const providerPaths: string[] = [];
 	const medicalOrder = {
 		...order,
@@ -506,17 +506,16 @@ test("重授权暂时跳过 .4 但仍强制 .11 和 .6 成功", async () => {
 		),
 	).resolves.toMatchObject({
 		state: "cancelled",
-		paymentState: "closed",
+		paymentState: "unknown",
 		settlementState: "cancelled",
 	});
 
 	expect(providerPaths).toEqual([
-		"/msun-middle-open-settlepay/api/v2/open/payment/pay-close",
 		"/msun-middle-open-settlepay/api/v2/open/settle/cancel-settle",
 	]);
 });
 
-test("纯医保零元订单在 .32 成功后不调用 .5", async () => {
+test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 	const providerPaths: string[] = [];
 	const medicalOrder = {
 		medicalOrderId: "medical-order-zero-cash-001",
@@ -643,9 +642,6 @@ test("纯医保零元订单在 .32 成功后不调用 .5", async () => {
 	});
 	expect(paymentOrderInput?.orgBizSer).toEqual(expect.any(String));
 	expect(paymentOrderInput?.orgBizSer).not.toBe(medicalOrder.medOrgOrd);
-	expect(providerPaths).not.toContain(
-		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
-	);
 	// 模拟官方 INSURANCE_ONLY 查单成功后，支付后置分项已经产生的流水。
 	settlementContext = {
 		...settlementContext,
@@ -662,8 +658,9 @@ test("纯医保零元订单在 .32 成功后不调用 .5", async () => {
 		context,
 	);
 	expect(completed.state).toBe("insurance_settled");
-	expect(providerPaths.slice(-1)).toEqual([
+	expect(providerPaths).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
 	expect(providerPaths).not.toContain(
 		"/msun-yb-app-miop/v1/out-insur-settle-infos",
@@ -679,6 +676,137 @@ test("纯医保零元订单在 .32 成功后不调用 .5", async () => {
 		),
 	).resolves.toMatchObject({ state: "insurance_settled" });
 	expect(querySettlementCalls).toBe(1);
+});
+
+test("门诊医保和微信自费分别调用 .32 和 .5", async () => {
+	const providerPaths: string[] = [];
+	let settlementContext: MedicalInsuranceSettlementContext = {
+		businessId: "business-outpatient-split-001",
+		hospitalId: "10389001",
+		patientId: "patient-outpatient-split-001",
+		networkRegister: {},
+		outNetworkSettleMain: { settleSource: 4001 },
+		nationalUpDetailList: [],
+		upDetailList: [{ detailId: "detail-outpatient-split-001" }],
+		tradeOrderIds: ["trade-outpatient-split-001"],
+		postPaymentCompletedAt: "2026-09-16T03:00:00.000Z",
+		settlementQuery6301: {
+			queriedAt: "2026-09-16T03:00:00.000Z",
+			providerRequestId: "fsi-6301-outpatient-split-001",
+			payOrdId: "pay-order-outpatient-split-001",
+			ordStas: "6",
+			statusClass: "settlement_candidate",
+			amounts: {
+				totalFen: 100,
+				cashFen: 20,
+				personalAccountFen: 0,
+				fundFen: 80,
+			},
+		},
+		postPaymentComponents: [
+			{
+				componentId: "medical-order-outpatient-split-001:fund",
+				kind: "fund",
+				totalFen: 100,
+				amountFen: 80,
+				payModel: "H5",
+				payTypeId: "2",
+				recordCode: "record-outpatient-split-fund-001",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "paying-outpatient-medical-001",
+				tradingId: "trading-outpatient-medical-001",
+				updatedAt: "2026-09-16T03:00:00.000Z",
+			},
+			{
+				componentId: "medical-order-outpatient-split-001:wechat_cash",
+				kind: "wechat_cash",
+				totalFen: 100,
+				amountFen: 20,
+				payModel: "MINI_PROGRAM",
+				payTypeId: "5031",
+				recordCode: "record-outpatient-split-cash-001",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "paying-outpatient-self-001",
+				tradingId: "trading-outpatient-self-001",
+				updatedAt: "2026-09-16T03:00:00.000Z",
+			},
+		],
+	};
+	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		legacyFsi: {} as never,
+		orders: {
+			findByMedicalOrderId: async () =>
+				({
+					medicalOrderId: "medical-order-outpatient-split-001",
+					ownerUserId: "user-outpatient-split-001",
+					businessType: "outpatient",
+					payOrdId: "pay-order-outpatient-split-001",
+					amounts: {
+						totalFen: 100,
+						cashFen: 20,
+						personalAccountFen: 0,
+						fundFen: 80,
+					},
+				}) as MedicalInsuranceOrder,
+			getSettlementContext: async () => settlementContext,
+			saveSettlementContext: async (
+				_owner: string,
+				_orderId: string,
+				next: MedicalInsuranceSettlementContext,
+			) => {
+				settlementContext = next;
+			},
+		} as never,
+		authorizations: {} as never,
+		credentials: {} as never,
+		relayUrl: "https://relay.example",
+		relayAuthorizationToken: "synthetic-token",
+		foundationBaseUrl: "https://foundation.example",
+		zhongyangBaseUrl: "https://zhongyang.example",
+		fetcher: async (input) => {
+			const path = new URL(String(input)).pathname;
+			providerPaths.push(path);
+			const data = path.endsWith("/complete-settle")
+				? {
+						success: true,
+						data: {
+							outSettleVO: { settleStatus: "4" },
+							outSettlePayFinishDTOList: [{ settleStatus: "4" }],
+						},
+					}
+				: { success: true, data: { insur: "SUCCESS", settle: "SUCCESS" } };
+			return new Response(JSON.stringify(data), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		},
+	});
+
+	const result = await gateway.query(
+		{
+			orderId: "medical-order-outpatient-split-001",
+			ownerUserId: "user-outpatient-split-001",
+			cashPaymentConfirmed: true,
+		},
+		context,
+	);
+	expect(result).toMatchObject({
+		state: "insurance_settled",
+		finality: "paid",
+		authoritative: true,
+	});
+	expect(providerPaths).toEqual([
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	]);
+	expect(settlementContext.settlementCompletion?.status).toBe("succeeded");
+	expect(settlementContext.selfPaySettlementCompletion?.status).toBe(
+		"succeeded",
+	);
 });
 
 test(".32 失败后不重复提交同一结算 ID", async () => {
@@ -795,7 +923,7 @@ test(".32 失败后不重复提交同一结算 ID", async () => {
 	});
 });
 
-test("6202 后先落库 6301 候选，再调用 .32，并兼容 .5 完成状态", async () => {
+test("挂号 6202 后先落库 6301 候选并只调用 .32", async () => {
 	const medicalOrder = {
 		medicalOrderId: "medical-order-sequence-001",
 		ownerUserId: "user-sequence-001",
@@ -873,6 +1001,20 @@ test("6202 后先落库 6301 候选，再调用 .32，并兼容 .5 完成状态"
 				attempts: 1,
 				payingId: "paying-sequence-001",
 				tradingId: "trading-sequence-001",
+				updatedAt: "2026-09-15T19:01:00.000Z",
+			},
+			{
+				componentId: "medical-order-sequence-001:wechat_cash",
+				kind: "wechat_cash",
+				totalFen: 1000,
+				amountFen: 200,
+				payModel: "MINI_PROGRAM",
+				payTypeId: "5031",
+				recordCode: "record-wechat-cash-sequence-001",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "paying-wechat-cash-sequence-001",
+				tradingId: "trading-wechat-cash-sequence-001",
 				updatedAt: "2026-09-15T19:01:00.000Z",
 			},
 		],
@@ -1036,13 +1178,13 @@ test("6202 后先落库 6301 候选，再调用 .32，并兼容 .5 完成状态"
 	);
 	expect(finalized).toMatchObject({
 		state: "insurance_settled",
-		providerStatus: "completion=outSettleVO.settleStatus=4",
+		providerStatus: "insur=SUCCESS,settle=SUCCESS",
 		finality: "paid",
 		authoritative: true,
 	});
 	expect(providerPaths).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
 	]);
 	const repeated = await gateway.query(
 		{
@@ -1054,18 +1196,14 @@ test("6202 后先落库 6301 候选，再调用 .32，并兼容 .5 完成状态"
 	);
 	expect(repeated).toMatchObject({
 		state: "insurance_settled",
-		providerStatus: "completion=outSettleVO.settleStatus=4",
+		providerStatus: "insur=SUCCESS,settle=SUCCESS",
 		finality: "paid",
 		authoritative: true,
 	});
 	expect(providerPaths).toEqual([
 		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
-		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
 	]);
-	expect(settlementContext.settlementCompletion).toMatchObject({
-		status: "succeeded",
-		providerStatus: "completion=outSettleVO.settleStatus=4",
-	});
 	const notifyBody = providerBodies.find((request) =>
 		request.path.endsWith("/settle-info/notify"),
 	)?.body;
@@ -1075,6 +1213,14 @@ test("6202 后先落库 6301 候选，再调用 .32，并兼容 .5 完成状态"
 		fixmedinsName: "高平市人民医院",
 		insurOrgId: 10001,
 		outVisitRecordId: -1,
+		settleSource: 4001,
+	});
+	const notifyBodies = providerBodies
+		.filter((request) => request.path.endsWith("/settle-info/notify"))
+		.map((request) => request.body);
+	expect(notifyBodies[1]?.outNetworkSettleMain).toMatchObject({
+		transId: "paying-wechat-cash-sequence-001",
+		settleSource: 4001,
 	});
 	expect(notifyBody?.networkRegister).toMatchObject({
 		insuTypeName: "职工基本医疗保险",

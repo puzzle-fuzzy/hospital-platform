@@ -28,14 +28,10 @@
 				<view wx:if="{{item.amountFen >= 0}}" class="detail-line detail-line-last"><text class="detail-label">缴费金额</text><text class="amount">{{formatAmount(item.amountFen)}}</text></view>
 			</view>
 
-			<view wx:if="{{item.status === 'unpaid'}}" class="payment-card">
-				<view class="payment-card-title">选择支付方式</view>
-				<view class="payment-card-hint">请根据本次门诊费用选择支付方式</view>
+			<view wx:if="{{item.status === 'unpaid'}}" class="notice-card payment-list-handoff">
+				<view class="notice-title">请返回费用列表缴费</view>
+				<view class="notice-text">请在门诊缴费列表点击本笔记录的“缴费”按钮，再选择医保支付或微信支付。</view>
 				<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
-				<view class="payment-actions">
-					<button class="payment-button medical-button" bindtap="onMedicalPay" loading="{{paymentBusy === 'medical'}}" disabled="{{paymentBusy !== ''}}">医保支付</button>
-					<button class="payment-button wechat-button" bindtap="onWechatPay" loading="{{paymentBusy === 'wechat'}}" disabled="{{paymentBusy !== ''}}">微信支付</button>
-				</view>
 			</view>
 			<view wx:elif="{{item.paymentStatus === 'refunding'}}" class="refunding-card">
 				<view class="paid-icon refunding-icon">!</view>

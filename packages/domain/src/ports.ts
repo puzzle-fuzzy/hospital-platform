@@ -296,8 +296,8 @@ export type WechatPaymentLaunchParams = WechatMiniProgramPayParams;
 /**
  * 微信小程序医保支付调起参数；字段名和 wx.requestMedicalInsurancePay 保持一致。
  *
- * 纯医保只需要 mixTradeNo；存在微信自费金额时，其余五个 JSAPI 参数必须
- * 成组存在。adapter 和 API schema 会在运行时继续校验这一互斥关系。
+ * 历史/官方医保收银台使用 mixTradeNo；新 5031 自费使用普通 APIv3/RSA
+ * JSAPI 参数。adapter 和 API schema 会在运行时继续校验这一互斥关系。
  */
 export type WechatMedicalInsurancePayParams =
 	| {
@@ -310,7 +310,8 @@ export type WechatMedicalInsurancePayParams =
 			signType: "RSA";
 			paySign: string;
 			mixTradeNo: string;
-	  };
+	  }
+	| WechatMiniProgramPayParams;
 
 /** 微信医保下单的支付人与就诊人身份只在服务端调用帧内出现。 */
 export type MedicalInsuranceWechatPaymentIdentity =
@@ -393,7 +394,7 @@ export interface MedicalInsuranceGateway {
 		input: {
 			orderId: string;
 			ownerUserId: string;
-			/** 只用于 2.6.33 支付中恢复或用户明确重新展码时安全关闭旧单。 */
+			/** 支付中恢复走安全关单；重新展码只取消结算，不校验旧支付流水。 */
 			reason: "payment_in_progress" | "reauthorization";
 		},
 		context: AdapterCallContext,
@@ -566,7 +567,7 @@ export interface YunhealthRegistrationPluginPaymentGateway {
 }
 
 /**
- * 普通挂号自费进入微信 APIv3 前的众阳结算准备边界。
+ * 用户主动点击微信支付时进入微信 APIv3 前的众阳结算准备边界。
  *
  * 纯自费 Provider 调用顺序固定为 2.6.65.1 -> 2.27.2.27 -> 2.6.65.2；
  * 任何一步未确认成功都不得创建微信订单。返回的流水上下文必须先加密落库，

@@ -4,6 +4,7 @@ import type {
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceWechatPaymentGateway,
 	WechatPaymentNotification,
+	WechatPaymentGateway,
 } from "@hospital/domain";
 import { type AppLogger, createLogger } from "@hospital/observability";
 import {
@@ -86,6 +87,158 @@ function makeService(
 		...(logger ? { logger } : {}),
 	});
 }
+
+test("新医保订单的微信自费使用普通 APIv3/RSA 下单并在查单后进入统一后置确认", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "wechat-own-001",
+			ownerUserId: "user-wechat-own-001",
+			authorizationId: "authorization-own-001",
+			wechatMixTradeNo: null,
+			wechatOutTradeNo: null,
+			wechatPaymentState: "not_started",
+		}),
+	);
+	await orders.saveSettlementContext("user-wechat-own-001", "wechat-own-001", {
+		businessId: "business-own-001",
+		businessCode: "registration-own-001",
+		hospitalId: "10389001",
+		patientId: "provider-own-001",
+		insuredAreaCode: "140582",
+		networkRegister: {},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: [],
+	});
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	await authorizations.put({
+		authorizationId: "authorization-own-001",
+		ownerUserId: "user-wechat-own-001",
+		medicalOrderId: "wechat-own-001",
+		providerSubject: "openid-own-001",
+		payAuthNo: "pay-auth-own-001",
+		patient: {
+			idNo: "140581199001010011",
+			userName: "自费测试人",
+			idType: "01",
+		},
+		psnNo: "psn-own-001",
+		insutype: "310",
+		insuplcAdmdvs: "140581",
+		insuCode: "insu-own-001",
+		expiresAt: "2026-09-08T09:00:00.000Z",
+		createdAt: now,
+	});
+	let createInput!: Parameters<WechatPaymentGateway["createJsapiOrder"]>[0];
+	let createCalls = 0;
+	let queryCalls = 0;
+	let confirmCalls = 0;
+	const service = new MedicalInsuranceWechatPaymentService({
+		orders,
+		queryTasks: createInMemoryMedicalInsuranceQueryTaskRepository(),
+		authorizations,
+		identityUsers: createInMemoryIdentityUserRepository([
+			{
+				userId: "user-wechat-own-001",
+				providerSubject: "openid-own-001",
+			},
+		]),
+		patients: {} as never,
+		wechatPayment: {} as never,
+		wechatCashPayment: {
+			createJsapiOrder: async (input) => {
+				createCalls += 1;
+				createInput = input;
+				return {
+					prepayId: "prepay-own-001",
+					payParams: {
+						appId: "wx-app-own-001",
+						timeStamp: "1786752000",
+						nonceStr: "nonce-own-001",
+						package: "prepay_id=prepay-own-001",
+						signType: "RSA" as const,
+						paySign: "signature-own-001",
+					},
+					trace: {
+						provider: "wechat-pay" as const,
+						operation: "jsapi-prepay",
+						requestId: "wechat-own-create-001",
+					},
+				};
+			},
+			query: async () => {
+				queryCalls += 1;
+				return {
+					state: "cash_paid" as const,
+					totalFen: 200,
+					trace: {
+						provider: "wechat-pay" as const,
+						operation: "order-query",
+						requestId: "wechat-own-query-001",
+					},
+				};
+			},
+			close: async () => ({
+				trace: {
+					provider: "wechat-pay" as const,
+					operation: "order-close",
+					requestId: "wechat-own-close-001",
+				},
+			}),
+		} as WechatPaymentGateway,
+		confirmCashPayment: async () => {
+			confirmCalls += 1;
+			return {
+				orderId: "wechat-own-001",
+				status: "insurance_settled",
+				amounts: {
+					totalFen: 1000,
+					insuranceFen: 800,
+					cashFen: 200,
+				},
+			} as never;
+		},
+		now: () => new Date(now),
+	});
+
+	const ready = await service.create({
+		ownerUserId: "user-wechat-own-001",
+		orderId: "wechat-own-001",
+		context: {
+			traceId: "medical-own-create-001",
+			idempotencyKey: "medical-own-create-001",
+		},
+	});
+	expect(createCalls).toBe(1);
+	expect(createInput).toMatchObject({
+		openid: "openid-own-001",
+		totalFen: 200,
+		orderType: "RegPay",
+	});
+	expect(ready).toMatchObject({
+		paymentState: "prepay_ready",
+		payParams: { appId: "wx-app-own-001" },
+	});
+
+	const confirmed = await service.query({
+		ownerUserId: "user-wechat-own-001",
+		orderId: "wechat-own-001",
+		context: {
+			traceId: "medical-own-query-001",
+			idempotencyKey: "medical-own-query-001",
+		},
+	});
+	expect(queryCalls).toBe(1);
+	expect(confirmCalls).toBe(1);
+	expect(confirmed).toMatchObject({
+		status: "insurance_settled",
+		paymentState: "cash_paid",
+		cashFen: 200,
+	});
+});
 
 test("医院负担不掩盖已过期的微信现金预支付", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();

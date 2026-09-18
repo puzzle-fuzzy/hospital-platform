@@ -100,7 +100,7 @@ https://test-hp.meiyi.pro/api/v2
 | --- | --- | --- |
 | 1 | `POST /appointments/holds` | 与其它支付方式相同，服务端重新锁定众阳号源并读取挂号费 |
 | 2 | `POST /appointments/registrations` | 与其它支付方式相同，服务端检查重复预约后调用众阳 `2.10.4.1` |
-| 3 | `POST /payments/appointments/{appointmentId}/self-pay` | 服务端读取已保存的预约金额，按 HIS 收款顺序调用 `2.6.65.1 → 2.27.2.27 → 2.6.65.2`；`.2` 固定使用 `payTypeId=31`、`payModel=MINI_PROGRAM` |
+| 3 | `POST /payments/appointments/{appointmentId}/self-pay` | 服务端读取已保存的预约金额，按 HIS 收款顺序调用 `2.6.65.1 → 2.27.2.27 → 2.6.65.2`；用户主动点击微信支付时 `.2` 固定使用 `payTypeId=5032`、`payModel=MINI_PROGRAM` |
 | 4 | `wx.requestPayment(...)` | 使用 `.2.result` 返回且经服务端校验的 APIv2/MD5 参数调起微信自费收银台 |
 | 5 | `GET /payments/appointments/{appointmentId}/self-pay` | 服务端幂等调用 `2.6.65.5`；只有返回 `isSettle=1` 才依次进入 `cash_paid → his_written_back → completed` |
 

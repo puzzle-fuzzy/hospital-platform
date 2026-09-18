@@ -324,8 +324,8 @@ export class MedicalInsurancePaymentCore {
 	}
 
 	/**
-	 * 安全关闭旧医保订单并允许重开的分支，仅用于已确认的支付中恢复
-	 * 或用户明确重新展码授权。
+	 * 取消医保支付订单的分支。支付中恢复保留安全关单；重新展码不检查
+	 * 重复/旧订单，直接由上层创建新的医保订单。
 	 */
 	async cancel(input: {
 		ownerUserId: string;

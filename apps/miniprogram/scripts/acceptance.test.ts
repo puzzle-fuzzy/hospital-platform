@@ -81,6 +81,7 @@ test("native DevTools project isolates dist runtime from TypeScript source", asy
 		setting?: {
 			compileHotReLoad?: boolean;
 			ignoreDevUnusedFiles?: boolean;
+			ignoreUploadUnusedFiles?: boolean;
 		};
 	};
 	// 父目录配置只负责构建约束；开发者工具和真机必须直接打开 dist，
@@ -88,6 +89,7 @@ test("native DevTools project isolates dist runtime from TypeScript source", asy
 	expect(runtimeProjectConfig.miniprogramRoot).toBe("./");
 	expect(runtimeProjectConfig.setting?.compileHotReLoad).toBe(false);
 	expect(runtimeProjectConfig.setting?.ignoreDevUnusedFiles).toBe(false);
+	expect(runtimeProjectConfig.setting?.ignoreUploadUnusedFiles).toBe(false);
 });
 
 test("native sitemap only exposes public pages", async () => {
@@ -2165,8 +2167,8 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	// 当前原生运行包包含门诊缴费列表和详情两个路由，共 53 个页面。
-	expect(app.pages).toHaveLength(53);
+	// 当前原生运行包包含门诊缴费列表、详情和医保结算三个关联路由，共 54 个页面。
+	expect(app.pages).toHaveLength(54);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2423,6 +2425,7 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 		miniprogramRoot?: string;
 		setting?: {
 			useCompilerPlugins?: unknown;
+			ignoreUploadUnusedFiles?: unknown;
 		};
 	};
 	const buildConfig = JSON.parse(await source("../tsconfig.build.json")) as {
@@ -2439,6 +2442,7 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	// 业务语义；解析 JSON 后校验字段，避免用户合法的格式化差异让门禁误报。
 	expect(config.miniprogramRoot).toBe("dist/");
 	expect(config.setting?.useCompilerPlugins).toEqual(["typescript"]);
+	expect(config.setting?.ignoreUploadUnusedFiles).toBe(false);
 	// 测试文件必须留在源码验证链路中，但不能被 tsc 发到微信运行包；
 	// test/spec 两种常见命名都必须和运行包的文件级门禁保持一致。
 	expect(buildConfig.exclude).toEqual(["src/**/*.test.ts", "src/**/*.spec.ts"]);
@@ -2452,6 +2456,7 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("missed-appointments/missed-appointments.ts");
 	expect(build).toContain("project.private.config.json");
 	expect(build).toContain("ignoreDevUnusedFiles");
+	expect(build).toContain("ignoreUploadUnusedFiles");
 	// 仓库只能有一个微信项目入口。src/ 下的嵌套配置会让开发者工具同时
 	// 监听源码和 dist，旧的增量页面图就可能把已删除的页面或 *.js 带回来。
 	expect(build).toContain("nestedSourceProjectConfigPath");
@@ -3467,6 +3472,12 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	const my = await source("pages/my/my.ts");
 	const myTemplate = await source("pages/my/my.wxml");
 	const navigation = await source("services/patient-navigation.ts");
+	const settlementTemplate = await source(
+		"pages/outpatient-medical-settlement/outpatient-medical-settlement.wxml",
+	);
+	const settlementStyle = await source(
+		"pages/outpatient-medical-settlement/outpatient-medical-settlement.wxss",
+	);
 
 	expect(app).toContain('"pages/outpatient-payment/outpatient-payment"');
 	expect(app).toContain('"pages/my/my"');
@@ -3503,16 +3514,38 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).toContain(
 		"pages/outpatient-payment-detail/outpatient-payment-detail?patientId=",
 	);
-	expect(outpatientTemplate).toContain(
-		"门诊微信自费支付已接入；医保支付、结算和退费请以医院正式渠道为准",
+	expect(outpatient).toContain("startOutpatientMedicalPayment");
+	expect(outpatient).toContain("onPaymentTap(event: ViewKeyEvent)");
+	expect(outpatient).toContain(
+		"/pages/outpatient-medical-settlement/outpatient-medical-settlement",
 	);
-	// 旧端文案会暗示支付或医保已经可以在此页面执行；只读页面必须明确拒绝这种语义回流。
+	expect(outpatientTemplate).toContain('catchtap="onPaymentTap"');
+	expect(outpatientTemplate).toContain('class="record-payment-action"');
+	expect(outpatientTemplate).toContain('data-method="medical"');
+	expect(outpatientTemplate).toContain('data-method="wechat"');
+	expect(outpatientTemplate).toContain('bindtap="onConfirmPayment"');
+	expect(outpatientTemplate).toContain('class="sheet-pay-button"');
+	expect(outpatientTemplate).not.toContain("确认支付");
+	expect(outpatient).toContain("showPaymentToast");
+	expect(outpatient).toContain("onConfirmPayment(): void");
+	expect(outpatient).toContain(
+		"void this.startPayment(method, record, patientId)",
+	);
+	expect(outpatient).not.toContain(
+		"isCurrentSelectedPatient(pending.patientId)",
+	);
+	// 旧端文案会暗示支付或医保已经可以在此页面执行；当前页面必须表达新的
+	// 列表直缴、医保授权、6202 明细和用户确认后继续支付边界。
 	expect(outpatientTemplate).not.toContain("缴费后如需退费需至窗口办理");
 	expect(outpatientTemplate).not.toContain("目前支付宝支持");
 	expect(outpatientTemplate).toContain('bindtap="onRecordTap"');
-	expect(outpatientTemplate).toContain(
-		"医保支付、结算和退费请以医院正式渠道为准",
-	);
+	expect(outpatientTemplate).toContain(">支付</button>");
+	expect(settlementTemplate).toContain("服务端医保 6202 结算结果");
+	expect(settlementTemplate).toContain("settlement-bottom-bar");
+	expect(settlementTemplate).toContain("您还需支付：");
+	expect(settlementTemplate).toContain('bindtap="onPay"');
+	expect(settlementStyle).toContain("position: fixed;");
+	expect(settlementStyle).toContain(".settlement-bottom-bar");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(my).toContain("navigateToPatientScopedPage");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
@@ -3524,7 +3557,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).not.toContain("outTradeOrderId");
 });
 
-test("outpatient payment detail only spins the selected payment button", async () => {
+test("outpatient payment detail keeps unpaid fees read-only", async () => {
 	const detailPage = await source(
 		"pages/outpatient-payment-detail/outpatient-payment-detail.ts",
 	);
@@ -3532,19 +3565,13 @@ test("outpatient payment detail only spins the selected payment button", async (
 		"pages/outpatient-payment-detail/outpatient-payment-detail.wxml",
 	);
 
-	// 付款期间两个按钮都要禁用以避免重复提交，但 loading 只能反映本次
-	// 点击的支付方式，不能让医保支付和微信支付同时显示转圈。
-	expect(detailPage).toContain(
-		'type PaymentBusyKind = "medical" | "wechat" | "";',
-	);
-	expect(detailPage).toContain('paymentBusy: "medical"');
-	expect(detailPage).toContain('paymentBusy: "wechat"');
-	expect(detailTemplate).toContain(
-		"loading=\"{{paymentBusy === 'medical'}}\" disabled=\"{{paymentBusy !== ''}}\"",
-	);
-	expect(detailTemplate).toContain(
-		"loading=\"{{paymentBusy === 'wechat'}}\" disabled=\"{{paymentBusy !== ''}}\"",
-	);
+	// 付款入口统一收口到门诊费用列表；详情页只保留费用事实和回跳恢复兼容，
+	// 不能再提供一条绕过列表半窗口的旧支付路径。
+	expect(detailPage).toContain("continueMedicalPayment");
+	expect(detailTemplate).toContain("请返回费用列表缴费");
+	expect(detailTemplate).toContain("点击本笔记录的“缴费”按钮");
+	expect(detailTemplate).not.toContain('bindtap="onMedicalPay"');
+	expect(detailTemplate).not.toContain('bindtap="onWechatPay"');
 });
 
 test("patient list load-more events cannot mutate stale read-model windows", async () => {

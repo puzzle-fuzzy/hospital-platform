@@ -79,6 +79,7 @@ type MiniProgramProjectConfig = {
 	setting?: {
 		compileHotReLoad?: unknown;
 		ignoreDevUnusedFiles?: unknown;
+		ignoreUploadUnusedFiles?: unknown;
 	};
 };
 
@@ -162,10 +163,11 @@ if (runtimeProjectConfig.miniprogramRoot !== "./") {
 }
 if (
 	runtimeProjectConfig.setting?.compileHotReLoad !== false ||
-	runtimeProjectConfig.setting?.ignoreDevUnusedFiles !== false
+	runtimeProjectConfig.setting?.ignoreDevUnusedFiles !== false ||
+	runtimeProjectConfig.setting?.ignoreUploadUnusedFiles !== false
 ) {
 	throw new Error(
-		`Mini program ${runtimeLabel}/project.config.json must disable hot reload and unused-file pruning`,
+		`Mini program ${runtimeLabel}/project.config.json must disable hot reload, development unused-file pruning, and upload unused-file pruning`,
 	);
 }
 // 预约历史页面通过 TypeScript 模块读取静态科室位置，运行包必须带上编译后的 JS。

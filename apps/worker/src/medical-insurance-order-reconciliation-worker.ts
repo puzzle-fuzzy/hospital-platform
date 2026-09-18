@@ -12,6 +12,7 @@ import type {
 	MedicalInsuranceWechatPaymentGateway,
 	PatientRepository,
 	UserIdentityRepository,
+	WechatPaymentGateway,
 	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import {
@@ -98,7 +99,7 @@ function expectedPrePaymentComponents(input: {
 			kind: "wechat_cash" as const,
 			amountFen: breakdown.wechatCashFen,
 			payModel: "MINI_PROGRAM" as const,
-			payTypeId: "31" as const,
+			payTypeId: "5031" as const,
 		},
 	].filter((component) => component.amountFen > 0);
 	return definitions.map((component) => ({
@@ -249,12 +250,40 @@ function reconciliationFailureCode(error: unknown): string | undefined {
  */
 function successfulSettlementWriteback(
 	context: MedicalInsuranceSettlementContext | undefined,
+	order: MedicalInsuranceOrder,
 ): boolean {
 	const providerStatus = context?.settlementWriteback?.providerStatus ?? "";
-	return (
+	const medicalSucceeded =
 		context?.settlementWriteback?.status === "succeeded" &&
 		/(^|,)insur=SUCCESS(,|$)/u.test(providerStatus) &&
-		/(^|,)settle=SUCCESS(,|$)/u.test(providerStatus)
+		/(^|,)settle=SUCCESS(,|$)/u.test(providerStatus);
+	const selfPayRequired =
+		(order.amounts?.cashFen ?? 0) > 0 &&
+		Boolean(
+			context?.postPaymentComponents?.some(
+				(component) => component.kind === "wechat_cash",
+			),
+		);
+	const selfPayProviderStatus =
+		context?.selfPaySettlementWriteback?.providerStatus ?? "";
+	const selfPaySucceeded =
+		!selfPayRequired ||
+		(context?.selfPaySettlementWriteback?.status === "succeeded" &&
+			/(^|,)insur=SUCCESS(,|$)/u.test(selfPayProviderStatus) &&
+			/(^|,)settle=SUCCESS(,|$)/u.test(selfPayProviderStatus));
+	const completionRequired = order.businessType === "outpatient";
+	const completionSucceeded =
+		!completionRequired ||
+		context?.settlementCompletion?.status === "succeeded";
+	const selfPayCompletionRequired = completionRequired && selfPayRequired;
+	const selfPayCompletionSucceeded =
+		!selfPayCompletionRequired ||
+		context?.selfPaySettlementCompletion?.status === "succeeded";
+	return (
+		medicalSucceeded &&
+		selfPaySucceeded &&
+		completionSucceeded &&
+		selfPayCompletionSucceeded
 	);
 }
 
@@ -269,8 +298,8 @@ function candidateState(
 		evidence.authoritative &&
 		evidence.source === "yunhealth"
 	) {
-		// .32 成功后仍由微信官方订单阶段确认；有微信自费金额时才
-		// 继续执行 .5 完成 HIS 回写，纯医保不调用 .5。
+		// .32 成功后仍由微信自费订单阶段确认；门诊最终还要完成 .5，
+		// 挂号只要求两条 .32 成功。
 		return "cash_pending";
 	}
 	return "awaiting_confirmation";
@@ -331,6 +360,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			orders: MedicalInsuranceOrderRepository;
 			medicalInsurance: MedicalInsuranceOrderQueryGateway;
 			wechatPayment?: MedicalInsuranceWechatPaymentGateway;
+			/** 新订单普通微信 APIv3/RSA 自费查单；旧混合单仍走 wechatPayment。 */
+			wechatCashPayment?: WechatPaymentGateway;
 			identityUsers?: UserIdentityRepository;
 			patients?: PatientRepository;
 			postPayment?: YunhealthRegistrationPluginPaymentGateway;
@@ -466,6 +497,172 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		return this.reconcileWechatMixedOrder(task, recovered, now, context);
 	}
 
+	private async reconcileOwnWechatOrder(
+		task: MedicalInsuranceQueryTask,
+		order: MedicalInsuranceOrder,
+		now: Date,
+		context: AdapterCallContext,
+	): Promise<MedicalInsuranceOrderReconciliationWorkerResult> {
+		const gateway = this.dependencies.wechatCashPayment;
+		if (!gateway || !order.wechatOutTradeNo || !order.amounts) {
+			await this.updateTask(task, now, {
+				continueQuery: false,
+				manualReview: true,
+				lastErrorCode: "wechat-self-pay-recovery-context-missing",
+			});
+			return "manual_review";
+		}
+		const result = await gateway.query(
+			{ orderId: order.wechatOutTradeNo },
+			context,
+		);
+		if (result.totalFen !== order.amounts.cashFen) {
+			await this.updateTask(task, now, {
+				continueQuery: false,
+				manualReview: true,
+				lastErrorCode: "wechat-self-pay-amount-mismatch",
+			});
+			await this.dependencies.orders.applySettlement(
+				order.medicalOrderId,
+				order.version,
+				{
+					status: "manual_review",
+					ordStas: order.ordStas,
+					amounts: order.amounts,
+					setlType: order.setlType,
+					revsTokenHash: order.revsTokenHash,
+					revsTokenExpiresAt: order.revsTokenExpiresAt,
+					wechatPaymentState: "failed",
+				},
+			);
+			return "manual_review";
+		}
+		if (result.state === "cash_pending") {
+			const updatedTask = await this.updateTask(task, now, {
+				continueQuery: true,
+				lastErrorCode: "wechat-self-pay-pending",
+			});
+			return updatedTask.status === "manual_review"
+				? "manual_review"
+				: "retry_scheduled";
+		}
+		if (result.state === "failed") {
+			await this.dependencies.orders.applySettlement(
+				order.medicalOrderId,
+				order.version,
+				{
+					status: "manual_review",
+					ordStas: order.ordStas,
+					amounts: order.amounts,
+					setlType: order.setlType,
+					revsTokenHash: order.revsTokenHash,
+					revsTokenExpiresAt: order.revsTokenExpiresAt,
+					wechatPaymentState: "failed",
+				},
+			);
+			await this.updateTask(task, now, {
+				continueQuery: false,
+				manualReview: true,
+				lastErrorCode: "wechat-self-pay-failed",
+			});
+			return "manual_review";
+		}
+
+		const paidOrder = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				status: order.status,
+				ordStas: order.ordStas,
+				amounts: order.amounts,
+				setlType: order.setlType,
+				revsTokenHash: order.revsTokenHash,
+				revsTokenExpiresAt: order.revsTokenExpiresAt,
+				wechatPaymentState: "cash_paid",
+			},
+		);
+		if (!paidOrder) throw new Error("medical order version conflict");
+		let evidence: MedicalInsuranceSettlementEvidence;
+		try {
+			evidence = await this.dependencies.medicalInsurance.query(
+				{
+					orderId: order.medicalOrderId,
+					ownerUserId: order.ownerUserId,
+					cashPaymentConfirmed: true,
+				},
+				{
+					...context,
+					idempotencyKey: `medical-self-pay-finalize:${order.medicalOrderId}`,
+				},
+			);
+		} catch {
+			await this.updateTask(task, now, {
+				continueQuery: true,
+				lastErrorCode: "medical-self-pay-finalize-pending",
+			});
+			return "retry_scheduled";
+		}
+		const completed =
+			evidence.state === "insurance_settled" &&
+			evidence.finality === "paid" &&
+			evidence.authoritative &&
+			sameAmounts(paidOrder, evidence);
+		if (completed) {
+			const settled = await this.dependencies.orders.applySettlement(
+				paidOrder.medicalOrderId,
+				paidOrder.version,
+				{
+					status: "insurance_settled",
+					ordStas: paidOrder.ordStas,
+					amounts: paidOrder.amounts,
+					setlType: paidOrder.setlType,
+					revsTokenHash: paidOrder.revsTokenHash,
+					revsTokenExpiresAt: paidOrder.revsTokenExpiresAt,
+					wechatPaymentState: "cash_paid",
+				},
+			);
+			if (!settled) throw new Error("medical order version conflict");
+			await this.updateTask(task, now, {
+				continueQuery: false,
+				terminalOrdStas: evidence.providerStatus,
+			});
+			return "reconciled";
+		}
+		const needsManualReview =
+			evidence.finality === "failed" ||
+			evidence.finality === "cancelled" ||
+			!sameAmounts(paidOrder, evidence);
+		const updatedTask = await this.updateTask(task, now, {
+			continueQuery: !needsManualReview,
+			manualReview: needsManualReview,
+			lastErrorCode: needsManualReview
+				? "medical-self-pay-finalize-conflict"
+				: "medical-self-pay-finalize-pending",
+			...(needsManualReview
+				? { terminalOrdStas: evidence.providerStatus }
+				: {}),
+		});
+		if (needsManualReview) {
+			await this.dependencies.orders.applySettlement(
+				paidOrder.medicalOrderId,
+				paidOrder.version,
+				{
+					status: "manual_review",
+					ordStas: paidOrder.ordStas,
+					amounts: paidOrder.amounts,
+					setlType: paidOrder.setlType,
+					revsTokenHash: paidOrder.revsTokenHash,
+					revsTokenExpiresAt: paidOrder.revsTokenExpiresAt,
+					wechatPaymentState: "cash_paid",
+				},
+			);
+			return "manual_review";
+		}
+		return updatedTask.status === "manual_review"
+			? "manual_review"
+			: "retry_scheduled";
+	}
+
 	private async completePrePaymentComponents(
 		order: MedicalInsuranceOrder,
 		wechatResult: Awaited<
@@ -534,8 +731,8 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		}
 
 		// cashPaymentConfirmed=true 进入 legacy FSI 最终确认：先调用 2.27.2.32
-		// 回写医保支付结果；`.32` 的 SUCCESS 是可判定的支付成功事实，
-		// `.5` 仍按既有链路尝试，但其异常不能再阻塞已成功的支付结果页。
+		// 回写医保支付结果；`.32` 的 SUCCESS 是可判定的分项回写事实，
+		// 门诊还必须完成医保、微信自费各自的 `.5`，挂号不调用 `.5`。
 		let completion: MedicalInsuranceSettlementEvidence | undefined;
 		let completionError: unknown;
 		try {
@@ -560,6 +757,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			);
 		const writebackSucceeded = successfulSettlementWriteback(
 			settlementAfterFinalize,
+			order,
 		);
 		const completionAccepted = Boolean(
 			completion &&
@@ -804,15 +1002,23 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				);
 			const writebackStatus =
 				settlementAfterCompletion?.settlementWriteback?.status;
+			const selfPayWritebackStatus =
+				settlementAfterCompletion?.selfPaySettlementWriteback?.status;
 			const completionStatus =
 				settlementAfterCompletion?.settlementCompletion?.status;
+			const selfPayCompletionStatus =
+				settlementAfterCompletion?.selfPaySettlementCompletion?.status;
 			// `.32` 和 `.5` 都是不可重放的 HIS 写入；任一已经失败或结果未知，
 			// 后续查单只能进入人工核验，不能再次向 Provider 发起请求。
 			hisWritebackBlocked =
 				writebackStatus === "failed" ||
 				writebackStatus === "unknown" ||
+				selfPayWritebackStatus === "failed" ||
+				selfPayWritebackStatus === "unknown" ||
 				completionStatus === "failed" ||
-				completionStatus === "unknown";
+				completionStatus === "unknown" ||
+				selfPayCompletionStatus === "failed" ||
+				selfPayCompletionStatus === "unknown";
 		}
 		const writebackManualReview =
 			fullyPaid && !hisCompleted && hisWritebackBlocked;
@@ -936,6 +1142,14 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			}
 			if (order.status === "cash_pending" && order.wechatMixTradeNo) {
 				return await this.reconcileWechatMixedOrder(task, order, now, context);
+			}
+			if (
+				order.status === "cash_pending" &&
+				!order.wechatMixTradeNo &&
+				order.wechatOutTradeNo &&
+				this.dependencies.wechatCashPayment
+			) {
+				return await this.reconcileOwnWechatOrder(task, order, now, context);
 			}
 			if (
 				order.status === "cash_pending" &&

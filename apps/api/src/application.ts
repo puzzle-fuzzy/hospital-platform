@@ -564,6 +564,7 @@ export function createDefaultApplicationServices(
 			wechatPayment:
 				options.medicalInsuranceWechatPaymentGateway ??
 				gateways.medicalInsuranceWechatPayment,
+			wechatCashPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
 			confirmCashPayment: (input) =>
 				medicalInsuranceCore.confirmWechatCashPayment(input),
 			...(options.medicalInsuranceWechatPaymentGateway &&

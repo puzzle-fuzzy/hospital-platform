@@ -1,0 +1,202 @@
+page {
+	background: #f5f6f8;
+}
+
+.settlement-scroll {
+	height: 100vh;
+}
+
+.settlement-page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 0 20rpx calc(140rpx + env(safe-area-inset-bottom));
+}
+
+.settlement-hero,
+.amount-card,
+.payment-message,
+.back-button,
+.home-button,
+.state-card {
+	box-sizing: border-box;
+	width: 710rpx;
+	margin-right: auto;
+	margin-left: auto;
+}
+
+
+.settlement-hero {
+	box-sizing: border-box;
+	height: 250rpx;
+	padding: 52rpx 34rpx 0;
+	border-radius: 0 0 56rpx 56rpx;
+	background: #3d78ec;
+	color: #ffffff;
+}
+
+.settlement-hero-label,
+.settlement-hero-hospital {
+	display: block;
+}
+
+.settlement-hero-label {
+	color: #c9dcff;
+	font-size: 25rpx;
+}
+
+.settlement-hero-hospital {
+	margin-top: 20rpx;
+	font-size: 34rpx;
+	font-weight: 700;
+}
+
+.amount-card {
+	position: relative;
+	margin-top: -96rpx;
+	padding: 28rpx;
+	border-radius: 20rpx;
+	box-shadow: 0 8rpx 24rpx rgba(35, 83, 154, 0.12);
+	background: #ffffff;
+}
+
+.amount-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 72rpx;
+	border-bottom: 1rpx solid #edf0f4;
+	color: #5f6873;
+	font-size: 28rpx;
+}
+
+.amount-total-row {
+	min-height: 100rpx;
+	color: #20242b;
+	font-size: 30rpx;
+	font-weight: 700;
+}
+
+.amount-total {
+	color: #e8753e;
+	font-size: 38rpx;
+}
+
+.amount-row:last-of-type {
+	border-bottom: 0;
+}
+
+.amount-divider {
+	height: 1rpx;
+	margin: 20rpx 0 16rpx;
+	background: #edf0f4;
+}
+
+.amount-source {
+	color: #9aa3ad;
+	font-size: 23rpx;
+	line-height: 1.6;
+}
+
+.payment-message {
+	margin-top: 20rpx;
+	padding: 18rpx 20rpx;
+	border-radius: 14rpx;
+	background: #f1f6ff;
+	color: #31557f;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.back-button,
+.home-button {
+	display: block;
+	margin-top: 20rpx;
+	padding: 0;
+	border-radius: 44rpx;
+	font-size: 29rpx;
+	line-height: 88rpx;
+}
+
+.primary-button {
+	width: 190rpx;
+	height: 76rpx;
+	margin: 0;
+	border-radius: 38rpx;
+	background: #277ff0;
+	color: #ffffff;
+	font-size: 28rpx;
+	line-height: 76rpx;
+}
+
+.back-button {
+	background: #edf1f5;
+	color: #4f5964;
+}
+
+.home-button {
+	border: 2rpx solid #3d6df6;
+	background: transparent;
+	color: #3d6df6;
+}
+
+.primary-button::after,
+.back-button::after,
+.home-button::after {
+	border: 0;
+}
+
+.settlement-bottom-bar {
+	position: fixed;
+	z-index: 10;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+	height: calc(112rpx + env(safe-area-inset-bottom));
+	padding: 16rpx 28rpx env(safe-area-inset-bottom);
+	background: #ffffff;
+	box-shadow: 0 -4rpx 18rpx rgba(0, 0, 0, 0.08);
+}
+
+.settlement-remaining-label {
+	color: #7f8791;
+	font-size: 25rpx;
+}
+
+.settlement-remaining-amount {
+	flex: 1;
+	margin-left: 8rpx;
+	color: #277ff0;
+	font-size: 31rpx;
+	font-weight: 700;
+}
+
+.state-card {
+	margin-top: 80rpx;
+	padding: 42rpx 30rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	text-align: center;
+}
+
+.error-state {
+	border: 1rpx solid #ffd8d8;
+	background: #fff7f7;
+}
+
+.state-title {
+	display: block;
+	color: #333333;
+	font-size: 30rpx;
+	font-weight: 700;
+}
+
+.state-message {
+	display: block;
+	margin-top: 14rpx;
+	color: #e04f4f;
+	font-size: 25rpx;
+	line-height: 1.6;
+}

@@ -42,7 +42,7 @@ function gateway(fetcher: ProviderFetcher, workStationId = "") {
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId,
 		fetcher,
@@ -61,7 +61,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "registration-machine-01",
 		fetcher: async (input, init) => {
@@ -88,7 +88,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 			totalFen: 1234,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "31",
+			payTypeId: "5031",
 			payModel: "H5",
 			payType: "CREDIT",
 			workStationId: "registration-machine-01",
@@ -110,7 +110,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,
 		payModel: "H5",
-		payTypeId: 31,
+		payTypeId: 5031,
 		recordCode: "0123456789abcdef0123456789abcdef",
 		requestId: "0123456789abcdef0123456789abcdef",
 		sceneCode: "WeChatSmallProgram",
@@ -121,7 +121,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 	});
 	expect(request?.body.payTypeParams).toEqual([
 		{
-			payTypeId: 31,
+			payTypeId: 5031,
 			amount: 12.34,
 			paymentSystemUserId: "",
 			spbillCreateIp: "",
@@ -130,7 +130,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 	expect(result).toMatchObject({
 		payingId: "500001",
 		tradingId: "500002",
-		payTypeId: "31",
+		payTypeId: "5031",
 		payType: "CREDIT",
 		workStationId: "registration-machine-01",
 		tradeTypeCode: "10",
@@ -146,7 +146,7 @@ test("云健康 .2 将 result 的 MD5 sign 安全投影为小程序 paySign", as
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		miniProgramAppId: yunhealthMd5Result.appId,
@@ -173,7 +173,7 @@ test("云健康 .2 将 result 的 MD5 sign 安全投影为小程序 paySign", as
 			totalFen: 1234,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "31",
+			payTypeId: "5031",
 			payModel: "MINI_PROGRAM",
 			paymentSystemUserId: "openid-md5-001",
 			payType: "CREDIT",
@@ -201,7 +201,7 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "registration-machine-01",
 		fetcher: async (_input, init) => {
@@ -230,7 +230,7 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 			amountFen: 3_000,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "31",
+			payTypeId: "5031",
 			payModel: "MINI_PROGRAM",
 			paymentSystemUserId: "openid-component-001",
 			payType: "CREDIT",
@@ -245,8 +245,8 @@ test("医保支付后置 .2 保持整单 total 并按当次分项写 amount", as
 		autoSettle: 3,
 		total: 100,
 		payModel: "MINI_PROGRAM",
-		payTypeId: 31,
-		payTypeParams: [{ payTypeId: 31, amount: 30 }],
+		payTypeId: 5031,
+		payTypeParams: [{ payTypeId: 5031, amount: 30 }],
 	});
 });
 
@@ -258,7 +258,7 @@ test("医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结�
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "registration-machine-01",
 		fetcher: async (input, init) => {
@@ -326,7 +326,7 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 			baseUrl: "https://yunhealth.example.test",
 			authorizationToken: "server-token",
 			paymentOrgId: "10756",
-			pluginPayTypeId: "31",
+			pluginPayTypeId: "5031",
 			pluginPayType: "CREDIT",
 			workStationId: "",
 			logger,
@@ -351,7 +351,7 @@ test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", asyn
 					totalFen: 1234,
 					hospitalId: "10389001",
 					patientId: "100001",
-					payTypeId: "31",
+					payTypeId: "5031",
 					payModel: "H5",
 					payType: "CREDIT",
 					workStationId: "",
@@ -397,7 +397,7 @@ test("医保支付后置 .2 个人账户分项使用 payTypeId=5 和 H5", async 
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		fetcher: async (_input, init) => {
@@ -443,7 +443,7 @@ test("医保 H5 分项接受上游 result=SUCCESS 且不解析为小程序支付
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		fetcher: async () =>
@@ -500,7 +500,7 @@ test("微信现金 MINI_PROGRAM 分项仍拒绝缺少 MD5 参数的 result=SUCCE
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		fetcher: async () =>
@@ -528,7 +528,7 @@ test("微信现金 MINI_PROGRAM 分项仍拒绝缺少 MD5 参数的 result=SUCCE
 				amountFen: 200,
 				hospitalId: "10389001",
 				patientId: "100001",
-				payTypeId: "31",
+				payTypeId: "5031",
 				payModel: "MINI_PROGRAM",
 				paymentSystemUserId: "openid-001",
 				payType: "CREDIT",
@@ -551,7 +551,7 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "",
 		paymentOrgId: "10756",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		fetcher: async (_input, init) => {
@@ -577,7 +577,7 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 			totalFen: 1234,
 			hospitalId: "10389001",
 			patientId: "100001",
-			payTypeId: "31",
+			payTypeId: "5031",
 			payModel: "H5",
 			payType: "CREDIT",
 			workStationId: "",
@@ -744,7 +744,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		authorizationToken: "",
 		paymentOrgId: "10756",
 		hospitalId: "10389001",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		tradeTypeCode: "10",
@@ -799,9 +799,9 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 	});
 	expect(requests[2]?.body).toMatchObject({
 		payModel: "MINI_PROGRAM",
-		payTypeId: 31,
+		payTypeId: 5032,
 		paymentSystemUserId: "openid-self-001",
-		payTypeParams: [{ payTypeId: 31, paymentSystemUserId: "openid-self-001" }],
+		payTypeParams: [{ payTypeId: 5032, paymentSystemUserId: "openid-self-001" }],
 	});
 	expect(requests[1]?.method).toBe("GET");
 	expect(requests[1]?.url).toBe(
@@ -867,7 +867,7 @@ test("门诊自费使用 tradeTypeCode=2、挂号相同 autoSettle 和 2.6.33 �
 		authorizationToken: "server-token",
 		paymentOrgId: "10756",
 		hospitalId: "10389001",
-		pluginPayTypeId: "31",
+		pluginPayTypeId: "5031",
 		pluginPayType: "CREDIT",
 		workStationId: "",
 		tradeTypeCode: "10",
@@ -914,7 +914,7 @@ test("门诊自费使用 tradeTypeCode=2、挂号相同 autoSettle 和 2.6.33 �
 	expect(requests[2]?.body).toMatchObject({
 		autoSettle: 3,
 		tradeTypeCode: "2",
-		payTypeId: 31,
+		payTypeId: 5032,
 		payModel: "MINI_PROGRAM",
 	});
 	expect(result.registrationContext).toMatchObject({

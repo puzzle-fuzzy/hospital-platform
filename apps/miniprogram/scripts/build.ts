@@ -135,6 +135,9 @@ const requiredStaticFiles = [
 	"pages/outpatient-payment-detail/outpatient-payment-detail.json",
 	"pages/outpatient-payment-detail/outpatient-payment-detail.wxml",
 	"pages/outpatient-payment-detail/outpatient-payment-detail.wxss",
+	"pages/outpatient-medical-settlement/outpatient-medical-settlement.json",
+	"pages/outpatient-medical-settlement/outpatient-medical-settlement.wxml",
+	"pages/outpatient-medical-settlement/outpatient-medical-settlement.wxss",
 	"pages/profile/profile.json",
 	"pages/profile/profile.wxml",
 	"pages/profile/profile.wxss",
@@ -203,6 +206,7 @@ const requiredTypeScriptFiles = [
 	"pages/registration-payment/registration-payment.ts",
 	"pages/payment-result/payment-result.ts",
 	"pages/medical-cashier/medical-cashier.ts",
+	"pages/outpatient-medical-settlement/outpatient-medical-settlement.ts",
 ];
 const requiredAssetDirectories = ["assets"];
 
@@ -250,6 +254,7 @@ const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
 	};
 	setting?: {
 		compileHotReLoad?: unknown;
+		ignoreUploadUnusedFiles?: unknown;
 		useCompilerPlugins?: unknown;
 	};
 };
@@ -263,6 +268,11 @@ const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
 if (projectConfig.setting?.compileHotReLoad !== false) {
 	throw new Error(
 		"Mini program project.config.json must keep setting.compileHotReLoad=false",
+	);
+}
+if (projectConfig.setting?.ignoreUploadUnusedFiles !== false) {
+	throw new Error(
+		"Mini program project.config.json must keep setting.ignoreUploadUnusedFiles=false",
 	);
 }
 
@@ -839,6 +849,7 @@ try {
 			uploadWithSourceMap: true,
 			compileHotReLoad: false,
 			ignoreDevUnusedFiles: false,
+			ignoreUploadUnusedFiles: false,
 		},
 		packOptions: {
 			ignore: [],

@@ -695,72 +695,8 @@ export class MedicalInsuranceRegistrationService {
 			);
 			throw new MedicalInsuranceAppointmentStaleError();
 		}
-		// 同一个授权幂等键只表示同一次医保小程序回跳，可安全恢复原订单。
-		// 新幂等键表示用户已经重新展码：旧授权、payAuthNo、ecToken、6201
-		// 和 6202 结果都不能继续复用。创建新订单前必须先安全关闭旧业务单；
-		// 未确认关闭时保持失败关闭，绝不能让新授权与旧支付流水交叉。
-		if (!order && this.dependencies.orders.findByOwnerAndBusinessKey) {
-			const previousOrder =
-				await this.dependencies.orders.findByOwnerAndBusinessKey(
-					ownerUserId,
-					"registration",
-					appointmentId,
-				);
-			if (
-				previousOrder &&
-				((previousOrder.appointmentId !== undefined &&
-					previousOrder.appointmentId !== appointmentId) ||
-					(previousOrder.businessId !== undefined &&
-						previousOrder.businessId !== appointmentId) ||
-					(previousOrder.businessType !== undefined &&
-						previousOrder.businessType !== "registration") ||
-					previousOrder.patientId !== appointment.patientId)
-			) {
-				throw new MedicalInsuranceRegistrationInputError(
-					"Medical insurance business key conflicts with appointment",
-				);
-			}
-			if (
-				previousOrder?.status !== undefined &&
-				previousOrder.status !== "cancelled"
-			) {
-				this.logger.info(
-					{
-						event: "medical-insurance.reauthorization.cancellation.requested",
-						traceId: context.traceId,
-						ownerUserId,
-						orderId: previousOrder.medicalOrderId,
-						appointmentId,
-						previousStatus: previousOrder.status,
-					},
-					"Fresh medical insurance authorization is closing the previous order",
-				);
-				const cancellation = await this.core.cancel({
-					ownerUserId,
-					orderId: previousOrder.medicalOrderId,
-					reason: "reauthorization",
-					context,
-				});
-				if (
-					cancellation.status !== "cancelled" ||
-					!cancellation.restartAllowed
-				) {
-					throw new MedicalInsuranceRegistrationInputError(
-						"旧医保订单未能安全关闭，不能使用新的授权码发起支付",
-					);
-				}
-				this.logger.info(
-					{
-						event: "medical-insurance.reauthorization.cancellation.completed",
-						traceId: context.traceId,
-						ownerUserId,
-						orderId: previousOrder.medicalOrderId,
-						appointmentId,
-					},
-					"Previous medical insurance order closed for fresh authorization",
-				);
-			}
-		}
+		// 同一个授权幂等键只恢复同一次回跳；新幂等键直接创建独立的新医保
+		// 订单，不按 appointmentId 查找、校验或关闭重复/旧订单。
 		if (!order) {
 			const now = this.now().toISOString();
 			const medicalOrderId = this.createId();

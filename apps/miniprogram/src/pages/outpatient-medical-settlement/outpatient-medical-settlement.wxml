@@ -1,0 +1,45 @@
+<scroll-view class="settlement-scroll" scroll-y="true" enhanced="true">
+	<view class="settlement-page">
+		<view wx:if="{{error}}" class="state-card error-state">
+			<text class="state-title">结算页面不可用</text>
+			<text class="state-message">{{error}}</text>
+			<button class="back-button" bindtap="onBack">返回门诊缴费</button>
+		</view>
+
+		<block wx:elif="{{hasPending}}">
+			<view class="settlement-hero">
+				<text class="settlement-hero-label">付款给</text>
+				<text class="settlement-hero-hospital">高平市人民医院</text>
+			</view>
+
+			<view class="amount-card">
+				<view class="amount-row amount-total-row">
+					<text>费用总额</text>
+					<text class="amount-total">{{totalAmountLabel}}</text>
+				</view>
+				<view class="amount-row">
+					<text>医保支付</text>
+					<text>{{insuranceAmountLabel}}</text>
+				</view>
+				<view class="amount-row">
+					<text>微信支付</text>
+					<text>{{cashAmountLabel}}</text>
+				</view>
+				<view class="amount-divider"></view>
+				<text class="amount-source">金额来自服务端医保 6202 结算结果，客户端不重新计算或修改。</text>
+			</view>
+
+			<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
+			<view class="settlement-bottom-bar">
+				<text class="settlement-remaining-label">您还需支付：</text>
+				<text class="settlement-remaining-amount">{{cashAmountLabel}}</text>
+				<button
+					class="primary-button"
+					bindtap="onPay"
+					loading="{{paymentBusy}}"
+					disabled="{{paymentBusy}}"
+				>去支付</button>
+			</view>
+		</block>
+	</view>
+</scroll-view>

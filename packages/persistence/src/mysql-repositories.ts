@@ -536,6 +536,15 @@ function deserializeMedicalInsuranceSettlementContext(
 			undefined
 			? (parsed as { settlementWriteback: unknown }).settlementWriteback
 			: undefined;
+	const selfPaySettlementWriteback =
+		typeof parsed === "object" &&
+		parsed !== null &&
+		!Array.isArray(parsed) &&
+		(parsed as { selfPaySettlementWriteback?: unknown })
+			.selfPaySettlementWriteback !== undefined
+			? (parsed as { selfPaySettlementWriteback: unknown })
+					.selfPaySettlementWriteback
+			: undefined;
 	const settlementCompletion =
 		typeof parsed === "object" &&
 		parsed !== null &&
@@ -543,6 +552,15 @@ function deserializeMedicalInsuranceSettlementContext(
 		(parsed as { settlementCompletion?: unknown }).settlementCompletion !==
 			undefined
 			? (parsed as { settlementCompletion: unknown }).settlementCompletion
+			: undefined;
+	const selfPaySettlementCompletion =
+		typeof parsed === "object" &&
+		parsed !== null &&
+		!Array.isArray(parsed) &&
+		(parsed as { selfPaySettlementCompletion?: unknown })
+			.selfPaySettlementCompletion !== undefined
+			? (parsed as { selfPaySettlementCompletion: unknown })
+					.selfPaySettlementCompletion
 			: undefined;
 	const invalidSettlementWriteback = (() => {
 		if (settlementWriteback === undefined) return false;
@@ -563,6 +581,25 @@ function deserializeMedicalInsuranceSettlementContext(
 				typeof value.providerStatus !== "string")
 		);
 	})();
+	const invalidSelfPaySettlementWriteback = (() => {
+		if (selfPaySettlementWriteback === undefined) return false;
+		if (
+			!selfPaySettlementWriteback ||
+			typeof selfPaySettlementWriteback !== "object" ||
+			Array.isArray(selfPaySettlementWriteback)
+		)
+			return true;
+		const value = selfPaySettlementWriteback as Record<string, unknown>;
+		return (
+			typeof value.attemptedAt !== "string" ||
+			!value.attemptedAt.trim() ||
+			!new Set(["succeeded", "failed", "unknown"]).has(String(value.status)) ||
+			(value.providerRequestId !== undefined &&
+				typeof value.providerRequestId !== "string") ||
+			(value.providerStatus !== undefined &&
+				typeof value.providerStatus !== "string")
+		);
+	})();
 	const invalidSettlementCompletion = (() => {
 		if (settlementCompletion === undefined) return false;
 		if (
@@ -572,6 +609,25 @@ function deserializeMedicalInsuranceSettlementContext(
 		)
 			return true;
 		const value = settlementCompletion as Record<string, unknown>;
+		return (
+			typeof value.attemptedAt !== "string" ||
+			!value.attemptedAt.trim() ||
+			!new Set(["succeeded", "failed", "unknown"]).has(String(value.status)) ||
+			(value.providerRequestId !== undefined &&
+				typeof value.providerRequestId !== "string") ||
+			(value.providerStatus !== undefined &&
+				typeof value.providerStatus !== "string")
+		);
+	})();
+	const invalidSelfPaySettlementCompletion = (() => {
+		if (selfPaySettlementCompletion === undefined) return false;
+		if (
+			!selfPaySettlementCompletion ||
+			typeof selfPaySettlementCompletion !== "object" ||
+			Array.isArray(selfPaySettlementCompletion)
+		)
+			return true;
+		const value = selfPaySettlementCompletion as Record<string, unknown>;
 		return (
 			typeof value.attemptedAt !== "string" ||
 			!value.attemptedAt.trim() ||
@@ -640,7 +696,7 @@ function deserializeMedicalInsuranceSettlementContext(
 					].includes(String(value.kind)) ||
 					!["pending", "succeeded", "failed"].includes(String(value.state)) ||
 					!["H5", "MINI_PROGRAM"].includes(String(value.payModel)) ||
-					!["2", "3", "5", "31", "50", "5027"].includes(
+					!["2", "3", "5", "31", "50", "5027", "5031", "5032"].includes(
 						String(value.payTypeId),
 					) ||
 					!["componentId", "recordCode", "updatedAt"].every(
@@ -702,7 +758,9 @@ function deserializeMedicalInsuranceSettlementContext(
 				.settlementDetailsProviderRequestId !== "string") ||
 		invalidSettlementQuery6301 ||
 		invalidSettlementWriteback ||
+		invalidSelfPaySettlementWriteback ||
 		invalidSettlementCompletion ||
+		invalidSelfPaySettlementCompletion ||
 		invalidPostPaymentComponents ||
 		typeof (parsed as { networkRegister?: unknown }).networkRegister !==
 			"object" ||
@@ -2193,6 +2251,7 @@ function medicalWechatPayParams(
 	}
 	const record = parsed as Record<string, unknown>;
 	const expectedFields = [
+		"appId",
 		"timeStamp",
 		"nonceStr",
 		"package",
@@ -2207,6 +2266,11 @@ function medicalWechatPayParams(
 		"signType",
 		"paySign",
 	].some((key) => key in record);
+	const hasMixTradeNo =
+		typeof record.mixTradeNo === "string" &&
+		Boolean(record.mixTradeNo) &&
+		String(record.mixTradeNo).length <= 32;
+	const hasAppId = typeof record.appId === "string" && Boolean(record.appId);
 	const validRsa =
 		record.signType === "RSA" &&
 		typeof record.timeStamp === "string" &&
@@ -2218,6 +2282,7 @@ function medicalWechatPayParams(
 		Boolean(record.package) &&
 		Boolean(record.paySign);
 	const validMd5 =
+		hasMixTradeNo &&
 		record.signType === "MD5" &&
 		typeof record.timeStamp === "string" &&
 		/^\d{10}$/u.test(record.timeStamp) &&
@@ -2230,10 +2295,10 @@ function medicalWechatPayParams(
 		/^[A-Fa-f0-9]{32}$/u.test(record.paySign);
 	if (
 		Object.keys(record).some((key) => !expectedFields.includes(key)) ||
-		typeof record.mixTradeNo !== "string" ||
-		!record.mixTradeNo ||
-		String(record.mixTradeNo).length > 32 ||
-		(hasJsapiFields && !validRsa && !validMd5)
+		(!hasMixTradeNo && !hasAppId) ||
+		(hasAppId && !validRsa) ||
+		(hasJsapiFields && !validRsa && !validMd5) ||
+		(!hasJsapiFields && !hasMixTradeNo)
 	) {
 		throw new Error("Persistence returned invalid medical Wechat pay params");
 	}
