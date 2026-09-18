@@ -1213,14 +1213,14 @@ test("挂号 6202 后先落库 6301 候选并只调用 .32", async () => {
 		fixmedinsName: "高平市人民医院",
 		insurOrgId: 10001,
 		outVisitRecordId: -1,
-		settleSource: 4001,
+		settleSource: 4003,
 	});
 	const notifyBodies = providerBodies
 		.filter((request) => request.path.endsWith("/settle-info/notify"))
 		.map((request) => request.body);
 	expect(notifyBodies[1]?.outNetworkSettleMain).toMatchObject({
 		transId: "paying-wechat-cash-sequence-001",
-		settleSource: 4001,
+		settleSource: 4003,
 	});
 	expect(notifyBody?.networkRegister).toMatchObject({
 		insuTypeName: "职工基本医疗保险",

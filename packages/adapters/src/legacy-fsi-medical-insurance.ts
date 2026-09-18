@@ -55,6 +55,8 @@ const DEFAULT_SETTLEMENT_INSUR_ORG_ID = 10001;
 const DEFAULT_SETTLEMENT_FIXMEDINS_NAME = "高平市人民医院";
 const DEFAULT_SETTLEMENT_FIXMEDINS_CODE = "H14058101270";
 const DEFAULT_SETTLEMENT_OUT_VISIT_RECORD_ID = -1;
+// HIS 2.27.2.32 结算来源按当前院方合同固定为 4003。
+const DEFAULT_SETTLEMENT_SOURCE = 4003;
 // 众阳 2.6.65.4 文档示例使用 2；2.6.65.11 仍沿用挂号旧端实际使用的 3。
 const DEFAULT_PAY_QUERY_AUTO_SETTLE = 2;
 // 6201 的就医凭证类型沿用当前 1101 授权请求使用的居民身份证类型。
@@ -1318,7 +1320,7 @@ function buildOutNetworkSettleMainFrom6202(
 		),
 	);
 	set("settleNo", preValue(["medins_setl_id"]));
-	set("settleSource", 4001);
+	set("settleSource", DEFAULT_SETTLEMENT_SOURCE);
 	set("settleType", "1");
 	return main;
 }
@@ -1395,8 +1397,8 @@ function composeOutNetworkSettleMain(
 		setIfMissing("amount", fenToYuan(options.amounts.totalFen));
 		setIfMissing("getAmount", fenToYuan(options.amounts.cashFen));
 	}
-	// 2.27.2.32 结算来源按新业务合同固定为 4001，不能沿用旧的 3002。
-	main.settleSource = 4001;
+	// 2.27.2.32 结算来源按当前业务合同固定为 4003，不能沿用旧的 3002。
+	main.settleSource = DEFAULT_SETTLEMENT_SOURCE;
 	setIfMissing("settleType", "1");
 	return main;
 }
@@ -2458,7 +2460,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					networkRegister: normalizedNetworkRegister,
 					outNetworkSettleMain: {
 						...settlementContext.outNetworkSettleMain,
-						settleSource: 4001,
+						settleSource: DEFAULT_SETTLEMENT_SOURCE,
 						transId: selfPayComponent.payingId,
 					},
 					outSettleMainId: settlementContext.businessId,
