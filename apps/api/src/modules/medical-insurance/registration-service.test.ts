@@ -666,10 +666,18 @@ test("门诊医保授权复用统一订单核心并从 2.6.33 解析支付事实
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	const authorizations =
 		createInMemoryMedicalInsuranceAuthorizationRepository();
+	const ordersWithoutBusinessKeyLookup = {
+		...orders,
+		findByOwnerAndBusinessKey: async () => {
+			throw new Error(
+				"outpatient authorization must not inspect previous business orders",
+			);
+		},
+	};
 	let contextInput: { recordId: string; providerPatientId: string } | undefined;
 	let authorizePatientId = "";
 	const service = new MedicalInsuranceRegistrationService({
-		orders,
+		orders: ordersWithoutBusinessKeyLookup as never,
 		authorizations,
 		appointments: {} as never,
 		patients: {
