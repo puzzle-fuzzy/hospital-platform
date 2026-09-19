@@ -3514,6 +3514,15 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	const settlementStyle = await source(
 		"pages/outpatient-medical-settlement/outpatient-medical-settlement.wxss",
 	);
+	const paymentResultTemplate = await source(
+		"pages/payment-result/payment-result.wxml",
+	);
+	const paymentResultStyle = await source(
+		"pages/payment-result/payment-result.wxss",
+	);
+	const paymentResultPage = await source(
+		"pages/payment-result/payment-result.ts",
+	);
 	const medicalInsurance = await source("services/medical-insurance.ts");
 
 	expect(app).toContain('"pages/outpatient-payment/outpatient-payment"');
@@ -3583,10 +3592,14 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(recordPayButtonIndex).toBeGreaterThan(visitTimeIndex);
 	expect(outpatientStyle).toContain("width: 82rpx;");
 	expect(outpatientTemplate).toContain(">支付</button>");
-	expect(settlementTemplate).toContain("服务端医保 6202 结算结果");
+	expect(settlementTemplate).toContain("金额来自医保 6202 结算结果");
+	expect(settlementTemplate).toContain('wx:if="{{loading || hasPending}}"');
+	expect(settlementTemplate).toContain("settlement-loading-mask");
+	expect(settlementTemplate).toContain("拼命加载中，请耐心等待 ...");
 	expect(settlementTemplate).toContain(
-		"正在调用医保授权、费用上传和 6202 结算接口",
+		'src="/assets/medical-insurance-logo.png"',
 	);
+	expect(settlementTemplate).not.toContain('class="state-card loading-state"');
 	expect(settlementTemplate).toContain("settlement-bottom-bar");
 	expect(settlementTemplate).toContain("您还需支付：");
 	expect(settlementTemplate).toContain('bindtap="onPay"');
@@ -3595,6 +3608,16 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(settlementPage).toContain("settlementProgressMessage");
 	expect(settlementStyle).toContain("position: fixed;");
 	expect(settlementStyle).toContain(".settlement-bottom-bar");
+	expect(settlementStyle).toContain(".settlement-loading-mask");
+	expect(settlementStyle).toContain("background: rgba(0, 0, 0, 0.56);");
+	expect(paymentResultTemplate).toContain('class="result-hero"');
+	expect(paymentResultTemplate).toContain("{{hospitalName}}");
+	expect(paymentResultTemplate).toContain("本次费用明细");
+	expect(paymentResultTemplate).not.toContain("paid-badge");
+	expect(paymentResultTemplate).not.toContain("confirmed-message");
+	expect(paymentResultStyle).toContain(".primary-button,");
+	expect(paymentResultStyle).toContain("flex: 1;");
+	expect(paymentResultPage).toContain("queryMedicalOrder");
 	// 测试期不对同一医保订单自动做支付中拦截：不能从小程序调用
 	// /cancel，否则会进入 Provider 的 .4/.11/.6 关单链路。
 	expect(medicalInsurance).toContain("测试期重复订单规则");

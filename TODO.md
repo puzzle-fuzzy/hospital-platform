@@ -1,10 +1,10 @@
-# 非支付业务迁移全量 TODO
+# 全量业务迁移、支付与用户体验 TODO
 
-更新时间：2026-09-17
+更新时间：2026-09-19
 
 ## 审计范围与结论
 
-本清单只覆盖旧服务中可以核对的非支付业务：小程序页面、患者中心、预约目录与非支付预约动作、报告、门诊/住院只读、健康内容、临床问卷、便民服务、智能导诊/陪诊、外部入口，以及后台运营能力。支付、医保、退费、收银台、账单支付和支付相关 HIS 回写不进入本清单，只保留为范围排除。
+本文件分为两层：第一层继续维护旧服务中可以核对的非支付迁移：小程序页面、患者中心、预约目录与非支付预约动作、报告、门诊/住院只读、健康内容、临床问卷、便民服务、智能导诊/陪诊、外部入口和后台运营；第二层新增维护支付链路中途退出、退费、支付/医保/HIS 回写、迁移完整性复核和用户体验优化。支付不再从本文件全局排除，但所有真实支付、退费、Provider、微信、HIS 和生产写入仍必须经过独立 gate，不能因为代码或本地测试存在就开放。
 
 本轮使用的旧服务根目录是 /Users/yxswy/Documents/GitHub/hospital，新项目根目录是当前仓库。审计原则是：
 
@@ -13,8 +13,8 @@
 - 只有旧服务确实有可执行行为，才建立迁移项；旧端自身是静态壳、本地假保存或 TODO 的功能，记录为“不应凭空实现”，不把它伪造成缺失的旧业务。
 - 真正开放必须形成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 真实验收闭环。
 
-当前 TODO 复选框总数为 37 项，其中已完成 19 项、未完成 18 项。
-另按标题优先级统计未完成项为：P0 0、P1 17、P2 1、P3 0。
+当前 TODO 复选框总数为 42 项，其中已完成 19 项、未完成 23 项。
+另按标题优先级统计未完成项为：P0 0、P1 22、P2 1、P3 0。
 
 ## 2026-09-16 用户范围确认与执行记录
 
@@ -52,36 +52,53 @@
 
 ## 当前机器事实
 
-以旧仓库路径显式运行 pnpm migration:audit 的结果：
+以旧仓库路径显式运行 `pnpm migration:audit`、`pnpm migration:boundary:audit`、
+`pnpm migration:breadth:audit`、`pnpm docs:audit` 和 `pnpm migration:readiness` 的
+2026-09-19 只读结果为准：
 
-- 旧端实际页面 64 个；新端 app.json 已注册原生页面 52 个。
+- 旧端实际页面 64 个；当前新端 `app.json` 已注册原生页面 54 个。
 - 页面台账状态为 partial=45、replaced=10、surface-only=8、blocked-provider=0、blocked-external=0、excluded=1。
 - 旧端 API 挂载路由 195 条，另有 1 个未挂载路由文件；旧客户端抽取到 87 个 endpoint literal。
 - 旧客户端行为还包含 websocket=1、mini-program-navigation=6、web-view=3、payment-invocation=3、qr-and-official-account=6、insurance-callback=4。
 - 当前不是“64 个页面都完成”，而是 64 个旧入口都在迁移台账中有落点；其中大量落点是安全子集或关闭态。
+- 当前台账并未覆盖新 `app.json` 中的 `pages/outpatient-medical-settlement/outpatient-medical-settlement`
+  和 `pages/payment-result/payment-result`，因此迁移盘点命令当前以“台账缺 2 个原生页面”失败；这不是把页面删除或把支付能力判定为完成的理由，必须补齐来源、状态、边界和运行包登记。
 
 关键命令的当前结果：
 
 | 命令 | 结果 | 说明 |
 | --- | --- | --- |
-| LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 通过 | 证明旧页面和迁移矩阵逐项可对照，不证明业务验收 |
-| pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界均通过 |
+| LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital pnpm migration:audit | 当前失败 | 64 个旧页面、195 条路由、87 个 endpoint 盘点本身可读，但新端台账漏登记 2 个页面：`outpatient-medical-settlement`、`payment-result` |
+| pnpm migration:boundary:audit | 通过 | 33 个冻结入口、陪诊/报告 action 事件绑定和生产源码边界通过；不代表页面后的 Provider/支付业务完成 |
 | pnpm migration:fact:audit | 当前工作树未通过 | 该审计要求运行包输入来自干净 Git checkout；本轮用户范围内保留的未提交迁移源码使其按规则停止，不能将 dirty 工作树写成发布事实 |
-| 小程序 build/runtime verify | 通过 | 当前 development sourceRevision=`workspace-sha256:058b1c90a85c14e678b43a0174d7cceab4e177d4bf562b6f9d7adf9d51cdd800`、generatedAt=`2026-09-16T15:20:52.257Z`、pageCount=52；本轮只证明用户指定目录已按当前源码生成并可被运行时校验 |
+| pnpm migration:readiness | 结构通过、业务未通过 | 当前 `structuralAuditPassed=true`，但 `businessCompletion.passed=false`；代码就绪域 6、真实证据域 0，当前 live 运行包为 54 页、没有 pending 候选、没有真机证据 |
 | `pnpm --filter @hospital/worker test`、住院 domain/adapter/API/小程序定向回归 | 通过 | Worker 86 pass；住院 service 2、adapter 3、domain 2、miniprogram acceptance/dashboard 190 pass；未触碰支付/费用实现 |
 | `pnpm test` | 限定阻塞 | 其余测试通过；仅 `apps/api/src/modules/outpatient-payments/service.test.ts` 两个既有测试使用固定 `2026-08-16` 账单日期，在当前 2026-09-16 的服务端 30 天窗口校验中失败。该文件属于费用/账单支付范围，本轮不修改；不能把全 workspace 说成全绿 |
-| pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过，不代表服务全部可用 |
-| pnpm miniprogram:navigation:audit | 通过 | 52 页面、4 主 Tab、43 个字面导航调用 |
-| pnpm miniprogram:patient-display:audit | 通过 | 扫描 104 个页面源文件 |
+| pnpm migration:breadth:audit | 通过 | 首页/我的入口结构通过；当前报告为 2 个 action 页面、4 个 feature-status 调用、54 个交互页面、4 个主 Tab，不代表服务全部可用 |
+| pnpm docs:audit | 通过 | 261 个 Markdown 文档无断链；部分迁移报告仍保留历史 47/52 页口径，必须在 P1-23 中标记或更新 |
 | pnpm clinical:contract:audit | 通过但保持关闭 | 门诊记录、住院信息、电子导诊单仍 contract-pending |
 | pnpm readonly:audit | 通过 | 6 个低风险业务域的结构闭环通过，不替代 Provider/真机证据 |
-| pnpm todo:audit | 通过 | 本文件 37 项复选框及 P0/P1/P2/P3 统计已校验；已完成 19、未完成 18；P0 已清零 |
+| pnpm todo:audit | 通过 | 42 项复选框：已完成 19、未完成 23；P0 已清零；P1 未完成 22 项、P2 未完成 1 项 |
 
 默认 shell 下的 pnpm 命令仍报告 Node engine wanted 24.12.0、当前 v26.8.1；本轮已用显式 Node 24.12.0 完成工具链和小程序运行包复现。外部 Provider、DevTools、真机和生产证据仍不因本地复现而成立。
 
+## 2026-09-19 新增范围的当前状态快照
+
+下表是本次新增五项待办的现状，不把“代码存在”写成“业务已完成”：
+
+| 范围 | 当前代码事实 | 当前证据与结论 |
+| --- | --- | --- |
+| 支付链路中途退出 | 已有 `/payments/appointments/:appointmentId/payment-exit`；`RegistrationPaymentExitService` 会按预约归属查找自费/医保订单，在未知或已支付状态下保持 fail-closed；小程序对明确取消收银台保留 pending 上下文并尝试服务端退出 | 只覆盖已执行到的明确取消路径。主挂号支付页 `onUnload` 目前只释放页面监听器，不会在页面被销毁时自动完成跨服务退出；应用被杀、网络中断、微信回调已成功但页面消失等场景仍需真实联调和恢复验收。支付/医保 gate 与真实 Provider、微信、HIS 证据仍未打开 |
+| 退费 | 已有 `WechatRefund` 状态模型、`0050_wechat_refunds` 台账、Admin 退款查询/发起接口、微信 APIv3 退款/查单 adapter；挂号纯自费取消在订单 `completed` 且退款与 `.15` 回写确认后才取消预约 | 普通微信自费和医保混合现金部分已有管理端代码，但无患者端统一退费闭环；医保 FSI `6203` 目前有 contract/adapter 校验端口，却没有贯穿订单、Worker、HIS/医保最终状态的完整业务编排；2.6.65.7/2.6.65.8 文档仍为 normalized，调用方向、鉴权和未知退款查单未确认 |
+| 旧服务迁移完整性 | 旧端 64 页面、195 条挂载路由、87 个客户端 endpoint literal 和 7 类客户端行为已经纳入盘点；新端当前 `app.json` 54 页，33 个冻结入口边界审计通过 | 当前迁移盘点因台账缺少 `outpatient-medical-settlement`、`payment-result` 两个页面而失败；大量页面是 partial、安全子集或关闭态。readiness 结构通过但真实证据域为 0，不能说旧服务已完整迁移 |
+| 服务链路与用户体验 | 页面已有 preparing/authorizing/insuring/settling/polling/cash-confirming/self-confirming/success 等阶段文案；订单、幂等键、服务端查单和 pending 恢复已有实现 | 阶段状态尚未形成挂号、门诊缴费、医保混合、退款和 HIS 回写统一的用户状态协议；没有当前候选的 DevTools/真机/服务端同链证据，也没有按“确认中、已扣款待医院确认、退费中、人工复核”统计用户结果。体验优化必须先基于真实失败样本，不能只改文案 |
+| 医保结算页费用明细/处方明细 | 当前结算页只展示 6202 返回的费用总额、医保基金支付和现金支付，没有项目级处方明细接口或明细数据模型。现有 `/payments/outpatient/records/:recordId` 虽然是“按 ID 查询”入口，但服务端实际重新读取 2.6.33 待缴/已缴列表，再按平台 opaque `recordId` 匹配；公共 API 也明确不返回项目级明细 | 暂时可用同一患者、同一 `recordId`、同一 `status=unpaid` 的待缴费列表快照展示项目名称、数量、单价等已白名单字段，但这不是 HIS 按订单 ID 查询。需要向 HIS/众阳确认是否有按 `outTradeOrderId/mainId/chargeId/presCode/visitRecordId` 查询处方明细的正式接口、字段契约和与 6201/6202 的关联；未确认前不得把列表摘要标成“正式处方明细”或让明细金额替代 6202 结算金额 |
+
+支付业务的统一完成定义：`wx.requestPayment`/`wx.requestMedicalInsurancePay` 返回成功只代表客户端调起或支付层结果，不能直接显示“挂号成功/缴费完成”。挂号自费必须经过服务端查单、众阳 `.5` 的 `isSettle=1`、HIS 回写和本地终态；医保混合支付必须经过 6201/6202、微信或医保查单、2.27.2.32 和 `.5` 等适用后置证据。任何未知结果都进入 `awaiting_confirmation`/`manual_review`，不得自动重付、盲目关单、重复退款或释放仍可能有效的号源。
+
 ## 64 个旧页面逐项落点
 
-机器事实源是 apps/miniprogram/src/services/legacy-page-catalog.ts:49-548；旧页面注册源是旧仓库 hospital-app/src/pages.json:53-96 及其 subPackages。下面把 64 个页面全部列出，并把支付项单独标为范围排除。
+机器事实源是 `apps/miniprogram/src/services/legacy-page-catalog.ts:49-548`；旧页面注册源是旧仓库 `hospital-app/src/pages.json:53-96` 及其 subPackages。下面把 64 个非支付旧页面全部列出；支付页面和支付状态由本文后面的 P1-21～P1-25 单独维护，不能用本表的页面落点代替支付完成证据。
 
 | 旧页面 | 当前落点和状态 | 代码证据 / 结论 |
 | --- | --- | --- |
@@ -335,15 +352,121 @@ P1-18～P1-20 当前顺序复核（2026-09-17）：重新核对患者签名、�
 
 ### P3 后台能力不能只看患者小程序
 
-- [x] P3-01 做旧后台系统管理域的迁移决策和实现排期：旧 FastAPI 总路由把 system、monitor、common、application、convenience、intelligent、knowledge 全部挂载，system 还包含 auth/user/role/menu/dept/position/dict/params/notice/log；当前新 API system 只有 ping，管理端只有认证兼容、日志和范围外管理入口，不能称为旧后台已迁移。已逐模块记录旧路由数量、当前承接状态、保留/新建/下线决策和 A0-A5 实现排期，见 [`后台系统管理域迁移决策与排期-2026-09-16.md`](docs/迁移/后台系统管理域迁移决策与排期-2026-09-16.md)。本项完成的是决策和排期，不代表后台 user/role/menu/dept/position/dict/params/notice 已实现；实际实现仍需责任人、RBAC、数据保留、staging 和生产验收，支付/医保管理入口继续排除。
+- [x] P3-01 做旧后台系统管理域的迁移决策和实现排期：旧 FastAPI 总路由把 system、monitor、common、application、convenience、intelligent、knowledge 全部挂载，system 还包含 auth/user/role/menu/dept/position/dict/params/notice/log；当前新 API system 只有 ping，管理端只有认证兼容、日志和范围外管理入口，不能称为旧后台已迁移。已逐模块记录旧路由数量、当前承接状态、保留/新建/下线决策和 A0-A5 实现排期，见 [`后台系统管理域迁移决策与排期-2026-09-16.md`](docs/迁移/后台系统管理域迁移决策与排期-2026-09-16.md)。本项完成的是决策和排期，不代表后台 user/role/menu/dept/position/dict/params/notice 已实现；实际实现仍需责任人、RBAC、数据保留、staging 和生产验收。支付/医保管理入口由 P1-21～P1-25 独立管理，仍未开放。
 
-- [x] P3-02 补齐后台监控、任务、文件和便民运营闭环，或形成明确不迁移记录：旧 monitor/application/common/convenience 的真实路由、当前新管理端缺口、旧服务保留边界、非支付文件/便民处置、删除与数据保留规则及解锁条件已记录在 [`后台监控任务文件与便民运营不迁移记录-2026-09-16.md`](docs/迁移/后台监控任务文件与便民运营不迁移记录-2026-09-16.md)。本项完成的是当前范围内的“不迁移记录”，不代表后台运营闭环已实现；若确认仍在生产使用，必须另行补 RBAC、审计、列表/详情/处理状态、失败重试和 staging/生产验收。支付/医保/结算 common 路由继续排除。
+- [x] P3-02 补齐后台监控、任务、文件和便民运营闭环，或形成明确不迁移记录：旧 monitor/application/common/convenience 的真实路由、当前新管理端缺口、旧服务保留边界、非支付文件/便民处置、删除与数据保留规则及解锁条件已记录在 [`后台监控任务文件与便民运营不迁移记录-2026-09-16.md`](docs/迁移/后台监控任务文件与便民运营不迁移记录-2026-09-16.md)。本项完成的是当前范围内的“不迁移记录”，不代表后台运营闭环已实现；若确认仍在生产使用，必须另行补 RBAC、审计、列表/详情/处理状态、失败重试和 staging/生产验收。支付/医保/结算 common 路由由 P1-21～P1-25 独立管理，仍未开放。
 
 - [x] P3-03 建立迁移清单和实际代码的持续一致性门禁：已将 migration:audit、migration:boundary:audit、migration:contract:audit、migration:fact:audit、todo:audit、runtime:verify、clinical:contract:audit、readonly:audit、provider:audit、页面/患者显示审计、文档和工具链检查纳入根 `pnpm check:candidate`，GitHub CI 统一执行该命令；并在 [`迁移一致性持续门禁-2026-09-16.md`](docs/发布/迁移一致性持续门禁-2026-09-16.md) 记录每次页面、FeatureKey、旧接口矩阵或 dist 变化需同步来源 revision、旧页面状态、五类验收状态和未验证项。本项完成门禁配置，不把门禁通过写成 Provider、真机、生产或支付验收。
 
+## P1：支付、迁移完整性与用户体验
+
+### P1-21 处理支付链路中途退出但挂号或缴费已经成功
+
+- [ ] P1-21 建立挂号、自费缴费、医保支付和混合支付的“中途退出/页面销毁/回调不确定”闭环：当前服务端已有 `POST /payments/appointments/:appointmentId/payment-exit` 和 `RegistrationPaymentExitService`，会按预约归属收敛自费订单、医保订单和预约状态；自费退款要求订单已确认完成，医保或混合支付在状态未知、已支付或现金已扣款时保持 fail-closed。小程序对明确的微信取消、医保授权取消会保留 pending 上下文并请求服务端退出，`payment-state.ts` 也已定义 `created → authorized/pre_settled/insurance_submitted/cash_pending → cash_paid → his_written_back → completed` 等状态。但 `registration-payment` 页的 `onUnload` 目前只释放监听器，不会在页面被系统销毁、应用被杀、网络中断或回调已成功而页面消失时自动完成服务端收敛；现有本地测试也不等于微信、Provider、HIS 的真实最终状态。
+
+  实施边界和顺序：
+
+  1. 先冻结订单主键、预约主键、`outTradeNo`、医保 `tradeNo/mixTradeNo`、`requestId/traceId` 和当前支付状态的来源；每次恢复必须先查服务端，不得以本地 pending 或客户端回调单独判断“未支付”。
+  2. 为明确取消、返回、超时、页面销毁、应用重启、网络 5xx、微信支付成功但未回到页面、医保授权成功但现金阶段未完成分别定义幂等的 `payment-exit`/`resume` 行为；未知状态只能进入 `awaiting_confirmation` 或人工复核，不能直接关闭订单、释放号源或重新发起支付。
+  3. 将挂号、自费门诊、医保纯支付、现金+医保混合支付和从预约记录进入的补缴入口统一到同一状态协议；服务端负责查询、取消、退款、预约取消和 HIS/医保回写顺序，客户端不自行拼接多次关闭或退款。
+  4. 对“已经成功但页面退出”提供恢复页：显示确认中、已扣款待医院确认、退费中或需要人工处理，并提供查状态入口；在最终状态明确前禁止重复付款。
+  5. 只在服务端最终确认后释放预约号源；任何取消/退款失败都保留订单和 pending 证据，展示下一步，不以页面返回或 Toast 当作成功。
+
+  必须覆盖的验收场景：
+
+  - 预支付前返回、关闭弹窗和切换患者：不得生成可支付孤儿订单或误取消他人预约。
+  - 微信/医保授权取消、微信回调超时、网络断开和 HTTP 5xx：可重进恢复，且不会重复支付。
+  - 微信侧已成功但小程序未收到回调、应用被杀、页面 `onUnload`、系统切后台再恢复：服务端查单后分别进入已完成、确认中、失败或人工复核。
+  - 6201/6202 已提交、现金阶段未完成、2.27.2.32 或 `.5 isSettle=1` 已完成：不得盲目取消；必须按真实最终性和补偿顺序处理。
+  - 双击支付、重复返回、重复 `payment-exit`、重复查单和多个设备恢复：结果幂等，日志能按订单和请求关联。
+  - 已完成后用户主动取消：先走受控退款和 HIS/医保回写，再取消预约；任一环节未知则保持人工复核，不释放错误状态。
+
+  完成证据：补齐状态转移表、API/客户端 contract、幂等键和补偿规则；补充 API、Worker、domain、mini-program acceptance；使用当前候选运行包完成 DevTools/真机网络故障和进程终止测试；对每次调用保留受控的入参 JSON、返回 JSON、状态查询和日志完整性摘要。必须分别证明微信侧结果、Provider/医保结果、HIS `.32/.5` 最终性和小程序页面结果，不能把 HTTP 200、`wx.requestPayment` 成功、混合单成功或页面跳转当作结算完成。未完成以上证据前，本项保持未勾选。
+
+### P1-22 建立普通支付、医保混合支付和 HIS 退款的统一退费闭环
+
+- [ ] P1-22 补齐退费的业务边界、患者入口、管理端、Worker 查单和 Provider/HIS 最终状态：当前已有 `WechatRefund` 状态模型、`hp_wechat_refunds` 表、微信 APIv3 退款/查单 adapter、受保护的管理端发起/查询接口；挂号自费取消路径会在订单完成后先退款，确认退款与 `.15` 回写，再取消预约；医保混合支付已有现金部分退款的管理端服务。但目前没有患者端统一的退费申请/状态/结果闭环，没有专门的退款对账/重试 Worker，医保 FSI `6203` 只有 contract/adapter 校验端口，尚未串成订单、医保、HIS、预约和支付结果的完整业务编排；外部材料中 2.6.65.7/2.6.65.8 的方向、鉴权、金额单位和查单语义也仍未确认。
+
+  退费模型和实施顺序：
+
+  1. 先按业务来源拆分普通微信自费、医保混合现金部分、医保纯支付和 HIS/Provider 退费，不允许用一套“微信退款成功”文案覆盖所有来源。
+  2. 固化原订单、可退金额、已退金额、退款原因、患者/预约归属、`merchantRefundNo`/幂等键和资金去向；服务端以分为单位校验金额，保留部分退、全额退、并发退和金额超限拒绝记录。
+  3. 采用 `requested → processing/unknown → query → success/closed/abnormal/manual_review` 的状态机；请求超时或结果未知时复用同一退款记录查单，不能再次创建第二笔退款。
+  4. 明确退款成功、退款确认中、退款异常、需人工复核的客户端展示和管理端处理；退款未最终确认前，不得把预约标为已取消、把 HIS 标为已退或删除原支付证据。
+  5. 由 Worker 或受控任务持续查退款状态，具备最大重试次数、退避、告警和人工接管；补齐 Provider/HIS 回写的正向、失败和回滚记录。
+  6. 患者端只允许退当前 owner 可见且确实可退的订单；管理员接口继续使用独立权限、金额上限和审计，不把管理端 token 暴露给小程序。
+
+  必须覆盖的验收场景：普通自费全额退、混合支付只退现金部分、医保/HIS 退费、部分退、重复点击、同幂等键并发、请求超时、退款状态未知、Provider 返回异常、退款金额超过可退金额、退款成功但后续 `.15`/HIS 回写失败，以及退款已成功后重复查单。每个场景都要核对订单状态、可退余额、预约状态、医保状态、HIS 状态、患者端展示和审计日志。
+
+  完成证据：提供退款 contract、状态转移/金额守恒表、患者和管理端 API、Worker 查单记录、Provider request/response 受控证据、HIS/医保最终性证据和失败恢复演练；明确 6203、2.6.65.7/2.6.65.8 是否采用、由哪个系统发起、谁是最终权威。未确认外部契约前，不新增真实退款按钮，不执行不可逆退款写入。
+
+### P1-23 审查旧服务到新服务的迁移完整性
+
+- [ ] P1-23 完成旧服务页面、API、客户端行为、支付专项和文档口径的逐项迁移复核：2026-09-19 只读盘点得到旧端 64 个页面、195 条已挂载 API 路由、87 个客户端 endpoint literal，以及 websocket=1、mini-program-navigation=6、web-view=3、payment-invocation=3、qr-and-official-account=6、insurance-callback=4；新端当前 `app.json` 为 54 个原生页面。页面台账现状为 partial=45、replaced=10、surface-only=8、blocked-provider=0、blocked-external=0、excluded=1，表示“有落点/安全子集/关闭态”，不表示 64 个旧入口的业务等价已经完成。
+
+  当前明确阻塞：显式设置 `LEGACY_HOSPITAL_ROOT=/Users/yxswy/Documents/GitHub/hospital` 运行 `pnpm migration:audit` 时，台账漏登记 `pages/outpatient-medical-settlement/outpatient-medical-settlement` 和 `pages/payment-result/payment-result` 两个新页面；`migration:boundary:audit` 33 项通过，`migration:breadth:audit` 通过，`docs:audit` 261 篇文档无断链，但 `migration:readiness` 仍为结构通过、业务未通过，代码就绪域 6、真实证据域 0，当前没有真机证据。部分历史迁移报告仍使用 47/52 页旧口径，必须在本项内标注历史或更新，不能与当前 54 页事实混用。
+
+  复核顺序：
+
+  1. 把两个遗漏页面补入旧来源、页面矩阵、Feature/route、边界审计、readiness 和运行包登记，并明确挂号结算页与支付结果页的职责边界。
+  2. 对 64 个旧页面逐项比对旧源码实际行为、新页面/服务落点、状态（replaced/partial/surface-only/excluded）、Provider/外部 contract、读写风险、owner 归属和真实证据；“页面能打开”不得自动改成 replaced 或完成。
+  3. 对 195 条旧路由、87 个客户端 endpoint 和六类特殊行为逐项核对新 API、adapter、domain、persistence、权限、字段白名单、错误态、幂等和日志；特别复核支付/医保/HIS 相关的 F 批次，不与普通非支付迁移混在一起。
+  4. 检查旧页面入口、患者切换、会话失效、WebView、WebSocket、外部小程序、回调、二维码/公众号和数据连续性；旧端假功能、静态壳和本地保存要记录为“无需迁移”或“新需求”，不能凭空实现。
+  5. 同步所有发布、迁移、运行包和审计文档的当前数字，保留历史快照但明确日期和不可作为现状依据的范围。
+  6. 在当前候选源码和 `apps/miniprogram/dist`/development 运行包上分别验证，不手工编辑生成目录；没有 DevTools/真机/Provider/HIS 证据的业务项继续保持待实证。
+
+  交付物为一张可追溯差距矩阵，至少包含：旧路径/接口、旧行为、新落点、状态、contract/版本、读写风险、owner/患者边界、代码测试、运行包 revision、Provider/外部/真机/生产证据、未验证项、下一步和停止条件。完成标准是审计命令重新通过、台账与 `app.json`/API/客户端行为一致、历史口径已隔离、每个业务域有明确“已完成/安全子集/待实证/关闭/不迁移”结论；不以代码量或页面数量宣称迁移完成。
+
+### P1-24 检查服务链路并持续优化用户体验
+
+- [ ] P1-24 建立跨挂号、门诊缴费、医保、混合支付、退款和迁移页面的一致用户体验协议：当前挂号支付页已经有 preparing/authorizing/insuring/settling/polling/cash-paying/self-paying/self-confirming/success 等阶段文案，且部分路径会保存 pending 并恢复；但各业务的“支付成功”“确认中”“已扣款待医院确认”“退费中”“人工复核”仍未统一，DevTools/真机现状也没有当前候选的业务证据。
+
+  优化范围：
+
+  1. 把服务端状态映射为用户可理解且不误导的状态：准备支付、授权中、医院结算中、现金支付中、结果确认中、已完成、已扣款待医院确认、退费处理中、退费成功、退费异常、需要人工处理；错误提示同时说明是否可以重试、是否禁止再次付款以及如何恢复。
+  2. 统一返回、关闭、切后台、应用重启、网络断开和会话过期的处理：保留必要 pending，`onShow` 先查服务端，未知状态不清本地凭据、不重新支付、不释放号源；用户主动切换患者或预约时明确提示当前订单风险。
+  3. 统一金额和业务身份展示：金额只能来自服务端可信字段，清楚区分 6201/6202、6301、2.27.2.32、`.5 isSettle=1` 和普通微信订单；展示挂号费、医保支付、现金支付、已退金额和待退金额，避免把支付层成功显示成 HIS 结算成功。
+  4. 保证支付方式选择只是更新选择状态，只有用户明确确认后才发起支付；防止双击、重复授权、重复退费和多页面同时操作，并为不可逆动作保留确认弹窗和结果页。
+  5. 统一患者、预约、订单和会话切换的归属校验；离开当前患者时不能带走上一位患者的 pending/订单，也不能因为本地缓存缺失而遗忘服务端仍在确认的订单。
+  6. 建立低敏可观测性：用 `requestId/traceId/orderId/providerRequestId` 串起客户端、API、Worker、Provider 和 HIS 结果，记录耗时、重试、状态转换、用户可见结果和人工接管原因，不在普通日志写入身份证、支付密钥或完整原始报文。
+  7. 用当前候选运行包进行真实可用性回归：首次支付、返回恢复、支付取消、网络故障、后台恢复、重复点击、退费查询、空数据、失败和人工复核；记录用户看到的页面、按钮是否可用、文案是否与最终状态一致和恢复耗时。
+
+  完成证据：提交状态-文案-操作权限映射表、关键页面交互截图/录屏、客户端/API/Worker 日志关联样例、可用性测试矩阵和问题闭环；分别报告源码、运行包、DevTools/真机、Provider、微信和 HIS 的证据边界。若某链路仍无最终状态，不得用“体验优化完成”覆盖业务风险，必须保留确认中/人工复核入口。
+
+### P1-25 补齐医保结算页费用明细（处方明细）来源和 HIS 接口确认
+
+- [ ] P1-25 为门诊医保结算页补齐可追溯的费用明细/处方明细读取方案：当前 `apps/miniprogram/src/pages/outpatient-medical-settlement/outpatient-medical-settlement.ts` 只消费 6202 的 `totalFen`、`insuranceFen`、`cashFen`，页面没有项目级费用明细数据结构和明细 API；当前公共 API 的 `GET /api/v2/payments/outpatient/records/{recordId}` 虽然支持按平台 `recordId` 查询单笔费用，但 `apps/api/src/modules/outpatient-payments/index.ts` 的 `detail()` 实际会再次调用列表查询，再按 opaque `recordId` 匹配并返回已核对的摘要，代码注释已经明确“没有项目级费用明细 contract”。
+
+  当前已确认的来源和限制：
+
+  - 当前众阳 adapter 使用 2.6.33 门诊费用列表路径 `/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records`，按服务端患者映射、时间窗口、`tradeStatus` 和 `authSysCode` 查询；待缴费使用 `tradeStatus=1`，已缴费使用 `tradeStatus=3`，不是按平台 `recordId` 或小程序订单号直查。
+  - 列表条目已经有经白名单投影的 `itemName`、`spec`、`quantity`、`unitName`、`priceFen`、费别、优惠金额、自付比例、账单时间等字段；`recordId` 是由 `mainId/chargeId/chargeCode/presCode/visitRecordId` 等 Provider 身份字段和患者引用计算出的平台 opaque 标识，不能反向当作 HIS 订单号或处方号使用。
+  - 6202 结算金额仍是支付和金额展示的权威来源。待缴费列表中的项目金额只能用于明细展示或比对，不能由小程序自行累加后替代 6202，也不能把列表变更、缺项或过期快照当作已结算事实。
+  - 当前临时方案是复用同一患者、同一 `recordId`、同一查询快照下的待缴费列表数据，展示已有白名单字段；如果列表重新读取，必须由服务端按 owner/patient/record/status 再次校验，不能只相信客户端缓存。若条目不存在、身份冲突、金额与 6202 不一致或列表发生变化，应显示“费用明细已更新，请刷新确认”，停止继续展示可能错误的处方明细。
+
+  HIS/众阳接口核查必须向对方确认，而不是从字段名推断：
+
+  1. 是否存在按照 `outTradeOrderId`、`mainId`、`chargeId`、`chargeCode`、`presCode`、`visitRecordId` 或 HIS 就诊号查询单笔处方/费用明细的正式接口；平台 `recordId` 是内部 opaque 值，不能直接作为对方接口 ID。
+  2. 明细接口属于 2.6.33、6201 费用上传前置接口、6202 结算接口还是其它 HIS 服务；请求方向、认证方式、`authSysCode`、患者引用、时间窗口、订单状态和是否需要授权码必须取得正式材料和样例。
+  3. 返回是否能明确关联 6201 的费用上传、6202 的结算分项、医保基金支付、个人账户支付、现金支付、优惠/减免、处方号、项目号、数量、单位、单价、执行科室/医生和退款状态；同时确认元/分单位、舍入规则和处方多项目金额守恒。
+  4. 明确处方明细在待缴费、已生成结算、已支付、退款中、已退款、作废和订单确认中各状态下是否可查；确认结算后明细是否冻结，还是必须保存平台费用快照以保证结果页可重现。
+  5. 取得至少一笔受控的脱敏请求/响应和字段字典，核对同一笔费用在列表、明细、6201、6202、微信/医保订单和 HIS 最终结算之间的关联，不把“接口 HTTP 200”当作明细契约已确认。
+
+  实施顺序：
+
+  1. 先实现临时只读 fallback：由服务端提供与待缴费列表同源的明细投影或保存本次列表快照，结算页明确标注来源；支付金额继续只读取 6202，明细只作展示和核对。
+  2. HIS 方确认正式接口后，再新增独立的处方明细 adapter、domain contract、API 和小程序读模型；不得把 Provider 原始响应整包透传，也不得让页面提交 Provider 患者号、处方号或订单号。
+  3. 明细查询必须校验当前登录用户、当前就诊人、门诊记录/订单归属、状态、版本和幂等/请求关联；患者切换、会话切换、重复请求、超时和接口未知结果不能回写到旧页面。
+  4. 明细金额与 6202 总额、医保基金、现金支付、优惠减免保持可核验关系；发现缺项、重复项、金额不守恒、处方归属不一致或状态不明时 fail-closed，不显示“已确认处方明细”。
+  5. 经过 DevTools/真机和受控 HIS 同链验收后，才能决定是否把 fallback 替换为正式 HIS 明细；如果 HIS 没有该接口，则把“待缴费列表快照”固化为正式降级 contract，并在页面和文档中明确其不是 HIS 实时处方详情。
+
+  必须覆盖的验收场景：有效处方多项目、单项目、同一订单多处方、列表中项目缺少可选字段、项目金额为零或小数、医保/现金/优惠金额守恒、待缴费列表更新后重新进入结算页、已支付或退款状态、重复/未知项目 ID、患者切换、会话过期、Provider/HIS 超时、明细接口返回空结果、明细与 6202 不一致，以及付款成功后结果页重新打开。任何场景都要分别记录列表来源、明细来源、6202 金额、订单/就诊关联、requestId/traceId/providerRequestId 和最终页面状态。
+
+  完成证据：HIS 正式接口材料及字段字典、脱敏 request/response、列表与明细关联矩阵、费用金额守恒测试、API/adapter/domain/小程序回归、当前运行包校验、DevTools/真机截图和医保结算同链结果。未得到 HIS 方明确接口或正式降级 contract 前，本项保持未完成，不把待缴费列表查询描述成“按 ID 查询处方明细”。
+
 ## 已确认不作为本次 TODO 的事项
 
-- 支付、医保、退费、收银台、门诊/住院支付、支付订单、微信支付/医保回写和支付相关 HIS 证据全部排除，避免与本次非支付迁移混账。
+- 本文件原有的非支付逐页矩阵不在每一页重复展开支付；支付、医保、退费、收银台、门诊/住院支付、支付订单、微信支付/医保回写和支付相关 HIS 证据已转入 P1-21～P1-25 独立管理。真实写入仍未通过 gate，不能因为进入本文件就被视为已完成。
 - pages/setting/setData.vue 是旧测试数据页，明确 excluded。
 - 旧 hospitalList.vue 和 navigation.vue 目前证据只支持单院区静态卡片、静态地图、预览；新端的静态替换已完成。动态医院、院区、路线、楼层定位若将来需要，必须另立新业务 contract，不能写成旧迁移遗漏。
 - 旧 feedback.vue 没有真实提交 API；当前静态帮助/拨号替换满足旧的可执行行为，不新造客服工单。
@@ -355,6 +478,8 @@ P1-18～P1-20 当前顺序复核（2026-09-17）：重新核对患者签名、�
 ## 每项完成标准
 
 完成任一 TODO 时，必须在对应项下补充：旧源码行为和新源码落点；contract/字段白名单/版本；请求与响应样例的受控存放位置；服务端和 Provider requestId/traceId；成功、空、拒绝、超时、会话切换和越权结果；小程序 dist/runtime 校验；真机或生产验收结论；未验证项和回滚方式。不得只把页面打开、单元测试通过或 HTTP 200 写成业务完成。
+
+支付与退费项还必须补充：订单/预约/患者归属、支付或退款幂等键、状态转移、金额守恒、微信/医保/Provider/HIS 各自的最终性证据、未知状态处理、重复操作保护、Worker 查单/告警和人工接管记录。`wx.requestPayment`、医保授权回调或退款申请返回成功，只能作为过程证据，不能单独作为挂号、缴费或退费最终完成。
 
 本文件是当前审计快照，不替代旧页面矩阵、Provider 合同、临床审核、发布证据或生产验收记录；这些材料更新后必须重新运行相应门禁并更新本文件。
 

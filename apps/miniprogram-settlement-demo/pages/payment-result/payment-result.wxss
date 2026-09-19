@@ -182,7 +182,6 @@ page {
 }
 
 .amount-sync-hint {
-	box-sizing: border-box;
 	width: 670rpx;
 	margin: 22rpx auto 0;
 	padding: 24rpx;

@@ -41,6 +41,22 @@ const ORDER_SEED_EVENTS = new Set([
 	"appointment.self-payment.2.27.2.29.persisted",
 	"medical-insurance.plugin.2.27.2.29.persisted",
 ]);
+const SELF_PAY_QUERY_HTTP_EVENTS = new Set([
+	"http.request.completed",
+	"http.request.failed",
+]);
+const SELF_PAY_SETTLEMENT_EVENT =
+	/^(?:outpatient|appointment)\.self-payment\.(?:his-context-pending|provider-settlement-(?:pending|succeeded))$/u;
+const SELF_PAY_QUERY_ROUTES = Object.freeze([
+	{
+		kind: "outpatient",
+		pattern: /^\/api\/v1\/payments\/outpatient\/records\/([^/?#]+)\/self-pay$/u,
+	},
+	{
+		kind: "appointment",
+		pattern: /^\/api\/v1\/payments\/appointments\/([^/?#]+)\/self-pay$/u,
+	},
+]);
 
 function usage() {
 	console.error(`用法：
@@ -180,6 +196,16 @@ function latestCaptureWindow(window) {
 		sinceText: shanghaiJournalTime(captureSince),
 		sinceIso: new Date(captureSince).toISOString(),
 	};
+}
+
+function selectOrdersForWindow(allOrders, requestedWindow, latest = false) {
+	const requestedSince = Date.parse(requestedWindow.sinceIso);
+	const requestedUntil = Date.parse(requestedWindow.untilIso);
+	const eligible = allOrders.filter((order) => {
+		const started = Date.parse(order.started);
+		return started >= requestedSince && started <= requestedUntil;
+	});
+	return latest ? eligible.slice(-1) : eligible;
 }
 
 function shellQuote(value) {
@@ -356,11 +382,33 @@ function createOrder(seedRecord, orderId) {
 		appointmentId: stringValue(seedRecord.message.appointmentId),
 		started: seedRecord.time,
 		records: [],
+		recordIds: new Set(),
 		identifiers: new Set([orderId]),
+		traceBridges: [],
 	};
 }
 
-function collectOrders(records) {
+function selfPayQueryResource(record) {
+	const message = record.message;
+	if (
+		!SELF_PAY_QUERY_HTTP_EVENTS.has(message.event) ||
+		message.method !== "GET"
+	)
+		return undefined;
+	const path = stringValue(message.path);
+	const traceId = stringValue(message.traceId);
+	if (!path || !traceId) return undefined;
+	for (const route of SELF_PAY_QUERY_ROUTES) {
+		const match = path.match(route.pattern);
+		const resourceId = stringValue(match?.[1]);
+		if (resourceId && resourceId.length <= 512) {
+			return { kind: route.kind, path, resourceId, traceId };
+		}
+	}
+	return undefined;
+}
+
+function collectOrdersWithDiagnostics(records) {
 	const orders = new Map();
 	for (const record of records) {
 		const seed = orderSeed(record);
@@ -370,11 +418,17 @@ function collectOrders(records) {
 	const ordered = [...orders.values()].sort((left, right) =>
 		left.started.localeCompare(right.started),
 	);
+	const assignedRecords = new Set();
+	const traceBridgeDiagnostics = { matched: [], ambiguous: [], unmatched: [] };
 	const addRecord = (order, record) => {
+		if (assignedRecords.has(record)) return;
 		order.records.push(record);
+		assignedRecords.add(record);
 		const m = record.message;
 		if (!order.appointmentId)
 			order.appointmentId = stringValue(m.appointmentId);
+		const recordId = stringValue(m.recordId);
+		if (recordId) order.recordIds.add(recordId);
 		addIdentifier(order.identifiers, m.traceId);
 		addIdentifier(order.identifiers, m.requestId);
 		addIdentifier(order.identifiers, m.providerRequestId);
@@ -393,14 +447,22 @@ function collectOrders(records) {
 		);
 		if (explicit) addRecord(explicit, record);
 	}
+	// seed 事件不一定是本笔链路中最早带 orderId 的事件；用已经明确归单的
+	// 非 Worker 记录校正开始时间，避免把后续查单误当作支付真正开始时间，
+	// 也避免历史后台补偿事件把新一笔支付回拨到请求窗口之外。
+	for (const order of ordered) {
+		for (const record of order.records) {
+			if (
+				!record.message.event.startsWith("worker.payment.") &&
+				record.time < order.started
+			)
+				order.started = record.time;
+		}
+	}
+	ordered.sort((left, right) => left.started.localeCompare(right.started));
 	for (const record of records) {
 		const m = record.message;
-		if (
-			ordered.some(
-				(order) => m.orderId === order.orderId || m.taskId === order.orderId,
-			)
-		)
-			continue;
+		if (assignedRecords.has(record)) continue;
 		const candidates = ordered.filter(
 			(order) =>
 				order.appointmentId &&
@@ -449,10 +511,81 @@ function collectOrders(records) {
 		}
 		addRecord(selected, record);
 	}
+
+	// 支付后的 GET 查单会生成全新的 traceId，而业务结果事件只携带
+	// orderId + recordId/appointmentId。通过两个受信自费查单路由把新 trace
+	// 精确桥接回订单，才能继续收齐该 trace 下的 .29/.15/.5 原始报文。
+	// 必须同时满足“查询不早于订单开始”且“查询前 5 秒内只有一笔候选订单
+	// 出现明确 HIS/Provider 结算事件”；缺证据或多候选时一律 fail closed。
+	for (const record of records) {
+		if (assignedRecords.has(record)) continue;
+		const resource = selfPayQueryResource(record);
+		if (!resource) continue;
+		const resourceCandidates = ordered.filter((order) =>
+			resource.kind === "outpatient"
+				? order.recordIds.has(resource.resourceId)
+				: order.appointmentId === resource.resourceId,
+		);
+		const completedAt = Date.parse(record.time);
+		const candidates = resourceCandidates.filter(
+			(order) => completedAt >= Date.parse(order.started),
+		);
+		const evidenced = candidates.filter((order) =>
+			order.records.some((candidateRecord) => {
+				const distance = completedAt - Date.parse(candidateRecord.time);
+				return (
+					distance >= 0 &&
+					distance <= 5_000 &&
+					SELF_PAY_SETTLEMENT_EVENT.test(candidateRecord.message.event)
+				);
+			}),
+		);
+		const selected = evidenced.length === 1 ? evidenced[0] : undefined;
+		if (!selected) {
+			if (evidenced.length > 1) {
+				traceBridgeDiagnostics.ambiguous.push({
+					time: shanghaiIso(record.time),
+					traceId: resource.traceId,
+					kind: resource.kind,
+					resourceId: resource.resourceId,
+					candidateOrderIds: evidenced.map((order) => order.orderId),
+				});
+			} else {
+				traceBridgeDiagnostics.unmatched.push({
+					time: shanghaiIso(record.time),
+					traceId: resource.traceId,
+					kind: resource.kind,
+					resourceId: resource.resourceId,
+					reason:
+						resourceCandidates.length === 0
+							? "no-resource-candidate"
+							: candidates.length === 0
+								? "candidate-starts-after-query"
+								: "no-nearby-settlement-evidence",
+					candidateOrderIds: resourceCandidates.map((order) => order.orderId),
+				});
+			}
+			continue;
+		}
+		addRecord(selected, record);
+		const bridge = {
+			time: shanghaiIso(record.time),
+			traceId: resource.traceId,
+			kind: resource.kind,
+			resourceId: resource.resourceId,
+			orderId: selected.orderId,
+		};
+		selected.traceBridges.push(bridge);
+		traceBridgeDiagnostics.matched.push(bridge);
+	}
 	for (const order of ordered) {
 		order.records.sort((left, right) => left.time.localeCompare(right.time));
 	}
-	return ordered;
+	return { orders: ordered, traceBridgeDiagnostics };
+}
+
+function collectOrders(records) {
+	return collectOrdersWithDiagnostics(records).orders;
 }
 
 function rawLayer(event) {
@@ -535,12 +668,6 @@ function pairRawEntries(entries) {
 }
 
 function assignRawEntriesToOrder(entries, order, allOrders) {
-	const orderTimes = new Map(
-		allOrders.map((candidate) => [
-			candidate.orderId,
-			candidate.records.map((record) => Date.parse(record.time)),
-		]),
-	);
 	return entries.filter((entry) => {
 		const entryTime = Date.parse(entry.timestamp);
 		const entryIdentifiers = new Set(
@@ -587,19 +714,9 @@ function assignRawEntriesToOrder(entries, order, allOrders) {
 			return selected.orderId === order.orderId;
 		}
 		if (correlated.length === 1) return correlated[0].orderId === order.orderId;
-		let nearestOrder;
-		let nearestDistance = Number.POSITIVE_INFINITY;
-		for (const candidate of allOrders) {
-			const times = orderTimes.get(candidate.orderId) || [];
-			for (const time of times) {
-				const distance = Math.abs(entryTime - time);
-				if (distance < nearestDistance) {
-					nearestDistance = distance;
-					nearestOrder = candidate.orderId;
-				}
-			}
-		}
-		return nearestOrder === order.orderId;
+		// 不按“时间最近”猜测归属：并发支付时这会把别人的 Provider 原文串单。
+		// 未通过 trace/request/providerRequestId 精确关联的报文必须保持未归属。
+		return false;
 	});
 }
 
@@ -767,7 +884,9 @@ function orderStatus(records, invocations) {
 		return "MANUAL_REVIEW_REQUIRED";
 	if (
 		events.has("medical-insurance.2.27.2.32.completed") ||
-		events.has("medical-insurance.2.6.65.5.completed")
+		events.has("medical-insurance.2.6.65.5.completed") ||
+		events.has("appointment.self-payment.provider-settlement-succeeded") ||
+		events.has("outpatient.self-payment.provider-settlement-succeeded")
 	)
 		return "PROVIDER_COMPLETED";
 	if (
@@ -838,10 +957,39 @@ async function writeOrder(order, serialized, window, rootDir, allOrders) {
 	const invocations = pairRawEntries(ownEntries);
 	const primary = invocations.filter(isPrimaryInvocation);
 	const records = order.records;
+	const observedStart = [
+		order.started,
+		...primary.flatMap((invocation) =>
+			[invocation.request?.timestamp, invocation.response?.timestamp].filter(
+				Boolean,
+			),
+		),
+	].sort()[0];
+	const observedEnd = [
+		records.at(-1)?.time || order.started,
+		...invocations.flatMap((invocation) =>
+			[invocation.request?.timestamp, invocation.response?.timestamp].filter(
+				Boolean,
+			),
+		),
+	]
+		.sort()
+		.at(-1);
 	const interfaceRows = [];
+	const operationTotals = new Map();
+	for (const invocation of primary) {
+		operationTotals.set(
+			invocation.operation,
+			(operationTotals.get(invocation.operation) || 0) + 1,
+		);
+	}
+	const operationAttempts = new Map();
 	let ordinal = 0;
 	for (const invocation of primary) {
 		ordinal += 1;
+		const operationAttempt =
+			(operationAttempts.get(invocation.operation) || 0) + 1;
+		operationAttempts.set(invocation.operation, operationAttempt);
 		const base = operationLabel(invocation, ordinal);
 		const dir = join(interfacesDir, base);
 		await mkdir(dir, { recursive: true, mode: 0o700 });
@@ -873,6 +1021,11 @@ async function writeOrder(order, serialized, window, rootDir, allOrders) {
 			}),
 			displayLayer: plaintextInvocation ? "business-plaintext" : "transport",
 			invocationIndex: invocation.invocationIndex,
+			operationAttempt,
+			operationTotal: operationTotals.get(invocation.operation) || 1,
+			timestamp:
+				displayInvocation.request?.timestamp ||
+				displayInvocation.response?.timestamp,
 			traceId: invocation.traceId,
 			providerRequestId: invocation.providerRequestId,
 			requestChecks: entryChecks(displayInvocation.request),
@@ -940,9 +1093,12 @@ async function writeOrder(order, serialized, window, rootDir, allOrders) {
 	).length;
 	const completeness = {
 		status:
-			primary.length > 0 && completePrimary === primary.length
-				? "COMPLETE_FOR_ALL_OBSERVED_TRANSPORT_INVOCATIONS"
+			primary.length > 0 &&
+			completePrimary === primary.length &&
+			!trace.truncated
+				? "COMPLETE_FOR_ALL_CORRELATED_TRANSPORT_INVOCATIONS"
 				: "INCOMPLETE",
+		scope: "correlated-order-identifiers-and-exact-self-pay-query-routes",
 		allRequestsPresent: primary.every((invocation) =>
 			Boolean(invocation.request),
 		),
@@ -956,16 +1112,19 @@ async function writeOrder(order, serialized, window, rootDir, allOrders) {
 		fsiSupplementalEvidenceObserved: supplemental.some(
 			(item) => item.layer === "logical" || item.layer === "legacy",
 		),
+		rawTraceTruncated: trace.truncated,
 	};
 	const manifest = {
 		exportType: "payment-day-provider-raw-trace",
 		orderId: order.orderId,
 		...(order.appointmentId ? { appointmentId: order.appointmentId } : {}),
-		started: shanghaiIso(order.started),
-		lastObservedTime: shanghaiIso(records.at(-1)?.time || order.started),
+		started: shanghaiIso(observedStart || order.started),
+		lastObservedTime: shanghaiIso(observedEnd || order.started),
 		status: orderStatus(records, invocations),
 		statusNote: Object.keys(eventSummary(records)).join(", "),
 		actualInterfaceCount: interfaceRows.length,
+		traceBridgeCount: order.traceBridges.length,
+		traceBridges: order.traceBridges,
 		completeness,
 		eventCounts: eventSummary(records),
 		interfaces: interfaceRows,
@@ -1005,12 +1164,52 @@ function selectedJournalLines(records, orders) {
 		.join("\n");
 }
 
-function markdownIndex(date, orders, { latest = false } = {}) {
+function markdownIndex(
+	date,
+	orders,
+	{
+		latest = false,
+		requestedWindow,
+		captureWindow,
+		lastObservedJournalTime,
+		unmatchedPaymentEventCount = 0,
+		traceBridgeDiagnostics = { matched: [], ambiguous: [], unmatched: [] },
+	} = {},
+) {
+	const totalInterfaces = orders.reduce(
+		(total, order) => total + order.actualInterfaceCount,
+		0,
+	);
+	const incompleteOrders = orders.filter(
+		(order) =>
+			order.completeness.status !==
+			"COMPLETE_FOR_ALL_CORRELATED_TRANSPORT_INVOCATIONS",
+	);
+	const completenessStatus =
+		orders.length === 0
+			? "NO_PAYMENT_ORDER_OBSERVED"
+			: incompleteOrders.length === 0
+				? "COMPLETE_FOR_ALL_CORRELATED_INVOCATIONS"
+				: "INCOMPLETE";
 	const lines = [
 		`# ${date} 3090 ${latest ? "最新一笔支付" : "全日支付"}原始日志`,
 		"",
-		"每笔支付列出开始时间；每个实际接口均对应独立 `request.json` / `response.json`。",
+		"每笔支付列出开始时间；每个已关联的实际接口均对应独立 `request.json` / `response.json`。",
 		"JSON 文件直接展示明文请求/返回；`request-body.raw` / `response-body.raw` 保留 Provider 原始正文，供完整性核验。",
+		"",
+		"## 采集与完整性",
+		"",
+		...(requestedWindow ? [`- 请求窗口：\`${requestedWindow}\``] : []),
+		...(captureWindow ? [`- 采集窗口：\`${captureWindow}\``] : []),
+		...(lastObservedJournalTime
+			? [`- 原始日志最后观测时间：\`${lastObservedJournalTime}\``]
+			: []),
+		`- 支付订单数：\`${orders.length}\``,
+		`- 已关联接口调用数：\`${totalInterfaces}\``,
+		`- 支付后查单 trace 桥接：\`${traceBridgeDiagnostics.matched.length}\` 条；歧义未归属：\`${traceBridgeDiagnostics.ambiguous.length}\` 条；缺少候选或结算证据：\`${traceBridgeDiagnostics.unmatched.length}\` 条`,
+		`- 未归入订单的支付事件：\`${unmatchedPaymentEventCount}\` 条`,
+		`- 原始报文完整性：\`${completenessStatus}\``,
+		"- 完整性只表示已通过订单标识或受信自费查单路由关联到本订单的调用，其请求、返回和 chunk 均齐全，并且日志中存在的字节长度/摘要元数据校验通过；不代表采集截止时间之后或无法安全关联的调用不存在。",
 		"",
 	];
 	if (orders.length === 0) {
@@ -1022,13 +1221,22 @@ function markdownIndex(date, orders, { latest = false } = {}) {
 			lines.push(`- appointmentId: \`${order.appointmentId}\``);
 		lines.push(
 			`- started: \`${order.started}\``,
+			`- lastObservedTime: \`${order.lastObservedTime}\``,
+			`- status: \`${order.status}\``,
+			`- interfaceCount: \`${order.actualInterfaceCount}\``,
+			`- postPaymentQueryTraceCount: \`${order.traceBridgeCount}\``,
+			`- rawCompleteness: \`${order.completeness.status}\``,
 			"",
 			"| # | 接口 | 入参 JSON | 返回 JSON |",
 			"|---:|---|---|---|",
 		);
 		for (const row of order.interfaceRows) {
+			const occurrence =
+				row.operationTotal > 1
+					? `（第 ${row.operationAttempt}/${row.operationTotal} 次）`
+					: "";
 			lines.push(
-				`| ${row.ordinal} | ${row.displayOperation}${row.invocationIndex ? `（重试 ${row.invocationIndex + 1}）` : ""} | [request.json](${row.requestPath}) | [response.json](${row.responsePath}) |`,
+				`| ${row.ordinal} | ${row.displayOperation}${occurrence} | [request.json](${row.requestPath}) | [response.json](${row.responsePath}) |`,
 			);
 		}
 		lines.push("");
@@ -1109,14 +1317,29 @@ async function main(args = process.argv.slice(2)) {
 	const journalSha = sha256Text(serialized);
 
 	const parsed = parseRecords(serialized);
-	const allOrders = collectOrders(parsed.records);
-	const requestedSince = Date.parse(requestedWindow.sinceIso);
-	const requestedUntil = Date.parse(requestedWindow.untilIso);
-	const eligibleOrders = allOrders.filter((order) => {
-		const started = Date.parse(order.started);
-		return started >= requestedSince && started <= requestedUntil;
-	});
-	const orders = options.latest ? eligibleOrders.slice(-1) : allOrders;
+	const { orders: allOrders, traceBridgeDiagnostics } =
+		collectOrdersWithDiagnostics(parsed.records);
+	const orders = selectOrdersForWindow(
+		allOrders,
+		requestedWindow,
+		options.latest,
+	);
+	const selectedOrderIds = new Set(orders.map((order) => order.orderId));
+	const selectedTraceBridgeDiagnostics = {
+		matched: traceBridgeDiagnostics.matched.filter((bridge) =>
+			selectedOrderIds.has(bridge.orderId),
+		),
+		ambiguous: traceBridgeDiagnostics.ambiguous.filter((bridge) =>
+			bridge.candidateOrderIds.some((orderId) => selectedOrderIds.has(orderId)),
+		),
+		unmatched: traceBridgeDiagnostics.unmatched.filter(
+			(bridge) =>
+				!options.latest ||
+				bridge.candidateOrderIds.some((orderId) =>
+					selectedOrderIds.has(orderId),
+				),
+		),
+	};
 	const orderResults = [];
 	for (const order of orders) {
 		orderResults.push(
@@ -1132,19 +1355,17 @@ async function main(args = process.argv.slice(2)) {
 	});
 	await chmod(selectedPath, 0o600);
 
-	const indexPath = join(outputDir, "daily-index.md");
-	const indexContent = markdownIndex(options.date, orderResults, {
-		latest: options.latest,
-	});
-	await writeFile(indexPath, indexContent, { encoding: "utf8", mode: 0o600 });
-	await chmod(indexPath, 0o600);
-
-	const lastObservedJournalTime = parsed.records.at(-1)?.time;
+	const lastObservedJournalTime = parsed.records.reduce(
+		(latest, record) =>
+			!latest || record.time > latest ? record.time : latest,
+		undefined,
+	);
+	const assignedRecords = new Set(allOrders.flatMap((order) => order.records));
 	const unmatchedPaymentEvents = parsed.records
 		.filter(
 			(record) =>
 				ORDER_PAYMENT_EVENT.test(record.message.event) &&
-				!stringValue(record.message.orderId),
+				!assignedRecords.has(record),
 		)
 		.map((record) => ({
 			time: shanghaiIso(record.time),
@@ -1155,15 +1376,31 @@ async function main(args = process.argv.slice(2)) {
 	const incompleteOrders = orderResults.filter(
 		(order) =>
 			order.completeness.status !==
-			"COMPLETE_FOR_ALL_OBSERVED_TRANSPORT_INVOCATIONS",
+			"COMPLETE_FOR_ALL_CORRELATED_TRANSPORT_INVOCATIONS",
 	);
+	const requestedWindowText = `${shanghaiIso(requestedWindow.sinceIso)} to ${shanghaiIso(requestedWindow.untilIso)}`;
+	const captureWindowText = `${shanghaiIso(window.sinceIso)} to ${shanghaiIso(window.untilIso)}`;
+	const indexPath = join(outputDir, "daily-index.md");
+	const indexContent = markdownIndex(options.date, orderResults, {
+		latest: options.latest,
+		requestedWindow: requestedWindowText,
+		captureWindow: captureWindowText,
+		lastObservedJournalTime: lastObservedJournalTime
+			? shanghaiIso(lastObservedJournalTime)
+			: undefined,
+		unmatchedPaymentEventCount: unmatchedPaymentEvents.length,
+		traceBridgeDiagnostics: selectedTraceBridgeDiagnostics,
+	});
+	await writeFile(indexPath, indexContent, { encoding: "utf8", mode: 0o600 });
+	await chmod(indexPath, 0o600);
+
 	const dailyManifest = {
 		exportType: options.latest
 			? "latest-payment-provider-raw-trace"
 			: "all-payments-day-provider-raw-traces",
 		createdAt: new Date().toISOString(),
-		requestedWindow: `${shanghaiIso(requestedWindow.sinceIso)} to ${shanghaiIso(requestedWindow.untilIso)}`,
-		captureWindow: `${shanghaiIso(window.sinceIso)} to ${shanghaiIso(window.untilIso)}`,
+		requestedWindow: requestedWindowText,
+		captureWindow: captureWindowText,
 		services: JOURNAL_UNITS,
 		journalSource: {
 			path: journalPath,
@@ -1186,12 +1423,16 @@ async function main(args = process.argv.slice(2)) {
 		},
 		paymentOrderCount: orderResults.length,
 		unmatchedPaymentEvents,
+		traceBridgeDiagnostics: selectedTraceBridgeDiagnostics,
 		paymentOrders: orderResults.map((order) => ({
 			orderId: order.orderId,
 			...(order.appointmentId ? { appointmentId: order.appointmentId } : {}),
 			started: order.started,
+			lastObservedTime: order.lastObservedTime,
 			status: order.status,
 			interfaceCount: order.actualInterfaceCount,
+			traceBridgeCount: order.traceBridgeCount,
+			completeness: order.completeness,
 			manifestPath: order.manifestPath,
 			interfaces: order.interfaceRows.map((row) => ({
 				ordinal: row.ordinal,
@@ -1199,21 +1440,33 @@ async function main(args = process.argv.slice(2)) {
 				displayOperation: row.displayOperation,
 				displayLayer: row.displayLayer,
 				invocationIndex: row.invocationIndex,
+				operationAttempt: row.operationAttempt,
+				operationTotal: row.operationTotal,
+				timestamp: row.timestamp,
 				requestPath: row.requestPath,
 				responsePath: row.responsePath,
 			})),
 		})),
 		rawTraceCompleteness: {
 			status:
-				incompleteOrders.length === 0
-					? "COMPLETE_FOR_ALL_OBSERVED_INVOCATIONS"
-					: "INCOMPLETE",
+				orderResults.length === 0
+					? "NO_PAYMENT_ORDER_OBSERVED"
+					: incompleteOrders.length === 0
+						? "COMPLETE_FOR_ALL_CORRELATED_INVOCATIONS"
+						: "INCOMPLETE",
+			scope: "correlated-order-identifiers-and-exact-self-pay-query-routes",
 			everyOrderHasRequestAndResponse: orderResults.every(
 				(order) =>
 					order.completeness.allRequestsPresent &&
 					order.completeness.allResponsesPresent,
 			),
 			incompleteOrders: incompleteOrders.map((order) => order.orderId),
+			matchedSelfPayQueryTraceCount:
+				selectedTraceBridgeDiagnostics.matched.length,
+			ambiguousSelfPayQueryTraceCount:
+				selectedTraceBridgeDiagnostics.ambiguous.length,
+			unmatchedSelfPayQueryTraceCount:
+				selectedTraceBridgeDiagnostics.unmatched.length,
 			rawSensitiveContentKeptInMode600Files: true,
 		},
 		notes: [
@@ -1225,9 +1478,20 @@ async function main(args = process.argv.slice(2)) {
 				: []),
 			...(unmatchedPaymentEvents.length > 0
 				? [
-						`另有 ${unmatchedPaymentEvents.length} 条支付事件没有 orderId，已列入 manifest 的 unmatchedPaymentEvents，未擅自归入订单。`,
+						`另有 ${unmatchedPaymentEvents.length} 条支付事件无法安全归入订单，已列入 manifest 的 unmatchedPaymentEvents。`,
 					]
 				: []),
+			...(selectedTraceBridgeDiagnostics.ambiguous.length > 0
+				? [
+						`另有 ${selectedTraceBridgeDiagnostics.ambiguous.length} 条支付后自费查单 trace 同时匹配多笔订单且没有唯一结算证据，已保持未归属。`,
+					]
+				: []),
+			...(selectedTraceBridgeDiagnostics.unmatched.length > 0
+				? [
+						`另有 ${selectedTraceBridgeDiagnostics.unmatched.length} 条自费查单 trace 缺少订单候选或查询附近的唯一结算证据，已保持未归属。`,
+					]
+				: []),
+			"完整性状态只覆盖通过订单标识或受信自费查单路由已关联的调用，不推断采集截止时间之后或无法安全关联的调用。",
 			`解析到 ${parsed.records.length} 条应用 JSON 日志，${allInterfaces.length} 个实际传输调用。`,
 		],
 	};
@@ -1260,5 +1524,6 @@ export {
 	pairRawEntries,
 	parseBody,
 	parseRecords,
+	selectOrdersForWindow,
 	shanghaiWindow,
 };

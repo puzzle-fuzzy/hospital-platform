@@ -15,6 +15,8 @@ import {
 	registerPageSessionResetListener,
 } from "../../services/session-events";
 
+const HOSPITAL_NAME = "高平市人民医院";
+
 type SettlementPending = PendingPayment & {
 	businessType: "outpatient";
 	recordId: string;
@@ -27,9 +29,11 @@ type OutpatientMedicalSettlementPageData = {
 	loading: boolean;
 	hasPending: boolean;
 	error: string;
+	hospitalName: string;
 	totalAmountLabel: string;
 	insuranceAmountLabel: string;
 	cashAmountLabel: string;
+	cashAmountValue: string;
 	paymentBusy: boolean;
 	paymentMessage: string;
 };
@@ -43,6 +47,7 @@ type OutpatientMedicalSettlementPageMethods = {
 	payment(): Promise<void>;
 	onBack(): void;
 	onBackHome(): void;
+	onLoadingTouchMove(): void;
 	onUnload(): void;
 	renderPending(): void;
 };
@@ -92,8 +97,12 @@ type MedicalApp = {
 	globalData: { medicalInsuranceAuthCode: string };
 };
 
+function formatFenValue(value: number): string {
+	return (value / 100).toFixed(2);
+}
+
 function formatFen(value: number): string {
-	return `${(value / 100).toFixed(2)} 元`;
+	return `${formatFenValue(value)}元`;
 }
 
 function settlementProgressMessage(
@@ -118,9 +127,11 @@ function emptyData(): OutpatientMedicalSettlementPageData {
 		loading: true,
 		hasPending: false,
 		error: "",
-		totalAmountLabel: "",
-		insuranceAmountLabel: "",
-		cashAmountLabel: "",
+		hospitalName: HOSPITAL_NAME,
+		totalAmountLabel: "--",
+		insuranceAmountLabel: "--",
+		cashAmountLabel: "--",
+		cashAmountValue: "--",
 		paymentBusy: false,
 		paymentMessage: "",
 	};
@@ -256,10 +267,11 @@ Page<
 			totalAmountLabel: formatFen(pending.amounts.totalFen),
 			insuranceAmountLabel: formatFen(pending.amounts.insuranceFen),
 			cashAmountLabel: formatFen(pending.amounts.cashFen),
+			cashAmountValue: formatFenValue(pending.amounts.cashFen),
 			paymentMessage:
 				pending.phase === "cash_payment"
 					? "上次支付尚未确认，请点击去支付继续；如已扣款请勿重复操作"
-					: "以上金额来自医保 6202 结算结果，请确认后再去支付",
+					: "",
 		});
 	},
 
@@ -322,6 +334,10 @@ Page<
 
 	onBackHome(): void {
 		switchToPrimaryTab("/pages/index/index");
+	},
+
+	onLoadingTouchMove(): void {
+		// 加载遮罩期间阻止底层结算页面滚动或触发操作。
 	},
 
 	onUnload(): void {

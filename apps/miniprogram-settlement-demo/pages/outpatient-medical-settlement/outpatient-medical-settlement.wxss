@@ -142,8 +142,7 @@ page {
 	font-size: 27rpx;
 }
 
-.amount-cash-row,
-.amount-cash-row text:last-child {
+.amount-cash-row {
 	color: #3f7fdf;
 	font-weight: 600;
 }
@@ -154,25 +153,13 @@ page {
 	background: #f0f1f4;
 }
 
-.amount-source {
+.self-pay-detail {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	height: 76rpx;
-	color: #9da2aa;
-	font-size: 23rpx;
-}
-
-.payment-message {
-	box-sizing: border-box;
-	width: 670rpx;
-	margin: 22rpx auto 0;
-	padding: 18rpx 22rpx;
-	border-radius: 14rpx;
-	background: #f1f6ff;
-	color: #31557f;
-	font-size: 24rpx;
-	line-height: 1.55;
+	height: 96rpx;
+	color: #7e838a;
+	font-size: 27rpx;
 }
 
 .insurance-payment {
@@ -181,7 +168,7 @@ page {
 	justify-content: center;
 	height: 54rpx;
 	gap: 14rpx;
-	margin-top: 44rpx;
+	margin-top: 54rpx;
 }
 
 .insurance-logo {
@@ -253,6 +240,133 @@ page {
 .primary-button::after,
 .back-button::after {
 	border: 0;
+}
+
+.detail-mask {
+	position: fixed;
+	z-index: 30;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	background: rgba(0, 0, 0, 0.42);
+}
+
+.detail-sheet {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	box-sizing: border-box;
+	min-height: calc(520rpx + env(safe-area-inset-bottom));
+	padding: 0 22rpx calc(24rpx + env(safe-area-inset-bottom));
+	border-radius: 28rpx 28rpx 0 0;
+	background: #ffffff;
+	animation: detail-sheet-up 180ms ease-out;
+}
+
+@keyframes detail-sheet-up {
+	from {
+		transform: translateY(100%);
+	}
+
+	to {
+		transform: translateY(0);
+	}
+}
+
+.detail-sheet-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 132rpx;
+	padding: 0 18rpx;
+}
+
+.detail-sheet-title {
+	color: #25282d;
+	font-size: 36rpx;
+	font-weight: 600;
+}
+
+.detail-sheet-close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44rpx;
+	height: 44rpx;
+	border-radius: 50%;
+	background: #e3e3e3;
+	color: #999999;
+	font-family: Arial, sans-serif;
+	font-size: 36rpx;
+	font-weight: 600;
+	line-height: 1;
+}
+
+.prescription-card {
+	overflow: hidden;
+	border: 1rpx solid #dedfe2;
+	border-radius: 10rpx;
+	background: #ffffff;
+}
+
+.prescription-heading {
+	display: flex;
+	align-items: center;
+	height: 92rpx;
+	gap: 20rpx;
+	padding: 0 16rpx;
+	border-bottom: 1rpx solid #e5e6e8;
+	color: #303238;
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.prescription-heading-mark {
+	width: 7rpx;
+	height: 34rpx;
+	background: #3979ee;
+}
+
+.prescription-list {
+	padding: 28rpx 38rpx 30rpx;
+}
+
+.prescription-item {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	min-height: 96rpx;
+	gap: 28rpx;
+}
+
+.prescription-main {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.prescription-name,
+.prescription-dose {
+	display: block;
+}
+
+.prescription-name,
+.prescription-price {
+	color: #5c6067;
+	font-size: 28rpx;
+}
+
+.prescription-dose {
+	margin-top: 6rpx;
+	color: #8f949c;
+	font-size: 25rpx;
+}
+
+.prescription-price {
+	flex: 0 0 auto;
+	white-space: nowrap;
 }
 
 .state-card {

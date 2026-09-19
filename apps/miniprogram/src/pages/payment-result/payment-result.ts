@@ -4,6 +4,8 @@ import {
 	readLastMedicalPaymentResult,
 } from "../../services/medical-insurance";
 
+const HOSPITAL_NAME = "高平市人民医院";
+
 type PaymentBusiness = "registration" | "outpatient";
 type PaymentChannel = "medical" | "wechat";
 
@@ -14,7 +16,7 @@ type PaymentResultPageData = {
 	channelLabel: string;
 	title: string;
 	subtitle: string;
-	detailHint: string;
+	hospitalName: string;
 	patientId: string;
 	appointmentId: string;
 	recordId: string;
@@ -76,7 +78,7 @@ function parseFen(value: string | undefined): number | undefined {
 }
 
 function formatFen(value: number): string {
-	return `${(value / 100).toFixed(2)} 元`;
+	return `${(value / 100).toFixed(2)}元`;
 }
 
 function matchesPaymentResult(
@@ -114,7 +116,7 @@ function labels(
 	channel: PaymentChannel,
 ): Pick<
 	PaymentResultPageData,
-	"businessLabel" | "channelLabel" | "title" | "subtitle" | "detailHint"
+	"businessLabel" | "channelLabel" | "title" | "subtitle"
 > {
 	const businessLabel = business === "registration" ? "挂号" : "门诊";
 	const channelLabel = channel === "medical" ? "医保支付" : "微信支付";
@@ -126,10 +128,6 @@ function labels(
 			channel === "medical"
 				? `${businessLabel}医保支付及医院结算已确认`
 				: `${businessLabel}微信支付已确认到账`,
-		detailHint:
-			business === "registration"
-				? "可查看本次预约详情和就诊信息"
-				: "可查看本次门诊缴费详情",
 	};
 }
 
@@ -138,6 +136,7 @@ function emptyData(): PaymentResultPageData {
 		business: "registration",
 		channel: "medical",
 		...labels("registration", "medical"),
+		hospitalName: HOSPITAL_NAME,
 		patientId: "",
 		appointmentId: "",
 		recordId: "",
@@ -162,7 +161,6 @@ Page<PaymentResultPageData, PaymentResultPageMethods>({
 			this.setData({
 				title: "支付结果不可用",
 				subtitle: "支付状态引用已失效，请返回支付记录查看",
-				detailHint: "",
 				hasDetail: false,
 			});
 			return;

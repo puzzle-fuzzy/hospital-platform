@@ -1,0 +1,38 @@
+{
+  "description": "医保结算页独立演示小程序",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "projectname": "medical-settlement-demo",
+  "appid": "wx4bc833cb3358c8d8",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": false,
+    "minifyWXML": false,
+    "minifyWXSS": false,
+    "compileHotReLoad": true,
+    "ignoreUploadUnusedFiles": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "simulatorPluginLibVersion": {},
+  "editorSetting": {}
+}

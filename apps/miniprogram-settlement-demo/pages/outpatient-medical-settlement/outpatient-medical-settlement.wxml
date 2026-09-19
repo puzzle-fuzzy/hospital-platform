@@ -1,0 +1,120 @@
+<scroll-view class="settlement-scroll" scroll-y="{{!detailVisible && !loading}}" enhanced="true">
+	<view class="settlement-page">
+		<view wx:if="{{error}}" class="state-card error-state">
+			<text class="state-title">结算页面不可用</text>
+			<text class="state-message">{{error}}</text>
+			<button class="back-button" bindtap="onBack">返回演示页面</button>
+		</view>
+
+		<block wx:else>
+			<view class="settlement-hero">
+				<text class="settlement-hero-label">付款给</text>
+				<view class="settlement-hero-main">
+					<text class="settlement-hero-hospital">{{hospitalName}}</text>
+					<view class="hospital-icon" aria-hidden="true">
+						<view class="hospital-roof"></view>
+						<view class="hospital-building">
+							<view class="hospital-window-row">
+								<view class="hospital-window"></view>
+								<view class="hospital-window"></view>
+							</view>
+							<view class="hospital-window-row">
+								<view class="hospital-window"></view>
+								<view class="hospital-window"></view>
+							</view>
+							<view class="hospital-door"></view>
+						</view>
+					</view>
+				</view>
+			</view>
+
+			<view class="amount-card">
+				<view class="amount-row amount-total-row">
+					<text>费用总额</text>
+					<text class="amount-total">{{totalAmountLabel}}</text>
+				</view>
+				<view class="detail-row">
+					<text>医保基金支付</text>
+					<text>{{insuranceAmountLabel}}</text>
+				</view>
+				<view class="detail-row">
+					<text>个人账户支付</text>
+					<text>{{accountAmountLabel}}</text>
+				</view>
+				<view class="detail-row">
+					<text>其他抵扣金额</text>
+					<text>{{otherInsuranceAmountLabel}}</text>
+				</view>
+				<view class="detail-row amount-cash-row">
+					<text>现金支付</text>
+					<text>{{cashAmountLabel}}</text>
+				</view>
+				<view class="amount-divider"></view>
+				<view
+					class="self-pay-detail"
+					role="button"
+					aria-label="查看处方明细"
+					bindtap="onViewDetail"
+				>查看明细</view>
+			</view>
+
+			<view class="insurance-payment">
+				<image
+					class="insurance-logo"
+					src="/assets/medical-insurance-logo.png"
+					mode="widthFix"
+				></image>
+				<text class="insurance-label">医保移动支付</text>
+			</view>
+			<view class="settlement-bottom-bar">
+				<view class="settlement-remaining">
+					<text class="settlement-remaining-label">您还需支付：</text>
+					<text class="settlement-remaining-amount">¥{{cashAmountValue}}</text>
+				</view>
+				<button
+					class="primary-button"
+					bindtap="onPay"
+					loading="{{paymentBusy}}"
+					disabled="{{paymentBusy}}"
+				>{{paymentCompleted ? '演示已完成' : '去支付'}}</button>
+			</view>
+
+			<view wx:if="{{detailVisible}}" class="detail-mask" bindtap="onCloseDetail">
+				<view class="detail-sheet" catchtap="noop">
+					<view class="detail-sheet-header">
+						<text class="detail-sheet-title">处方明细</text>
+						<view class="detail-sheet-close" bindtap="onCloseDetail" aria-label="关闭">×</view>
+					</view>
+
+					<view class="prescription-card">
+						<view class="prescription-heading">
+							<view class="prescription-heading-mark"></view>
+							<text>费用信息</text>
+						</view>
+						<view class="prescription-list">
+							<view class="prescription-item">
+								<view class="prescription-main">
+									<text class="prescription-name">万通胫骨贴*1</text>
+									<text class="prescription-dose">8g/片/3</text>
+								</view>
+								<text class="prescription-price">28.00元</text>
+							</view>
+							<view class="prescription-item">
+								<view class="prescription-main">
+									<text class="prescription-name">阿莫西林*1</text>
+									<text class="prescription-dose">8g/片/3</text>
+								</view>
+								<text class="prescription-price">13.00元</text>
+							</view>
+						</view>
+					</view>
+				</view>
+			</view>
+		</block>
+
+		<view wx:if="{{loading}}" class="settlement-loading-mask" catchtouchmove="noop">
+			<view class="loading-spinner" aria-label="加载中"></view>
+			<text class="loading-text">拼命加载中，请耐心等待 ...</text>
+		</view>
+	</view>
+</scroll-view>

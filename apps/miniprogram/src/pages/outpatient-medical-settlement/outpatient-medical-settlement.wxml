@@ -1,21 +1,25 @@
 <scroll-view class="settlement-scroll" scroll-y="true" enhanced="true">
 	<view class="settlement-page">
-		<view wx:if="{{loading}}" class="state-card loading-state">
-			<view class="loading-spinner" aria-hidden="true"></view>
-			<text class="state-title">正在处理医保结算</text>
-			<text class="state-message">{{paymentMessage || '正在调用医保授权、费用上传和 6202 结算接口，请稍候'}}</text>
-		</view>
-
-		<view wx:elif="{{error}}" class="state-card error-state">
-			<text class="state-title">结算页面不可用</text>
-			<text class="state-message">{{error}}</text>
-			<button class="back-button" bindtap="onBack">返回门诊缴费</button>
-		</view>
-
-		<block wx:elif="{{hasPending}}">
+		<block wx:if="{{loading || hasPending}}">
 			<view class="settlement-hero">
 				<text class="settlement-hero-label">付款给</text>
-				<text class="settlement-hero-hospital">高平市人民医院</text>
+				<view class="settlement-hero-main">
+					<text class="settlement-hero-hospital">{{hospitalName}}</text>
+					<view class="hospital-icon" aria-hidden="true">
+						<view class="hospital-roof"></view>
+						<view class="hospital-building">
+							<view class="hospital-window-row">
+								<view class="hospital-window"></view>
+								<view class="hospital-window"></view>
+							</view>
+							<view class="hospital-window-row">
+								<view class="hospital-window"></view>
+								<view class="hospital-window"></view>
+							</view>
+							<view class="hospital-door"></view>
+						</view>
+					</view>
+				</view>
 			</view>
 
 			<view class="amount-card">
@@ -23,31 +27,52 @@
 					<text>费用总额</text>
 					<text class="amount-total">{{totalAmountLabel}}</text>
 				</view>
-				<view class="amount-row">
-					<text>医保支付</text>
+				<view class="detail-row">
+					<text>医保基金支付</text>
 					<text>{{insuranceAmountLabel}}</text>
 				</view>
-				<view class="amount-row">
-					<text>微信支付</text>
+				<view class="detail-row amount-cash-row">
+					<text>现金支付</text>
 					<text>{{cashAmountLabel}}</text>
 				</view>
 				<view class="amount-divider"></view>
-				<text class="amount-source">金额来自服务端医保 6202 结算结果，客户端不重新计算或修改。</text>
+				<text class="amount-source">金额来自医保 6202 结算结果</text>
 			</view>
 
-				<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
-				<view class="settlement-bottom-bar">
-					<view class="settlement-remaining">
-						<text class="settlement-remaining-label">您还需支付：</text>
-						<text class="settlement-remaining-amount">{{cashAmountLabel}}</text>
-					</view>
-					<button
+			<view wx:if="{{paymentMessage && !loading}}" class="payment-message">{{paymentMessage}}</view>
+
+			<view class="insurance-payment">
+				<image
+					class="insurance-logo"
+					src="/assets/medical-insurance-logo.png"
+					mode="widthFix"
+				></image>
+				<text class="insurance-label">医保移动支付</text>
+			</view>
+
+			<view class="settlement-bottom-bar">
+				<view class="settlement-remaining">
+					<text class="settlement-remaining-label">您还需支付：</text>
+					<text class="settlement-remaining-amount">¥{{cashAmountValue}}</text>
+				</view>
+				<button
 					class="primary-button"
 					bindtap="onPay"
 					loading="{{paymentBusy}}"
-					disabled="{{paymentBusy}}"
+					disabled="{{paymentBusy || loading}}"
 				>去支付</button>
 			</view>
 		</block>
+
+		<view wx:elif="{{error}}" class="state-card error-state">
+			<text class="state-title">结算页面不可用</text>
+			<text class="state-message">{{error}}</text>
+			<button class="back-button" bindtap="onBack">返回门诊缴费</button>
+		</view>
+
+		<view wx:if="{{loading}}" class="settlement-loading-mask" catchtouchmove="onLoadingTouchMove">
+			<view class="loading-spinner" aria-label="加载中"></view>
+			<text class="loading-text">拼命加载中，请耐心等待 ...</text>
+		</view>
 	</view>
 </scroll-view>

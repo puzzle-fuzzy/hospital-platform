@@ -1,0 +1,22 @@
+page {
+	--hospital-primary: #3f75ed;
+	--hospital-primary-soft: #edf4ff;
+	--hospital-success: #62bd8d;
+	--hospital-warning: #e68c67;
+	--hospital-canvas: #f7f8fa;
+	--hospital-surface: #ffffff;
+	--hospital-text: #253142;
+	--hospital-subtext: #8a94a2;
+	--hospital-line: #edf0f3;
+	background: var(--hospital-canvas);
+	color: var(--hospital-text);
+	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
+}
+
+button::after {
+	border: 0;
+}
+
+scroll-view {
+	box-sizing: border-box;
+}
