@@ -19,6 +19,7 @@ import {
 	Input,
 	Modal,
 	Space,
+	Statistic,
 	Spin,
 	Table,
 	Tag,
@@ -615,16 +616,59 @@ export function PaymentPanel({
 		refundRecord,
 		session,
 	]);
+	const medicalOrderCount = paymentHistory.filter(
+		(record) => record.source === "medical_insurance",
+	).length;
+	const confirmedPaymentCount = paymentHistory.filter(
+		(record) => record.cashPaymentConfirmed,
+	).length;
+	const refundableFen = paymentHistory.reduce(
+		(total, record) => total + record.refundableFen,
+		0,
+	);
 
 	return (
 		<main className="console-content payment-page">
 			<div className="content-heading">
-				<div>
+				<div className="content-heading-copy">
+					<Text className="page-kicker">PAYMENT OPERATIONS</Text>
 					<Title level={2}>支付数据</Title>
 					<Text type="secondary">
 						普通微信支付订单和医保支付订单统一查看；支付原文仍按单笔链路受控展开
 					</Text>
 				</div>
+				<Tag color="blue">只读台账</Tag>
+			</div>
+			<div className="payment-metrics" aria-label="支付台账概览">
+				<Card className="metric-card">
+					<Statistic
+						title="已载入订单"
+						value={paymentHistory.length}
+						suffix="笔"
+					/>
+				</Card>
+				<Card className="metric-card metric-card-medical">
+					<Statistic
+						title="医保 + 微信"
+						value={medicalOrderCount}
+						suffix="笔"
+					/>
+				</Card>
+				<Card className="metric-card metric-card-confirmed">
+					<Statistic
+						title="微信已确认"
+						value={confirmedPaymentCount}
+						suffix="笔"
+					/>
+				</Card>
+				<Card className="metric-card metric-card-refund">
+					<Statistic
+						title="可退余额"
+						value={refundableFen / 100}
+						precision={2}
+						suffix="元"
+					/>
+				</Card>
 			</div>
 			<Card title="全部支付记录" className="payment-search-card">
 				<Space orientation="vertical" size={14} style={{ width: "100%" }}>
@@ -667,6 +711,9 @@ export function PaymentPanel({
 						columns={paymentRecordColumns(openMedicalRefund)}
 						dataSource={paymentHistory}
 						loading={historyLoading}
+						rowClassName={(record) =>
+							record.source === "medical_insurance" ? "payment-row-medical" : ""
+						}
 						pagination={{ pageSize: 8, hideOnSinglePage: true }}
 						scroll={{ x: 1480 }}
 						size="small"

@@ -5,6 +5,7 @@
 	color: var(--ant-color-text);
 	background: var(--ant-color-bg-layout);
 	font-synthesis: none;
+	text-rendering: optimizeLegibility;
 }
 
 * {
@@ -26,20 +27,29 @@ body {
 
 .login-shell {
 	display: flex;
-	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	min-height: 100vh;
-	padding: 32px 16px;
-	background: var(--ant-color-bg-layout);
+	padding: 40px 24px;
+	background:
+		radial-gradient(
+			circle at 12% 12%,
+			var(--ant-color-primary-bg) 0,
+			transparent 38%
+		),
+		var(--ant-color-bg-layout);
 }
 
-.login-brand {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	width: min(100%, 440px);
-	margin-bottom: 24px;
+.login-frame {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 420px;
+	width: min(100%, 1120px);
+	min-height: 680px;
+	overflow: hidden;
+	background: var(--ant-color-bg-container);
+	border: 1px solid var(--ant-color-border-secondary);
+	border-radius: 24px;
+	box-shadow: var(--ant-box-shadow-secondary);
 }
 
 .brand-mark,
@@ -55,18 +65,122 @@ body {
 }
 
 .brand-name {
+	display: block;
+	color: inherit;
 	font-size: 16px;
 	font-weight: 600;
 }
 
+.brand-product {
+	display: block;
+	margin-top: 2px;
+	color: rgb(255 255 255 / 68%);
+	font-size: 12px;
+}
+
+.login-hero {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	min-width: 0;
+	padding: 56px;
+	color: #fff;
+	background: linear-gradient(
+		145deg,
+		var(--ant-color-primary-active),
+		var(--ant-color-primary)
+	);
+}
+
+.login-hero-brand {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.login-hero-brand .brand-mark {
+	color: #fff;
+	background: rgb(255 255 255 / 16%);
+}
+
+.login-hero-copy {
+	max-width: 520px;
+}
+
+.login-kicker,
+.page-kicker {
+	display: block;
+	margin-bottom: 12px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+}
+
+.login-kicker {
+	color: rgb(255 255 255 / 70%);
+}
+
+.login-hero-copy .ant-typography {
+	color: #fff;
+}
+
+.login-hero-copy h1.ant-typography {
+	margin: 0 0 20px;
+	font-size: clamp(32px, 4vw, 50px);
+	line-height: 1.18;
+	letter-spacing: -0.04em;
+}
+
+.login-hero-copy > .ant-typography:last-child {
+	max-width: 460px;
+	color: rgb(255 255 255 / 76%);
+	font-size: 15px;
+	line-height: 1.8;
+}
+
+.login-hero-points {
+	display: grid;
+	gap: 12px;
+	max-width: 420px;
+}
+
+.login-hero-points > div {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	color: rgb(255 255 255 / 86%);
+	font-size: 13px;
+}
+
+.login-hero-points .anticon {
+	color: rgb(255 255 255 / 72%);
+	font-size: 16px;
+}
+
 .login-card {
-	width: min(100%, 440px);
-	box-shadow: var(--ant-box-shadow-card);
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: 44px;
+	border-radius: 0;
+	box-shadow: none;
+}
+
+.login-card .ant-card-body {
+	width: 100%;
+	padding: 0;
+}
+
+.login-card-eyebrow {
+	margin-bottom: 12px;
+	color: var(--ant-color-primary);
+	font-size: 12px;
+	font-weight: 700;
 }
 
 .login-heading {
 	width: 100%;
-	margin-bottom: 24px;
+	margin-bottom: 32px;
 }
 
 .login-heading .ant-typography {
@@ -122,6 +236,7 @@ body {
 	height: 100%;
 	min-height: 0;
 	overflow: hidden;
+	background: var(--ant-color-bg-container) !important;
 	border-right: 1px solid var(--ant-color-border-secondary);
 }
 
@@ -130,9 +245,39 @@ body {
 	overflow: hidden;
 }
 
+.sider-inner {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
 .sider-title {
-	padding: 24px 24px 12px;
+	padding: 28px 24px 12px;
 	color: var(--ant-color-text-secondary);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.console-sider .ant-menu {
+	border-inline-end: 0;
+	background: transparent;
+}
+
+.console-sider .ant-menu-item {
+	margin-block: 4px;
+	padding-inline: 16px !important;
+}
+
+.sider-footer {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: auto 16px 20px;
+	padding: 16px;
+	background: var(--ant-color-fill-quaternary);
+	border-radius: 12px;
 	font-size: 12px;
 }
 
@@ -142,9 +287,9 @@ body {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	height: 64px;
-	flex: 0 0 64px;
-	padding: 0 32px;
+	height: 76px;
+	flex: 0 0 76px;
+	padding: 0 36px;
 	background: var(--ant-color-bg-container);
 	border-bottom: 1px solid var(--ant-color-border-secondary);
 }
@@ -161,10 +306,42 @@ body {
 	font-size: 20px;
 }
 
+.header-context {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.header-eyebrow {
+	color: var(--ant-color-text);
+	font-size: 14px;
+	font-weight: 600;
+}
+
 .header-subtitle {
 	display: block;
 	font-size: 12px;
 	line-height: 16px;
+}
+
+.user-chip {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 10px 6px 6px;
+	background: var(--ant-color-fill-quaternary);
+	border-radius: 999px;
+	font-size: 13px;
+}
+
+.user-chip-icon {
+	display: grid;
+	width: 26px;
+	height: 26px;
+	place-items: center;
+	color: var(--ant-color-primary);
+	background: var(--ant-color-primary-bg);
+	border-radius: 50%;
 }
 
 .console-content {
@@ -175,19 +352,34 @@ body {
 	overflow: auto;
 	width: min(100%, 1440px);
 	margin: 0 auto;
-	padding: 32px;
+	padding: 36px;
 }
 
 .content-heading {
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: space-between;
 	gap: 16px;
-	margin-bottom: 24px;
+	margin-bottom: 28px;
 }
 
 .content-heading .ant-typography {
 	margin-top: 0;
+}
+
+.content-heading-copy {
+	min-width: 0;
+}
+
+.content-heading-copy h2.ant-typography {
+	margin-bottom: 6px;
+	font-size: 30px;
+	letter-spacing: -0.03em;
+}
+
+.page-kicker {
+	margin-bottom: 8px;
+	color: var(--ant-color-primary);
 }
 
 .log-policy-alert,
@@ -289,9 +481,70 @@ body {
 	max-width: 1440px;
 }
 
+.payment-metrics {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 16px;
+	margin-bottom: 20px;
+}
+
+.metric-card {
+	border: 0;
+	box-shadow: var(--ant-box-shadow-card);
+}
+
+.metric-card .ant-card-body {
+	padding: 20px;
+}
+
+.metric-card .ant-statistic-title {
+	margin-bottom: 8px;
+	color: var(--ant-color-text-secondary);
+	font-size: 12px;
+}
+
+.metric-card .ant-statistic-content {
+	font-size: 26px;
+	font-weight: 650;
+}
+
+.metric-card-medical {
+	box-shadow:
+		inset 3px 0 0 var(--ant-color-purple),
+		var(--ant-box-shadow-card);
+}
+
+.metric-card-confirmed {
+	box-shadow:
+		inset 3px 0 0 var(--ant-color-success),
+		var(--ant-box-shadow-card);
+}
+
+.metric-card-refund {
+	box-shadow:
+		inset 3px 0 0 var(--ant-color-warning),
+		var(--ant-box-shadow-card);
+}
+
 .payment-search-card,
 .payment-boundary-alert {
 	margin-bottom: 16px;
+}
+
+.payment-search-card,
+.payment-flow-card {
+	border: 0;
+	box-shadow: var(--ant-box-shadow-card);
+}
+
+.payment-page .ant-table-thead > tr > th {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
+
+.payment-row-medical > td:first-child {
+	border-inline-start: 3px solid var(--ant-color-purple);
 }
 
 .payment-flow-card {
@@ -390,12 +643,38 @@ body {
 }
 
 @media (max-width: 767px) {
+	.login-shell {
+		padding: 16px;
+	}
+
+	.login-frame {
+		display: block;
+		min-height: 0;
+		border-radius: 18px;
+	}
+
+	.login-hero {
+		gap: 36px;
+		padding: 28px 24px;
+	}
+
+	.login-hero-copy h1.ant-typography {
+		font-size: 34px;
+	}
+
+	.login-card {
+		padding: 32px 24px;
+	}
+
 	.console-header {
+		height: 68px;
+		flex-basis: 68px;
 		padding: 0 16px;
 	}
 
 	.header-subtitle,
-	.console-header .ant-space-item:first-child {
+	.header-eyebrow,
+	.header-actions .ant-btn {
 		display: none;
 	}
 
@@ -405,10 +684,10 @@ body {
 
 	.console-sider {
 		position: fixed;
-		top: 64px;
+		top: 68px;
 		left: 0;
 		z-index: 20;
-		height: calc(100vh - 64px);
+		height: calc(100vh - 68px);
 		bottom: 0;
 	}
 
@@ -434,5 +713,32 @@ body {
 
 	.payment-flow-title-main .ant-typography {
 		max-width: 70vw;
+	}
+
+	.payment-metrics {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px;
+	}
+
+	.metric-card .ant-card-body {
+		padding: 16px;
+	}
+
+	.metric-card .ant-statistic-content {
+		font-size: 22px;
+	}
+}
+
+@media (min-width: 768px) and (max-width: 1100px) {
+	.login-hero {
+		padding: 40px;
+	}
+
+	.login-card {
+		padding: 36px;
+	}
+
+	.payment-metrics {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
