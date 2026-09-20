@@ -574,6 +574,7 @@ export type {
 	PaymentAggregateBusiness,
 	PaymentAggregateHisSyncStatus,
 	PaymentAggregateStatus,
+	PaymentHistoryStatus,
 	PaymentLeg,
 	PaymentLegStatus,
 	PaymentLegType,

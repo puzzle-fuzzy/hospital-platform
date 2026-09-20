@@ -659,6 +659,8 @@ export function createDefaultApplicationServices(
 				authorizations: repositories.medicalInsuranceAuthorizations,
 				refunds: repositories.medicalInsuranceRefunds,
 				medicalInsuranceRefund: options.medicalInsuranceRefundGateway,
+				paymentOperations: repositories.paymentOperations,
+				operatorAudits: repositories.operatorAudits,
 				...(wechatRefund ? { wechatRefund } : {}),
 			})
 		: undefined;

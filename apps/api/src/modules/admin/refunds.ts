@@ -58,6 +58,16 @@ const AdminRefundHistoryQuery = t.Object(
 		pageSize: t.Optional(t.String({ minLength: 1, maxLength: 3 })),
 		/** 兼容旧管理端调用；新调用使用 pageSize。 */
 		limit: t.Optional(t.String({ minLength: 1, maxLength: 3 })),
+		businessDay: t.Optional(t.String({ minLength: 10, maxLength: 10 })),
+		status: t.Optional(
+			t.Union([
+				t.Literal("created"),
+				t.Literal("pending"),
+				t.Literal("paid"),
+				t.Literal("failed"),
+				t.Literal("manual_review"),
+			]),
+		),
 	},
 	{ additionalProperties: false },
 );
@@ -232,6 +242,8 @@ export function adminWechatRefundModule(
 							...(query.orderId?.trim()
 								? { orderId: query.orderId.trim() }
 								: {}),
+							...(query.businessDay ? { businessDay: query.businessDay } : {}),
+							...(query.status ? { status: query.status } : {}),
 						}),
 					);
 				} catch (error) {
@@ -311,7 +323,10 @@ export function adminMedicalInsuranceRefundModule(
 			"/admin/medical-insurance-refunds/:refundNo",
 			async ({ headers, params }) => {
 				authorize(adminRefundToken, headers);
-				const result = await service.query(params.refundNo);
+				const result = await service.query(
+					params.refundNo,
+					headers["x-request-id"] ? { requestId: headers["x-request-id"] } : {},
+				);
 				if (!result) {
 					throw new HttpError(404, "not_found", "医保退费记录不存在");
 				}

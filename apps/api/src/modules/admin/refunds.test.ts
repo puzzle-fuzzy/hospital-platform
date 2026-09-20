@@ -60,7 +60,7 @@ test("Admin 微信退款历史只接受退款令牌并返回最小支付读模�
 
 	const response = await app.handle(
 		new Request(
-			"http://localhost/admin/wechat-refund-payments?source=payment_order&limit=20",
+			"http://localhost/admin/wechat-refund-payments?source=payment_order&limit=20&businessDay=2026-09-18&status=paid",
 			{
 				headers: {
 					"x-admin-refund-token": "admin-refund-token-001",
@@ -74,6 +74,8 @@ test("Admin 微信退款历史只接受退款令牌并返回最小支付读模�
 		source: "payment_order",
 		page: 1,
 		pageSize: 20,
+		businessDay: "2026-09-18",
+		status: "paid",
 	});
 	expect(await response.json()).toEqual({
 		success: true,

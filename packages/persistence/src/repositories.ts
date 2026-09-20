@@ -1113,6 +1113,84 @@ function matchesPaymentAdminBusiness(
 			: !isRegistration && !isOutpatient;
 }
 
+function matchesCreatedWindow(
+	createdAt: string,
+	createdFrom: string | undefined,
+	createdTo: string | undefined,
+): boolean {
+	const timestamp = Date.parse(createdAt);
+	if (!Number.isFinite(timestamp)) return false;
+	if (createdFrom !== undefined && timestamp < Date.parse(createdFrom)) {
+		return false;
+	}
+	if (createdTo !== undefined && timestamp >= Date.parse(createdTo)) {
+		return false;
+	}
+	return true;
+}
+
+function paymentAdminStatus(
+	order: PaymentOrder,
+): "created" | "pending" | "paid" | "failed" | "manual_review" {
+	if (order.state === "created") return "created";
+	if (
+		order.state === "cash_paid" ||
+		order.state === "his_written_back" ||
+		order.state === "completed"
+	) {
+		return "paid";
+	}
+	if (order.state === "failed" || order.state === "cancelled") return "failed";
+	return "pending";
+}
+
+function medicalAdminStatus(
+	order: MedicalInsuranceOrder,
+): "created" | "pending" | "paid" | "failed" | "manual_review" {
+	if (
+		order.status === "manual_review" ||
+		order.status === "awaiting_confirmation"
+	) {
+		return "manual_review";
+	}
+	if (order.status === "failed" || order.status === "cancelled")
+		return "failed";
+	if (
+		order.status === "insurance_settled" &&
+		((order.amounts?.cashFen ?? 0) === 0 ||
+			order.wechatPaymentState === "cash_paid")
+	) {
+		return "paid";
+	}
+	return order.status === "created" ? "created" : "pending";
+}
+
+function matchesPaymentAdminStatus(
+	order: PaymentOrder,
+	status:
+		| "created"
+		| "pending"
+		| "paid"
+		| "failed"
+		| "manual_review"
+		| undefined,
+): boolean {
+	return !status || paymentAdminStatus(order) === status;
+}
+
+function matchesMedicalAdminStatus(
+	order: MedicalInsuranceOrder,
+	status:
+		| "created"
+		| "pending"
+		| "paid"
+		| "failed"
+		| "manual_review"
+		| undefined,
+): boolean {
+	return !status || medicalAdminStatus(order) === status;
+}
+
 function matchesMedicalAdminBusiness(
 	order: MedicalInsuranceOrder,
 	business: "registration" | "outpatient" | "other" | undefined,
@@ -1142,7 +1220,13 @@ export function createInMemoryPaymentOrderRepository(
 				.filter(
 					(order) =>
 						(!input.orderId || order.orderId === input.orderId) &&
-						matchesPaymentAdminBusiness(order, input.business),
+						matchesPaymentAdminBusiness(order, input.business) &&
+						matchesCreatedWindow(
+							order.createdAt,
+							input.createdFrom,
+							input.createdTo,
+						) &&
+						matchesPaymentAdminStatus(order, input.aggregateStatus),
 				)
 				.sort((left, right) => {
 					const updated = right.updatedAt.localeCompare(left.updatedAt);
@@ -1155,7 +1239,13 @@ export function createInMemoryPaymentOrderRepository(
 			return [...orders.values()].filter(
 				(order) =>
 					(!input.orderId || order.orderId === input.orderId) &&
-					matchesPaymentAdminBusiness(order, input.business),
+					matchesPaymentAdminBusiness(order, input.business) &&
+					matchesCreatedWindow(
+						order.createdAt,
+						input.createdFrom,
+						input.createdTo,
+					) &&
+					matchesPaymentAdminStatus(order, input.aggregateStatus),
 			).length;
 		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
@@ -2569,7 +2659,13 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				.filter(
 					(order) =>
 						(!input.orderId || order.medicalOrderId === input.orderId) &&
-						matchesMedicalAdminBusiness(order, input.business),
+						matchesMedicalAdminBusiness(order, input.business) &&
+						matchesCreatedWindow(
+							order.createdAt,
+							input.createdFrom,
+							input.createdTo,
+						) &&
+						matchesMedicalAdminStatus(order, input.aggregateStatus),
 				)
 				.sort((left, right) => {
 					const updated = right.updatedAt.localeCompare(left.updatedAt);
@@ -2587,7 +2683,13 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			return [...orders.values()].filter(
 				(order) =>
 					(!input.orderId || order.medicalOrderId === input.orderId) &&
-					matchesMedicalAdminBusiness(order, input.business),
+					matchesMedicalAdminBusiness(order, input.business) &&
+					matchesCreatedWindow(
+						order.createdAt,
+						input.createdFrom,
+						input.createdTo,
+					) &&
+					matchesMedicalAdminStatus(order, input.aggregateStatus),
 			).length;
 		},
 		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {

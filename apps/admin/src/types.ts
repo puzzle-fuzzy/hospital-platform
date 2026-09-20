@@ -292,6 +292,8 @@ export type AdminWechatRefundPaymentRecord = {
 export type AdminWechatRefundPaymentHistoryQuery = {
 	source?: WechatRefundSource;
 	business?: "registration" | "outpatient" | "other";
+	businessDay?: string;
+	status?: "created" | "pending" | "paid" | "failed" | "manual_review";
 	orderId?: string;
 	page?: number;
 	pageSize?: number;

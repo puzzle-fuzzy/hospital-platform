@@ -6,7 +6,6 @@ import type {
 	AdminMedicalInsuranceRefund,
 	AdminWechatRefundPaymentHistoryQuery,
 	AdminWechatRefundPaymentHistoryPage,
-	AdminWechatRefundPaymentRecord,
 	CaptchaState,
 	LoginValues,
 	PaymentDayResult,
@@ -299,6 +298,8 @@ export async function fetchWechatRefundPaymentHistory(
 	const query = new URLSearchParams();
 	if (input.source) query.set("source", input.source);
 	if (input.business) query.set("business", input.business);
+	if (input.businessDay) query.set("businessDay", input.businessDay);
+	if (input.status) query.set("status", input.status);
 	if (input.orderId?.trim()) query.set("orderId", input.orderId.trim());
 	if (input.page !== undefined) query.set("page", String(input.page));
 	if (input.pageSize !== undefined)

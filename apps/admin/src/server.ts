@@ -710,6 +710,26 @@ async function adminRefundHistoryRequest(
 		}
 		forwarded.set("business", business);
 	}
+	const businessDay = url.searchParams.get("businessDay");
+	if (businessDay) {
+		if (!/^\d{4}-\d{2}-\d{2}$/u.test(businessDay)) {
+			return errorResponse("业务日参数不合法", 400);
+		}
+		forwarded.set("businessDay", businessDay);
+	}
+	const status = url.searchParams.get("status");
+	if (status) {
+		if (
+			status !== "created" &&
+			status !== "pending" &&
+			status !== "paid" &&
+			status !== "failed" &&
+			status !== "manual_review"
+		) {
+			return errorResponse("支付状态参数不合法", 400);
+		}
+		forwarded.set("status", status);
+	}
 	const orderId = url.searchParams.get("orderId");
 	if (orderId) {
 		if (orderId.length > 64) return errorResponse("订单号参数不合法", 400);

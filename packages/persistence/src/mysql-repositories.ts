@@ -49,6 +49,7 @@ import type {
 	PaymentOperatorAuditRepository,
 	PaymentOperationEvent,
 	PaymentOperationsRepository,
+	PaymentHistoryStatus,
 	PaymentReconciliationResult,
 	PaymentSyncRepository,
 	PaymentSyncTask,
@@ -1824,6 +1825,44 @@ function mysqlDateTime(value: string | Date): string {
 	}
 	const pad = (part: number, length = 2) => String(part).padStart(length, "0");
 	return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}.${pad(date.getUTCMilliseconds(), 3)}`;
+}
+
+function paymentAdminStatusCondition(
+	status: PaymentHistoryStatus | undefined,
+): string | undefined {
+	switch (status) {
+		case "created":
+			return "state = 'created'";
+		case "pending":
+			return "state IN ('authorized', 'pre_settled', 'insurance_submitted', 'insurance_settled', 'cash_pending', 'awaiting_confirmation')";
+		case "paid":
+			return "state IN ('cash_paid', 'his_written_back', 'completed')";
+		case "failed":
+			return "state IN ('failed', 'cancelled')";
+		case "manual_review":
+			return "1 = 0";
+		default:
+			return undefined;
+	}
+}
+
+function medicalAdminStatusCondition(
+	status: PaymentHistoryStatus | undefined,
+): string | undefined {
+	switch (status) {
+		case "created":
+			return "status = 'created'";
+		case "pending":
+			return "(status IN ('fee_uploaded', 'order_placed', 'cash_pending') OR (status = 'insurance_settled' AND cash_fen > 0 AND wechat_payment_state <> 'cash_paid'))";
+		case "paid":
+			return "status = 'insurance_settled' AND (cash_fen = 0 OR wechat_payment_state = 'cash_paid')";
+		case "failed":
+			return "status IN ('failed', 'cancelled')";
+		case "manual_review":
+			return "status IN ('manual_review', 'awaiting_confirmation')";
+		default:
+			return undefined;
+	}
 }
 
 const PAYMENT_STATES: readonly PaymentState[] = [
@@ -4433,6 +4472,14 @@ export function createMySqlRepositories(
 				conditions.push("order_id = ?");
 				values.push(orderId);
 			}
+			if (input.createdFrom) {
+				conditions.push("created_at >= ?");
+				values.push(mysqlDateTime(input.createdFrom));
+			}
+			if (input.createdTo) {
+				conditions.push("created_at < ?");
+				values.push(mysqlDateTime(input.createdTo));
+			}
 			if (input.business === "registration") {
 				conditions.push("idempotency_key LIKE 'registration-self-pay:%'");
 			} else if (input.business === "outpatient") {
@@ -4442,6 +4489,10 @@ export function createMySqlRepositories(
 					"idempotency_key NOT LIKE 'registration-self-pay:%' AND idempotency_key NOT LIKE 'outpatient-self-pay:%'",
 				);
 			}
+			const statusCondition = paymentAdminStatusCondition(
+				input.aggregateStatus,
+			);
+			if (statusCondition) conditions.push(statusCondition);
 			const where = conditions.length
 				? `WHERE ${conditions.join(" AND ")}`
 				: "";
@@ -4463,6 +4514,14 @@ export function createMySqlRepositories(
 				conditions.push("order_id = ?");
 				values.push(input.orderId.trim());
 			}
+			if (input.createdFrom) {
+				conditions.push("created_at >= ?");
+				values.push(mysqlDateTime(input.createdFrom));
+			}
+			if (input.createdTo) {
+				conditions.push("created_at < ?");
+				values.push(mysqlDateTime(input.createdTo));
+			}
 			if (input.business === "registration") {
 				conditions.push("idempotency_key LIKE 'registration-self-pay:%'");
 			} else if (input.business === "outpatient") {
@@ -4472,6 +4531,10 @@ export function createMySqlRepositories(
 					"idempotency_key NOT LIKE 'registration-self-pay:%' AND idempotency_key NOT LIKE 'outpatient-self-pay:%'",
 				);
 			}
+			const statusCondition = paymentAdminStatusCondition(
+				input.aggregateStatus,
+			);
+			if (statusCondition) conditions.push(statusCondition);
 			const where = conditions.length
 				? `WHERE ${conditions.join(" AND ")}`
 				: "";
@@ -5895,6 +5958,14 @@ export function createMySqlRepositories(
 				conditions.push("medical_order_id = ?");
 				values.push(orderId);
 			}
+			if (input.createdFrom) {
+				conditions.push("created_at >= ?");
+				values.push(mysqlDateTime(input.createdFrom));
+			}
+			if (input.createdTo) {
+				conditions.push("created_at < ?");
+				values.push(mysqlDateTime(input.createdTo));
+			}
 			if (input.business === "outpatient") {
 				conditions.push("business_type = 'outpatient'");
 			} else if (input.business === "registration") {
@@ -5902,6 +5973,10 @@ export function createMySqlRepositories(
 			} else if (input.business === "other") {
 				conditions.push("1 = 0");
 			}
+			const statusCondition = medicalAdminStatusCondition(
+				input.aggregateStatus,
+			);
+			if (statusCondition) conditions.push(statusCondition);
 			const where = conditions.length
 				? `WHERE ${conditions.join(" AND ")}`
 				: "";
@@ -5922,6 +5997,14 @@ export function createMySqlRepositories(
 				conditions.push("medical_order_id = ?");
 				values.push(input.orderId.trim());
 			}
+			if (input.createdFrom) {
+				conditions.push("created_at >= ?");
+				values.push(mysqlDateTime(input.createdFrom));
+			}
+			if (input.createdTo) {
+				conditions.push("created_at < ?");
+				values.push(mysqlDateTime(input.createdTo));
+			}
 			if (input.business === "outpatient") {
 				conditions.push("business_type = 'outpatient'");
 			} else if (input.business === "registration") {
@@ -5929,6 +6012,10 @@ export function createMySqlRepositories(
 			} else if (input.business === "other") {
 				conditions.push("1 = 0");
 			}
+			const statusCondition = medicalAdminStatusCondition(
+				input.aggregateStatus,
+			);
+			if (statusCondition) conditions.push(statusCondition);
 			const where = conditions.length
 				? `WHERE ${conditions.join(" AND ")}`
 				: "";

@@ -11,6 +11,12 @@ export type PaymentAggregateStatus =
 	| "refunded"
 	| "manual_review";
 
+/** Admin 列表当前可从来源订单确定的支付状态；退费状态由退费读模型另行计算。 */
+export type PaymentHistoryStatus = Exclude<
+	PaymentAggregateStatus,
+	"refund_pending" | "refunded"
+>;
+
 export type PaymentAggregateHisSyncStatus =
 	| "not_required"
 	| "pending"

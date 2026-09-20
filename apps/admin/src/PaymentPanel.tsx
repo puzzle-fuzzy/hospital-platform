@@ -550,6 +550,10 @@ export function PaymentPanel({
 	const [historyBusiness, setHistoryBusiness] = useState<
 		"registration" | "outpatient" | "other" | undefined
 	>();
+	const [historyBusinessDay, setHistoryBusinessDay] = useState<string>();
+	const [historyStatus, setHistoryStatus] = useState<
+		"created" | "pending" | "paid" | "failed" | "manual_review" | undefined
+	>();
 	const [historyLoading, setHistoryLoading] = useState(false);
 	const [historyError, setHistoryError] = useState<string>();
 	const [refundRecord, setRefundRecord] =
@@ -595,6 +599,14 @@ export function PaymentPanel({
 				page?: number;
 				source?: WechatRefundSource | undefined;
 				business?: "registration" | "outpatient" | "other" | undefined;
+				businessDay?: string | undefined;
+				status?:
+					| "created"
+					| "pending"
+					| "paid"
+					| "failed"
+					| "manual_review"
+					| undefined;
 			} = {},
 		) => {
 			setHistoryLoading(true);
@@ -606,6 +618,10 @@ export function PaymentPanel({
 						pageSize: 8,
 						...(options.source ? { source: options.source } : {}),
 						...(options.business ? { business: options.business } : {}),
+						...(options.businessDay
+							? { businessDay: options.businessDay }
+							: {}),
+						...(options.status ? { status: options.status } : {}),
 						...(options.queryOrderId?.trim()
 							? { orderId: options.queryOrderId.trim() }
 							: {}),
@@ -715,6 +731,8 @@ export function PaymentPanel({
 				queryOrderId: refundRecord.orderId,
 				source: historySource,
 				business: historyBusiness,
+				businessDay: historyBusinessDay,
+				status: historyStatus,
 			});
 		} catch (reason) {
 			if (reason instanceof ApiError && reason.status === 401) {
@@ -729,6 +747,8 @@ export function PaymentPanel({
 		}
 	}, [
 		historyBusiness,
+		historyBusinessDay,
+		historyStatus,
 		historySource,
 		loadPaymentHistory,
 		message,
@@ -756,7 +776,7 @@ export function PaymentPanel({
 					<Title level={2}>支付数据</Title>
 				</div>
 			</div>
-			<div className="payment-metrics" aria-label="支付台账概览">
+			<div className="payment-metrics">
 				<Card className="metric-card">
 					<Statistic
 						title="订单总量"
@@ -798,6 +818,8 @@ export function PaymentPanel({
 									queryOrderId: historyOrderId,
 									source: historySource,
 									business: historyBusiness,
+									businessDay: historyBusinessDay,
+									status: historyStatus,
 								})
 							}
 							placeholder="按订单号精确查询；留空显示最近记录"
@@ -815,6 +837,8 @@ export function PaymentPanel({
 									queryOrderId: historyOrderId,
 									source,
 									business: historyBusiness,
+									businessDay: historyBusinessDay,
+									status: historyStatus,
 								});
 							}}
 							options={[
@@ -838,6 +862,8 @@ export function PaymentPanel({
 									queryOrderId: historyOrderId,
 									source: historySource,
 									business,
+									businessDay: historyBusinessDay,
+									status: historyStatus,
 								});
 							}}
 							options={[
@@ -847,6 +873,54 @@ export function PaymentPanel({
 							]}
 							style={{ width: 120 }}
 						/>
+						<Input
+							type="date"
+							allowClear
+							value={historyBusinessDay ?? ""}
+							onChange={(event) => {
+								const businessDay = event.target.value || undefined;
+								setHistoryBusinessDay(businessDay);
+								void loadPaymentHistory({
+									queryOrderId: historyOrderId,
+									source: historySource,
+									business: historyBusiness,
+									businessDay,
+									status: historyStatus,
+								});
+							}}
+							aria-label="业务日"
+							style={{ width: 160 }}
+						/>
+						<Select
+							allowClear
+							placeholder="全部状态"
+							value={historyStatus}
+							onChange={(value) => {
+								const status = value as
+									| "created"
+									| "pending"
+									| "paid"
+									| "failed"
+									| "manual_review"
+									| undefined;
+								setHistoryStatus(status);
+								void loadPaymentHistory({
+									queryOrderId: historyOrderId,
+									source: historySource,
+									business: historyBusiness,
+									businessDay: historyBusinessDay,
+									status,
+								});
+							}}
+							options={[
+								{ value: "created", label: "待支付" },
+								{ value: "pending", label: "处理中" },
+								{ value: "paid", label: "已支付" },
+								{ value: "failed", label: "失败/取消" },
+								{ value: "manual_review", label: "人工复核" },
+							]}
+							style={{ width: 130 }}
+						/>
 						<Button
 							icon={<ReloadOutlined />}
 							loading={historyLoading}
@@ -855,6 +929,8 @@ export function PaymentPanel({
 									queryOrderId: historyOrderId,
 									source: historySource,
 									business: historyBusiness,
+									businessDay: historyBusinessDay,
+									status: historyStatus,
 								})
 							}
 						>
@@ -867,6 +943,8 @@ export function PaymentPanel({
 									queryOrderId: "",
 									source: historySource,
 									business: historyBusiness,
+									businessDay: historyBusinessDay,
+									status: historyStatus,
 								});
 							}}
 						>
@@ -899,6 +977,8 @@ export function PaymentPanel({
 									page,
 									source: historySource,
 									business: historyBusiness,
+									businessDay: historyBusinessDay,
+									status: historyStatus,
 								}),
 						}}
 						scroll={{ x: 1600 }}

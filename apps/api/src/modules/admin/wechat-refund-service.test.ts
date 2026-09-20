@@ -124,11 +124,16 @@ function ledgerRefund(input: {
 test("admin refund reserves a partial refund and preserves idempotency", async () => {
 	const refunds = createInMemoryWechatRefundRepository();
 	const orders = createInMemoryPaymentOrderRepository([paidOrder()]);
+	const operations = createInMemoryPaymentOperationsRepository();
+	await projectPaymentOrder(operations, paidOrder());
+	const audits = createInMemoryPaymentOperatorAuditRepository();
 	let requestCount = 0;
 	const service = new AdminWechatRefundService({
 		refunds,
 		paymentOrders: orders,
 		medicalInsuranceOrders: {} as never,
+		paymentOperations: operations,
+		operatorAudits: audits,
 		gateway: {
 			async requestRefund(input) {
 				requestCount += 1;
@@ -169,6 +174,16 @@ test("admin refund reserves a partial refund and preserves idempotency", async (
 
 	const queried = await service.query(first.merchantRefundNo, context);
 	expect(queried.status).toBe("success");
+	const aggregate = await operations.findAggregateByBusinessKey(
+		`payment_order:${paidOrder().orderId}`,
+	);
+	expect(aggregate).toBeDefined();
+	const auditItems = await audits.listByAggregate(aggregate?.aggregateId ?? "");
+	expect(auditItems).toHaveLength(2);
+	expect(auditItems.map((item) => item.action).sort()).toEqual([
+		"refund_query",
+		"refund_request",
+	]);
 });
 
 test("admin refund does not send a second refund when the first request is unknown", async () => {
@@ -221,6 +236,49 @@ test("admin refund does not send a second refund when the first request is unkno
 	);
 	expect(recovered.status).toBe("processing");
 	expect(requestCount).toBe(1);
+});
+
+test("refund audit failure never downgrades a confirmed WeChat refund", async () => {
+	const refunds = createInMemoryWechatRefundRepository();
+	const service = new AdminWechatRefundService({
+		refunds,
+		paymentOrders: createInMemoryPaymentOrderRepository([paidOrder()]),
+		medicalInsuranceOrders: {} as never,
+		operatorAudits: {
+			async append() {
+				throw new Error("audit unavailable");
+			},
+			async listByAggregate() {
+				return [];
+			},
+		},
+		gateway: {
+			async requestRefund() {
+				return result("SUCCESS");
+			},
+			async queryRefund() {
+				throw new Error("query should not be needed");
+			},
+		},
+		createId: () => "refund001",
+	});
+
+	await expect(
+		service.request(
+			{
+				source: "payment_order",
+				orderId: paidOrder().orderId,
+				refundFen: 100,
+				idempotencyKey: "refund-audit-failure-001",
+			},
+			context,
+		),
+	).rejects.toThrow("audit unavailable");
+	const records = await refunds.findBySourceAndSourceOrder(
+		"payment_order",
+		paidOrder().orderId,
+	);
+	expect(records[0]?.status).toBe("success");
 });
 
 test("trusted registration refund uses the Provider-saved out_trade_no", async () => {
@@ -444,6 +502,20 @@ test("admin refund history shows prior payments and only enables the safe refund
 	expect(registrationPage.items.map((record) => record.orderId)).toEqual([
 		registrationOrder.orderId,
 	]);
+
+	const paidOnBusinessDay = await service.listPaymentHistory({
+		businessDay: "2026-09-18",
+		status: "paid",
+		pageSize: 10,
+	});
+	expect(paidOnBusinessDay.total).toBe(2);
+	expect(paidOnBusinessDay.items.map((record) => record.orderId)).toEqual([
+		registrationOrder.orderId,
+		paidOrder().orderId,
+	]);
+	await expect(
+		service.listPaymentHistory({ businessDay: "2026-02-30" }),
+	).rejects.toThrow("业务日必须是有效的 YYYY-MM-DD 日期");
 
 	await expect(
 		service.request(

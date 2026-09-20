@@ -10,6 +10,8 @@ import {
 	type MedicalInsuranceRefundRepository,
 	type MedicalInsuranceRefundType,
 	type WechatRefund,
+	type PaymentOperationsRepository,
+	type PaymentOperatorAuditRepository,
 	isBoundedOpaqueIdentifier,
 	normalizeAdapterCallContext,
 } from "@hospital/domain";
@@ -258,6 +260,8 @@ export type MedicalInsuranceRefundServiceDependencies = {
 	refunds: MedicalInsuranceRefundRepository;
 	medicalInsuranceRefund: MedicalInsuranceRefundGateway;
 	wechatRefund?: AdminWechatRefundService;
+	paymentOperations?: PaymentOperationsRepository;
+	operatorAudits?: PaymentOperatorAuditRepository;
 	now?: () => Date;
 	createId?: () => string;
 };
@@ -271,6 +275,33 @@ export class MedicalInsuranceRefundService {
 	) {
 		this.now = dependencies.now ?? (() => new Date());
 		this.createId = dependencies.createId ?? (() => crypto.randomUUID());
+	}
+
+	private async appendAdminRefundAudit(input: {
+		orderId: string;
+		requestId: string;
+		outcome: "succeeded" | "failed" | "rejected";
+		reasonCode?: string;
+	}): Promise<void> {
+		const audits = this.dependencies.operatorAudits;
+		if (!audits) return;
+		const aggregateId = this.dependencies.paymentOperations
+			? (
+					await this.dependencies.paymentOperations.findAggregateByBusinessKey(
+						`medical_insurance:${input.orderId}`,
+					)
+				)?.aggregateId
+			: undefined;
+		await audits.append({
+			auditId: `audit-refund-request-${this.createId()}`,
+			operatorRef: null,
+			action: "refund_request",
+			...(aggregateId ? { aggregateId } : {}),
+			requestId: input.requestId,
+			outcome: input.outcome,
+			...(input.reasonCode ? { reasonCode: input.reasonCode } : {}),
+			occurredAt: this.now().toISOString(),
+		});
 	}
 
 	private async save(
@@ -466,27 +497,72 @@ export class MedicalInsuranceRefundService {
 				"该医保订单已有退费记录，不能再从 Admin 发起整笔退费",
 			);
 		}
-		return this.request({
-			ownerUserId: order.ownerUserId,
+		let result: MedicalInsuranceRefundPayload["data"];
+		try {
+			result = await this.request({
+				ownerUserId: order.ownerUserId,
+				orderId,
+				refund: {
+					refundType: "ALL",
+					...(input.reason !== undefined ? { reason: input.reason } : {}),
+				},
+				context: {
+					...context,
+					idempotencyKey: adminIdempotencyKey,
+				},
+			});
+		} catch (error) {
+			await this.appendAdminRefundAudit({
+				orderId,
+				requestId: context.traceId,
+				outcome: "failed",
+				reasonCode: providerErrorCode(error),
+			});
+			throw error;
+		}
+		await this.appendAdminRefundAudit({
 			orderId,
-			refund: {
-				refundType: "ALL",
-				...(input.reason !== undefined ? { reason: input.reason } : {}),
-			},
-			context: {
-				...context,
-				idempotencyKey: adminIdempotencyKey,
-			},
+			requestId: context.traceId,
+			outcome:
+				result.status === "failed"
+					? "failed"
+					: result.status === "manual_review"
+						? "rejected"
+						: "succeeded",
+			...(result.status === "manual_review"
+				? { reasonCode: "manual_review" }
+				: {}),
 		});
+		return result;
 	}
 
 	async query(
 		refundNo: string,
+		context: { requestId?: string } = {},
 	): Promise<MedicalInsuranceRefundPayload["data"] | undefined> {
 		const record = await this.dependencies.refunds.findByRefundNo(
 			bounded(refundNo, "refundNo"),
 		);
-		return record ? responseOf(record) : undefined;
+		if (!record) return undefined;
+		if (this.dependencies.operatorAudits) {
+			const aggregateId = this.dependencies.paymentOperations
+				? (
+						await this.dependencies.paymentOperations.findAggregateByBusinessKey(
+							`medical_insurance:${record.medicalOrderId}`,
+						)
+					)?.aggregateId
+				: undefined;
+			await this.dependencies.operatorAudits.append({
+				auditId: `audit-refund-query-${this.createId()}`,
+				operatorRef: null,
+				action: "refund_query",
+				...(aggregateId ? { aggregateId } : {}),
+				...(context.requestId ? { requestId: context.requestId } : {}),
+				outcome: "succeeded",
+				occurredAt: this.now().toISOString(),
+			});
+		}
+		return responseOf(record);
 	}
 
 	async request(input: {

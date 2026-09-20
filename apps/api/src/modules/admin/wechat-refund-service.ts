@@ -12,6 +12,7 @@ import {
 	type PaymentLeg,
 	type PaymentOperationEvent,
 	type PaymentOperatorAuditRepository,
+	type PaymentHistoryStatus,
 	type WechatRefund,
 	WechatRefundAmountExceededError,
 	type WechatRefundGateway,
@@ -20,6 +21,7 @@ import {
 	type WechatRefundProviderStatus,
 	type WechatRefundRepository,
 	type WechatRefundSource,
+	parseIsoCalendarDate,
 } from "@hospital/domain";
 import {
 	projectMedicalInsuranceOrder,
@@ -43,6 +45,10 @@ export type AdminWechatRefundHistoryQuery = {
 	pageSize?: number;
 	/** 兼容旧调用方；新调用方使用 pageSize。 */
 	limit?: number;
+	/** 按 Asia/Shanghai 自然日筛选订单创建时间。 */
+	businessDay?: string;
+	/** 来源订单映射后的支付聚合状态；退费状态不在此筛选项内。 */
+	status?: PaymentHistoryStatus;
 };
 
 export type AdminPaymentHistoryPage = {
@@ -239,10 +245,16 @@ function normalizeRefundInput(
 	};
 }
 
-function normalizeHistoryQuery(
-	input: AdminWechatRefundHistoryQuery,
-): Required<Pick<AdminWechatRefundHistoryQuery, "page" | "pageSize">> &
-	Pick<AdminWechatRefundHistoryQuery, "source" | "business" | "orderId"> {
+function normalizeHistoryQuery(input: AdminWechatRefundHistoryQuery): Required<
+	Pick<AdminWechatRefundHistoryQuery, "page" | "pageSize">
+> &
+	Pick<
+		AdminWechatRefundHistoryQuery,
+		"source" | "business" | "orderId" | "businessDay" | "status"
+	> & {
+		createdFrom?: string;
+		createdTo?: string;
+	} {
 	if (
 		input.source !== undefined &&
 		input.source !== "payment_order" &&
@@ -255,6 +267,16 @@ function normalizeHistoryQuery(
 		input.business !== "registration" &&
 		input.business !== "outpatient" &&
 		input.business !== "other"
+	) {
+		throw new AdminWechatRefundInputError();
+	}
+	if (
+		input.status !== undefined &&
+		input.status !== "created" &&
+		input.status !== "pending" &&
+		input.status !== "paid" &&
+		input.status !== "failed" &&
+		input.status !== "manual_review"
 	) {
 		throw new AdminWechatRefundInputError();
 	}
@@ -272,12 +294,32 @@ function normalizeHistoryQuery(
 		);
 	}
 	const orderId = input.orderId?.trim();
+	const businessDay = input.businessDay?.trim();
+	if (
+		businessDay !== undefined &&
+		(parseIsoCalendarDate(businessDay) === undefined ||
+			!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/u.test(businessDay))
+	) {
+		throw new AdminWechatRefundInputError("业务日必须是有效的 YYYY-MM-DD 日期");
+	}
+	const createdFrom = businessDay
+		? new Date(`${businessDay}T00:00:00+08:00`).toISOString()
+		: undefined;
+	const createdTo = businessDay
+		? new Date(
+				new Date(`${businessDay}T00:00:00+08:00`).getTime() + 86_400_000,
+			).toISOString()
+		: undefined;
 	return {
 		page,
 		pageSize,
 		...(input.source ? { source: input.source } : {}),
 		...(input.business ? { business: input.business } : {}),
 		...(orderId ? { orderId: requiredText(orderId, 64) } : {}),
+		...(businessDay ? { businessDay } : {}),
+		...(input.status ? { status: input.status } : {}),
+		...(createdFrom ? { createdFrom } : {}),
+		...(createdTo ? { createdTo } : {}),
 	};
 }
 
@@ -503,6 +545,36 @@ export class AdminWechatRefundService {
 		return saved;
 	}
 
+	private async appendRefundAudit(input: {
+		source: WechatRefundSource;
+		orderId: string;
+		requestId: string;
+		action: "refund_request" | "refund_query";
+		outcome: "succeeded" | "failed" | "rejected";
+		reasonCode?: string;
+	}): Promise<void> {
+		const audits = this.dependencies.operatorAudits;
+		const operations = this.dependencies.paymentOperations;
+		if (!audits) return;
+		const aggregateId = operations
+			? (
+					await operations.findAggregateByBusinessKey(
+						`${input.source === "payment_order" ? "payment_order" : "medical_insurance"}:${input.orderId}`,
+					)
+				)?.aggregateId
+			: undefined;
+		await audits.append({
+			auditId: `audit-${input.action}-${this.createId()}`,
+			operatorRef: null,
+			action: input.action,
+			...(aggregateId ? { aggregateId } : {}),
+			requestId: input.requestId,
+			outcome: input.outcome,
+			...(input.reasonCode ? { reasonCode: input.reasonCode } : {}),
+			occurredAt: this.now().toISOString(),
+		});
+	}
+
 	private async requestForTarget(
 		input: NormalizedRefundInput,
 		target: ResolvedRefundTarget,
@@ -555,8 +627,9 @@ export class AdminWechatRefundService {
 				return this.query(record.merchantRefundNo, context);
 			}
 		}
+		let saved: WechatRefund;
 		try {
-			return await this.applyProviderResult(
+			saved = await this.applyProviderResult(
 				record,
 				await this.dependencies.gateway.requestRefund(
 					{
@@ -570,8 +643,29 @@ export class AdminWechatRefundService {
 				),
 			);
 		} catch (error) {
-			return this.markRequestFailure(record, error);
+			const saved = await this.markRequestFailure(record, error);
+			if (!input.idempotencyKey.startsWith("medical-refund:")) {
+				await this.appendRefundAudit({
+					source: target.source,
+					orderId: target.sourceOrderId,
+					requestId: context.traceId,
+					action: "refund_request",
+					outcome: "failed",
+					reasonCode: errorCode(error),
+				});
+			}
+			return saved;
 		}
+		if (!input.idempotencyKey.startsWith("medical-refund:")) {
+			await this.appendRefundAudit({
+				source: target.source,
+				orderId: target.sourceOrderId,
+				requestId: context.traceId,
+				action: "refund_request",
+				outcome: "succeeded",
+			});
+		}
+		return saved;
 	}
 
 	async request(
@@ -610,6 +704,9 @@ export class AdminWechatRefundService {
 		const sourceQuery = {
 			...(query.business ? { business: query.business } : {}),
 			...(query.orderId ? { orderId: query.orderId } : {}),
+			...(query.createdFrom ? { createdFrom: query.createdFrom } : {}),
+			...(query.createdTo ? { createdTo: query.createdTo } : {}),
+			...(query.status ? { aggregateStatus: query.status } : {}),
 		};
 		const fetchLimit = query.page * query.pageSize;
 		const [paymentOrders, medicalOrders] = await Promise.all([
@@ -910,10 +1007,35 @@ export class AdminWechatRefundService {
 		const record =
 			await this.dependencies.refunds.findByMerchantRefundNo(normalized);
 		if (!record) throw new WechatRefundNotFoundError();
-		const result = await this.dependencies.gateway.queryRefund(
-			{ merchantRefundNo: record.merchantRefundNo },
-			context,
-		);
-		return this.applyProviderResult(record, result);
+		let saved: WechatRefund;
+		try {
+			const result = await this.dependencies.gateway.queryRefund(
+				{ merchantRefundNo: record.merchantRefundNo },
+				context,
+			);
+			saved = await this.applyProviderResult(record, result);
+		} catch (error) {
+			if (!record.idempotencyKey.startsWith("medical-refund:")) {
+				await this.appendRefundAudit({
+					source: record.source,
+					orderId: record.sourceOrderId,
+					requestId: context.traceId,
+					action: "refund_query",
+					outcome: "failed",
+					reasonCode: errorCode(error),
+				});
+			}
+			throw error;
+		}
+		if (!record.idempotencyKey.startsWith("medical-refund:")) {
+			await this.appendRefundAudit({
+				source: record.source,
+				orderId: record.sourceOrderId,
+				requestId: context.traceId,
+				action: "refund_query",
+				outcome: "succeeded",
+			});
+		}
+		return saved;
 	}
 }

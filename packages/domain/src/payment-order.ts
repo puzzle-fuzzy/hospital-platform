@@ -1,4 +1,5 @@
 import type { PaymentState } from "@hospital/contracts";
+import type { PaymentHistoryStatus } from "./payment-operations";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { OutboxEvent } from "./outbox";
 import { transitionPayment } from "./payment-state";
@@ -463,11 +464,17 @@ export interface PaymentOrderRepository {
 		limit: number;
 		orderId?: string;
 		business?: "registration" | "outpatient" | "other";
+		createdFrom?: string;
+		createdTo?: string;
+		aggregateStatus?: PaymentHistoryStatus;
 	}): Promise<readonly PaymentOrder[]>;
 	/** 管理端统一支付读模型的来源计数，不携带订单或患者详情。 */
 	countForAdmin?(input: {
 		orderId?: string;
 		business?: "registration" | "outpatient" | "other";
+		createdFrom?: string;
+		createdTo?: string;
+		aggregateStatus?: PaymentHistoryStatus;
 	}): Promise<number>;
 	findByOwnerAndIdempotencyKey(
 		ownerUserId: string,

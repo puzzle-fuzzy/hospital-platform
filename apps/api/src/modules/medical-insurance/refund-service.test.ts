@@ -4,9 +4,12 @@ import {
 	createInMemoryMedicalInsuranceAuthorizationRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceRefundRepository,
+	createInMemoryPaymentOperationsRepository,
+	createInMemoryPaymentOperatorAuditRepository,
 	createInMemoryWechatRefundRepository,
 } from "@hospital/persistence";
 import { AdminWechatRefundService } from "../admin/wechat-refund-service";
+import { projectMedicalInsuranceOrder } from "../admin/payment-operations-projector";
 import { MedicalInsuranceRefundService } from "./refund-service";
 
 const context = {
@@ -51,7 +54,14 @@ function order(
 
 test("医保全额退费先调用 6203，再调用微信 APIv3 现金退款并保持幂等", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
-	await orders.insert(order());
+	const medicalOrder = order();
+	await orders.insert(medicalOrder);
+	const operations = createInMemoryPaymentOperationsRepository();
+	const projection = await projectMedicalInsuranceOrder(
+		operations,
+		medicalOrder,
+	);
+	const audits = createInMemoryPaymentOperatorAuditRepository();
 	const authorizations =
 		createInMemoryMedicalInsuranceAuthorizationRepository();
 	await authorizations.put({
@@ -115,6 +125,8 @@ test("医保全额退费先调用 6203，再调用微信 APIv3 现金退款并�
 			},
 		},
 		wechatRefund,
+		paymentOperations: operations,
+		operatorAudits: audits,
 	});
 
 	const first = await service.requestFullRefundByOrder({
@@ -134,6 +146,10 @@ test("医保全额退费先调用 6203，再调用微信 APIv3 现金退款并�
 	expect(wechatCalls).toBe(1);
 	expect(medicalPayload?.payAuthNo).toBe("pay-auth-refund-001");
 	expect(medicalPayload?.totlRefdAmt).toBe("10.00");
+	expect(projection).toBeDefined();
+	expect(
+		await audits.listByAggregate(projection?.aggregate.aggregateId ?? ""),
+	).toHaveLength(2);
 });
 
 test("6203 EXP 不会继续退款微信现金段，并进入人工复核", async () => {

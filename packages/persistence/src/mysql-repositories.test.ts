@@ -171,13 +171,15 @@ test("MySQL admin history binds only filters and keeps LIMIT in validated SQL", 
 	const { pool, state } = createFakePool([[], [], [], []]);
 	const repositories = createMySqlRepositories(pool);
 
-	await repositories.paymentOrders.listRecentForAdmin!({ limit: 100 });
-	await repositories.paymentOrders.listRecentForAdmin!({
+	await repositories.paymentOrders.listRecentForAdmin?.({ limit: 100 });
+	await repositories.paymentOrders.listRecentForAdmin?.({
 		limit: 100,
 		orderId: "payment-order-admin-001",
 	});
-	await repositories.medicalInsuranceOrders.listRecentForAdmin!({ limit: 100 });
-	await repositories.medicalInsuranceOrders.listRecentForAdmin!({
+	await repositories.medicalInsuranceOrders.listRecentForAdmin?.({
+		limit: 100,
+	});
+	await repositories.medicalInsuranceOrders.listRecentForAdmin?.({
 		limit: 100,
 		orderId: "medical-order-admin-001",
 	});
@@ -193,6 +195,57 @@ test("MySQL admin history binds only filters and keeps LIMIT in validated SQL", 
 	expect(state.statements[3]).toContain("WHERE medical_order_id = ?");
 	expect(state.statements[3]).toContain("LIMIT 100");
 	expect(state.values[3]).toEqual(["medical-order-admin-001"]);
+});
+
+test("MySQL admin history applies the Shanghai day window and aggregate status", async () => {
+	const { pool, state } = createFakePool([[], [], [], []]);
+	const repositories = createMySqlRepositories(pool);
+	const createdFrom = "2026-09-17T16:00:00.000Z";
+	const createdTo = "2026-09-18T16:00:00.000Z";
+
+	await repositories.paymentOrders.listRecentForAdmin?.({
+		limit: 8,
+		createdFrom,
+		createdTo,
+		aggregateStatus: "paid",
+	});
+	await repositories.paymentOrders.countForAdmin?.({
+		createdFrom,
+		createdTo,
+		aggregateStatus: "manual_review",
+	});
+	await repositories.medicalInsuranceOrders.listRecentForAdmin?.({
+		limit: 8,
+		createdFrom,
+		createdTo,
+		aggregateStatus: "paid",
+	});
+	await repositories.medicalInsuranceOrders.countForAdmin?.({
+		createdFrom,
+		createdTo,
+		aggregateStatus: "manual_review",
+	});
+
+	expect(state.statements[0]).toContain("created_at >= ?");
+	expect(state.statements[0]).toContain("created_at < ?");
+	expect(state.statements[0]).toContain(
+		"state IN ('cash_paid', 'his_written_back', 'completed')",
+	);
+	expect(state.values[0]).toEqual([
+		"2026-09-17 16:00:00.000",
+		"2026-09-18 16:00:00.000",
+	]);
+	expect(state.statements[1]).toContain("1 = 0");
+	expect(state.values[1]).toEqual([
+		"2026-09-17 16:00:00.000",
+		"2026-09-18 16:00:00.000",
+	]);
+	expect(state.statements[2]).toContain(
+		"status = 'insurance_settled' AND (cash_fen = 0 OR wechat_payment_state = 'cash_paid')",
+	);
+	expect(state.statements[3]).toContain(
+		"status IN ('manual_review', 'awaiting_confirmation')",
+	);
 });
 
 test("MySQL payment sync claim applies the lease and version fence", async () => {
