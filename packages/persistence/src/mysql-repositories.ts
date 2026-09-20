@@ -3579,8 +3579,8 @@ export function createMySqlRepositories(
 				 FROM hp_payment_orders
 				 ${orderId ? "WHERE order_id = ?" : ""}
 				 ORDER BY updated_at DESC, order_id DESC
-				 LIMIT ?`,
-				orderId ? [orderId, limit] : [limit],
+				 LIMIT ${limit}`,
+				orderId ? [orderId] : [],
 			);
 			return rows.map(paymentOrder);
 		},
@@ -4990,8 +4990,8 @@ export function createMySqlRepositories(
 				`${MI_ADMIN_REFUND_SELECT}
 				 ${orderId ? "WHERE medical_order_id = ?" : ""}
 				 ORDER BY updated_at DESC, medical_order_id DESC
-				 LIMIT ?`,
-				orderId ? [orderId, limit] : [limit],
+				 LIMIT ${limit}`,
+				orderId ? [orderId] : [],
 			);
 			return rows.map((row) => miOrder(row));
 		},

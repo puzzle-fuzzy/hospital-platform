@@ -157,6 +157,13 @@ async function runPaymentJournal(
 	) {
 		throw new Error("payment-day-journal-too-large");
 	}
+	// journalctl uses exit code 1 when --grep finds no matching records. That is
+	// a valid empty payment day, not an infrastructure failure. Keep treating
+	// non-empty stderr or any serialized output with a non-zero exit code as a
+	// real command failure.
+	if (exitCode === 1 && serialized.length === 0 && stderr.trim() === "") {
+		return serialized;
+	}
 	if (exitCode !== 0) {
 		const suffix = stderr.trim().slice(-240);
 		throw new Error(`payment-day-journal-failed${suffix ? `:${suffix}` : ""}`);

@@ -166,6 +166,34 @@ test("MySQL read recovery stops after the bounded retry window", async () => {
 	expect(attempts).toBe(3);
 });
 
+test("MySQL admin history binds only filters and keeps LIMIT in validated SQL", async () => {
+	const { pool, state } = createFakePool([[], [], [], []]);
+	const repositories = createMySqlRepositories(pool);
+
+	await repositories.paymentOrders.listRecentForAdmin({ limit: 100 });
+	await repositories.paymentOrders.listRecentForAdmin({
+		limit: 100,
+		orderId: "payment-order-admin-001",
+	});
+	await repositories.medicalInsuranceOrders.listRecentForAdmin({ limit: 100 });
+	await repositories.medicalInsuranceOrders.listRecentForAdmin({
+		limit: 100,
+		orderId: "medical-order-admin-001",
+	});
+
+	expect(state.statements[0]).toContain("LIMIT 100");
+	expect(state.statements[0]).not.toContain("LIMIT ?");
+	expect(state.values[0]).toEqual([]);
+	expect(state.statements[1]).toContain("WHERE order_id = ?");
+	expect(state.statements[1]).toContain("LIMIT 100");
+	expect(state.values[1]).toEqual(["payment-order-admin-001"]);
+	expect(state.statements[2]).toContain("LIMIT 100");
+	expect(state.values[2]).toEqual([]);
+	expect(state.statements[3]).toContain("WHERE medical_order_id = ?");
+	expect(state.statements[3]).toContain("LIMIT 100");
+	expect(state.values[3]).toEqual(["medical-order-admin-001"]);
+});
+
 test("MySQL 微信身份重复键竞争后仍补齐迟到的 unionId", async () => {
 	const { pool, state } = createFakePool([
 		[],
