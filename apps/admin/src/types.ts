@@ -214,14 +214,53 @@ export type WechatRefund = {
 	updatedAt: string;
 };
 
+export type AdminMedicalInsuranceRefund = {
+	orderId: string;
+	refundNo: string;
+	status: "requested" | "processing" | "succeeded" | "failed" | "manual_review";
+	medicalStatus:
+		| "not_required"
+		| "requested"
+		| "processing"
+		| "success"
+		| "failed"
+		| "unknown";
+	wechatStatus:
+		| "not_required"
+		| "requested"
+		| "processing"
+		| "success"
+		| "failed"
+		| "unknown";
+	amounts: {
+		totalFen: number;
+		cashFen: number;
+		personalAccountFen: number;
+		fundFen: number;
+	};
+};
+
 /** 管理端退款页使用的最小历史支付读模型；不含患者、凭证或支付调起参数。 */
 export type AdminWechatRefundPaymentRecord = {
 	source: WechatRefundSource;
 	orderId: string;
 	business: "registration" | "outpatient" | "other";
+	totalFen: number;
+	insuranceFen?: number;
 	paymentState: string;
 	cashPaymentConfirmed: boolean;
 	cashFen: number;
+	personalAccountFen?: number;
+	fundFen?: number;
+	otherPaymentFen?: number;
+	hospitalPartFen?: number;
+	personalAccountMutualAidFen?: number;
+	personalAccountSelfFen?: number;
+	depositFen?: number;
+	deliveryFeeFen?: number;
+	medicalStatus?: string;
+	ordStas?: string | null;
+	wechatPaymentState?: string;
 	refundReservedFen: number;
 	refundableFen: number;
 	refundCount: number;
@@ -229,6 +268,19 @@ export type AdminWechatRefundPaymentRecord = {
 		merchantRefundNo: string;
 		status: WechatRefund["status"];
 		refundFen: number;
+		updatedAt: string;
+	};
+	latestMedicalRefund?: {
+		refundNo: string;
+		status:
+			| "requested"
+			| "processing"
+			| "succeeded"
+			| "failed"
+			| "manual_review";
+		medicalStatus: string;
+		wechatStatus: string;
+		totalFen: number;
 		updatedAt: string;
 	};
 	refundRoute: "admin" | "appointment_cancel" | "unavailable";

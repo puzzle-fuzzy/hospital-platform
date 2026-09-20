@@ -46,6 +46,7 @@ export {
 	createInMemoryMedicalInsuranceAuthorizationRepository,
 	createInMemoryMedicalInsuranceCredentialRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
+	createInMemoryMedicalInsuranceRefundRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
 	createInMemoryMyDoctorRepository,
 	createInMemoryPatientFeedbackRepository,

@@ -2,12 +2,14 @@ import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	MedicalInsuranceOrder,
+	MedicalInsuranceRefund,
 	PaymentOrder,
 	WechatRefund,
 	WechatRefundProviderResult,
 } from "@hospital/domain";
 import {
 	createInMemoryMedicalInsuranceOrderRepository,
+	createInMemoryMedicalInsuranceRefundRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryWechatRefundRepository,
 } from "@hospital/persistence";
@@ -319,10 +321,36 @@ test("admin refund history shows prior payments and only enables the safe refund
 			updatedAt: "2026-09-18T01:06:00.000Z",
 		}),
 	]);
+	const medicalRefunds = createInMemoryMedicalInsuranceRefundRepository([
+		{
+			refundId: "medical-aggregate-history-001",
+			medicalOrderId: paidMedicalOrder().medicalOrderId,
+			ownerUserId: paidMedicalOrder().ownerUserId,
+			payOrdId: "pay-ord-history-001",
+			refundNo: "RFMIhistory001",
+			idempotencyKey: "admin-medical-full:medical-order-refund-history-001",
+			refundType: "ALL",
+			totalFen: 500,
+			cashFen: 500,
+			personalAccountFen: 0,
+			fundFen: 0,
+			medicalStatus: "success",
+			medicalRefStatus: "SUCC",
+			medicalProviderRequestId: "6203-history-001",
+			wechatStatus: "success",
+			wechatMerchantRefundNo: "RFMIhistory001",
+			status: "succeeded",
+			lastErrorCode: null,
+			version: 3,
+			createdAt: "2026-09-18T01:06:00.000Z",
+			updatedAt: "2026-09-18T01:07:00.000Z",
+		} satisfies MedicalInsuranceRefund,
+	]);
 	const service = new AdminWechatRefundService({
 		refunds,
 		paymentOrders,
 		medicalInsuranceOrders,
+		medicalInsuranceRefunds: medicalRefunds,
 		gateway: {
 			async requestRefund() {
 				throw new Error("history query must not request a refund");
@@ -350,6 +378,8 @@ test("admin refund history shows prior payments and only enables the safe refund
 	expect(normal).toMatchObject({
 		source: "payment_order",
 		business: "other",
+		totalFen: paidOrder().amounts.totalFen,
+		insuranceFen: paidOrder().amounts.insuranceFen,
 		cashPaymentConfirmed: true,
 		cashFen: 300,
 		refundReservedFen: 100,
@@ -369,10 +399,20 @@ test("admin refund history shows prior payments and only enables the safe refund
 	expect(medical).toMatchObject({
 		source: "medical_insurance",
 		business: "outpatient",
+		totalFen: paidMedicalOrder().amounts?.totalFen,
+		personalAccountFen: paidMedicalOrder().amounts?.personalAccountFen,
+		fundFen: paidMedicalOrder().amounts?.fundFen,
 		cashPaymentConfirmed: true,
 		refundReservedFen: 80,
 		refundableFen: 420,
 		refundRoute: "admin",
+		latestMedicalRefund: {
+			refundNo: "RFMIhistory001",
+			status: "succeeded",
+			medicalStatus: "success",
+			wechatStatus: "success",
+			totalFen: 500,
+		},
 	});
 	expect(unconfirmed).toMatchObject({
 		cashPaymentConfirmed: false,

@@ -643,6 +643,9 @@ const services = createDefaultApplicationServices({
 	...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
 	...(medicalInsuranceGateway ? { medicalInsuranceGateway } : {}),
 	...(legacyFsiGateway
+		? { medicalInsuranceRefundGateway: legacyFsiGateway }
+		: {}),
+	...(legacyFsiGateway
 		? {
 				adminInsuranceQueryGateway: legacyFsiGateway,
 				...(config.medicalInsuranceOrgCode

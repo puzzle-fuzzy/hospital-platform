@@ -7,6 +7,8 @@ import {
 	MedicalInsuranceOrderResponse,
 	MedicalInsuranceOutpatientAuthorizeRequest,
 	MedicalInsurancePluginPayResponse,
+	MedicalInsuranceRefundRequest,
+	MedicalInsuranceRefundResponse,
 	MedicalInsuranceWechatPayResponse,
 	success,
 } from "@hospital/contracts";
@@ -17,6 +19,7 @@ import type { SessionTokenService } from "../auth/service";
 import type { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 import type { MedicalInsuranceRegistrationService } from "./registration-service";
 import type { MedicalInsuranceNotificationService } from "./service";
+import type { MedicalInsuranceRefundService } from "./refund-service";
 import type { MedicalInsuranceWechatPaymentService } from "./wechat-payment-service";
 
 type MedicalInsuranceWechatNotificationHandler = (input: {
@@ -72,6 +75,7 @@ export function medicalInsuranceModule(
 	pluginPaymentService: MedicalInsurancePluginPaymentService,
 	notificationService?: MedicalInsuranceNotificationService,
 	wechatNotificationHandler?: MedicalInsuranceWechatNotificationHandler,
+	refundService?: MedicalInsuranceRefundService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions, [
 		"/payments/medical-insurance/notifications",
@@ -352,6 +356,30 @@ export function medicalInsuranceModule(
 				tags: ["medical-insurance"],
 			},
 		);
+
+	if (refundService) {
+		routes.post(
+			"/payments/medical-insurance/orders/:orderId/refund",
+			async ({ request, headers, params, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await refundService.request({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						refund: body,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceCommandHeaders,
+				params: MedicalInsuranceOrderParams,
+				body: MedicalInsuranceRefundRequest,
+				response: { 200: MedicalInsuranceRefundResponse },
+				tags: ["medical-insurance"],
+			},
+		);
+	}
 
 	const notificationRoutes = new Elysia({
 		name: "medical-insurance-notifications",

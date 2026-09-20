@@ -19,6 +19,7 @@ import {
 	type ReadinessService,
 } from "./infrastructure/readiness";
 import {
+	adminMedicalInsuranceRefundModule,
 	adminInsuranceQueryModule,
 	adminLogsModule,
 	adminWechatRefundModule,
@@ -37,6 +38,7 @@ import { healthKnowledgeModule } from "./modules/knowledge";
 import type { MedicalInsuranceRegistrationService } from "./modules/medical-insurance";
 import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
+import type { MedicalInsuranceRefundService } from "./modules/medical-insurance/refund-service";
 import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { medicalRecordsModule } from "./modules/medical-records";
@@ -215,6 +217,13 @@ export function createApp(options: AppOptions = {}) {
 				);
 			},
 		} as unknown as MedicalInsurancePluginPaymentService);
+	const medicalInsuranceRefund =
+		services.medicalInsuranceRefund ??
+		({
+			request: async () => {
+				throw new DependencyNotConfiguredError("medical-insurance-refund");
+			},
+		} as unknown as MedicalInsuranceRefundService);
 	const intelligentGuide =
 		services.intelligentGuide ??
 		({
@@ -295,6 +304,16 @@ export function createApp(options: AppOptions = {}) {
 								options.adminRefundToken,
 							)
 						: new Elysia({ name: "admin-wechat-refund-not-configured" }),
+				)
+				.use(
+					services.medicalInsuranceRefund && options.adminRefundToken?.trim()
+						? adminMedicalInsuranceRefundModule(
+								services.medicalInsuranceRefund,
+								options.adminRefundToken,
+							)
+						: new Elysia({
+								name: "admin-medical-insurance-refund-not-configured",
+							}),
 				)
 				.use(systemModule())
 				.use(authModule(services.auth, services.sessions))
@@ -382,6 +401,7 @@ export function createApp(options: AppOptions = {}) {
 						medicalInsurancePluginPayment,
 						options.medicalInsuranceNotification,
 						options.wechatMedicalInsurancePaymentNotification,
+						medicalInsuranceRefund,
 					),
 				),
 		);

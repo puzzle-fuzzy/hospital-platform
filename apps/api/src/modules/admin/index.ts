@@ -8,7 +8,10 @@ import {
 } from "./insurance-query-service";
 
 export { adminLogsModule } from "./logs";
-export { adminWechatRefundModule } from "./refunds";
+export {
+	adminMedicalInsuranceRefundModule,
+	adminWechatRefundModule,
+} from "./refunds";
 export { AdminWechatRefundService } from "./wechat-refund-service";
 
 const AdminInsuranceQueryHeaders = t.Object({

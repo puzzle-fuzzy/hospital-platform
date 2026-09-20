@@ -64,6 +64,7 @@ import { HealthKnowledgeService } from "./modules/knowledge";
 import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment-core";
 import { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
 import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
+import { MedicalInsuranceRefundService } from "./modules/medical-insurance/refund-service";
 import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
@@ -94,6 +95,8 @@ export type ApplicationServices = {
 	/** 挂号与门诊共享的 6202/6301/CAS 支付核心。 */
 	medicalInsuranceCore?: MedicalInsurancePaymentCore;
 	medicalInsuranceWechatPayment?: MedicalInsuranceWechatPaymentService;
+	/** 医保 6203 + 微信 APIv3 现金段聚合退费；未配置 6203 adapter 时保持不可用。 */
+	medicalInsuranceRefund?: MedicalInsuranceRefundService;
 	/** 云健康插件链路按配置闸门启用，负责 .2/.29/.15/.5 后置回写。 */
 	medicalInsurancePluginPayment?: import("./modules/medical-insurance/plugin-payment-service").MedicalInsurancePluginPaymentService;
 	myDoctors?: MyDoctorService;
@@ -201,6 +204,8 @@ export type ApplicationServiceOptions = {
 	medicalInsuranceGateway?: import("@hospital/domain").MedicalInsuranceGateway;
 	/** 官方微信医保混合支付 adapter；未配置时保持 fail-closed。 */
 	medicalInsuranceWechatPaymentGateway?: import("@hospital/domain").MedicalInsuranceWechatPaymentGateway;
+	/** 6203 退费 adapter；使用现有 legacy FSI gateway 的固定 refund_Order 路由。 */
+	medicalInsuranceRefundGateway?: import("@hospital/domain").MedicalInsuranceRefundGateway;
 	/** 旧服务第二次云健康 .2 插件预下单；未配置时保持 fail-closed。 */
 	yunhealthRegistrationPluginPaymentGateway?: YunhealthRegistrationPluginPaymentGateway;
 	yunhealthRegistrationPluginPayTypeId?: string;
@@ -642,7 +647,17 @@ export function createDefaultApplicationServices(
 				refunds: repositories.wechatRefunds,
 				paymentOrders: repositories.paymentOrders,
 				medicalInsuranceOrders: repositories.medicalInsuranceOrders,
+				medicalInsuranceRefunds: repositories.medicalInsuranceRefunds,
 				gateway: options.wechatRefundGateway,
+			})
+		: undefined;
+	const medicalInsuranceRefund = options.medicalInsuranceRefundGateway
+		? new MedicalInsuranceRefundService({
+				orders: repositories.medicalInsuranceOrders,
+				authorizations: repositories.medicalInsuranceAuthorizations,
+				refunds: repositories.medicalInsuranceRefunds,
+				medicalInsuranceRefund: options.medicalInsuranceRefundGateway,
+				...(wechatRefund ? { wechatRefund } : {}),
 			})
 		: undefined;
 	const registrationPaymentExit = new RegistrationPaymentExitService({
@@ -761,6 +776,7 @@ export function createDefaultApplicationServices(
 		medicalInsurance,
 		medicalInsuranceCore,
 		medicalInsuranceWechatPayment,
+		...(medicalInsuranceRefund ? { medicalInsuranceRefund } : {}),
 		medicalInsurancePluginPayment,
 		myDoctors: new MyDoctorService({
 			repository: repositories.myDoctors,

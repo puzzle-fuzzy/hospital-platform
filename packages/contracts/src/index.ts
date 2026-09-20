@@ -1097,6 +1097,62 @@ export const MedicalInsuranceCancellationResponse = Type.Object({
 	}),
 });
 
+/**
+ * 医保退费请求：平台服务端分别调用 6203 和微信 APIv3 普通退款。
+ * ALL 不提交金额；CASH 使用 refundFen；HI 只能提交医保个人账户/统筹金额。
+ */
+export const MedicalInsuranceRefundRequest = Type.Object(
+	{
+		refundType: Type.Union([
+			Type.Literal("ALL"),
+			Type.Literal("CASH"),
+			Type.Literal("HI"),
+		]),
+		refundFen: Type.Optional(Type.Integer({ minimum: 1 })),
+		personalAccountRefundFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		fundRefundFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		reason: Type.Optional(Type.String({ maxLength: 80 })),
+	},
+	{ additionalProperties: false },
+);
+
+export const MedicalInsuranceRefundResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		refundNo: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Union([
+			Type.Literal("requested"),
+			Type.Literal("processing"),
+			Type.Literal("succeeded"),
+			Type.Literal("failed"),
+			Type.Literal("manual_review"),
+		]),
+		medicalStatus: Type.Union([
+			Type.Literal("not_required"),
+			Type.Literal("requested"),
+			Type.Literal("processing"),
+			Type.Literal("success"),
+			Type.Literal("failed"),
+			Type.Literal("unknown"),
+		]),
+		wechatStatus: Type.Union([
+			Type.Literal("not_required"),
+			Type.Literal("requested"),
+			Type.Literal("processing"),
+			Type.Literal("success"),
+			Type.Literal("failed"),
+			Type.Literal("unknown"),
+		]),
+		amounts: Type.Object({
+			totalFen: Type.Integer({ minimum: 1 }),
+			cashFen: Type.Integer({ minimum: 0 }),
+			personalAccountFen: Type.Integer({ minimum: 0 }),
+			fundFen: Type.Integer({ minimum: 0 }),
+		}),
+	}),
+});
+
 /** 门诊费用状态由服务端根据 provider 合同映射，小程序不得自行推导。 */
 export const OutpatientPaymentStatusSchema = Type.Union([
 	Type.Literal("unpaid"),
@@ -1579,6 +1635,12 @@ export type MedicalInsuranceOrderPayload = Static<
 >;
 export type MedicalInsuranceCancellationPayload = Static<
 	typeof MedicalInsuranceCancellationResponse
+>;
+export type MedicalInsuranceRefundRequestPayload = Static<
+	typeof MedicalInsuranceRefundRequest
+>;
+export type MedicalInsuranceRefundPayload = Static<
+	typeof MedicalInsuranceRefundResponse
 >;
 export type MedicalInsuranceWechatPayPayload = Static<
 	typeof MedicalInsuranceWechatPayResponse

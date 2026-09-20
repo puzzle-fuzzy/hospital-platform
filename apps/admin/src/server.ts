@@ -576,6 +576,12 @@ async function adminRefundRequest(
 		return errorResponse("新服务退费接口尚未配置", 503);
 	}
 	const input = await requestJson(request);
+	if (input.source !== "payment_order") {
+		return errorResponse(
+			"医保订单必须使用医保 + 微信一并退费入口，不能只退微信现金腿",
+			400,
+		);
+	}
 	return upstreamRequest(
 		adminRefundsUpstream,
 		path,
@@ -590,6 +596,36 @@ async function adminRefundRequest(
 			body: JSON.stringify(input),
 		},
 		"新服务退费接口暂时不可用，请稍后重试",
+	);
+}
+
+async function adminMedicalInsuranceRefundRequest(
+	request: Request,
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务退费接口尚未配置", 503);
+	}
+	const input = await requestJson(request);
+	const idempotencyKey = request.headers.get("idempotency-key")?.trim();
+	if (idempotencyKey && !/^[A-Za-z0-9._:-]{1,128}$/u.test(idempotencyKey)) {
+		return errorResponse("退费幂等键参数不合法", 400);
+	}
+	return upstreamRequest(
+		adminRefundsUpstream,
+		"/admin/medical-insurance-refunds",
+		{
+			method: "POST",
+			headers: {
+				Authorization: authorization,
+				"Content-Type": "application/json",
+				"X-Admin-Refund-Token": adminRefundsToken,
+				...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+				"X-Request-Id": crypto.randomUUID(),
+			},
+			body: JSON.stringify(input),
+		},
+		"新服务医保退费接口暂时不可用，请稍后重试",
 	);
 }
 
@@ -613,6 +649,29 @@ async function adminRefundQueryRequest(
 			},
 		},
 		"新服务退费接口暂时不可用，请稍后重试",
+	);
+}
+
+async function adminMedicalInsuranceRefundQueryRequest(
+	request: Request,
+	refundNo: string,
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务退费接口尚未配置", 503);
+	}
+	return upstreamRequest(
+		adminRefundsUpstream,
+		`/admin/medical-insurance-refunds/${encodeURIComponent(refundNo)}`,
+		{
+			method: "GET",
+			headers: {
+				Authorization: authorization,
+				"X-Admin-Refund-Token": adminRefundsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务医保退费接口暂时不可用，请稍后重试",
 	);
 }
 
@@ -904,6 +963,12 @@ const server = Bun.serve({
 				return await adminRefundRequest(request, "/admin/wechat-refunds");
 			}
 			if (
+				url.pathname === "/api/refunds/medical-insurance" &&
+				request.method === "POST"
+			) {
+				return await adminMedicalInsuranceRefundRequest(request);
+			}
+			if (
 				url.pathname === "/api/refunds/wechat/payments" &&
 				request.method === "GET"
 			) {
@@ -916,6 +981,15 @@ const server = Bun.serve({
 				return await adminRefundQueryRequest(
 					request,
 					refundQueryMatch[1] ?? "",
+				);
+			}
+			const medicalInsuranceRefundQueryMatch = url.pathname.match(
+				/^\/api\/refunds\/medical-insurance\/([A-Za-z0-9._:-]{1,64})$/u,
+			);
+			if (medicalInsuranceRefundQueryMatch && request.method === "GET") {
+				return await adminMedicalInsuranceRefundQueryRequest(
+					request,
+					medicalInsuranceRefundQueryMatch[1] ?? "",
 				);
 			}
 			if (url.pathname === "/api/logs" && request.method === "GET") {

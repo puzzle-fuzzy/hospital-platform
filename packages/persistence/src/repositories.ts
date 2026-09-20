@@ -13,6 +13,8 @@ import type {
 	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
+	MedicalInsuranceRefund,
+	MedicalInsuranceRefundRepository,
 	MedicalInsuranceProviderQueryIdentity,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
@@ -962,6 +964,73 @@ export function createInMemoryWechatRefundRepository(
 	};
 }
 
+/** 仅用于 API 集成测试；生产使用 MySQL 的唯一键和 CAS 更新。 */
+export function createInMemoryMedicalInsuranceRefundRepository(
+	seed: readonly MedicalInsuranceRefund[] = [],
+): MedicalInsuranceRefundRepository {
+	const records = new Map(seed.map((record) => [record.refundId, record]));
+	const sameIdentity = (
+		left: MedicalInsuranceRefund,
+		right: MedicalInsuranceRefund,
+	) =>
+		left.medicalOrderId === right.medicalOrderId &&
+		left.ownerUserId === right.ownerUserId &&
+		left.payOrdId === right.payOrdId &&
+		left.refundNo === right.refundNo &&
+		left.idempotencyKey === right.idempotencyKey &&
+		left.refundType === right.refundType &&
+		left.totalFen === right.totalFen &&
+		left.cashFen === right.cashFen &&
+		left.personalAccountFen === right.personalAccountFen &&
+		left.fundFen === right.fundFen;
+	return {
+		async reserve(record) {
+			const existing = [...records.values()].find(
+				(candidate) =>
+					candidate.medicalOrderId === record.medicalOrderId &&
+					candidate.idempotencyKey === record.idempotencyKey,
+			);
+			if (existing) {
+				if (!sameIdentity(existing, record)) {
+					throw new Error("Medical insurance refund idempotency conflict");
+				}
+				return { status: "existing", record: { ...existing } };
+			}
+			const existingByRefundNo = [...records.values()].find(
+				(candidate) => candidate.refundNo === record.refundNo,
+			);
+			if (existingByRefundNo) {
+				if (!sameIdentity(existingByRefundNo, record)) {
+					throw new Error("Medical insurance refund number conflict");
+				}
+				return { status: "existing", record: { ...existingByRefundNo } };
+			}
+			records.set(record.refundId, { ...record });
+			return { status: "inserted", record: { ...record } };
+		},
+		async findByRefundNo(refundNo) {
+			const record = [...records.values()].find(
+				(candidate) => candidate.refundNo === refundNo,
+			);
+			return record ? { ...record } : undefined;
+		},
+		async findLatestByMedicalOrderId(medicalOrderId) {
+			const record = [...records.values()]
+				.filter((candidate) => candidate.medicalOrderId === medicalOrderId)
+				.sort((left, right) =>
+					right.updatedAt.localeCompare(left.updatedAt),
+				)[0];
+			return record ? { ...record } : undefined;
+		},
+		async update(record, expectedVersion) {
+			const current = records.get(record.refundId);
+			if (!current || current.version !== expectedVersion) return undefined;
+			records.set(record.refundId, { ...record });
+			return { ...record };
+		},
+	};
+}
+
 /** 仅用于应用层和并发语义测试；生产实现必须使用数据库唯一键和版本更新。 */
 export function createInMemoryPaymentPrepayAttemptRepository(
 	seed: readonly PaymentPrepayAttempt[] = [],
@@ -1332,6 +1401,7 @@ export function createNotConfiguredRepositories(): {
 	medicalInsuranceQueryTasks: MedicalInsuranceQueryTaskRepository;
 	medicalInsuranceCredentials: MedicalInsuranceCredentialRepository;
 	medicalInsuranceAuthorizations: MedicalInsuranceAuthorizationRepository;
+	medicalInsuranceRefunds: MedicalInsuranceRefundRepository;
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
@@ -1466,6 +1536,25 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError(
 					"medical-insurance-authorizations",
 				);
+			},
+			getForRefund: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-authorizations",
+				);
+			},
+		},
+		medicalInsuranceRefunds: {
+			reserve: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-refunds");
+			},
+			findByRefundNo: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-refunds");
+			},
+			findLatestByMedicalOrderId: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-refunds");
+			},
+			update: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-refunds");
 			},
 		},
 		medicalInsuranceCredentials: {
@@ -1999,6 +2088,19 @@ export function createInMemoryMedicalInsuranceAuthorizationRepository(
 						candidate.ownerUserId === input.ownerUserId &&
 						candidate.medicalOrderId === input.medicalOrderId &&
 						Date.parse(candidate.expiresAt) > Date.parse(input.now),
+				)
+				.sort((left, right) =>
+					right.createdAt.localeCompare(left.createdAt),
+				)[0];
+			return row ? contextOf(row) : undefined;
+		},
+		async getForRefund(input) {
+			const row = [...rows.values()]
+				.filter(
+					(candidate) =>
+						candidate.authorizationId === input.authorizationId &&
+						candidate.ownerUserId === input.ownerUserId &&
+						candidate.medicalOrderId === input.medicalOrderId,
 				)
 				.sort((left, right) =>
 					right.createdAt.localeCompare(left.createdAt),

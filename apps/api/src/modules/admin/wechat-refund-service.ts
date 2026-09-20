@@ -4,6 +4,7 @@ import {
 	isBoundedOpaqueIdentifier,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
+	type MedicalInsuranceRefundRepository,
 	type PaymentOrder,
 	type PaymentOrderRepository,
 	type WechatRefund,
@@ -39,10 +40,24 @@ export type AdminWechatRefundPaymentRecord = {
 	source: WechatRefundSource;
 	orderId: string;
 	business: "registration" | "outpatient" | "other";
+	/** 管理端可展示的金额事实；不包含患者身份或支付调起参数。 */
+	totalFen: number;
+	insuranceFen?: number;
 	/** 普通自费为本地订单状态；医保混合单为微信现金段状态。 */
 	paymentState: string;
 	cashPaymentConfirmed: boolean;
 	cashFen: number;
+	personalAccountFen?: number;
+	fundFen?: number;
+	otherPaymentFen?: number;
+	hospitalPartFen?: number;
+	personalAccountMutualAidFen?: number;
+	personalAccountSelfFen?: number;
+	depositFen?: number;
+	deliveryFeeFen?: number;
+	medicalStatus?: string;
+	ordStas?: string | null;
+	wechatPaymentState?: string;
 	refundReservedFen: number;
 	refundableFen: number;
 	refundCount: number;
@@ -50,6 +65,19 @@ export type AdminWechatRefundPaymentRecord = {
 		merchantRefundNo: string;
 		status: WechatRefund["status"];
 		refundFen: number;
+		updatedAt: string;
+	};
+	latestMedicalRefund?: {
+		refundNo: string;
+		status:
+			| "requested"
+			| "processing"
+			| "succeeded"
+			| "failed"
+			| "manual_review";
+		medicalStatus: string;
+		wechatStatus: string;
+		totalFen: number;
 		updatedAt: string;
 	};
 	/** Admin 直退、挂号退款编排或当前不可退。 */
@@ -75,6 +103,10 @@ type NormalizedRefundInput = {
 	refundFen: number;
 	idempotencyKey: string;
 	reason?: string;
+};
+
+type RequestForTargetOptions = {
+	merchantRefundNo?: string;
 };
 
 type ResolvedRefundTarget = {
@@ -283,6 +315,7 @@ export class AdminWechatRefundService {
 			refunds: WechatRefundRepository;
 			paymentOrders: PaymentOrderRepository;
 			medicalInsuranceOrders: MedicalInsuranceOrderRepository;
+			medicalInsuranceRefunds?: MedicalInsuranceRefundRepository;
 			gateway: WechatRefundGateway;
 			now?: () => Date;
 			createId?: () => string;
@@ -409,12 +442,15 @@ export class AdminWechatRefundService {
 		input: NormalizedRefundInput,
 		target: ResolvedRefundTarget,
 		context: AdapterCallContext,
+		options: RequestForTargetOptions = {},
 	): Promise<WechatRefund> {
 		if (input.refundFen > target.totalFen) {
 			throw new WechatRefundAmountExceededError();
 		}
 		const now = this.now().toISOString();
-		const merchantRefundNo = `RF-${target.source === "medical_insurance" ? "MI" : "PO"}-${this.createId().replaceAll("-", "").slice(0, 28)}`;
+		const merchantRefundNo =
+			options.merchantRefundNo ??
+			`RF-${target.source === "medical_insurance" ? "MI" : "PO"}-${this.createId().replaceAll("-", "").slice(0, 28)}`;
 		const initial: WechatRefund = {
 			refundRecordId: `refund-${this.createId()}`,
 			merchantRefundNo,
@@ -538,7 +574,15 @@ export class AdminWechatRefundService {
 					candidate.source === "payment_order"
 						? candidate.order.orderId
 						: candidate.order.medicalOrderId;
-				const refunds = await findRefunds(candidate.source, orderId);
+				const [refunds, latestMedicalRefund] = await Promise.all([
+					findRefunds(candidate.source, orderId),
+					candidate.source === "medical_insurance" &&
+					this.dependencies.medicalInsuranceRefunds
+						? this.dependencies.medicalInsuranceRefunds.findLatestByMedicalOrderId(
+								orderId,
+							)
+						: Promise.resolve(undefined),
+				]);
 				const summary = refundSummary(refunds);
 				if (candidate.source === "payment_order") {
 					const order = candidate.order;
@@ -553,6 +597,8 @@ export class AdminWechatRefundService {
 						source: candidate.source,
 						orderId,
 						business,
+						totalFen: order.amounts.totalFen,
+						insuranceFen: order.amounts.insuranceFen,
 						paymentState: order.state,
 						cashPaymentConfirmed,
 						cashFen: order.amounts.cashFen,
@@ -582,17 +628,66 @@ export class AdminWechatRefundService {
 					source: candidate.source,
 					orderId,
 					business: medicalPaymentBusiness(order),
+					totalFen: order.amounts?.totalFen ?? 0,
 					paymentState: order.wechatPaymentState ?? "not_started",
 					cashPaymentConfirmed,
 					cashFen,
+					...(order.amounts?.personalAccountFen === undefined
+						? {}
+						: { personalAccountFen: order.amounts.personalAccountFen }),
+					...(order.amounts?.fundFen === undefined
+						? {}
+						: { fundFen: order.amounts.fundFen }),
+					...(order.amounts?.otherPaymentFen === undefined
+						? {}
+						: { otherPaymentFen: order.amounts.otherPaymentFen }),
+					...(order.amounts?.hospitalPartFen === undefined
+						? {}
+						: { hospitalPartFen: order.amounts.hospitalPartFen }),
+					...(order.amounts?.personalAccountMutualAidFen === undefined
+						? {}
+						: {
+								personalAccountMutualAidFen:
+									order.amounts.personalAccountMutualAidFen,
+							}),
+					...(order.amounts?.personalAccountSelfFen === undefined
+						? {}
+						: {
+								personalAccountSelfFen: order.amounts.personalAccountSelfFen,
+							}),
+					...(order.amounts?.depositFen === undefined
+						? {}
+						: { depositFen: order.amounts.depositFen }),
+					...(order.amounts?.deliveryFeeFen === undefined
+						? {}
+						: { deliveryFeeFen: order.amounts.deliveryFeeFen }),
+					medicalStatus: order.status,
+					ordStas: order.ordStas,
+					wechatPaymentState: order.wechatPaymentState ?? "not_started",
 					refundReservedFen: summary.reservedFen,
 					refundableFen,
 					refundCount: refunds.length,
 					...(summary.latestRefund
 						? { latestRefund: summary.latestRefund }
 						: {}),
+					...(latestMedicalRefund
+						? {
+								latestMedicalRefund: {
+									refundNo: latestMedicalRefund.refundNo,
+									status: latestMedicalRefund.status,
+									medicalStatus: latestMedicalRefund.medicalStatus,
+									wechatStatus: latestMedicalRefund.wechatStatus,
+									totalFen: latestMedicalRefund.totalFen,
+									updatedAt: latestMedicalRefund.updatedAt,
+								},
+							}
+						: {}),
 					refundRoute:
-						cashPaymentConfirmed && refundableFen > 0 ? "admin" : "unavailable",
+						(order.status === "insurance_settled" &&
+							(cashFen <= 0 || cashPaymentConfirmed)) ||
+						(order.status === "cash_pending" && cashPaymentConfirmed)
+							? "admin"
+							: "unavailable",
 					createdAt: order.createdAt,
 					updatedAt: order.updatedAt,
 				} satisfies AdminWechatRefundPaymentRecord;
@@ -621,6 +716,37 @@ export class AdminWechatRefundService {
 			normalized,
 			await this.resolveTarget(normalized, outTradeNo),
 			context,
+		);
+	}
+
+	/**
+	 * 医保聚合退费的内部入口。merchantRefundNo 由医保退费编排服务稳定生成，
+	 * 不接受 HTTP/Admin 输入；这样 6203 成功后重试微信腿时仍复用同一个 APIv3
+	 * 退款身份，并由现有退款记录负责查单/幂等。
+	 */
+	async requestTrustedMedicalInsurance(
+		input: {
+			orderId: string;
+			refundFen: number;
+			idempotencyKey: string;
+			merchantRefundNo: string;
+			reason?: string;
+		},
+		context: AdapterCallContext,
+	): Promise<WechatRefund> {
+		const normalized = normalizeRefundInput({
+			source: "medical_insurance",
+			orderId: input.orderId,
+			refundFen: input.refundFen,
+			idempotencyKey: input.idempotencyKey,
+			...(input.reason !== undefined ? { reason: input.reason } : {}),
+		});
+		const merchantRefundNo = requiredText(input.merchantRefundNo, 64);
+		return this.requestForTarget(
+			normalized,
+			await this.resolveTarget(normalized),
+			context,
+			{ merchantRefundNo },
 		);
 	}
 

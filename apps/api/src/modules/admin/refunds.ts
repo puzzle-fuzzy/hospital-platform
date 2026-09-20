@@ -8,6 +8,11 @@ import { Elysia, t } from "elysia";
 import { HttpError } from "../../errors";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import {
+	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegistrationInputError,
+} from "../medical-insurance/errors";
+import type { MedicalInsuranceRefundService } from "../medical-insurance/refund-service";
+import {
 	AdminWechatRefundHistoryNotConfiguredError,
 	AdminWechatRefundInputError,
 	type AdminWechatRefundService,
@@ -20,10 +25,8 @@ const AdminRefundHeaders = t.Object({
 
 const AdminRefundBody = t.Object(
 	{
-		source: t.Union([
-			t.Literal("payment_order"),
-			t.Literal("medical_insurance"),
-		]),
+		// 医保订单必须走下方的整笔聚合入口，不能在 Admin 里只退微信现金腿。
+		source: t.Literal("payment_order"),
 		orderId: t.String({ minLength: 1, maxLength: 64 }),
 		refundFen: t.Integer({ minimum: 1, maximum: 9_000_000_000_000_000 }),
 		idempotencyKey: t.String({ minLength: 1, maxLength: 128 }),
@@ -46,6 +49,24 @@ const AdminRefundHistoryQuery = t.Object(
 	},
 	{ additionalProperties: false },
 );
+
+const AdminMedicalInsuranceRefundHeaders = t.Object({
+	"x-admin-refund-token": t.String({ minLength: 1, maxLength: 512 }),
+	"idempotency-key": t.Optional(t.String({ minLength: 1, maxLength: 128 })),
+	"x-request-id": t.Optional(t.String({ maxLength: 128 })),
+});
+
+const AdminMedicalInsuranceRefundBody = t.Object(
+	{
+		orderId: t.String({ minLength: 1, maxLength: 64 }),
+		reason: t.Optional(t.String({ maxLength: 80 })),
+	},
+	{ additionalProperties: false },
+);
+
+const AdminMedicalInsuranceRefundParams = t.Object({
+	refundNo: t.String({ minLength: 1, maxLength: 64 }),
+});
 
 function constantTimeEqual(left: string, right: string): boolean {
 	const encoder = new TextEncoder();
@@ -180,6 +201,64 @@ export function adminWechatRefundModule(
 			{
 				headers: AdminRefundHeaders,
 				params: AdminRefundParams,
+				detail: { hide: true },
+			},
+		);
+}
+
+/**
+ * Admin 医保订单只提供整笔聚合退费入口；医保 6203 与微信 APIv3 现金腿
+ * 由 MedicalInsuranceRefundService 在服务端一次编排，浏览器不能选择单腿。
+ */
+export function adminMedicalInsuranceRefundModule(
+	service: Pick<
+		MedicalInsuranceRefundService,
+		"requestFullRefundByOrder" | "query"
+	>,
+	adminRefundToken: string,
+) {
+	return new Elysia({ name: "admin-medical-insurance-refunds-module" })
+		.post(
+			"/admin/medical-insurance-refunds",
+			async ({ headers, body }) => {
+				authorize(adminRefundToken, headers);
+				try {
+					return success(
+						await service.requestFullRefundByOrder({
+							orderId: body.orderId,
+							...(body.reason !== undefined ? { reason: body.reason } : {}),
+							context: adapterContextFromHeaders(headers),
+						}),
+					);
+				} catch (error) {
+					if (error instanceof MedicalInsuranceOrderNotFoundError) {
+						throw new HttpError(404, "not_found", "医保订单不存在或尚未落库");
+					}
+					if (error instanceof MedicalInsuranceRegistrationInputError) {
+						throw new HttpError(400, "validation", error.message);
+					}
+					throw error;
+				}
+			},
+			{
+				headers: AdminMedicalInsuranceRefundHeaders,
+				body: AdminMedicalInsuranceRefundBody,
+				detail: { hide: true },
+			},
+		)
+		.get(
+			"/admin/medical-insurance-refunds/:refundNo",
+			async ({ headers, params }) => {
+				authorize(adminRefundToken, headers);
+				const result = await service.query(params.refundNo);
+				if (!result) {
+					throw new HttpError(404, "not_found", "医保退费记录不存在");
+				}
+				return success(result);
+			},
+			{
+				headers: AdminRefundHeaders,
+				params: AdminMedicalInsuranceRefundParams,
 				detail: { hide: true },
 			},
 		);

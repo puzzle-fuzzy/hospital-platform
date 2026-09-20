@@ -2,6 +2,7 @@ import type {
 	AdminLogPage,
 	AdminLogQuery,
 	AdminLogRecord,
+	AdminMedicalInsuranceRefund,
 	AdminWechatRefundPaymentHistoryQuery,
 	AdminWechatRefundPaymentRecord,
 	CaptchaState,
@@ -11,7 +12,6 @@ import type {
 	RawLogTrace,
 	Session,
 	WechatRefund,
-	WechatRefundSource,
 } from "./types";
 
 const SESSION_KEY = "admin.session";
@@ -252,7 +252,7 @@ export async function fetchPaymentInterface(
 
 export async function requestWechatRefund(
 	input: {
-		source: WechatRefundSource;
+		source: "payment_order";
 		orderId: string;
 		refundFen: number;
 		idempotencyKey: string;
@@ -302,6 +302,47 @@ export async function fetchWechatRefundPaymentHistory(
 	try {
 		return await request<readonly AdminWechatRefundPaymentRecord[]>(
 			`/api/refunds/wechat/payments${suffix}`,
+			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function requestMedicalInsuranceRefund(
+	input: { orderId: string; idempotencyKey: string; reason?: string },
+	session: Session,
+): Promise<AdminMedicalInsuranceRefund> {
+	try {
+		return await request<AdminMedicalInsuranceRefund>(
+			"/api/refunds/medical-insurance",
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${session.accessToken}`,
+					"Content-Type": "application/json",
+					"Idempotency-Key": input.idempotencyKey,
+				},
+				body: JSON.stringify({
+					orderId: input.orderId,
+					...(input.reason ? { reason: input.reason } : {}),
+				}),
+			},
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function queryMedicalInsuranceRefund(
+	refundNo: string,
+	session: Session,
+): Promise<AdminMedicalInsuranceRefund> {
+	try {
+		return await request<AdminMedicalInsuranceRefund>(
+			`/api/refunds/medical-insurance/${encodeURIComponent(refundNo)}`,
 			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
 		);
 	} catch (error) {

@@ -255,6 +255,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0050_wechat_refunds.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0051_medical_insurance_refunds",
+		file: "../migrations/0051_medical_insurance_refunds.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -287,6 +292,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_report_references",
 	"hp_health_knowledge_publications",
 	"hp_wechat_refunds",
+	"hp_medical_insurance_refunds",
 	"hp_health_knowledge_items",
 	"hp_health_knowledge_disease_details",
 	"hp_health_knowledge_drug_details",
@@ -527,6 +533,24 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"order_id",
 			"total_fen",
 			"provider_transaction_id",
+		],
+	},
+	{
+		table: "hp_medical_insurance_refunds",
+		columns: [
+			"refund_id",
+			"medical_order_id",
+			"owner_user_id",
+			"pay_ord_id",
+			"refund_no",
+			"idempotency_key",
+			"refund_type",
+			"medical_status",
+			"wechat_status",
+			"status",
+			"version",
+			"created_at",
+			"updated_at",
 		],
 	},
 	{

@@ -65,7 +65,7 @@ function statusColor(status: WechatRefund["status"]): string {
 
 function sourceLabel(source: WechatRefundSource): string {
 	return source === "medical_insurance"
-		? "医保混合单的微信自费"
+		? "医保 + 微信聚合订单"
 		: "普通微信自费";
 }
 
@@ -83,12 +83,12 @@ function formatTime(value: string): string {
 function businessLabel(record: AdminWechatRefundPaymentRecord): string {
 	if (record.business === "registration") {
 		return record.source === "medical_insurance"
-			? "挂号医保混合"
+			? "挂号医保 + 微信"
 			: "挂号微信自费";
 	}
 	if (record.business === "outpatient") {
 		return record.source === "medical_insurance"
-			? "门诊医保混合"
+			? "门诊医保 + 微信"
 			: "门诊微信自费";
 	}
 	return sourceLabel(record.source);
@@ -97,7 +97,7 @@ function businessLabel(record: AdminWechatRefundPaymentRecord): string {
 function paymentStateLabel(record: AdminWechatRefundPaymentRecord): string {
 	if (record.cashPaymentConfirmed) return "微信自费已确认";
 	return record.source === "medical_insurance"
-		? `医保微信段：${record.paymentState}`
+		? `医保 + 微信聚合：${record.paymentState}`
 		: `支付订单：${record.paymentState}`;
 }
 
@@ -119,7 +119,9 @@ export function RefundPanel({
 	onExpired: () => void;
 }) {
 	const { message } = AntdApp.useApp();
-	const [source, setSource] = useState<WechatRefundSource>("payment_order");
+	// 医保订单不允许从这个普通微信退费表单拆出现金腿；统一由 PaymentPanel
+	// 的“医保 + 微信一并退费”入口处理。
+	const source: WechatRefundSource = "payment_order";
 	const [orderId, setOrderId] = useState("");
 	const [refundFen, setRefundFen] = useState<number>();
 	const [reason, setReason] = useState("");
@@ -243,7 +245,10 @@ export function RefundPanel({
 
 	const selectHistoryPayment = (payment: AdminWechatRefundPaymentRecord) => {
 		if (payment.refundRoute !== "admin") return;
-		setSource(payment.source);
+		if (payment.source === "medical_insurance") {
+			void message.error("医保订单请使用“医保 + 微信一并退费”入口");
+			return;
+		}
 		setOrderId(payment.orderId);
 		setRefundFen(payment.refundableFen);
 		setReason("");
@@ -420,19 +425,14 @@ export function RefundPanel({
 							<Select
 								style={{ width: "100%", marginTop: 6 }}
 								value={source}
-								onChange={(value) => setSource(value)}
+								disabled
 								options={[
 									{ value: "payment_order", label: "普通微信自费订单" },
-									{ value: "medical_insurance", label: "医保混合单的微信自费" },
 								]}
 							/>
 						</div>
 						<div style={{ minWidth: 280, flex: 2 }}>
-							<Text strong>
-								{source === "medical_insurance"
-									? "医保订单号"
-									: "普通支付订单号"}
-							</Text>
+							<Text strong>普通支付订单号</Text>
 							<Input
 								style={{ marginTop: 6 }}
 								value={orderId}

@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { Elysia } from "elysia";
 import { errorHandlerPlugin } from "../../plugins/error-handler";
-import { adminWechatRefundModule } from "./refunds";
+import {
+	adminMedicalInsuranceRefundModule,
+	adminWechatRefundModule,
+} from "./refunds";
 import type {
 	AdminWechatRefundHistoryQuery,
 	AdminWechatRefundPaymentRecord,
@@ -11,6 +14,8 @@ const historyRecord: AdminWechatRefundPaymentRecord = {
 	source: "payment_order",
 	orderId: "payment-history-route-001",
 	business: "outpatient",
+	totalFen: 500,
+	insuranceFen: 0,
 	paymentState: "completed",
 	cashPaymentConfirmed: true,
 	cashFen: 500,
@@ -79,4 +84,120 @@ test("Admin 微信退款历史只接受退款令牌并返回最小支付读模�
 		}),
 	);
 	expect(invalidLimit.status).toBe(400);
+});
+
+test("Admin 医保订单退费固定走医保+微信整笔聚合入口", async () => {
+	let requestInput:
+		| {
+				orderId: string;
+				reason?: string;
+				context: unknown;
+		  }
+		| undefined;
+	const aggregate = {
+		orderId: "medical-admin-refund-001",
+		refundNo: "RFMIabcdef",
+		status: "processing" as const,
+		medicalStatus: "success" as const,
+		wechatStatus: "processing" as const,
+		amounts: {
+			totalFen: 1000,
+			cashFen: 400,
+			personalAccountFen: 300,
+			fundFen: 300,
+		},
+	};
+	const app = new Elysia().use(errorHandlerPlugin()).use(
+		adminMedicalInsuranceRefundModule(
+			{
+				async requestFullRefundByOrder(input) {
+					requestInput = input;
+					return aggregate;
+				},
+				async query() {
+					return aggregate;
+				},
+			},
+			"admin-refund-token-001",
+		),
+	);
+
+	const response = await app.handle(
+		new Request("http://localhost/admin/medical-insurance-refunds", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-refund-token": "admin-refund-token-001",
+				"idempotency-key": "ui-key-001",
+				"x-request-id": "admin-request-001",
+			},
+			body: JSON.stringify({
+				orderId: "medical-admin-refund-001",
+				reason: "患者申请退费",
+			}),
+		}),
+	);
+
+	expect(response.status).toBe(200);
+	expect(requestInput).toEqual({
+		orderId: "medical-admin-refund-001",
+		reason: "患者申请退费",
+		context: {
+			traceId: "admin-request-001",
+			idempotencyKey: "ui-key-001",
+		},
+	});
+	expect(await response.json()).toEqual({
+		success: true,
+		data: aggregate,
+	});
+
+	const unauthorized = await app.handle(
+		new Request("http://localhost/admin/medical-insurance-refunds", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-refund-token": "wrong-token",
+			},
+			body: JSON.stringify({ orderId: "medical-admin-refund-001" }),
+		}),
+	);
+	expect(unauthorized.status).toBe(401);
+});
+
+test("Admin 普通微信退费入口拒绝医保来源，避免拆分医保现金腿", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).use(
+		adminWechatRefundModule(
+			{
+				async request() {
+					throw new Error("handler must not run");
+				},
+				async query() {
+					throw new Error("not used");
+				},
+				async listPaymentHistory() {
+					return [];
+				},
+			},
+			"admin-refund-token-001",
+		),
+	);
+
+	const response = await app.handle(
+		new Request("http://localhost/admin/wechat-refunds", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-refund-token": "admin-refund-token-001",
+			},
+			body: JSON.stringify({
+				source: "medical_insurance",
+				orderId: "medical-admin-refund-002",
+				refundFen: 100,
+				idempotencyKey: "medical-leg-only-001",
+			}),
+		}),
+	);
+
+	expect(response.status).toBeGreaterThanOrEqual(400);
 });

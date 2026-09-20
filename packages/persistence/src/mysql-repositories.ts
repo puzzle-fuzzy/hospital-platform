@@ -17,6 +17,8 @@ import type {
 	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
+	MedicalInsuranceRefund,
+	MedicalInsuranceRefundRepository,
 	MedicalInsuranceProviderQueryIdentity,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
@@ -373,6 +375,30 @@ type WechatRefundRow = RowDataPacket & {
 	provider_transaction_id: string | null;
 	provider_request_id: string | null;
 	success_time: string | null;
+	last_error_code: string | null;
+	version: number | string;
+	created_at: string;
+	updated_at: string;
+};
+
+type MedicalInsuranceRefundRow = RowDataPacket & {
+	refund_id: string;
+	medical_order_id: string;
+	owner_user_id: string;
+	pay_ord_id: string;
+	refund_no: string;
+	idempotency_key: string;
+	refund_type: string;
+	total_fen: number | string;
+	cash_fen: number | string;
+	personal_account_fen: number | string;
+	fund_fen: number | string;
+	medical_status: string;
+	medical_ref_status: string | null;
+	medical_provider_request_id: string | null;
+	wechat_status: string;
+	wechat_merchant_refund_no: string | null;
+	status: string;
 	last_error_code: string | null;
 	version: number | string;
 	created_at: string;
@@ -1459,6 +1485,7 @@ export type MySqlRepositories = {
 	medicalInsuranceQueryTasks: MedicalInsuranceQueryTaskRepository;
 	medicalInsuranceCredentials: MedicalInsuranceCredentialRepository;
 	medicalInsuranceAuthorizations: MedicalInsuranceAuthorizationRepository;
+	medicalInsuranceRefunds: MedicalInsuranceRefundRepository;
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
@@ -2425,6 +2452,87 @@ function wechatRefund(row: WechatRefundRow): WechatRefund {
 			row.version,
 			1,
 			"Persistence returned an invalid Wechat refund version",
+		),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
+	};
+}
+
+const MEDICAL_INSURANCE_REFUND_TYPES: readonly MedicalInsuranceRefund["refundType"][] =
+	["ALL", "CASH", "HI"];
+const MEDICAL_INSURANCE_REFUND_STATUSES: readonly MedicalInsuranceRefund["status"][] =
+	["requested", "processing", "succeeded", "failed", "manual_review"];
+const MEDICAL_INSURANCE_REFUND_LEG_STATUSES: readonly MedicalInsuranceRefund["medicalStatus"][] =
+	["not_required", "requested", "processing", "success", "failed", "unknown"];
+
+function medicalInsuranceRefund(
+	row: MedicalInsuranceRefundRow,
+): MedicalInsuranceRefund {
+	if (
+		!MEDICAL_INSURANCE_REFUND_TYPES.includes(
+			row.refund_type as MedicalInsuranceRefund["refundType"],
+		)
+	) {
+		throw new Error(
+			"Persistence returned an unknown medical insurance refund type",
+		);
+	}
+	if (
+		!MEDICAL_INSURANCE_REFUND_STATUSES.includes(
+			row.status as MedicalInsuranceRefund["status"],
+		)
+	) {
+		throw new Error(
+			"Persistence returned an unknown medical insurance refund status",
+		);
+	}
+	if (
+		!MEDICAL_INSURANCE_REFUND_LEG_STATUSES.includes(
+			row.medical_status as MedicalInsuranceRefund["medicalStatus"],
+		)
+	) {
+		throw new Error(
+			"Persistence returned an unknown medical insurance refund leg status",
+		);
+	}
+	if (
+		!MEDICAL_INSURANCE_REFUND_LEG_STATUSES.includes(
+			row.wechat_status as MedicalInsuranceRefund["wechatStatus"],
+		)
+	) {
+		throw new Error("Persistence returned an unknown Wechat refund leg status");
+	}
+	if (
+		row.medical_ref_status !== null &&
+		!["SUCC", "FAIL", "EXP"].includes(row.medical_ref_status)
+	) {
+		throw new Error("Persistence returned an unknown 6203 refund status");
+	}
+	return {
+		refundId: row.refund_id,
+		medicalOrderId: row.medical_order_id,
+		ownerUserId: row.owner_user_id,
+		payOrdId: row.pay_ord_id,
+		refundNo: row.refund_no,
+		idempotencyKey: row.idempotency_key,
+		refundType: row.refund_type as MedicalInsuranceRefund["refundType"],
+		totalFen: safeFen(row.total_fen),
+		cashFen: safeFen(row.cash_fen),
+		personalAccountFen: safeFen(row.personal_account_fen),
+		fundFen: safeFen(row.fund_fen),
+		medicalStatus:
+			row.medical_status as MedicalInsuranceRefund["medicalStatus"],
+		medicalRefStatus:
+			row.medical_ref_status as MedicalInsuranceRefund["medicalRefStatus"],
+		medicalProviderRequestId: row.medical_provider_request_id,
+		wechatStatus: row.wechat_status as MedicalInsuranceRefund["wechatStatus"],
+		wechatMerchantRefundNo: row.wechat_merchant_refund_no,
+		status: row.status as MedicalInsuranceRefund["status"],
+		lastErrorCode: row.last_error_code,
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid medical insurance refund version",
 		),
 		createdAt: mysqlUtcDateTimeToIso(row.created_at),
 		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
@@ -3770,6 +3878,140 @@ export function createMySqlRepositories(
 				[record.refundRecordId],
 			);
 			return rows[0] ? wechatRefund(rows[0]) : undefined;
+		},
+	};
+
+	const medicalInsuranceRefunds: MedicalInsuranceRefundRepository = {
+		async reserve(record) {
+			const columns =
+				"refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no, idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen, fund_fen, medical_status, medical_ref_status, medical_provider_request_id, wechat_status, wechat_merchant_refund_no, status, last_error_code, version, created_at, updated_at";
+			try {
+				return await withTransaction(pool, async (connection) => {
+					const existingRows = await execute<MedicalInsuranceRefundRow[]>(
+						connection,
+						`SELECT ${columns} FROM hp_medical_insurance_refunds
+						 WHERE medical_order_id = ? AND idempotency_key = ? FOR UPDATE`,
+						[record.medicalOrderId, record.idempotencyKey],
+					);
+					const existing = existingRows[0];
+					if (existing)
+						return {
+							status: "existing" as const,
+							record: medicalInsuranceRefund(existing),
+						};
+					const refundRows = await execute<MedicalInsuranceRefundRow[]>(
+						connection,
+						`SELECT ${columns} FROM hp_medical_insurance_refunds
+						 WHERE refund_no = ? FOR UPDATE`,
+						[record.refundNo],
+					);
+					const existingByRefundNo = refundRows[0];
+					if (existingByRefundNo)
+						return {
+							status: "existing" as const,
+							record: medicalInsuranceRefund(existingByRefundNo),
+						};
+					await execute<ResultSetHeader>(
+						connection,
+						`INSERT INTO hp_medical_insurance_refunds
+						 (refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no,
+						  idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen,
+						  fund_fen, medical_status, medical_ref_status, medical_provider_request_id,
+						  wechat_status, wechat_merchant_refund_no, status, last_error_code, version,
+						  created_at, updated_at)
+						 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+						[
+							record.refundId,
+							record.medicalOrderId,
+							record.ownerUserId,
+							record.payOrdId,
+							record.refundNo,
+							record.idempotencyKey,
+							record.refundType,
+							record.totalFen,
+							record.cashFen,
+							record.personalAccountFen,
+							record.fundFen,
+							record.medicalStatus,
+							record.medicalRefStatus,
+							record.medicalProviderRequestId,
+							record.wechatStatus,
+							record.wechatMerchantRefundNo,
+							record.status,
+							record.lastErrorCode,
+							record.version,
+							mysqlDateTime(record.createdAt),
+							mysqlDateTime(record.updatedAt),
+						],
+					);
+					return { status: "inserted" as const, record };
+				});
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const existing = await medicalInsuranceRefunds.findByRefundNo(
+					record.refundNo,
+				);
+				if (!existing) throw error;
+				return { status: "existing" as const, record: existing };
+			}
+		},
+		async findByRefundNo(refundNo) {
+			const columns =
+				"refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no, idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen, fund_fen, medical_status, medical_ref_status, medical_provider_request_id, wechat_status, wechat_merchant_refund_no, status, last_error_code, version, created_at, updated_at";
+			const rows = await execute<MedicalInsuranceRefundRow[]>(
+				pool,
+				`SELECT ${columns} FROM hp_medical_insurance_refunds WHERE refund_no = ? LIMIT 1`,
+				[refundNo],
+			);
+			return rows[0] ? medicalInsuranceRefund(rows[0]) : undefined;
+		},
+		async findLatestByMedicalOrderId(medicalOrderId) {
+			const columns =
+				"refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no, idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen, fund_fen, medical_status, medical_ref_status, medical_provider_request_id, wechat_status, wechat_merchant_refund_no, status, last_error_code, version, created_at, updated_at";
+			const rows = await execute<MedicalInsuranceRefundRow[]>(
+				pool,
+				`SELECT ${columns} FROM hp_medical_insurance_refunds
+				 WHERE medical_order_id = ? ORDER BY updated_at DESC LIMIT 1`,
+				[medicalOrderId],
+			);
+			return rows[0] ? medicalInsuranceRefund(rows[0]) : undefined;
+		},
+		async update(record, expectedVersion) {
+			const result = await execute<ResultSetHeader>(
+				pool,
+				`UPDATE hp_medical_insurance_refunds SET
+					medical_status = ?, medical_ref_status = ?, medical_provider_request_id = ?,
+					wechat_status = ?, wechat_merchant_refund_no = ?, status = ?,
+					last_error_code = ?, version = ?, updated_at = ?
+				 WHERE refund_id = ? AND version = ?`,
+				[
+					record.medicalStatus,
+					record.medicalRefStatus,
+					record.medicalProviderRequestId,
+					record.wechatStatus,
+					record.wechatMerchantRefundNo,
+					record.status,
+					record.lastErrorCode,
+					record.version,
+					mysqlDateTime(record.updatedAt),
+					record.refundId,
+					expectedVersion,
+				],
+			);
+			if (result.affectedRows !== 1) return undefined;
+			const rows = await execute<MedicalInsuranceRefundRow[]>(
+				pool,
+				`SELECT refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no,
+					 idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen,
+					 fund_fen, medical_status, medical_ref_status, medical_provider_request_id,
+					 wechat_status, wechat_merchant_refund_no, status, last_error_code, version,
+					 created_at, updated_at FROM hp_medical_insurance_refunds
+					 WHERE refund_id = ? LIMIT 1`,
+				[record.refundId],
+			);
+			const row = rows[0];
+			if (!row) return undefined;
+			return medicalInsuranceRefund(row);
 		},
 	};
 
@@ -5338,6 +5580,30 @@ export function createMySqlRepositories(
 					),
 				} satisfies MedicalInsuranceAuthorizationContext;
 			},
+			async getForRefund(input) {
+				const cipher = requiredMedicalInsuranceCredentialCipher();
+				const rows = await execute<MedicalInsuranceAuthorizationRow[]>(
+					pool,
+					`SELECT authorization_id, owner_user_id, medical_order_id,
+					payload_ciphertext, expires_at, created_at
+					 FROM hp_medical_insurance_authorizations
+					 WHERE authorization_id = ? AND owner_user_id = ? AND medical_order_id = ?
+					 LIMIT 1`,
+					[input.authorizationId, input.ownerUserId, input.medicalOrderId],
+				);
+				const row = rows[0];
+				if (!row) return undefined;
+				return {
+					authorizationId: row.authorization_id,
+					ownerUserId: row.owner_user_id,
+					medicalOrderId: row.medical_order_id,
+					expiresAt: mysqlUtcDateTimeToIso(row.expires_at),
+					createdAt: mysqlUtcDateTimeToIso(row.created_at),
+					...deserializeMedicalInsuranceAuthorizationPayload(
+						cipher.open(row.payload_ciphertext),
+					),
+				} satisfies MedicalInsuranceAuthorizationContext;
+			},
 		};
 
 	/**
@@ -5504,6 +5770,7 @@ export function createMySqlRepositories(
 		medicalInsuranceQueryTasks,
 		medicalInsuranceAuthorizations,
 		medicalInsuranceCredentials,
+		medicalInsuranceRefunds,
 		paymentQuotes,
 		paymentPrepayAttempts,
 		wechatPaymentNotifications,

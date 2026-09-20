@@ -67,4 +67,13 @@ export type MedicalInsuranceAuthorizationRepository = {
 		medicalOrderId: string;
 		now: string;
 	}): Promise<MedicalInsuranceAuthorizationContext | undefined>;
+	/**
+	 * 6203 退费需要复用原授权号；授权上下文本身仍受 owner/订单绑定，
+	 * 但不能因为前端短期授权 TTL 到期就丢失服务端退费能力。
+	 */
+	getForRefund(input: {
+		authorizationId: string;
+		ownerUserId: string;
+		medicalOrderId: string;
+	}): Promise<MedicalInsuranceAuthorizationContext | undefined>;
 };

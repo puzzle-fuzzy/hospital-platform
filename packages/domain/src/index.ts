@@ -561,3 +561,11 @@ export {
 	WechatRefundIdempotencyConflictError,
 	WechatRefundNotFoundError,
 } from "./wechat-refund";
+export type {
+	MedicalInsuranceRefund,
+	MedicalInsuranceRefundGateway,
+	MedicalInsuranceRefundLegStatus,
+	MedicalInsuranceRefundRepository,
+	MedicalInsuranceRefundStatus,
+	MedicalInsuranceRefundType,
+} from "./medical-insurance-refund";

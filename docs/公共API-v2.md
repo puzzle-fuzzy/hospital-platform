@@ -152,6 +152,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/cashier-confirm` | Bearer + 必填幂等键 | 仅兼容旧版本已在途收银台返回后的 6301 与医院后置结算；不能作为新订单的微信官方支付依据 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer + 必填幂等键 | 读取已落库 6202 金额、6201 授权和参保上下文；现金为零创建官方 `INSURANCE_ONLY` 医保订单，存在现金差额则创建 `CASH_AND_INSURANCE` 混合订单，并返回小程序调起参数。Provider 调用前先保存稳定 `out_trade_no` 并唤醒补偿 Worker；若创建结果未知或重放返回 `ALREADY_EXISTS`，API 重试与 Worker 都先调用微信官方商户订单号查单恢复 `mix_trade_no`，仅 API 在查单明确 `NOT_FOUND` 后才用原业务单号安全重试一次，Worker 自身只查不建 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer；幂等键可选 | 按 `mix_trade_no` 查询微信官方医保订单；纯医保或混合支付都必须在官方查单与医院最终回写完成后才返回终态 |
+| `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/refund` | Bearer + 必填幂等键 | 已完成支付后按 `ALL`、`CASH` 或 `HI` 发起聚合退费：医保腿固定调用 6203 `/org/local/api/hos/refund_Order`，微信现金腿固定调用 APIv3 普通退款；客户端不能提交 provider 凭证、交易号或金额之外的 provider 字段，6203 `EXP`/未知结果和微信未知结果保持人工复核/同退款号查单 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/plugin-pay` | Bearer + 必填幂等键 | 历史 HIS 收款订单兼容入口；新纯医保和医保混合支付不从此接口发起，仅用于历史订单续跑 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/plugin-pay` | Bearer；幂等键可选 | 历史 HIS 收款订单兼容查询入口；不是微信官方医保订单的最终状态来源 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}` | Bearer；幂等键可选 | 查询医保订单最终状态和服务端金额快照；不返回 payToken、身份证或 provider 原始字段 |

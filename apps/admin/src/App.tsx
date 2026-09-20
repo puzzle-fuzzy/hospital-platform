@@ -25,7 +25,6 @@ import { useCallback, useEffect, useState } from "react";
 import { clearSession, loadCaptcha, loadSession, login, logout } from "./api";
 import { LogPanel } from "./LogPanel";
 import { PaymentPanel } from "./PaymentPanel";
-import { RefundPanel } from "./RefundPanel";
 import type { CaptchaState, LoginValues, Session } from "./types";
 
 const { Header, Sider } = Layout;
@@ -164,7 +163,7 @@ function Console() {
 	const [session, setSession] = useState<Session | undefined>(() =>
 		loadSession(),
 	);
-	const [activeKey, setActiveKey] = useState("logs");
+	const [activeKey, setActiveKey] = useState("payments");
 
 	const signOut = async () => {
 		if (session) await logout(session).catch(() => undefined);
@@ -185,11 +184,7 @@ function Console() {
 					<div>
 						<Text strong>高平市人民医院</Text>
 						<Text type="secondary" className="header-subtitle">
-							{activeKey === "logs"
-								? "实时接口日志"
-								: activeKey === "payments"
-									? "支付流程查看"
-									: "微信退费"}
+							{activeKey === "logs" ? "实时接口日志" : "支付数据"}
 						</Text>
 					</div>
 				</div>
@@ -224,12 +219,7 @@ function Console() {
 							{
 								key: "payments",
 								icon: <WalletOutlined />,
-								label: "查看支付",
-							},
-							{
-								key: "refunds",
-								icon: <WalletOutlined />,
-								label: "微信退费",
+								label: "支付数据",
 							},
 						]}
 					/>
@@ -250,15 +240,7 @@ function Console() {
 							setSession(undefined);
 						}}
 					/>
-				) : (
-					<RefundPanel
-						session={session}
-						onExpired={() => {
-							clearSession();
-							setSession(undefined);
-						}}
-					/>
-				)}
+				) : null}
 			</Layout>
 		</Layout>
 	);
