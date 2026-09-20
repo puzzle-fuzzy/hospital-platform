@@ -58,6 +58,9 @@ export {
 	createInMemoryUserProfileRepository,
 	createInMemoryWechatPaymentNotificationRepository,
 	createInMemoryWechatRefundRepository,
+	createInMemoryPaymentOperationsRepository,
+	createInMemoryPaymentSyncRepository,
+	createInMemoryPaymentOperatorAuditRepository,
 	createNotConfiguredRepositories,
 } from "./repositories";
 export {

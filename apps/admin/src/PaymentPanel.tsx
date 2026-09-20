@@ -24,11 +24,13 @@ import {
 	Spin,
 	Table,
 	Tag,
+	Timeline,
 	Typography,
 } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import {
 	ApiError,
+	fetchPaymentOperationDetail,
 	fetchPaymentDay,
 	fetchPaymentInterface,
 	fetchWechatRefundPaymentHistory,
@@ -36,6 +38,7 @@ import {
 } from "./api";
 import type {
 	AdminMedicalInsuranceRefund,
+	AdminPaymentOperationDetail,
 	AdminWechatRefundPaymentHistoryPage,
 	AdminWechatRefundPaymentRecord,
 	PaymentDayResult,
@@ -347,6 +350,43 @@ function medicalRefundStatusLabel(
 	}[status];
 }
 
+function operationStatusLabel(status: string): string {
+	return (
+		{
+			created: "已创建",
+			pending: "处理中",
+			paid: "已支付",
+			failed: "失败",
+			refund_pending: "退费处理中",
+			refunded: "已退费",
+			manual_review: "人工复核",
+		}[status] ?? status
+	);
+}
+
+function operationLegLabel(
+	legType: AdminPaymentOperationDetail["legs"][number]["legType"],
+): string {
+	return {
+		medical_insurance: "医保腿",
+		wechat_cash: "微信现金腿",
+		hospital_reduce: "医院减免腿",
+	}[legType];
+}
+
+function operationLegStatusLabel(status: string): string {
+	return (
+		{
+			not_started: "未开始",
+			pending: "处理中",
+			confirmed: "已确认",
+			failed: "失败",
+			refunded: "已退费",
+			manual_review: "人工复核",
+		}[status] ?? status
+	);
+}
+
 function canAggregateMedicalRefund(
 	record: AdminWechatRefundPaymentRecord,
 ): boolean {
@@ -361,6 +401,7 @@ function canAggregateMedicalRefund(
 
 function paymentRecordColumns(
 	onMedicalRefund: (record: AdminWechatRefundPaymentRecord) => void,
+	onOperationDetail: (record: AdminWechatRefundPaymentRecord) => void,
 ): NonNullable<TableProps<AdminWechatRefundPaymentRecord>["columns"]> {
 	return [
 		{
@@ -450,28 +491,38 @@ function paymentRecordColumns(
 			title: "操作",
 			key: "action",
 			fixed: "right",
-			width: 240,
-			render: (_, record) =>
-				record.source === "medical_insurance" ? (
+			width: 330,
+			render: (_, record) => (
+				<Space wrap>
 					<Button
-						className="payment-refund-button"
-						danger
-						icon={<RollbackOutlined />}
-						disabled={!canAggregateMedicalRefund(record)}
-						onClick={() => onMedicalRefund(record)}
+						type="link"
+						disabled={!record.operationAggregateId}
+						onClick={() => onOperationDetail(record)}
 					>
-						医保 + 微信一并退费
+						查看账本
 					</Button>
-				) : (
-					<Button
-						className="payment-refund-button"
-						danger
-						icon={<RollbackOutlined />}
-						disabled
-					>
-						纯微信订单
-					</Button>
-				),
+					{record.source === "medical_insurance" ? (
+						<Button
+							className="payment-refund-button"
+							danger
+							icon={<RollbackOutlined />}
+							disabled={!canAggregateMedicalRefund(record)}
+							onClick={() => onMedicalRefund(record)}
+						>
+							医保 + 微信一并退费
+						</Button>
+					) : (
+						<Button
+							className="payment-refund-button"
+							danger
+							icon={<RollbackOutlined />}
+							disabled
+						>
+							纯微信订单
+						</Button>
+					)}
+				</Space>
+			),
 		},
 	];
 }
@@ -507,6 +558,9 @@ export function PaymentPanel({
 	const [refundSubmitting, setRefundSubmitting] = useState(false);
 	const [refundResult, setRefundResult] =
 		useState<AdminMedicalInsuranceRefund>();
+	const [operationDetail, setOperationDetail] =
+		useState<AdminPaymentOperationDetail>();
+	const [operationDetailLoading, setOperationDetailLoading] = useState(false);
 	const [activeFlow, setActiveFlow] = useState<string>();
 	const [detail, setDetail] = useState<PaymentInterfaceDetail>();
 	const [detailLoading, setDetailLoading] = useState<string>();
@@ -615,6 +669,32 @@ export function PaymentPanel({
 			setRefundResult(undefined);
 		},
 		[],
+	);
+
+	const openOperationDetail = useCallback(
+		async (record: AdminWechatRefundPaymentRecord) => {
+			if (!record.operationAggregateId) return;
+			setOperationDetailLoading(true);
+			try {
+				setOperationDetail(
+					await fetchPaymentOperationDetail(
+						record.operationAggregateId,
+						session,
+					),
+				);
+			} catch (reason) {
+				if (reason instanceof ApiError && reason.status === 401) {
+					onExpired();
+					return;
+				}
+				void message.error(
+					reason instanceof Error ? reason.message : "支付账本详情加载失败",
+				);
+			} finally {
+				setOperationDetailLoading(false);
+			}
+		},
+		[message, onExpired, session],
 	);
 
 	const submitMedicalRefund = useCallback(async () => {
@@ -798,7 +878,10 @@ export function PaymentPanel({
 					) : null}
 					<Table<AdminWechatRefundPaymentRecord>
 						rowKey={(record) => `${record.source}:${record.orderId}`}
-						columns={paymentRecordColumns(openMedicalRefund)}
+						columns={paymentRecordColumns(
+							openMedicalRefund,
+							openOperationDetail,
+						)}
 						dataSource={paymentHistory}
 						loading={historyLoading}
 						rowClassName={(record) =>
@@ -960,6 +1043,84 @@ export function PaymentPanel({
 					/>
 				)}
 			</Card>
+			<Modal
+				title="支付运营账本时间线"
+				open={Boolean(operationDetail)}
+				footer={null}
+				confirmLoading={operationDetailLoading}
+				onCancel={() => setOperationDetail(undefined)}
+				destroyOnHidden
+				width={760}
+			>
+				{operationDetail ? (
+					<Space orientation="vertical" size={16} style={{ width: "100%" }}>
+						<Descriptions
+							bordered
+							size="small"
+							column={2}
+							items={[
+								{
+									key: "aggregate",
+									label: "聚合单号",
+									children: operationDetail.aggregate.aggregateId,
+								},
+								{
+									key: "business",
+									label: "业务",
+									children: operationDetail.aggregate.business,
+								},
+								{
+									key: "status",
+									label: "聚合状态",
+									children: operationStatusLabel(
+										operationDetail.aggregate.status,
+									),
+								},
+								{
+									key: "his",
+									label: "HIS 同步",
+									children: operationDetail.aggregate.hisSyncStatus,
+								},
+								{
+									key: "total",
+									label: "金额",
+									children: `总额 ${fen(operationDetail.aggregate.totalFen)}；医保 ${fen(operationDetail.aggregate.insuranceFen)}；现金 ${fen(operationDetail.aggregate.cashFen)}`,
+								},
+								{
+									key: "source",
+									label: "来源版本",
+									children: `${operationDetail.aggregate.sourceVersion} / ${operationDetail.aggregate.version}`,
+								},
+							]}
+						/>
+						<Card size="small" title="支付腿">
+							<Space orientation="vertical" size={8} style={{ width: "100%" }}>
+								{operationDetail.legs.map((leg) => (
+									<Flex
+										key={leg.legId}
+										justify="space-between"
+										wrap="wrap"
+										gap={8}
+									>
+										<Text strong>{operationLegLabel(leg.legType)}</Text>
+										<Text>{fen(leg.amountFen)}</Text>
+										<Tag>{operationLegStatusLabel(leg.status)}</Tag>
+									</Flex>
+								))}
+							</Space>
+						</Card>
+						<Timeline
+							items={operationDetail.events.map((event) => ({
+								key: event.eventId,
+								color: event.nextStatus === "failed" ? "red" : "blue",
+								label: formatTime(event.eventAt),
+								title: event.eventType,
+								content: `${event.previousStatus ? `${operationStatusLabel(event.previousStatus)} → ` : ""}${operationStatusLabel(event.nextStatus)}；${fen(event.amountFen)}`,
+							}))}
+						/>
+					</Space>
+				) : null}
+			</Modal>
 			<Modal
 				title="医保 + 微信一并退费"
 				open={Boolean(refundRecord)}

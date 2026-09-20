@@ -11,8 +11,11 @@ import {
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceRefundRepository,
 	createInMemoryPaymentOrderRepository,
+	createInMemoryPaymentOperationsRepository,
+	createInMemoryPaymentOperatorAuditRepository,
 	createInMemoryWechatRefundRepository,
 } from "@hospital/persistence";
+import { projectPaymentOrder } from "./payment-operations-projector";
 import { AdminWechatRefundService } from "./wechat-refund-service";
 
 const context = {
@@ -453,4 +456,41 @@ test("admin refund history shows prior payments and only enables the safe refund
 			context,
 		),
 	).rejects.toThrow("挂号自费退款必须从预约取消流程发起");
+});
+
+test("payment operation detail omits patient identity and records a read audit", async () => {
+	const operations = createInMemoryPaymentOperationsRepository();
+	const audits = createInMemoryPaymentOperatorAuditRepository();
+	const order = paidOrder();
+	const projection = await projectPaymentOrder(operations, order);
+	const service = new AdminWechatRefundService({
+		refunds: createInMemoryWechatRefundRepository(),
+		paymentOrders: createInMemoryPaymentOrderRepository([order]),
+		medicalInsuranceOrders: {} as never,
+		paymentOperations: operations,
+		operatorAudits: audits,
+		gateway: {} as never,
+		createId: () => "audit001",
+		now: () => new Date("2026-09-18T01:02:00.000Z"),
+	});
+
+	const detail = await service.getPaymentOperationDetail(
+		projection.aggregate.aggregateId,
+		{ requestId: "admin-request-001" },
+	);
+	expect(detail.aggregate).not.toHaveProperty("ownerUserId");
+	expect(detail.aggregate).not.toHaveProperty("patientId");
+	expect(
+		await audits.listByAggregate(projection.aggregate.aggregateId),
+	).toEqual([
+		{
+			auditId: "audit-audit001",
+			operatorRef: null,
+			action: "payment_detail_read",
+			aggregateId: projection.aggregate.aggregateId,
+			requestId: "admin-request-001",
+			outcome: "succeeded",
+			occurredAt: "2026-09-18T01:02:00.000Z",
+		},
+	]);
 });

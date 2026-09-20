@@ -5,8 +5,13 @@ import {
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceRefundRepository,
+	type PaymentOperationsRepository,
 	type PaymentOrder,
 	type PaymentOrderRepository,
+	type PaymentAggregate,
+	type PaymentLeg,
+	type PaymentOperationEvent,
+	type PaymentOperatorAuditRepository,
 	type WechatRefund,
 	WechatRefundAmountExceededError,
 	type WechatRefundGateway,
@@ -16,6 +21,10 @@ import {
 	type WechatRefundRepository,
 	type WechatRefundSource,
 } from "@hospital/domain";
+import {
+	projectMedicalInsuranceOrder,
+	projectPaymentOrder,
+} from "./payment-operations-projector";
 
 export type AdminWechatRefundInput = {
 	source: WechatRefundSource;
@@ -43,6 +52,12 @@ export type AdminPaymentHistoryPage = {
 	pageSize: number;
 };
 
+export type AdminPaymentOperationDetail = {
+	aggregate: Omit<PaymentAggregate, "ownerUserId" | "patientId">;
+	legs: readonly PaymentLeg[];
+	events: readonly PaymentOperationEvent[];
+};
+
 const ADMIN_PAYMENT_HISTORY_SCAN_LIMIT = 10_000;
 
 /**
@@ -52,6 +67,8 @@ const ADMIN_PAYMENT_HISTORY_SCAN_LIMIT = 10_000;
 export type AdminWechatRefundPaymentRecord = {
 	source: WechatRefundSource;
 	orderId: string;
+	/** 平台支付聚合账本 ID；用于 Admin 后续详情与对账关联。 */
+	operationAggregateId?: string;
 	business: "registration" | "outpatient" | "other";
 	/** 管理端可展示的金额事实；不包含患者身份或支付调起参数。 */
 	totalFen: number;
@@ -140,6 +157,20 @@ export class AdminWechatRefundHistoryNotConfiguredError extends Error {
 	constructor() {
 		super("Admin Wechat refund payment history is not configured");
 		this.name = "AdminWechatRefundHistoryNotConfiguredError";
+	}
+}
+
+export class AdminPaymentOperationNotConfiguredError extends Error {
+	constructor() {
+		super("Admin payment operation ledger is not configured");
+		this.name = "AdminPaymentOperationNotConfiguredError";
+	}
+}
+
+export class AdminPaymentOperationNotFoundError extends Error {
+	constructor() {
+		super("Payment operation aggregate was not found");
+		this.name = "AdminPaymentOperationNotFoundError";
 	}
 }
 
@@ -348,6 +379,8 @@ export class AdminWechatRefundService {
 			paymentOrders: PaymentOrderRepository;
 			medicalInsuranceOrders: MedicalInsuranceOrderRepository;
 			medicalInsuranceRefunds?: MedicalInsuranceRefundRepository;
+			paymentOperations?: PaymentOperationsRepository;
+			operatorAudits?: PaymentOperatorAuditRepository;
 			gateway: WechatRefundGateway;
 			now?: () => Date;
 			createId?: () => string;
@@ -630,15 +663,27 @@ export class AdminWechatRefundService {
 						candidate.source === "payment_order"
 							? candidate.order.orderId
 							: candidate.order.medicalOrderId;
-					const [refunds, latestMedicalRefund] = await Promise.all([
-						findRefunds(candidate.source, orderId),
-						candidate.source === "medical_insurance" &&
-						this.dependencies.medicalInsuranceRefunds
-							? this.dependencies.medicalInsuranceRefunds.findLatestByMedicalOrderId(
-									orderId,
-								)
-							: Promise.resolve(undefined),
-					]);
+					const [refunds, latestMedicalRefund, operationProjection] =
+						await Promise.all([
+							findRefunds(candidate.source, orderId),
+							candidate.source === "medical_insurance" &&
+							this.dependencies.medicalInsuranceRefunds
+								? this.dependencies.medicalInsuranceRefunds.findLatestByMedicalOrderId(
+										orderId,
+									)
+								: Promise.resolve(undefined),
+							this.dependencies.paymentOperations
+								? candidate.source === "payment_order"
+									? projectPaymentOrder(
+											this.dependencies.paymentOperations,
+											candidate.order,
+										)
+									: projectMedicalInsuranceOrder(
+											this.dependencies.paymentOperations,
+											candidate.order,
+										)
+								: Promise.resolve(undefined),
+						]);
 					const summary = refundSummary(refunds);
 					if (candidate.source === "payment_order") {
 						const order = candidate.order;
@@ -652,6 +697,12 @@ export class AdminWechatRefundService {
 						return {
 							source: candidate.source,
 							orderId,
+							...(operationProjection
+								? {
+										operationAggregateId:
+											operationProjection.aggregate.aggregateId,
+									}
+								: {}),
 							business,
 							totalFen: order.amounts.totalFen,
 							insuranceFen: order.amounts.insuranceFen,
@@ -683,6 +734,12 @@ export class AdminWechatRefundService {
 					return {
 						source: candidate.source,
 						orderId,
+						...(operationProjection
+							? {
+									operationAggregateId:
+										operationProjection.aggregate.aggregateId,
+								}
+							: {}),
 						business: medicalPaymentBusiness(order),
 						totalFen: order.amounts?.totalFen ?? 0,
 						paymentState: order.wechatPaymentState ?? "not_started",
@@ -755,6 +812,40 @@ export class AdminWechatRefundService {
 			page: query.page,
 			pageSize: query.pageSize,
 		};
+	}
+
+	async getPaymentOperationDetail(
+		aggregateId: string,
+		context: { requestId?: string; operatorRef?: string | null } = {},
+	): Promise<AdminPaymentOperationDetail> {
+		if (!isBoundedOpaqueIdentifier(aggregateId)) {
+			throw new AdminWechatRefundInputError("支付聚合单号不合法");
+		}
+		const repository = this.dependencies.paymentOperations;
+		if (!repository) throw new AdminPaymentOperationNotConfiguredError();
+		const aggregate = await repository.findAggregateById(aggregateId);
+		if (!aggregate) throw new AdminPaymentOperationNotFoundError();
+		const [legs, events] = await Promise.all([
+			repository.listLegs(aggregateId),
+			repository.listEvents(aggregateId),
+		]);
+		if (this.dependencies.operatorAudits) {
+			await this.dependencies.operatorAudits.append({
+				auditId: `audit-${this.createId()}`,
+				operatorRef: context.operatorRef ?? null,
+				action: "payment_detail_read",
+				aggregateId,
+				...(context.requestId ? { requestId: context.requestId } : {}),
+				outcome: "succeeded",
+				occurredAt: this.now().toISOString(),
+			});
+		}
+		const {
+			ownerUserId: _ownerUserId,
+			patientId: _patientId,
+			...safeAggregate
+		} = aggregate;
+		return { aggregate: safeAggregate, legs, events };
 	}
 
 	/**

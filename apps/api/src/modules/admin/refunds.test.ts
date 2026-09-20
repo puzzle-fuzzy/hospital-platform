@@ -120,7 +120,7 @@ test("Admin 医保订单退费固定走医保+微信整笔聚合入口", async (
 			personalAccountFen: 300,
 			fundFen: 300,
 		},
-	};
+	} as const;
 	const app = new Elysia().use(errorHandlerPlugin()).use(
 		adminMedicalInsuranceRefundModule(
 			{
@@ -214,4 +214,71 @@ test("Admin 普通微信退费入口拒绝医保来源，避免拆分医保现�
 	);
 
 	expect(response.status).toBeGreaterThanOrEqual(400);
+});
+
+test("Admin 支付运营账本详情只返回聚合单、支付腿和低敏事件", async () => {
+	const aggregateId = `payagg-${"a".repeat(56)}`;
+	const detail = {
+		aggregate: {
+			aggregateId,
+			business: "outpatient" as const,
+			businessKey: "medical_insurance:medical-001",
+			businessId: "record-001",
+			totalFen: 17_600,
+			insuranceFen: 6_039,
+			cashFen: 11_561,
+			status: "paid",
+			hisSyncStatus: "pending",
+			sourceVersion: 1,
+			version: 1,
+			createdAt: "2026-09-20T00:00:00.000Z",
+			updatedAt: "2026-09-20T00:01:00.000Z",
+		},
+		legs: [
+			{
+				legId: `payleg-${"b".repeat(56)}`,
+				aggregateId,
+				legType: "medical_insurance" as const,
+				source: "medical_insurance" as const,
+				sourceOrderId: "medical-001",
+				amountFen: 6_039,
+				status: "confirmed",
+				version: 1,
+				createdAt: "2026-09-20T00:00:00.000Z",
+				updatedAt: "2026-09-20T00:01:00.000Z",
+			},
+		],
+		events: [],
+	} as const;
+	let requestedAggregateId = "";
+	const app = new Elysia().use(errorHandlerPlugin()).use(
+		adminWechatRefundModule(
+			{
+				async request() {
+					throw new Error("not used");
+				},
+				async query() {
+					throw new Error("not used");
+				},
+				async listPaymentHistory() {
+					throw new Error("not used");
+				},
+				async getPaymentOperationDetail(id) {
+					requestedAggregateId = id;
+					return detail;
+				},
+			},
+			"admin-refund-token-001",
+		),
+	);
+
+	const response = await app.handle(
+		new Request(`http://localhost/admin/payment-operations/${aggregateId}`, {
+			headers: { "x-admin-refund-token": "admin-refund-token-001" },
+		}),
+	);
+
+	expect(response.status).toBe(200);
+	expect(requestedAggregateId).toBe(aggregateId);
+	expect(await response.json()).toEqual({ success: true, data: detail });
 });

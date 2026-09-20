@@ -752,6 +752,32 @@ async function adminRefundHistoryRequest(
 	);
 }
 
+async function adminPaymentOperationDetailRequest(
+	request: Request,
+	aggregateId: string,
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务支付运营账本尚未配置", 503);
+	}
+	if (!/^payagg-[a-f0-9]{56}$/u.test(aggregateId)) {
+		return errorResponse("支付聚合单号参数不合法", 400);
+	}
+	return upstreamRequest(
+		adminRefundsUpstream,
+		`/admin/payment-operations/${encodeURIComponent(aggregateId)}`,
+		{
+			method: "GET",
+			headers: {
+				Authorization: authorization,
+				"X-Admin-Refund-Token": adminRefundsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务支付运营账本暂时不可用，请稍后重试",
+	);
+}
+
 async function logDetailRequest(
 	request: Request,
 	id: string,
@@ -1005,6 +1031,15 @@ const server = Bun.serve({
 				request.method === "GET"
 			) {
 				return await adminRefundHistoryRequest(request, url);
+			}
+			const paymentOperationDetailMatch = url.pathname.match(
+				/^\/api\/refunds\/payment-operations\/(payagg-[a-f0-9]{56})$/u,
+			);
+			if (paymentOperationDetailMatch && request.method === "GET") {
+				return await adminPaymentOperationDetailRequest(
+					request,
+					paymentOperationDetailMatch[1] ?? "",
+				);
 			}
 			const refundQueryMatch = url.pathname.match(
 				/^\/api\/refunds\/wechat\/([A-Za-z0-9_@*|-]{1,64})$/u,

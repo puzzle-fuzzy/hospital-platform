@@ -244,6 +244,7 @@ export type AdminMedicalInsuranceRefund = {
 export type AdminWechatRefundPaymentRecord = {
 	source: WechatRefundSource;
 	orderId: string;
+	operationAggregateId?: string;
 	business: "registration" | "outpatient" | "other";
 	totalFen: number;
 	insuranceFen?: number;
@@ -302,4 +303,50 @@ export type AdminWechatRefundPaymentHistoryPage = {
 	total: number;
 	page: number;
 	pageSize: number;
+};
+
+export type AdminPaymentOperationDetail = {
+	aggregate: {
+		aggregateId: string;
+		business: "registration" | "outpatient" | "other";
+		businessKey: string;
+		businessId: string;
+		totalFen: number;
+		insuranceFen: number;
+		cashFen: number;
+		status: string;
+		hisSyncStatus: string;
+		sourceVersion: number;
+		version: number;
+		createdAt: string;
+		updatedAt: string;
+	};
+	legs: readonly {
+		legId: string;
+		aggregateId: string;
+		legType: "medical_insurance" | "wechat_cash" | "hospital_reduce";
+		source: "payment_order" | "medical_insurance" | "wechat_pay" | "platform";
+		sourceOrderId: string;
+		amountFen: number;
+		status: string;
+		providerReferenceDigest?: string;
+		confirmedAt?: string;
+		version: number;
+		createdAt: string;
+		updatedAt: string;
+	}[];
+	events: readonly {
+		eventId: string;
+		aggregateId: string;
+		legId?: string;
+		source: "payment_order" | "medical_insurance" | "wechat_pay" | "platform";
+		eventType: string;
+		previousStatus?: string;
+		nextStatus: string;
+		amountFen?: number;
+		providerRequestId?: string;
+		idempotencyKey: string;
+		eventAt: string;
+		payloadDigest: string;
+	}[];
 };

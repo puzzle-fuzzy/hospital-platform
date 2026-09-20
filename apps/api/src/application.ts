@@ -648,6 +648,8 @@ export function createDefaultApplicationServices(
 				paymentOrders: repositories.paymentOrders,
 				medicalInsuranceOrders: repositories.medicalInsuranceOrders,
 				medicalInsuranceRefunds: repositories.medicalInsuranceRefunds,
+				paymentOperations: repositories.paymentOperations,
+				operatorAudits: repositories.operatorAudits,
 				gateway: options.wechatRefundGateway,
 			})
 		: undefined;

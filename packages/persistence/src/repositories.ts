@@ -32,6 +32,15 @@ import type {
 	PatientProviderReference,
 	PatientRecord,
 	PatientRepository,
+	PaymentAggregate,
+	PaymentLeg,
+	PaymentOperationEvent,
+	PaymentOperationsRepository,
+	PaymentReconciliationResult,
+	PaymentOperatorAudit,
+	PaymentOperatorAuditRepository,
+	PaymentSyncRepository,
+	PaymentSyncTask,
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentPrepayAttempt,
@@ -71,6 +80,306 @@ import {
 import { PersistenceNotConfiguredError } from "./errors";
 import { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
 import { createAesGcmSecretValueCipher } from "./prepay-cipher";
+
+function clonePaymentAggregate(value: PaymentAggregate): PaymentAggregate {
+	return { ...value };
+}
+
+function clonePaymentLeg(value: PaymentLeg): PaymentLeg {
+	return { ...value };
+}
+
+function clonePaymentOperationEvent(
+	value: PaymentOperationEvent,
+): PaymentOperationEvent {
+	return { ...value };
+}
+
+/** 平台支付运营账本的内存实现；用于单测和本地投影演练，不替代 MySQL。 */
+export function createInMemoryPaymentOperationsRepository(seed?: {
+	aggregates?: readonly PaymentAggregate[];
+	legs?: readonly PaymentLeg[];
+	events?: readonly PaymentOperationEvent[];
+}): PaymentOperationsRepository {
+	const aggregates = new Map(
+		(seed?.aggregates ?? []).map((value) => [
+			value.aggregateId,
+			clonePaymentAggregate(value),
+		]),
+	);
+	const legs = new Map(
+		(seed?.legs ?? []).map((value) => [
+			`${value.aggregateId}:${value.legType}`,
+			clonePaymentLeg(value),
+		]),
+	);
+	const events = new Map(
+		(seed?.events ?? []).map((value) => [
+			`${value.aggregateId}:${value.idempotencyKey}`,
+			clonePaymentOperationEvent(value),
+		]),
+	);
+	return {
+		async findAggregateById(aggregateId) {
+			const value = aggregates.get(aggregateId);
+			return value ? clonePaymentAggregate(value) : undefined;
+		},
+		async findAggregateByBusinessKey(businessKey) {
+			const value = [...aggregates.values()].find(
+				(candidate) => candidate.businessKey === businessKey,
+			);
+			return value ? clonePaymentAggregate(value) : undefined;
+		},
+		async upsertAggregate(aggregate, expectedVersion) {
+			const current = aggregates.get(aggregate.aggregateId);
+			const businessConflict = [...aggregates.values()].find(
+				(candidate) =>
+					candidate.businessKey === aggregate.businessKey &&
+					candidate.aggregateId !== aggregate.aggregateId,
+			);
+			if (businessConflict) {
+				throw new Error("Payment aggregate business key conflict");
+			}
+			if (
+				current &&
+				expectedVersion !== undefined &&
+				current.version !== expectedVersion
+			) {
+				throw new Error("Payment aggregate version conflict");
+			}
+			if (current && current.sourceVersion >= aggregate.sourceVersion) {
+				return clonePaymentAggregate(current);
+			}
+			aggregates.set(aggregate.aggregateId, clonePaymentAggregate(aggregate));
+			return clonePaymentAggregate(aggregate);
+		},
+		async upsertLeg(leg, expectedVersion) {
+			if (!aggregates.has(leg.aggregateId)) {
+				throw new Error("Payment aggregate is required before a leg");
+			}
+			const key = `${leg.aggregateId}:${leg.legType}`;
+			const current = legs.get(key);
+			if (
+				current &&
+				expectedVersion !== undefined &&
+				current.version !== expectedVersion
+			) {
+				throw new Error("Payment leg version conflict");
+			}
+			if (current && current.version >= leg.version)
+				return clonePaymentLeg(current);
+			legs.set(key, clonePaymentLeg(leg));
+			return clonePaymentLeg(leg);
+		},
+		async appendEvent(event) {
+			if (!aggregates.has(event.aggregateId)) {
+				throw new Error("Payment aggregate is required before an event");
+			}
+			const key = `${event.aggregateId}:${event.idempotencyKey}`;
+			const existing = events.get(key);
+			if (existing) return clonePaymentOperationEvent(existing);
+			events.set(key, clonePaymentOperationEvent(event));
+			return clonePaymentOperationEvent(event);
+		},
+		async listLegs(aggregateId) {
+			return [...legs.values()]
+				.filter((leg) => leg.aggregateId === aggregateId)
+				.sort((left, right) => left.legType.localeCompare(right.legType))
+				.map(clonePaymentLeg);
+		},
+		async listEvents(aggregateId) {
+			return [...events.values()]
+				.filter((event) => event.aggregateId === aggregateId)
+				.sort((left, right) => {
+					const byTime = left.eventAt.localeCompare(right.eventAt);
+					return byTime || left.eventId.localeCompare(right.eventId);
+				})
+				.map(clonePaymentOperationEvent);
+		},
+	};
+}
+
+function clonePaymentSyncTask(value: PaymentSyncTask): PaymentSyncTask {
+	return { ...value };
+}
+
+function clonePaymentReconciliationResult(
+	value: PaymentReconciliationResult,
+): PaymentReconciliationResult {
+	return { ...value };
+}
+
+function clonePaymentOperatorAudit(
+	value: PaymentOperatorAudit,
+): PaymentOperatorAudit {
+	return { ...value };
+}
+
+/** 同步/对账任务的内存实现；只用于编排测试，不替代 MySQL 租约。 */
+export function createInMemoryPaymentSyncRepository(seed?: {
+	tasks?: readonly PaymentSyncTask[];
+	reconciliations?: readonly PaymentReconciliationResult[];
+}): PaymentSyncRepository {
+	const tasks = new Map(
+		(seed?.tasks ?? []).map((task) => [
+			task.taskId,
+			clonePaymentSyncTask(task),
+		]),
+	);
+	const reconciliations = new Map(
+		(seed?.reconciliations ?? []).map((result) => [
+			`${result.aggregateId}:${result.source}:${result.observationKey}`,
+			clonePaymentReconciliationResult(result),
+		]),
+	);
+	return {
+		async findTaskById(taskId) {
+			const task = tasks.get(taskId);
+			return task ? clonePaymentSyncTask(task) : undefined;
+		},
+		async findTaskByKey(aggregateId, businessKey, source, kind) {
+			const task = [...tasks.values()].find(
+				(candidate) =>
+					candidate.aggregateId === aggregateId &&
+					candidate.businessKey === businessKey &&
+					candidate.source === source &&
+					candidate.kind === kind,
+			);
+			return task ? clonePaymentSyncTask(task) : undefined;
+		},
+		async enqueueTask(task) {
+			const existing =
+				tasks.get(task.taskId) ??
+				[...tasks.values()].find(
+					(candidate) =>
+						candidate.aggregateId === task.aggregateId &&
+						candidate.businessKey === task.businessKey &&
+						candidate.source === task.source &&
+						candidate.kind === task.kind,
+				);
+			if (existing) {
+				if (
+					existing.aggregateId !== task.aggregateId ||
+					existing.businessKey !== task.businessKey ||
+					existing.source !== task.source ||
+					existing.kind !== task.kind
+				) {
+					throw new Error("Payment sync task idempotency payload changed");
+				}
+				return clonePaymentSyncTask(existing);
+			}
+			tasks.set(task.taskId, clonePaymentSyncTask(task));
+			return clonePaymentSyncTask(task);
+		},
+		async claimDueTasks(now, limit, leaseMs) {
+			if (
+				!Number.isSafeInteger(limit) ||
+				limit <= 0 ||
+				!Number.isSafeInteger(leaseMs) ||
+				leaseMs <= 0
+			) {
+				return [];
+			}
+			const nowMs = now.getTime();
+			const claimedUntil = new Date(nowMs + leaseMs).toISOString();
+			const due = [...tasks.values()]
+				.filter((task) => {
+					const nextRunMs = Date.parse(task.nextRunAt);
+					const claimedUntilMs = task.claimedUntil
+						? Date.parse(task.claimedUntil)
+						: Number.NEGATIVE_INFINITY;
+					return (
+						Number.isFinite(nextRunMs) &&
+						nextRunMs <= nowMs &&
+						(task.status === "pending" || task.status === "in_progress") &&
+						(!task.claimedUntil ||
+							!Number.isFinite(claimedUntilMs) ||
+							claimedUntilMs <= nowMs)
+					);
+				})
+				.sort(
+					(left, right) =>
+						left.nextRunAt.localeCompare(right.nextRunAt) ||
+						left.taskId.localeCompare(right.taskId),
+				)
+				.slice(0, Math.min(limit, 100))
+				.map((task) => ({
+					...task,
+					status: "in_progress" as const,
+					claimedUntil,
+					version: task.version + 1,
+					updatedAt: now.toISOString(),
+				}));
+			for (const task of due) tasks.set(task.taskId, task);
+			return due.map(clonePaymentSyncTask);
+		},
+		async updateTask(task, expectedVersion) {
+			const current = tasks.get(task.taskId);
+			if (!current || current.version !== expectedVersion) {
+				throw new Error("Payment sync task version conflict");
+			}
+			if (task.version !== expectedVersion + 1) {
+				throw new Error("Payment sync task version must advance by one");
+			}
+			tasks.set(task.taskId, clonePaymentSyncTask(task));
+			return clonePaymentSyncTask(task);
+		},
+		async appendReconciliation(result) {
+			const key = `${result.aggregateId}:${result.source}:${result.observationKey}`;
+			const existing = reconciliations.get(key);
+			if (existing) {
+				if (existing.evidenceDigest !== result.evidenceDigest) {
+					throw new Error("Payment reconciliation evidence changed");
+				}
+				return clonePaymentReconciliationResult(existing);
+			}
+			reconciliations.set(key, clonePaymentReconciliationResult(result));
+			return clonePaymentReconciliationResult(result);
+		},
+		async listReconciliations(aggregateId) {
+			return [...reconciliations.values()]
+				.filter((result) => result.aggregateId === aggregateId)
+				.sort(
+					(left, right) =>
+						left.observedAt.localeCompare(right.observedAt) ||
+						left.resultId.localeCompare(right.resultId),
+				)
+				.map(clonePaymentReconciliationResult);
+		},
+	};
+}
+
+/** Admin 操作审计的内存实现；用于审计事件编排测试。 */
+export function createInMemoryPaymentOperatorAuditRepository(
+	seed: readonly PaymentOperatorAudit[] = [],
+): PaymentOperatorAuditRepository {
+	const audits = new Map(
+		seed.map((audit) => [audit.auditId, clonePaymentOperatorAudit(audit)]),
+	);
+	return {
+		async append(audit) {
+			const existing = audits.get(audit.auditId);
+			if (existing) {
+				if (JSON.stringify(existing) !== JSON.stringify(audit)) {
+					throw new Error("Payment operator audit idempotency payload changed");
+				}
+				return clonePaymentOperatorAudit(existing);
+			}
+			audits.set(audit.auditId, clonePaymentOperatorAudit(audit));
+			return clonePaymentOperatorAudit(audit);
+		},
+		async listByAggregate(aggregateId) {
+			return [...audits.values()]
+				.filter((audit) => audit.aggregateId === aggregateId)
+				.sort(
+					(left, right) =>
+						left.occurredAt.localeCompare(right.occurredAt) ||
+						left.auditId.localeCompare(right.auditId),
+				)
+				.map(clonePaymentOperatorAudit);
+		},
+	};
+}
 
 /** 仅用于单元测试和本地组合测试；它不提供生产持久化保证。 */
 export function createInMemoryIdentityUserRepository(
@@ -1443,6 +1752,9 @@ export function createNotConfiguredRepositories(): {
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	wechatRefunds: WechatRefundRepository;
+	paymentOperations: PaymentOperationsRepository;
+	paymentSync: PaymentSyncRepository;
+	operatorAudits: PaymentOperatorAuditRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	appointmentWrites: AppointmentWriteRepository;
 	myDoctors: MyDoctorRepository;
@@ -1675,6 +1987,60 @@ export function createNotConfiguredRepositories(): {
 			},
 			update: async () => {
 				throw new PersistenceNotConfiguredError("wechat-refunds");
+			},
+		},
+		paymentOperations: {
+			findAggregateById: async () => {
+				throw new PersistenceNotConfiguredError("payment-operations");
+			},
+			findAggregateByBusinessKey: async () => {
+				throw new PersistenceNotConfiguredError("payment-operations");
+			},
+			upsertAggregate: async () => {
+				throw new PersistenceNotConfiguredError("payment-operations");
+			},
+			upsertLeg: async () => {
+				throw new PersistenceNotConfiguredError("payment-operations");
+			},
+			appendEvent: async () => {
+				throw new PersistenceNotConfiguredError("payment-operations");
+			},
+			listLegs: async () => {
+				throw new PersistenceNotConfiguredError("payment-operations");
+			},
+			listEvents: async () => {
+				throw new PersistenceNotConfiguredError("payment-operations");
+			},
+		},
+		paymentSync: {
+			findTaskById: async () => {
+				throw new PersistenceNotConfiguredError("payment-sync");
+			},
+			findTaskByKey: async () => {
+				throw new PersistenceNotConfiguredError("payment-sync");
+			},
+			enqueueTask: async () => {
+				throw new PersistenceNotConfiguredError("payment-sync");
+			},
+			claimDueTasks: async () => {
+				throw new PersistenceNotConfiguredError("payment-sync");
+			},
+			updateTask: async () => {
+				throw new PersistenceNotConfiguredError("payment-sync");
+			},
+			appendReconciliation: async () => {
+				throw new PersistenceNotConfiguredError("payment-sync");
+			},
+			listReconciliations: async () => {
+				throw new PersistenceNotConfiguredError("payment-sync");
+			},
+		},
+		operatorAudits: {
+			append: async () => {
+				throw new PersistenceNotConfiguredError("payment-operator-audits");
+			},
+			listByAggregate: async () => {
+				throw new PersistenceNotConfiguredError("payment-operator-audits");
 			},
 		},
 		appointmentScheduleSnapshots: {

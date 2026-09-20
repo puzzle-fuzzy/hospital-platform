@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { PatientDirectoryReferenceConflictError } from "@hospital/domain";
+import {
+	PatientDirectoryReferenceConflictError,
+	type PaymentOperatorAudit,
+	type PaymentReconciliationResult,
+	type PaymentSyncTask,
+} from "@hospital/domain";
 import {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
@@ -7,6 +12,8 @@ import {
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
+	createInMemoryPaymentSyncRepository,
+	createInMemoryPaymentOperatorAuditRepository,
 	createInMemoryReportReferenceRepository,
 	createInMemoryUserProfileRepository,
 	createNotConfiguredHealthKnowledgeRepository,
@@ -1195,4 +1202,105 @@ test("in-memory medical insurance query tasks reclaim an expired in-progress lea
 	await expect(
 		tasks.claimDueForQuery(new Date("2026-09-03T00:09:59.999Z"), 1, 5 * 60_000),
 	).resolves.toEqual([]);
+});
+
+test("in-memory payment sync tasks use idempotency, lease and reconciliation evidence", async () => {
+	const repository = createInMemoryPaymentSyncRepository();
+	const task: PaymentSyncTask = {
+		taskId: "payment-sync-task-001",
+		aggregateId: "payagg-001",
+		businessKey: "medical_insurance:medical-001",
+		source: "his",
+		kind: "reconcile",
+		status: "pending",
+		attempts: 0,
+		maxAttempts: 3,
+		nextRunAt: "2026-09-20T00:00:00.000Z",
+		claimedUntil: null,
+		lastErrorCode: null,
+		resultDigest: null,
+		version: 1,
+		createdAt: "2026-09-20T00:00:00.000Z",
+		updatedAt: "2026-09-20T00:00:00.000Z",
+	};
+
+	await expect(repository.enqueueTask(task)).resolves.toEqual(task);
+	await expect(
+		repository.enqueueTask({ ...task, status: "failed" }),
+	).resolves.toEqual(task);
+	const claimed = await repository.claimDueTasks(
+		new Date("2026-09-20T00:00:00.000Z"),
+		1,
+		60_000,
+	);
+	expect(claimed).toMatchObject([
+		{
+			status: "in_progress",
+			version: 2,
+			claimedUntil: "2026-09-20T00:01:00.000Z",
+		},
+	]);
+	const current = claimed[0];
+	if (!current) throw new Error("Payment sync task was not claimed");
+	await expect(
+		repository.updateTask(
+			{ ...current, status: "succeeded", claimedUntil: null, version: 3 },
+			current.version,
+		),
+	).resolves.toMatchObject({ status: "succeeded", version: 3 });
+
+	const reconciliation: PaymentReconciliationResult = {
+		resultId: "payment-reconciliation-001",
+		aggregateId: "payagg-001",
+		source: "his",
+		observationKey: "window:2026-09-20:record-001",
+		outcome: "amount_mismatch",
+		expectedAmountFen: 17_600,
+		observedAmountFen: 17_500,
+		amountDeltaFen: -100,
+		expectedStatus: "paid",
+		observedStatus: "settled",
+		resolution: "open",
+		evidenceDigest: "a".repeat(64),
+		observedAt: "2026-09-20T00:02:00.000Z",
+		createdAt: "2026-09-20T00:02:00.000Z",
+	};
+	await expect(
+		repository.appendReconciliation(reconciliation),
+	).resolves.toEqual(reconciliation);
+	await expect(
+		repository.appendReconciliation({
+			...reconciliation,
+			resultId: "other-id",
+		}),
+	).resolves.toEqual(reconciliation);
+	await expect(
+		repository.appendReconciliation({
+			...reconciliation,
+			resultId: "other-id",
+			evidenceDigest: "b".repeat(64),
+		}),
+	).rejects.toThrow("evidence changed");
+});
+
+test("in-memory payment operator audits are append-idempotent and aggregate-scoped", async () => {
+	const repository = createInMemoryPaymentOperatorAuditRepository();
+	const audit: PaymentOperatorAudit = {
+		auditId: "payment-audit-001",
+		operatorRef: null,
+		action: "payment_detail_read",
+		aggregateId: "payagg-001",
+		requestId: "request-001",
+		outcome: "succeeded",
+		occurredAt: "2026-09-20T00:00:00.000Z",
+	};
+
+	await expect(repository.append(audit)).resolves.toEqual(audit);
+	await expect(repository.append(audit)).resolves.toEqual(audit);
+	await expect(repository.listByAggregate("payagg-001")).resolves.toEqual([
+		audit,
+	]);
+	await expect(
+		repository.append({ ...audit, outcome: "rejected" }),
+	).rejects.toThrow("idempotency payload changed");
 });

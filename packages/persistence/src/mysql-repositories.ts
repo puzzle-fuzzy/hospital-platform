@@ -43,6 +43,15 @@ import type {
 	PaymentManualReviewItem,
 	PaymentOrder,
 	PaymentOrderRepository,
+	PaymentAggregate,
+	PaymentLeg,
+	PaymentOperatorAudit,
+	PaymentOperatorAuditRepository,
+	PaymentOperationEvent,
+	PaymentOperationsRepository,
+	PaymentReconciliationResult,
+	PaymentSyncRepository,
+	PaymentSyncTask,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
 	PaymentQuoteRepository,
@@ -326,6 +335,102 @@ type PaymentOrderRow = RowDataPacket & {
 	version: number | string;
 	created_at: string;
 	updated_at: string;
+};
+
+type PaymentAggregateRow = RowDataPacket & {
+	aggregate_id: string;
+	owner_user_id: string;
+	patient_id: string;
+	business: string;
+	business_key: string;
+	business_id: string;
+	total_fen: number | string;
+	insurance_fen: number | string;
+	cash_fen: number | string;
+	status: string;
+	his_sync_status: string;
+	source_version: number | string;
+	version: number | string;
+	created_at: string;
+	updated_at: string;
+};
+
+type PaymentLegRow = RowDataPacket & {
+	leg_id: string;
+	aggregate_id: string;
+	leg_type: string;
+	source: string;
+	source_order_id: string;
+	amount_fen: number | string;
+	status: string;
+	provider_reference_digest: string | null;
+	confirmed_at: string | null;
+	version: number | string;
+	created_at: string;
+	updated_at: string;
+};
+
+type PaymentOperationEventRow = RowDataPacket & {
+	event_id: string;
+	aggregate_id: string;
+	leg_id: string | null;
+	source: string;
+	event_type: string;
+	previous_status: string | null;
+	next_status: string;
+	amount_fen: number | string | null;
+	provider_request_id: string | null;
+	idempotency_key: string;
+	event_at: string;
+	payload_digest: string;
+	created_at: string;
+};
+
+type PaymentSyncTaskRow = RowDataPacket & {
+	task_id: string;
+	aggregate_id: string;
+	business_key: string;
+	source: string;
+	kind: string;
+	status: string;
+	attempts: number | string;
+	max_attempts: number | string;
+	next_run_at: string;
+	claimed_until: string | null;
+	last_error_code: string | null;
+	result_digest: string | null;
+	version: number | string;
+	created_at: string;
+	updated_at: string;
+};
+
+type PaymentReconciliationResultRow = RowDataPacket & {
+	result_id: string;
+	aggregate_id: string;
+	source: string;
+	observation_key: string;
+	outcome: string;
+	expected_amount_fen: number | string | null;
+	observed_amount_fen: number | string | null;
+	amount_delta_fen: number | string | null;
+	expected_status: string | null;
+	observed_status: string | null;
+	resolution: string;
+	evidence_digest: string;
+	observed_at: string;
+	created_at: string;
+};
+
+type PaymentOperatorAuditRow = RowDataPacket & {
+	audit_id: string;
+	operator_ref: string | null;
+	action: string;
+	aggregate_id: string | null;
+	request_id: string | null;
+	outcome: string;
+	reason_code: string | null;
+	result_digest: string | null;
+	occurred_at: string;
 };
 
 type PaymentPrepayAttemptRow = RowDataPacket & {
@@ -1490,6 +1595,9 @@ export type MySqlRepositories = {
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	wechatRefunds: WechatRefundRepository;
+	paymentOperations: PaymentOperationsRepository;
+	paymentSync: PaymentSyncRepository;
+	operatorAudits: PaymentOperatorAuditRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	appointmentWrites: AppointmentWriteRepository;
 	myDoctors: MyDoctorRepository;
@@ -1738,6 +1846,307 @@ function paymentState(value: string): PaymentState {
 		return value as PaymentState;
 	}
 	throw new Error("Persistence returned an unknown payment state");
+}
+
+const PAYMENT_AGGREGATE_BUSINESSES = [
+	"registration",
+	"outpatient",
+	"other",
+] as const;
+const PAYMENT_AGGREGATE_STATUSES = [
+	"created",
+	"pending",
+	"paid",
+	"failed",
+	"refund_pending",
+	"refunded",
+	"manual_review",
+] as const;
+const PAYMENT_AGGREGATE_HIS_SYNC_STATUSES = [
+	"not_required",
+	"pending",
+	"succeeded",
+	"failed",
+	"manual_review",
+] as const;
+const PAYMENT_LEG_TYPES = [
+	"medical_insurance",
+	"wechat_cash",
+	"hospital_reduce",
+] as const;
+const PAYMENT_LEG_STATUSES = [
+	"not_started",
+	"pending",
+	"confirmed",
+	"failed",
+	"refunded",
+	"manual_review",
+] as const;
+const PAYMENT_EVENT_SOURCES = [
+	"payment_order",
+	"medical_insurance",
+	"wechat_pay",
+	"platform",
+] as const;
+const PAYMENT_SYNC_SOURCES = [
+	"his",
+	"medical_insurance",
+	"wechat_pay",
+] as const;
+const PAYMENT_SYNC_KINDS = ["pull", "reconcile", "writeback"] as const;
+const PAYMENT_SYNC_STATUSES = [
+	"pending",
+	"in_progress",
+	"succeeded",
+	"failed",
+	"manual_review",
+] as const;
+const PAYMENT_RECONCILIATION_OUTCOMES = [
+	"matched",
+	"amount_mismatch",
+	"status_mismatch",
+	"missing",
+	"manual_review",
+] as const;
+const PAYMENT_RECONCILIATION_RESOLUTIONS = [
+	"open",
+	"resolved",
+	"manual_review",
+] as const;
+const PAYMENT_OPERATOR_AUDIT_ACTIONS = [
+	"payment_detail_read",
+	"refund_request",
+	"refund_query",
+	"sync_retry",
+	"manual_review",
+] as const;
+const PAYMENT_OPERATOR_AUDIT_OUTCOMES = [
+	"succeeded",
+	"failed",
+	"rejected",
+] as const;
+
+function paymentAggregate(row: PaymentAggregateRow): PaymentAggregate {
+	if (!PAYMENT_AGGREGATE_BUSINESSES.includes(row.business as never)) {
+		throw new Error(
+			"Persistence returned an unknown payment aggregate business",
+		);
+	}
+	if (!PAYMENT_AGGREGATE_STATUSES.includes(row.status as never)) {
+		throw new Error("Persistence returned an unknown payment aggregate status");
+	}
+	if (
+		!PAYMENT_AGGREGATE_HIS_SYNC_STATUSES.includes(row.his_sync_status as never)
+	) {
+		throw new Error(
+			"Persistence returned an unknown payment aggregate HIS status",
+		);
+	}
+	return {
+		aggregateId: row.aggregate_id,
+		ownerUserId: row.owner_user_id,
+		patientId: row.patient_id,
+		business: row.business as PaymentAggregate["business"],
+		businessKey: row.business_key,
+		businessId: row.business_id,
+		totalFen: safeFen(row.total_fen),
+		insuranceFen: safeFen(row.insurance_fen),
+		cashFen: safeFen(row.cash_fen),
+		status: row.status as PaymentAggregate["status"],
+		hisSyncStatus: row.his_sync_status as PaymentAggregate["hisSyncStatus"],
+		sourceVersion: safeDatabaseInteger(
+			row.source_version,
+			1,
+			"Persistence returned an invalid payment aggregate source version",
+		),
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid payment aggregate version",
+		),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
+	};
+}
+
+function paymentLeg(row: PaymentLegRow): PaymentLeg {
+	if (!PAYMENT_LEG_TYPES.includes(row.leg_type as never)) {
+		throw new Error("Persistence returned an unknown payment leg type");
+	}
+	if (!PAYMENT_EVENT_SOURCES.includes(row.source as never)) {
+		throw new Error("Persistence returned an unknown payment leg source");
+	}
+	if (!PAYMENT_LEG_STATUSES.includes(row.status as never)) {
+		throw new Error("Persistence returned an unknown payment leg status");
+	}
+	return {
+		legId: row.leg_id,
+		aggregateId: row.aggregate_id,
+		legType: row.leg_type as PaymentLeg["legType"],
+		source: row.source as PaymentLeg["source"],
+		sourceOrderId: row.source_order_id,
+		amountFen: safeFen(row.amount_fen),
+		status: row.status as PaymentLeg["status"],
+		...(row.provider_reference_digest
+			? { providerReferenceDigest: row.provider_reference_digest }
+			: {}),
+		...(row.confirmed_at
+			? { confirmedAt: mysqlUtcDateTimeToIso(row.confirmed_at) }
+			: {}),
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid payment leg version",
+		),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
+	};
+}
+
+function paymentOperationEvent(
+	row: PaymentOperationEventRow,
+): PaymentOperationEvent {
+	if (!PAYMENT_EVENT_SOURCES.includes(row.source as never)) {
+		throw new Error("Persistence returned an unknown payment event source");
+	}
+	return {
+		eventId: row.event_id,
+		aggregateId: row.aggregate_id,
+		...(row.leg_id ? { legId: row.leg_id } : {}),
+		source: row.source as PaymentOperationEvent["source"],
+		eventType: row.event_type,
+		...(row.previous_status ? { previousStatus: row.previous_status } : {}),
+		nextStatus: row.next_status,
+		...(row.amount_fen === null ? {} : { amountFen: safeFen(row.amount_fen) }),
+		...(row.provider_request_id
+			? { providerRequestId: row.provider_request_id }
+			: {}),
+		idempotencyKey: row.idempotency_key,
+		eventAt: mysqlUtcDateTimeToIso(row.event_at),
+		payloadDigest: row.payload_digest,
+	};
+}
+
+function paymentSyncTask(row: PaymentSyncTaskRow): PaymentSyncTask {
+	if (!PAYMENT_SYNC_SOURCES.includes(row.source as never)) {
+		throw new Error("Persistence returned an unknown payment sync source");
+	}
+	if (!PAYMENT_SYNC_KINDS.includes(row.kind as never)) {
+		throw new Error("Persistence returned an unknown payment sync kind");
+	}
+	if (!PAYMENT_SYNC_STATUSES.includes(row.status as never)) {
+		throw new Error("Persistence returned an unknown payment sync status");
+	}
+	return {
+		taskId: row.task_id,
+		aggregateId: row.aggregate_id,
+		businessKey: row.business_key,
+		source: row.source as PaymentSyncTask["source"],
+		kind: row.kind as PaymentSyncTask["kind"],
+		status: row.status as PaymentSyncTask["status"],
+		attempts: safeDatabaseInteger(
+			row.attempts,
+			0,
+			"Persistence returned an invalid payment sync attempts",
+		),
+		maxAttempts: safeDatabaseInteger(
+			row.max_attempts,
+			1,
+			"Persistence returned an invalid payment sync max attempts",
+		),
+		nextRunAt: mysqlUtcDateTimeToIso(row.next_run_at),
+		claimedUntil: row.claimed_until
+			? mysqlUtcDateTimeToIso(row.claimed_until)
+			: null,
+		lastErrorCode: row.last_error_code,
+		resultDigest: row.result_digest,
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid payment sync task version",
+		),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
+	};
+}
+
+function optionalFen(value: number | string | null): number | undefined {
+	return value === null ? undefined : safeFen(value);
+}
+
+function optionalSignedInteger(
+	value: number | string | null,
+): number | undefined {
+	if (value === null) return undefined;
+	const parsed =
+		typeof value === "number"
+			? value
+			: typeof value === "string" && /^-?\d+$/u.test(value)
+				? Number(value)
+				: Number.NaN;
+	if (!Number.isSafeInteger(parsed)) {
+		throw new Error(
+			"Persistence returned an invalid reconciliation amount delta",
+		);
+	}
+	return parsed;
+}
+
+function paymentReconciliationResult(
+	row: PaymentReconciliationResultRow,
+): PaymentReconciliationResult {
+	if (!PAYMENT_SYNC_SOURCES.includes(row.source as never)) {
+		throw new Error("Persistence returned an unknown reconciliation source");
+	}
+	if (!PAYMENT_RECONCILIATION_OUTCOMES.includes(row.outcome as never)) {
+		throw new Error("Persistence returned an unknown reconciliation outcome");
+	}
+	if (!PAYMENT_RECONCILIATION_RESOLUTIONS.includes(row.resolution as never)) {
+		throw new Error(
+			"Persistence returned an unknown reconciliation resolution",
+		);
+	}
+	const expectedAmountFen = optionalFen(row.expected_amount_fen);
+	const observedAmountFen = optionalFen(row.observed_amount_fen);
+	const amountDeltaFen = optionalSignedInteger(row.amount_delta_fen);
+	return {
+		resultId: row.result_id,
+		aggregateId: row.aggregate_id,
+		source: row.source as PaymentReconciliationResult["source"],
+		observationKey: row.observation_key,
+		outcome: row.outcome as PaymentReconciliationResult["outcome"],
+		...(expectedAmountFen === undefined ? {} : { expectedAmountFen }),
+		...(observedAmountFen === undefined ? {} : { observedAmountFen }),
+		...(amountDeltaFen === undefined ? {} : { amountDeltaFen }),
+		...(row.expected_status ? { expectedStatus: row.expected_status } : {}),
+		...(row.observed_status ? { observedStatus: row.observed_status } : {}),
+		resolution: row.resolution as PaymentReconciliationResult["resolution"],
+		evidenceDigest: row.evidence_digest,
+		observedAt: mysqlUtcDateTimeToIso(row.observed_at),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+	};
+}
+
+function paymentOperatorAudit(
+	row: PaymentOperatorAuditRow,
+): PaymentOperatorAudit {
+	if (!PAYMENT_OPERATOR_AUDIT_ACTIONS.includes(row.action as never)) {
+		throw new Error("Persistence returned an unknown payment audit action");
+	}
+	if (!PAYMENT_OPERATOR_AUDIT_OUTCOMES.includes(row.outcome as never)) {
+		throw new Error("Persistence returned an unknown payment audit outcome");
+	}
+	return {
+		auditId: row.audit_id,
+		operatorRef: row.operator_ref,
+		action: row.action as PaymentOperatorAudit["action"],
+		...(row.aggregate_id ? { aggregateId: row.aggregate_id } : {}),
+		...(row.request_id ? { requestId: row.request_id } : {}),
+		outcome: row.outcome as PaymentOperatorAudit["outcome"],
+		...(row.reason_code ? { reasonCode: row.reason_code } : {}),
+		...(row.result_digest ? { resultDigest: row.result_digest } : {}),
+		occurredAt: mysqlUtcDateTimeToIso(row.occurred_at),
+	};
 }
 
 const PATIENT_RELATIONSHIPS: readonly PatientRelationship[] = [
@@ -2908,6 +3317,451 @@ export function createMySqlRepositories(
 			throw new PersistenceNotConfiguredError("medical-insurance-credentials");
 		}
 		return medicalInsuranceCredentialCipher;
+	};
+
+	const paymentAggregateSelect = `SELECT aggregate_id, owner_user_id, patient_id, business, business_key, business_id, total_fen, insurance_fen, cash_fen, status, his_sync_status, source_version, version, created_at, updated_at FROM hp_payment_aggregates`;
+	const paymentOperations: PaymentOperationsRepository = {
+		async findAggregateById(aggregateId) {
+			const rows = await execute<PaymentAggregateRow[]>(
+				pool,
+				`${paymentAggregateSelect} WHERE aggregate_id = ? LIMIT 1`,
+				[aggregateId],
+			);
+			return rows[0] ? paymentAggregate(rows[0]) : undefined;
+		},
+		async findAggregateByBusinessKey(businessKey) {
+			const rows = await execute<PaymentAggregateRow[]>(
+				pool,
+				`${paymentAggregateSelect} WHERE business_key = ? LIMIT 1`,
+				[businessKey],
+			);
+			return rows[0] ? paymentAggregate(rows[0]) : undefined;
+		},
+		async upsertAggregate(aggregate, expectedVersion) {
+			const current = await this.findAggregateById(aggregate.aggregateId);
+			if (current) {
+				if (current.businessKey !== aggregate.businessKey) {
+					throw new Error("Payment aggregate business key conflict");
+				}
+				if (
+					expectedVersion !== undefined &&
+					current.version !== expectedVersion
+				) {
+					throw new Error("Payment aggregate version conflict");
+				}
+				if (current.sourceVersion >= aggregate.sourceVersion) return current;
+				const result = await execute<ResultSetHeader>(
+					pool,
+					"UPDATE hp_payment_aggregates SET owner_user_id = ?, patient_id = ?, business = ?, business_key = ?, business_id = ?, total_fen = ?, insurance_fen = ?, cash_fen = ?, status = ?, his_sync_status = ?, source_version = ?, version = ?, updated_at = ? WHERE aggregate_id = ? AND version = ?",
+					[
+						aggregate.ownerUserId,
+						aggregate.patientId,
+						aggregate.business,
+						aggregate.businessKey,
+						aggregate.businessId,
+						aggregate.totalFen,
+						aggregate.insuranceFen,
+						aggregate.cashFen,
+						aggregate.status,
+						aggregate.hisSyncStatus,
+						aggregate.sourceVersion,
+						aggregate.version,
+						mysqlDateTime(aggregate.updatedAt),
+						aggregate.aggregateId,
+						current.version,
+					],
+				);
+				if (result.affectedRows !== 1) {
+					throw new Error("Payment aggregate version conflict");
+				}
+				return aggregate;
+			}
+			try {
+				await execute<ResultSetHeader>(
+					pool,
+					"INSERT INTO hp_payment_aggregates (aggregate_id, owner_user_id, patient_id, business, business_key, business_id, total_fen, insurance_fen, cash_fen, status, his_sync_status, source_version, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					[
+						aggregate.aggregateId,
+						aggregate.ownerUserId,
+						aggregate.patientId,
+						aggregate.business,
+						aggregate.businessKey,
+						aggregate.businessId,
+						aggregate.totalFen,
+						aggregate.insuranceFen,
+						aggregate.cashFen,
+						aggregate.status,
+						aggregate.hisSyncStatus,
+						aggregate.sourceVersion,
+						aggregate.version,
+						mysqlDateTime(aggregate.createdAt),
+						mysqlDateTime(aggregate.updatedAt),
+					],
+				);
+				return aggregate;
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const replay = await this.findAggregateByBusinessKey(
+					aggregate.businessKey,
+				);
+				if (!replay) throw error;
+				return replay;
+			}
+		},
+		async upsertLeg(leg, expectedVersion) {
+			const rows = await execute<PaymentLegRow[]>(
+				pool,
+				"SELECT leg_id, aggregate_id, leg_type, source, source_order_id, amount_fen, status, provider_reference_digest, confirmed_at, version, created_at, updated_at FROM hp_payment_legs WHERE aggregate_id = ? AND leg_type = ? LIMIT 1",
+				[leg.aggregateId, leg.legType],
+			);
+			const current = rows[0] ? paymentLeg(rows[0]) : undefined;
+			if (current) {
+				if (
+					expectedVersion !== undefined &&
+					current.version !== expectedVersion
+				) {
+					throw new Error("Payment leg version conflict");
+				}
+				if (current.version >= leg.version) return current;
+				const result = await execute<ResultSetHeader>(
+					pool,
+					"UPDATE hp_payment_legs SET source = ?, source_order_id = ?, amount_fen = ?, status = ?, provider_reference_digest = ?, confirmed_at = ?, version = ?, updated_at = ? WHERE leg_id = ? AND version = ?",
+					[
+						leg.source,
+						leg.sourceOrderId,
+						leg.amountFen,
+						leg.status,
+						leg.providerReferenceDigest ?? null,
+						leg.confirmedAt ? mysqlDateTime(leg.confirmedAt) : null,
+						leg.version,
+						mysqlDateTime(leg.updatedAt),
+						leg.legId,
+						current.version,
+					],
+				);
+				if (result.affectedRows !== 1) {
+					throw new Error("Payment leg version conflict");
+				}
+				return leg;
+			}
+			try {
+				await execute<ResultSetHeader>(
+					pool,
+					"INSERT INTO hp_payment_legs (leg_id, aggregate_id, leg_type, source, source_order_id, amount_fen, status, provider_reference_digest, confirmed_at, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					[
+						leg.legId,
+						leg.aggregateId,
+						leg.legType,
+						leg.source,
+						leg.sourceOrderId,
+						leg.amountFen,
+						leg.status,
+						leg.providerReferenceDigest ?? null,
+						leg.confirmedAt ? mysqlDateTime(leg.confirmedAt) : null,
+						leg.version,
+						mysqlDateTime(leg.createdAt),
+						mysqlDateTime(leg.updatedAt),
+					],
+				);
+				return leg;
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const replayRows = await execute<PaymentLegRow[]>(
+					pool,
+					"SELECT leg_id, aggregate_id, leg_type, source, source_order_id, amount_fen, status, provider_reference_digest, confirmed_at, version, created_at, updated_at FROM hp_payment_legs WHERE aggregate_id = ? AND leg_type = ? LIMIT 1",
+					[leg.aggregateId, leg.legType],
+				);
+				if (!replayRows[0]) throw error;
+				return paymentLeg(replayRows[0]);
+			}
+		},
+		async appendEvent(event) {
+			await execute<ResultSetHeader>(
+				pool,
+				"INSERT INTO hp_payment_events (event_id, aggregate_id, leg_id, source, event_type, previous_status, next_status, amount_fen, provider_request_id, idempotency_key, event_at, payload_digest, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event_id = event_id",
+				[
+					event.eventId,
+					event.aggregateId,
+					event.legId ?? null,
+					event.source,
+					event.eventType,
+					event.previousStatus ?? null,
+					event.nextStatus,
+					event.amountFen ?? null,
+					event.providerRequestId ?? null,
+					event.idempotencyKey,
+					mysqlDateTime(event.eventAt),
+					event.payloadDigest,
+					mysqlDateTime(event.eventAt),
+				],
+			);
+			const rows = await execute<PaymentOperationEventRow[]>(
+				pool,
+				"SELECT event_id, aggregate_id, leg_id, source, event_type, previous_status, next_status, amount_fen, provider_request_id, idempotency_key, event_at, payload_digest, created_at FROM hp_payment_events WHERE aggregate_id = ? AND idempotency_key = ? LIMIT 1",
+				[event.aggregateId, event.idempotencyKey],
+			);
+			if (!rows[0]) throw new Error("Payment event was not persisted");
+			const stored = paymentOperationEvent(rows[0]);
+			if (stored.payloadDigest !== event.payloadDigest) {
+				throw new Error("Payment event idempotency payload changed");
+			}
+			return stored;
+		},
+		async listLegs(aggregateId) {
+			const rows = await execute<PaymentLegRow[]>(
+				pool,
+				"SELECT leg_id, aggregate_id, leg_type, source, source_order_id, amount_fen, status, provider_reference_digest, confirmed_at, version, created_at, updated_at FROM hp_payment_legs WHERE aggregate_id = ? ORDER BY leg_type, leg_id",
+				[aggregateId],
+			);
+			return rows.map(paymentLeg);
+		},
+		async listEvents(aggregateId) {
+			const rows = await execute<PaymentOperationEventRow[]>(
+				pool,
+				"SELECT event_id, aggregate_id, leg_id, source, event_type, previous_status, next_status, amount_fen, provider_request_id, idempotency_key, event_at, payload_digest, created_at FROM hp_payment_events WHERE aggregate_id = ? ORDER BY event_at, event_id",
+				[aggregateId],
+			);
+			return rows.map(paymentOperationEvent);
+		},
+	};
+
+	const paymentSyncTaskSelect = `SELECT task_id, aggregate_id, business_key, source, kind, status, attempts, max_attempts, next_run_at, claimed_until, last_error_code, result_digest, version, created_at, updated_at FROM hp_payment_sync_tasks`;
+	const paymentReconciliationSelect = `SELECT result_id, aggregate_id, source, observation_key, outcome, expected_amount_fen, observed_amount_fen, amount_delta_fen, expected_status, observed_status, resolution, evidence_digest, observed_at, created_at FROM hp_payment_reconciliation_results`;
+	const paymentSync: PaymentSyncRepository = {
+		async findTaskById(taskId) {
+			const rows = await execute<PaymentSyncTaskRow[]>(
+				pool,
+				`${paymentSyncTaskSelect} WHERE task_id = ? LIMIT 1`,
+				[taskId],
+			);
+			return rows[0] ? paymentSyncTask(rows[0]) : undefined;
+		},
+		async findTaskByKey(aggregateId, businessKey, source, kind) {
+			const rows = await execute<PaymentSyncTaskRow[]>(
+				pool,
+				`${paymentSyncTaskSelect} WHERE aggregate_id = ? AND business_key = ? AND source = ? AND kind = ? LIMIT 1`,
+				[aggregateId, businessKey, source, kind],
+			);
+			return rows[0] ? paymentSyncTask(rows[0]) : undefined;
+		},
+		async enqueueTask(task) {
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_payment_sync_tasks
+					(task_id, aggregate_id, business_key, source, kind, status, attempts,
+					 max_attempts, next_run_at, claimed_until, last_error_code, result_digest,
+					 version, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE task_id = task_id`,
+				[
+					task.taskId,
+					task.aggregateId,
+					task.businessKey,
+					task.source,
+					task.kind,
+					task.status,
+					task.attempts,
+					task.maxAttempts,
+					mysqlDateTime(task.nextRunAt),
+					task.claimedUntil ? mysqlDateTime(task.claimedUntil) : null,
+					task.lastErrorCode,
+					task.resultDigest,
+					task.version,
+					mysqlDateTime(task.createdAt),
+					mysqlDateTime(task.updatedAt),
+				],
+			);
+			const persisted = await this.findTaskById(task.taskId);
+			if (!persisted)
+				throw new Error("Payment sync task disappeared after insert");
+			if (
+				persisted.aggregateId !== task.aggregateId ||
+				persisted.businessKey !== task.businessKey ||
+				persisted.source !== task.source ||
+				persisted.kind !== task.kind
+			) {
+				throw new Error("Payment sync task idempotency payload changed");
+			}
+			return persisted;
+		},
+		async claimDueTasks(now, limit, leaseMs) {
+			if (
+				!Number.isSafeInteger(limit) ||
+				limit <= 0 ||
+				!Number.isSafeInteger(leaseMs) ||
+				leaseMs <= 0
+			) {
+				return [];
+			}
+			const boundedLimit = Math.min(limit, 100);
+			const nowValue = mysqlDateTime(now);
+			const leaseUntil = mysqlDateTime(new Date(now.getTime() + leaseMs));
+			return withTransaction(pool, async (connection) => {
+				const rows = await execute<PaymentSyncTaskRow[]>(
+					connection,
+					`${paymentSyncTaskSelect}
+					 WHERE ((status = 'pending' AND next_run_at <= ?)
+					    OR (status = 'in_progress' AND claimed_until <= ?))
+					   AND (claimed_until IS NULL OR claimed_until <= ?)
+					 ORDER BY next_run_at, task_id
+					 LIMIT ${boundedLimit} FOR UPDATE`,
+					[nowValue, nowValue, nowValue],
+				);
+				const claimed: PaymentSyncTask[] = [];
+				for (const row of rows) {
+					const currentVersion = safeDatabaseInteger(
+						row.version,
+						1,
+						"Persistence returned an invalid payment sync task version",
+					);
+					const result = await execute<ResultSetHeader>(
+						connection,
+						"UPDATE hp_payment_sync_tasks SET status = 'in_progress', claimed_until = ?, version = version + 1, updated_at = ? WHERE task_id = ? AND version = ?",
+						[leaseUntil, nowValue, row.task_id, currentVersion],
+					);
+					if (result.affectedRows !== 1) continue;
+					claimed.push(
+						paymentSyncTask({
+							...row,
+							status: "in_progress",
+							claimed_until: leaseUntil,
+							version: currentVersion + 1,
+							updated_at: nowValue,
+						}),
+					);
+				}
+				return claimed;
+			});
+		},
+		async updateTask(task, expectedVersion) {
+			if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+				throw new Error("Payment sync task expected version is invalid");
+			}
+			if (task.version !== expectedVersion + 1) {
+				throw new Error("Payment sync task version must advance by one");
+			}
+			const result = await execute<ResultSetHeader>(
+				pool,
+				"UPDATE hp_payment_sync_tasks SET status = ?, attempts = ?, max_attempts = ?, next_run_at = ?, claimed_until = ?, last_error_code = ?, result_digest = ?, version = ?, updated_at = ? WHERE task_id = ? AND version = ?",
+				[
+					task.status,
+					task.attempts,
+					task.maxAttempts,
+					mysqlDateTime(task.nextRunAt),
+					task.claimedUntil ? mysqlDateTime(task.claimedUntil) : null,
+					task.lastErrorCode,
+					task.resultDigest,
+					task.version,
+					mysqlDateTime(task.updatedAt),
+					task.taskId,
+					expectedVersion,
+				],
+			);
+			if (result.affectedRows !== 1) {
+				throw new Error("Payment sync task version conflict");
+			}
+			return task;
+		},
+		async appendReconciliation(result) {
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_payment_reconciliation_results
+					(result_id, aggregate_id, source, observation_key, outcome,
+					 expected_amount_fen, observed_amount_fen, amount_delta_fen,
+					 expected_status, observed_status, resolution, evidence_digest,
+					 observed_at, created_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE result_id = result_id`,
+				[
+					result.resultId,
+					result.aggregateId,
+					result.source,
+					result.observationKey,
+					result.outcome,
+					result.expectedAmountFen ?? null,
+					result.observedAmountFen ?? null,
+					result.amountDeltaFen ?? null,
+					result.expectedStatus ?? null,
+					result.observedStatus ?? null,
+					result.resolution,
+					result.evidenceDigest,
+					mysqlDateTime(result.observedAt),
+					mysqlDateTime(result.createdAt),
+				],
+			);
+			const rows = await execute<PaymentReconciliationResultRow[]>(
+				pool,
+				`${paymentReconciliationSelect} WHERE aggregate_id = ? AND source = ? AND observation_key = ? LIMIT 1`,
+				[result.aggregateId, result.source, result.observationKey],
+			);
+			if (!rows[0]) {
+				throw new Error(
+					"Payment reconciliation result disappeared after insert",
+				);
+			}
+			const persisted = paymentReconciliationResult(rows[0]);
+			if (persisted.evidenceDigest !== result.evidenceDigest) {
+				throw new Error("Payment reconciliation evidence changed");
+			}
+			return persisted;
+		},
+		async listReconciliations(aggregateId) {
+			const rows = await execute<PaymentReconciliationResultRow[]>(
+				pool,
+				`${paymentReconciliationSelect} WHERE aggregate_id = ? ORDER BY observed_at, result_id`,
+				[aggregateId],
+			);
+			return rows.map(paymentReconciliationResult);
+		},
+	};
+
+	const paymentOperatorAuditSelect = `SELECT audit_id, operator_ref, action, aggregate_id, request_id, outcome, reason_code, result_digest, occurred_at FROM hp_payment_operator_audits`;
+	const operatorAudits: PaymentOperatorAuditRepository = {
+		async append(audit) {
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_payment_operator_audits
+					(audit_id, operator_ref, action, aggregate_id, request_id, outcome,
+					 reason_code, result_digest, occurred_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE audit_id = audit_id`,
+				[
+					audit.auditId,
+					audit.operatorRef,
+					audit.action,
+					audit.aggregateId ?? null,
+					audit.requestId ?? null,
+					audit.outcome,
+					audit.reasonCode ?? null,
+					audit.resultDigest ?? null,
+					mysqlDateTime(audit.occurredAt),
+				],
+			);
+			const rows = await execute<PaymentOperatorAuditRow[]>(
+				pool,
+				`${paymentOperatorAuditSelect} WHERE audit_id = ? LIMIT 1`,
+				[audit.auditId],
+			);
+			if (!rows[0])
+				throw new Error("Payment operator audit disappeared after insert");
+			const persisted = paymentOperatorAudit(rows[0]);
+			if (
+				persisted.action !== audit.action ||
+				persisted.outcome !== audit.outcome ||
+				persisted.aggregateId !== audit.aggregateId
+			) {
+				throw new Error("Payment operator audit idempotency payload changed");
+			}
+			return persisted;
+		},
+		async listByAggregate(aggregateId) {
+			const rows = await execute<PaymentOperatorAuditRow[]>(
+				pool,
+				`${paymentOperatorAuditSelect} WHERE aggregate_id = ? ORDER BY occurred_at, audit_id`,
+				[aggregateId],
+			);
+			return rows.map(paymentOperatorAudit);
+		},
 	};
 
 	/**
@@ -5867,6 +6721,9 @@ export function createMySqlRepositories(
 		medicalInsuranceAuthorizations,
 		medicalInsuranceCredentials,
 		medicalInsuranceRefunds,
+		paymentOperations,
+		paymentSync,
+		operatorAudits,
 		paymentQuotes,
 		paymentPrepayAttempts,
 		wechatPaymentNotifications,

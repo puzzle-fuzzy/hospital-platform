@@ -15,6 +15,8 @@ import type { MedicalInsuranceRefundService } from "../medical-insurance/refund-
 import {
 	AdminWechatRefundHistoryNotConfiguredError,
 	AdminWechatRefundInputError,
+	AdminPaymentOperationNotConfiguredError,
+	AdminPaymentOperationNotFoundError,
 	type AdminWechatRefundService,
 } from "./wechat-refund-service";
 
@@ -59,6 +61,10 @@ const AdminRefundHistoryQuery = t.Object(
 	},
 	{ additionalProperties: false },
 );
+
+const AdminPaymentOperationParams = t.Object({
+	aggregateId: t.String({ minLength: 1, maxLength: 64 }),
+});
 
 const AdminMedicalInsuranceRefundHeaders = t.Object({
 	"x-admin-refund-token": t.String({ minLength: 1, maxLength: 512 }),
@@ -128,6 +134,12 @@ function mapError(error: unknown): never {
 	if (error instanceof AdminWechatRefundHistoryNotConfiguredError) {
 		throw new HttpError(503, "admin-not-configured", "管理端退费历史尚未配置");
 	}
+	if (error instanceof AdminPaymentOperationNotConfiguredError) {
+		throw new HttpError(503, "admin-not-configured", "支付运营账本尚未配置");
+	}
+	if (error instanceof AdminPaymentOperationNotFoundError) {
+		throw new HttpError(404, "not_found", "支付聚合单不存在或尚未投影");
+	}
 	throw error;
 }
 
@@ -159,7 +171,8 @@ export function adminWechatRefundModule(
 	service: Pick<
 		AdminWechatRefundService,
 		"request" | "query" | "listPaymentHistory"
-	>,
+	> &
+		Partial<Pick<AdminWechatRefundService, "getPaymentOperationDetail">>,
 	adminRefundToken: string,
 ) {
 	return new Elysia({ name: "admin-wechat-refunds-module" })
@@ -178,6 +191,30 @@ export function adminWechatRefundModule(
 			{
 				headers: AdminRefundHeaders,
 				body: AdminRefundBody,
+				detail: { hide: true },
+			},
+		)
+		.get(
+			"/admin/payment-operations/:aggregateId",
+			async ({ headers, params }) => {
+				authorize(adminRefundToken, headers);
+				try {
+					const detail = service.getPaymentOperationDetail;
+					if (!detail) throw new AdminPaymentOperationNotConfiguredError();
+					return success(
+						await detail.call(service, params.aggregateId, {
+							...(headers["x-request-id"]
+								? { requestId: headers["x-request-id"] }
+								: {}),
+						}),
+					);
+				} catch (error) {
+					return mapError(error);
+				}
+			},
+			{
+				headers: AdminRefundHeaders,
+				params: AdminPaymentOperationParams,
 				detail: { hide: true },
 			},
 		)

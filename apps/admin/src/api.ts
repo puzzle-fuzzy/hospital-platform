@@ -2,6 +2,7 @@ import type {
 	AdminLogPage,
 	AdminLogQuery,
 	AdminLogRecord,
+	AdminPaymentOperationDetail,
 	AdminMedicalInsuranceRefund,
 	AdminWechatRefundPaymentHistoryQuery,
 	AdminWechatRefundPaymentHistoryPage,
@@ -307,6 +308,21 @@ export async function fetchWechatRefundPaymentHistory(
 	try {
 		return await request<AdminWechatRefundPaymentHistoryPage>(
 			`/api/refunds/wechat/payments${suffix}`,
+			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function fetchPaymentOperationDetail(
+	aggregateId: string,
+	session: Session,
+): Promise<AdminPaymentOperationDetail> {
+	try {
+		return await request<AdminPaymentOperationDetail>(
+			`/api/refunds/payment-operations/${encodeURIComponent(aggregateId)}`,
 			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
 		);
 	} catch (error) {

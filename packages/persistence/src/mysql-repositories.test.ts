@@ -4,6 +4,7 @@ import type {
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceSettlementContext,
 	OutboxEvent,
+	PaymentOperatorAudit,
 	PaymentOrder,
 	PaymentPrepayAttempt,
 	WechatPaymentNotification,
@@ -192,6 +193,85 @@ test("MySQL admin history binds only filters and keeps LIMIT in validated SQL", 
 	expect(state.statements[3]).toContain("WHERE medical_order_id = ?");
 	expect(state.statements[3]).toContain("LIMIT 100");
 	expect(state.values[3]).toEqual(["medical-order-admin-001"]);
+});
+
+test("MySQL payment sync claim applies the lease and version fence", async () => {
+	const { pool, state } = createFakePool([
+		[
+			{
+				task_id: "payment-sync-task-001",
+				aggregate_id: "payagg-001",
+				business_key: "medical_insurance:medical-001",
+				source: "his",
+				kind: "reconcile",
+				status: "pending",
+				attempts: 0,
+				max_attempts: 3,
+				next_run_at: "2026-09-20 00:00:00.000",
+				claimed_until: null,
+				last_error_code: null,
+				result_digest: null,
+				version: 1,
+				created_at: "2026-09-20 00:00:00.000",
+				updated_at: "2026-09-20 00:00:00.000",
+			},
+		],
+		{ affectedRows: 1 },
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.paymentSync.claimDueTasks(
+			new Date("2026-09-20T00:00:00.000Z"),
+			1,
+			60_000,
+		),
+	).resolves.toMatchObject([
+		{
+			taskId: "payment-sync-task-001",
+			status: "in_progress",
+			version: 2,
+			claimedUntil: "2026-09-20T00:01:00.000Z",
+		},
+	]);
+	expect(state.statements[1]).toContain("version = version + 1");
+});
+
+test("MySQL payment operator audit is idempotent and keeps only safe fields", async () => {
+	const audit: PaymentOperatorAudit = {
+		auditId: "payment-audit-001",
+		operatorRef: null,
+		action: "payment_detail_read",
+		aggregateId: "payagg-001",
+		requestId: "request-001",
+		outcome: "succeeded",
+		occurredAt: "2026-09-20T00:00:00.000Z",
+	};
+	const { pool, state } = createFakePool([
+		{ affectedRows: 1 },
+		[
+			{
+				audit_id: audit.auditId,
+				operator_ref: null,
+				action: audit.action,
+				aggregate_id: audit.aggregateId,
+				request_id: audit.requestId,
+				outcome: audit.outcome,
+				reason_code: null,
+				result_digest: null,
+				occurred_at: "2026-09-20 00:00:00.000",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(repositories.operatorAudits.append(audit)).resolves.toEqual(
+		audit,
+	);
+	expect(state.statements[0]).toContain(
+		"ON DUPLICATE KEY UPDATE audit_id = audit_id",
+	);
+	expect(state.values[0]).not.toContain("password");
 });
 
 test("MySQL 微信身份重复键竞争后仍补齐迟到的 unionId", async () => {

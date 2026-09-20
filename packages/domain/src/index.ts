@@ -569,3 +569,35 @@ export type {
 	MedicalInsuranceRefundStatus,
 	MedicalInsuranceRefundType,
 } from "./medical-insurance-refund";
+export type {
+	PaymentAggregate,
+	PaymentAggregateBusiness,
+	PaymentAggregateHisSyncStatus,
+	PaymentAggregateStatus,
+	PaymentLeg,
+	PaymentLegStatus,
+	PaymentLegType,
+	PaymentOperationEvent,
+	PaymentOperationEventSource,
+	PaymentOperationsRepository,
+} from "./payment-operations";
+export type {
+	PaymentReconciliationOutcome,
+	PaymentReconciliationResolution,
+	PaymentReconciliationResult,
+	PaymentReconciliationSource,
+	PaymentSyncKind,
+	PaymentSyncRepository,
+	PaymentSyncSource,
+	PaymentSyncTask,
+	PaymentSyncTaskStatus,
+} from "./payment-sync";
+export { assertPaymentSyncIdentifier } from "./payment-sync";
+export type {
+	PaymentOperatorAudit,
+	PaymentOperatorAuditAction,
+	PaymentOperatorAuditOutcome,
+	PaymentOperatorAuditRepository,
+} from "./payment-audit";
+export { assertPaymentAuditIdentifier } from "./payment-audit";
+export { assertPaymentOperationIdentifier } from "./payment-operations";
