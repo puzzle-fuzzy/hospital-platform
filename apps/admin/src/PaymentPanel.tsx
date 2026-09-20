@@ -20,8 +20,8 @@ import {
 	Modal,
 	Select,
 	Space,
-	Statistic,
 	Spin,
+	Statistic,
 	Table,
 	Tag,
 	Timeline,
@@ -30,15 +30,19 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
 	ApiError,
-	fetchPaymentOperationDetail,
 	fetchPaymentDay,
 	fetchPaymentInterface,
+	fetchPaymentOperationDetail,
+	fetchPaymentSyncTasks,
 	fetchWechatRefundPaymentHistory,
+	markPaymentSyncTaskManualReview,
 	requestMedicalInsuranceRefund,
+	retryPaymentSyncTask,
 } from "./api";
 import type {
 	AdminMedicalInsuranceRefund,
 	AdminPaymentOperationDetail,
+	AdminPaymentSyncTask,
 	AdminWechatRefundPaymentHistoryPage,
 	AdminWechatRefundPaymentRecord,
 	PaymentDayResult,
@@ -387,6 +391,32 @@ function operationLegStatusLabel(status: string): string {
 	);
 }
 
+function syncTaskStatusLabel(status: AdminPaymentSyncTask["status"]): string {
+	return {
+		pending: "待执行",
+		in_progress: "执行中",
+		succeeded: "已完成",
+		failed: "失败",
+		manual_review: "人工复核",
+	}[status];
+}
+
+function syncTaskSourceLabel(source: AdminPaymentSyncTask["source"]): string {
+	return {
+		his: "HIS",
+		medical_insurance: "医保",
+		wechat_pay: "微信 APIv3",
+	}[source];
+}
+
+function syncTaskKindLabel(kind: AdminPaymentSyncTask["kind"]): string {
+	return {
+		pull: "拉取",
+		reconcile: "对账",
+		writeback: "回写",
+	}[kind];
+}
+
 function canAggregateMedicalRefund(
 	record: AdminWechatRefundPaymentRecord,
 ): boolean {
@@ -565,6 +595,16 @@ export function PaymentPanel({
 	const [operationDetail, setOperationDetail] =
 		useState<AdminPaymentOperationDetail>();
 	const [operationDetailLoading, setOperationDetailLoading] = useState(false);
+	const [syncTasks, setSyncTasks] = useState<readonly AdminPaymentSyncTask[]>(
+		[],
+	);
+	const [syncStatus, setSyncStatus] =
+		useState<AdminPaymentSyncTask["status"]>();
+	const [syncLoading, setSyncLoading] = useState(false);
+	const [syncError, setSyncError] = useState<string>();
+	const [syncReviewTask, setSyncReviewTask] = useState<AdminPaymentSyncTask>();
+	const [syncReviewReason, setSyncReviewReason] = useState("");
+	const [syncActionLoading, setSyncActionLoading] = useState(false);
 	const [activeFlow, setActiveFlow] = useState<string>();
 	const [detail, setDetail] = useState<PaymentInterfaceDetail>();
 	const [detailLoading, setDetailLoading] = useState<string>();
@@ -649,6 +689,36 @@ export function PaymentPanel({
 	useEffect(() => {
 		void loadPaymentHistory();
 	}, [loadPaymentHistory]);
+
+	const loadSyncTasks = useCallback(async () => {
+		setSyncLoading(true);
+		setSyncError(undefined);
+		try {
+			setSyncTasks(
+				await fetchPaymentSyncTasks(
+					{
+						limit: 50,
+						...(syncStatus ? { status: syncStatus } : {}),
+					},
+					session,
+				),
+			);
+		} catch (reason) {
+			if (reason instanceof ApiError && reason.status === 401) {
+				onExpired();
+				return;
+			}
+			const messageText =
+				reason instanceof Error ? reason.message : "同步任务加载失败";
+			setSyncError(messageText);
+		} finally {
+			setSyncLoading(false);
+		}
+	}, [onExpired, session, syncStatus]);
+
+	useEffect(() => {
+		void loadSyncTasks();
+	}, [loadSyncTasks]);
 
 	const openInterface = useCallback(
 		async (flow: PaymentFlowSummary, item: PaymentInterfaceSummary) => {
@@ -756,6 +826,61 @@ export function PaymentPanel({
 		refundReason,
 		refundRecord,
 		session,
+	]);
+
+	const retrySyncTask = useCallback(
+		async (task: AdminPaymentSyncTask) => {
+			setSyncActionLoading(true);
+			try {
+				await retryPaymentSyncTask(task.taskId, session);
+				void message.success("同步任务已重新排队");
+				await loadSyncTasks();
+			} catch (reason) {
+				if (reason instanceof ApiError && reason.status === 401) {
+					onExpired();
+					return;
+				}
+				void message.error(
+					reason instanceof Error ? reason.message : "同步任务重试失败",
+				);
+			} finally {
+				setSyncActionLoading(false);
+			}
+		},
+		[loadSyncTasks, message, onExpired, session],
+	);
+
+	const submitSyncManualReview = useCallback(async () => {
+		if (!syncReviewTask || !syncReviewReason.trim()) return;
+		setSyncActionLoading(true);
+		try {
+			await markPaymentSyncTaskManualReview(
+				syncReviewTask.taskId,
+				syncReviewReason.trim(),
+				session,
+			);
+			void message.success("同步任务已转人工复核");
+			setSyncReviewTask(undefined);
+			setSyncReviewReason("");
+			await loadSyncTasks();
+		} catch (reason) {
+			if (reason instanceof ApiError && reason.status === 401) {
+				onExpired();
+				return;
+			}
+			void message.error(
+				reason instanceof Error ? reason.message : "转人工复核失败",
+			);
+		} finally {
+			setSyncActionLoading(false);
+		}
+	}, [
+		loadSyncTasks,
+		message,
+		onExpired,
+		session,
+		syncReviewReason,
+		syncReviewTask,
 	]);
 	const medicalOrderCount = paymentHistory.filter(
 		(record) => record.source === "medical_insurance",
@@ -986,6 +1111,153 @@ export function PaymentPanel({
 					/>
 				</Space>
 			</Card>
+			<Card title="同步任务与人工复核" className="payment-search-card">
+				<Space orientation="vertical" size={12} style={{ width: "100%" }}>
+					<Flex align="center" gap={8} wrap="wrap">
+						<Select
+							allowClear
+							placeholder="全部同步状态"
+							value={syncStatus}
+							onChange={(value) =>
+								setSyncStatus(
+									value as AdminPaymentSyncTask["status"] | undefined,
+								)
+							}
+							options={[
+								{ value: "pending", label: "待执行" },
+								{ value: "in_progress", label: "执行中" },
+								{ value: "failed", label: "失败" },
+								{ value: "manual_review", label: "人工复核" },
+								{ value: "succeeded", label: "已完成" },
+							]}
+							style={{ width: 150 }}
+						/>
+						<Button
+							icon={<ReloadOutlined />}
+							loading={syncLoading}
+							onClick={() => void loadSyncTasks()}
+						>
+							刷新同步任务
+						</Button>
+						<Text type="secondary">
+							这里只处理同步任务状态，不会直接修改支付聚合单终态。
+						</Text>
+					</Flex>
+					{syncError ? <Alert type="error" showIcon title={syncError} /> : null}
+					<Table<AdminPaymentSyncTask>
+						rowKey="taskId"
+						loading={syncLoading}
+						dataSource={syncTasks}
+						pagination={false}
+						size="small"
+						scroll={{ x: 980 }}
+						columns={[
+							{
+								title: "任务号",
+								dataIndex: "taskId",
+								key: "taskId",
+								width: 220,
+								ellipsis: true,
+							},
+							{
+								title: "来源 / 类型",
+								key: "source",
+								width: 160,
+								render: (_, task) =>
+									`${syncTaskSourceLabel(task.source)} / ${syncTaskKindLabel(task.kind)}`,
+							},
+							{
+								title: "状态",
+								dataIndex: "status",
+								key: "status",
+								width: 110,
+								render: (value: AdminPaymentSyncTask["status"]) => (
+									<Tag
+										color={
+											value === "succeeded"
+												? "success"
+												: value === "manual_review" || value === "failed"
+													? "warning"
+													: "blue"
+										}
+									>
+										{syncTaskStatusLabel(value)}
+									</Tag>
+								),
+							},
+							{
+								title: "尝试",
+								key: "attempts",
+								width: 90,
+								render: (_, task) => `${task.attempts} / ${task.maxAttempts}`,
+							},
+							{
+								title: "最近错误",
+								dataIndex: "lastErrorCode",
+								key: "lastErrorCode",
+								width: 180,
+								ellipsis: true,
+								render: (value: string | null) => value || "—",
+							},
+							{
+								title: "操作",
+								key: "actions",
+								fixed: "right",
+								width: 220,
+								render: (_, task) => (
+									<Space wrap>
+										<Button
+											size="small"
+											disabled={
+												task.status !== "failed" &&
+												task.status !== "manual_review"
+											}
+											loading={syncActionLoading}
+											onClick={() => void retrySyncTask(task)}
+										>
+											重新排队
+										</Button>
+										<Button
+											size="small"
+											disabled={
+												task.status === "succeeded" ||
+												task.status === "manual_review" ||
+												task.status === "in_progress"
+											}
+											onClick={() => {
+												setSyncReviewTask(task);
+												setSyncReviewReason("");
+											}}
+										>
+											转人工
+										</Button>
+									</Space>
+								),
+							},
+						]}
+					/>
+				</Space>
+			</Card>
+			<Modal
+				title="转人工复核"
+				open={Boolean(syncReviewTask)}
+				confirmLoading={syncActionLoading}
+				okText="确认转人工"
+				cancelText="取消"
+				onOk={() => void submitSyncManualReview()}
+				onCancel={() => {
+					if (!syncActionLoading) setSyncReviewTask(undefined);
+				}}
+				destroyOnHidden
+			>
+				<Input.TextArea
+					value={syncReviewReason}
+					onChange={(event) => setSyncReviewReason(event.target.value)}
+					maxLength={64}
+					showCount
+					placeholder="填写人工复核原因"
+				/>
+			</Modal>
 			<Card className="payment-search-card">
 				<Flex align="center" gap={8} wrap="wrap">
 					<Input
@@ -1008,17 +1280,6 @@ export function PaymentPanel({
 					) : null}
 				</Flex>
 			</Card>
-			<Alert
-				className="payment-boundary-alert"
-				type="info"
-				showIcon
-				title="支付流程按开始时间归属"
-				description={
-					day
-						? `查询窗口：${formatTime(day.window.start)} — ${formatTime(day.window.endExclusive)}；前后各带 ${day.window.boundaryBufferMinutes} 分钟边界缓冲。日汇总只读取支付事件，点击接口时再按订单关联号读取原始请求和返回。跨到次日的接口仍归属于原支付流程，无法唯一关联的记录不会强行归入。`
-						: "查询会自动带边界缓冲，日汇总只读取支付事件；点击接口时再按订单关联号读取原始请求和返回。"
-				}
-			/>
 			{error ? <Alert type="error" showIcon title={error} /> : null}
 			<Card
 				className="payment-flow-card"
@@ -1230,12 +1491,7 @@ export function PaymentPanel({
 			>
 				{refundRecord ? (
 					<Space orientation="vertical" size={14} style={{ width: "100%" }}>
-						<Alert
-							type="warning"
-							showIcon
-							title="这是一次聚合退费"
-							description="确认后由服务端先调用医保 6203，再对同一订单的微信 APIv3 现金段原路退回。Admin 不提供医保腿和微信腿的分开操作。"
-						/>
+						<Alert type="warning" showIcon title="医保 + 微信整笔退费" />
 						<Descriptions
 							bordered
 							size="small"

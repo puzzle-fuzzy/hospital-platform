@@ -798,6 +798,94 @@ async function adminPaymentOperationDetailRequest(
 	);
 }
 
+async function adminPaymentSyncTasksRequest(
+	request: Request,
+	url: URL,
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务支付同步接口尚未配置", 503);
+	}
+	const forwarded = new URLSearchParams();
+	const hasControlCharacter = (value: string): boolean =>
+		Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		});
+	for (const name of ["status", "source", "kind", "aggregateId"] as const) {
+		const value = url.searchParams.get(name);
+		if (value) {
+			if (value.length > 128 || hasControlCharacter(value)) {
+				return errorResponse("同步任务筛选参数不合法", 400);
+			}
+			forwarded.set(name, value);
+		}
+	}
+	const limit = url.searchParams.get("limit");
+	if (limit) {
+		if (!/^[1-9][0-9]{0,2}$/u.test(limit) || Number(limit) > 100) {
+			return errorResponse("同步任务条数参数不合法", 400);
+		}
+		forwarded.set("limit", limit);
+	}
+	const query = forwarded.toString();
+	return upstreamRequest(
+		adminRefundsUpstream,
+		`/admin/payment-sync-tasks${query ? `?${query}` : ""}`,
+		{
+			method: "GET",
+			headers: {
+				Authorization: authorization,
+				"X-Admin-Refund-Token": adminRefundsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务支付同步接口暂时不可用，请稍后重试",
+	);
+}
+
+async function adminPaymentSyncActionRequest(
+	request: Request,
+	path: string,
+	options: { body?: boolean } = {},
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务支付同步接口尚未配置", 503);
+	}
+	let body: string | undefined;
+	if (options.body) {
+		const input = await requestJson(request);
+		if (
+			typeof input.reason !== "string" ||
+			!input.reason.trim() ||
+			input.reason.length > 64 ||
+			Array.from(input.reason).some((character) => {
+				const code = character.charCodeAt(0);
+				return code <= 0x1f || code === 0x7f;
+			})
+		) {
+			return errorResponse("人工复核原因参数不合法", 400);
+		}
+		body = JSON.stringify({ reason: input.reason });
+	}
+	return upstreamRequest(
+		adminRefundsUpstream,
+		path,
+		{
+			method: "POST",
+			headers: {
+				Authorization: authorization,
+				"Content-Type": "application/json",
+				"X-Admin-Refund-Token": adminRefundsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+			...(body !== undefined ? { body } : {}),
+		},
+		"新服务支付同步接口暂时不可用，请稍后重试",
+	);
+}
+
 async function logDetailRequest(
 	request: Request,
 	id: string,
@@ -1059,6 +1147,31 @@ const server = Bun.serve({
 				return await adminPaymentOperationDetailRequest(
 					request,
 					paymentOperationDetailMatch[1] ?? "",
+				);
+			}
+			if (
+				url.pathname === "/api/refunds/payment-sync-tasks" &&
+				request.method === "GET"
+			) {
+				return await adminPaymentSyncTasksRequest(request, url);
+			}
+			const paymentSyncRetryMatch = url.pathname.match(
+				/^\/api\/refunds\/payment-sync-tasks\/(paysync-[A-Za-z0-9._:-]{1,56})\/retry$/u,
+			);
+			if (paymentSyncRetryMatch && request.method === "POST") {
+				return await adminPaymentSyncActionRequest(
+					request,
+					`/admin/payment-sync-tasks/${encodeURIComponent(paymentSyncRetryMatch[1] ?? "")}/retry`,
+				);
+			}
+			const paymentSyncManualReviewMatch = url.pathname.match(
+				/^\/api\/refunds\/payment-sync-tasks\/(paysync-[A-Za-z0-9._:-]{1,56})\/manual-review$/u,
+			);
+			if (paymentSyncManualReviewMatch && request.method === "POST") {
+				return await adminPaymentSyncActionRequest(
+					request,
+					`/admin/payment-sync-tasks/${encodeURIComponent(paymentSyncManualReviewMatch[1] ?? "")}/manual-review`,
+					{ body: true },
 				);
 			}
 			const refundQueryMatch = url.pathname.match(

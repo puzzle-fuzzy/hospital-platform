@@ -2,10 +2,11 @@ import type {
 	AdminLogPage,
 	AdminLogQuery,
 	AdminLogRecord,
-	AdminPaymentOperationDetail,
 	AdminMedicalInsuranceRefund,
-	AdminWechatRefundPaymentHistoryQuery,
+	AdminPaymentOperationDetail,
+	AdminPaymentSyncTask,
 	AdminWechatRefundPaymentHistoryPage,
+	AdminWechatRefundPaymentHistoryQuery,
 	CaptchaState,
 	LoginValues,
 	PaymentDayResult,
@@ -330,6 +331,78 @@ export async function fetchPaymentOperationDetail(
 		if (error instanceof ApiError && error.status === 401) clearSession();
 		throw error;
 	}
+}
+
+export type AdminPaymentSyncTaskQuery = {
+	limit?: number;
+	status?: AdminPaymentSyncTask["status"];
+	source?: AdminPaymentSyncTask["source"];
+	kind?: AdminPaymentSyncTask["kind"];
+	aggregateId?: string;
+};
+
+export async function fetchPaymentSyncTasks(
+	input: AdminPaymentSyncTaskQuery,
+	session: Session,
+): Promise<readonly AdminPaymentSyncTask[]> {
+	const query = new URLSearchParams();
+	if (input.limit !== undefined) query.set("limit", String(input.limit));
+	if (input.status) query.set("status", input.status);
+	if (input.source) query.set("source", input.source);
+	if (input.kind) query.set("kind", input.kind);
+	if (input.aggregateId?.trim())
+		query.set("aggregateId", input.aggregateId.trim());
+	try {
+		return await request<readonly AdminPaymentSyncTask[]>(
+			`/api/refunds/payment-sync-tasks${query.size ? `?${query.toString()}` : ""}`,
+			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+async function postPaymentSyncTaskAction<T>(
+	path: string,
+	session: Session,
+	body?: unknown,
+): Promise<T> {
+	try {
+		return await request<T>(path, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${session.accessToken}`,
+				...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+			},
+			...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+		});
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export function retryPaymentSyncTask(
+	taskId: string,
+	session: Session,
+): Promise<AdminPaymentSyncTask> {
+	return postPaymentSyncTaskAction<AdminPaymentSyncTask>(
+		`/api/refunds/payment-sync-tasks/${encodeURIComponent(taskId)}/retry`,
+		session,
+	);
+}
+
+export function markPaymentSyncTaskManualReview(
+	taskId: string,
+	reason: string,
+	session: Session,
+): Promise<AdminPaymentSyncTask> {
+	return postPaymentSyncTaskAction<AdminPaymentSyncTask>(
+		`/api/refunds/payment-sync-tasks/${encodeURIComponent(taskId)}/manual-review`,
+		session,
+		{ reason },
+	);
 }
 
 export async function requestMedicalInsuranceRefund(

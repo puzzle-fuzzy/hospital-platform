@@ -313,6 +313,23 @@ export function createInMemoryPaymentSyncRepository(seed?: {
 			for (const task of due) tasks.set(task.taskId, task);
 			return due.map(clonePaymentSyncTask);
 		},
+		async listTasksForAdmin(query) {
+			if (!Number.isSafeInteger(query.limit) || query.limit <= 0) return [];
+			return [...tasks.values()]
+				.filter((task) => !query.status || task.status === query.status)
+				.filter((task) => !query.source || task.source === query.source)
+				.filter((task) => !query.kind || task.kind === query.kind)
+				.filter(
+					(task) => !query.aggregateId || task.aggregateId === query.aggregateId,
+				)
+				.sort(
+					(left, right) =>
+						right.updatedAt.localeCompare(left.updatedAt) ||
+						left.taskId.localeCompare(right.taskId),
+				)
+				.slice(0, Math.min(query.limit, 100))
+				.map(clonePaymentSyncTask);
+		},
 		async updateTask(task, expectedVersion) {
 			const current = tasks.get(task.taskId);
 			if (!current || current.version !== expectedVersion) {
@@ -2113,6 +2130,9 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError("payment-sync");
 			},
 			claimDueTasks: async () => {
+				throw new PersistenceNotConfiguredError("payment-sync");
+			},
+			listTasksForAdmin: async () => {
 				throw new PersistenceNotConfiguredError("payment-sync");
 			},
 			updateTask: async () => {

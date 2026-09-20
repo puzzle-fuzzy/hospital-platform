@@ -8,6 +8,8 @@ import {
 } from "./insurance-query-service";
 
 export { adminLogsModule } from "./logs";
+export { adminPaymentSyncModule } from "./payment-sync";
+export { PaymentSyncAdminService } from "./payment-sync-service";
 export {
 	adminMedicalInsuranceRefundModule,
 	adminWechatRefundModule,

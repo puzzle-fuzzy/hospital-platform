@@ -307,6 +307,31 @@ export type AdminWechatRefundPaymentHistoryPage = {
 	pageSize: number;
 };
 
+export type AdminPaymentSyncTaskStatus =
+	| "pending"
+	| "in_progress"
+	| "succeeded"
+	| "failed"
+	| "manual_review";
+
+export type AdminPaymentSyncTask = {
+	taskId: string;
+	aggregateId: string;
+	businessKey: string;
+	source: "his" | "medical_insurance" | "wechat_pay";
+	kind: "pull" | "reconcile" | "writeback";
+	status: AdminPaymentSyncTaskStatus;
+	attempts: number;
+	maxAttempts: number;
+	nextRunAt: string;
+	claimedUntil: string | null;
+	lastErrorCode: string | null;
+	resultDigest: string | null;
+	version: number;
+	createdAt: string;
+	updatedAt: string;
+};
+
 export type AdminPaymentOperationDetail = {
 	aggregate: {
 		aggregateId: string;

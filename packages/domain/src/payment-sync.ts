@@ -27,6 +27,14 @@ export type PaymentSyncTask = {
 	updatedAt: string;
 };
 
+export type PaymentSyncTaskListQuery = {
+	limit: number;
+	status?: PaymentSyncTaskStatus;
+	source?: PaymentSyncSource;
+	kind?: PaymentSyncKind;
+	aggregateId?: string;
+};
+
 export type PaymentReconciliationSource =
 	| "his"
 	| "medical_insurance"
@@ -72,6 +80,10 @@ export type PaymentSyncRepository = {
 		now: Date,
 		limit: number,
 		leaseMs: number,
+	): Promise<readonly PaymentSyncTask[]>;
+	/** 仅供 Admin 运营台读取，不返回 Provider 原文或凭证。 */
+	listTasksForAdmin(
+		query: PaymentSyncTaskListQuery,
 	): Promise<readonly PaymentSyncTask[]>;
 	updateTask(
 		task: PaymentSyncTask,

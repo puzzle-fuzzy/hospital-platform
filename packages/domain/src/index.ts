@@ -597,6 +597,7 @@ export type {
 	PaymentSyncRepository,
 	PaymentSyncSource,
 	PaymentSyncTask,
+	PaymentSyncTaskListQuery,
 	PaymentSyncTaskStatus,
 } from "./payment-sync";
 export { assertPaymentSyncIdentifier } from "./payment-sync";

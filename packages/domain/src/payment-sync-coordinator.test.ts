@@ -50,6 +50,9 @@ function createRepository(): PaymentSyncRepository {
 			}
 			return claimed;
 		},
+		async listTasksForAdmin() {
+			return [...tasks.values()];
+		},
 		async updateTask(task, expectedVersion) {
 			const current = tasks.get(task.taskId);
 			if (!current || current.version !== expectedVersion) {

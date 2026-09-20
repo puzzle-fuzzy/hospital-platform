@@ -88,7 +88,6 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 					</div>
 				</section>
 				<Card className="login-card" variant="borderless">
-					<div className="login-card-eyebrow">院内授权入口</div>
 					<Space orientation="vertical" size={4} className="login-heading">
 						<Title level={2}>登录管理后台</Title>
 					</Space>

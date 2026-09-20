@@ -53,6 +53,7 @@ import type {
 	PaymentHistoryStatus,
 	PaymentReconciliationResult,
 	PaymentSyncRepository,
+	PaymentSyncTaskListQuery,
 	PaymentSyncTask,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
@@ -3926,6 +3927,35 @@ export function createMySqlRepositories(
 				}
 				return claimed;
 			});
+		},
+		async listTasksForAdmin(query: PaymentSyncTaskListQuery) {
+			if (!Number.isSafeInteger(query.limit) || query.limit <= 0) return [];
+			const conditions: string[] = [];
+			const params: unknown[] = [];
+			if (query.status) {
+				conditions.push("status = ?");
+				params.push(query.status);
+			}
+			if (query.source) {
+				conditions.push("source = ?");
+				params.push(query.source);
+			}
+			if (query.kind) {
+				conditions.push("kind = ?");
+				params.push(query.kind);
+			}
+			if (query.aggregateId) {
+				conditions.push("aggregate_id = ?");
+				params.push(query.aggregateId);
+			}
+			const boundedLimit = Math.min(query.limit, 100);
+			const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
+			const rows = await execute<PaymentSyncTaskRow[]>(
+				pool,
+				`${paymentSyncTaskSelect}${where} ORDER BY updated_at DESC, task_id LIMIT ${boundedLimit}`,
+				params,
+			);
+			return rows.map(paymentSyncTask);
 		},
 		async updateTask(task, expectedVersion) {
 			if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {

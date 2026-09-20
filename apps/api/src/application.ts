@@ -48,6 +48,7 @@ import {
 	type AdminInsuranceQueryGateway,
 	AdminInsuranceQueryService,
 	AdminWechatRefundService,
+	PaymentSyncAdminService,
 } from "./modules/admin";
 import { buildPaymentOrderProjection } from "./modules/admin/payment-operations-projector";
 import { AppointmentService } from "./modules/appointments";
@@ -64,8 +65,8 @@ import { NativeIntelligentGuideService } from "./modules/intelligent-guide/nativ
 import { HealthKnowledgeService } from "./modules/knowledge";
 import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment-core";
 import { MedicalInsurancePluginPaymentService } from "./modules/medical-insurance/plugin-payment-service";
-import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
 import { MedicalInsuranceRefundService } from "./modules/medical-insurance/refund-service";
+import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
 import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
@@ -129,6 +130,8 @@ export type ApplicationServices = {
 	adminInsuranceQuery?: AdminInsuranceQueryService;
 	/** Admin 发起/查询微信自费退款；未配置微信退款 adapter 时保持不可用。 */
 	wechatRefund?: AdminWechatRefundService;
+	/** Admin 只操作同步任务状态；不直接修改支付聚合单终态。 */
+	paymentSyncAdmin?: PaymentSyncAdminService;
 	sessions: SessionTokenService;
 };
 
@@ -714,6 +717,10 @@ export function createDefaultApplicationServices(
 					: {}),
 			})
 		: undefined;
+	const paymentSyncAdmin = new PaymentSyncAdminService({
+		repository: repositories.paymentSync,
+		operatorAudits: repositories.operatorAudits,
+	});
 	const patients = new PatientService(repositories.patients, {
 		identityUsers: repositories.identityUsers,
 		directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
@@ -864,6 +871,7 @@ export function createDefaultApplicationServices(
 		}),
 		...(adminInsuranceQuery ? { adminInsuranceQuery } : {}),
 		...(wechatRefund ? { wechatRefund } : {}),
+		paymentSyncAdmin,
 		sessions,
 	};
 }
