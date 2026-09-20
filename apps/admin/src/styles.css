@@ -49,7 +49,7 @@ body {
 	background: var(--ant-color-bg-container);
 	border: 1px solid var(--ant-color-border-secondary);
 	border-radius: 24px;
-	box-shadow: var(--ant-box-shadow-secondary);
+	box-shadow: var(--ant-box-shadow-tertiary);
 }
 
 .brand-mark,
@@ -445,7 +445,7 @@ body {
 
 .metric-card {
 	border: 0;
-	box-shadow: var(--ant-box-shadow-card);
+	box-shadow: var(--ant-box-shadow-tertiary);
 }
 
 .metric-card .ant-card-body {
@@ -466,19 +466,19 @@ body {
 .metric-card-medical {
 	box-shadow:
 		inset 3px 0 0 var(--ant-color-purple),
-		var(--ant-box-shadow-card);
+		var(--ant-box-shadow-tertiary);
 }
 
 .metric-card-confirmed {
 	box-shadow:
 		inset 3px 0 0 var(--ant-color-success),
-		var(--ant-box-shadow-card);
+		var(--ant-box-shadow-tertiary);
 }
 
 .metric-card-refund {
 	box-shadow:
 		inset 3px 0 0 var(--ant-color-warning),
-		var(--ant-box-shadow-card);
+		var(--ant-box-shadow-tertiary);
 }
 
 .payment-search-card,
@@ -489,7 +489,7 @@ body {
 .payment-search-card,
 .payment-flow-card {
 	border: 0;
-	box-shadow: var(--ant-box-shadow-card);
+	box-shadow: var(--ant-box-shadow-tertiary);
 }
 
 .payment-page .ant-table-thead > tr > th {
