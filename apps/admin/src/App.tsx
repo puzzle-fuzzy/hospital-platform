@@ -8,7 +8,6 @@ import {
 	WalletOutlined,
 } from "@ant-design/icons";
 import {
-	Alert,
 	App as AntdApp,
 	Button,
 	Card,
@@ -19,7 +18,6 @@ import {
 	Layout,
 	Menu,
 	Space,
-	Tag,
 	Typography,
 } from "antd";
 import { useCallback, useEffect, useState } from "react";
@@ -75,7 +73,7 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 	return (
 		<div className="login-shell">
 			<div className="login-frame">
-				<section className="login-hero" aria-label="管理后台说明">
+				<section className="login-hero" aria-label="支付运营台">
 					<div className="login-hero-brand">
 						<div className="brand-mark">
 							<SafetyCertificateOutlined />
@@ -85,37 +83,14 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 							<Text className="brand-product">支付运营台</Text>
 						</div>
 					</div>
-					<div className="login-hero-copy">
-						<Text className="login-kicker">SECURE OPERATIONS CONSOLE</Text>
-						<Title>
-							把支付链路看清，
-							<br />
-							把每次退费做对。
-						</Title>
-						<Text>
-							统一查看医保与微信支付事实，按订单追踪支付流程，并在授权范围内完成聚合退费。
-						</Text>
-					</div>
-					<div className="login-hero-points">
-						<div>
-							<SafetyCertificateOutlined />
-							<span>院内授权访问</span>
-						</div>
-						<div>
-							<WalletOutlined />
-							<span>医保 + 微信统一台账</span>
-						</div>
-						<div>
-							<CodeOutlined />
-							<span>低敏日志与链路审计</span>
-						</div>
+					<div className="login-hero-visual" aria-hidden="true">
+						<WalletOutlined />
 					</div>
 				</section>
 				<Card className="login-card" variant="borderless">
 					<div className="login-card-eyebrow">院内授权入口</div>
 					<Space orientation="vertical" size={4} className="login-heading">
 						<Title level={2}>登录管理后台</Title>
-						<Text type="secondary">实时日志与支付流程查看</Text>
 					</Space>
 					<Form<LoginValues>
 						form={form}
@@ -179,13 +154,6 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 							登录管理端
 						</Button>
 					</Form>
-					<Alert
-						className="login-note"
-						type="info"
-						showIcon
-						title="仅供院内授权人员使用"
-						description="本页面不会保存接口请求或返回内容，关闭页面后登录状态自动清除。"
-					/>
 				</Card>
 			</div>
 		</div>
@@ -261,10 +229,6 @@ function Console() {
 								},
 							]}
 						/>
-						<div className="sider-footer">
-							<Tag color="blue">受控环境</Tag>
-							<Text type="secondary">仅显示低敏业务元数据</Text>
-						</div>
 					</div>
 				</Sider>
 				{activeKey === "logs" ? (

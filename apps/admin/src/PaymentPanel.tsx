@@ -361,6 +361,14 @@ function paymentRecordColumns(
 ): NonNullable<TableProps<AdminWechatRefundPaymentRecord>["columns"]> {
 	return [
 		{
+			title: "序号",
+			key: "index",
+			width: 72,
+			fixed: "left",
+			align: "center",
+			render: (_value, _record, index) => index + 1,
+		},
+		{
 			title: "更新时间",
 			dataIndex: "updatedAt",
 			key: "updatedAt",
@@ -439,10 +447,11 @@ function paymentRecordColumns(
 			title: "操作",
 			key: "action",
 			fixed: "right",
-			width: 174,
+			width: 240,
 			render: (_, record) =>
 				record.source === "medical_insurance" ? (
 					<Button
+						className="payment-refund-button"
 						danger
 						icon={<RollbackOutlined />}
 						disabled={!canAggregateMedicalRefund(record)}
@@ -451,7 +460,12 @@ function paymentRecordColumns(
 						医保 + 微信一并退费
 					</Button>
 				) : (
-					<Button danger icon={<RollbackOutlined />} disabled>
+					<Button
+						className="payment-refund-button"
+						danger
+						icon={<RollbackOutlined />}
+						disabled
+					>
 						纯微信订单
 					</Button>
 				),
@@ -633,11 +647,7 @@ export function PaymentPanel({
 				<div className="content-heading-copy">
 					<Text className="page-kicker">PAYMENT OPERATIONS</Text>
 					<Title level={2}>支付数据</Title>
-					<Text type="secondary">
-						普通微信支付订单和医保支付订单统一查看；支付原文仍按单笔链路受控展开
-					</Text>
 				</div>
-				<Tag color="blue">只读台账</Tag>
 			</div>
 			<div className="payment-metrics" aria-label="支付台账概览">
 				<Card className="metric-card">
@@ -672,12 +682,6 @@ export function PaymentPanel({
 			</div>
 			<Card title="全部支付记录" className="payment-search-card">
 				<Space orientation="vertical" size={14} style={{ width: "100%" }}>
-					<Alert
-						type="info"
-						showIcon
-						title="只读支付台账"
-						description="这里合并展示服务端已落库的普通支付订单和医保订单；金额按分展示并保留医保分项。医保订单的退费按钮只发起一次医保 + 微信整笔聚合退费。"
-					/>
 					<Flex align="center" gap={8} wrap="wrap">
 						<Input
 							value={historyOrderId}
@@ -715,7 +719,7 @@ export function PaymentPanel({
 							record.source === "medical_insurance" ? "payment-row-medical" : ""
 						}
 						pagination={{ pageSize: 8, hideOnSinglePage: true }}
-						scroll={{ x: 1480 }}
+						scroll={{ x: 1600 }}
 						size="small"
 					/>
 				</Space>

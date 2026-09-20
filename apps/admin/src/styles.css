@@ -81,7 +81,8 @@ body {
 .login-hero {
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
+	justify-content: center;
+	gap: 48px;
 	min-width: 0;
 	padding: 56px;
 	color: #fff;
@@ -103,11 +104,6 @@ body {
 	background: rgb(255 255 255 / 16%);
 }
 
-.login-hero-copy {
-	max-width: 520px;
-}
-
-.login-kicker,
 .page-kicker {
 	display: block;
 	margin-bottom: 12px;
@@ -116,45 +112,19 @@ body {
 	letter-spacing: 0.14em;
 }
 
-.login-kicker {
-	color: rgb(255 255 255 / 70%);
-}
-
-.login-hero-copy .ant-typography {
-	color: #fff;
-}
-
-.login-hero-copy h1.ant-typography {
-	margin: 0 0 20px;
-	font-size: clamp(32px, 4vw, 50px);
-	line-height: 1.18;
-	letter-spacing: -0.04em;
-}
-
-.login-hero-copy > .ant-typography:last-child {
-	max-width: 460px;
-	color: rgb(255 255 255 / 76%);
-	font-size: 15px;
-	line-height: 1.8;
-}
-
-.login-hero-points {
+.login-hero-visual {
 	display: grid;
-	gap: 12px;
-	max-width: 420px;
-}
-
-.login-hero-points > div {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	color: rgb(255 255 255 / 86%);
-	font-size: 13px;
-}
-
-.login-hero-points .anticon {
-	color: rgb(255 255 255 / 72%);
-	font-size: 16px;
+	width: 180px;
+	height: 180px;
+	place-items: center;
+	align-self: center;
+	color: rgb(255 255 255 / 82%);
+	font-size: 76px;
+	border: 1px solid rgb(255 255 255 / 24%);
+	border-radius: 50%;
+	box-shadow:
+		0 0 0 24px rgb(255 255 255 / 6%),
+		0 0 0 48px rgb(255 255 255 / 4%);
 }
 
 .login-card {
@@ -215,10 +185,6 @@ body {
 	object-fit: contain;
 }
 
-.login-note {
-	margin-top: 24px;
-}
-
 .console-layout {
 	/* Lock the shell to the viewport so the navigation never joins the page scroll. */
 	height: 100vh;
@@ -268,17 +234,6 @@ body {
 .console-sider .ant-menu-item {
 	margin-block: 4px;
 	padding-inline: 16px !important;
-}
-
-.sider-footer {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	margin: auto 16px 20px;
-	padding: 16px;
-	background: var(--ant-color-fill-quaternary);
-	border-radius: 12px;
-	font-size: 12px;
 }
 
 .console-header {
@@ -547,6 +502,11 @@ body {
 	border-inline-start: 3px solid var(--ant-color-purple);
 }
 
+.payment-refund-button {
+	width: 100%;
+	white-space: nowrap;
+}
+
 .payment-flow-card {
 	margin-top: 16px;
 }
@@ -654,12 +614,17 @@ body {
 	}
 
 	.login-hero {
-		gap: 36px;
+		gap: 32px;
 		padding: 28px 24px;
 	}
 
-	.login-hero-copy h1.ant-typography {
-		font-size: 34px;
+	.login-hero-visual {
+		width: 112px;
+		height: 112px;
+		font-size: 48px;
+		box-shadow:
+			0 0 0 14px rgb(255 255 255 / 6%),
+			0 0 0 28px rgb(255 255 255 / 4%);
 	}
 
 	.login-card {
