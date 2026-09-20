@@ -5,6 +5,7 @@ import type {
 	MedicalInsuranceSettlementContext,
 	OutboxEvent,
 	PaymentOperatorAudit,
+	PaymentOperationsProjection,
 	PaymentOrder,
 	PaymentPrepayAttempt,
 	WechatPaymentNotification,
@@ -94,6 +95,57 @@ const createdEvent: OutboxEvent = {
 	availableAt: order.updatedAt,
 	attempts: 0,
 };
+
+function paymentOperationsProjection(
+	version: number,
+	): PaymentOperationsProjection {
+	const aggregateId = "payagg-order-001";
+	const legId = "payleg-order-001";
+	return {
+		aggregate: {
+			aggregateId: aggregateId,
+			ownerUserId: order.ownerUserId,
+			patientId: order.patientId,
+			business: "other",
+			businessKey: `payment_order:${order.orderId}`,
+			businessId: order.orderId,
+			totalFen: order.amounts.totalFen,
+			insuranceFen: order.amounts.insuranceFen,
+			cashFen: order.amounts.cashFen,
+			status: version === 1 ? "created" : "pending",
+			hisSyncStatus: "not_required",
+			sourceVersion: version,
+			version,
+			createdAt: order.createdAt,
+			updatedAt: version === 1 ? order.createdAt : "2026-08-15T00:00:01.000Z",
+		},
+		legs: [
+			{
+				legId,
+				aggregateId,
+				legType: "wechat_cash",
+				source: "payment_order",
+				sourceOrderId: order.orderId,
+				amountFen: order.amounts.cashFen,
+				status: version === 1 ? "not_started" : "pending",
+				version,
+				createdAt: order.createdAt,
+				updatedAt: version === 1 ? order.createdAt : "2026-08-15T00:00:01.000Z",
+			},
+		],
+		event: {
+			eventId: `payevt-order-001-${version}`,
+			aggregateId: aggregateId,
+			source: "payment_order",
+			eventType: "source_projection",
+			nextStatus: version === 1 ? "created" : "pending",
+			amountFen: order.amounts.totalFen,
+			idempotencyKey: `projection:payment_order:${order.orderId}:${version}`,
+			eventAt: version === 1 ? order.createdAt : "2026-08-15T00:00:01.000Z",
+			payloadDigest: `digest-${version}`,
+		},
+	};
+}
 
 function protocolConnectionLostError(): Error & { code: string } {
 	const error = new Error("socket closed") as Error & { code: string };
@@ -408,6 +460,63 @@ test("MySQL order insert commits order and outbox in one transaction", async () 
 	expect(state.statements[1]).toContain("INSERT INTO hp_outbox_events");
 	expect(state.values[0]?.[9]).toBe("2026-08-15 00:00:00.000");
 	expect(state.values[1]?.[5]).toBe("2026-08-15 00:00:00.000");
+});
+
+test("MySQL ordinary order and payment operations projection commit in one transaction", async () => {
+	const { pool, state } = createFakePool();
+	const repositories = createMySqlRepositories(pool);
+	const projection = paymentOperationsProjection(1);
+
+	expect(
+		await repositories.paymentOrders.insertWithPaymentOperations?.(
+			order,
+			createdEvent,
+			projection,
+		),
+	).toEqual(order);
+	expect(state.committed).toBe(true);
+	expect(state.rolledBack).toBe(false);
+	expect(state.statements).toHaveLength(5);
+	expect(state.statements[0]).toContain("INSERT INTO hp_payment_orders");
+	expect(state.statements[1]).toContain("INSERT INTO hp_payment_aggregates");
+	expect(state.statements[2]).toContain("INSERT INTO hp_payment_legs");
+	expect(state.statements[3]).toContain("INSERT INTO hp_payment_events");
+	expect(state.statements[4]).toContain("INSERT INTO hp_outbox_events");
+});
+
+test("MySQL ordinary order update rolls back when its payment operations projection fails", async () => {
+	const projection = paymentOperationsProjection(1);
+	const { pool, state } = createFakePool([
+		{ affectedRows: 1 },
+		new Error("ledger write failed"),
+	]);
+	const repositories = createMySqlRepositories(pool);
+	const updated = { ...order, state: "authorized" as const, version: 2 };
+	const firstLeg = projection.legs[0];
+	if (!firstLeg) throw new Error("test projection is missing a payment leg");
+
+	await expect(
+		repositories.paymentOrders.updateWithPaymentOperations?.(
+			updated,
+			order.version,
+			{ ...createdEvent, eventId: "payment-order:order-001:2" },
+			{
+				...projection,
+				aggregate: { ...projection.aggregate, sourceVersion: 2, version: 2 },
+				legs: [
+					{
+						...firstLeg,
+						version: 2,
+						status: "pending",
+						updatedAt: updated.updatedAt,
+					},
+				],
+			},
+		),
+	).rejects.toThrow("ledger write failed");
+	expect(state.committed).toBe(false);
+	expect(state.rolledBack).toBe(true);
+	expect(state.statements).toHaveLength(2);
 });
 
 test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回", async () => {
@@ -1542,6 +1651,55 @@ test("MySQL medical insurance order insert keeps columns and values aligned", as
 	expect(statement).toContain("updated_at");
 	expect(statement.match(/\?/g) ?? []).toHaveLength(values.length);
 	expect(values).toHaveLength(41);
+});
+
+test("MySQL medical insurance amount-bearing order projects both payment legs in the insert transaction", async () => {
+	const medicalOrder: MedicalInsuranceOrder = {
+		medicalOrderId: "medical-order-atomic-001",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		businessType: "outpatient",
+		orderType: "DiagPay",
+		businessId: "record-atomic-001",
+		idempotencyKey: "medical-order-atomic-idempotency-001",
+		medOrgOrd: "med-org-atomic-001",
+		chrgBchno: "batch-atomic-001",
+		payOrdId: "pay-ord-atomic-001",
+		payTokenHash: null,
+		mdtrtId: null,
+		acctUsedFlag: null,
+		status: "cash_pending",
+		ordStas: "3",
+		amounts: {
+			totalFen: 1000,
+			cashFen: 300,
+			personalAccountFen: 0,
+			fundFen: 700,
+		},
+		setlType: "ALL",
+		revsTokenHash: null,
+		revsTokenExpiresAt: null,
+		lastError: null,
+		wechatMixTradeNo: null,
+		wechatOutTradeNo: "wx-out-atomic-001",
+		wechatPaymentState: "prepay_ready",
+		wechatPayParams: null,
+		version: 1,
+		createdAt: "2026-09-03T00:00:00.000Z",
+		updatedAt: "2026-09-03T00:00:01.000Z",
+	};
+	const { pool, state } = createFakePool();
+	const repositories = createMySqlRepositories(pool);
+
+	await repositories.medicalInsuranceOrders.insert(medicalOrder);
+
+	expect(state.committed).toBe(true);
+	expect(state.statements).toHaveLength(5);
+	expect(state.statements[0]).toContain("hp_medical_insurance_orders");
+	expect(state.statements[1]).toContain("hp_payment_aggregates");
+	expect(state.statements[2]).toContain("hp_payment_legs");
+	expect(state.statements[3]).toContain("hp_payment_legs");
+	expect(state.statements[4]).toContain("hp_payment_events");
 });
 
 test("MySQL 医保历史 MD5 调起参数隔离后仍可读取混合订单事实", async () => {

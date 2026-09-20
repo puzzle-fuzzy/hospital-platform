@@ -18,6 +18,7 @@ import {
 } from "@hospital/config";
 import type { DependencyState } from "@hospital/contracts";
 import {
+	buildPaymentOrderOperationsProjection,
 	type HospitalSettlementGateway,
 	type PaymentOrder,
 	PaymentOrderService,
@@ -432,6 +433,8 @@ export function createWorkerRuntime(
 	// .29/.15/.5 作为 HIS 回写补偿链路执行。
 	const orders = new PaymentOrderService({
 		orders: repositories.paymentOrders,
+		paymentOperations: repositories.paymentOperations,
+		projectPaymentOperations: buildPaymentOrderOperationsProjection,
 	});
 	const hospitalSettlementGateway =
 		runtimeConfig.yunhealthRegistrationSettlementReady &&

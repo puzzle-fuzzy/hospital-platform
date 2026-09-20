@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { OutboxEvent } from "./outbox";
 import type {
+	PaymentOperationsProjection,
+	PaymentOperationsRepository,
+} from "./payment-operations";
+import type {
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentQuote,
@@ -196,6 +200,75 @@ describe("payment order domain", () => {
 				amounts,
 			}),
 		).rejects.toBeInstanceOf(PaymentIdempotencyConflictError);
+	});
+
+	test("uses the atomic payment-operations write port when production wiring provides it", async () => {
+		const events: OutboxEvent[] = [];
+		const calls: string[] = [];
+		const orders = createMemoryOrders(events);
+		orders.insertWithPaymentOperations = async (order, event, projection) => {
+			calls.push(`insert:${projection.aggregate.businessKey}`);
+			return orders.insert(order, event);
+		};
+		orders.updateWithPaymentOperations = async (
+			order,
+			expectedVersion,
+			event,
+			projection,
+		) => {
+			calls.push(
+				`update:${expectedVersion}:${projection.aggregate.sourceVersion}`,
+			);
+			return orders.update(order, expectedVersion, event);
+		};
+		const paymentOperations = {
+			async findAggregateByBusinessKey() {
+				return undefined;
+			},
+		} as unknown as PaymentOperationsRepository;
+		const service = new PaymentOrderService({
+			orders,
+			paymentOperations,
+			projectPaymentOperations: async (order) =>
+				({
+					aggregate: {
+						aggregateId: `aggregate-${order.orderId}`,
+						ownerUserId: order.ownerUserId,
+						patientId: order.patientId,
+						business: "other",
+						businessKey: `payment_order:${order.orderId}`,
+						businessId: order.orderId,
+						totalFen: order.amounts.totalFen,
+						insuranceFen: order.amounts.insuranceFen,
+						cashFen: order.amounts.cashFen,
+						status: "created",
+						hisSyncStatus: "not_required",
+						sourceVersion: order.version,
+						version: order.version,
+						createdAt: order.createdAt,
+						updatedAt: order.updatedAt,
+					},
+					legs: [],
+				}) satisfies PaymentOperationsProjection,
+			createOrderId: () => "order-atomic-001",
+		});
+
+		const created = await service.create({
+			ownerUserId: "user-atomic-001",
+			patientId: "patient-atomic-001",
+			idempotencyKey: "pay-atomic-001",
+			amounts,
+		});
+		await service.transition(
+			created.ownerUserId,
+			created.orderId,
+			"authorized",
+		);
+
+		expect(calls).toEqual([
+			"insert:payment_order:order-atomic-001",
+			"update:1:2",
+		]);
 	});
 
 	test("default order ids stay within the external payment trade number limit", async () => {

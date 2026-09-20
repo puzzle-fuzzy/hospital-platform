@@ -1,5 +1,10 @@
 import type { PaymentState } from "@hospital/contracts";
-import type { PaymentHistoryStatus } from "./payment-operations";
+import type {
+	PaymentAggregate,
+	PaymentHistoryStatus,
+	PaymentOperationsProjection,
+	PaymentOperationsRepository,
+} from "./payment-operations";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { OutboxEvent } from "./outbox";
 import { transitionPayment } from "./payment-state";
@@ -452,6 +457,12 @@ export interface PaymentQuoteRepository {
 	): Promise<PaymentQuote | undefined>;
 }
 
+/** 普通来源订单构造运营台纯数据投影的组合根回调。 */
+export type PaymentOrderOperationsProjector = (
+	order: PaymentOrder,
+	existing?: PaymentAggregate,
+) => PaymentOperationsProjection | Promise<PaymentOperationsProjection>;
+
 /** 支付订单持久化端口；生产实现必须对 ownerUserId + idempotencyKey 建唯一约束。 */
 export interface PaymentOrderRepository {
 	/** 后台 worker 不持有用户会话，必须使用只读内部订单 id 查询。 */
@@ -486,11 +497,28 @@ export interface PaymentOrderRepository {
 	): Promise<PaymentOrder | undefined>;
 	/** 必须与 payment-order.created 在同一持久化事务中提交。 */
 	insert(order: PaymentOrder, event: OutboxEvent): Promise<PaymentOrder>;
+	/**
+	 * 可选的组合根写入端口：来源订单、运营台聚合/支付腿/事件和 outbox
+	 * 必须由实现放在同一个数据库事务中。没有该端口的测试/旧实现继续走
+	 * insert，但生产 MySQL 实现必须启用它。
+	 */
+	insertWithPaymentOperations?(
+		order: PaymentOrder,
+		event: OutboxEvent,
+		projection: PaymentOperationsProjection,
+	): Promise<PaymentOrder>;
 	/** 必须与 payment-order.state-changed 在同一持久化事务中提交。 */
 	update(
 		order: PaymentOrder,
 		expectedVersion: number,
 		event: OutboxEvent,
+	): Promise<PaymentOrder>;
+	/** 同上，用于状态迁移的订单与运营台账原子提交。 */
+	updateWithPaymentOperations?(
+		order: PaymentOrder,
+		expectedVersion: number,
+		event: OutboxEvent,
+		projection: PaymentOperationsProjection,
 	): Promise<PaymentOrder>;
 	/** 普通挂号自费 Provider 上下文只允许以服务端密文保存。 */
 	saveRegistrationSelfPayContext?(
@@ -618,6 +646,10 @@ export type CreatePaymentOrderInput = {
 export type PaymentOrderServiceDependencies = {
 	orders: PaymentOrderRepository;
 	quotes?: PaymentQuoteRepository;
+	/** 普通来源订单的同事务台账写入所需的当前聚合查询。 */
+	paymentOperations?: PaymentOperationsRepository;
+	/** 只构造纯数据，不在该回调中自行持久化。 */
+	projectPaymentOperations?: PaymentOrderOperationsProjector;
 	now?: () => Date;
 	createOrderId?: () => string;
 };
@@ -635,6 +667,52 @@ export class PaymentOrderService {
 		this.createOrderId =
 			dependencies.createOrderId ??
 			(() => crypto.randomUUID().replaceAll("-", ""));
+	}
+
+	private async insertOrder(
+		order: PaymentOrder,
+		event: OutboxEvent,
+	): Promise<PaymentOrder> {
+		const { orders, paymentOperations, projectPaymentOperations } =
+			this.dependencies;
+		if (
+			!paymentOperations ||
+			!projectPaymentOperations ||
+			!orders.insertWithPaymentOperations
+		) {
+			return orders.insert(order, event);
+		}
+		const existing = await paymentOperations.findAggregateByBusinessKey(
+			`payment_order:${order.orderId}`,
+		);
+		const projection = await projectPaymentOperations(order, existing);
+		return orders.insertWithPaymentOperations(order, event, projection);
+	}
+
+	private async updateOrder(
+		order: PaymentOrder,
+		expectedVersion: number,
+		event: OutboxEvent,
+	): Promise<PaymentOrder> {
+		const { orders, paymentOperations, projectPaymentOperations } =
+			this.dependencies;
+		if (
+			!paymentOperations ||
+			!projectPaymentOperations ||
+			!orders.updateWithPaymentOperations
+		) {
+			return orders.update(order, expectedVersion, event);
+		}
+		const existing = await paymentOperations.findAggregateByBusinessKey(
+			`payment_order:${order.orderId}`,
+		);
+		const projection = await projectPaymentOperations(order, existing);
+		return orders.updateWithPaymentOperations(
+			order,
+			expectedVersion,
+			event,
+			projection,
+		);
 	}
 
 	async create(input: CreatePaymentOrderInput): Promise<PaymentOrder> {
@@ -689,7 +767,7 @@ export class PaymentOrderService {
 			expectedPatientId: input.patientId,
 			expectedIdempotencyKey: input.idempotencyKey,
 		});
-		const stored = await this.dependencies.orders.insert(
+		const stored = await this.insertOrder(
 			candidate,
 			createPaymentOrderEvent("payment-order.created", candidate),
 		);
@@ -726,7 +804,7 @@ export class PaymentOrderService {
 		};
 		let stored: PaymentOrder;
 		try {
-			stored = await this.dependencies.orders.update(
+			stored = await this.updateOrder(
 				updated,
 				current.version,
 				createPaymentOrderEvent("payment-order.state-changed", updated),
@@ -851,7 +929,7 @@ export class PaymentOrderService {
 				version: current.version + 1,
 				updatedAt: this.now().toISOString(),
 			};
-			const stored = await this.dependencies.orders.update(
+			const stored = await this.updateOrder(
 				updated,
 				current.version,
 				createPaymentOrderEvent(
@@ -944,7 +1022,7 @@ export class PaymentOrderService {
 				version: current.version + 1,
 				updatedAt: this.now().toISOString(),
 			};
-			const stored = await this.dependencies.orders.update(
+			const stored = await this.updateOrder(
 				updated,
 				current.version,
 				createPaymentOrderEvent(
@@ -1054,7 +1132,7 @@ export class PaymentOrderService {
 			version: current.version + 1,
 			updatedAt: this.now().toISOString(),
 		};
-		const stored = await this.dependencies.orders.update(
+		const stored = await this.updateOrder(
 			updated,
 			current.version,
 			createPaymentOrderEvent("payment-order.state-changed", updated),
@@ -1097,7 +1175,7 @@ export class PaymentOrderService {
 			version: current.version + 1,
 			updatedAt: this.now().toISOString(),
 		};
-		const stored = await this.dependencies.orders.update(
+		const stored = await this.updateOrder(
 			updated,
 			current.version,
 			createPaymentOrderEvent("payment-order.state-changed", updated),

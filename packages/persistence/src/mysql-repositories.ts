@@ -48,6 +48,7 @@ import type {
 	PaymentOperatorAudit,
 	PaymentOperatorAuditRepository,
 	PaymentOperationEvent,
+	PaymentOperationsProjection,
 	PaymentOperationsRepository,
 	PaymentHistoryStatus,
 	PaymentReconciliationResult,
@@ -71,6 +72,7 @@ import type {
 	WechatRefundRepository,
 } from "@hospital/domain";
 import {
+	buildMedicalInsuranceOrderOperationsProjection,
 	isValidMedicalInsuranceProviderQueryIdentity,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	MyDoctorAlreadyExistsError,
@@ -3306,6 +3308,259 @@ function insertOutboxSql(event: OutboxEvent): {
 	};
 }
 
+function insertPaymentOperationEventSql(event: PaymentOperationEvent): {
+	sql: string;
+	values: readonly unknown[];
+} {
+	return {
+		sql: "INSERT INTO hp_payment_events (event_id, aggregate_id, leg_id, source, event_type, previous_status, next_status, amount_fen, provider_request_id, idempotency_key, event_at, payload_digest, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE event_id = event_id",
+		values: [
+			event.eventId,
+			event.aggregateId,
+			event.legId ?? null,
+			event.source,
+			event.eventType,
+			event.previousStatus ?? null,
+			event.nextStatus,
+			event.amountFen ?? null,
+			event.providerRequestId ?? null,
+			event.idempotencyKey,
+			mysqlDateTime(event.eventAt),
+			event.payloadDigest,
+			mysqlDateTime(event.eventAt),
+		],
+	};
+}
+
+/**
+ * 在来源订单 INSERT 已经成功后写入普通订单的运营台账。
+ * 这里故意只接受已构造好的低敏投影，不把 Provider 原文或患者扩展字段
+ * 带入运营台事务。
+ */
+async function insertPaymentOperationsProjection(
+	connection: PoolConnection,
+	projection: PaymentOperationsProjection,
+): Promise<void> {
+	const aggregate = projection.aggregate;
+	await execute<ResultSetHeader>(
+		connection,
+		"INSERT INTO hp_payment_aggregates (aggregate_id, owner_user_id, patient_id, business, business_key, business_id, total_fen, insurance_fen, cash_fen, status, his_sync_status, source_version, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		[
+			aggregate.aggregateId,
+			aggregate.ownerUserId,
+			aggregate.patientId,
+			aggregate.business,
+			aggregate.businessKey,
+			aggregate.businessId,
+			aggregate.totalFen,
+			aggregate.insuranceFen,
+			aggregate.cashFen,
+			aggregate.status,
+			aggregate.hisSyncStatus,
+			aggregate.sourceVersion,
+			aggregate.version,
+			mysqlDateTime(aggregate.createdAt),
+			mysqlDateTime(aggregate.updatedAt),
+		],
+	);
+	for (const leg of projection.legs) {
+		await execute<ResultSetHeader>(
+			connection,
+			"INSERT INTO hp_payment_legs (leg_id, aggregate_id, leg_type, source, source_order_id, amount_fen, status, provider_reference_digest, confirmed_at, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			[
+				leg.legId,
+				leg.aggregateId,
+				leg.legType,
+				leg.source,
+				leg.sourceOrderId,
+				leg.amountFen,
+				leg.status,
+				leg.providerReferenceDigest ?? null,
+				leg.confirmedAt ? mysqlDateTime(leg.confirmedAt) : null,
+				leg.version,
+				mysqlDateTime(leg.createdAt),
+				mysqlDateTime(leg.updatedAt),
+			],
+		);
+	}
+	if (projection.event) {
+		const event = insertPaymentOperationEventSql(projection.event);
+		await execute<ResultSetHeader>(connection, event.sql, event.values);
+	}
+}
+
+/**
+ * 在来源订单 CAS UPDATE 成功后，按聚合/支付腿版本继续 CAS 更新运营台账。
+ * 如果历史订单尚未有投影，仅允许 version=1 的第一次补齐走 INSERT；其余
+ * 缺行或版本不一致都回滚整笔来源订单更新，避免形成半条运营事实。
+ */
+async function updatePaymentOperationsProjection(
+	connection: PoolConnection,
+	projection: PaymentOperationsProjection,
+): Promise<void> {
+	const aggregate = projection.aggregate;
+	const expectedAggregateVersion = aggregate.version - 1;
+	if (expectedAggregateVersion < 0) {
+		throw new Error("Payment aggregate version is invalid");
+	}
+	const aggregateUpdate = await execute<ResultSetHeader>(
+		connection,
+		"UPDATE hp_payment_aggregates SET owner_user_id = ?, patient_id = ?, business = ?, business_key = ?, business_id = ?, total_fen = ?, insurance_fen = ?, cash_fen = ?, status = ?, his_sync_status = ?, source_version = ?, version = ?, updated_at = ? WHERE aggregate_id = ? AND version = ? AND source_version < ?",
+		[
+			aggregate.ownerUserId,
+			aggregate.patientId,
+			aggregate.business,
+			aggregate.businessKey,
+			aggregate.businessId,
+			aggregate.totalFen,
+			aggregate.insuranceFen,
+			aggregate.cashFen,
+			aggregate.status,
+			aggregate.hisSyncStatus,
+			aggregate.sourceVersion,
+			aggregate.version,
+			mysqlDateTime(aggregate.updatedAt),
+			aggregate.aggregateId,
+			expectedAggregateVersion,
+			aggregate.sourceVersion,
+		],
+	);
+	if (aggregateUpdate.affectedRows !== 1) {
+		if (expectedAggregateVersion !== 0) {
+			throw new Error("Payment aggregate version conflict");
+		}
+		await execute<ResultSetHeader>(
+			connection,
+			"INSERT INTO hp_payment_aggregates (aggregate_id, owner_user_id, patient_id, business, business_key, business_id, total_fen, insurance_fen, cash_fen, status, his_sync_status, source_version, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			[
+				aggregate.aggregateId,
+				aggregate.ownerUserId,
+				aggregate.patientId,
+				aggregate.business,
+				aggregate.businessKey,
+				aggregate.businessId,
+				aggregate.totalFen,
+				aggregate.insuranceFen,
+				aggregate.cashFen,
+				aggregate.status,
+				aggregate.hisSyncStatus,
+				aggregate.sourceVersion,
+				aggregate.version,
+				mysqlDateTime(aggregate.createdAt),
+				mysqlDateTime(aggregate.updatedAt),
+			],
+		);
+	}
+
+	for (const leg of projection.legs) {
+		const expectedLegVersion = leg.version - 1;
+		if (expectedLegVersion < 0) {
+			throw new Error("Payment leg version is invalid");
+		}
+		const legUpdate = await execute<ResultSetHeader>(
+			connection,
+			"UPDATE hp_payment_legs SET source = ?, source_order_id = ?, amount_fen = ?, status = ?, provider_reference_digest = ?, confirmed_at = ?, version = ?, updated_at = ? WHERE leg_id = ? AND version = ?",
+			[
+				leg.source,
+				leg.sourceOrderId,
+				leg.amountFen,
+				leg.status,
+				leg.providerReferenceDigest ?? null,
+				leg.confirmedAt ? mysqlDateTime(leg.confirmedAt) : null,
+				leg.version,
+				mysqlDateTime(leg.updatedAt),
+				leg.legId,
+				expectedLegVersion,
+			],
+		);
+		if (legUpdate.affectedRows !== 1) {
+			if (expectedLegVersion !== 0) {
+				throw new Error("Payment leg version conflict");
+			}
+			await execute<ResultSetHeader>(
+				connection,
+				"INSERT INTO hp_payment_legs (leg_id, aggregate_id, leg_type, source, source_order_id, amount_fen, status, provider_reference_digest, confirmed_at, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				[
+					leg.legId,
+					leg.aggregateId,
+					leg.legType,
+					leg.source,
+					leg.sourceOrderId,
+					leg.amountFen,
+					leg.status,
+					leg.providerReferenceDigest ?? null,
+					leg.confirmedAt ? mysqlDateTime(leg.confirmedAt) : null,
+					leg.version,
+					mysqlDateTime(leg.createdAt),
+					mysqlDateTime(leg.updatedAt),
+				],
+			);
+		}
+	}
+	if (projection.event) {
+		const event = insertPaymentOperationEventSql(projection.event);
+		await execute<ResultSetHeader>(connection, event.sql, event.values);
+	}
+}
+
+/**
+ * 医保来源订单使用 source-order CAS 后的事务内幂等投影。
+ * 医保订单的既有仓储边界只有 applySettlement，没有可复用的聚合版本参数；
+ * 这里以医保订单 version 作为来源版本，数据库用 source_version/version
+ * 防止旧查单结果覆盖新事实。
+ */
+async function upsertPaymentOperationsProjection(
+	connection: PoolConnection,
+	projection: PaymentOperationsProjection,
+): Promise<void> {
+	const aggregate = projection.aggregate;
+	await execute<ResultSetHeader>(
+		connection,
+		"INSERT INTO hp_payment_aggregates (aggregate_id, owner_user_id, patient_id, business, business_key, business_id, total_fen, insurance_fen, cash_fen, status, his_sync_status, source_version, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE owner_user_id = IF(source_version < VALUES(source_version), VALUES(owner_user_id), owner_user_id), patient_id = IF(source_version < VALUES(source_version), VALUES(patient_id), patient_id), business = IF(source_version < VALUES(source_version), VALUES(business), business), business_id = IF(source_version < VALUES(source_version), VALUES(business_id), business_id), total_fen = IF(source_version < VALUES(source_version), VALUES(total_fen), total_fen), insurance_fen = IF(source_version < VALUES(source_version), VALUES(insurance_fen), insurance_fen), cash_fen = IF(source_version < VALUES(source_version), VALUES(cash_fen), cash_fen), status = IF(source_version < VALUES(source_version), VALUES(status), status), his_sync_status = IF(source_version < VALUES(source_version), VALUES(his_sync_status), his_sync_status), version = IF(source_version < VALUES(source_version), VALUES(version), version), updated_at = IF(source_version < VALUES(source_version), VALUES(updated_at), updated_at), source_version = IF(source_version < VALUES(source_version), VALUES(source_version), source_version)",
+		[
+			aggregate.aggregateId,
+			aggregate.ownerUserId,
+			aggregate.patientId,
+			aggregate.business,
+			aggregate.businessKey,
+			aggregate.businessId,
+			aggregate.totalFen,
+			aggregate.insuranceFen,
+			aggregate.cashFen,
+			aggregate.status,
+			aggregate.hisSyncStatus,
+			aggregate.sourceVersion,
+			aggregate.version,
+			mysqlDateTime(aggregate.createdAt),
+			mysqlDateTime(aggregate.updatedAt),
+		],
+	);
+	for (const leg of projection.legs) {
+		await execute<ResultSetHeader>(
+			connection,
+			"INSERT INTO hp_payment_legs (leg_id, aggregate_id, leg_type, source, source_order_id, amount_fen, status, provider_reference_digest, confirmed_at, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE source = IF(version < VALUES(version), VALUES(source), source), source_order_id = IF(version < VALUES(version), VALUES(source_order_id), source_order_id), amount_fen = IF(version < VALUES(version), VALUES(amount_fen), amount_fen), status = IF(version < VALUES(version), VALUES(status), status), provider_reference_digest = IF(version < VALUES(version), VALUES(provider_reference_digest), provider_reference_digest), confirmed_at = IF(version < VALUES(version), VALUES(confirmed_at), confirmed_at), updated_at = IF(version < VALUES(version), VALUES(updated_at), updated_at), version = IF(version < VALUES(version), VALUES(version), version)",
+			[
+				leg.legId,
+				leg.aggregateId,
+				leg.legType,
+				leg.source,
+				leg.sourceOrderId,
+				leg.amountFen,
+				leg.status,
+				leg.providerReferenceDigest ?? null,
+				leg.confirmedAt ? mysqlDateTime(leg.confirmedAt) : null,
+				leg.version,
+				mysqlDateTime(leg.createdAt),
+				mysqlDateTime(leg.updatedAt),
+			],
+		);
+	}
+	if (projection.event) {
+		const event = insertPaymentOperationEventSql(projection.event);
+		await execute<ResultSetHeader>(connection, event.sql, event.values);
+	}
+}
+
 /**
  * MySQL repository 实现。
  *
@@ -3562,7 +3817,7 @@ export function createMySqlRepositories(
 			);
 			return rows.map(paymentOperationEvent);
 		},
-	};
+		};
 
 	const paymentSyncTaskSelect = `SELECT task_id, aggregate_id, business_key, source, kind, status, attempts, max_attempts, next_run_at, claimed_until, last_error_code, result_digest, version, created_at, updated_at FROM hp_payment_sync_tasks`;
 	const paymentReconciliationSelect = `SELECT result_id, aggregate_id, source, observation_key, outcome, expected_amount_fen, observed_amount_fen, amount_delta_fen, expected_status, observed_status, resolution, evidence_digest, observed_at, created_at FROM hp_payment_reconciliation_results`;
@@ -4604,6 +4859,51 @@ export function createMySqlRepositories(
 				return existing;
 			}
 		},
+		async insertWithPaymentOperations(order, event, projection) {
+			try {
+				await withTransaction(pool, async (connection) => {
+					await execute<ResultSetHeader>(
+						connection,
+						"INSERT INTO hp_payment_orders (order_id, owner_user_id, patient_id, idempotency_key, total_fen, insurance_fen, cash_fen, state, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+						[
+							order.orderId,
+							order.ownerUserId,
+							order.patientId,
+							order.idempotencyKey,
+							order.amounts.totalFen,
+							order.amounts.insuranceFen,
+							order.amounts.cashFen,
+							order.state,
+							order.version,
+							mysqlDateTime(order.createdAt),
+							mysqlDateTime(order.updatedAt),
+						],
+					);
+					await insertPaymentOperationsProjection(connection, projection);
+					const outbox = insertOutboxSql(event);
+					await execute<ResultSetHeader>(connection, outbox.sql, outbox.values);
+				});
+				return order;
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const existing = await paymentOrders.findByOwnerAndIdempotencyKey(
+					order.ownerUserId,
+					order.idempotencyKey,
+				);
+				if (!existing || !sameOrderIdentity(existing, order)) {
+					if (existing && !sameOrderIdentity(existing, order)) {
+						throw new PaymentIdempotencyConflictError();
+					}
+					throw error;
+				}
+				const existingAggregate =
+					await paymentOperations.findAggregateByBusinessKey(
+						`payment_order:${order.orderId}`,
+					);
+				if (!existingAggregate) throw error;
+				return existing;
+			}
+		},
 		async update(order, expectedVersion, event) {
 			return withTransaction(pool, async (connection) => {
 				const result = await execute<ResultSetHeader>(
@@ -4621,6 +4921,29 @@ export function createMySqlRepositories(
 				if (result.affectedRows !== 1) {
 					throw new PaymentOrderVersionConflictError();
 				}
+				const outbox = insertOutboxSql(event);
+				await execute<ResultSetHeader>(connection, outbox.sql, outbox.values);
+				return order;
+			});
+		},
+		async updateWithPaymentOperations(order, expectedVersion, event, projection) {
+			return withTransaction(pool, async (connection) => {
+				const result = await execute<ResultSetHeader>(
+					connection,
+					"UPDATE hp_payment_orders SET state = ?, version = ?, updated_at = ? WHERE order_id = ? AND owner_user_id = ? AND version = ?",
+					[
+						order.state,
+						order.version,
+						mysqlDateTime(order.updatedAt),
+						order.orderId,
+						order.ownerUserId,
+						expectedVersion,
+					],
+				);
+				if (result.affectedRows !== 1) {
+					throw new PaymentOrderVersionConflictError();
+				}
+				await updatePaymentOperationsProjection(connection, projection);
 				const outbox = insertOutboxSql(event);
 				await execute<ResultSetHeader>(connection, outbox.sql, outbox.values);
 				return order;
@@ -5907,12 +6230,19 @@ export function createMySqlRepositories(
 					values.length,
 				);
 			}
-			await execute<ResultSetHeader>(
-				pool,
-				`INSERT INTO hp_medical_insurance_orders (${MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.join(", ")}) VALUES (${sqlParameterPlaceholders(values.length)})`,
-				values,
-			);
-			return order;
+				await withTransaction(pool, async (connection) => {
+					await execute<ResultSetHeader>(
+						connection,
+						`INSERT INTO hp_medical_insurance_orders (${MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.join(", ")}) VALUES (${sqlParameterPlaceholders(values.length)})`,
+						values,
+					);
+					const projection =
+						buildMedicalInsuranceOrderOperationsProjection(order);
+					if (projection) {
+						await upsertPaymentOperationsProjection(connection, projection);
+					}
+				});
+				return order;
 		},
 		async findByPayOrdId(payOrdId) {
 			const rows = await execute<MIRow[]>(
@@ -6224,8 +6554,9 @@ export function createMySqlRepositories(
 			};
 		},
 		async applySettlement(medicalOrderId, expectedVersion, patch) {
+			return withTransaction(pool, async (connection) => {
 			const result = await execute<ResultSetHeader>(
-				pool,
+				connection,
 				`UPDATE hp_medical_insurance_orders SET
 					status = ?, ord_stas = ?, total_fen = ?, cash_fen = ?, personal_account_fen = ?, fund_fen = ?,
 					other_payment_fen = ?, hospital_part_fen = ?, personal_account_mutual_aid_fen = ?, personal_account_self_fen = ?, deposit_fen = ?, delivery_fee_fen = ?,
@@ -6292,13 +6623,32 @@ export function createMySqlRepositories(
 			);
 			if (result.affectedRows === 0) return undefined;
 			const rows = await execute<MIRow[]>(
-				pool,
-				`${MI_SELECT} WHERE medical_order_id = ? LIMIT 1`,
-				[medicalOrderId],
-			);
-			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
-		},
-	};
+					connection,
+					`${MI_SELECT} WHERE medical_order_id = ? LIMIT 1`,
+					[medicalOrderId],
+				);
+				const updated = rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
+				if (!updated) return undefined;
+				const aggregateRows = await execute<PaymentAggregateRow[]>(
+					connection,
+					`${paymentAggregateSelect} WHERE business_key = ? LIMIT 1`,
+					[`medical_insurance:${updated.medicalOrderId}`],
+				);
+				const existingAggregate = aggregateRows[0]
+					? paymentAggregate(aggregateRows[0])
+					: undefined;
+				const projection =
+					buildMedicalInsuranceOrderOperationsProjection(
+						updated,
+						existingAggregate,
+					);
+					if (projection) {
+						await upsertPaymentOperationsProjection(connection, projection);
+					}
+					return updated;
+				});
+			},
+		};
 
 	/**
 	 * 医保 6301 查单任务仓储。

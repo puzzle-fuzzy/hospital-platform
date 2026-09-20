@@ -410,6 +410,7 @@ export type {
 	PaymentOrder,
 	PaymentOrderReadModelViolation,
 	PaymentOrderRepository,
+	PaymentOrderOperationsProjector,
 	PaymentOrderServiceDependencies,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
@@ -420,6 +421,10 @@ export type {
 	WechatPaymentReconciliationOutcome,
 	WechatPaymentReconciliationResult,
 } from "./payment-order";
+export {
+	buildMedicalInsuranceOrderOperationsProjection,
+	buildPaymentOrderOperationsProjection,
+} from "./payment-order-operations-projection";
 export {
 	assertValidPaymentAmounts,
 	InvalidPaymentAmountsError,
@@ -580,6 +585,7 @@ export type {
 	PaymentLegType,
 	PaymentOperationEvent,
 	PaymentOperationEventSource,
+	PaymentOperationsProjection,
 	PaymentOperationsRepository,
 } from "./payment-operations";
 export type {

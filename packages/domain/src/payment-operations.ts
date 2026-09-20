@@ -91,6 +91,19 @@ export type PaymentOperationEvent = {
 	payloadDigest: string;
 };
 
+/**
+ * 支付来源订单写入运营台账时使用的纯数据投影。
+ *
+ * 该类型不包含 Provider 原文；MySQL 组合根可以把它与来源订单、
+ * outbox 事件放进同一个事务。历史回填和外部 Provider 查单仍可继续使用
+ * PaymentOperationsRepository 的独立投影路径。
+ */
+export type PaymentOperationsProjection = {
+	aggregate: PaymentAggregate;
+	legs: readonly PaymentLeg[];
+	event?: PaymentOperationEvent;
+};
+
 export type PaymentOperationsRepository = {
 	findAggregateById(aggregateId: string): Promise<PaymentAggregate | undefined>;
 	findAggregateByBusinessKey(

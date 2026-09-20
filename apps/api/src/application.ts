@@ -49,6 +49,7 @@ import {
 	AdminInsuranceQueryService,
 	AdminWechatRefundService,
 } from "./modules/admin";
+import { buildPaymentOrderProjection } from "./modules/admin/payment-operations-projector";
 import { AppointmentService } from "./modules/appointments";
 import { AppointmentWriteService } from "./modules/appointments/write-service";
 import {
@@ -487,6 +488,8 @@ export function createDefaultApplicationServices(
 	const paymentOrders = new PaymentOrderService({
 		orders: repositories.paymentOrders,
 		quotes: repositories.paymentQuotes,
+		paymentOperations: repositories.paymentOperations,
+		projectPaymentOperations: buildPaymentOrderProjection,
 	});
 	const appointments = new AppointmentService({
 		directory:
