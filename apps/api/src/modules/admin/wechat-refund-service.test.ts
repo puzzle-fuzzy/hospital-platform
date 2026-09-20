@@ -361,7 +361,13 @@ test("admin refund history shows prior payments and only enables the safe refund
 		},
 	});
 
-	const history = await service.listPaymentHistory({ limit: 10 });
+	const historyPage = await service.listPaymentHistory({ limit: 10 });
+	const history = historyPage.items;
+	expect(historyPage).toMatchObject({
+		total: 4,
+		page: 1,
+		pageSize: 10,
+	});
 	const normal = history.find(
 		(record) => record.orderId === paidOrder().orderId,
 	);
@@ -419,6 +425,22 @@ test("admin refund history shows prior payments and only enables the safe refund
 		refundableFen: 0,
 		refundRoute: "unavailable",
 	});
+
+	const secondPage = await service.listPaymentHistory({ page: 2, pageSize: 2 });
+	expect(secondPage).toMatchObject({ total: 4, page: 2, pageSize: 2 });
+	expect(secondPage.items.map((record) => record.orderId)).toEqual([
+		unconfirmedOrder.orderId,
+		paidOrder().orderId,
+	]);
+
+	const registrationPage = await service.listPaymentHistory({
+		business: "registration",
+		pageSize: 10,
+	});
+	expect(registrationPage).toMatchObject({ total: 1, page: 1, pageSize: 10 });
+	expect(registrationPage.items.map((record) => record.orderId)).toEqual([
+		registrationOrder.orderId,
+	]);
 
 	await expect(
 		service.request(

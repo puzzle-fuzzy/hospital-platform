@@ -3571,18 +3571,68 @@ export function createMySqlRepositories(
 			if (!Number.isSafeInteger(input.limit) || input.limit < 1) {
 				throw new Error("Admin payment history limit is invalid");
 			}
-			const limit = Math.min(input.limit, 100);
+			const limit = Math.min(input.limit, 10_000);
 			const orderId = input.orderId?.trim();
+			const conditions: string[] = [];
+			const values: unknown[] = [];
+			if (orderId) {
+				conditions.push("order_id = ?");
+				values.push(orderId);
+			}
+			if (input.business === "registration") {
+				conditions.push("idempotency_key LIKE 'registration-self-pay:%'");
+			} else if (input.business === "outpatient") {
+				conditions.push("idempotency_key LIKE 'outpatient-self-pay:%'");
+			} else if (input.business === "other") {
+				conditions.push(
+					"idempotency_key NOT LIKE 'registration-self-pay:%' AND idempotency_key NOT LIKE 'outpatient-self-pay:%'",
+				);
+			}
+			const where = conditions.length
+				? `WHERE ${conditions.join(" AND ")}`
+				: "";
 			const rows = await execute<PaymentOrderRow[]>(
 				pool,
 				`SELECT order_id, owner_user_id, patient_id, idempotency_key, total_fen, insurance_fen, cash_fen, state, version, created_at, updated_at
 				 FROM hp_payment_orders
-				 ${orderId ? "WHERE order_id = ?" : ""}
+				 ${where}
 				 ORDER BY updated_at DESC, order_id DESC
 				 LIMIT ${limit}`,
-				orderId ? [orderId] : [],
+				values,
 			);
 			return rows.map(paymentOrder);
+		},
+		async countForAdmin(input) {
+			const conditions: string[] = [];
+			const values: unknown[] = [];
+			if (input.orderId?.trim()) {
+				conditions.push("order_id = ?");
+				values.push(input.orderId.trim());
+			}
+			if (input.business === "registration") {
+				conditions.push("idempotency_key LIKE 'registration-self-pay:%'");
+			} else if (input.business === "outpatient") {
+				conditions.push("idempotency_key LIKE 'outpatient-self-pay:%'");
+			} else if (input.business === "other") {
+				conditions.push(
+					"idempotency_key NOT LIKE 'registration-self-pay:%' AND idempotency_key NOT LIKE 'outpatient-self-pay:%'",
+				);
+			}
+			const where = conditions.length
+				? `WHERE ${conditions.join(" AND ")}`
+				: "";
+			const rows = await execute<
+				(RowDataPacket & { total: number | string })[]
+			>(
+				pool,
+				`SELECT COUNT(*) AS total FROM hp_payment_orders ${where}`,
+				values,
+			);
+			return safeDatabaseInteger(
+				rows[0]?.total ?? 0,
+				0,
+				"Persistence returned an invalid admin payment order count",
+			);
 		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			const rows = await execute<PaymentOrderRow[]>(
@@ -4983,17 +5033,63 @@ export function createMySqlRepositories(
 			if (!Number.isSafeInteger(input.limit) || input.limit < 1) {
 				throw new Error("Admin medical payment history limit is invalid");
 			}
-			const limit = Math.min(input.limit, 100);
+			const limit = Math.min(input.limit, 10_000);
 			const orderId = input.orderId?.trim();
+			const conditions: string[] = [];
+			const values: unknown[] = [];
+			if (orderId) {
+				conditions.push("medical_order_id = ?");
+				values.push(orderId);
+			}
+			if (input.business === "outpatient") {
+				conditions.push("business_type = 'outpatient'");
+			} else if (input.business === "registration") {
+				conditions.push("business_type <> 'outpatient'");
+			} else if (input.business === "other") {
+				conditions.push("1 = 0");
+			}
+			const where = conditions.length
+				? `WHERE ${conditions.join(" AND ")}`
+				: "";
 			const rows = await execute<MIRow[]>(
 				pool,
 				`${MI_ADMIN_REFUND_SELECT}
-				 ${orderId ? "WHERE medical_order_id = ?" : ""}
+				 ${where}
 				 ORDER BY updated_at DESC, medical_order_id DESC
 				 LIMIT ${limit}`,
-				orderId ? [orderId] : [],
+				values,
 			);
 			return rows.map((row) => miOrder(row));
+		},
+		async countForAdmin(input) {
+			const conditions: string[] = [];
+			const values: unknown[] = [];
+			if (input.orderId?.trim()) {
+				conditions.push("medical_order_id = ?");
+				values.push(input.orderId.trim());
+			}
+			if (input.business === "outpatient") {
+				conditions.push("business_type = 'outpatient'");
+			} else if (input.business === "registration") {
+				conditions.push("business_type <> 'outpatient'");
+			} else if (input.business === "other") {
+				conditions.push("1 = 0");
+			}
+			const where = conditions.length
+				? `WHERE ${conditions.join(" AND ")}`
+				: "";
+			const rows = await execute<
+				(RowDataPacket & { total: number | string })[]
+			>(
+				pool,
+				`SELECT COUNT(*) AS total FROM hp_medical_insurance_orders ${where}`,
+				values,
+			);
+			return safeDatabaseInteger(
+				rows[0]?.total ?? 0,
+				0,
+				"Persistence returned an invalid admin medical order count",
+			);
 		},
 		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {
 			const rows = await execute<MIRow[]>(

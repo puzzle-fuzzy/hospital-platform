@@ -170,13 +170,13 @@ test("MySQL admin history binds only filters and keeps LIMIT in validated SQL", 
 	const { pool, state } = createFakePool([[], [], [], []]);
 	const repositories = createMySqlRepositories(pool);
 
-	await repositories.paymentOrders.listRecentForAdmin({ limit: 100 });
-	await repositories.paymentOrders.listRecentForAdmin({
+	await repositories.paymentOrders.listRecentForAdmin!({ limit: 100 });
+	await repositories.paymentOrders.listRecentForAdmin!({
 		limit: 100,
 		orderId: "payment-order-admin-001",
 	});
-	await repositories.medicalInsuranceOrders.listRecentForAdmin({ limit: 100 });
-	await repositories.medicalInsuranceOrders.listRecentForAdmin({
+	await repositories.medicalInsuranceOrders.listRecentForAdmin!({ limit: 100 });
+	await repositories.medicalInsuranceOrders.listRecentForAdmin!({
 		limit: 100,
 		orderId: "medical-order-admin-001",
 	});

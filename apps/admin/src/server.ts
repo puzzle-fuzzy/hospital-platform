@@ -699,10 +699,35 @@ async function adminRefundHistoryRequest(
 		}
 		forwarded.set("source", source);
 	}
+	const business = url.searchParams.get("business");
+	if (business) {
+		if (
+			business !== "registration" &&
+			business !== "outpatient" &&
+			business !== "other"
+		) {
+			return errorResponse("业务类型参数不合法", 400);
+		}
+		forwarded.set("business", business);
+	}
 	const orderId = url.searchParams.get("orderId");
 	if (orderId) {
 		if (orderId.length > 64) return errorResponse("订单号参数不合法", 400);
 		forwarded.set("orderId", orderId);
+	}
+	const page = url.searchParams.get("page");
+	if (page) {
+		if (!/^[1-9][0-9]{0,4}$/u.test(page)) {
+			return errorResponse("页码参数不合法", 400);
+		}
+		forwarded.set("page", page);
+	}
+	const pageSize = url.searchParams.get("pageSize");
+	if (pageSize) {
+		if (!/^[1-9][0-9]{0,2}$/u.test(pageSize)) {
+			return errorResponse("每页条数参数不合法", 400);
+		}
+		forwarded.set("pageSize", pageSize);
 	}
 	const limit = url.searchParams.get("limit");
 	if (limit) {

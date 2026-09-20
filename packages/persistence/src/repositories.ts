@@ -788,6 +788,32 @@ export function createInMemoryPatientRepository(
 	};
 }
 
+function matchesPaymentAdminBusiness(
+	order: PaymentOrder,
+	business: "registration" | "outpatient" | "other" | undefined,
+): boolean {
+	if (!business) return true;
+	const isRegistration = order.idempotencyKey.startsWith(
+		"registration-self-pay:",
+	);
+	const isOutpatient = order.idempotencyKey.startsWith("outpatient-self-pay:");
+	return business === "registration"
+		? isRegistration
+		: business === "outpatient"
+			? isOutpatient
+			: !isRegistration && !isOutpatient;
+}
+
+function matchesMedicalAdminBusiness(
+	order: MedicalInsuranceOrder,
+	business: "registration" | "outpatient" | "other" | undefined,
+): boolean {
+	if (!business || business === "other") return business !== "other";
+	return business === "outpatient"
+		? order.businessType === "outpatient"
+		: order.businessType !== "outpatient";
+}
+
 /** 仅用于订单状态机测试；生产实现需要数据库事务和版本号条件更新。 */
 export function createInMemoryPaymentOrderRepository(
 	seed: readonly PaymentOrder[] = [],
@@ -804,13 +830,24 @@ export function createInMemoryPaymentOrderRepository(
 		},
 		async listRecentForAdmin(input) {
 			return [...orders.values()]
-				.filter((order) => !input.orderId || order.orderId === input.orderId)
+				.filter(
+					(order) =>
+						(!input.orderId || order.orderId === input.orderId) &&
+						matchesPaymentAdminBusiness(order, input.business),
+				)
 				.sort((left, right) => {
 					const updated = right.updatedAt.localeCompare(left.updatedAt);
 					return updated || right.orderId.localeCompare(left.orderId);
 				})
 				.slice(0, input.limit)
 				.map((order) => ({ ...order, amounts: { ...order.amounts } }));
+		},
+		async countForAdmin(input) {
+			return [...orders.values()].filter(
+				(order) =>
+					(!input.orderId || order.orderId === input.orderId) &&
+					matchesPaymentAdminBusiness(order, input.business),
+			).length;
 		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			return [...orders.values()].find(
@@ -2164,7 +2201,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 		async listRecentForAdmin(input) {
 			return [...orders.values()]
 				.filter(
-					(order) => !input.orderId || order.medicalOrderId === input.orderId,
+					(order) =>
+						(!input.orderId || order.medicalOrderId === input.orderId) &&
+						matchesMedicalAdminBusiness(order, input.business),
 				)
 				.sort((left, right) => {
 					const updated = right.updatedAt.localeCompare(left.updatedAt);
@@ -2177,6 +2216,13 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 					...order,
 					...(order.amounts ? { amounts: { ...order.amounts } } : {}),
 				}));
+		},
+		async countForAdmin(input) {
+			return [...orders.values()].filter(
+				(order) =>
+					(!input.orderId || order.medicalOrderId === input.orderId) &&
+					matchesMedicalAdminBusiness(order, input.business),
+			).length;
 		},
 		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {
 			return [...orders.values()]

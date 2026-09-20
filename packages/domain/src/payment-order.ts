@@ -462,7 +462,13 @@ export interface PaymentOrderRepository {
 	listRecentForAdmin?(input: {
 		limit: number;
 		orderId?: string;
+		business?: "registration" | "outpatient" | "other";
 	}): Promise<readonly PaymentOrder[]>;
+	/** 管理端统一支付读模型的来源计数，不携带订单或患者详情。 */
+	countForAdmin?(input: {
+		orderId?: string;
+		business?: "registration" | "outpatient" | "other";
+	}): Promise<number>;
 	findByOwnerAndIdempotencyKey(
 		ownerUserId: string,
 		idempotencyKey: string,

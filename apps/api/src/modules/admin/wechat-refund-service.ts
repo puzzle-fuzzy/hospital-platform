@@ -27,10 +27,23 @@ export type AdminWechatRefundInput = {
 
 export type AdminWechatRefundHistoryQuery = {
 	source?: WechatRefundSource;
+	business?: "registration" | "outpatient" | "other";
 	/** 精确匹配服务端订单号；为空时读取最近记录。 */
 	orderId?: string;
+	page?: number;
+	pageSize?: number;
+	/** 兼容旧调用方；新调用方使用 pageSize。 */
 	limit?: number;
 };
+
+export type AdminPaymentHistoryPage = {
+	items: readonly AdminWechatRefundPaymentRecord[];
+	total: number;
+	page: number;
+	pageSize: number;
+};
+
+const ADMIN_PAYMENT_HISTORY_SCAN_LIMIT = 10_000;
 
 /**
  * Admin 退款页面仅使用此最小支付读模型。患者、支付凭证、微信调起参数、
@@ -197,8 +210,8 @@ function normalizeRefundInput(
 
 function normalizeHistoryQuery(
 	input: AdminWechatRefundHistoryQuery,
-): Required<Pick<AdminWechatRefundHistoryQuery, "limit">> &
-	Pick<AdminWechatRefundHistoryQuery, "source" | "orderId"> {
+): Required<Pick<AdminWechatRefundHistoryQuery, "page" | "pageSize">> &
+	Pick<AdminWechatRefundHistoryQuery, "source" | "business" | "orderId"> {
 	if (
 		input.source !== undefined &&
 		input.source !== "payment_order" &&
@@ -206,14 +219,33 @@ function normalizeHistoryQuery(
 	) {
 		throw new AdminWechatRefundInputError();
 	}
-	const limit = input.limit ?? 50;
-	if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-		throw new AdminWechatRefundInputError("历史支付查询条数不合法");
+	if (
+		input.business !== undefined &&
+		input.business !== "registration" &&
+		input.business !== "outpatient" &&
+		input.business !== "other"
+	) {
+		throw new AdminWechatRefundInputError();
+	}
+	const page = input.page ?? 1;
+	const pageSize = input.pageSize ?? input.limit ?? 50;
+	if (!Number.isSafeInteger(page) || page < 1 || page > 10000) {
+		throw new AdminWechatRefundInputError("历史支付页码不合法");
+	}
+	if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+		throw new AdminWechatRefundInputError("历史支付每页条数不合法");
+	}
+	if (page * pageSize > ADMIN_PAYMENT_HISTORY_SCAN_LIMIT) {
+		throw new AdminWechatRefundInputError(
+			"历史支付页码超出当前查询窗口，请缩小筛选范围",
+		);
 	}
 	const orderId = input.orderId?.trim();
 	return {
-		limit,
+		page,
+		pageSize,
 		...(input.source ? { source: input.source } : {}),
+		...(input.business ? { business: input.business } : {}),
 		...(orderId ? { orderId: requiredText(orderId, 64) } : {}),
 	};
 }
@@ -523,29 +555,51 @@ export class AdminWechatRefundService {
 
 	async listPaymentHistory(
 		input: AdminWechatRefundHistoryQuery = {},
-	): Promise<readonly AdminWechatRefundPaymentRecord[]> {
+	): Promise<AdminPaymentHistoryPage> {
 		const query = normalizeHistoryQuery(input);
 		const listPaymentOrders =
 			this.dependencies.paymentOrders.listRecentForAdmin;
 		const listMedicalOrders =
 			this.dependencies.medicalInsuranceOrders.listRecentForAdmin;
+		const countPaymentOrders = this.dependencies.paymentOrders.countForAdmin;
+		const countMedicalOrders =
+			this.dependencies.medicalInsuranceOrders.countForAdmin;
 		const findRefunds = this.dependencies.refunds.findBySourceAndSourceOrder;
-		if (!listPaymentOrders || !listMedicalOrders || !findRefunds) {
+		if (
+			!listPaymentOrders ||
+			!listMedicalOrders ||
+			!countPaymentOrders ||
+			!countMedicalOrders ||
+			!findRefunds
+		) {
 			throw new AdminWechatRefundHistoryNotConfiguredError();
 		}
+		const sourceQuery = {
+			...(query.business ? { business: query.business } : {}),
+			...(query.orderId ? { orderId: query.orderId } : {}),
+		};
+		const fetchLimit = query.page * query.pageSize;
 		const [paymentOrders, medicalOrders] = await Promise.all([
 			query.source === "medical_insurance"
 				? Promise.resolve([] as readonly PaymentOrder[])
 				: listPaymentOrders({
-						limit: query.limit,
-						...(query.orderId ? { orderId: query.orderId } : {}),
+						limit: fetchLimit,
+						...sourceQuery,
 					}),
 			query.source === "payment_order"
 				? Promise.resolve([] as readonly MedicalInsuranceOrder[])
 				: listMedicalOrders({
-						limit: query.limit,
-						...(query.orderId ? { orderId: query.orderId } : {}),
+						limit: fetchLimit,
+						...sourceQuery,
 					}),
+		]);
+		const [paymentTotal, medicalTotal] = await Promise.all([
+			query.source === "medical_insurance"
+				? Promise.resolve(0)
+				: countPaymentOrders(sourceQuery),
+			query.source === "payment_order"
+				? Promise.resolve(0)
+				: countMedicalOrders(sourceQuery),
 		]);
 		const candidates = [
 			...paymentOrders.map((order) => ({
@@ -569,131 +623,138 @@ export class AdminWechatRefundService {
 			return updated || rightId.localeCompare(leftId);
 		});
 		const records = await Promise.all(
-			candidates.slice(0, query.limit).map(async (candidate) => {
-				const orderId =
-					candidate.source === "payment_order"
-						? candidate.order.orderId
-						: candidate.order.medicalOrderId;
-				const [refunds, latestMedicalRefund] = await Promise.all([
-					findRefunds(candidate.source, orderId),
-					candidate.source === "medical_insurance" &&
-					this.dependencies.medicalInsuranceRefunds
-						? this.dependencies.medicalInsuranceRefunds.findLatestByMedicalOrderId(
-								orderId,
-							)
-						: Promise.resolve(undefined),
-				]);
-				const summary = refundSummary(refunds);
-				if (candidate.source === "payment_order") {
+			candidates
+				.slice((query.page - 1) * query.pageSize, query.page * query.pageSize)
+				.map(async (candidate) => {
+					const orderId =
+						candidate.source === "payment_order"
+							? candidate.order.orderId
+							: candidate.order.medicalOrderId;
+					const [refunds, latestMedicalRefund] = await Promise.all([
+						findRefunds(candidate.source, orderId),
+						candidate.source === "medical_insurance" &&
+						this.dependencies.medicalInsuranceRefunds
+							? this.dependencies.medicalInsuranceRefunds.findLatestByMedicalOrderId(
+									orderId,
+								)
+							: Promise.resolve(undefined),
+					]);
+					const summary = refundSummary(refunds);
+					if (candidate.source === "payment_order") {
+						const order = candidate.order;
+						const cashPaymentConfirmed = CONFIRMED_PAYMENT_ORDER_STATES.has(
+							order.state,
+						);
+						const refundableFen = cashPaymentConfirmed
+							? Math.max(0, order.amounts.cashFen - summary.reservedFen)
+							: 0;
+						const business = normalPaymentBusiness(order);
+						return {
+							source: candidate.source,
+							orderId,
+							business,
+							totalFen: order.amounts.totalFen,
+							insuranceFen: order.amounts.insuranceFen,
+							paymentState: order.state,
+							cashPaymentConfirmed,
+							cashFen: order.amounts.cashFen,
+							refundReservedFen: summary.reservedFen,
+							refundableFen,
+							refundCount: refunds.length,
+							...(summary.latestRefund
+								? { latestRefund: summary.latestRefund }
+								: {}),
+							refundRoute:
+								!cashPaymentConfirmed || refundableFen <= 0
+									? "unavailable"
+									: business === "registration"
+										? "appointment_cancel"
+										: "admin",
+							createdAt: order.createdAt,
+							updatedAt: order.updatedAt,
+						} satisfies AdminWechatRefundPaymentRecord;
+					}
 					const order = candidate.order;
-					const cashPaymentConfirmed = CONFIRMED_PAYMENT_ORDER_STATES.has(
-						order.state,
-					);
+					const cashPaymentConfirmed = order.wechatPaymentState === "cash_paid";
+					const cashFen = order.amounts?.cashFen ?? 0;
 					const refundableFen = cashPaymentConfirmed
-						? Math.max(0, order.amounts.cashFen - summary.reservedFen)
+						? Math.max(0, cashFen - summary.reservedFen)
 						: 0;
-					const business = normalPaymentBusiness(order);
 					return {
 						source: candidate.source,
 						orderId,
-						business,
-						totalFen: order.amounts.totalFen,
-						insuranceFen: order.amounts.insuranceFen,
-						paymentState: order.state,
+						business: medicalPaymentBusiness(order),
+						totalFen: order.amounts?.totalFen ?? 0,
+						paymentState: order.wechatPaymentState ?? "not_started",
 						cashPaymentConfirmed,
-						cashFen: order.amounts.cashFen,
+						cashFen,
+						...(order.amounts?.personalAccountFen === undefined
+							? {}
+							: { personalAccountFen: order.amounts.personalAccountFen }),
+						...(order.amounts?.fundFen === undefined
+							? {}
+							: { fundFen: order.amounts.fundFen }),
+						...(order.amounts?.otherPaymentFen === undefined
+							? {}
+							: { otherPaymentFen: order.amounts.otherPaymentFen }),
+						...(order.amounts?.hospitalPartFen === undefined
+							? {}
+							: { hospitalPartFen: order.amounts.hospitalPartFen }),
+						...(order.amounts?.personalAccountMutualAidFen === undefined
+							? {}
+							: {
+									personalAccountMutualAidFen:
+										order.amounts.personalAccountMutualAidFen,
+								}),
+						...(order.amounts?.personalAccountSelfFen === undefined
+							? {}
+							: {
+									personalAccountSelfFen: order.amounts.personalAccountSelfFen,
+								}),
+						...(order.amounts?.depositFen === undefined
+							? {}
+							: { depositFen: order.amounts.depositFen }),
+						...(order.amounts?.deliveryFeeFen === undefined
+							? {}
+							: { deliveryFeeFen: order.amounts.deliveryFeeFen }),
+						medicalStatus: order.status,
+						ordStas: order.ordStas,
+						wechatPaymentState: order.wechatPaymentState ?? "not_started",
 						refundReservedFen: summary.reservedFen,
 						refundableFen,
 						refundCount: refunds.length,
 						...(summary.latestRefund
 							? { latestRefund: summary.latestRefund }
 							: {}),
+						...(latestMedicalRefund
+							? {
+									latestMedicalRefund: {
+										refundNo: latestMedicalRefund.refundNo,
+										status: latestMedicalRefund.status,
+										medicalStatus: latestMedicalRefund.medicalStatus,
+										wechatStatus: latestMedicalRefund.wechatStatus,
+										totalFen: latestMedicalRefund.totalFen,
+										updatedAt: latestMedicalRefund.updatedAt,
+									},
+								}
+							: {}),
 						refundRoute:
-							!cashPaymentConfirmed || refundableFen <= 0
-								? "unavailable"
-								: business === "registration"
-									? "appointment_cancel"
-									: "admin",
+							(order.status === "insurance_settled" &&
+								(cashFen <= 0 || cashPaymentConfirmed)) ||
+							(order.status === "cash_pending" && cashPaymentConfirmed)
+								? "admin"
+								: "unavailable",
 						createdAt: order.createdAt,
 						updatedAt: order.updatedAt,
 					} satisfies AdminWechatRefundPaymentRecord;
-				}
-				const order = candidate.order;
-				const cashPaymentConfirmed = order.wechatPaymentState === "cash_paid";
-				const cashFen = order.amounts?.cashFen ?? 0;
-				const refundableFen = cashPaymentConfirmed
-					? Math.max(0, cashFen - summary.reservedFen)
-					: 0;
-				return {
-					source: candidate.source,
-					orderId,
-					business: medicalPaymentBusiness(order),
-					totalFen: order.amounts?.totalFen ?? 0,
-					paymentState: order.wechatPaymentState ?? "not_started",
-					cashPaymentConfirmed,
-					cashFen,
-					...(order.amounts?.personalAccountFen === undefined
-						? {}
-						: { personalAccountFen: order.amounts.personalAccountFen }),
-					...(order.amounts?.fundFen === undefined
-						? {}
-						: { fundFen: order.amounts.fundFen }),
-					...(order.amounts?.otherPaymentFen === undefined
-						? {}
-						: { otherPaymentFen: order.amounts.otherPaymentFen }),
-					...(order.amounts?.hospitalPartFen === undefined
-						? {}
-						: { hospitalPartFen: order.amounts.hospitalPartFen }),
-					...(order.amounts?.personalAccountMutualAidFen === undefined
-						? {}
-						: {
-								personalAccountMutualAidFen:
-									order.amounts.personalAccountMutualAidFen,
-							}),
-					...(order.amounts?.personalAccountSelfFen === undefined
-						? {}
-						: {
-								personalAccountSelfFen: order.amounts.personalAccountSelfFen,
-							}),
-					...(order.amounts?.depositFen === undefined
-						? {}
-						: { depositFen: order.amounts.depositFen }),
-					...(order.amounts?.deliveryFeeFen === undefined
-						? {}
-						: { deliveryFeeFen: order.amounts.deliveryFeeFen }),
-					medicalStatus: order.status,
-					ordStas: order.ordStas,
-					wechatPaymentState: order.wechatPaymentState ?? "not_started",
-					refundReservedFen: summary.reservedFen,
-					refundableFen,
-					refundCount: refunds.length,
-					...(summary.latestRefund
-						? { latestRefund: summary.latestRefund }
-						: {}),
-					...(latestMedicalRefund
-						? {
-								latestMedicalRefund: {
-									refundNo: latestMedicalRefund.refundNo,
-									status: latestMedicalRefund.status,
-									medicalStatus: latestMedicalRefund.medicalStatus,
-									wechatStatus: latestMedicalRefund.wechatStatus,
-									totalFen: latestMedicalRefund.totalFen,
-									updatedAt: latestMedicalRefund.updatedAt,
-								},
-							}
-						: {}),
-					refundRoute:
-						(order.status === "insurance_settled" &&
-							(cashFen <= 0 || cashPaymentConfirmed)) ||
-						(order.status === "cash_pending" && cashPaymentConfirmed)
-							? "admin"
-							: "unavailable",
-					createdAt: order.createdAt,
-					updatedAt: order.updatedAt,
-				} satisfies AdminWechatRefundPaymentRecord;
-			}),
+				}),
 		);
-		return records;
+		return {
+			items: records,
+			total: paymentTotal + medicalTotal,
+			page: query.page,
+			pageSize: query.pageSize,
+		};
 	}
 
 	/**

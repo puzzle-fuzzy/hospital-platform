@@ -143,15 +143,14 @@ export function RefundPanel({
 			setHistoryLoading(true);
 			setHistoryError(undefined);
 			try {
-				setHistory(
-					await fetchWechatRefundPaymentHistory(
-						{
-							limit: 50,
-							...(queryOrderId?.trim() ? { orderId: queryOrderId.trim() } : {}),
-						},
-						session,
-					),
+				const page = await fetchWechatRefundPaymentHistory(
+					{
+						limit: 50,
+						...(queryOrderId?.trim() ? { orderId: queryOrderId.trim() } : {}),
+					},
+					session,
 				);
+				setHistory(page.items);
 			} catch (error) {
 				if (error instanceof ApiError && error.status === 401) {
 					onExpired();

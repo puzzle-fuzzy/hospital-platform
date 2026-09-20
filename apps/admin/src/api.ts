@@ -4,6 +4,7 @@ import type {
 	AdminLogRecord,
 	AdminMedicalInsuranceRefund,
 	AdminWechatRefundPaymentHistoryQuery,
+	AdminWechatRefundPaymentHistoryPage,
 	AdminWechatRefundPaymentRecord,
 	CaptchaState,
 	LoginValues,
@@ -293,14 +294,18 @@ export async function queryWechatRefund(
 export async function fetchWechatRefundPaymentHistory(
 	input: AdminWechatRefundPaymentHistoryQuery,
 	session: Session,
-): Promise<readonly AdminWechatRefundPaymentRecord[]> {
+): Promise<AdminWechatRefundPaymentHistoryPage> {
 	const query = new URLSearchParams();
 	if (input.source) query.set("source", input.source);
+	if (input.business) query.set("business", input.business);
 	if (input.orderId?.trim()) query.set("orderId", input.orderId.trim());
+	if (input.page !== undefined) query.set("page", String(input.page));
+	if (input.pageSize !== undefined)
+		query.set("pageSize", String(input.pageSize));
 	if (input.limit !== undefined) query.set("limit", String(input.limit));
 	const suffix = query.size > 0 ? `?${query.toString()}` : "";
 	try {
-		return await request<readonly AdminWechatRefundPaymentRecord[]>(
+		return await request<AdminWechatRefundPaymentHistoryPage>(
 			`/api/refunds/wechat/payments${suffix}`,
 			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
 		);

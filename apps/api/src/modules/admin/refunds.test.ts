@@ -46,7 +46,12 @@ test("Admin 微信退款历史只接受退款令牌并返回最小支付读模�
 				},
 				async listPaymentHistory(input: AdminWechatRefundHistoryQuery = {}) {
 					query = input;
-					return [historyRecord];
+					return {
+						items: [historyRecord],
+						total: 1,
+						page: input.page ?? 1,
+						pageSize: input.pageSize ?? 50,
+					};
 				},
 			},
 			"admin-refund-token-001",
@@ -65,10 +70,19 @@ test("Admin 微信退款历史只接受退款令牌并返回最小支付读模�
 	);
 
 	expect(response.status).toBe(200);
-	expect(query).toEqual({ source: "payment_order", limit: 20 });
+	expect(query).toEqual({
+		source: "payment_order",
+		page: 1,
+		pageSize: 20,
+	});
 	expect(await response.json()).toEqual({
 		success: true,
-		data: [historyRecord],
+		data: {
+			items: [historyRecord],
+			total: 1,
+			page: 1,
+			pageSize: 20,
+		},
 	});
 
 	const unauthorized = await app.handle(
@@ -176,7 +190,7 @@ test("Admin 普通微信退费入口拒绝医保来源，避免拆分医保现�
 					throw new Error("not used");
 				},
 				async listPaymentHistory() {
-					return [];
+					return { items: [], total: 0, page: 1, pageSize: 50 };
 				},
 			},
 			"admin-refund-token-001",

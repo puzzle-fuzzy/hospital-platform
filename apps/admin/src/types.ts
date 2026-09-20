@@ -290,6 +290,16 @@ export type AdminWechatRefundPaymentRecord = {
 
 export type AdminWechatRefundPaymentHistoryQuery = {
 	source?: WechatRefundSource;
+	business?: "registration" | "outpatient" | "other";
 	orderId?: string;
+	page?: number;
+	pageSize?: number;
 	limit?: number;
+};
+
+export type AdminWechatRefundPaymentHistoryPage = {
+	items: readonly AdminWechatRefundPaymentRecord[];
+	total: number;
+	page: number;
+	pageSize: number;
 };

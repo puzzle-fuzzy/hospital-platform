@@ -871,7 +871,13 @@ export interface MedicalInsuranceOrderRepository {
 	listRecentForAdmin?(input: {
 		limit: number;
 		orderId?: string;
+		business?: "registration" | "outpatient" | "other";
 	}): Promise<readonly MedicalInsuranceOrder[]>;
+	/** 管理端统一支付读模型的来源计数，不解密医保凭证或结算上下文。 */
+	countForAdmin?(input: {
+		orderId?: string;
+		business?: "registration" | "outpatient" | "other";
+	}): Promise<number>;
 	findByPayOrdId(payOrdId: string): Promise<MedicalInsuranceOrder | undefined>;
 	/** 微信医保混合回调只携带 mix_trade_no，必须用服务端订单关联查询。 */
 	findByWechatMixTradeNo(

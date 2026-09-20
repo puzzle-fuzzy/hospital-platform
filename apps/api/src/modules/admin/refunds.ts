@@ -44,7 +44,17 @@ const AdminRefundHistoryQuery = t.Object(
 		source: t.Optional(
 			t.Union([t.Literal("payment_order"), t.Literal("medical_insurance")]),
 		),
+		business: t.Optional(
+			t.Union([
+				t.Literal("registration"),
+				t.Literal("outpatient"),
+				t.Literal("other"),
+			]),
+		),
 		orderId: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+		page: t.Optional(t.String({ minLength: 1, maxLength: 5 })),
+		pageSize: t.Optional(t.String({ minLength: 1, maxLength: 3 })),
+		/** 兼容旧管理端调用；新调用使用 pageSize。 */
 		limit: t.Optional(t.String({ minLength: 1, maxLength: 3 })),
 	},
 	{ additionalProperties: false },
@@ -121,16 +131,28 @@ function mapError(error: unknown): never {
 	throw error;
 }
 
-function historyLimit(value: string | undefined): number {
+function historyPage(value: string | undefined): number {
+	if (value === undefined) return 1;
+	if (!/^[1-9][0-9]*$/u.test(value)) {
+		throw new HttpError(400, "validation", "page 必须是正整数");
+	}
+	const page = Number(value);
+	if (!Number.isSafeInteger(page) || page > 10000) {
+		throw new HttpError(400, "validation", "page 必须是 1 到 10000 的整数");
+	}
+	return page;
+}
+
+function historyPageSize(value: string | undefined): number {
 	if (value === undefined) return 50;
 	if (!/^[1-9][0-9]*$/u.test(value)) {
-		throw new HttpError(400, "validation", "limit 必须是 1 到 100 的整数");
+		throw new HttpError(400, "validation", "pageSize 必须是 1 到 100 的整数");
 	}
-	const limit = Number(value);
-	if (!Number.isSafeInteger(limit) || limit > 100) {
-		throw new HttpError(400, "validation", "limit 必须是 1 到 100 的整数");
+	const pageSize = Number(value);
+	if (!Number.isSafeInteger(pageSize) || pageSize > 100) {
+		throw new HttpError(400, "validation", "pageSize 必须是 1 到 100 的整数");
 	}
-	return limit;
+	return pageSize;
 }
 
 export function adminWechatRefundModule(
@@ -166,8 +188,10 @@ export function adminWechatRefundModule(
 				try {
 					return success(
 						await service.listPaymentHistory({
-							limit: historyLimit(query.limit),
+							page: historyPage(query.page),
+							pageSize: historyPageSize(query.pageSize ?? query.limit),
 							...(query.source ? { source: query.source } : {}),
+							...(query.business ? { business: query.business } : {}),
 							...(query.orderId?.trim()
 								? { orderId: query.orderId.trim() }
 								: {}),

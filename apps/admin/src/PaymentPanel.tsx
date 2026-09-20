@@ -18,6 +18,7 @@ import {
 	Flex,
 	Input,
 	Modal,
+	Select,
 	Space,
 	Statistic,
 	Spin,
@@ -35,6 +36,7 @@ import {
 } from "./api";
 import type {
 	AdminMedicalInsuranceRefund,
+	AdminWechatRefundPaymentHistoryPage,
 	AdminWechatRefundPaymentRecord,
 	PaymentDayResult,
 	PaymentFlowSummary,
@@ -43,6 +45,7 @@ import type {
 	PaymentStatus,
 	RawLogEntry,
 	Session,
+	WechatRefundSource,
 } from "./types";
 
 const { Text, Title } = Typography;
@@ -490,6 +493,12 @@ export function PaymentPanel({
 	const [paymentHistory, setPaymentHistory] = useState<
 		readonly AdminWechatRefundPaymentRecord[]
 	>([]);
+	const [historyPageData, setHistoryPageData] =
+		useState<AdminWechatRefundPaymentHistoryPage>();
+	const [historySource, setHistorySource] = useState<WechatRefundSource>();
+	const [historyBusiness, setHistoryBusiness] = useState<
+		"registration" | "outpatient" | "other" | undefined
+	>();
 	const [historyLoading, setHistoryLoading] = useState(false);
 	const [historyError, setHistoryError] = useState<string>();
 	const [refundRecord, setRefundRecord] =
@@ -526,19 +535,31 @@ export function PaymentPanel({
 	}, [load]);
 
 	const loadPaymentHistory = useCallback(
-		async (queryOrderId?: string) => {
+		async (
+			options: {
+				queryOrderId?: string;
+				page?: number;
+				source?: WechatRefundSource | undefined;
+				business?: "registration" | "outpatient" | "other" | undefined;
+			} = {},
+		) => {
 			setHistoryLoading(true);
 			setHistoryError(undefined);
 			try {
-				setPaymentHistory(
-					await fetchWechatRefundPaymentHistory(
-						{
-							limit: 100,
-							...(queryOrderId?.trim() ? { orderId: queryOrderId.trim() } : {}),
-						},
-						session,
-					),
+				const result = await fetchWechatRefundPaymentHistory(
+					{
+						page: options.page ?? 1,
+						pageSize: 8,
+						...(options.source ? { source: options.source } : {}),
+						...(options.business ? { business: options.business } : {}),
+						...(options.queryOrderId?.trim()
+							? { orderId: options.queryOrderId.trim() }
+							: {}),
+					},
+					session,
 				);
+				setPaymentHistory(result.items);
+				setHistoryPageData(result);
 			} catch (reason) {
 				if (reason instanceof ApiError && reason.status === 401) {
 					onExpired();
@@ -610,7 +631,11 @@ export function PaymentPanel({
 			);
 			setRefundResult(result);
 			void message.success(medicalRefundStatusLabel(result.status));
-			await loadPaymentHistory(refundRecord.orderId);
+			await loadPaymentHistory({
+				queryOrderId: refundRecord.orderId,
+				source: historySource,
+				business: historyBusiness,
+			});
 		} catch (reason) {
 			if (reason instanceof ApiError && reason.status === 401) {
 				onExpired();
@@ -623,6 +648,8 @@ export function PaymentPanel({
 			setRefundSubmitting(false);
 		}
 	}, [
+		historyBusiness,
+		historySource,
 		loadPaymentHistory,
 		message,
 		onExpired,
@@ -652,28 +679,28 @@ export function PaymentPanel({
 			<div className="payment-metrics" aria-label="支付台账概览">
 				<Card className="metric-card">
 					<Statistic
-						title="已载入订单"
-						value={paymentHistory.length}
+						title="订单总量"
+						value={historyPageData?.total ?? 0}
 						suffix="笔"
 					/>
 				</Card>
 				<Card className="metric-card metric-card-medical">
 					<Statistic
-						title="医保 + 微信"
+						title="当前页医保 + 微信"
 						value={medicalOrderCount}
 						suffix="笔"
 					/>
 				</Card>
 				<Card className="metric-card metric-card-confirmed">
 					<Statistic
-						title="微信已确认"
+						title="当前页微信已确认"
 						value={confirmedPaymentCount}
 						suffix="笔"
 					/>
 				</Card>
 				<Card className="metric-card metric-card-refund">
 					<Statistic
-						title="可退余额"
+						title="当前页可退余额"
 						value={refundableFen / 100}
 						precision={2}
 						suffix="元"
@@ -686,22 +713,81 @@ export function PaymentPanel({
 						<Input
 							value={historyOrderId}
 							onChange={(event) => setHistoryOrderId(event.target.value)}
-							onPressEnter={() => void loadPaymentHistory(historyOrderId)}
-							placeholder="按订单号精确查询；留空显示最近 100 条"
+							onPressEnter={() =>
+								void loadPaymentHistory({
+									queryOrderId: historyOrderId,
+									source: historySource,
+									business: historyBusiness,
+								})
+							}
+							placeholder="按订单号精确查询；留空显示最近记录"
 							maxLength={64}
 							style={{ minWidth: 300, flex: 1 }}
+						/>
+						<Select
+							allowClear
+							placeholder="全部来源"
+							value={historySource}
+							onChange={(value) => {
+								const source = value as WechatRefundSource | undefined;
+								setHistorySource(source);
+								void loadPaymentHistory({
+									queryOrderId: historyOrderId,
+									source,
+									business: historyBusiness,
+								});
+							}}
+							options={[
+								{ value: "medical_insurance", label: "医保 + 微信" },
+								{ value: "payment_order", label: "普通微信" },
+							]}
+							style={{ width: 140 }}
+						/>
+						<Select
+							allowClear
+							placeholder="全部业务"
+							value={historyBusiness}
+							onChange={(value) => {
+								const business = value as
+									| "registration"
+									| "outpatient"
+									| "other"
+									| undefined;
+								setHistoryBusiness(business);
+								void loadPaymentHistory({
+									queryOrderId: historyOrderId,
+									source: historySource,
+									business,
+								});
+							}}
+							options={[
+								{ value: "registration", label: "挂号" },
+								{ value: "outpatient", label: "门诊" },
+								{ value: "other", label: "其他" },
+							]}
+							style={{ width: 120 }}
 						/>
 						<Button
 							icon={<ReloadOutlined />}
 							loading={historyLoading}
-							onClick={() => void loadPaymentHistory(historyOrderId)}
+							onClick={() =>
+								void loadPaymentHistory({
+									queryOrderId: historyOrderId,
+									source: historySource,
+									business: historyBusiness,
+								})
+							}
 						>
 							刷新支付数据
 						</Button>
 						<Button
 							onClick={() => {
 								setHistoryOrderId("");
-								void loadPaymentHistory();
+								void loadPaymentHistory({
+									queryOrderId: "",
+									source: historySource,
+									business: historyBusiness,
+								});
 							}}
 						>
 							显示最近记录
@@ -718,7 +804,20 @@ export function PaymentPanel({
 						rowClassName={(record) =>
 							record.source === "medical_insurance" ? "payment-row-medical" : ""
 						}
-						pagination={{ pageSize: 8, hideOnSinglePage: true }}
+						pagination={{
+							current: historyPageData?.page ?? 1,
+							pageSize: historyPageData?.pageSize ?? 8,
+							total: historyPageData?.total ?? 0,
+							showSizeChanger: false,
+							hideOnSinglePage: true,
+							onChange: (page) =>
+								void loadPaymentHistory({
+									queryOrderId: historyOrderId,
+									page,
+									source: historySource,
+									business: historyBusiness,
+								}),
+						}}
 						scroll={{ x: 1600 }}
 						size="small"
 					/>
