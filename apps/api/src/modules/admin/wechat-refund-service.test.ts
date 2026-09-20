@@ -274,10 +274,9 @@ test("refund audit failure never downgrades a confirmed WeChat refund", async ()
 			context,
 		),
 	).rejects.toThrow("audit unavailable");
-	const records = await refunds.findBySourceAndSourceOrder(
-		"payment_order",
-		paidOrder().orderId,
-	);
+	const findRefunds = refunds.findBySourceAndSourceOrder;
+	if (!findRefunds) throw new Error("refund lookup is not configured");
+	const records = await findRefunds("payment_order", paidOrder().orderId);
 	expect(records[0]?.status).toBe("success");
 });
 

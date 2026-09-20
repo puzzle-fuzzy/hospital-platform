@@ -594,6 +594,12 @@ export type {
 	PaymentSyncTaskStatus,
 } from "./payment-sync";
 export { assertPaymentSyncIdentifier } from "./payment-sync";
+export {
+	PaymentSyncCoordinator,
+	type EnqueuePaymentSyncTaskInput,
+	type PaymentSyncCoordinatorDependencies,
+	type PaymentSyncObservation,
+} from "./payment-sync-coordinator";
 export type {
 	PaymentOperatorAudit,
 	PaymentOperatorAuditAction,
