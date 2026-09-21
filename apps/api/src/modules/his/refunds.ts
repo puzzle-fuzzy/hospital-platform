@@ -1,10 +1,13 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { success } from "@hospital/contracts";
 import {
+	DependencyNotConfiguredError,
 	WechatRefundAmountExceededError,
 	WechatRefundIdempotencyConflictError,
 	WechatRefundNotFoundError,
+	type WechatRefund,
 } from "@hospital/domain";
+import type { AppLogger } from "@hospital/observability";
 import type { HisRefundSecurityStore } from "@hospital/persistence";
 import { Elysia, t } from "elysia";
 import { HttpError } from "../../errors";
@@ -12,6 +15,10 @@ import {
 	requestHadClientProvidedRequestId,
 	adapterContextFromHeaders,
 } from "../../plugins/request-context";
+import {
+	AdminWechatRefundInputError,
+	type AdminWechatRefundService,
+} from "../admin/wechat-refund-service";
 import {
 	MedicalInsuranceOrderNotFoundError,
 	MedicalInsuranceRegistrationInputError,
@@ -55,7 +62,24 @@ type HisRefundModuleOptions = {
 	hmacSecret: string;
 	security: HisRefundSecurityStore;
 	now?: () => number;
+	logger?: AppLogger;
 };
+
+type HisRefundSplitServices = {
+	medicalInsurance?: Pick<
+		MedicalInsuranceRefundService,
+		"requestMedicalOnlyByOrder"
+	>;
+	wechat?: Pick<
+		AdminWechatRefundService,
+		"requestMedicalInsuranceCashByOrder" | "query"
+	>;
+};
+
+const HIS_MEDICAL_REFUND_PATH = "/his/medical-insurance-refunds";
+const HIS_MEDICAL_LEG_REFUND_PATH = "/his/medical-insurance-leg-refunds";
+const HIS_WECHAT_LEG_REFUND_PATH = "/his/wechat-leg-refunds";
+const HIS_MEDICAL_LEG_OPERATOR_REF = "his-medical-leg";
 
 function constantTimeEqual(left: string, right: string): boolean {
 	const leftBytes = new TextEncoder().encode(left);
@@ -112,6 +136,12 @@ function requireSafeHeader(value: string | undefined, label: string): string {
 }
 
 function mapRefundError(error: unknown): never {
+	if (error instanceof DependencyNotConfiguredError) {
+		throw new HttpError(503, "dependency-not-configured", "退费服务尚未配置");
+	}
+	if (error instanceof AdminWechatRefundInputError) {
+		throw new HttpError(400, "validation", error.message);
+	}
 	if (error instanceof MedicalInsuranceOrderNotFoundError) {
 		throw new HttpError(404, "not_found", "医保订单不存在或尚未落库");
 	}
@@ -132,6 +162,180 @@ function mapRefundError(error: unknown): never {
 		);
 	}
 	throw error;
+}
+
+function referenceHash(value: string | undefined): string | undefined {
+	if (!value) return undefined;
+	return createHash("sha256").update(value, "utf8").digest("hex").slice(0, 16);
+}
+
+function statusOf(value: unknown): string | undefined {
+	if (!value || typeof value !== "object") return undefined;
+	const status = (value as { status?: unknown }).status;
+	if (typeof status === "string") return status;
+	const data = (value as { data?: unknown }).data;
+	if (!data || typeof data !== "object") return undefined;
+	const dataStatus = (data as { status?: unknown }).status;
+	return typeof dataStatus === "string" ? dataStatus : undefined;
+}
+
+function logHis(
+	logger: AppLogger | undefined,
+	level: "info" | "warn" | "error",
+	fields: Record<string, unknown>,
+	message: string,
+): void {
+	if (!logger) return;
+	if (level === "info") logger.info(fields, message);
+	if (level === "warn") logger.warn(fields, message);
+	if (level === "error") logger.error(fields, message);
+}
+
+function errorCodeForLog(error: unknown): string {
+	if (error instanceof HttpError) return error.code;
+	return error instanceof Error ? error.name : "UNKNOWN";
+}
+
+function safeWechatRefundResponse(record: WechatRefund) {
+	const wechatStatus =
+		record.status === "success"
+			? "success"
+			: record.status === "processing" || record.status === "requested"
+				? "processing"
+				: record.status === "unknown"
+					? "unknown"
+					: record.status === "request_failed"
+						? "failed"
+						: record.status;
+	const status =
+		record.status === "success"
+			? "succeeded"
+			: record.status === "processing" || record.status === "requested"
+				? "processing"
+				: record.status === "request_failed"
+					? "failed"
+					: "manual_review";
+	return {
+		orderId: record.sourceOrderId,
+		refundNo: record.merchantRefundNo,
+		status,
+		wechatStatus,
+		amounts: {
+			totalFen: record.refundFen,
+			cashFen: record.refundFen,
+			personalAccountFen: 0,
+			fundFen: 0,
+		},
+	};
+}
+
+async function executeHisRequest<T>(input: {
+	request: Request;
+	headers: HisRefundRequestHeaders;
+	method: "POST" | "GET";
+	path: string;
+	body: unknown;
+	operation: string;
+	orderId?: string;
+	options: HisRefundModuleOptions;
+	now: () => number;
+	invoke: (auth: {
+		requestId: string;
+		timestamp: string;
+		nonce: string;
+	}) => Promise<T>;
+}): Promise<T> {
+	const startedAt = Date.now();
+	const sourceIp = input.request.headers.get("x-real-ip")?.trim();
+	const baseFields = {
+		operation: input.operation,
+		method: input.method,
+		route: input.path,
+		sourceIp,
+		...(referenceHash(input.orderId)
+			? { orderRefHash: referenceHash(input.orderId) }
+			: {}),
+	};
+	let auth: { requestId: string; timestamp: string; nonce: string };
+	try {
+		auth = authorizeHisRequest({
+			request: input.request,
+			headers: input.headers,
+			method: input.method,
+			path: input.path,
+			body: input.body,
+			options: input.options,
+			now: input.now,
+		});
+		await reserveSecurityState(
+			input.options.security,
+			HIS_REFUND_ALLOWED_SOURCE_IP,
+			auth.nonce,
+			input.now(),
+		);
+	} catch (error) {
+		logHis(
+			input.options.logger,
+			"warn",
+			{
+				event: "his.refund.rejected",
+				...baseFields,
+				durationMs: Date.now() - startedAt,
+				errorCode: errorCodeForLog(error),
+			},
+			"HIS refund request rejected",
+		);
+		throw error;
+	}
+	logHis(
+		input.options.logger,
+		"info",
+		{
+			event: "his.refund.accepted",
+			...baseFields,
+			requestId: auth.requestId,
+		},
+		"HIS refund request accepted",
+	);
+	try {
+		const result = await input.invoke(auth);
+		logHis(
+			input.options.logger,
+			"info",
+			{
+				event: "his.refund.completed",
+				...baseFields,
+				requestId: auth.requestId,
+				durationMs: Date.now() - startedAt,
+				resultStatus: statusOf(result),
+			},
+			"HIS refund request completed",
+		);
+		return result;
+	} catch (error) {
+		let mappedError: unknown = error;
+		try {
+			mapRefundError(error);
+		} catch (candidate) {
+			mappedError = candidate;
+		}
+		logHis(
+			input.options.logger,
+			"error",
+			{
+				event: "his.refund.failed",
+				...baseFields,
+				requestId: auth.requestId,
+				durationMs: Date.now() - startedAt,
+				errorCode: errorCodeForLog(mappedError),
+				...(mappedError instanceof HttpError
+					? { statusCode: mappedError.statusCode }
+					: {}),
+			},
+			"HIS refund request failed",
+		);
+		throw mappedError;
+	}
 }
 
 function authorizeHisRequest(input: {
@@ -252,42 +456,35 @@ export function hisMedicalInsuranceRefundModule(
 		"requestFullRefundByOrder" | "query"
 	>,
 	options: HisRefundModuleOptions,
+	splitServices: HisRefundSplitServices = {},
 ) {
 	const now = options.now ?? (() => Date.now());
 	return new Elysia({ name: "his-medical-insurance-refunds-module" })
 		.post(
-			"/his/medical-insurance-refunds",
-			async ({ headers, body, request }) => {
-				const auth = authorizeHisRequest({
+			HIS_MEDICAL_REFUND_PATH,
+			async ({ headers, body, request }) =>
+				executeHisRequest({
 					request,
 					headers,
 					method: "POST",
-					path: "/his/medical-insurance-refunds",
+					path: HIS_MEDICAL_REFUND_PATH,
 					body,
+					operation: "medical_insurance_aggregate",
+					orderId: body.orderId,
 					options,
 					now,
-				});
-				await reserveSecurityState(
-					options.security,
-					HIS_REFUND_ALLOWED_SOURCE_IP,
-					auth.nonce,
-					now(),
-				);
-				try {
-					return success(
-						await service.requestFullRefundByOrder({
-							orderId: body.orderId,
-							...(body.reason !== undefined ? { reason: body.reason } : {}),
-							operatorRef: HIS_OPERATOR_REF,
-							context: adapterContextFromHeaders({
-								"x-request-id": auth.requestId,
+					invoke: async (auth) =>
+						success(
+							await service.requestFullRefundByOrder({
+								orderId: body.orderId,
+								...(body.reason !== undefined ? { reason: body.reason } : {}),
+								operatorRef: HIS_OPERATOR_REF,
+								context: adapterContextFromHeaders({
+									"x-request-id": auth.requestId,
+								}),
 							}),
-						}),
-					);
-				} catch (error) {
-					return mapRefundError(error);
-				}
-			},
+						),
+				}),
 			{
 				headers: HisRefundHeaders,
 				body: HisRefundBody,
@@ -295,31 +492,159 @@ export function hisMedicalInsuranceRefundModule(
 			},
 		)
 		.get(
-			"/his/medical-insurance-refunds/:refundNo",
-			async ({ headers, params, request }) => {
-				const auth = authorizeHisRequest({
+			`${HIS_MEDICAL_REFUND_PATH}/:refundNo`,
+			async ({ headers, params, request }) =>
+				executeHisRequest({
 					request,
 					headers,
 					method: "GET",
-					path: `/his/medical-insurance-refunds/${params.refundNo}`,
+					path: `${HIS_MEDICAL_REFUND_PATH}/${params.refundNo}`,
 					body: undefined,
+					operation: "medical_insurance_aggregate_query",
 					options,
 					now,
-				});
-				await reserveSecurityState(
-					options.security,
-					HIS_REFUND_ALLOWED_SOURCE_IP,
-					auth.nonce,
-					now(),
-				);
-				const result = await service.query(params.refundNo, {
-					requestId: auth.requestId,
-					operatorRef: HIS_OPERATOR_REF,
-				});
-				if (!result)
-					throw new HttpError(404, "not_found", "医保退费记录不存在");
-				return success(result);
+					invoke: async (auth) => {
+						const result = await service.query(params.refundNo, {
+							requestId: auth.requestId,
+							operatorRef: HIS_OPERATOR_REF,
+						});
+						if (!result)
+							throw new HttpError(404, "not_found", "医保退费记录不存在");
+						return success(result);
+					},
+				}),
+			{
+				headers: HisRefundHeaders,
+				params: HisRefundParams,
+				detail: { hide: true },
 			},
+		)
+		.post(
+			HIS_MEDICAL_LEG_REFUND_PATH,
+			async ({ headers, body, request }) =>
+				executeHisRequest({
+					request,
+					headers,
+					method: "POST",
+					path: HIS_MEDICAL_LEG_REFUND_PATH,
+					body,
+					operation: "medical_insurance_leg",
+					orderId: body.orderId,
+					options,
+					now,
+					invoke: async (auth) => {
+						if (!splitServices.medicalInsurance) {
+							throw new DependencyNotConfiguredError(
+								"his.medicalInsuranceRefundLeg",
+							);
+						}
+						return success(
+							await splitServices.medicalInsurance.requestMedicalOnlyByOrder({
+								orderId: body.orderId,
+								...(body.reason !== undefined ? { reason: body.reason } : {}),
+								operatorRef: HIS_MEDICAL_LEG_OPERATOR_REF,
+								context: adapterContextFromHeaders({
+									"x-request-id": auth.requestId,
+								}),
+							}),
+						);
+					},
+				}),
+			{
+				headers: HisRefundHeaders,
+				body: HisRefundBody,
+				detail: { hide: true },
+			},
+		)
+		.get(
+			`${HIS_MEDICAL_LEG_REFUND_PATH}/:refundNo`,
+			async ({ headers, params, request }) =>
+				executeHisRequest({
+					request,
+					headers,
+					method: "GET",
+					path: `${HIS_MEDICAL_LEG_REFUND_PATH}/${params.refundNo}`,
+					body: undefined,
+					operation: "medical_insurance_leg_query",
+					options,
+					now,
+					invoke: async (auth) => {
+						const result = await service.query(params.refundNo, {
+							requestId: auth.requestId,
+							operatorRef: HIS_MEDICAL_LEG_OPERATOR_REF,
+						});
+						if (!result)
+							throw new HttpError(404, "not_found", "医保退费记录不存在");
+						return success(result);
+					},
+				}),
+			{
+				headers: HisRefundHeaders,
+				params: HisRefundParams,
+				detail: { hide: true },
+			},
+		)
+		.post(
+			HIS_WECHAT_LEG_REFUND_PATH,
+			async ({ headers, body, request }) =>
+				executeHisRequest({
+					request,
+					headers,
+					method: "POST",
+					path: HIS_WECHAT_LEG_REFUND_PATH,
+					body,
+					operation: "wechat_leg",
+					orderId: body.orderId,
+					options,
+					now,
+					invoke: async (auth) => {
+						if (!splitServices.wechat) {
+							throw new DependencyNotConfiguredError("his.wechatRefundLeg");
+						}
+						const result =
+							await splitServices.wechat.requestMedicalInsuranceCashByOrder(
+								{
+									orderId: body.orderId,
+									...(body.reason !== undefined ? { reason: body.reason } : {}),
+								},
+								adapterContextFromHeaders({
+									"x-request-id": auth.requestId,
+								}),
+							);
+						return success(safeWechatRefundResponse(result));
+					},
+				}),
+			{
+				headers: HisRefundHeaders,
+				body: HisRefundBody,
+				detail: { hide: true },
+			},
+		)
+		.get(
+			`${HIS_WECHAT_LEG_REFUND_PATH}/:refundNo`,
+			async ({ headers, params, request }) =>
+				executeHisRequest({
+					request,
+					headers,
+					method: "GET",
+					path: `${HIS_WECHAT_LEG_REFUND_PATH}/${params.refundNo}`,
+					body: undefined,
+					operation: "wechat_leg_query",
+					options,
+					now,
+					invoke: async (auth) => {
+						if (!splitServices.wechat) {
+							throw new DependencyNotConfiguredError("his.wechatRefundLeg");
+						}
+						const result = await splitServices.wechat.query(
+							params.refundNo,
+							adapterContextFromHeaders({
+								"x-request-id": auth.requestId,
+							}),
+						);
+						return success(safeWechatRefundResponse(result));
+					},
+				}),
 			{
 				headers: HisRefundHeaders,
 				params: HisRefundParams,

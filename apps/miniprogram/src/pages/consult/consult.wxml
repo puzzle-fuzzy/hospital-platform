@@ -1,19 +1,7 @@
 
-<scroll-view class="tab-page-scroll" scroll-y="true" enhanced="true">
+<scroll-view class="tab-page-scroll consult-primary-scroll" scroll-y="true" enhanced="true">
+	<patient-hospital-context bindchangepatient="onChangePatient" />
 	<view class="consult-page">
-		<view class="consult-intro">
-			<text class="consult-intro-copy">就诊引导、排队叫号、缴费、查报告和取药进度正在完善中。</text>
-		</view>
-
-		<view class="consult-patient-card">
-			<image class="consult-patient-icon" src="/assets/legacy-home/patient-qr.svg" mode="aspectFit" />
-			<view class="consult-patient-copy">
-				<text class="consult-patient-name">{{selectedPatientName}}</text>
-				<text class="consult-patient-id">{{selectedPatientIdLabel}}</text>
-			</view>
-			<button class="consult-patient-switch" bindtap="onChangePatient">切换就诊人</button>
-		</view>
-
 		<view class="consult-tabs">
 			<view wx:for="{{tabs}}" wx:key="id" class="consult-tab {{activeTab === item.id ? 'consult-tab-active' : ''}}" data-tab="{{item.id}}" bindtap="onTabTap">
 				<text>{{item.title}}</text>

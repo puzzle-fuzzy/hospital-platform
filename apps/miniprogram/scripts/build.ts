@@ -90,6 +90,9 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
+	"components/patient-hospital-context/patient-hospital-context.json",
+	"components/patient-hospital-context/patient-hospital-context.wxml",
+	"components/patient-hospital-context/patient-hospital-context.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -169,6 +172,7 @@ const requiredStaticFiles = [
 const requiredTypeScriptFiles = [
 	"app.ts",
 	"config.ts",
+	"components/patient-hospital-context/patient-hospital-context.ts",
 	"data/department-location.ts",
 	"services/api-client.ts",
 	// App 启动容器是 globalData 时序修复的核心运行模块；它虽然没有直接
@@ -178,6 +182,7 @@ const requiredTypeScriptFiles = [
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
 	"services/patient-selection-service.ts",
+	"services/patient-hospital-context.ts",
 	"services/medical-insurance.ts",
 	// 页面实例的单飞依赖曾导致真机误请求 `single-flight.test.js`；
 	// 将生产实现列为显式运行模块，避免间接 import 被构建或开发者工具增量索引遗漏。

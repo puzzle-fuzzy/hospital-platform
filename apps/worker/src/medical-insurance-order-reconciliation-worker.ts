@@ -563,7 +563,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			postPaymentPayType?: "CREDIT" | "POS" | "CROWD_FUNDING";
 			postPaymentWorkStationId?: string;
 			postPaymentTradeTypeCode?: string;
-			/** 新两段流程中自费子流水的 .29 -> .15 -> .5 回写。 */
+			/** 医保支付入口中的微信自费子流水回写。普通微信支付不经过此入口。 */
 			hospitalSettlement?: HospitalSettlementGateway;
 			completeWechatPayment?: (
 				input: {
@@ -964,7 +964,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		};
 	}
 
-	/** 医保 `.32` 完成后，创建独立 5033 `.2` 并执行 `.29/.15/.5`。 */
+	/** 医保 `.32` 完成后，创建独立 5033 `.2` 并执行医保混合现金腿回写。 */
 	private async completeSequencedSelfPay(
 		order: MedicalInsuranceOrder,
 		settlement: MedicalInsuranceSettlementContext,
@@ -1145,6 +1145,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		const trace = await writeBackGateway.writeBack(
 			{
 				orderId: currentComponent.componentId,
+				settlementFlow: "medical-mixed-cash",
 				settlement: {
 					orderId: currentComponent.componentId,
 					state: "cash_paid",

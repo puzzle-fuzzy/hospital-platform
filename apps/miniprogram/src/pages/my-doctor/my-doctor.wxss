@@ -19,15 +19,8 @@ page {
 	padding: 8rpx 8rpx 28rpx;
 }
 
-.my-doctor-title {
-	color: #20232b;
-	font-size: 40rpx;
-	font-weight: 700;
-	line-height: 1.4;
-}
-
 .my-doctor-subtitle {
-	margin-top: 10rpx;
+	margin-top: 0;
 	color: #8b91a0;
 	font-size: 24rpx;
 	line-height: 1.4;

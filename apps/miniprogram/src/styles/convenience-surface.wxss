@@ -94,14 +94,6 @@ page {
 	font-weight: 700;
 }
 
-.convenience-surface-subtitle {
-	display: block;
-	margin-top: 14rpx;
-	color: #687184;
-	font-size: 26rpx;
-	line-height: 1.6;
-}
-
 .convenience-surface-card {
 	margin: 20rpx 24rpx 0;
 	padding: 28rpx;

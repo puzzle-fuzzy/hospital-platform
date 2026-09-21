@@ -1,5 +1,10 @@
 @import "../consult/consult.wxss";
 
+/* 电子导诊单继续沿用原有浅蓝画布；就诊 Tab 单独使用 #f5f5f5。 */
+page {
+	background: #ebeffc;
+}
+
 .consult-related-actions {
 	display: flex;
 	align-items: stretch;

@@ -70,6 +70,6 @@
 .inpatient-payment-message { margin-top: 20rpx; padding: 20rpx 24rpx; border-radius: 14rpx; font-size: 26rpx; line-height: 1.6; }
 .inpatient-payment-message-error { background: #fff0f0; color: #c53b3b; }
 .inpatient-payment-message-info { background: #edf3ff; color: #3d6df6; }
-.inpatient-payment-primary, .inpatient-payment-plain { width: 100%; margin-top: 34rpx; border-radius: 16rpx; font-size: 29rpx; line-height: 88rpx; }
+.inpatient-payment-primary, .inpatient-payment-plain { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 88rpx; margin-top: 34rpx; padding: 0; border-radius: 16rpx; font-size: 29rpx; line-height: 1; }
 .inpatient-payment-primary { background: #3d6df6; color: #fff; }
 .inpatient-payment-plain { margin-top: 14rpx; background: transparent; color: #68738a; }

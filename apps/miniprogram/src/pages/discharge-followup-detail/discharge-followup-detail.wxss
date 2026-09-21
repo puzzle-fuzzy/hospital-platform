@@ -21,6 +21,6 @@
 .discharge-detail-option.is-selected { border-color: #3d6df6; background: #eff3ff; color: #3d6df6; }
 .discharge-detail-check { display: inline-block; width: 25rpx; margin-right: 8rpx; color: #3d6df6; font-weight: 600; text-align: center; }
 .discharge-detail-message { margin-top: 18rpx; padding: 18rpx 22rpx; border-radius: 14rpx; background: #fff8e8; color: #a66b00; font-size: 24rpx; line-height: 1.6; }
-.discharge-detail-submit { width: 100%; margin-top: 22rpx; border-radius: 14rpx; background: #3d6df6; color: #fff; font-size: 29rpx; line-height: 84rpx; }
+.discharge-detail-submit { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 84rpx; margin-top: 22rpx; padding: 0; border-radius: 14rpx; background: #3d6df6; color: #fff; font-size: 29rpx; line-height: 1; }
 .discharge-detail-note { display: block; margin-top: 18rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
-.discharge-detail-back { width: 100%; margin-top: 12rpx; border-radius: 14rpx; background: transparent; color: #68738a; font-size: 28rpx; line-height: 84rpx; }
+.discharge-detail-back { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 84rpx; margin-top: 12rpx; padding: 0; border-radius: 14rpx; background: transparent; color: #68738a; font-size: 28rpx; line-height: 1; }

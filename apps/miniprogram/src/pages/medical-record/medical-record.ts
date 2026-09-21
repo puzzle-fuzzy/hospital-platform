@@ -31,6 +31,21 @@ import type { MedicalRecordPageData, MedicalRecordView } from "../../types";
 /** 只控制小程序渲染窗口，不把本地“加载更多”冒充成 Provider 分页。 */
 const MEDICAL_RECORD_PAGE_SIZE = 8;
 
+/**
+ * 门诊病历的读模型尚未开放或当前患者没有临床映射时，患者端按合法空目录展示。
+ *
+ * `dependency-not-configured`（10500）是服务端的部署状态，不是患者可执行的
+ * 操作；`medical-record-patient-not-found` 也只说明当前没有可展示的病历数据。
+ * 两者都不能把服务端内部状态投影成“未加载成功”或错误码。
+ */
+function shouldRenderMedicalRecordEmptyState(error: unknown): boolean {
+	return (
+		error instanceof ApiError &&
+		(error.code === "dependency-not-configured" ||
+			error.code === "medical-record-patient-not-found")
+	);
+}
+
 type MedicalRecordPageMethods = {
 	loadPage(): Promise<void>;
 	onChangePatient(): void;
@@ -168,6 +183,8 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 			})
 			.catch((error: unknown) => {
 				if (!guard.isCurrent(token)) return;
+				const shouldRenderEmptyState =
+					shouldRenderMedicalRecordEmptyState(error);
 				const canSelectPatient = isPatientSelectionError(error);
 				const clearPatient =
 					shouldClearPatientContextAfterError(error, hasPlatformSession()) ||
@@ -192,7 +209,7 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 						this.data.sessionState,
 						hasPlatformSession(),
 					),
-					queryState: "error",
+					queryState: shouldRenderEmptyState ? "empty" : "error",
 					selectedPatient,
 					patientSessionGeneration: -1,
 					records: [],
@@ -200,7 +217,9 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 					visibleRecordCount: 0,
 					hasMoreRecords: false,
 					canSelectPatient,
-					error: errorMessageWithCode(error, message),
+					error: shouldRenderEmptyState
+						? ""
+						: errorMessageWithCode(error, message),
 				});
 			})
 			.finally(() => {

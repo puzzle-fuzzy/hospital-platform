@@ -46,6 +46,7 @@ test("自费微信已支付后必须先回写 HIS，再进入 completed", async 
 			writeBack: async (input, context) => {
 				calls += 1;
 				expect(input.orderId).toBe(order.orderId);
+				expect(input.settlementFlow).toBe("ordinary-self-pay");
 				expect(input.settlement.cashFen).toBe(300);
 				expect(context.idempotencyKey).toBe(
 					`registration-self-pay-settlement:${order.orderId}`,

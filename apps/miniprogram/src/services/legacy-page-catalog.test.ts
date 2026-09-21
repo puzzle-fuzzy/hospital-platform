@@ -166,6 +166,17 @@ describe("旧端页面全量迁移台账", () => {
 		expect(pageScript).not.toContain("providerConversationId");
 	});
 
+	test("智能陪诊首页入口固定切换到底部就诊 Tab", async () => {
+		const pageScript = await Bun.file(
+			new URL("../pages/index/index.ts", import.meta.url),
+		).text();
+		expect(pageScript).toContain('case "companion":');
+		expect(pageScript).toContain(
+			"switchToPrimaryTab(SMART_COMPANION_PRIMARY_TAB);",
+		);
+		expect(pageScript).not.toContain('navigateToFeatureStatus("companion")');
+	});
+
 	test("我的医保电子凭证入口恢复为旧端固定小程序跳转", async () => {
 		const app = await Bun.file(new URL("../app.json", import.meta.url)).text();
 		const pageScript = await Bun.file(

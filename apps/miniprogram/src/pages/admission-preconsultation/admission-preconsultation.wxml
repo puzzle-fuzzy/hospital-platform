@@ -1,18 +1,7 @@
 <scroll-view class="admission-scroll" scroll-y="true" enhanced="true">
+	<patient-hospital-context bindchangepatient="onChangePatient" />
 	<view class="admission-page">
 		<view class="admission-notice">请根据患者当前情况填写，所有项目均为必填项。</view>
-
-		<view class="admission-patient-card" bindtap="onChangePatient">
-			<view class="admission-patient-copy">
-				<text class="admission-patient-label">当前就诊人</text>
-				<text wx:if="{{patient}}" class="admission-patient-name">{{patient.displayName}}</text>
-				<text wx:elif="{{loading}}" class="admission-patient-muted">正在获取就诊人...</text>
-				<text wx:else class="admission-patient-muted">请选择就诊人</text>
-				<text wx:if="{{patient}}" class="admission-card-label">{{patient.cardNumberMasked}}</text>
-				<text wx:if="{{patientError}}" class="admission-patient-error">{{patientError}}</text>
-			</view>
-			<text class="admission-arrow">›</text>
-		</view>
 
 		<view wx:for="{{questions}}" wx:key="title" class="admission-question-card">
 			<view class="admission-question-title"><text class="admission-required">*</text>{{index + 1}}. {{item.title}}</view>

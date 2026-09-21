@@ -146,7 +146,9 @@ CLI 必须针对唯一独立运行根 `apps/miniprogram/dist` 执行；如果从
 首页报告入口进入独立的 `pages/report-directory/report-directory`，只调用平台 API 的 `GET /reports`，传入平台内部 `patientId` 和有限日期范围；服务端负责解析众阳患者号，目录页按 10 条批次展示，避免报告较多时一次性渲染。
 本期只读 LIS/PACS/ECG 摘要；服务端已准备 gated LIS 详情的 opaque 引用客户端方法，
 报告目录现在只在存在服务端 `reportId` 时进入原生详情页，详情页只展示白名单检测项；默认 gate 关闭时保持摘要只读，真实 provider 详情、文件下载和体检报告仍未开放。
-旧端曾把完整 `medicalCardNo` 拼接到第三方二维码 URL；新端不会复用该实现。二维码只有在医院确认扫码字段、签名、短 TTL、撤销和真机设备验收后，才由服务端生成短期引用。
+旧端曾把完整 `medicalCardNo` 拼接到第三方二维码 URL；新端不再调用第三方图片服务。
+当前首页就诊卡入口已改为服务端按 owner-scoped 患者引用重新读取卡号并在本地生成二维码图片，
+小程序只接收图片 data URL，不接收完整卡号；这条链路仍需医院扫码设备实测确认，且不等同于医保电子凭证二维码。
 医保支付的微信现金段使用 2.6.65.2 `result` 返回并经服务端校验的 APIv2/MD5 参数；
 小程序只把白名单字段交给 `wx.requestPayment` 或 `wx.requestMedicalInsurancePay`，不在客户端生成或修改签名。
 历史已经创建的 RSA 订单仅保留收尾兼容，不作为新订单路线。微信调起成功和取消都不会直接更新业务状态；

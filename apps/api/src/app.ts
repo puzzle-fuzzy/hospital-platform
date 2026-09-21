@@ -329,11 +329,21 @@ export function createApp(options: AppOptions = {}) {
 						options.hisRefundToken?.trim() &&
 						options.hisRefundHmacSecret?.trim() &&
 						options.hisRefundSecurity
-						? hisMedicalInsuranceRefundModule(services.medicalInsuranceRefund, {
-								token: options.hisRefundToken,
-								hmacSecret: options.hisRefundHmacSecret,
-								security: options.hisRefundSecurity,
-							})
+						? hisMedicalInsuranceRefundModule(
+								services.medicalInsuranceRefund,
+								{
+									token: options.hisRefundToken,
+									hmacSecret: options.hisRefundHmacSecret,
+									security: options.hisRefundSecurity,
+									...(options.logger ? { logger: options.logger } : {}),
+								},
+								{
+									medicalInsurance: services.medicalInsuranceRefund,
+									...(services.wechatRefund
+										? { wechat: services.wechatRefund }
+										: {}),
+								},
+							)
 						: new Elysia({
 								name: "his-medical-insurance-refund-not-configured",
 							}),

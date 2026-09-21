@@ -1,17 +1,8 @@
 <scroll-view class="tab-page-scroll" scroll-y="true" enhanced="true">
+	<patient-hospital-context bindchangepatient="onChangePatient" />
 	<view class="consult-page">
 		<view class="consult-intro">
-			<text class="consult-intro-title">电子导诊单</text>
 			<text class="consult-intro-copy">仅显示 30 天内导诊单信息，取药、检查地点及执行状态仅供参考。</text>
-		</view>
-
-		<view class="consult-patient-card">
-			<image class="consult-patient-icon" src="/assets/legacy-home/patient-qr.svg" mode="aspectFit" />
-			<view class="consult-patient-copy">
-				<text class="consult-patient-name">{{selectedPatientName}}</text>
-				<text class="consult-patient-id">{{selectedPatientIdLabel}}</text>
-			</view>
-			<button class="consult-patient-switch" bindtap="onChangePatient">切换就诊人</button>
 		</view>
 
 		<view wx:if="{{!visibleRecords.length}}" class="consult-state query-state-shell query-state-shell-column">

@@ -1,16 +1,19 @@
 page {
 	height: 100%;
 	overflow: hidden;
-	background: #ebeffc;
+	background: #f5f5f5;
+}
+
+.consult-primary-scroll {
+	background: #f5f5f5;
 }
 
 .consult-page {
 	box-sizing: border-box;
 	min-height: 100%;
-	padding: 24rpx 20rpx calc(24rpx + env(safe-area-inset-bottom));
+	padding: 24rpx 20rpx calc(40rpx + env(safe-area-inset-bottom));
 }
 
-.consult-intro,
 .consult-patient-card,
 .consult-state {
 	box-sizing: border-box;
@@ -19,25 +22,11 @@ page {
 	margin-left: auto;
 }
 
-.consult-intro {
-	padding: 28rpx 30rpx;
-	border-radius: 20rpx;
-	background: #eaeffd;
-	color: #3d6df6;
-}
-
-.consult-intro-copy,
 .consult-patient-name,
 .consult-patient-id,
 .consult-state-title,
 .consult-state-hint {
 	display: block;
-}
-
-.consult-intro-copy {
-	margin-top: 12rpx;
-	font-size: 25rpx;
-	line-height: 1.6;
 }
 
 .consult-patient-card {
@@ -103,29 +92,43 @@ page {
 
 .consult-tabs {
 	display: flex;
-	align-items: center;
-	justify-content: space-around;
-	width: 710rpx;
-	height: 96rpx;
-	margin: 20rpx auto 0;
-	border-radius: 20rpx 20rpx 0 0;
+	align-items: stretch;
+	box-sizing: border-box;
+	width: calc(100% + 40rpx);
+	height: 88rpx;
+	margin: 18rpx 0 0 -20rpx;
+	border-bottom: 1rpx solid #f0f0f0;
 	background: #ffffff;
 }
 
 .consult-tab {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	box-sizing: border-box;
-	height: 96rpx;
-	padding: 0 22rpx;
-	border-bottom: 4rpx solid transparent;
+	width: 33.3333%;
+	height: 88rpx;
+	padding: 0;
 	color: #666666;
-	font-size: 28rpx;
-	line-height: 96rpx;
+	font-size: 29rpx;
 }
 
 .consult-tab-active {
-	border-bottom-color: #3d6df6;
 	color: #3d6df6;
 	font-weight: 700;
+}
+
+.consult-tab-active::after {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	width: 120rpx;
+	height: 6rpx;
+	border-radius: 6rpx;
+	background: #3d6df6;
+	content: "";
+	transform: translateX(-50%);
 }
 
 .consult-state {
@@ -141,9 +144,9 @@ page {
 	flex-direction: column;
 	height: 380rpx;
 	min-height: 380rpx;
-	margin-top: 2rpx;
+	margin-top: 60rpx;
 	padding: 40rpx 30rpx;
-	border-radius: 0 0 20rpx 20rpx;
+	border-radius: 20rpx;
 	background: #ffffff;
 	color: #777777;
 	font-size: 28rpx;
@@ -153,16 +156,16 @@ page {
 .consult-record-list {
 	box-sizing: border-box;
 	width: 710rpx;
-	margin: 20rpx auto 0;
+	margin: 0 auto;
+	padding-top: 20rpx;
 }
 
 .consult-record-card {
 	box-sizing: border-box;
-	margin-bottom: 18rpx;
-	padding: 26rpx 28rpx;
-	border-radius: 18rpx;
+	margin-bottom: 16rpx;
+	padding: 24rpx;
+	border-radius: 16rpx;
 	background: #ffffff;
-	box-shadow: 0 4rpx 16rpx rgba(35, 55, 95, 0.05);
 }
 
 .consult-record-header {

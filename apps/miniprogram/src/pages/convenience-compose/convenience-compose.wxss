@@ -29,9 +29,9 @@
 .convenience-compose-display-option { color: #555; font-size: 26rpx; }
 .convenience-compose-display-option.is-selected { color: #3d6df6; font-weight: 600; }
 .convenience-compose-message { margin-top: 18rpx; padding: 18rpx 22rpx; border-radius: 14rpx; background: #fff8e8; color: #a66b00; font-size: 24rpx; line-height: 1.6; }
-.convenience-compose-primary { width: 100%; margin-top: 22rpx; border-radius: 14rpx; background: #3d6df6; color: #fff; font-size: 29rpx; line-height: 84rpx; }
+.convenience-compose-primary { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 84rpx; margin-top: 22rpx; padding: 0; border-radius: 14rpx; background: #3d6df6; color: #fff; font-size: 29rpx; line-height: 1; }
 .convenience-compose-note { display: block; margin-top: 18rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
-.convenience-compose-back { width: 100%; margin-top: 10rpx; border-radius: 14rpx; background: transparent; color: #68738a; font-size: 28rpx; line-height: 84rpx; }
+.convenience-compose-back { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 84rpx; margin-top: 10rpx; padding: 0; border-radius: 14rpx; background: transparent; color: #68738a; font-size: 28rpx; line-height: 1; }
 .convenience-compose-picker-mask { position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: flex-end; background: rgba(0, 0, 0, .36); }
 .convenience-compose-picker { box-sizing: border-box; width: 100%; max-height: 72vh; padding: 20rpx 24rpx 28rpx; border-radius: 24rpx 24rpx 0 0; background: #fff; }
 .convenience-compose-picker-title { padding: 12rpx 0 20rpx; color: #222; font-size: 30rpx; font-weight: 600; text-align: center; }

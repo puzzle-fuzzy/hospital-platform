@@ -1136,6 +1136,7 @@ export class MedicalInsurancePluginPaymentService {
 		const trace = await this.dependencies.hospitalSettlement.writeBack(
 			{
 				orderId: paymentOrder.orderId,
+				settlementFlow: "medical-mixed-cash",
 				settlement: {
 					orderId: paymentOrder.orderId,
 					state: paymentOrder.state,

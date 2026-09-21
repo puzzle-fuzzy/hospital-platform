@@ -4,8 +4,10 @@ import {
 	navigateToAuthenticatedPage,
 	navigateToMissedAppointmentsPage,
 	navigateToPatientSelector,
+	PRIMARY_TAB_PAGE_PATHS,
 	resolveAuthenticatedEntry,
 	resolvePatientScopedEntry,
+	SMART_COMPANION_PRIMARY_TAB,
 	switchToPrimaryTab,
 } from "./patient-navigation";
 import { runPatientSync } from "./patient-sync-coordinator";
@@ -31,6 +33,11 @@ describe("会话验证入口门禁", () => {
 });
 
 describe("微信原生 Tab 路由边界", () => {
+	test("智能陪诊固定落到底部就诊 Tab", () => {
+		expect(SMART_COMPANION_PRIMARY_TAB).toBe("/pages/consult/consult");
+		expect(PRIMARY_TAB_PAGE_PATHS).toContain(SMART_COMPANION_PRIMARY_TAB);
+	});
+
 	test("主 Tab 只使用 switchTab，普通业务页不被误判", () => {
 		const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
 		const originalWx = runtime.wx;

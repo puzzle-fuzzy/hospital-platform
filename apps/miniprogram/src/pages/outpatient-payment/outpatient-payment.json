@@ -2,5 +2,8 @@
 	"navigationBarTitleText": "门诊缴费",
 	"disableScroll": true,
 	"enablePullDownRefresh": true,
-	"backgroundColor": "#f8f8f8"
+	"backgroundColor": "#f8f8f8",
+	"usingComponents": {
+		"patient-hospital-context": "/components/patient-hospital-context/patient-hospital-context"
+	}
 }

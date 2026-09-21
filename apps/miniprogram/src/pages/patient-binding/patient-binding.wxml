@@ -1,7 +1,6 @@
 <scroll-view class="patient-binding-scroll" scroll-y="true" enhanced="true">
 	<view class="patient-binding-page">
 		<view class="patient-binding-hero">
-			<text class="patient-binding-title">添加就诊人</text>
 			<text class="patient-binding-subtitle">请输入就诊人的真实信息，提交后由医院服务端完成核验和关联。</text>
 		</view>
 

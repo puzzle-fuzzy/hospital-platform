@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	ApiError,
@@ -31,9 +32,115 @@ import type { Patient } from "../src/types";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
 
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function source(file: string): Promise<string> {
 	return Bun.file(join(sourceRoot, file)).text();
 }
+
+test("native page titles only come from the WeChat navigation bar", async () => {
+	const pageRoot = join(sourceRoot, "pages");
+	const pageEntries = await readdir(pageRoot, { withFileTypes: true });
+	const duplicatedPageTitles: string[] = [];
+
+	for (const pageEntry of pageEntries) {
+		if (!pageEntry.isDirectory()) continue;
+		const pageName = pageEntry.name;
+		const pageConfigPath = join(pageRoot, pageName, `${pageName}.json`);
+		const pageWxmlPath = join(pageRoot, pageName, `${pageName}.wxml`);
+		const [pageConfigFile, pageWxmlFile] = await Promise.all([
+			Bun.file(pageConfigPath),
+			Bun.file(pageWxmlPath),
+		]);
+		if (!(await pageConfigFile.exists()) || !(await pageWxmlFile.exists())) {
+			continue;
+		}
+
+		const pageConfig = JSON.parse(await pageConfigFile.text()) as {
+			navigationBarTitleText?: string;
+		};
+		const pageTitle = pageConfig.navigationBarTitleText?.trim();
+		if (!pageTitle) continue;
+
+		const pageWxml = await pageWxmlFile.text();
+		const literalTitlePattern = new RegExp(
+			`>\\s*${escapeRegExp(pageTitle)}\\s*<`,
+		);
+		if (literalTitlePattern.test(pageWxml)) {
+			duplicatedPageTitles.push(`${pageName}: ${pageTitle}`);
+		}
+	}
+
+	// 内容区可以保留功能卡片、记录名称和状态说明；但页面级标题不能复制
+	// 原生导航栏标题。若确有同名的业务动作，必须先在这里登记为例外并说明
+	// 它不是页面头标题，避免通过复制标题绕过视觉规范。
+	expect(duplicatedPageTitles).toEqual(["feedback: 意见反馈"]);
+});
+
+test("patient and hospital context is one shared component and snapshot", async () => {
+	const componentDirectory = join(
+		sourceRoot,
+		"components",
+		"patient-hospital-context",
+	);
+	const [componentJson, componentTemplate, componentScript] = await Promise.all(
+		[
+			Bun.file(
+				join(componentDirectory, "patient-hospital-context.json"),
+			).text(),
+			Bun.file(
+				join(componentDirectory, "patient-hospital-context.wxml"),
+			).text(),
+			Bun.file(join(componentDirectory, "patient-hospital-context.ts")).text(),
+		],
+	);
+	const componentConfig = JSON.parse(componentJson) as { component?: boolean };
+
+	expect(componentConfig.component).toBe(true);
+	expect(componentTemplate).toContain("就诊人");
+	expect(componentTemplate).toContain("当前院区");
+	expect(componentScript).toContain("subscribePatientHospitalContext");
+	expect(componentScript).toContain("ensurePatientHospitalContext");
+
+	const contextService = await source("services/patient-hospital-context.ts");
+	expect(contextService).toContain('"__hospitalPatientHospitalContext"');
+	expect(contextService).toContain("inFlight");
+	expect(contextService).toContain("registerPatientSelectionChangedListener");
+	expect(contextService).toContain("registerSessionChangedListener");
+
+	const sharedPages = [
+		"medical-record",
+		"electronic-consultation",
+		"outpatient-payment",
+		"report-directory",
+		"consultation",
+		"appointment-records",
+		"inpatient-center",
+		"inpatient-payment",
+		"admission-preconsultation",
+		"discharge-followup",
+		"risk-evaluation",
+		"consult",
+	];
+	for (const pageName of sharedPages) {
+		const [pageConfig, pageTemplate] = await Promise.all([
+			Bun.file(join(sourceRoot, "pages", pageName, `${pageName}.json`)).text(),
+			source(`pages/${pageName}/${pageName}.wxml`),
+		]);
+		const config = JSON.parse(pageConfig) as {
+			usingComponents?: Record<string, string>;
+		};
+		expect(config.usingComponents?.["patient-hospital-context"]).toBe(
+			"/components/patient-hospital-context/patient-hospital-context",
+		);
+		expect(pageTemplate).toContain("<patient-hospital-context");
+		expect(pageTemplate.trim()).toMatch(
+			/^<scroll-view[\s\S]*>\s*<patient-hospital-context/,
+		);
+	}
+});
 
 test("native client keeps WeChat identity exchange on the Hospital API", async () => {
 	const client = await source("services/api-client.ts");
@@ -266,9 +373,17 @@ test("consult tab keeps the old three-tab shell while realtime remains closed", 
 	expect(page).toContain("navigateToPatientSelector");
 	expect(page).not.toContain("connectWebSocket");
 	expect(page).not.toContain("getQueuePositionApi");
-	expect(template).toContain('bindtap="onChangePatient"');
+	expect(template).toContain(
+		'<patient-hospital-context bindchangepatient="onChangePatient"',
+	);
 	expect(template).toContain('bindtap="onTabTap"');
 	expect(template).toContain("query-state-shell");
+	expect(template).toContain("consult-primary-scroll");
+	expect(style).toContain("background: #f5f5f5");
+	// Tab 栏和共享患者栏一样贴满屏幕左右，不能被内容区的 20rpx 内边距缩进。
+	expect(style).toMatch(
+		/\.consult-tabs\s*\{[\s\S]*?width:\s*calc\(100% \+ 40rpx\);[\s\S]*?margin:\s*18rpx 0 0 -20rpx;/,
+	);
 	expect(style).toContain(".consult-patient-card");
 	expect(style).toContain(".consult-tab-active");
 	// 真机上的原生 button 外边框可能被自身盒边界裁切；切换按钮必须使用
@@ -276,6 +391,25 @@ test("consult tab keeps the old three-tab shell while realtime remains closed", 
 	expect(style).toMatch(
 		/\.consult-patient-switch\s*\{[\s\S]*?box-shadow:\s*inset 0 0 0 2rpx/,
 	);
+});
+
+test("native page action buttons use explicit heights instead of native button defaults", async () => {
+	const actionStyles = [
+		["pages/admission-preconsultation/admission-preconsultation.wxss", ".admission-submit", "84rpx"],
+		["pages/pre-visit/pre-visit.wxss", ".pre-visit-submit", "84rpx"],
+		["pages/risk-evaluation/risk-evaluation.wxss", ".risk-submit", "84rpx"],
+		["pages/self-test-question/self-test-question.wxss", ".self-test-submit", "84rpx"],
+		["pages/inpatient-payment/inpatient-payment.wxss", ".inpatient-payment-primary", "88rpx"],
+	] as const;
+
+	for (const [stylePath, selector, height] of actionStyles) {
+		const style = await source(stylePath);
+		expect(style).toMatch(
+			new RegExp(
+				`${escapeRegExp(selector)}[\\s\\S]*?height:\\s*${height};[\\s\\S]*?padding:\\s*0;[\\s\\S]*?line-height:\\s*1;`,
+			),
+		);
+	}
 });
 
 test("native profile uses WeChat avatar and nickname filling instead of the settings page", async () => {
@@ -344,19 +478,19 @@ test("native patient selectors do not report a selection error during loading", 
 	// 预约记录和门诊费用都会先清空旧患者，再依次完成 `/me`、患者目录
 	// 和业务列表读取。页面的 null 只表示“本轮事实尚未提交”，不能在
 	// loading 期间被渲染成“请先选择就诊人”，否则用户会把等待误判为失败。
+	const sharedTemplate = await source(
+		"components/patient-hospital-context/patient-hospital-context.wxml",
+	);
+	expect(sharedTemplate).toContain(
+		'<text wx:elif="{{loading}}" class="patient-hospital-context-name">正在加载就诊人...</text>',
+	);
 	for (const pagePath of [
 		"pages/appointment-records/appointment-records.wxml",
 		"pages/outpatient-payment/outpatient-payment.wxml",
 		"pages/report-directory/report-directory.wxml",
 	]) {
 		const page = await source(pagePath);
-		expect(page).toContain(
-			'<text wx:elif="{{loading}}" class="selector-name">正在加载就诊人...</text>',
-		);
-		expect(page).toContain(
-			'<text wx:elif="{{canSelectPatient}}" class="selector-name">请先选择就诊人</text>',
-		);
-		expect(page).toContain("当前就诊人信息暂不可用");
+		expect(page).toContain("<patient-hospital-context");
 	}
 });
 
@@ -2157,7 +2291,7 @@ test("native primary tabs keep scrolling inside the content viewport", async () 
 			template.startsWith("\n<scroll-view") ||
 				template.startsWith("<scroll-view"),
 		).toBe(true);
-		expect(template).toContain('class="tab-page-scroll"');
+		expect(template).toContain('class="tab-page-scroll');
 		expect(template).toContain('scroll-y="true"');
 		expect(pageStyle).toContain("height: 100%;");
 		expect(pageStyle).toContain("overflow: hidden;");
@@ -2764,14 +2898,10 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(records).toContain(
 		'url: `/pages/appointment-detail/appointment-detail?${query.join("&")}`',
 	);
-	// 我的挂号必须保留旧端的患者/院区选择区、状态标签和卡片操作位置。
-	expect(recordsTemplate).toContain("当前院区");
-	// 旧端院区行有右侧箭头和底部选择面板；新端只展示一个受控院区，
-	// 因此保留视觉和单项交互，但不能把未知院区列表伪造出来。
-	expect(recordsTemplate).toContain('bindtap="onHospitalTap"');
-	expect(recordsTemplate).toContain(
-		"/assets/legacy-user/selector-arrow-right.svg",
-	);
+	// 我的挂号必须保留旧端的患者/院区选择入口、状态标签和卡片操作位置；
+	// 两行展示本身由门诊病历定义的共享组件负责。
+	expect(recordsTemplate).toContain("<patient-hospital-context");
+	expect(recordsTemplate).toContain('bindhospitaltap="onHospitalTap"');
 	expect(recordsTemplate).toContain("showHospitalModal");
 	expect(records).toContain("onHospitalSelect");
 	expect(records).toContain("当前只有一个已经确认的院区");
@@ -2787,11 +2917,14 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(recordsTemplate).toContain("hospitalAreaName");
 	expect(recordsTemplate).toContain('bindtap="onHospitalGuide"');
 	expect(records).toContain("searchDepartmentLocation");
-	expect(recordsTemplate).toContain('class="selector-name"');
+	expect(recordsTemplate).toContain("<patient-hospital-context");
 	// 旧端患者行是“姓名（编号）”的紧凑视觉结构；编号在原生端必须仍是
 	// 平台脱敏卡号，避免为追求视觉一致而把 Provider 患者号重新带回小程序。
-	expect(recordsTemplate).toContain(
-		'class="selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>',
+	const sharedContextTemplate = await source(
+		"components/patient-hospital-context/patient-hospital-context.wxml",
+	);
+	expect(sharedContextTemplate).toContain(
+		'class="patient-hospital-context-card-number">（{{patientCardLabel}}）</text>',
 	);
 	expect(recordsTemplate).toContain('class="location-close"');
 	expect(recordsTemplate).toContain('bindtap="closeLocationModal"');
@@ -3032,23 +3165,20 @@ test("outpatient payment preserves the legacy patient and hospital selector rows
 	const template = await source(
 		"pages/outpatient-payment/outpatient-payment.wxml",
 	);
-	const style = await source(
-		"pages/outpatient-payment/outpatient-payment.wxss",
-	);
 
 	// 这是展示/入口迁移，不是院区业务扩展：患者仍进入独立选择页，
 	// 单院区点击只提示，不把未知院区 ID 或 Provider 参数交给费用查询。
 	expect(payment).toContain('const DEFAULT_HOSPITAL_NAME = "高平市人民医院"');
 	expect(payment).toContain("onHospitalTap(): void");
 	expect(payment).toContain("当前仅支持高平市人民医院");
-	expect(template).toContain('class="selector-card"');
-	expect(template).toContain('bindtap="onChangePatient"');
-	expect(template).toContain('bindtap="onHospitalTap"');
-	expect(template).toContain(
-		'src="/assets/legacy-user/selector-arrow-right.svg"',
+	expect(template).toContain("<patient-hospital-context");
+	expect(template).toContain('bindchangepatient="onChangePatient"');
+	expect(template).toContain('bindhospitaltap="onHospitalTap"');
+	const sharedContextStyle = await source(
+		"components/patient-hospital-context/patient-hospital-context.wxss",
 	);
-	expect(style).toContain(".selector-row");
-	expect(style).toContain(".selector-card-number");
+	expect(sharedContextStyle).toContain(".patient-hospital-context-row");
+	expect(sharedContextStyle).toContain(".patient-hospital-context-card-number");
 });
 
 test("native mini program preserves the legacy static hospital entry boundary", async () => {
@@ -3346,9 +3476,9 @@ test("native blocked domains keep one explicit current-patient context", async (
 	}
 	expect(admissionPage).toContain("loadCurrentPatient");
 	expect(admissionPage).toContain("ADMISSION_PRECONSULTATION_QUESTIONS");
-	expect(admissionTemplate).toContain("当前就诊人");
+	expect(admissionTemplate).toContain("<patient-hospital-context");
 	expect(admissionPage).toContain("请问患者是否有高血压");
-	expect(admissionTemplate).toContain('bindtap="onChangePatient"');
+	expect(admissionTemplate).toContain('bindchangepatient="onChangePatient"');
 });
 
 test("门诊病历和首页我的问诊安全摘要进入各自原生页", async () => {
@@ -4104,11 +4234,14 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(reportTemplate).toContain(
 		"体检的检验及检查报告点击检验检查查询，体检报告下仅显示总检内容!",
 	);
-	expect(reportTemplate).toContain('class="selector-card"');
-	expect(reportTemplate).toContain(
-		'class="selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>',
+	expect(reportTemplate).toContain("<patient-hospital-context");
+	const reportContextTemplate = await source(
+		"components/patient-hospital-context/patient-hospital-context.wxml",
 	);
-	expect(reportTemplate).toContain(
+	expect(reportContextTemplate).toContain(
+		'class="patient-hospital-context-card-number">（{{patientCardLabel}}）</text>',
+	);
+	expect(reportContextTemplate).toContain(
 		'src="/assets/legacy-user/selector-arrow-right.svg"',
 	);
 	expect(reportTemplate).not.toContain('<view class="page-header">');
@@ -4590,17 +4723,17 @@ test("native discharge follow-up forms preserve the old component field contract
 	expect(daytimeSecondKeys).toContain("suggestionContent");
 });
 
-test("native homepage companion entry uses the explicit companion status gate", async () => {
+test("native homepage companion entry switches to the fixed consult tab", async () => {
 	const home = await source("pages/index/index.ts");
 	const companionBranch = home.slice(
 		home.indexOf('case "companion":'),
 		home.indexOf('case "consultation":'),
 	);
 
-	expect(companionBranch).toContain('navigateToFeatureStatus("companion")');
-	expect(companionBranch).not.toContain(
-		'wx.switchTab({ url: "/pages/consult/consult" })',
+	expect(companionBranch).toContain(
+		"switchToPrimaryTab(SMART_COMPANION_PRIMARY_TAB);",
 	);
+	expect(companionBranch).not.toContain('navigateToFeatureStatus("companion")');
 });
 
 test("native homepage and my page reject stale patient directory responses", async () => {

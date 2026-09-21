@@ -239,6 +239,9 @@ export class PaymentReconciliationWorker {
 			const trace = await gateway.writeBack(
 				{
 					orderId: order.orderId,
+					settlementFlow: medicalOrderId
+						? "medical-mixed-cash"
+						: "ordinary-self-pay",
 					settlement: {
 						orderId: order.orderId,
 						state: order.state,

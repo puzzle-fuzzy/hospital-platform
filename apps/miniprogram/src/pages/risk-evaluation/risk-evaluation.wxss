@@ -29,7 +29,7 @@
 .risk-pain-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14rpx; margin-top: 18rpx; }
 .risk-pain-option { padding: 16rpx 0; border: 1rpx solid #dfe5f2; border-radius: 10rpx; color: #555; font-size: 26rpx; text-align: center; }
 .risk-pain-option.is-selected { border-color: #3d6df6; background: #3d6df6; color: #fff; }
-.risk-submit, .risk-back { width: 100%; margin-top: 24rpx; border-radius: 14rpx; font-size: 28rpx; line-height: 84rpx; }
+.risk-submit, .risk-back { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 84rpx; margin-top: 24rpx; padding: 0; border-radius: 14rpx; font-size: 28rpx; line-height: 1; }
 .risk-submit { background: #3d6df6; color: #fff; }
 .risk-message { margin-top: 18rpx; padding: 18rpx 22rpx; background: #fff8e8; color: #a66b00; font-size: 24rpx; line-height: 1.6; }
 .risk-note { display: block; margin-top: 18rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }

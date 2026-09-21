@@ -1,7 +1,6 @@
 <scroll-view class="my-doctor-scroll" scroll-y="true" enhanced="true">
 	<view class="my-doctor-page">
 		<view class="my-doctor-header">
-			<text class="my-doctor-title">我的医生</text>
 			<text class="my-doctor-subtitle">关注的医生会持续显示在这里</text>
 		</view>
 

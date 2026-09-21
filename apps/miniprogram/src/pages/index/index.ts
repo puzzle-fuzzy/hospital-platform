@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, requestPatientQr } from "../../services/api-client";
 import {
 	hasCachedPatientDirectory,
 	loadHealth,
@@ -30,6 +30,8 @@ import {
 	navigateToAuthenticatedPage,
 	navigateToPatientScopedPage,
 	navigateToPatientSelector,
+	SMART_COMPANION_PRIMARY_TAB,
+	switchToPrimaryTab,
 } from "../../services/patient-navigation";
 import {
 	clearSelectedPatientId,
@@ -107,7 +109,11 @@ const BANNER_LIST = Object.freeze([
 	{ action: "follow", image: "/assets/legacy-home/banner-follow.png" },
 ] satisfies ReadonlyArray<{ action: string; image: string }>);
 
-/** 右侧快捷入口保留设计稿布局；第三项固定为旧端的门诊病历入口。 */
+/**
+ * 右侧快捷入口保留设计稿布局；第三项固定为旧端的门诊病历入口。
+ * `companion` 只是“智能陪诊”快捷入口，目标固定为底部“就诊”Tab，
+ * 不能据此创建独立陪诊页或跳转统一功能状态页。
+ */
 const RIGHT_LIST = Object.freeze([
 	{ action: "guide", image: "/assets/legacy-home/right-guide.png" },
 	{ action: "companion", image: "/assets/legacy-home/right-companion.png" },
@@ -213,6 +219,10 @@ type IndexPageMethods = {
 	onHeroAction(): void;
 	openPatientSelector(): void;
 	onPatientQr(): void;
+	loadPatientQr(
+		selectedPatient: Patient,
+		expectedSessionGeneration: number,
+	): Promise<void>;
 	closePatientQr(): void;
 	stopPatientQrPropagation(): void;
 	onPatientQrStatus(): void;
@@ -285,6 +295,9 @@ Page<IndexPageData, IndexPageMethods>({
 		// 只保存服务端返回的内部 patientId，后续查询均以它作为业务输入。
 		selectedPatientId: "",
 		showPatientQr: false,
+		patientQrImage: "",
+		patientQrLoading: false,
+		patientQrError: "",
 		patientQrName: "",
 		patientQrCardNumber: "",
 		hasPatients: false,
@@ -322,6 +335,9 @@ Page<IndexPageData, IndexPageMethods>({
 					selectedPatient,
 					selectedPatientId: event.patientId,
 					showPatientQr: false,
+					patientQrImage: "",
+					patientQrLoading: false,
+					patientQrError: "",
 					patientQrName: "",
 					patientQrCardNumber: "",
 				});
@@ -574,17 +590,17 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	/**
-	 * 旧端实际把医疗卡号直接拼给第三方二维码服务；这既不是医院确认的扫码
-	 * contract，也没有签名、有效期、防重放和撤销边界。当前先保留与旧端一致的
-	 * 居中弹层视觉，把“已确认患者”和“二维码能力未开放”同时说清楚，但不生成
-	 * 图片、不外发卡号、不把内部 patientId 当作扫码内容。
+	 * 展示当前已确认患者的就诊卡二维码。
+	 *
+	 * 完整卡号只由服务端从 Provider 受控读取并生成图片；小程序只接收
+	 * 图片 data URL，不自行拼接卡号，也不调用第三方二维码服务。
 	 */
 	onPatientQr() {
 		// 本地 opaque patientId 只能用于恢复/stale 判断，不能证明当前页面已经
 		// 取得同一会话的最新患者目录。二维码入口必须同时确认页面对象、storage
 		// 中的显式选择和临床映射状态；否则临时故障、账号切换或旧页面停留期间，
-		// 仍会把“有缓存 ID”误报成“有患者可扫码”。这里先把未来开放时必须
-		// 满足的患者上下文门禁固定在当前实现中。
+		// 仍会把“有缓存 ID”误报成“有患者可扫码”。这里把二维码能力当前必须
+		// 满足的患者上下文门禁固定在入口处。
 		const sessionState = sessionVerificationStateFromLabel(
 			this.data.sessionStatus,
 		);
@@ -621,19 +637,63 @@ Page<IndexPageData, IndexPageMethods>({
 			});
 			return;
 		}
-		// 已确认患者只允许打开安全说明壳；真正的医院扫码二维码仍需单独
-		// contract，不能因为当前患者上下文有效就把旧端第三方生成方式复活。
+		const expectedSessionGeneration = getSessionGeneration();
 		this.setData({
 			showPatientQr: true,
+			patientQrImage: "",
+			patientQrLoading: true,
+			patientQrError: "",
 			patientQrName: selectedPatient.displayName,
 			patientQrCardNumber: selectedPatient.cardNumberMasked || "----",
 		});
+		void this.loadPatientQr(selectedPatient, expectedSessionGeneration);
+	},
+
+	async loadPatientQr(
+		selectedPatient: Patient,
+		expectedSessionGeneration: number,
+	): Promise<void> {
+		try {
+			const response = await requestPatientQr(
+				selectedPatient.id,
+				expectedSessionGeneration,
+			);
+			if (
+				!isCurrentSessionGeneration(expectedSessionGeneration) ||
+				!this.data.showPatientQr ||
+				this.data.selectedPatient?.id !== selectedPatient.id ||
+				!isCurrentSelectedPatient(selectedPatient.id)
+			) {
+				return;
+			}
+			this.setData({
+				patientQrImage: response.data.imageDataUrl,
+				patientQrLoading: false,
+			});
+		} catch (error) {
+			if (
+				!isCurrentSessionGeneration(expectedSessionGeneration) ||
+				!this.data.showPatientQr
+			) {
+				return;
+			}
+			this.setData({
+				patientQrLoading: false,
+				patientQrError: errorMessageWithCode(
+					error,
+					"就诊卡二维码暂时无法加载，请稍后重试",
+				),
+			});
+		}
 	},
 
 	/** 关闭与旧端一致的居中弹层，不改变患者选择和会话状态。 */
 	closePatientQr(): void {
 		this.setData({
 			showPatientQr: false,
+			patientQrImage: "",
+			patientQrLoading: false,
+			patientQrError: "",
 			patientQrName: "",
 			patientQrCardNumber: "",
 		});
@@ -699,7 +759,9 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureEntry("guide");
 				break;
 			case "companion":
-				navigateToFeatureStatus("companion");
+				// 固定契约：智能陪诊 -> 底部原生 Tab“就诊”。
+				// 不得改成 feature-status、smart-guide 或“我的问诊”页面。
+				switchToPrimaryTab(SMART_COMPANION_PRIMARY_TAB);
 				break;
 			case "consultation":
 				navigateToFeatureEntry("consultation");
@@ -1032,6 +1094,9 @@ Page<IndexPageData, IndexPageMethods>({
 			selectedPatient: null,
 			selectedPatientId: "",
 			showPatientQr: false,
+			patientQrImage: "",
+			patientQrLoading: false,
+			patientQrError: "",
 			patientQrName: "",
 			patientQrCardNumber: "",
 			hasPatients: false,
@@ -1052,6 +1117,9 @@ Page<IndexPageData, IndexPageMethods>({
 			selectedPatient: null,
 			selectedPatientId: "",
 			showPatientQr: false,
+			patientQrImage: "",
+			patientQrLoading: false,
+			patientQrError: "",
 			patientQrName: "",
 			patientQrCardNumber: "",
 			hasPatients: false,
@@ -1073,6 +1141,9 @@ Page<IndexPageData, IndexPageMethods>({
 				selectedPatientId: "",
 				selectedPatient: null,
 				showPatientQr: false,
+				patientQrImage: "",
+				patientQrLoading: false,
+				patientQrError: "",
 				patientQrName: "",
 				patientQrCardNumber: "",
 				hasPatients: patients.length > 0,
@@ -1092,6 +1163,9 @@ Page<IndexPageData, IndexPageMethods>({
 			selectedPatientId,
 			selectedPatient,
 			showPatientQr: false,
+			patientQrImage: "",
+			patientQrLoading: false,
+			patientQrError: "",
 			patientQrName: "",
 			patientQrCardNumber: "",
 			hasPatients: patients.length > 0,

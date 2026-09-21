@@ -195,10 +195,15 @@ page {
 .blood-appointment-status-button,
 .blood-appointment-back-button {
 	box-sizing: border-box;
-	display: block;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	width: calc(100% - 96rpx);
+	height: 76rpx;
 	margin: 24rpx auto 0;
+	padding: 0;
 	font-size: 27rpx;
+	line-height: 1;
 }
 
 .blood-appointment-status-button {

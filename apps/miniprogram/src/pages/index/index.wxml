@@ -146,28 +146,32 @@
 		bindtap="onFloatingGuide"
 	/>
 
-	<!--
-		保留旧首页二维码居中弹层的视觉位置，但不伪造可扫码图片。
-		医院扫码字段、签名、有效期和撤销规则确认后，未来只替换弹层
-		内部的安全 payload，不改变患者上下文门禁和遮罩交互。
-	-->
+	<!-- 服务端按当前患者归属生成就诊卡二维码；小程序不接触完整卡号。 -->
 	<view wx:if="{{showPatientQr}}" class="patient-qr-overlay" catchtap="closePatientQr">
 		<view class="patient-qr-modal" catchtap="stopPatientQrPropagation">
-			<view class="patient-qr-title">就诊人二维码</view>
+			<view class="patient-qr-title">就诊卡二维码</view>
 			<view class="patient-qr-preview">
 				<image
-					src="/assets/legacy-home/patient-qr.svg"
+					wx:if="{{patientQrImage}}"
+					src="{{patientQrImage}}"
 					mode="aspectFit"
-					class="patient-qr-preview-icon"
+					class="patient-qr-image"
 				/>
-				<view class="patient-qr-locked">待开放</view>
+				<view wx:elif="{{patientQrLoading}}" class="patient-qr-loading">
+					正在生成二维码…
+				</view>
+				<view wx:else class="patient-qr-error-preview">
+					二维码暂时无法加载
+				</view>
 			</view>
 			<view class="patient-qr-name">{{patientQrName || "----"}}</view>
 			<view class="patient-qr-card">就诊卡：{{patientQrCardNumber || "----"}}</view>
-			<view class="patient-qr-notice">
-				二维码服务正在完善中，当前暂不支持扫码使用。
+			<view wx:if="{{patientQrError}}" class="patient-qr-error">
+				{{patientQrError}}
 			</view>
-			<view class="patient-qr-status" bindtap="onPatientQrStatus">了解服务进度</view>
+			<view wx:else class="patient-qr-notice">
+				请将此二维码出示给医院扫码设备
+			</view>
 			<view class="patient-qr-close" bindtap="closePatientQr">关闭</view>
 		</view>
 	</view>

@@ -17,7 +17,7 @@ export type RegistrationSelfPayServiceDependencies = {
 	appointments: AppointmentWriteService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
-	/** 众阳非 HIS 收款 .5 返回 isSettle=1 后才能进入 completed。 */
+	/** 普通微信自费只在众阳 HIS `.5` 返回 isSettle=1 后进入 completed。 */
 	hospitalSettlement: HospitalSettlementGateway;
 	/** 收银台前固定完成众阳 .1 -> .27 -> .2，并返回同一笔流水上下文。 */
 	preparation: RegistrationSelfPayPreparationGateway;
@@ -169,6 +169,7 @@ export class RegistrationSelfPayService {
 			const trace = await this.dependencies.hospitalSettlement.writeBack(
 				{
 					orderId: order.orderId,
+					settlementFlow: "ordinary-self-pay",
 					settlement: {
 						orderId: order.orderId,
 						// .5 是权威完成判断；只有它返回 isSettle=1 后，才真正

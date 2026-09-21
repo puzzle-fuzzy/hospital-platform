@@ -21,7 +21,7 @@
 .pre-visit-input { box-sizing: border-box; width: 100%; height: 76rpx; margin-top: 18rpx; padding: 18rpx; border-radius: 12rpx; background: #f7f9fd; color: #222b45; font-size: 26rpx; }
 .pre-visit-input.is-disabled { color: #a6adbb; }
 .pre-visit-message { margin-top: 20rpx; padding: 18rpx 22rpx; background: #fff8e8; color: #a66b00; font-size: 25rpx; line-height: 1.6; }
-.pre-visit-submit, .pre-visit-back { box-sizing: border-box; width: 100%; margin-top: 24rpx; border-radius: 14rpx; font-size: 28rpx; line-height: 84rpx; }
+.pre-visit-submit, .pre-visit-back { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 84rpx; margin-top: 24rpx; padding: 0; border-radius: 14rpx; font-size: 28rpx; line-height: 1; }
 .pre-visit-submit { background: #3d6df6; color: #fff; }
 .pre-visit-disclaimer { display: block; margin-top: 16rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
 .pre-visit-back { background: transparent; color: #68738a; }

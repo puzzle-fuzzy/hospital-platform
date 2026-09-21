@@ -1,49 +1,12 @@
 <scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+	<patient-hospital-context
+		hospital-selectable="{{true}}"
+		bindchangepatient="onChangePatient"
+		bindhospitaltap="onHospitalTap"
+	/>
 	<view class="page">
 	<!-- 错误区域固定在页面最上方，网络异常时用户无需滚动查找原因。 -->
 	<view wx:if="{{error}}" class="clinical-query-error-message">{{error}}</view>
-
-	<!-- 旧端 PatientHospitalSelector 的两行布局；患者切换仍进入平台选择页。 -->
-	<view class="selector-card">
-		<view class="selector-row selector-row-border" bindtap="onChangePatient">
-			<text class="selector-label">就诊人</text>
-			<view class="selector-value">
-				<text wx:if="{{selectedPatient}}" class="selector-name">{{selectedPatient.displayName}}</text>
-				<!--
-					目录和预约记录是两个连续的异步读阶段。loading 期间尚未形成
-					当前患者事实，不能把临时的 null 显示成“请先选择就诊人”；
-					只有本轮读取结束且没有患者时，才进入真正的选择状态。
-				-->
-				<text wx:elif="{{loading}}" class="selector-name">正在加载就诊人...</text>
-				<text wx:elif="{{canSelectPatient}}" class="selector-name">请先选择就诊人</text>
-				<!-- 服务异常时患者上下文被安全清空，但不能把故障伪装成未选患者。 -->
-				<text wx:else class="selector-name">当前就诊人信息暂不可用</text>
-				<!-- 旧端在姓名后显示括号编号；新端只放服务端生成的脱敏卡号，不能恢复 Provider 患者号。 -->
-				<text wx:if="{{selectedPatient}}" class="selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>
-				<!-- 原版使用灰色 arrow-right 图标，不能用字符箭头导致字形和垂直位置漂移。 -->
-				<image
-					class="selector-arrow-image"
-					src="/assets/legacy-user/selector-arrow-right.svg"
-					mode="aspectFit"
-				/>
-			</view>
-		</view>
-		<!--
-			旧端院区行有右侧箭头并可打开选择面板。当前服务端只确认一个院区，
-			所以保留真实存在的单项面板，不把未知院区或 provider 参数伪造成可选项。
-		-->
-		<view class="selector-row" bindtap="onHospitalTap">
-			<text class="selector-label">当前院区</text>
-			<view class="selector-value">
-				<text>{{hospitalName}}</text>
-				<image
-					class="selector-arrow-image"
-					src="/assets/legacy-user/selector-arrow-right.svg"
-					mode="aspectFit"
-				/>
-			</view>
-		</view>
-	</view>
 
 	<!-- 蓝湖稿为三等分标签；候补挂号暂未接入服务端，只保留真实的未开放入口。 -->
 	<view class="status-tabs">

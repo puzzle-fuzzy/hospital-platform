@@ -4,5 +4,8 @@
 	"navigationBarBackgroundColor": "#f8f8f8",
 	"navigationBarTextStyle": "black",
 	"backgroundColor": "#f5f5f5",
-	"enablePullDownRefresh": false
+	"enablePullDownRefresh": false,
+	"usingComponents": {
+		"patient-hospital-context": "/components/patient-hospital-context/patient-hospital-context"
+	}
 }

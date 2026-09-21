@@ -718,7 +718,67 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 	expect(headers?.get("authorization")).toBeNull();
 });
 
-test("云健康自费回写严格执行 .29 -> .15 -> .5 并逐步持久化", async () => {
+test("普通微信自费回写只执行 .5，不调用 .29/.15", async () => {
+	const paths: string[] = [];
+	let call = 0;
+	const gatewayInstance = gateway(async (input, init) => {
+		paths.push(new URL(String(input)).pathname);
+		call += 1;
+		expect(String(init?.body)).toContain(
+			'"businessId":"settlement-business-001"',
+		);
+		return new Response(
+			JSON.stringify({ success: true, data: { isSettle: 1 } }),
+			{
+				status: 200,
+				headers: { "x-request-id": `ordinary-self-pay-${call}` },
+			},
+		);
+	});
+	let legacyCallbackCalled = false;
+
+	const trace = await gatewayInstance.writeBack(
+		{
+			orderId: "ordinary-self-pay-001",
+			settlementFlow: "ordinary-self-pay",
+			settlement: {
+				orderId: "ordinary-self-pay-001",
+				state: "cash_paid",
+				totalFen: 1234,
+				insuranceFen: 0,
+				cashFen: 1234,
+				trace: [],
+			},
+			registrationContext: {
+				...registrationContext,
+				businessId: "settlement-business-001",
+				tradeTypeCode: "2",
+				payTypeId: "5032",
+			},
+			onThirdPartPayAttempt() {
+				legacyCallbackCalled = true;
+			},
+			onPaymentNotifyAttempt() {
+				legacyCallbackCalled = true;
+			},
+		},
+		context,
+	);
+
+	expect(paths).toEqual([
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	]);
+	expect(legacyCallbackCalled).toBeFalse();
+	expect(trace).toEqual({
+		provider: "yunhealth",
+		operation: "registration-self-pay.2.6.65.5",
+		requestId: "ordinary-self-pay-1",
+		requestIds: ["ordinary-self-pay-1"],
+		providerOrderId: "settlement-business-001",
+	});
+});
+
+test("医保支付入口的微信自费回写仍严格执行 .29 -> .15 -> .5", async () => {
 	const requests: Array<{
 		path: string;
 		bodyText: string;
@@ -755,6 +815,7 @@ test("云健康自费回写严格执行 .29 -> .15 -> .5 并逐步持久化", as
 	const trace = await gatewayInstance.writeBack(
 		{
 			orderId: "payment-order-001",
+			settlementFlow: "medical-mixed-cash",
 			settlement: {
 				orderId: "payment-order-001",
 				state: "cash_paid",
@@ -896,6 +957,7 @@ test("历史 5031 自费回写可跳过 .5 但仍严格执行 .29 -> .15", async
 	const trace = await gatewayInstance.writeBack(
 		{
 			orderId: "payment-order-skip-complete-001",
+			settlementFlow: "medical-mixed-cash",
 			settlement: {
 				orderId: "payment-order-skip-complete-001",
 				state: "cash_paid",
@@ -975,6 +1037,7 @@ test("云健康自费回写复用已保存 .29 并以精确 64 位数字 token �
 	await gatewayInstance.writeBack(
 		{
 			orderId: "payment-order-resume-001",
+			settlementFlow: "medical-mixed-cash",
 			settlement: {
 				orderId: "payment-order-resume-001",
 				state: "cash_paid",
@@ -1030,6 +1093,7 @@ test("门诊自费在 .29/.15 已完成后只续跑 .5 并沿用 tradeTypeCode=2
 	await gatewayInstance.writeBack(
 		{
 			orderId: "outpatient-order-001",
+			settlementFlow: "medical-mixed-cash",
 			settlement: {
 				orderId: "outpatient-order-001",
 				state: "cash_paid",
@@ -1313,6 +1377,7 @@ test("云健康自费回写拒绝混合金额，不能发出任何请求", async
 		gatewayInstance.writeBack(
 			{
 				orderId: "payment-order-mixed",
+				settlementFlow: "ordinary-self-pay",
 				settlement: {
 					orderId: "payment-order-mixed",
 					state: "cash_paid",
@@ -1344,6 +1409,7 @@ test("云健康 .5 返回未结算时不返回成功 trace", async () => {
 		gatewayInstance.writeBack(
 			{
 				orderId: "payment-order-not-settled",
+				settlementFlow: "medical-mixed-cash",
 				settlement: {
 					orderId: "payment-order-not-settled",
 					state: "cash_paid",

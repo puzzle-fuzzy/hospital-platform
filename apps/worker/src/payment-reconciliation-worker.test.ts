@@ -203,6 +203,7 @@ test("reconciliation worker continues a paid order through HIS writeback", async
 		hospitalSettlement: {
 			writeBack: async (input, context) => {
 				writeBackCalls += 1;
+				expect(input.settlementFlow).toBe("ordinary-self-pay");
 				expect(input.registrationContext).toEqual({
 					businessId: "settlement-business-worker-001",
 					payingId: "260650000000011",

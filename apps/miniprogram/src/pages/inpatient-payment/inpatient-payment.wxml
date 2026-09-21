@@ -1,20 +1,7 @@
 <scroll-view class="inpatient-payment-scroll" scroll-y="true" enhanced="true">
+	<patient-hospital-context bindchangepatient="onChangePatient" />
 	<view class="inpatient-payment-page">
 		<view class="inpatient-payment-notice">请核对患者信息后再进行缴费！</view>
-
-		<view class="inpatient-payment-card">
-			<view class="inpatient-payment-card-title">当前就诊人</view>
-			<view class="inpatient-payment-patient" bindtap="onChangePatient">
-				<view class="inpatient-payment-patient-copy">
-					<text wx:if="{{patient}}" class="inpatient-payment-patient-name">{{patientName}}</text>
-					<text wx:elif="{{loading}}" class="inpatient-payment-muted">正在加载就诊人...</text>
-					<text wx:else class="inpatient-payment-muted">请选择就诊人</text>
-					<text wx:if="{{patient}}" class="inpatient-payment-patient-card">{{patient.cardNumberMasked}}</text>
-				</view>
-				<text class="inpatient-payment-arrow">›</text>
-			</view>
-			<view wx:if="{{!patient && !loading}}" class="inpatient-payment-retry" bindtap="onRetry">重新读取</view>
-		</view>
 
 		<view class="inpatient-payment-card">
 			<view class="inpatient-payment-field inpatient-payment-field-border">

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	type AdapterCallContext,
@@ -143,6 +144,7 @@ type NormalizedRefundInput = {
 
 type RequestForTargetOptions = {
 	merchantRefundNo?: string;
+	operatorRef?: string;
 };
 
 type ResolvedRefundTarget = {
@@ -193,6 +195,7 @@ const RESERVED_REFUND_STATUSES = new Set<WechatRefund["status"]>([
 ]);
 const REGISTRATION_SELF_PAY_KEY_PREFIX = "registration-self-pay:";
 const OUTPATIENT_SELF_PAY_KEY_PREFIX = "outpatient-self-pay:";
+const HIS_MEDICAL_WECHAT_IDEMPOTENCY_PREFIX = "his-medical-wechat-leg:";
 
 function requiredText(value: unknown, maxLength: number): string {
 	if (typeof value !== "string") throw new AdminWechatRefundInputError();
@@ -411,6 +414,13 @@ function errorCode(error: unknown): string {
 	return error instanceof Error ? error.name : "UNKNOWN";
 }
 
+function hisMedicalWechatMerchantRefundNo(orderId: string): string {
+	return `RFHIS${createHash("sha256")
+		.update(orderId, "utf8")
+		.digest("hex")
+		.slice(0, 56)}`;
+}
+
 export class AdminWechatRefundService {
 	private readonly now: () => Date;
 	private readonly createId: () => string;
@@ -549,6 +559,7 @@ export class AdminWechatRefundService {
 		source: WechatRefundSource;
 		orderId: string;
 		requestId: string;
+		operatorRef?: string;
 		action: "refund_request" | "refund_query";
 		outcome: "succeeded" | "failed" | "rejected";
 		reasonCode?: string;
@@ -565,7 +576,7 @@ export class AdminWechatRefundService {
 			: undefined;
 		await audits.append({
 			auditId: `audit-${input.action}-${this.createId()}`,
-			operatorRef: null,
+			operatorRef: input.operatorRef ?? null,
 			action: input.action,
 			...(aggregateId ? { aggregateId } : {}),
 			requestId: input.requestId,
@@ -649,6 +660,7 @@ export class AdminWechatRefundService {
 					source: target.source,
 					orderId: target.sourceOrderId,
 					requestId: context.traceId,
+					...(options.operatorRef ? { operatorRef: options.operatorRef } : {}),
 					action: "refund_request",
 					outcome: "failed",
 					reasonCode: errorCode(error),
@@ -661,6 +673,7 @@ export class AdminWechatRefundService {
 				source: target.source,
 				orderId: target.sourceOrderId,
 				requestId: context.traceId,
+				...(options.operatorRef ? { operatorRef: options.operatorRef } : {}),
 				action: "refund_request",
 				outcome: "succeeded",
 			});
@@ -980,6 +993,7 @@ export class AdminWechatRefundService {
 			idempotencyKey: string;
 			merchantRefundNo: string;
 			reason?: string;
+			operatorRef?: string;
 		},
 		context: AdapterCallContext,
 	): Promise<WechatRefund> {
@@ -995,8 +1009,69 @@ export class AdminWechatRefundService {
 			normalized,
 			await this.resolveTarget(normalized),
 			context,
-			{ merchantRefundNo },
+			{
+				merchantRefundNo,
+				...(input.operatorRef ? { operatorRef: input.operatorRef } : {}),
+			},
 		);
+	}
+
+	/**
+	 * HIS 微信单腿退费入口。微信金额和原支付号均从服务端医保订单读取，
+	 * HIS 只能按医保订单号触发，不能提交金额或 out_trade_no 覆盖服务端事实。
+	 */
+	async requestMedicalInsuranceCashByOrder(
+		input: {
+			orderId: string;
+			reason?: string;
+		},
+		context: AdapterCallContext,
+	): Promise<WechatRefund> {
+		const orderId = requiredText(input.orderId, 64);
+		const existingMedicalRefund =
+			await this.dependencies.medicalInsuranceRefunds?.findLatestByMedicalOrderId(
+				orderId,
+			);
+		if (
+			existingMedicalRefund?.refundType === "ALL" &&
+			existingMedicalRefund.cashFen > 0
+		) {
+			throw new AdminWechatRefundInputError(
+				"该医保订单已有整笔聚合退费记录，不能再次单独退微信",
+			);
+		}
+		const idempotencyKey = `${HIS_MEDICAL_WECHAT_IDEMPOTENCY_PREFIX}${orderId}`;
+		const target = await this.resolveTarget({
+			source: "medical_insurance",
+			orderId,
+			refundFen: 1,
+			idempotencyKey,
+			...(input.reason !== undefined ? { reason: input.reason } : {}),
+		});
+		return this.requestTrustedMedicalInsurance(
+			{
+				orderId,
+				refundFen: target.totalFen,
+				idempotencyKey,
+				merchantRefundNo: hisMedicalWechatMerchantRefundNo(orderId),
+				operatorRef: "his-wechat-leg",
+				...(input.reason !== undefined ? { reason: input.reason } : {}),
+			},
+			context,
+		);
+	}
+
+	/** 仅供聚合退费编排服务防止与 HIS 微信单腿重复发起。 */
+	async findMedicalInsuranceRefundByOrder(
+		orderId: string,
+	): Promise<WechatRefund | undefined> {
+		const find = this.dependencies.refunds.findBySourceAndSourceOrder;
+		if (!find) return undefined;
+		const records = await find("medical_insurance", requiredText(orderId, 64));
+		return [...records].sort((left, right) => {
+			const updated = right.updatedAt.localeCompare(left.updatedAt);
+			return updated || right.refundRecordId.localeCompare(left.refundRecordId);
+		})[0];
 	}
 
 	async query(

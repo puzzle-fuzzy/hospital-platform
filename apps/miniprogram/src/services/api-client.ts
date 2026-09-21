@@ -33,6 +33,7 @@ import type {
 	PatientFeedbackListResponse,
 	PatientFeedbackResponse,
 	PatientListResponse,
+	PatientQrResponse,
 	RegistrationSelfPayResponse,
 	ReportAttachment,
 	ReportDetailField,
@@ -2679,6 +2680,43 @@ export function syncPatients(
 	}).then((payload) =>
 		requireSuccessDataResponse<PatientListResponse["data"]>(payload),
 	);
+}
+
+/**
+ * 读取当前已确认患者的就诊卡二维码图片。
+ *
+ * 服务端只返回图片 data URL，不返回完整卡号；请求固定在当前会话代际，
+ * 防止账号切换后把旧患者二维码回写到首页。
+ */
+export function requestPatientQr(
+	patientId: string,
+	expectedSessionGeneration: number,
+): Promise<PatientQrResponse> {
+	if (!isBoundedPatientId(patientId)) {
+		return Promise.reject(
+			new ApiError("就诊人查询条件不合法", { code: "patient-query-invalid" }),
+		);
+	}
+	return requestWithStableSession<unknown>(
+		{
+			url: `/patients/${encodeURIComponent(patientId)}/qr`,
+			sensitivePayload: true,
+		},
+		expectedSessionGeneration,
+	).then((payload) => {
+		const response =
+			requireSuccessDataResponse<PatientQrResponse["data"]>(payload);
+		if (
+			!/^data:image\/gif;base64,[A-Za-z0-9+/=]+$/u.test(
+				response.data.imageDataUrl,
+			)
+		) {
+			throw new ApiError("就诊卡二维码响应无效", {
+				code: "provider-response-invalid",
+			});
+		}
+		return response;
+	});
 }
 
 /** 提交实名就诊人绑定；身份证和手机号只发往平台 API，不在小程序直连 Provider。 */

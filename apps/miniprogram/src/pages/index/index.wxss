@@ -398,23 +398,17 @@ page {
 	background: #f4f6fb;
 }
 
-.patient-qr-preview-icon {
-	width: 170rpx;
-	height: 170rpx;
-	opacity: 0.3;
+.patient-qr-image {
+	width: 320rpx;
+	height: 320rpx;
+	background: #ffffff;
 }
 
-.patient-qr-locked {
-	position: absolute;
-	left: 50%;
-	box-sizing: border-box;
-	padding: 8rpx 20rpx;
-	border-radius: 999rpx;
-	background: rgba(34, 43, 69, 0.82);
-	color: #ffffff;
+.patient-qr-loading,
+.patient-qr-error-preview {
+	color: #8a93a6;
 	font-size: 26rpx;
-	line-height: 1.4;
-	transform: translateX(-50%);
+	line-height: 1.5;
 }
 
 .patient-qr-name {
@@ -434,6 +428,13 @@ page {
 .patient-qr-notice {
 	margin-top: 18rpx;
 	color: #8a93a6;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.patient-qr-error {
+	margin-top: 18rpx;
+	color: #c43d3d;
 	font-size: 24rpx;
 	line-height: 1.6;
 }

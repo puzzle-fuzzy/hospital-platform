@@ -740,6 +740,13 @@ export interface HospitalSettlementGateway {
 		input: {
 			orderId: string;
 			settlement: PaymentOrderSnapshot;
+			/**
+			 * 用户点击普通微信支付时，`.2` 生成 HIS 收款流水，微信支付成功后直接调用
+			 * `.5` 完成；用户点击医保支付时，其中的微信自费腿继续使用
+			 * `.29 -> .15 -> .5`。
+			 * 生产调用方必须显式指定，避免把两条业务链路混用。
+			 */
+			settlementFlow: "ordinary-self-pay" | "medical-mixed-cash";
 			/** 服务端从同一预约的医保结算上下文解析出的 Provider 关联键。 */
 			registrationContext?: RegistrationSelfPaySettlementContext;
 			/**

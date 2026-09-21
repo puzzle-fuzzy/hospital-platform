@@ -14,9 +14,9 @@
 .discharge-row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; min-height: 112rpx; padding: 0 24rpx; border-bottom: 1rpx solid #f0f0f0; }
 .discharge-row:last-child { border-bottom: 0; }
 .discharge-row-title { flex: 1; color: #222; font-size: 27rpx; line-height: 1.5; }
-.discharge-view { flex: 0 0 auto; margin: 0; padding: 0 24rpx; border: 1rpx solid #3d6df6; border-radius: 100rpx; background: #fff; color: #3d6df6; font-size: 24rpx; line-height: 58rpx; }
+.discharge-view { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; box-sizing: border-box; height: 58rpx; margin: 0; padding: 0 24rpx; border: 1rpx solid #3d6df6; border-radius: 100rpx; background: #fff; color: #3d6df6; font-size: 24rpx; line-height: 1; }
 .discharge-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 220rpx; color: #999; font-size: 27rpx; }
 .discharge-empty-note { margin-top: 10rpx; padding: 0 30rpx; color: #b2b8c4; font-size: 23rpx; line-height: 1.6; text-align: center; }
 .discharge-message { margin-top: 18rpx; padding: 18rpx 22rpx; border-radius: 14rpx; background: #fff8e8; color: #a66b00; font-size: 24rpx; line-height: 1.6; }
 .discharge-note { display: block; margin-top: 18rpx; color: #9aa3b4; font-size: 22rpx; line-height: 1.6; }
-.discharge-back { width: 100%; margin-top: 22rpx; border-radius: 14rpx; background: transparent; color: #68738a; font-size: 28rpx; line-height: 84rpx; }
+.discharge-back { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; height: 84rpx; margin-top: 22rpx; padding: 0; border-radius: 14rpx; background: transparent; color: #68738a; font-size: 28rpx; line-height: 1; }

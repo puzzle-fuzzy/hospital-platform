@@ -192,15 +192,10 @@ test("6203 EXP 不会继续退款微信现金段，并进入人工复核", async
 		},
 	});
 
-	const result = await service.request({
-		ownerUserId: "user-refund-001",
+	const result = await service.requestMedicalOnlyByOrder({
 		orderId: "medical-refund-exp-001",
-		refund: {
-			refundType: "HI",
-			personalAccountRefundFen: 200,
-			fundRefundFen: 500,
-		},
 		context: { traceId: "refund-exp", idempotencyKey: "refund-exp-001" },
+		operatorRef: "his-medical-leg",
 	});
 
 	expect(result.status).toBe("manual_review");

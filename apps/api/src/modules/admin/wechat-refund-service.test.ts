@@ -186,6 +186,51 @@ test("admin refund reserves a partial refund and preserves idempotency", async (
 	]);
 });
 
+test("HIS 微信单腿从医保订单读取完整现金段并复用稳定退款号", async () => {
+	const refunds = createInMemoryWechatRefundRepository();
+	const medicalOrders = createInMemoryMedicalInsuranceOrderRepository();
+	await medicalOrders.insert(paidMedicalOrder());
+	let requestCount = 0;
+	const service = new AdminWechatRefundService({
+		refunds,
+		paymentOrders: {} as never,
+		medicalInsuranceOrders: medicalOrders,
+		gateway: {
+			async requestRefund(input) {
+				requestCount += 1;
+				return {
+					...input,
+					status: "SUCCESS" as const,
+					providerRefundId: "wechat-his-refund-001",
+					trace: {
+						provider: "wechat-pay",
+						operation: "refund-request",
+						requestId: "wechat-his-request-001",
+					},
+				};
+			},
+			async queryRefund() {
+				throw new Error("query should not be needed after success");
+			},
+		},
+	});
+
+	const first = await service.requestMedicalInsuranceCashByOrder(
+		{ orderId: paidMedicalOrder().medicalOrderId, reason: "HIS微信退费" },
+		context,
+	);
+	const replay = await service.requestMedicalInsuranceCashByOrder(
+		{ orderId: paidMedicalOrder().medicalOrderId, reason: "HIS微信退费" },
+		context,
+	);
+
+	expect(first.status).toBe("success");
+	expect(first.refundFen).toBe(500);
+	expect(first.merchantRefundNo).toMatch(/^RFHIS[0-9a-f]{56}$/u);
+	expect(replay.merchantRefundNo).toBe(first.merchantRefundNo);
+	expect(requestCount).toBe(1);
+});
+
 test("admin refund does not send a second refund when the first request is unknown", async () => {
 	const refunds = createInMemoryWechatRefundRepository();
 	const orders = createInMemoryPaymentOrderRepository([paidOrder()]);

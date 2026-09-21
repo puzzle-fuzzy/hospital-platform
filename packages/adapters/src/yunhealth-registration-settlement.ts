@@ -883,6 +883,7 @@ export function createYunhealthRegistrationSettlementGateway(
 				);
 			}
 			const payFee = validatePureCashSettlement(input.settlement);
+			const ordinarySelfPay = input.settlementFlow === "ordinary-self-pay";
 			const registrationContext = input.registrationContext;
 			const outTradeNo = registrationContext?.outTradeNo
 				? requiredText(registrationContext.outTradeNo, "outTradeNo", 64)
@@ -989,100 +990,102 @@ export function createYunhealthRegistrationSettlementGateway(
 				return response;
 			};
 
-			const thirdPartPayRecordId = registrationContext?.thirdPartPayRecordId
-				? positiveIntegerText(
-						registrationContext.thirdPartPayRecordId,
-						"thirdPartPayRecordId",
-					)
-				: undefined;
-			if (!thirdPartPayRecordId) {
-				await input.onThirdPartPayAttempt?.();
-				const thirdPart = await request<unknown>(
-					"2.27.2.29",
-					THIRD_PART_PAY_OPERATION,
-					THIRD_PART_PAY_START_PATH,
-					{
-						agreementNo: outTradeNo,
-						bankCode: "-",
-						certNo: normalizedContext.certNo,
-						commercialInsuranceId: 0,
-						creditUserId: "",
-						patId: normalizedContext.patientId,
-						patInHosId: normalizedContext.patInHosId,
-						payFee,
-						payType: requestPayType,
-						payTypeId: positiveInteger(requestPayTypeId, "payTypeId"),
-						payingId: normalizedContext.payingId,
-						psnCertType: normalizedContext.psnCertType,
-						psnName: normalizedContext.psnName,
-						psnNo: normalizedContext.psnNo,
-						sceneCode: "OUT",
-						settleId: normalizedContext.businessId,
-						tradingId: normalizedContext.tradingId,
-						transStatus: "0",
-					},
-					true,
-				);
-				requireYunhealthSuccess(
-					thirdPart,
-					THIRD_PART_PAY_OPERATION,
-					context,
-					options.logger,
-				);
-				const resolvedThirdPartPayRecordId = positiveIntegerText(
-					nestedValue(thirdPart.data, [
-						"thirdPartPayRecordId",
-						"third_part_pay_record_id",
-					]),
-					"thirdPartPayRecordId",
-				);
-				if (typeof thirdPart.rawBodyText !== "string") {
-					throw providerError(
+			if (!ordinarySelfPay) {
+				const thirdPartPayRecordId = registrationContext?.thirdPartPayRecordId
+					? positiveIntegerText(
+							registrationContext.thirdPartPayRecordId,
+							"thirdPartPayRecordId",
+						)
+					: undefined;
+				if (!thirdPartPayRecordId) {
+					await input.onThirdPartPayAttempt?.();
+					const thirdPart = await request<unknown>(
+						"2.27.2.29",
 						THIRD_PART_PAY_OPERATION,
-						"2.27.2.29 raw response was not captured",
+						THIRD_PART_PAY_START_PATH,
 						{
-							requestId: thirdPart.requestId,
-							failureStage: "response",
-							requestOutcome: "unknown",
+							agreementNo: outTradeNo,
+							bankCode: "-",
+							certNo: normalizedContext.certNo,
+							commercialInsuranceId: 0,
+							creditUserId: "",
+							patId: normalizedContext.patientId,
+							patInHosId: normalizedContext.patInHosId,
+							payFee,
+							payType: requestPayType,
+							payTypeId: positiveInteger(requestPayTypeId, "payTypeId"),
+							payingId: normalizedContext.payingId,
+							psnCertType: normalizedContext.psnCertType,
+							psnName: normalizedContext.psnName,
+							psnNo: normalizedContext.psnNo,
+							sceneCode: "OUT",
+							settleId: normalizedContext.businessId,
+							tradingId: normalizedContext.tradingId,
+							transStatus: "0",
 						},
+						true,
 					);
+					requireYunhealthSuccess(
+						thirdPart,
+						THIRD_PART_PAY_OPERATION,
+						context,
+						options.logger,
+					);
+					const resolvedThirdPartPayRecordId = positiveIntegerText(
+						nestedValue(thirdPart.data, [
+							"thirdPartPayRecordId",
+							"third_part_pay_record_id",
+						]),
+						"thirdPartPayRecordId",
+					);
+					if (typeof thirdPart.rawBodyText !== "string") {
+						throw providerError(
+							THIRD_PART_PAY_OPERATION,
+							"2.27.2.29 raw response was not captured",
+							{
+								requestId: thirdPart.requestId,
+								failureStage: "response",
+								requestOutcome: "unknown",
+							},
+						);
+					}
+					await input.onThirdPartPayResponse?.({
+						rawResponse: thirdPart.rawBodyText,
+						thirdPartPayRecordId: resolvedThirdPartPayRecordId,
+						requestId: thirdPart.requestId,
+					});
 				}
-				await input.onThirdPartPayResponse?.({
-					rawResponse: thirdPart.rawBodyText,
-					thirdPartPayRecordId: resolvedThirdPartPayRecordId,
-					requestId: thirdPart.requestId,
-				});
-			}
 
-			if (!registrationContext?.paymentNotifyCompleted) {
-				await input.onPaymentNotifyAttempt?.();
-				const paymentNotify = await requestBodyText<unknown>(
-					"2.6.65.15",
-					PAYMENT_NOTIFY_OPERATION,
-					PAYMENT_NOTIFY_PATH,
-					yunhealthPaymentNotifyBody({
-						authSysCode,
-						hospitalId: normalizedContext.hospitalId,
-						nonce: stableRecordCode(`${orderId}:nonce`),
-						orgId: paymentOrgId,
-						payingId: normalizedContext.payingId,
-						payTypeId: requestPayTypeId,
-						paymentFen: input.settlement.cashFen,
-						recordCode,
-						paymentSource,
-						tradeTypeCode: requestTradeTypeCode,
-						workStationId: requestWorkStationId,
-					}),
-				);
-				requireYunhealthSuccess(
-					paymentNotify,
-					PAYMENT_NOTIFY_OPERATION,
-					context,
-					options.logger,
-				);
-				await input.onPaymentNotifyResponse?.({
-					requestId: paymentNotify.requestId,
-				});
+				if (!registrationContext?.paymentNotifyCompleted) {
+					await input.onPaymentNotifyAttempt?.();
+					const paymentNotify = await requestBodyText<unknown>(
+						"2.6.65.15",
+						PAYMENT_NOTIFY_OPERATION,
+						PAYMENT_NOTIFY_PATH,
+						yunhealthPaymentNotifyBody({
+							authSysCode,
+							hospitalId: normalizedContext.hospitalId,
+							nonce: stableRecordCode(`${orderId}:nonce`),
+							orgId: paymentOrgId,
+							payingId: normalizedContext.payingId,
+							payTypeId: requestPayTypeId,
+							paymentFen: input.settlement.cashFen,
+							recordCode,
+							paymentSource,
+							tradeTypeCode: requestTradeTypeCode,
+							workStationId: requestWorkStationId,
+						}),
+					);
+					requireYunhealthSuccess(
+						paymentNotify,
+						PAYMENT_NOTIFY_OPERATION,
+						context,
+						options.logger,
+					);
+					await input.onPaymentNotifyResponse?.({
+						requestId: paymentNotify.requestId,
+					});
+				}
 			}
 
 			// aa7016ec 运行期间创建的 sequenced-v1 混合单可能已经在医保腿

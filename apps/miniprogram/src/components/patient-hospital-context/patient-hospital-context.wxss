@@ -1,0 +1,69 @@
+.patient-hospital-context {
+	display: block;
+	overflow: hidden;
+	width: 100%;
+	margin: 0;
+	background: #fff;
+}
+
+.patient-hospital-context-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 92rpx;
+	padding: 26rpx 30rpx;
+	color: #333;
+}
+
+.patient-hospital-context-row-border {
+	border-bottom: 1rpx solid #f0f0f0;
+}
+
+.patient-hospital-context-row-selectable:active,
+.patient-hospital-context-row-border:active {
+	background: #fafafa;
+}
+
+.patient-hospital-context-label {
+	flex: 0 0 150rpx;
+	font-size: 28rpx;
+}
+
+.patient-hospital-context-value {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex: 1;
+	min-width: 0;
+	font-size: 30rpx;
+	text-align: right;
+}
+
+.patient-hospital-context-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.patient-hospital-context-card-number {
+	margin-left: 10rpx;
+	color: #999;
+	font-size: 23rpx;
+}
+
+.patient-hospital-context-arrow {
+	display: block;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
+	margin-left: 14rpx;
+}
+
+.patient-hospital-context-error {
+	padding: 0 30rpx 18rpx;
+	color: #a15b18;
+	font-size: 24rpx;
+	line-height: 1.5;
+	text-align: right;
+}

@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import type { MedicalInsuranceRefundPayload } from "@hospital/contracts";
+import type { WechatRefund } from "@hospital/domain";
+import type { AppLogger } from "@hospital/observability";
 import { Elysia } from "elysia";
 import { errorHandlerPlugin } from "../../plugins/error-handler";
 import { requestContextPlugin } from "../../plugins/request-context";
@@ -207,4 +209,126 @@ test("HIS refund route rejects an unexpected source IP", async () => {
 	request.headers.set("x-real-ip", "10.0.0.3");
 	const response = await app.handle(request);
 	expect(response.status).toBe(403);
+});
+
+test("HIS split routes call independent legs and emit safe operation logs", async () => {
+	const security = createSecurityStore();
+	const calls: string[] = [];
+	const logs: Array<Record<string, unknown>> = [];
+	const logger = {
+		info(fields: Record<string, unknown>) {
+			logs.push(fields);
+		},
+		warn(fields: Record<string, unknown>) {
+			logs.push(fields);
+		},
+		error(fields: Record<string, unknown>) {
+			logs.push(fields);
+		},
+	} as unknown as AppLogger;
+	const medicalResult: MedicalInsuranceRefundPayload["data"] = {
+		orderId: "order-1",
+		refundNo: "RFMI-medical-leg",
+		status: "succeeded",
+		medicalStatus: "success",
+		wechatStatus: "not_required",
+		amounts: {
+			totalFen: 60,
+			cashFen: 0,
+			personalAccountFen: 0,
+			fundFen: 60,
+		},
+	};
+	const wechatResult: WechatRefund = {
+		refundRecordId: "refund-1",
+		merchantRefundNo: "RFHIS-wechat-leg",
+		idempotencyKey: "his-medical-wechat-leg:order-1",
+		source: "medical_insurance",
+		sourceOrderId: "order-1",
+		outTradeNo: "out-trade-1",
+		totalFen: 40,
+		refundFen: 40,
+		reason: null,
+		status: "success",
+		providerStatus: "SUCCESS",
+		providerRefundId: "provider-refund-1",
+		providerTransactionId: "provider-transaction-1",
+		providerRequestId: "provider-request-1",
+		successTime: now.toString(),
+		lastErrorCode: null,
+		version: 1,
+		createdAt: new Date(now).toISOString(),
+		updatedAt: new Date(now).toISOString(),
+	};
+	const service = {
+		async requestFullRefundByOrder() {
+			throw new Error("not used");
+		},
+		async query() {
+			return undefined;
+		},
+	};
+	const app = new Elysia()
+		.use(requestContextPlugin())
+		.use(errorHandlerPlugin())
+		.group("/api/v1", (api) =>
+			api.use(
+				hisMedicalInsuranceRefundModule(
+					service,
+					{
+						token,
+						hmacSecret,
+						security,
+						now: () => now,
+						logger,
+					},
+					{
+						medicalInsurance: {
+							async requestMedicalOnlyByOrder() {
+								calls.push("medical");
+								return medicalResult;
+							},
+						},
+						wechat: {
+							async requestMedicalInsuranceCashByOrder() {
+								calls.push("wechat");
+								return wechatResult;
+							},
+							async query() {
+								return wechatResult;
+							},
+						},
+					},
+				),
+			),
+		);
+
+	const medicalResponse = await app.handle(
+		requestFor(
+			"POST",
+			"/his/medical-insurance-leg-refunds",
+			{ orderId: "order-1" },
+			"nonce-000000000004",
+		),
+	);
+	const wechatResponse = await app.handle(
+		requestFor(
+			"POST",
+			"/his/wechat-leg-refunds",
+			{ orderId: "order-1" },
+			"nonce-000000000005",
+		),
+	);
+
+	expect(medicalResponse.status).toBe(200);
+	expect(wechatResponse.status).toBe(200);
+	expect(calls).toEqual(["medical", "wechat"]);
+	expect(
+		logs.filter((entry) => entry.event === "his.refund.accepted"),
+	).toHaveLength(2);
+	expect(
+		logs.filter((entry) => entry.event === "his.refund.completed"),
+	).toHaveLength(2);
+	expect(JSON.stringify(logs)).not.toContain(token);
+	expect(JSON.stringify(logs)).not.toContain("nonce-000000000004");
 });

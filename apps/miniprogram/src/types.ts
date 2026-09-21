@@ -32,6 +32,7 @@ import type {
 	PatientFeedbackListResponsePayload,
 	PatientFeedbackResponsePayload,
 	PatientListPayload,
+	PatientQrPayload,
 	RegistrationSelfPayPayload,
 	ReportDetailPayload,
 	ReportListPayload,
@@ -85,6 +86,7 @@ export type PatientFeedbackCreateRequest = PatientFeedbackCreateRequestPayload;
 export type PatientFeedbackListResponse = PatientFeedbackListResponsePayload;
 export type PatientFeedbackResponse = PatientFeedbackResponsePayload;
 export type PatientListResponse = PatientListPayload;
+export type PatientQrResponse = PatientQrPayload;
 export type PatientBindingRequest = PatientBindingRequestPayload;
 export type PatientBindingResponse = PatientBindingPayload;
 export type AppointmentDepartmentListResponse =
@@ -345,12 +347,13 @@ export type IndexPageData = {
 	patients: Array<Patient>;
 	selectedPatient: Patient | null;
 	selectedPatientId: string;
-	/**
-	 * 二维码安全壳是否打开。这里只表示用户查看了迁移说明弹层，
-	 * 不代表已经生成医院可扫码的二维码。
-	 */
+	/** 首页就诊卡二维码弹层是否打开。 */
 	showPatientQr: boolean;
-	/** 弹层只展示当前已确认患者的脱敏字段，不保存或生成扫码 payload。 */
+	/** 服务端生成的就诊卡二维码图片 data URL。 */
+	patientQrImage: string;
+	patientQrLoading: boolean;
+	patientQrError: string;
+	/** 弹层只展示当前已确认患者的脱敏字段。 */
 	patientQrName: string;
 	patientQrCardNumber: string;
 	hasPatients: boolean;

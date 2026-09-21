@@ -499,6 +499,15 @@ export class MedicalInsuranceRefundService {
 				"该医保订单已有退费记录，不能再从 Admin 发起整笔退费",
 			);
 		}
+		const existingWechatRefund =
+			await this.dependencies.wechatRefund?.findMedicalInsuranceRefundByOrder(
+				orderId,
+			);
+		if (!existing && existingWechatRefund) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"该医保订单已有微信单腿退费记录，不能再发起整笔退费",
+			);
+		}
 		let result: MedicalInsuranceRefundPayload["data"];
 		try {
 			result = await this.request({
@@ -512,6 +521,72 @@ export class MedicalInsuranceRefundService {
 					...context,
 					idempotencyKey: adminIdempotencyKey,
 				},
+			});
+		} catch (error) {
+			await this.appendAdminRefundAudit({
+				orderId,
+				requestId: context.traceId,
+				...(input.operatorRef ? { operatorRef: input.operatorRef } : {}),
+				outcome: "failed",
+				reasonCode: providerErrorCode(error),
+			});
+			throw error;
+		}
+		await this.appendAdminRefundAudit({
+			orderId,
+			requestId: context.traceId,
+			...(input.operatorRef ? { operatorRef: input.operatorRef } : {}),
+			outcome:
+				result.status === "failed"
+					? "failed"
+					: result.status === "manual_review"
+						? "rejected"
+						: "succeeded",
+			...(result.status === "manual_review"
+				? { reasonCode: "manual_review" }
+				: {}),
+		});
+		return result;
+	}
+
+	/**
+	 * HIS 医保单腿退费入口。医保金额、授权上下文和 payOrdId 均来自服务端
+	 * 6202 订单事实；HIS 只提交订单号和原因，不能覆盖医保分项金额。
+	 */
+	async requestMedicalOnlyByOrder(input: {
+		orderId: string;
+		reason?: string;
+		context: unknown;
+		operatorRef?: string;
+	}): Promise<MedicalInsuranceRefundPayload["data"]> {
+		const orderId = bounded(input.orderId, "orderId");
+		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
+		if (!order) throw new MedicalInsuranceOrderNotFoundError();
+		const context = contextOf(input.context);
+		const idempotencyKey = `his-medical-leg:${orderId}`;
+		const existing =
+			await this.dependencies.refunds.findLatestByMedicalOrderId(orderId);
+		if (existing && existing.idempotencyKey !== idempotencyKey) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"该医保订单已有其他退费记录，不能再次单独退医保",
+			);
+		}
+		let result: MedicalInsuranceRefundPayload["data"];
+		try {
+			result = await this.request({
+				ownerUserId: order.ownerUserId,
+				orderId,
+				refund: {
+					refundType: "HI",
+					...(order.amounts?.personalAccountFen !== undefined
+						? { personalAccountRefundFen: order.amounts.personalAccountFen }
+						: {}),
+					...(order.amounts?.fundFen !== undefined
+						? { fundRefundFen: order.amounts.fundFen }
+						: {}),
+					...(input.reason !== undefined ? { reason: input.reason } : {}),
+				},
+				context: { ...context, idempotencyKey },
 			});
 		} catch (error) {
 			await this.appendAdminRefundAudit({

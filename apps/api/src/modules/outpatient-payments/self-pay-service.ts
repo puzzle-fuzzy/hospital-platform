@@ -96,7 +96,7 @@ function output(
 	};
 }
 
-/** 门诊纯微信支付：复用挂号的 .1 -> .27 -> .2 -> 微信 -> .5 编排。 */
+/** 门诊纯微信支付：.1 -> .27 -> .2 -> 微信 -> .5，不进入医保回写链。 */
 export class OutpatientSelfPayService {
 	private readonly logger: AppLogger;
 
@@ -144,6 +144,7 @@ export class OutpatientSelfPayService {
 			const trace = await this.dependencies.hospitalSettlement.writeBack(
 				{
 					orderId: order.orderId,
+					settlementFlow: "ordinary-self-pay",
 					settlement: {
 						orderId: order.orderId,
 						state: "cash_paid",
