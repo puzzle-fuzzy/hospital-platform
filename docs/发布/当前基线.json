@@ -1,8 +1,8 @@
 {
 	"schemaVersion": 1,
-	"updatedAt": "2026-09-17",
+	"updatedAt": "2026-09-21",
 	"server": {
-		"release": "004888a026938393b411200bd656200dd2c69267",
+		"release": "4ba2e881ce59bb52fdfc5c30c48a3f824fca87fd",
 		"service": "hospital-platform-api-v2.service",
 		"publicBaseUrl": "https://test-hp.meiyi.pro/api/v2"
 	},
@@ -13,7 +13,7 @@
 		"pageCount": 48
 	},
 	"persistence": {
-		"schemaHead": "0049_appointment_display_context",
+		"schemaHead": "0054_payment_operator_audits",
 		"migrationSource": "packages/persistence/src/migrate.ts"
 	},
 	"realDeviceEvidence": {
