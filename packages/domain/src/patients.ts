@@ -814,6 +814,19 @@ export interface PatientDirectoryGateway {
 		patients: readonly PatientDirectoryProfile[];
 		trace: ExternalTrace;
 	}>;
+	/**
+	 * 读取当前 owner 已确认目录患者的完整就诊卡号，仅供服务端生成二维码。
+	 *
+	 * 该值不能进入 PatientRecord、HTTP JSON、日志或持久化快照；Provider
+	 * adapter 只在本次受控调用的内存边界内返回，调用方应立即消费并丢弃。
+	 */
+	getCardNumberByIdentity?(
+		input: { unionId: string; providerPatientId: string },
+		context: AdapterCallContext,
+	): Promise<{
+		cardNumber: string;
+		trace: ExternalTrace;
+	}>;
 }
 
 /**

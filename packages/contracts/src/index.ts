@@ -183,6 +183,21 @@ export const PatientListResponse = Type.Object({
 	}),
 });
 
+/**
+ * 就诊卡二维码只返回服务端生成的图片数据，不返回二维码原文或完整卡号。
+ * 图片使用短期请求内存，不应被客户端持久化到业务数据。
+ */
+export const PatientQrResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		imageDataUrl: Type.String({
+			minLength: 32,
+			maxLength: 200_000,
+			pattern: "^data:image/gif;base64,[A-Za-z0-9+/=]+$",
+		}),
+	}),
+});
+
 /** 新增就诊人只接受旧服务已确认的实名建档字段；不接受患者号、卡类型或 owner。 */
 export const PatientBindingRequest = Type.Object(
 	{
@@ -1500,6 +1515,7 @@ export type UserProfilePayload = Static<typeof UserProfileResponse>;
 export type UserProfileUpdatePayload = Static<typeof UserProfileUpdateRequest>;
 export type PatientPayload = Static<typeof PatientSchema>;
 export type PatientListPayload = Static<typeof PatientListResponse>;
+export type PatientQrPayload = Static<typeof PatientQrResponse>;
 export type PatientBindingRequestPayload = Static<typeof PatientBindingRequest>;
 export type PatientBindingPayload = Static<typeof PatientBindingResponse>;
 export type AppointmentDepartmentPayload = Static<

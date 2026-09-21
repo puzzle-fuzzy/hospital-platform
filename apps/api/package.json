@@ -21,7 +21,8 @@
 		"@hospital/persistence": "workspace:*",
 		"@sinclair/typebox": "catalog:",
 		"exact-mirror": "catalog:",
-		"elysia": "catalog:"
+		"elysia": "catalog:",
+		"qrcode-generator": "^2.0.4"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",

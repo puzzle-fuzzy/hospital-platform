@@ -89,6 +89,47 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(serialized).not.toContain("13800000000");
 });
 
+test("众阳患者目录可以按已确认目录患者重新读取二维码卡号", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			expect(String(input)).toBe(
+				"https://zhongyang.example.test/api/public/patientInfoByUnionId?unionId=union-qr-001",
+			);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-patient-qr-001",
+							patientName: "张三",
+							medicalCardNo: "000012345678",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "patient-qr-request-001" } },
+			);
+		},
+	});
+
+	await expect(
+		gateway.getCardNumberByIdentity?.(
+			{
+				unionId: "union-qr-001",
+				providerPatientId: "directory-patient-qr-001",
+			},
+			context,
+		),
+	).resolves.toEqual({
+		cardNumber: "000012345678",
+		trace: {
+			provider: "zhongyang",
+			operation: "patient-list",
+			requestId: "patient-qr-request-001",
+		},
+	});
+});
+
 test("众阳患者目录 adapter 在触网前拒绝畸形身份输入", async () => {
 	let providerCalls = 0;
 	const gateway = createZhongyangPatientGateway({

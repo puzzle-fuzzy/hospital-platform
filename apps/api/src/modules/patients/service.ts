@@ -596,6 +596,78 @@ export class PatientService {
 	}
 
 	/**
+	 * 读取当前 owner 已选患者的完整卡号，供二维码图片生成器立即消费。
+	 *
+	 * 患者公共读模型只返回脱敏卡号；这里通过 owner-scoped directory 引用
+	 * 反查 Provider，并要求 Provider 返回的目录患者与当前 patientId 一致。
+	 * 完整卡号只在本次调用栈中存在，调用方不得把它写入日志、响应或仓储。
+	 */
+	async getPatientQrCardNumber(
+		ownerUserId: string,
+		patientId: string,
+		context: AdapterCallContext,
+	): Promise<string> {
+		const normalized = normalizePatientServiceCall(ownerUserId, context);
+		if (!isBoundedOpaqueIdentifier(patientId)) {
+			throw new PatientServiceInputError("context-invalid");
+		}
+		const identityUsers = this.dependencies.identityUsers;
+		const directory = this.dependencies.directory;
+		if (!identityUsers || !directory?.getCardNumberByIdentity) {
+			throw new DependencyNotConfiguredError("patient-qr");
+		}
+		const reference = await this.repository.resolveProviderReference({
+			ownerUserId: normalized.ownerUserId,
+			patientId,
+			provider: "zhongyang",
+			referenceKind: "directory",
+		});
+		if (!reference || reference.patientId !== patientId) {
+			throw new PatientServiceInputError("context-invalid");
+		}
+		const storedIdentity = await identityUsers.findByUserId(
+			normalized.ownerUserId,
+		);
+		if (!storedIdentity) {
+			throw new DependencyNotConfiguredError("patient-qr-identity");
+		}
+		const identity = normalizeIdentityUserReadModel(storedIdentity, {
+			expectedUserId: normalized.ownerUserId,
+		});
+		if (!identity.unionId) {
+			throw new DependencyNotConfiguredError("patient-qr-identity");
+		}
+		const result = await directory.getCardNumberByIdentity(
+			{
+				unionId: identity.unionId,
+				providerPatientId: reference.providerPatientId,
+			},
+			normalized.context,
+		);
+		if (
+			typeof result.cardNumber !== "string" ||
+			!result.cardNumber.trim() ||
+			result.cardNumber.length > 64 ||
+			Array.from(result.cardNumber).some((character) => {
+				const code = character.charCodeAt(0);
+				return code <= 0x1f || code === 0x7f;
+			})
+		) {
+			throw new PatientServiceInputError("context-invalid");
+		}
+		this.logger.info(
+			{
+				event: "patient.qr.card.loaded",
+				traceId: normalized.context.traceId,
+				providerRequestId: result.trace.requestId,
+				patientId,
+			},
+			"Patient QR card loaded",
+		);
+		return result.cardNumber;
+	}
+
+	/**
 	 * 绑定后的最终确认专用反查。
 	 *
 	 * providerPatientId 只在服务端短暂存在；返回的平台 patientId 仍由

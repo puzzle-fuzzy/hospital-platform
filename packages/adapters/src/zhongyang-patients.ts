@@ -912,6 +912,76 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 			trace: trace(response.requestId),
 		};
 	}
+
+	/**
+	 * 为首页就诊卡二维码重新读取完整卡号。
+	 *
+	 * 目录快照只保存脱敏卡号；这里沿用同一 owner 的 Provider 身份和
+	 * `thirdPatientId` 做一次受控读取，完整卡号只留在 adapter/service 的
+	 * 本次调用栈中，不能被目录读模型、日志或持久化层带出。
+	 */
+	async getCardNumberByIdentity(
+		input: { unionId: string; providerPatientId: string },
+		context: AdapterCallContext,
+	): Promise<{ cardNumber: string; trace: ExternalTrace }> {
+		const normalizedInput = normalizeIdentityInput({ unionId: input.unionId });
+		const unionId = requiredText(normalizedInput.unionId, "unionId", 128);
+		const providerPatientId = requiredText(
+			input.providerPatientId,
+			"providerPatientId",
+			128,
+			"patient-list",
+			undefined,
+			true,
+		);
+		const url = new URL(PATIENT_INFO_BY_UNION_ID_PATH, this.baseUrl);
+		url.searchParams.set("unionId", unionId);
+		const response = await requestJson<unknown>(
+			{
+				provider: "zhongyang",
+				operation: "patient-list",
+				url: url.toString(),
+				method: "GET",
+				context,
+				...(this.authorizationToken
+					? { headers: { Authorization: `Bearer ${this.authorizationToken}` } }
+					: {}),
+			},
+			this.fetcher,
+		);
+		const items = responseItems(response.data, response.requestId);
+		ensureDirectorySize(items, response.requestId);
+		ensureUniqueProviderPatientIds(items, response.requestId);
+		const matching = items.find(
+			(item) =>
+				requiredText(
+					item.thirdPatientId,
+					"thirdPatientId",
+					128,
+					"patient-list",
+					response.requestId,
+					true,
+				) === providerPatientId,
+		);
+		if (!matching) {
+			throw providerError(
+				"Zhongyang patient card did not match the selected patient",
+				response.requestId,
+				"patient-list",
+				true,
+			);
+		}
+		return {
+			cardNumber: requiredCardText(
+				firstNonBlank(matching.medicalCardNo, matching.cardNo),
+				"medicalCardNo",
+				"patient-list",
+				response.requestId,
+				true,
+			),
+			trace: trace(response.requestId),
+		};
+	}
 }
 
 export function createZhongyangPatientGateway(

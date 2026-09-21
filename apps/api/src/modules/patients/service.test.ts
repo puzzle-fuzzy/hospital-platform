@@ -65,6 +65,76 @@ test("患者目录读取使用独立读模型日志且不泄露 owner 或患者�
 	expect(JSON.stringify(records)).not.toContain("读模型患者");
 });
 
+test("就诊卡二维码只从 owner-scoped Provider 引用读取完整卡号并且不写入日志", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const identity = await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-qr",
+		unionId: "fixture-union-patient-qr",
+	});
+	const baseRepository = createInMemoryPatientRepository();
+	const repository: PatientRepository = {
+		...baseRepository,
+		async resolveProviderReference(input) {
+			if (
+				input.ownerUserId !== identity.userId ||
+				input.patientId !== "fixture-patient-qr-001" ||
+				input.referenceKind !== "directory"
+			) {
+				return undefined;
+			}
+			return {
+				patientId: input.patientId,
+				provider: "zhongyang",
+				providerPatientId: "provider-patient-qr-001",
+			};
+		},
+	};
+	const lines: string[] = [];
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			async listByIdentity() {
+				return {
+					complete: true,
+					patients: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "patient-list",
+						requestId: "unused-patient-qr-list",
+					},
+				};
+			},
+			async getCardNumberByIdentity(input) {
+				expect(input).toEqual({
+					unionId: "fixture-union-patient-qr",
+					providerPatientId: "provider-patient-qr-001",
+				});
+				return {
+					cardNumber: "000012345678",
+					trace: {
+						provider: "zhongyang",
+						operation: "patient-list",
+						requestId: "patient-qr-provider-001",
+					},
+				};
+			},
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.getPatientQrCardNumber(identity.userId, "fixture-patient-qr-001", {
+			traceId: "patient-qr-trace-001",
+			idempotencyKey: "patient-qr-key-001",
+		}),
+	).resolves.toBe("000012345678");
+	expect(JSON.stringify(lines)).not.toContain("000012345678");
+});
+
 test("患者 service 在仓储前拒绝非法 owner 和调用上下文", async () => {
 	let repositoryCalls = 0;
 	const baseRepository = createInMemoryPatientRepository();

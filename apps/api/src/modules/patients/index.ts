@@ -2,6 +2,7 @@ import {
 	PatientBindingRequest,
 	PatientBindingResponse,
 	PatientListResponse,
+	PatientQrResponse,
 	success,
 } from "@hospital/contracts";
 import { Elysia, t } from "elysia";
@@ -9,6 +10,7 @@ import { createRequestPrincipalResolver } from "../../plugins/request-authentica
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
 import type { PatientBindingService } from "./binding-service";
+import { createPatientCardQrImageDataUrl } from "./qr-image";
 import type { PatientService } from "./service";
 
 const AuthorizationHeaders = t.Object({
@@ -70,6 +72,29 @@ export function patientsModule(
 			{
 				headers: SyncPatientsHeaders,
 				response: { 200: PatientListResponse },
+				tags: ["patients"],
+			},
+		)
+		.get(
+			"/patients/:patientId/qr",
+			async ({ request, headers, params, set }) => {
+				const principal = await authentication.get(request);
+				const cardNumber = await patientService.getPatientQrCardNumber(
+					principal.userId,
+					params.patientId,
+					adapterContextFromHeaders(headers),
+				);
+				const imageDataUrl = createPatientCardQrImageDataUrl(cardNumber);
+				set.headers["cache-control"] = "no-store";
+				set.headers["x-content-type-options"] = "nosniff";
+				return success({ imageDataUrl });
+			},
+			{
+				params: t.Object({
+					patientId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
+				headers: AuthorizationHeaders,
+				response: { 200: PatientQrResponse },
 				tags: ["patients"],
 			},
 		)
