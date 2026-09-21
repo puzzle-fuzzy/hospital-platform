@@ -48,6 +48,7 @@ import type {
 	PaymentOperatorAudit,
 	PaymentOperatorAuditRepository,
 	PaymentOperationEvent,
+	PaymentOperationsBackfillQuery,
 	PaymentOperationsProjection,
 	PaymentOperationsRepository,
 	PaymentHistoryStatus,
@@ -1866,6 +1867,19 @@ function medicalAdminStatusCondition(
 		default:
 			return undefined;
 	}
+}
+
+function paymentOperationsBackfillLimit(
+	input: PaymentOperationsBackfillQuery,
+): number {
+	if (
+		!Number.isSafeInteger(input.limit) ||
+		input.limit < 1 ||
+		input.limit > 1_000
+	) {
+		throw new Error("Payment operations backfill limit must be 1-1000");
+	}
+	return input.limit;
 }
 
 const PAYMENT_STATES: readonly PaymentState[] = [
@@ -4792,6 +4806,42 @@ export function createMySqlRepositories(
 			);
 			return rows.map(paymentOrder);
 		},
+		async listForPaymentOperationsBackfill(input) {
+			const limit = paymentOperationsBackfillLimit(input);
+			const conditions: string[] = [];
+			const values: unknown[] = [];
+			if (input.createdFrom) {
+				conditions.push("created_at >= ?");
+				values.push(mysqlDateTime(input.createdFrom));
+			}
+			if (input.createdTo) {
+				conditions.push("created_at < ?");
+				values.push(mysqlDateTime(input.createdTo));
+			}
+			if (input.afterCreatedAt && input.afterSourceOrderId) {
+				conditions.push(
+					"(created_at > ? OR (created_at = ? AND order_id > ?))",
+				);
+				values.push(
+					mysqlDateTime(input.afterCreatedAt),
+					mysqlDateTime(input.afterCreatedAt),
+					input.afterSourceOrderId,
+				);
+			}
+			const where = conditions.length
+				? `WHERE ${conditions.join(" AND ")}`
+				: "";
+			const rows = await execute<PaymentOrderRow[]>(
+				pool,
+				`SELECT order_id, owner_user_id, patient_id, idempotency_key, total_fen, insurance_fen, cash_fen, state, version, created_at, updated_at
+				 FROM hp_payment_orders
+				 ${where}
+				 ORDER BY created_at ASC, order_id ASC
+				 LIMIT ${limit}`,
+				values,
+			);
+			return rows.map(paymentOrder);
+		},
 		async countForAdmin(input) {
 			const conditions: string[] = [];
 			const values: unknown[] = [];
@@ -6345,6 +6395,41 @@ export function createMySqlRepositories(
 				`${MI_ADMIN_REFUND_SELECT}
 				 ${where}
 				 ORDER BY updated_at DESC, medical_order_id DESC
+				 LIMIT ${limit}`,
+				values,
+			);
+			return rows.map((row) => miOrder(row));
+		},
+		async listForPaymentOperationsBackfill(input) {
+			const limit = paymentOperationsBackfillLimit(input);
+			const conditions: string[] = [];
+			const values: unknown[] = [];
+			if (input.createdFrom) {
+				conditions.push("created_at >= ?");
+				values.push(mysqlDateTime(input.createdFrom));
+			}
+			if (input.createdTo) {
+				conditions.push("created_at < ?");
+				values.push(mysqlDateTime(input.createdTo));
+			}
+			if (input.afterCreatedAt && input.afterSourceOrderId) {
+				conditions.push(
+					"(created_at > ? OR (created_at = ? AND medical_order_id > ?))",
+				);
+				values.push(
+					mysqlDateTime(input.afterCreatedAt),
+					mysqlDateTime(input.afterCreatedAt),
+					input.afterSourceOrderId,
+				);
+			}
+			const where = conditions.length
+				? `WHERE ${conditions.join(" AND ")}`
+				: "";
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_ADMIN_REFUND_SELECT}
+				 ${where}
+				 ORDER BY created_at ASC, medical_order_id ASC
 				 LIMIT ${limit}`,
 				values,
 			);

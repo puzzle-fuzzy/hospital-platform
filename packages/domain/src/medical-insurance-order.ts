@@ -8,7 +8,10 @@ import type {
 	YunhealthMiniProgramPayParams,
 	YunhealthMiniProgramPrepay,
 } from "./ports";
-import type { PaymentHistoryStatus } from "./payment-operations";
+import type {
+	PaymentHistoryStatus,
+	PaymentOperationsBackfillQuery,
+} from "./payment-operations";
 
 /**
  * 医保订单域（F 批次）。
@@ -877,6 +880,10 @@ export interface MedicalInsuranceOrderRepository {
 		createdTo?: string;
 		aggregateStatus?: PaymentHistoryStatus;
 	}): Promise<readonly MedicalInsuranceOrder[]>;
+	/** 受控账本历史回填的低敏、游标分页读取；不得解密医保/微信凭证。 */
+	listForPaymentOperationsBackfill?(
+		input: PaymentOperationsBackfillQuery,
+	): Promise<readonly MedicalInsuranceOrder[]>;
 	/** 管理端统一支付读模型的来源计数，不解密医保凭证或结算上下文。 */
 	countForAdmin?(input: {
 		orderId?: string;

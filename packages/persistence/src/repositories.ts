@@ -35,6 +35,7 @@ import type {
 	PaymentAggregate,
 	PaymentLeg,
 	PaymentOperationEvent,
+	PaymentOperationsBackfillQuery,
 	PaymentOperationsRepository,
 	PaymentReconciliationResult,
 	PaymentOperatorAudit,
@@ -1146,6 +1147,19 @@ function matchesCreatedWindow(
 	return true;
 }
 
+function matchesOperationsBackfillCursor(
+	createdAt: string,
+	sourceOrderId: string,
+	input: PaymentOperationsBackfillQuery,
+): boolean {
+	if (!input.afterCreatedAt || !input.afterSourceOrderId) return true;
+	return (
+		createdAt.localeCompare(input.afterCreatedAt) > 0 ||
+		(createdAt === input.afterCreatedAt &&
+			sourceOrderId.localeCompare(input.afterSourceOrderId) > 0)
+	);
+}
+
 function paymentAdminStatus(
 	order: PaymentOrder,
 ): "created" | "pending" | "paid" | "failed" | "manual_review" {
@@ -1248,6 +1262,28 @@ export function createInMemoryPaymentOrderRepository(
 				.sort((left, right) => {
 					const updated = right.updatedAt.localeCompare(left.updatedAt);
 					return updated || right.orderId.localeCompare(left.orderId);
+				})
+				.slice(0, input.limit)
+				.map((order) => ({ ...order, amounts: { ...order.amounts } }));
+		},
+		async listForPaymentOperationsBackfill(input) {
+			return [...orders.values()]
+				.filter(
+					(order) =>
+						matchesCreatedWindow(
+							order.createdAt,
+							input.createdFrom,
+							input.createdTo,
+						) &&
+						matchesOperationsBackfillCursor(
+							order.createdAt,
+							order.orderId,
+							input,
+						),
+				)
+				.sort((left, right) => {
+					const created = left.createdAt.localeCompare(right.createdAt);
+					return created || left.orderId.localeCompare(right.orderId);
 				})
 				.slice(0, input.limit)
 				.map((order) => ({ ...order, amounts: { ...order.amounts } }));
@@ -2691,6 +2727,33 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 					const updated = right.updatedAt.localeCompare(left.updatedAt);
 					return (
 						updated || right.medicalOrderId.localeCompare(left.medicalOrderId)
+					);
+				})
+				.slice(0, input.limit)
+				.map((order) => ({
+					...order,
+					...(order.amounts ? { amounts: { ...order.amounts } } : {}),
+				}));
+		},
+		async listForPaymentOperationsBackfill(input) {
+			return [...orders.values()]
+				.filter(
+					(order) =>
+						matchesCreatedWindow(
+							order.createdAt,
+							input.createdFrom,
+							input.createdTo,
+						) &&
+						matchesOperationsBackfillCursor(
+							order.createdAt,
+							order.medicalOrderId,
+							input,
+						),
+				)
+				.sort((left, right) => {
+					const created = left.createdAt.localeCompare(right.createdAt);
+					return (
+						created || left.medicalOrderId.localeCompare(right.medicalOrderId)
 					);
 				})
 				.slice(0, input.limit)

@@ -104,6 +104,21 @@ export type PaymentOperationsProjection = {
 	event?: PaymentOperationEvent;
 };
 
+/**
+ * 受控历史回填的分页游标。
+ *
+ * 回填按来源表的 created_at + 来源订单号升序读取，避免一次维护任务
+ * 把整张订单表装入内存。该查询只服务于低敏账本投影，不允许带出
+ * Provider 原文或解密支付凭证。
+ */
+export type PaymentOperationsBackfillQuery = {
+	limit: number;
+	createdFrom?: string;
+	createdTo?: string;
+	afterCreatedAt?: string;
+	afterSourceOrderId?: string;
+};
+
 export type PaymentOperationsRepository = {
 	findAggregateById(aggregateId: string): Promise<PaymentAggregate | undefined>;
 	findAggregateByBusinessKey(

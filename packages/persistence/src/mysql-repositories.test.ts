@@ -300,6 +300,39 @@ test("MySQL admin history applies the Shanghai day window and aggregate status",
 	);
 });
 
+test("MySQL payment operations backfill reads both sources with a stable cursor", async () => {
+	const { pool, state } = createFakePool([[], []]);
+	const repositories = createMySqlRepositories(pool);
+	const query = {
+		limit: 25,
+		createdFrom: "2026-09-19T00:00:00.000Z",
+		createdTo: "2026-09-21T00:00:00.000Z",
+		afterCreatedAt: "2026-09-20T00:00:00.000Z",
+		afterSourceOrderId: "source-001",
+	};
+
+	await repositories.paymentOrders.listForPaymentOperationsBackfill?.(query);
+	await repositories.medicalInsuranceOrders.listForPaymentOperationsBackfill?.(
+		query,
+	);
+
+	expect(state.statements[0]).toContain(
+		"ORDER BY created_at ASC, order_id ASC",
+	);
+	expect(state.statements[0]).toContain(
+		"(created_at > ? OR (created_at = ? AND order_id > ?))",
+	);
+	expect(state.statements[1]).toContain(
+		"ORDER BY created_at ASC, medical_order_id ASC",
+	);
+	expect(state.statements[1]).toContain(
+		"(created_at > ? OR (created_at = ? AND medical_order_id > ?))",
+	);
+	expect(state.statements[0]).toContain("LIMIT 25");
+	expect(state.values[0]?.at(-1)).toBe("source-001");
+	expect(state.values[1]?.at(-1)).toBe("source-001");
+});
+
 test("MySQL payment sync claim applies the lease and version fence", async () => {
 	const { pool, state } = createFakePool([
 		[

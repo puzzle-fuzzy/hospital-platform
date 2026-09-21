@@ -585,6 +585,7 @@ export type {
 	PaymentLegType,
 	PaymentOperationEvent,
 	PaymentOperationEventSource,
+	PaymentOperationsBackfillQuery,
 	PaymentOperationsProjection,
 	PaymentOperationsRepository,
 } from "./payment-operations";
@@ -615,3 +616,10 @@ export type {
 } from "./payment-audit";
 export { assertPaymentAuditIdentifier } from "./payment-audit";
 export { assertPaymentOperationIdentifier } from "./payment-operations";
+export {
+	runPaymentOperationsBackfill,
+	type PaymentOperationsBackfillFailure,
+	type PaymentOperationsBackfillInput,
+	type PaymentOperationsBackfillReport,
+	type PaymentOperationsBackfillSource,
+} from "./payment-operations-backfill";

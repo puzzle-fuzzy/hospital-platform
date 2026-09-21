@@ -2,6 +2,7 @@ import type { PaymentState } from "@hospital/contracts";
 import type {
 	PaymentAggregate,
 	PaymentHistoryStatus,
+	PaymentOperationsBackfillQuery,
 	PaymentOperationsProjection,
 	PaymentOperationsRepository,
 } from "./payment-operations";
@@ -479,6 +480,10 @@ export interface PaymentOrderRepository {
 		createdTo?: string;
 		aggregateStatus?: PaymentHistoryStatus;
 	}): Promise<readonly PaymentOrder[]>;
+	/** 受控账本历史回填的低敏、游标分页读取；不得解密支付上下文。 */
+	listForPaymentOperationsBackfill?(
+		input: PaymentOperationsBackfillQuery,
+	): Promise<readonly PaymentOrder[]>;
 	/** 管理端统一支付读模型的来源计数，不携带订单或患者详情。 */
 	countForAdmin?(input: {
 		orderId?: string;

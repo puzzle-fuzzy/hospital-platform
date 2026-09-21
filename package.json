@@ -57,6 +57,7 @@
 		"provider:smoke": "pnpm --filter @hospital/worker provider-smoke",
 		"payment:day": "bun tools/payment-day-export.mjs",
 		"payment:last": "bun tools/payment-latest-export.mjs",
+		"payment:operations:backfill": "bun run packages/persistence/scripts/payment-operations-backfill.ts",
 		"zhongyang:docs": "node --no-warnings --experimental-strip-types tools/zhongyang-docs/cli.ts",
 		"test": "turbo run test",
 		"test:tools": "bun test tools",
