@@ -21,6 +21,10 @@ import {
 	type RedisSessionStore,
 } from "./redis-session";
 import {
+	createRedisHisRefundSecurityStore,
+	type HisRefundSecurityStore,
+} from "./redis-his-refund-security";
+import {
 	auditRedisSessionTtl,
 	RedisSessionTtlAuditError,
 	type RedisSessionTtlAuditResult,
@@ -31,6 +35,8 @@ export type PersistenceRuntime = PersistencePorts & {
 	repositories: MySqlRepositories | undefined;
 	/** Redis 配置存在时提供带 TTL 的会话存储；未配置时保持 undefined。 */
 	sessions: RedisSessionStore | undefined;
+	/** HIS 退费入口的 Redis nonce 防重放与限流状态。 */
+	hisRefundSecurity: HisRefundSecurityStore | undefined;
 	/** Redis 配置存在时提供 owner-scoped 的智能导诊会话引用映射。 */
 	intelligentGuideConversations: IntelligentGuideConversationStore | undefined;
 	/** Redis 中 owner-scoped 的原生 TS 导诊短会话上下文。 */
@@ -417,7 +423,7 @@ export function createPersistenceRuntime(options: {
 				lazyConnect: true,
 				maxRetriesPerRequest: 1,
 				enableOfflineQueue: false,
-				// 生产 ACL 只开放 PING/SELECT/GET/SET；应用自己的 ping 探针已经覆盖 ready 语义，
+				// 生产 ACL 只开放 PING/SELECT/GET/SET/INCR/EXPIRE；应用自己的 ping 探针已经覆盖 ready 语义，
 				// 不再让 ioredis 为 INFO 命令申请额外权限并在 journald 输出误导性 warning。
 				enableReadyCheck: false,
 			})
@@ -443,6 +449,35 @@ export function createPersistenceRuntime(options: {
 					) {
 						await ensureRedisReady();
 						return redisClient.set(key, value, mode, expiresInSeconds);
+					},
+				}
+			: undefined;
+	const hisRefundSecurityClient =
+		redisClient && ensureRedisReady
+			? {
+					async set(
+						key: string,
+						value: string,
+						mode: "EX",
+						expiresInSeconds: number,
+						condition: "NX",
+					) {
+						await ensureRedisReady();
+						return redisClient.set(
+							key,
+							value,
+							mode,
+							expiresInSeconds,
+							condition,
+						);
+					},
+					async incr(key: string) {
+						await ensureRedisReady();
+						return redisClient.incr(key);
+					},
+					async expire(key: string, seconds: number) {
+						await ensureRedisReady();
+						return redisClient.expire(key, seconds);
 					},
 				}
 			: undefined;
@@ -478,6 +513,9 @@ export function createPersistenceRuntime(options: {
 				: undefined,
 		sessions: sessionClient
 			? createRedisSessionStore(sessionClient)
+			: undefined,
+		hisRefundSecurity: hisRefundSecurityClient
+			? createRedisHisRefundSecurityStore(hisRefundSecurityClient)
 			: undefined,
 		intelligentGuideConversations: sessionClient
 			? createRedisIntelligentGuideConversationStore(sessionClient)

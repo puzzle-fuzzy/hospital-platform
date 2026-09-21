@@ -8,6 +8,7 @@ const requestIdPattern = /^[A-Za-z0-9._:-]{1,128}$/;
 const ownerUserIdPattern = /^[A-Za-z0-9._:-]{1,64}$/;
 
 const requestOwners = new WeakMap<Request, string>();
+const clientProvidedRequestIds = new WeakSet<Request>();
 
 /**
  * 归一化调用方提供的关联值；非法值返回 undefined，由调用边界生成新的安全值。
@@ -49,9 +50,20 @@ export function requestOwner(request: Request): string | undefined {
 	return requestOwners.get(request);
 }
 
+/**
+ * requestContextPlugin 会为普通请求补齐 trace id；HIS 退费入口另有安全要求，
+ * 必须区分“客户端确实提交了 X-Request-Id”和“平台自动生成了一个”。
+ */
+export function requestHadClientProvidedRequestId(request: Request): boolean {
+	return clientProvidedRequestIds.has(request);
+}
+
 export function requestContextPlugin() {
 	return new Elysia({ name: "request-context" }).onRequest(
 		({ request, set }) => {
+			if (request.headers.has("x-request-id")) {
+				clientProvidedRequestIds.add(request);
+			}
 			const traceId = requestIdFrom(request);
 			request.headers.set("x-request-id", traceId);
 			set.headers["x-request-id"] = traceId;

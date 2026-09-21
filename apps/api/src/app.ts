@@ -1,6 +1,7 @@
 import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
 import { configureProviderRequestLogger } from "@hospital/adapters";
+import type { HisRefundSecurityStore } from "@hospital/persistence";
 import { DependencyNotConfiguredError } from "@hospital/domain";
 import {
 	type AdminLogStore,
@@ -29,6 +30,7 @@ import type { AppointmentWriteService } from "./modules/appointments";
 import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
+import { hisMedicalInsuranceRefundModule } from "./modules/his/refunds";
 import { inpatientEpisodesModule } from "./modules/inpatient";
 import { intelligentCustomerModule } from "./modules/intelligent-customer";
 import {
@@ -96,6 +98,12 @@ export type AppOptions = {
 	adminLogsToken?: string;
 	/** 管理端微信退款的独立服务间令牌；不下发浏览器或小程序。 */
 	adminRefundToken?: string;
+	/** HIS 退费入口的独立服务间令牌；不复用 Admin 令牌。 */
+	hisRefundToken?: string;
+	/** HIS 退费入口的独立 HMAC 密钥。 */
+	hisRefundHmacSecret?: string;
+	/** HIS 退费入口的 Redis nonce/限流状态；缺失时路由保持关闭。 */
+	hisRefundSecurity?: HisRefundSecurityStore;
 	/** Worker 上送安全日志元数据的独立服务间令牌。 */
 	adminLogsIngestToken?: string;
 };
@@ -314,6 +322,20 @@ export function createApp(options: AppOptions = {}) {
 							)
 						: new Elysia({
 								name: "admin-medical-insurance-refund-not-configured",
+							}),
+				)
+				.use(
+					services.medicalInsuranceRefund &&
+						options.hisRefundToken?.trim() &&
+						options.hisRefundHmacSecret?.trim() &&
+						options.hisRefundSecurity
+						? hisMedicalInsuranceRefundModule(services.medicalInsuranceRefund, {
+								token: options.hisRefundToken,
+								hmacSecret: options.hisRefundHmacSecret,
+								security: options.hisRefundSecurity,
+							})
+						: new Elysia({
+								name: "his-medical-insurance-refund-not-configured",
 							}),
 				)
 				.use(

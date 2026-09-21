@@ -31,6 +31,33 @@ server {
         proxy_set_header X-Request-ID $http_x_request_id;
     }
 
+    # HIS 聚合退费只允许医院固定公网出口；不能落入通用 v2 代理。
+    location = /api/v2/his/medical-insurance-refunds {
+        allow 124.164.248.83;
+        deny all;
+        rewrite ^/api/v2/(.*)$ /api/v1/$1 break;
+        proxy_pass http://10.0.0.3:18081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    location ^~ /api/v2/his/medical-insurance-refunds/ {
+        allow 124.164.248.83;
+        deny all;
+        rewrite ^/api/v2/(.*)$ /api/v1/$1 break;
+        proxy_pass http://10.0.0.3:18081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
     # Other v2 calls map to the new service's versioned API namespace.
     location ^~ /api/v2/ {
         proxy_pass http://10.0.0.3:18081/api/v1/;
@@ -82,6 +109,33 @@ server {
         # readiness 是瞬时状态，禁止边缘复用旧结果。
         proxy_hide_header Cache-Control;
         add_header Cache-Control "no-store" always;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    # HIS 聚合退费只允许医院固定公网出口；不能落入通用 v2 代理。
+    location = /api/v2/his/medical-insurance-refunds {
+        allow 124.164.248.83;
+        deny all;
+        rewrite ^/api/v2/(.*)$ /api/v1/$1 break;
+        proxy_pass http://10.0.0.3:18081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    location ^~ /api/v2/his/medical-insurance-refunds/ {
+        allow 124.164.248.83;
+        deny all;
+        rewrite ^/api/v2/(.*)$ /api/v1/$1 break;
+        proxy_pass http://10.0.0.3:18081;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

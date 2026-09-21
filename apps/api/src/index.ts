@@ -748,6 +748,15 @@ const app = createApp({
 	...(config.adminRefundToken
 		? { adminRefundToken: config.adminRefundToken }
 		: {}),
+	...(config.hisRefundToken &&
+	config.hisRefundHmacSecret &&
+	persistence.hisRefundSecurity
+		? {
+				hisRefundToken: config.hisRefundToken,
+				hisRefundHmacSecret: config.hisRefundHmacSecret,
+				hisRefundSecurity: persistence.hisRefundSecurity,
+			}
+		: {}),
 	...(config.adminLogsIngestToken
 		? { adminLogsIngestToken: config.adminLogsIngestToken }
 		: {}),
@@ -822,6 +831,12 @@ logger.info(
 		persistenceSchemaProbe: startupSchemaProbe,
 		persistenceRepositories: readyRepositories ? "enabled" : "fail_closed",
 		adminLogsReadRuntime: config.adminLogsToken ? "configured" : "fail_closed",
+		hisRefundRuntime:
+			config.hisRefundToken &&
+			config.hisRefundHmacSecret &&
+			persistence.hisRefundSecurity
+				? "enabled"
+				: "fail_closed",
 		adminLogsIngestRuntime: config.adminLogsIngestToken
 			? "configured"
 			: "fail_closed",

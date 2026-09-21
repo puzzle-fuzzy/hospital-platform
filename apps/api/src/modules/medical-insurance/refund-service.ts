@@ -280,6 +280,7 @@ export class MedicalInsuranceRefundService {
 	private async appendAdminRefundAudit(input: {
 		orderId: string;
 		requestId: string;
+		operatorRef?: string;
 		outcome: "succeeded" | "failed" | "rejected";
 		reasonCode?: string;
 	}): Promise<void> {
@@ -294,7 +295,7 @@ export class MedicalInsuranceRefundService {
 			: undefined;
 		await audits.append({
 			auditId: `audit-refund-request-${this.createId()}`,
-			operatorRef: null,
+			operatorRef: input.operatorRef ?? null,
 			action: "refund_request",
 			...(aggregateId ? { aggregateId } : {}),
 			requestId: input.requestId,
@@ -484,6 +485,7 @@ export class MedicalInsuranceRefundService {
 		orderId: string;
 		reason?: string;
 		context: unknown;
+		operatorRef?: string;
 	}): Promise<MedicalInsuranceRefundPayload["data"]> {
 		const orderId = bounded(input.orderId, "orderId");
 		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
@@ -515,6 +517,7 @@ export class MedicalInsuranceRefundService {
 			await this.appendAdminRefundAudit({
 				orderId,
 				requestId: context.traceId,
+				...(input.operatorRef ? { operatorRef: input.operatorRef } : {}),
 				outcome: "failed",
 				reasonCode: providerErrorCode(error),
 			});
@@ -523,6 +526,7 @@ export class MedicalInsuranceRefundService {
 		await this.appendAdminRefundAudit({
 			orderId,
 			requestId: context.traceId,
+			...(input.operatorRef ? { operatorRef: input.operatorRef } : {}),
 			outcome:
 				result.status === "failed"
 					? "failed"
@@ -538,7 +542,7 @@ export class MedicalInsuranceRefundService {
 
 	async query(
 		refundNo: string,
-		context: { requestId?: string } = {},
+		context: { requestId?: string; operatorRef?: string } = {},
 	): Promise<MedicalInsuranceRefundPayload["data"] | undefined> {
 		const record = await this.dependencies.refunds.findByRefundNo(
 			bounded(refundNo, "refundNo"),
@@ -554,7 +558,7 @@ export class MedicalInsuranceRefundService {
 				: undefined;
 			await this.dependencies.operatorAudits.append({
 				auditId: `audit-refund-query-${this.createId()}`,
-				operatorRef: null,
+				operatorRef: context.operatorRef ?? null,
 				action: "refund_query",
 				...(aggregateId ? { aggregateId } : {}),
 				...(context.requestId ? { requestId: context.requestId } : {}),

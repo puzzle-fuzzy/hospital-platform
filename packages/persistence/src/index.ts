@@ -33,6 +33,11 @@ export {
 	type RedisSessionStore,
 } from "./redis-session";
 export {
+	createRedisHisRefundSecurityStore,
+	type HisRefundSecurityStore,
+	type RedisHisRefundSecurityClient,
+} from "./redis-his-refund-security";
+export {
 	auditRedisSessionTtl,
 	type RedisSessionTtlAuditClient,
 	RedisSessionTtlAuditError,
