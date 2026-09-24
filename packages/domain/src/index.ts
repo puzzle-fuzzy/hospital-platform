@@ -321,6 +321,14 @@ export {
 	validateOutpatientPaymentRecords,
 } from "./outpatient-payments";
 export type {
+	OutpatientElectronicInvoice,
+	OutpatientElectronicInvoiceGateway,
+	OutpatientElectronicInvoiceOperatorType,
+	OutpatientElectronicInvoicePayerType,
+	OutpatientElectronicInvoiceQueryGateway,
+	OutpatientElectronicInvoiceRecord,
+} from "./outpatient-invoices";
+export type {
 	PatientFeedback,
 	PatientFeedbackCreateInput,
 	PatientFeedbackKind,

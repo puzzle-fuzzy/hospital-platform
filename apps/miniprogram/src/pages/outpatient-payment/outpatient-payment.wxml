@@ -11,6 +11,13 @@
 		<view class="tab {{activeStatus === 'unpaid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="unpaid">待缴费</view>
 		<view class="tab {{activeStatus === 'paid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="paid">已缴费</view>
 	</view>
+	<view class="electronic-invoice-entry" bindtap="onElectronicInvoiceTap">
+		<view>
+			<text class="electronic-invoice-entry-title">门诊电子发票</text>
+			<text class="electronic-invoice-entry-hint">查询并开具当前就诊人的电子发票</text>
+		</view>
+		<text class="electronic-invoice-entry-arrow">›</text>
+	</view>
 
 	<!--
 		加载、错误和空结果共用同一个状态节点。费用查询是患者最容易

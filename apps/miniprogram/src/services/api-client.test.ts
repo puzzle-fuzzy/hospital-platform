@@ -32,6 +32,8 @@ import {
 	requireMyDoctorDeleteResponse,
 	requireMyDoctorListResponse,
 	requireMyDoctorResponse,
+	requireOutpatientElectronicInvoiceIssueResponse,
+	requireOutpatientElectronicInvoiceListResponse,
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
@@ -224,6 +226,72 @@ test("我的医生响应拒绝重复关系、坏字段和非确认的取消结�
 			requireMyDoctorDeleteResponse({ success: true, data: invalid }),
 		).toThrow("My doctor response");
 	}
+});
+
+test("电子发票响应只保留平台公开字段，并阻断异常票据引用", () => {
+	const list = requireOutpatientElectronicInvoiceListResponse({
+		success: true,
+		data: {
+			items: [
+				{
+					recordId: "inv_001",
+					invoiceCode: "门诊结算",
+					amountFen: 1234,
+					outInvoiceMainId: "provider-id-must-not-enter-client",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(list).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					recordId: "inv_001",
+					invoiceCode: "门诊结算",
+					amountFen: 1234,
+				},
+			],
+			total: 1,
+		},
+	});
+
+	expect(
+		requireOutpatientElectronicInvoiceIssueResponse(
+			{
+				success: true,
+				data: {
+					recordId: "inv_001",
+					invoice: {
+						billBatchCode: "BATCH001",
+						billNo: "NO001",
+						outElectronicInvoiceId: "provider-id-must-not-enter-client",
+					},
+				},
+			},
+			"inv_001",
+		),
+	).toEqual({
+		success: true,
+		data: {
+			recordId: "inv_001",
+			invoice: { billBatchCode: "BATCH001", billNo: "NO001" },
+		},
+	});
+
+	expect(() =>
+		requireOutpatientElectronicInvoiceListResponse({
+			success: true,
+			data: {
+				items: [
+					{ recordId: "inv_001" },
+					{ recordId: "inv_001" },
+				],
+				total: 2,
+			},
+		}),
+	).toThrow("Outpatient electronic invoice response is invalid");
 });
 
 test("微信支付响应接受众阳 MD5 参数并兼容历史 APIv3 RSA 参数", () => {

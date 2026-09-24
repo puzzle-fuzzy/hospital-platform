@@ -23,6 +23,8 @@ import type {
 	MyDoctorListPayload,
 	MyDoctorResponsePayload,
 	OutpatientMedicalRecordListPayload,
+	OutpatientElectronicInvoiceIssuePayload,
+	OutpatientElectronicInvoiceListPayload,
 	OutpatientPaymentDetailPayload,
 	OutpatientPaymentListPayload,
 	OutpatientSelfPayPayload,
@@ -111,6 +113,10 @@ export type OutpatientMedicalRecordListResponse =
 	OutpatientMedicalRecordListPayload;
 export type InpatientEpisodeListResponse = InpatientEpisodeListPayload;
 export type OutpatientPaymentDetailResponse = OutpatientPaymentDetailPayload;
+export type OutpatientElectronicInvoiceListResponse =
+	OutpatientElectronicInvoiceListPayload;
+export type OutpatientElectronicInvoiceIssueResponse =
+	OutpatientElectronicInvoiceIssuePayload;
 export type ReportListResponse = ReportListPayload;
 export type ReportDetailResponse = ReportDetailPayload;
 export type WechatPrepayResponse = WechatPrepayPayload;
@@ -176,6 +182,26 @@ export type OutpatientMedicalRecord =
 export type InpatientEpisode =
 	InpatientEpisodeListResponse["data"]["items"][number];
 export type OutpatientPaymentDetail = OutpatientPaymentDetailResponse["data"];
+export type OutpatientElectronicInvoice =
+	OutpatientElectronicInvoiceListResponse["data"]["items"][number];
+export type OutpatientElectronicInvoiceView = OutpatientElectronicInvoice & {
+	/** 当前页面批次的事件回查键，不是 Provider 发票主键。 */
+	viewKey: string;
+	/** 已开具成功的本地结果在下一次列表刷新前仍需保持不可重复开具。 */
+	issueState: "ready" | "issued";
+	amountLabel?: string;
+};
+export type OutpatientElectronicInvoicePageData = {
+	hasShown: boolean;
+	sessionState: SessionVerificationState;
+	selectedPatient: Patient | null;
+	patientSessionGeneration: number;
+	items: Array<OutpatientElectronicInvoiceView>;
+	loading: boolean;
+	issuingViewKey: string;
+	error: string;
+	canSelectPatient: boolean;
+};
 /** 门诊费用详情页展示服务端核对后的单笔 2.6.33 费用字段。 */
 export type OutpatientPaymentDetailPageData = {
 	loading: boolean;

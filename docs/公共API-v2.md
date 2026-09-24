@@ -179,6 +179,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/payments/outpatient/records/{recordId}` | Bearer；幂等键可选 | 必填 query `patientId`、`status=unpaid|paid`；返回当前用户/就诊人范围内已核对的单笔门诊费用摘要，不返回项目级费用明细 |
 | `POST` | `/api/v2/payments/outpatient/records/{recordId}/self-pay` | Bearer + 必填幂等键 | body 仅含内部 `patientId`；服务端重新读取 2.6.33 待缴记录，使用 `tradeTypeCode=2`、与挂号相同的 `autoSettle` 和 `requestParam.outTradeOrderIds` 创建门诊微信支付订单，返回服务端校验后的 MD5 调起参数 |
 | `GET` | `/api/v2/payments/outpatient/records/{recordId}/self-pay` | Bearer；幂等键可选 | 必填 query `patientId`；查询门诊微信支付订单状态，调起成功不代表门诊结算已完成 |
+| `GET` | `/api/v2/payments/outpatient/invoices` | Bearer；幂等键可选 | 必填 `patientId`；服务端按当前用户患者映射查询 2.6.17 已支付门诊发票，只返回平台 `recordId` 和电子票据展示字段 |
+| `POST` | `/api/v2/payments/outpatient/invoices/{recordId}/issue` | Bearer + 必填幂等键 | body 为 `{patientId,payerType}`；服务端重新查询 2.6.17 并将匹配的 `outInvoiceMainId`、`outSettleMainId` 交给 2.6.29，客户端不得提交 Provider 主键 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
 | `GET` | `/api/v2/payments/orders/{orderId}` | Bearer | 读取当前用户自己的平台支付订单 |
 | `GET` | `/api/v2/payments/orders/{orderId}/wechat-prepay` | Bearer + 必填幂等键 | 读取微信预支付尝试状态；不代表支付成功 |
@@ -480,6 +482,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 400 | 30100 | `appointment-query-invalid` | 排班日期/过滤条件不合法 |
 | 400 | 30200 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
 | 400 | 50300 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
+| 400 | 50330 | `outpatient-electronic-invoice-query-invalid` | 门诊电子发票查询或开具参数不合法 |
 | 400 | 40100 | `report-query-invalid` | 报告查询条件不合法 |
 | 400 | 40200 | `medical-record-query-invalid` | 门诊病历 patientId 或日期窗口不合法 |
 | 400 | 40300 | `inpatient-episode-query-invalid` | 住院信息查询上下文不合法 |
@@ -515,6 +518,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 503 | 30570 | `medical-insurance-timeout` | 6201/6202 返回体包含医保核心 `code=504, message=Gateway Time-out`；医保连接超时，请稍后重新挂号重试 |
 | 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | 50320 | `outpatient-payment-record-not-found` | 当前用户/就诊人范围内未找到对应门诊缴费记录 |
+| 404 | 50340 | `outpatient-electronic-invoice-record-not-found` | 当前用户/就诊人范围内未找到可开具的门诊电子发票记录 |
 | 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
 | 404 | 40120 | `report-not-found` | 报告详情或附件不可用、短期引用已过期，或尚未通过 gate |
 | 404 | 40210 | `medical-record-patient-not-found` | 当前用户没有该就诊人的有效门诊病历映射 |

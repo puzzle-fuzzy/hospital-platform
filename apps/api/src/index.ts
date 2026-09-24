@@ -17,6 +17,8 @@ import {
 	createZhongyangAppointmentWriteGateway,
 	createZhongyangInpatientEpisodeGateway,
 	createZhongyangMedicalRecordGateway,
+	createZhongyangOutpatientElectronicInvoiceGateway,
+	createZhongyangOutpatientElectronicInvoiceQueryGateway,
 	createZhongyangOutpatientPaymentGateway,
 	createZhongyangPatientBindingGateway,
 	createZhongyangPatientGateway,
@@ -43,6 +45,8 @@ import {
 	medicalInsuranceConfigurationStatus,
 	outpatientMedicalRecordsConfigurationMissingFields,
 	outpatientMedicalRecordsConfigurationStatus,
+	outpatientElectronicInvoiceConfigurationMissingFields,
+	outpatientElectronicInvoiceConfigurationStatus,
 	outpatientPaymentConfigurationMissingFields,
 	outpatientPaymentConfigurationStatus,
 	patientBindingConfigurationMissingFields,
@@ -125,6 +129,10 @@ const inpatientEpisodesMissing =
 const outpatientPaymentStatus = outpatientPaymentConfigurationStatus(config);
 const outpatientPaymentMissing =
 	outpatientPaymentConfigurationMissingFields(config);
+const outpatientElectronicInvoiceStatus =
+	outpatientElectronicInvoiceConfigurationStatus(config);
+const outpatientElectronicInvoiceMissing =
+	outpatientElectronicInvoiceConfigurationMissingFields(config);
 const reportDirectoryStatus = reportDirectoryConfigurationStatus(config);
 const reportDirectoryMissing =
 	reportDirectoryConfigurationMissingFields(config);
@@ -313,6 +321,36 @@ const outpatientPaymentGateway =
 		? createZhongyangOutpatientPaymentGateway({
 				baseUrl: config.zhongyangBaseUrl,
 				authSysCode: config.outpatientPaymentAuthSysCode,
+				...(config.zhongyangAuthorizationToken
+					? { authorizationToken: config.zhongyangAuthorizationToken }
+					: {}),
+			})
+		: undefined;
+const outpatientElectronicInvoiceQueryGateway =
+	outpatientElectronicInvoiceStatus === "configured" && config.zhongyangBaseUrl
+		? createZhongyangOutpatientElectronicInvoiceQueryGateway({
+				baseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
+					? { authorizationToken: config.zhongyangAuthorizationToken }
+					: {}),
+			})
+		: undefined;
+const outpatientElectronicInvoiceOperatorType =
+	config.outpatientElectronicInvoiceOperatorType === 0 ||
+	config.outpatientElectronicInvoiceOperatorType === 1 ||
+	config.outpatientElectronicInvoiceOperatorType === 2
+		? (config.outpatientElectronicInvoiceOperatorType as 0 | 1 | 2)
+		: undefined;
+const outpatientElectronicInvoiceGateway =
+	outpatientElectronicInvoiceStatus === "configured" &&
+	config.zhongyangBaseUrl &&
+	outpatientElectronicInvoiceOperatorType !== undefined
+		? createZhongyangOutpatientElectronicInvoiceGateway({
+				baseUrl: config.zhongyangBaseUrl,
+				authSysCode: config.outpatientElectronicInvoiceAuthSysCode,
+				workStationId: config.outpatientElectronicInvoiceWorkStationId,
+				hospitalId: config.outpatientElectronicInvoiceHospitalId,
+				operatorType: outpatientElectronicInvoiceOperatorType,
 				...(config.zhongyangAuthorizationToken
 					? { authorizationToken: config.zhongyangAuthorizationToken }
 					: {}),
@@ -628,6 +666,12 @@ const services = createDefaultApplicationServices({
 		: {}),
 	...(appointmentWriteGateway ? { appointmentWriteGateway } : {}),
 	...(outpatientPaymentGateway ? { outpatientPaymentGateway } : {}),
+	...(outpatientElectronicInvoiceQueryGateway
+		? { outpatientElectronicInvoiceQueryGateway }
+		: {}),
+	...(outpatientElectronicInvoiceGateway
+		? { outpatientElectronicInvoiceGateway }
+		: {}),
 	...(outpatientMedicalRecordGateway ? { outpatientMedicalRecordGateway } : {}),
 	...(inpatientEpisodeGateway ? { inpatientEpisodeGateway } : {}),
 	outpatientPaymentAuthSysCode: config.outpatientPaymentAuthSysCode,
@@ -931,6 +975,10 @@ logger.info(
 			: {}),
 		...(outpatientPaymentMissing.length > 0
 			? { outpatientPaymentMissing }
+			: {}),
+		outpatientElectronicInvoiceConfiguration: outpatientElectronicInvoiceStatus,
+		...(outpatientElectronicInvoiceMissing.length > 0
+			? { outpatientElectronicInvoiceMissing }
 			: {}),
 		...(medicalRecordsMissing.length > 0
 			? { outpatientMedicalRecordsMissing: medicalRecordsMissing }

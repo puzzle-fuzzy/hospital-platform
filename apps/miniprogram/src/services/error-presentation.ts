@@ -37,6 +37,9 @@ const SURFACE_CAUSE_MESSAGES: Partial<
 	"outpatient-payment": Object.freeze({
 		"dependency-not-configured": "门诊缴费功能正在完善中，暂时无法使用",
 	}),
+	"outpatient-electronic-invoice": Object.freeze({
+		"dependency-not-configured": "门诊电子发票服务正在配置中，请稍后再试",
+	}),
 	"appointment-schedule": Object.freeze({
 		"dependency-not-configured": "预约服务正在完善中，暂时无法使用",
 		"appointment-schedule-reference-expired": "排班信息已更新，请返回重新选择",

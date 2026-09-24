@@ -1232,6 +1232,56 @@ export const OutpatientPaymentDetailResponse = Type.Object({
 	}),
 });
 
+/** 患者端电子发票记录；Provider 主键和患者号不进入此 contract。 */
+export const OutpatientElectronicInvoiceItemSchema = Type.Object({
+	recordId: Type.String({ minLength: 1, maxLength: 128 }),
+	invoiceCode: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+	invoiceTime: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+	amountFen: Type.Optional(Type.Integer({ minimum: 0 })),
+	billBatchCode: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+	billNo: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+	random: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+	pictureNetUrl: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 8_000_000 }),
+	),
+	pictureUrl: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 8_000_000 }),
+	),
+});
+
+export const OutpatientElectronicInvoiceListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(OutpatientElectronicInvoiceItemSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+export const OutpatientElectronicInvoiceIssueResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		recordId: Type.String({ minLength: 1, maxLength: 128 }),
+		invoice: Type.Object({
+			billBatchCode: Type.Optional(
+				Type.String({ minLength: 1, maxLength: 512 }),
+			),
+			billNo: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+			billQrCode: Type.Optional(
+				Type.String({ minLength: 1, maxLength: 8_000_000 }),
+			),
+			createTime: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+			invalidFlag: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+			pictureNetUrl: Type.Optional(
+				Type.String({ minLength: 1, maxLength: 8_000_000 }),
+			),
+			pictureUrl: Type.Optional(
+				Type.String({ minLength: 1, maxLength: 8_000_000 }),
+			),
+			random: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+		}),
+	}),
+});
+
 export const ReadyResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
@@ -1675,6 +1725,12 @@ export type OutpatientPaymentListPayload = Static<
 >;
 export type OutpatientPaymentDetailPayload = Static<
 	typeof OutpatientPaymentDetailResponse
+>;
+export type OutpatientElectronicInvoiceListPayload = Static<
+	typeof OutpatientElectronicInvoiceListResponse
+>;
+export type OutpatientElectronicInvoiceIssuePayload = Static<
+	typeof OutpatientElectronicInvoiceIssueResponse
 >;
 export type PaymentAmountsPayload = Static<typeof PaymentAmountsSchema>;
 export type PaymentOrderPayload = Static<typeof PaymentOrderResponse>;

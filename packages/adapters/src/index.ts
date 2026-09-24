@@ -164,6 +164,14 @@ export {
 	ZhongyangOutpatientPaymentApiGateway,
 } from "./zhongyang-outpatient-payments";
 export {
+	createZhongyangOutpatientElectronicInvoiceGateway,
+	ZhongyangOutpatientElectronicInvoiceApiGateway,
+} from "./zhongyang-outpatient-invoices";
+export {
+	createZhongyangOutpatientElectronicInvoiceQueryGateway,
+	ZhongyangOutpatientElectronicInvoiceQueryApiGateway,
+} from "./zhongyang-outpatient-invoice-query";
+export {
 	createZhongyangPatientBindingGateway,
 	ZhongyangPatientBindingApiGateway,
 } from "./zhongyang-patient-binding";

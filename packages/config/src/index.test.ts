@@ -11,6 +11,8 @@ import {
 	loadRuntimeConfig,
 	medicalInsuranceConfigurationMissingFields,
 	medicalInsuranceConfigurationStatus,
+	outpatientElectronicInvoiceConfigurationMissingFields,
+	outpatientElectronicInvoiceConfigurationStatus,
 	outpatientPaymentConfigurationMissingFields,
 	outpatientPaymentConfigurationStatus,
 	patientBindingConfigurationMissingFields,
@@ -42,6 +44,8 @@ test("runtime config defaults to safe development gates", () => {
 		medicalInsuranceReady: false,
 		medicalInsuranceFoundationPath: "/mbs-fsi/web/api/fsi/callService",
 		yunhealthRegistrationSettlementReady: false,
+		outpatientElectronicInvoiceReady: false,
+		outpatientElectronicInvoiceWorkStationId: "",
 		yunhealthRegistrationPaymentSource: "1",
 		yunhealthRegistrationAuthSysCode: "thirdSelfMachine",
 		yunhealthRegistrationTradeTypeCode: "10",
@@ -52,6 +56,42 @@ test("runtime config defaults to safe development gates", () => {
 		adminLogsIngestUrl: undefined,
 		adminLogsIngestToken: undefined,
 	});
+});
+
+test("2.6.29 电子发票配置保留空 workStationId 并校验服务端固定参数", () => {
+	const incomplete = loadRuntimeConfig({
+		ZHONGYANG_OUTPATIENT_ELECTRONIC_INVOICE_READY: "true",
+		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+		OUTPATIENT_ELECTRONIC_INVOICE_AUTH_SYS_CODE: "WeChatSmallProg",
+		OUTPATIENT_ELECTRONIC_INVOICE_WORK_STATION_ID: "",
+		OUTPATIENT_ELECTRONIC_INVOICE_HOSPITAL_ID: "10389001",
+	});
+
+	expect(outpatientElectronicInvoiceConfigurationStatus(incomplete)).toBe(
+		"incomplete",
+	);
+	expect(
+		outpatientElectronicInvoiceConfigurationMissingFields(incomplete),
+	).toEqual(["OUTPATIENT_ELECTRONIC_INVOICE_OPERATOR_TYPE"]);
+
+	const configured = loadRuntimeConfig({
+		ZHONGYANG_OUTPATIENT_ELECTRONIC_INVOICE_READY: "true",
+		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+		OUTPATIENT_ELECTRONIC_INVOICE_AUTH_SYS_CODE: "WeChatSmallProg",
+		OUTPATIENT_ELECTRONIC_INVOICE_WORK_STATION_ID: "",
+		OUTPATIENT_ELECTRONIC_INVOICE_HOSPITAL_ID: "10389001",
+		OUTPATIENT_ELECTRONIC_INVOICE_OPERATOR_TYPE: "2",
+	});
+
+	expect(outpatientElectronicInvoiceConfigurationStatus(configured)).toBe(
+		"configured",
+	);
+	expect(configured.outpatientElectronicInvoiceAuthSysCode).toBe(
+		"WeChatSmallProg",
+	);
+	expect(configured.outpatientElectronicInvoiceWorkStationId).toBe("");
+	expect(configured.outpatientElectronicInvoiceHospitalId).toBe("10389001");
+	expect(configured.outpatientElectronicInvoiceOperatorType).toBe(2);
 });
 
 test("智能客服路由闸门只由独立环境变量打开", () => {

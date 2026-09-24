@@ -43,6 +43,10 @@ import {
 	WechatLoginInputError,
 } from "../modules/auth/service";
 import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
+import {
+	OutpatientElectronicInvoiceQueryError,
+	OutpatientElectronicInvoiceRecordNotFoundError,
+} from "../modules/outpatient-invoices";
 import { PatientServiceInputError } from "../modules/patients/service";
 import {
 	PaymentIdentityNotFoundError,
@@ -462,6 +466,12 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 			message: "门诊缴费查询条件不合法",
 		},
 		{
+			error: new OutpatientElectronicInvoiceQueryError(),
+			code: "outpatient-electronic-invoice-query-invalid",
+			numericCode: 50330,
+			message: "门诊电子发票查询条件不合法",
+		},
+		{
 			error: new InvalidReportKindError(),
 			code: "report-query-invalid",
 			numericCode: 40100,
@@ -485,6 +495,23 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 			},
 		});
 	}
+});
+
+test("电子发票未知记录返回稳定的 404 公共契约", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new OutpatientElectronicInvoiceRecordNotFoundError();
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+	expect(response.status).toBe(404);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "outpatient-electronic-invoice-record-not-found",
+			numericCode: 50340,
+			message: "未找到可开具的门诊电子发票记录",
+		},
+	});
 });
 
 test("Provider 读模型校验错误映射为不可重试的 502", async () => {

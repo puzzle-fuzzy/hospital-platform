@@ -79,6 +79,8 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"outpatient-payment-query-invalid": 50300,
 	"outpatient-payment-patient-not-found": 50310,
 	"outpatient-payment-record-not-found": 50320,
+	"outpatient-electronic-invoice-query-invalid": 50330,
+	"outpatient-electronic-invoice-record-not-found": 50340,
 	"health-knowledge-query-invalid": 60100,
 	"health-knowledge-not-found": 60110,
 	"health-knowledge-unavailable": 60120,
@@ -177,6 +179,7 @@ export type ClientErrorSurface =
 	| "report-directory"
 	| "report-detail"
 	| "outpatient-payment"
+	| "outpatient-electronic-invoice"
 	| "profile"
 	| "my"
 	| "knowledge"
@@ -233,6 +236,10 @@ export const CLIENT_ERROR_SURFACE_COPY: Readonly<
 	"outpatient-payment": {
 		title: "门诊缴费",
 		defaultMessage: "缴费记录暂时无法获取，请稍后重试",
+	},
+	"outpatient-electronic-invoice": {
+		title: "门诊电子发票",
+		defaultMessage: "电子发票暂时无法获取，请稍后重试",
 	},
 	profile: {
 		title: "个人资料",

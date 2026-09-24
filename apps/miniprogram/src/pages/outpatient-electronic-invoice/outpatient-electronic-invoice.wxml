@@ -1,0 +1,58 @@
+<scroll-view class="invoice-scroll" scroll-y="true" enhanced="true">
+	<patient-hospital-context bindchangepatient="onChangePatient" />
+	<view class="invoice-page">
+		<view class="invoice-boundary">
+			当前展示近 30 天已缴费的门诊结算记录；电子发票仅按个人抬头开具。
+		</view>
+
+		<view wx:if="{{loading || error || !items.length}}" class="invoice-state query-state-shell query-state-shell-column">
+			<block wx:if="{{loading}}">
+				<view class="invoice-loading-icon" aria-hidden="true"></view>
+				<text class="invoice-state-title">正在查询电子发票记录...</text>
+			</block>
+			<block wx:elif="{{error}}">
+				<text class="invoice-state-title">电子发票暂不可用</text>
+				<text class="invoice-state-hint">{{error}}</text>
+				<view wx:if="{{canSelectPatient}}" class="invoice-action invoice-action-secondary" bindtap="onChangePatient">选择就诊人</view>
+				<view class="invoice-action" bindtap="onRetry">重新加载</view>
+			</block>
+			<block wx:else>
+				<text class="invoice-state-title">暂无可开具电子发票</text>
+				<text class="invoice-state-hint">当前就诊人近 30 天没有可开具的已缴费记录</text>
+			</block>
+		</view>
+
+		<view wx:elif="{{items.length}}" class="invoice-list">
+			<view wx:for="{{items}}" wx:key="viewKey" class="invoice-card">
+				<view class="invoice-card-header">
+					<view>
+						<text class="invoice-card-title">{{item.invoiceCode || '门诊结算电子发票'}}</text>
+						<text wx:if="{{item.invoiceTime}}" class="invoice-card-time">{{item.invoiceTime}}</text>
+					</view>
+					<text class="invoice-status invoice-status-{{item.issueState}}">{{item.issueState === 'issued' ? '已开具' : '待开具'}}</text>
+				</view>
+				<view wx:if="{{item.amountLabel}}" class="invoice-line">
+					<text class="invoice-label">金额</text>
+					<text class="invoice-amount">{{item.amountLabel}}</text>
+				</view>
+				<view wx:if="{{item.issueState === 'issued' && item.billBatchCode}}" class="invoice-line">
+					<text class="invoice-label">发票代码</text>
+					<text class="invoice-value">{{item.billBatchCode}}</text>
+				</view>
+				<view wx:if="{{item.issueState === 'issued' && item.billNo}}" class="invoice-line">
+					<text class="invoice-label">发票号码</text>
+					<text class="invoice-value">{{item.billNo}}</text>
+				</view>
+				<view wx:if="{{item.issueState === 'issued'}}" class="invoice-issued-hint">电子票据已生成；票据影像以医院电子票据平台返回结果为准。</view>
+				<button
+					wx:else
+					class="invoice-issue-button"
+					bindtap="onIssue"
+					data-view-key="{{item.viewKey}}"
+					loading="{{issuingViewKey === item.viewKey}}"
+					disabled="{{issuingViewKey !== ''}}"
+				>确认开具</button>
+			</view>
+		</view>
+	</view>
+</scroll-view>

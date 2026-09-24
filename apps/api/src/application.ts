@@ -18,6 +18,8 @@ import type {
 	IntelligentGuideSpeechGateway,
 	KnowledgeSearchGateway,
 	OutpatientMedicalRecordGateway,
+	OutpatientElectronicInvoiceGateway,
+	OutpatientElectronicInvoiceQueryGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
@@ -72,6 +74,7 @@ import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { OutpatientSelfPayService } from "./modules/outpatient-payments/self-pay-service";
+import { OutpatientElectronicInvoiceService } from "./modules/outpatient-invoices";
 import { PatientFeedbackService } from "./modules/patient-feedback";
 import { PatientService } from "./modules/patients";
 import { PatientBindingService } from "./modules/patients/binding-service";
@@ -103,6 +106,7 @@ export type ApplicationServices = {
 	medicalInsurancePluginPayment?: import("./modules/medical-insurance/plugin-payment-service").MedicalInsurancePluginPaymentService;
 	myDoctors?: MyDoctorService;
 	outpatientPayments?: OutpatientPaymentService;
+	outpatientElectronicInvoices?: OutpatientElectronicInvoiceService;
 	outpatientSelfPay?: OutpatientSelfPayService;
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
 	healthKnowledge?: HealthKnowledgeService;
@@ -185,6 +189,10 @@ export type ApplicationServiceOptions = {
 	appointmentWriteGateway?: AppointmentWriteGateway;
 	/** 门诊费用只读目录；支付和医保结算不由该网关隐式开启。 */
 	outpatientPaymentGateway?: OutpatientPaymentGateway;
+	/** 2.6.17 门诊发票只读查询网关；开票前由 service 重新查询并解析主键。 */
+	outpatientElectronicInvoiceQueryGateway?: OutpatientElectronicInvoiceQueryGateway;
+	/** 2.6.29 门诊电子发票开具网关。 */
+	outpatientElectronicInvoiceGateway?: OutpatientElectronicInvoiceGateway;
 	/** 门诊就诊摘要 Provider；独立配置并默认 fail-closed。 */
 	outpatientMedicalRecordGateway?: OutpatientMedicalRecordGateway;
 	/** 住院摘要 Provider；独立配置并默认 fail-closed。 */
@@ -840,6 +848,16 @@ export function createDefaultApplicationServices(
 			// 渠道码必须来自已确认的运行配置；缺失时由服务层 fail-closed，
 			// 不能在组合根再次猜测 Provider 渠道。
 			authSysCode: options.outpatientPaymentAuthSysCode ?? "",
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		outpatientElectronicInvoices: new OutpatientElectronicInvoiceService({
+			repository: repositories.patients,
+			query:
+				options.outpatientElectronicInvoiceQueryGateway ??
+				gateways.outpatientElectronicInvoiceQuery,
+			issue:
+				options.outpatientElectronicInvoiceGateway ??
+				gateways.outpatientElectronicInvoices,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		outpatientSelfPay,

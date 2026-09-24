@@ -101,6 +101,10 @@ import {
 	OutpatientPaymentQueryError,
 	OutpatientPaymentRecordNotFoundError,
 } from "../modules/outpatient-payments";
+import {
+	OutpatientElectronicInvoiceQueryError,
+	OutpatientElectronicInvoiceRecordNotFoundError,
+} from "../modules/outpatient-invoices";
 import { PatientFeedbackAppointmentNotFoundError } from "../modules/patient-feedback/service";
 import {
 	PatientBindingDirectoryConfirmationError,
@@ -198,6 +202,8 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"outpatient-payment-query-invalid": 50300,
 	"outpatient-payment-patient-not-found": 50310,
 	"outpatient-payment-record-not-found": 50320,
+	"outpatient-electronic-invoice-query-invalid": 50330,
+	"outpatient-electronic-invoice-record-not-found": 50340,
 	"health-knowledge-query-invalid": 60100,
 	"health-knowledge-not-found": 60110,
 	"health-knowledge-unavailable": 60120,
@@ -709,10 +715,26 @@ export function errorHandlerPlugin() {
 				);
 			}
 
+			if (error instanceof OutpatientElectronicInvoiceRecordNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"outpatient-electronic-invoice-record-not-found",
+					"未找到可开具的门诊电子发票记录",
+				);
+			}
+
 			if (
 				error instanceof InvalidOutpatientPaymentStatusError ||
-				error instanceof OutpatientPaymentQueryError
+				error instanceof OutpatientPaymentQueryError ||
+				error instanceof OutpatientElectronicInvoiceQueryError
 			) {
+				if (error instanceof OutpatientElectronicInvoiceQueryError) {
+					set.status = 400;
+					return errorPayload(
+						"outpatient-electronic-invoice-query-invalid",
+						"门诊电子发票查询条件不合法",
+					);
+				}
 				set.status = 400;
 				return errorPayload(
 					"outpatient-payment-query-invalid",

@@ -9,6 +9,7 @@ import type {
 	InpatientEpisodeListResponse,
 	OutpatientMedicalRecord,
 	OutpatientMedicalRecordListResponse,
+	OutpatientElectronicInvoiceListResponse,
 	OutpatientPaymentDetail,
 	OutpatientPaymentRecord,
 	Patient,
@@ -30,6 +31,7 @@ import {
 	requestAppointmentRecords,
 	requestAppointmentSchedules,
 	requestInpatientEpisodes,
+	requestOutpatientElectronicInvoices,
 	requestOutpatientMedicalRecords,
 	requestOutpatientPaymentDetail,
 	requestOutpatientPaymentRecords,
@@ -2001,6 +2003,17 @@ export function loadOutpatientPaymentRecords(
 	).then(
 		(payload) => requireOutpatientPaymentListData(payload.data, status).items,
 	);
+}
+
+/** 电子发票仅查询当前患者近 30 天的已缴费结算记录。 */
+export function loadOutpatientElectronicInvoices(
+	patientId: string,
+	expectedSessionGeneration: number,
+): Promise<OutpatientElectronicInvoiceListResponse["data"]> {
+	return requestOutpatientElectronicInvoices(
+		requirePatientId(patientId),
+		expectedSessionGeneration,
+	).then((payload) => payload.data);
 }
 
 /** 读取近 30 天门诊就诊摘要，日期窗口由客户端和服务端双重限制。 */

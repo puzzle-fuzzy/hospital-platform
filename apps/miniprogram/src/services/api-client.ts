@@ -24,6 +24,8 @@ import type {
 	MyDoctorListResponse,
 	MyDoctorResponse,
 	OutpatientMedicalRecordListResponse,
+	OutpatientElectronicInvoiceIssueResponse,
+	OutpatientElectronicInvoiceListResponse,
 	OutpatientPaymentDetailResponse,
 	OutpatientPaymentListResponse,
 	OutpatientSelfPayResponse,
@@ -207,11 +209,15 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 			"当前就诊人未查询到可用于本次支付的有效医保参保信息，可确认改用微信支付",
 		"medical-insurance-timeout": "医保连接超时，请稍后重新挂号重试",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
+		"outpatient-electronic-invoice-query-invalid":
+			"暂时无法查询电子发票，请稍后再试",
 		"report-query-invalid": "暂时无法查询检查报告，请稍后再试",
 		"report-patient-not-found": "未查询到检查报告",
 		"report-not-found": "未找到这份报告",
 		"outpatient-payment-patient-not-found": "未查询到缴费记录",
 		"outpatient-payment-record-not-found": "未找到对应的门诊缴费记录",
+		"outpatient-electronic-invoice-record-not-found":
+			"未找到可开具的电子发票记录",
 		"medical-record-query-invalid": "暂时无法查询门诊病历，请稍后再试",
 		"medical-record-patient-not-found": "未查询到门诊病历",
 		"inpatient-episode-query-invalid": "暂时无法查询住院信息，请稍后再试",
@@ -3632,6 +3638,210 @@ export function requestOutpatientPaymentDetail(
 		requireSuccessDataResponse<OutpatientPaymentDetailResponse["data"]>(
 			payload,
 		),
+	);
+}
+
+function invalidOutpatientElectronicInvoiceResponse(): never {
+	throw new ApiError("Outpatient electronic invoice response is invalid", {
+		code: "provider-response-invalid",
+	});
+}
+
+function requiredOutpatientElectronicInvoiceText(
+	value: unknown,
+	maxLength: number,
+): string {
+	if (!hasSafeReportText(value, maxLength)) {
+		return invalidOutpatientElectronicInvoiceResponse();
+	}
+	return value;
+}
+
+function optionalOutpatientElectronicInvoiceText(
+	value: unknown,
+	maxLength: number,
+): string | undefined {
+	if (value === undefined) return undefined;
+	return requiredOutpatientElectronicInvoiceText(value, maxLength);
+}
+
+export function requireOutpatientElectronicInvoiceListResponse(
+	value: unknown,
+): OutpatientElectronicInvoiceListResponse {
+	const payload =
+		requireSuccessDataResponse<OutpatientElectronicInvoiceListResponse["data"]>(
+			value,
+		);
+	const data = payload.data;
+	if (
+		!Array.isArray(data.items) ||
+		data.items.length > 500 ||
+		!Number.isSafeInteger(data.total) ||
+		data.total < 0 ||
+		data.total !== data.items.length
+	) {
+		return invalidOutpatientElectronicInvoiceResponse();
+	}
+
+	const recordIds = new Set<string>();
+	const items = data.items.map((item) => {
+		if (!isRecord(item) || Array.isArray(item)) {
+			return invalidOutpatientElectronicInvoiceResponse();
+		}
+		const recordId = item.recordId;
+		if (
+			!isBoundedAppointmentRequestIdentifier(recordId) ||
+			recordIds.has(recordId)
+		) {
+			return invalidOutpatientElectronicInvoiceResponse();
+		}
+		recordIds.add(recordId);
+		const amountFen = item.amountFen;
+		if (
+			amountFen !== undefined &&
+			(typeof amountFen !== "number" ||
+				!Number.isSafeInteger(amountFen) ||
+				amountFen < 0)
+		) {
+			return invalidOutpatientElectronicInvoiceResponse();
+		}
+		const invoiceCode = optionalOutpatientElectronicInvoiceText(
+			item.invoiceCode,
+			512,
+		);
+		const invoiceTime = optionalOutpatientElectronicInvoiceText(
+			item.invoiceTime,
+			512,
+		);
+		const billBatchCode = optionalOutpatientElectronicInvoiceText(
+			item.billBatchCode,
+			512,
+		);
+		const billNo = optionalOutpatientElectronicInvoiceText(item.billNo, 512);
+		const random = optionalOutpatientElectronicInvoiceText(item.random, 512);
+		const pictureNetUrl = optionalOutpatientElectronicInvoiceText(
+			item.pictureNetUrl,
+			8_000_000,
+		);
+		const pictureUrl = optionalOutpatientElectronicInvoiceText(
+			item.pictureUrl,
+			8_000_000,
+		);
+		return {
+			recordId,
+			...(invoiceCode === undefined ? {} : { invoiceCode }),
+			...(invoiceTime === undefined ? {} : { invoiceTime }),
+			...(amountFen === undefined ? {} : { amountFen }),
+			...(billBatchCode === undefined ? {} : { billBatchCode }),
+			...(billNo === undefined ? {} : { billNo }),
+			...(random === undefined ? {} : { random }),
+			...(pictureNetUrl === undefined ? {} : { pictureNetUrl }),
+			...(pictureUrl === undefined ? {} : { pictureUrl }),
+		};
+	});
+	return { success: true, data: { items, total: data.total } };
+}
+
+export function requireOutpatientElectronicInvoiceIssueResponse(
+	value: unknown,
+	expectedRecordId: string,
+): OutpatientElectronicInvoiceIssueResponse {
+	const payload =
+		requireSuccessDataResponse<OutpatientElectronicInvoiceIssueResponse["data"]>(
+			value,
+		);
+	const data = payload.data;
+	if (
+		data.recordId !== expectedRecordId ||
+		!isBoundedAppointmentRequestIdentifier(data.recordId) ||
+		!isRecord(data.invoice) ||
+		Array.isArray(data.invoice)
+	) {
+		return invalidOutpatientElectronicInvoiceResponse();
+	}
+	const invoice = data.invoice;
+	const billBatchCode = optionalOutpatientElectronicInvoiceText(
+		invoice.billBatchCode,
+		512,
+	);
+	const billNo = optionalOutpatientElectronicInvoiceText(invoice.billNo, 512);
+	const billQrCode = optionalOutpatientElectronicInvoiceText(
+		invoice.billQrCode,
+		8_000_000,
+	);
+	const createTime = optionalOutpatientElectronicInvoiceText(
+		invoice.createTime,
+		512,
+	);
+	const invalidFlag = optionalOutpatientElectronicInvoiceText(
+		invoice.invalidFlag,
+		512,
+	);
+	const pictureNetUrl = optionalOutpatientElectronicInvoiceText(
+		invoice.pictureNetUrl,
+		8_000_000,
+	);
+	const pictureUrl = optionalOutpatientElectronicInvoiceText(
+		invoice.pictureUrl,
+		8_000_000,
+	);
+	const random = optionalOutpatientElectronicInvoiceText(invoice.random, 512);
+	return {
+		success: true,
+		data: {
+			recordId: data.recordId,
+			invoice: {
+				...(billBatchCode === undefined ? {} : { billBatchCode }),
+				...(billNo === undefined ? {} : { billNo }),
+				...(billQrCode === undefined ? {} : { billQrCode }),
+				...(createTime === undefined ? {} : { createTime }),
+				...(invalidFlag === undefined ? {} : { invalidFlag }),
+				...(pictureNetUrl === undefined ? {} : { pictureNetUrl }),
+				...(pictureUrl === undefined ? {} : { pictureUrl }),
+				...(random === undefined ? {} : { random }),
+			},
+		},
+	};
+}
+
+/** 读取当前患者近 30 天的已缴费门诊电子发票记录。 */
+export function requestOutpatientElectronicInvoices(
+	patientId: string,
+	expectedSessionGeneration: number,
+): Promise<OutpatientElectronicInvoiceListResponse> {
+	const normalizedPatientId = requirePatientScopedId(patientId);
+	return requestWithStableSession<unknown>(
+		{
+			url: `/payments/outpatient/invoices?patientId=${encodeURIComponent(normalizedPatientId)}`,
+		},
+		expectedSessionGeneration,
+	).then(requireOutpatientElectronicInvoiceListResponse);
+}
+
+/**
+ * 为当前患者开具个人抬头电子发票。服务端二次查询并解析 Provider 主键；
+ * 小程序只提交平台 recordId、patientId 与一次性幂等键。
+ */
+export function issueOutpatientElectronicInvoice(
+	recordId: string,
+	patientId: string,
+	idempotencyKey = createIdempotencyKey("outpatient-electronic-invoice"),
+): Promise<OutpatientElectronicInvoiceIssueResponse> {
+	if (!isBoundedAppointmentRequestIdentifier(recordId)) {
+		return Promise.reject(
+			new ApiError("门诊电子发票引用无效", {
+				code: "outpatient-electronic-invoice-query-invalid",
+			}),
+		);
+	}
+	const normalizedPatientId = requirePatientScopedId(patientId);
+	return requestWithSession<unknown>({
+		url: `/payments/outpatient/invoices/${encodeURIComponent(recordId)}/issue`,
+		method: "POST",
+		data: { patientId: normalizedPatientId, payerType: "1" },
+		idempotencyKey,
+	}).then((payload) =>
+		requireOutpatientElectronicInvoiceIssueResponse(payload, recordId),
 	);
 }
 

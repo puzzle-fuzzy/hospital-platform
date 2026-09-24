@@ -90,6 +90,16 @@ export type RuntimeConfig = {
 	outpatientPaymentReady: boolean;
 	/** 众阳 2.6.33 所需的服务端渠道标识，必须由院方/Provider 显式确认。 */
 	outpatientPaymentAuthSysCode: string;
+	/** 众阳 2.6.29 门诊电子发票独立写入闸门。 */
+	outpatientElectronicInvoiceReady: boolean;
+	/** 2.6.29 服务端渠道标识；不接受小程序单次请求覆盖。 */
+	outpatientElectronicInvoiceAuthSysCode: string;
+	/** 无设备对账时允许为空字符串；空值仍会原样发送给 Provider。 */
+	outpatientElectronicInvoiceWorkStationId: string;
+	/** 2.6.29 的 Provider 医院 ID；不能从客户端传入。 */
+	outpatientElectronicInvoiceHospitalId: string;
+	/** 0=患者智能服务，1=互联网医院，2=自助机。 */
+	outpatientElectronicInvoiceOperatorType: number | undefined;
 	/** 门诊病历 out-visit-records 只读接口独立验收闸门。 */
 	outpatientMedicalRecordsReady: boolean;
 	/** 住院 patients 只读接口独立验收闸门；不包含费用或支付。 */
@@ -175,6 +185,7 @@ export type ProviderConfigurationDiagnostic = {
 		| "zhongyang-appointment-records"
 		| "zhongyang-appointment-writes"
 		| "zhongyang-outpatient-payments"
+		| "zhongyang-outpatient-electronic-invoices"
 		| "zhongyang-medical-records"
 		| "zhongyang-inpatient-episodes"
 		| "zhongyang-report-directory"
@@ -223,6 +234,14 @@ function optionalPositiveInteger(
 	if (!normalized || !/^\d+$/u.test(normalized)) return undefined;
 	const parsed = Number(normalized);
 	return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/** 解析 2.6.29 的有限操作类型；未知值交给 gate 报告环境变量名。 */
+function optionalOperatorType(value: string | undefined): number | undefined {
+	const normalized = optional(value);
+	if (!normalized || !/^\d+$/u.test(normalized)) return undefined;
+	const parsed = Number(normalized);
+	return [0, 1, 2].includes(parsed) ? parsed : undefined;
 }
 
 /** 只返回环境变量名，绝不返回密钥、证书或 URL 的实际值。 */
@@ -709,6 +728,45 @@ export function outpatientPaymentConfigurationStatus(
 		: "incomplete";
 }
 
+export function outpatientElectronicInvoiceConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	const missing = zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.outpatientElectronicInvoiceReady,
+	);
+	if (
+		runtimeConfig.outpatientElectronicInvoiceReady &&
+		!runtimeConfig.outpatientElectronicInvoiceAuthSysCode.trim()
+	) {
+		missing.push("OUTPATIENT_ELECTRONIC_INVOICE_AUTH_SYS_CODE");
+	}
+	if (
+		runtimeConfig.outpatientElectronicInvoiceReady &&
+		(!/^\d+$/u.test(runtimeConfig.outpatientElectronicInvoiceHospitalId) ||
+			runtimeConfig.outpatientElectronicInvoiceHospitalId === "0")
+	) {
+		missing.push("OUTPATIENT_ELECTRONIC_INVOICE_HOSPITAL_ID");
+	}
+	if (
+		runtimeConfig.outpatientElectronicInvoiceReady &&
+		runtimeConfig.outpatientElectronicInvoiceOperatorType === undefined
+	) {
+		missing.push("OUTPATIENT_ELECTRONIC_INVOICE_OPERATOR_TYPE");
+	}
+	return missing;
+}
+
+export function outpatientElectronicInvoiceConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.outpatientElectronicInvoiceReady) return "disabled";
+	return outpatientElectronicInvoiceConfigurationMissingFields(runtimeConfig)
+		.length === 0
+		? "configured"
+		: "incomplete";
+}
+
 export function outpatientMedicalRecordsConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
@@ -849,6 +907,12 @@ export function providerConfigurationDiagnostics(
 			name: "zhongyang-outpatient-payments" as const,
 			status: outpatientPaymentConfigurationStatus(runtimeConfig),
 			missingFields: outpatientPaymentConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-outpatient-electronic-invoices" as const,
+			status: outpatientElectronicInvoiceConfigurationStatus(runtimeConfig),
+			missingFields:
+				outpatientElectronicInvoiceConfigurationMissingFields(runtimeConfig),
 		},
 		{
 			name: "zhongyang-medical-records" as const,
@@ -1218,6 +1282,21 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		// 经验互换；缺失时让只读 gate 进入 incomplete，等待院方确认。
 		outpatientPaymentAuthSysCode:
 			optional(env.OUTPATIENT_PAYMENT_AUTH_SYS_CODE) ?? "",
+		outpatientElectronicInvoiceReady: boolean(
+			env.ZHONGYANG_OUTPATIENT_ELECTRONIC_INVOICE_READY,
+			false,
+		),
+		outpatientElectronicInvoiceAuthSysCode:
+			optional(env.OUTPATIENT_ELECTRONIC_INVOICE_AUTH_SYS_CODE) ?? "",
+		// optional() 会把空字符串收敛成 undefined；这里必须保留空字符串，
+		// 因为院方已确认 2.6.29 无设备对账时需要显式发送 workStationId=""。
+		outpatientElectronicInvoiceWorkStationId:
+			env.OUTPATIENT_ELECTRONIC_INVOICE_WORK_STATION_ID?.trim() ?? "",
+		outpatientElectronicInvoiceHospitalId:
+			optional(env.OUTPATIENT_ELECTRONIC_INVOICE_HOSPITAL_ID) ?? "",
+		outpatientElectronicInvoiceOperatorType: optionalOperatorType(
+			env.OUTPATIENT_ELECTRONIC_INVOICE_OPERATOR_TYPE,
+		),
 		outpatientMedicalRecordsReady: boolean(
 			env.ZHONGYANG_MEDICAL_RECORDS_READY,
 			false,

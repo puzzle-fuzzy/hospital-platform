@@ -47,6 +47,7 @@ import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-ins
 import { medicalRecordsModule } from "./modules/medical-records";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
+import { outpatientElectronicInvoicesModule } from "./modules/outpatient-invoices";
 import { patientFeedbackModule } from "./modules/patient-feedback";
 import { PatientBindingService, patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
@@ -420,6 +421,16 @@ export function createApp(options: AppOptions = {}) {
 								services.outpatientSelfPay,
 							)
 						: new Elysia({ name: "outpatient-payments-not-configured" }),
+				)
+				.use(
+					services.outpatientElectronicInvoices
+						? outpatientElectronicInvoicesModule(
+								services.outpatientElectronicInvoices,
+								services.sessions,
+							)
+						: new Elysia({
+								name: "outpatient-electronic-invoices-not-configured",
+							}),
 				)
 				.use(
 					paymentsModule(
