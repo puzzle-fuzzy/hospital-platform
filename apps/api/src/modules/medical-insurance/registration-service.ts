@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type {
 	MedicalInsuranceAuthorizationContextPayload,
 	MedicalInsuranceAuthorizePayload,
+	MedicalInsuranceBusinessRecoveryPayload,
 	MedicalInsuranceOrderPayload,
 } from "@hospital/contracts";
 import {
@@ -12,6 +13,7 @@ import {
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
 	type MedicalInsuranceAuthorizationRepository,
+	type MedicalInsuranceCredentialRepository,
 	type MedicalInsuranceGateway,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
@@ -21,6 +23,8 @@ import {
 	type OutpatientMedicalInsuranceContext,
 	type OutpatientPaymentGateway,
 	type PatientRepository,
+	PaymentNotificationConflictError,
+	PaymentPrepayAttemptInProgressError,
 	type UserIdentityRepository,
 	validatePatientProviderReference,
 } from "@hospital/domain";
@@ -59,6 +63,8 @@ export type MedicalInsuranceRegistrationServiceDependencies = {
 	identityUsers: UserIdentityRepository;
 	patientProfile: AppointmentPatientProfileGateway;
 	medicalInsurance: MedicalInsuranceGateway;
+	/** 6201 回包先落加密凭证、后更新订单；用于崩溃窗口内的本地事实恢复。 */
+	credentials?: MedicalInsuranceCredentialRepository;
 	/** 门诊医保入口复用同一门诊 2.6.33 事实解析，不从客户端接收 Provider 订单号。 */
 	outpatientPayments?: OutpatientPaymentGateway;
 	/** 可注入统一核心；省略时为兼容旧组合根自动创建同一核心实现。 */
@@ -134,6 +140,10 @@ const REGISTRATION_ORDER_TYPE =
 	medicalInsuranceOrderTypeForBusiness("registration");
 /** 支付上下文有效期；超过后必须重新获取号源并重新预约。 */
 const MEDICAL_PAYMENT_CONTEXT_MAX_AGE_MS = 15 * 60 * 1000;
+/** 授权写请求刚创建订单时，后续点击先查询，避免结果未知时立刻重复消费授权码。 */
+const AUTHORIZATION_SUBMISSION_GRACE_MS = 2 * 60 * 1000;
+/** 发送门禁刚写入时，先给同一进程中的 6201 回包和本地落库留出窗口。 */
+const FEE_UPLOAD_SUBMISSION_GRACE_MS = 2 * 60 * 1000;
 
 export class MedicalInsuranceRegistrationService {
 	private readonly logger: AppLogger;
@@ -158,6 +168,414 @@ export class MedicalInsuranceRegistrationService {
 				...(dependencies.logger ? { logger: dependencies.logger } : {}),
 				...(dependencies.now ? { now: dependencies.now } : {}),
 			});
+	}
+
+	/**
+	 * Provider 授权适配器会先把加密授权上下文落库，再把 authorizationId
+	 * 回写订单。若进程在两步之间退出，同一幂等请求必须修复本地引用，不能
+	 * 再消费一次授权码或重跑 1101。
+	 */
+	private async restorePersistedAuthorization(
+		order: MedicalInsuranceOrder,
+	): Promise<MedicalInsuranceOrder> {
+		if (order.status !== "created" || order.authorizationId) return order;
+		const authorization =
+			await this.dependencies.authorizations.getActiveForOrder({
+				ownerUserId: order.ownerUserId,
+				medicalOrderId: order.medicalOrderId,
+				now: this.now().toISOString(),
+			});
+		if (!authorization) return order;
+		const restored = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				...emptySettlementPatch(order),
+				authorizationId: authorization.authorizationId,
+			},
+		);
+		if (restored) {
+			this.logger.info(
+				{
+					event: "medical-insurance.authorization.local-context-restored",
+					ownerUserId: order.ownerUserId,
+					orderId: order.medicalOrderId,
+				},
+				"Medical insurance authorization restored from persisted local context",
+			);
+			return restored;
+		}
+		const latest = await this.dependencies.orders.findByMedicalOrderId(
+			order.medicalOrderId,
+		);
+		if (!latest || latest.ownerUserId !== order.ownerUserId) {
+			throw new MedicalInsuranceOrderNotFoundError();
+		}
+		return latest;
+	}
+
+	private async businessOrders(input: {
+		ownerUserId: string;
+		businessType: "registration" | "outpatient";
+		businessId: string;
+	}): Promise<readonly MedicalInsuranceOrder[]> {
+		const list = this.dependencies.orders.listByOwnerAndBusinessKey;
+		if (list) {
+			return list(input.ownerUserId, input.businessType, input.businessId);
+		}
+		const latest = await this.dependencies.orders.findByOwnerAndBusinessKey?.(
+			input.ownerUserId,
+			input.businessType,
+			input.businessId,
+		);
+		return latest ? [latest] : [];
+	}
+
+	private async activeBusinessOrders(input: {
+		ownerUserId: string;
+		businessType: "registration" | "outpatient";
+		businessId: string;
+		patientId: string;
+	}): Promise<readonly MedicalInsuranceOrder[]> {
+		const orders = (await this.businessOrders(input)).filter(
+			(order) => order.status !== "cancelled",
+		);
+		// 同一业务键只要存在患者不一致的活动订单，就不能由客户端传入的患者
+		// 标识选择另一笔；统一按未找到处理，避免串患者和枚举订单。
+		if (orders.some((order) => order.patientId !== input.patientId)) {
+			throw new MedicalInsuranceOrderNotFoundError();
+		}
+		return orders;
+	}
+
+	private async insertOrReuseBusinessOrder(
+		candidate: MedicalInsuranceOrder,
+	): Promise<{ order: MedicalInsuranceOrder; createdForRequest: boolean }> {
+		const result =
+			await this.dependencies.orders.insertForBusinessIfAbsent(candidate);
+		if (
+			result.orders.some((order) => order.patientId !== candidate.patientId)
+		) {
+			throw new MedicalInsuranceOrderNotFoundError();
+		}
+		if (result.orders.length > 1) {
+			throw new PaymentNotificationConflictError();
+		}
+		const order = result.orders[0];
+		if (!order) {
+			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		}
+		const createdForRequest =
+			result.inserted && order.medicalOrderId === candidate.medicalOrderId;
+		if (result.inserted && !createdForRequest) {
+			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		}
+		return { order, createdForRequest };
+	}
+
+	private authorizationSubmissionPending(
+		order: MedicalInsuranceOrder,
+	): boolean {
+		if (order.status !== "created" || order.authorizationId) return false;
+		const updatedAt = Date.parse(order.updatedAt);
+		const ageMs = this.now().getTime() - updatedAt;
+		// 数据库时钟可能比 API 快几毫秒。未来时间必须按仍在确认中处理，
+		// 不能因为 age 为负就放行第二次不可重放授权。
+		return (
+			Number.isFinite(updatedAt) && ageMs < AUTHORIZATION_SUBMISSION_GRACE_MS
+		);
+	}
+
+	/**
+	 * 授权确认窗口结束后，同一 created 订单也可能被两个设备同时点击。
+	 * 在再次调用 Provider 前先用订单版本做一次同状态 CAS；只有胜者可以
+	 * 消费新的授权码，败者只能观察服务端状态，不能依赖页面 busy 防并发。
+	 */
+	private async claimAuthorizationSubmission(
+		order: MedicalInsuranceOrder,
+	): Promise<{
+		order: MedicalInsuranceOrder;
+		claimed: boolean;
+		authorizationReady: boolean;
+	}> {
+		const claimed = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			emptySettlementPatch(order),
+		);
+		if (claimed) {
+			return { order: claimed, claimed: true, authorizationReady: false };
+		}
+		const latest = await this.dependencies.orders.findByMedicalOrderId(
+			order.medicalOrderId,
+		);
+		if (!latest || latest.ownerUserId !== order.ownerUserId) {
+			throw new MedicalInsuranceOrderNotFoundError();
+		}
+		const observed = await this.restorePersistedAuthorization(latest);
+		if (observed.status === "failed" || observed.status === "manual_review") {
+			throw new PaymentNotificationConflictError();
+		}
+		if (observed.status === "cancelled") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"本次医保授权尝试已作废，请重新展码授权",
+			);
+		}
+		if (observed.status !== "created") {
+			return { order: observed, claimed: false, authorizationReady: true };
+		}
+		const authorizationReady = Boolean(
+			observed.authorizationId &&
+				(await this.dependencies.authorizations.get({
+					authorizationId: observed.authorizationId,
+					ownerUserId: observed.ownerUserId,
+					medicalOrderId: observed.medicalOrderId,
+					now: this.now().toISOString(),
+				})),
+		);
+		return { order: observed, claimed: false, authorizationReady };
+	}
+
+	private async markFeeUploadForManualReview(
+		order: MedicalInsuranceOrder,
+		reason: string,
+	): Promise<MedicalInsuranceOrder> {
+		const reviewed = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				...emptySettlementPatch(order),
+				status: "manual_review",
+			},
+		);
+		const latest =
+			reviewed ??
+			(await this.dependencies.orders.findByMedicalOrderId(
+				order.medicalOrderId,
+			));
+		if (!latest || latest.ownerUserId !== order.ownerUserId) {
+			throw new MedicalInsuranceOrderNotFoundError();
+		}
+		this.logger.warn(
+			{
+				event: "medical-insurance.fee-upload.manual-review",
+				ownerUserId: order.ownerUserId,
+				orderId: order.medicalOrderId,
+				reason,
+			},
+			"Medical insurance fee upload requires manual review",
+		);
+		return latest;
+	}
+
+	/**
+	 * adapter 已经保存 6201 凭证后，另一个恢复请求可能先把订单推进，导致
+	 * 原请求最后一次 CAS 失败。此时先核对最新订单是否就是同一份 6201 事实；
+	 * 一致则返回最新状态，只有字段冲突才转人工，不能把成功恢复误报成依赖故障。
+	 */
+	private async resolveFeeUploadPersistenceRace(
+		claimedOrder: MedicalInsuranceOrder,
+		result: Awaited<ReturnType<MedicalInsuranceGateway["uploadFees"]>>,
+	): Promise<MedicalInsuranceOrderPayload["data"]> {
+		const latest = await this.dependencies.orders.findByMedicalOrderId(
+			claimedOrder.medicalOrderId,
+		);
+		if (!latest || latest.ownerUserId !== claimedOrder.ownerUserId) {
+			throw new MedicalInsuranceOrderNotFoundError();
+		}
+		const samePersistedFacts =
+			latest.feeUploadId === result.feeUploadId &&
+			latest.payOrdId === result.payOrdId &&
+			latest.payTokenHash === result.payTokenHash &&
+			latest.mdtrtId === result.mdtrtId &&
+			latest.acctUsedFlag === result.acctUsedFlag;
+		if (
+			samePersistedFacts &&
+			latest.status !== "created" &&
+			latest.status !== "fee_upload_pending"
+		) {
+			this.logger.info(
+				{
+					event: "medical-insurance.fee-upload.persistence-race-resolved",
+					ownerUserId: latest.ownerUserId,
+					orderId: latest.medicalOrderId,
+					status: latest.status,
+				},
+				"Medical insurance fee upload reused the concurrently persisted result",
+			);
+			return output(latest, result.cashierUrl);
+		}
+		return output(
+			await this.markFeeUploadForManualReview(
+				latest,
+				"6201-persisted-result-conflict",
+			),
+			result.cashierUrl,
+		);
+	}
+
+	/**
+	 * 6201 回包中的 payToken 会先进入加密凭证仓储，完整结算上下文也会先
+	 * 标记 fee_uploaded，最后才 CAS 更新订单。这里从两份 owner/order 绑定
+	 * 的本地事实恢复订单；任一凭证缺失、冲突或过期都转人工，绝不重放 6201。
+	 */
+	private async recoverPersistedFeeUpload(
+		order: MedicalInsuranceOrder,
+	): Promise<MedicalInsuranceOrderPayload["data"] | undefined> {
+		const settlement = await this.dependencies.orders.getSettlementContext(
+			order.ownerUserId,
+			order.medicalOrderId,
+		);
+		if (
+			order.status === "fee_upload_pending" &&
+			settlement?.feeUploadStage !== "submitting_6201" &&
+			settlement?.feeUploadStage !== "fee_uploaded"
+		) {
+			const claimedAt = Date.parse(order.updatedAt);
+			const ageMs = this.now().getTime() - claimedAt;
+			if (
+				Number.isFinite(claimedAt) &&
+				ageMs < FEE_UPLOAD_SUBMISSION_GRACE_MS
+			) {
+				return output(order, settlement?.cashierUrl);
+			}
+			return output(
+				await this.markFeeUploadForManualReview(
+					order,
+					settlement?.feeUploadStage === "pre_6201"
+						? "6201-prepared-result-missing"
+						: "6201-claim-result-missing",
+				),
+				settlement?.cashierUrl,
+			);
+		}
+		if (
+			settlement?.feeUploadStage !== "submitting_6201" &&
+			settlement?.feeUploadStage !== "fee_uploaded"
+		) {
+			return undefined;
+		}
+		if (settlement.feeUploadStage === "submitting_6201") {
+			const submittedAt = Date.parse(settlement.feeUploadSubmittedAt ?? "");
+			const ageMs = this.now().getTime() - submittedAt;
+			if (
+				Number.isFinite(submittedAt) &&
+				ageMs < FEE_UPLOAD_SUBMISSION_GRACE_MS
+			) {
+				// 同一时刻的第二个请求只观察 created/确认中，不改变版本，给第一
+				// 个请求保存回包留出时间；客户端会保留原订单后再次查询。
+				return output(order, settlement.cashierUrl);
+			}
+			return output(
+				await this.markFeeUploadForManualReview(
+					order,
+					"6201-submission-result-missing",
+				),
+				settlement.cashierUrl,
+			);
+		}
+
+		const credentials = this.dependencies.credentials;
+		if (
+			!credentials ||
+			!settlement.mdtrtId ||
+			(settlement.acctUsedFlag !== "0" && settlement.acctUsedFlag !== "1")
+		) {
+			return output(
+				await this.markFeeUploadForManualReview(
+					order,
+					"6201-persisted-context-incomplete",
+				),
+				settlement.cashierUrl,
+			);
+		}
+		const now = this.now().toISOString();
+		const [settlementCredential, queryCredential] = await Promise.all([
+			credentials.getActiveForOrder({
+				ownerUserId: order.ownerUserId,
+				medicalOrderId: order.medicalOrderId,
+				purpose: "settlement",
+				now,
+			}),
+			credentials.getActiveForOrder({
+				ownerUserId: order.ownerUserId,
+				medicalOrderId: order.medicalOrderId,
+				purpose: "query",
+				now,
+			}),
+		]);
+		if (
+			!settlementCredential ||
+			!queryCredential ||
+			settlementCredential.payOrdId !== queryCredential.payOrdId ||
+			settlementCredential.payToken !== queryCredential.payToken
+		) {
+			return output(
+				await this.markFeeUploadForManualReview(
+					order,
+					"6201-persisted-credentials-incomplete",
+				),
+				settlement.cashierUrl,
+			);
+		}
+		const restored = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				...emptySettlementPatch(order),
+				status: "fee_uploaded",
+				feeUploadId: settlementCredential.credentialId,
+				payOrdId: settlementCredential.payOrdId,
+				payTokenHash: createHash("sha256")
+					.update(settlementCredential.payToken, "utf8")
+					.digest("hex"),
+				mdtrtId: settlement.mdtrtId,
+				acctUsedFlag: settlement.acctUsedFlag,
+			},
+		);
+		const latest =
+			restored ??
+			(await this.dependencies.orders.findByMedicalOrderId(
+				order.medicalOrderId,
+			));
+		if (!latest || latest.ownerUserId !== order.ownerUserId) {
+			throw new MedicalInsuranceOrderNotFoundError();
+		}
+		this.logger.info(
+			{
+				event: "medical-insurance.fee-upload.local-context-restored",
+				ownerUserId: order.ownerUserId,
+				orderId: order.medicalOrderId,
+			},
+			"Medical insurance fee upload restored from persisted local context",
+		);
+		return output(latest, settlement.cashierUrl);
+	}
+
+	/**
+	 * 在进入可能产生上游写事实的费用上传适配器前先 CAS 抢占发送权。
+	 * 客户端每次点击都会生成新的 HTTP 幂等键，因此真正的并发门禁必须绑定
+	 * 服务端订单版本；抢占失败的请求只能读取赢家留下的状态，不能调用 Provider。
+	 */
+	private async claimFeeUploadSubmission(
+		order: MedicalInsuranceOrder,
+	): Promise<{ order: MedicalInsuranceOrder; claimed: boolean }> {
+		const claimed = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				...emptySettlementPatch(order),
+				status: "fee_upload_pending",
+			},
+		);
+		if (claimed) return { order: claimed, claimed: true };
+		const latest = await this.dependencies.orders.findByMedicalOrderId(
+			order.medicalOrderId,
+		);
+		if (!latest || latest.ownerUserId !== order.ownerUserId) {
+			throw new MedicalInsuranceOrderNotFoundError();
+		}
+		return { order: latest, claimed: false };
 	}
 
 	private async appointment(
@@ -498,6 +916,101 @@ export class MedicalInsuranceRegistrationService {
 	}
 
 	/**
+	 * 无客户端 pending 的统一恢复入口。按钮每次点击都调用这里，以服务端订单
+	 * 为准决定恢复、重新授权或人工处理；本地缓存和上一页按钮状态不参与判定。
+	 */
+	async recoverBusinessOrder(input: {
+		ownerUserId: string;
+		businessType: "registration" | "outpatient";
+		businessId: string;
+		patientId: string;
+		context: unknown;
+	}): Promise<MedicalInsuranceBusinessRecoveryPayload["data"]> {
+		const context = contextOf(input.context);
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const businessId = opaque(input.businessId, "businessId");
+		const patientId = opaque(input.patientId, "patientId");
+		if (
+			input.businessType !== "registration" &&
+			input.businessType !== "outpatient"
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"businessType is invalid",
+			);
+		}
+		const active = await this.activeBusinessOrders({
+			ownerUserId,
+			businessType: input.businessType,
+			businessId,
+			patientId,
+		});
+		if (!active[0]) throw new MedicalInsuranceOrderNotFoundError();
+		if (active.length > 1) {
+			this.logger.warn(
+				{
+					event: "medical-insurance.business-order.ambiguous",
+					traceId: context.traceId,
+					ownerUserId,
+					businessType: input.businessType,
+					businessId,
+					activeOrderCount: active.length,
+				},
+				"Multiple active medical insurance orders require manual review",
+			);
+			throw new PaymentNotificationConflictError();
+		}
+		let order = active[0];
+		order = await this.restorePersistedAuthorization(order);
+		if (order.status === "created" || order.status === "fee_upload_pending") {
+			await this.recoverPersistedFeeUpload(order);
+			order =
+				(await this.dependencies.orders.findByMedicalOrderId(
+					order.medicalOrderId,
+				)) ?? order;
+		}
+		const settlement = await this.dependencies.orders.getSettlementContext(
+			ownerUserId,
+			order.medicalOrderId,
+		);
+		let authorizationReady = order.status !== "created";
+		if (!authorizationReady && order.authorizationId) {
+			authorizationReady = Boolean(
+				await this.dependencies.authorizations.get({
+					authorizationId: order.authorizationId,
+					ownerUserId,
+					medicalOrderId: order.medicalOrderId,
+					now: this.now().toISOString(),
+				}),
+			);
+		}
+		const authorizationPending =
+			!authorizationReady && this.authorizationSubmissionPending(order);
+		const recoveryAllowed =
+			order.status !== "manual_review" && order.status !== "failed";
+		this.logger.info(
+			{
+				event: "medical-insurance.business-order.recovered",
+				traceId: context.traceId,
+				ownerUserId,
+				orderId: order.medicalOrderId,
+				businessType: input.businessType,
+				businessId,
+				status: order.status,
+				authorizationReady,
+				authorizationPending,
+				recoveryAllowed,
+			},
+			"Medical insurance business order recovered without client cache",
+		);
+		return {
+			...output(order, settlement?.cashierUrl),
+			authorizationReady,
+			authorizationPending,
+			recoveryAllowed,
+		};
+	}
+
+	/**
 	 * 门诊医保授权。订单仍进入同一 MedicalInsurancePaymentCore，后续 fees、settle、
 	 * 微信支付和查单路由完全共用挂号实现；只有业务键和 2.6.33 门诊事实不同。
 	 */
@@ -528,6 +1041,7 @@ export class MedicalInsuranceRegistrationService {
 			ownerUserId,
 			context.idempotencyKey,
 		);
+		let createdForRequest = false;
 		if (
 			order &&
 			(order.businessType !== "outpatient" ||
@@ -537,18 +1051,29 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance idempotency key conflicts with outpatient record",
 			);
+		if (!order) {
+			const active = await this.activeBusinessOrders({
+				ownerUserId,
+				businessType: "outpatient",
+				businessId: recordId,
+				patientId,
+			});
+			if (active.length > 1) {
+				throw new PaymentNotificationConflictError();
+			}
+			order = active[0];
+		}
 		if (order?.status === "cancelled") {
 			throw new MedicalInsuranceRegistrationInputError(
 				"本次医保授权尝试已作废，请重新展码授权",
 			);
 		}
-		// 门诊每次收到新的医保授权码都创建独立的新医保订单。
-		// 只有同一 idempotencyKey 才恢复原请求；不按 recordId 检测或关闭旧订单，
-		// 避免授权阶段误触发 2.6.65.4/2.6.65.11 关单链路。
+		// 新客户端请求键也必须先复用同一业务的唯一活动订单；只有服务端确认
+		// 没有活动单时才创建。授权阶段不自动调用关单链路。
 		if (!order) {
 			const now = this.now().toISOString();
 			const medicalOrderId = this.createId();
-			order = await this.dependencies.orders.insert({
+			const claimed = await this.insertOrReuseBusinessOrder({
 				medicalOrderId,
 				ownerUserId,
 				patientId,
@@ -575,6 +1100,22 @@ export class MedicalInsuranceRegistrationService {
 				createdAt: now,
 				updatedAt: now,
 			});
+			order = claimed.order;
+			createdForRequest = claimed.createdForRequest;
+		}
+		order = await this.restorePersistedAuthorization(order);
+		if (order.status === "cancelled") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"本次医保授权尝试已作废，请重新展码授权",
+			);
+		}
+		if (order.status === "failed" || order.status === "manual_review") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance order requires manual review",
+			);
+		}
+		if (order.status !== "created") {
+			return { orderId: order.medicalOrderId, status: "authorized" };
 		}
 		if (order.authorizationId) {
 			const authorization = await this.dependencies.authorizations.get({
@@ -583,11 +1124,23 @@ export class MedicalInsuranceRegistrationService {
 				medicalOrderId: order.medicalOrderId,
 				now: this.now().toISOString(),
 			});
-			if (!authorization)
-				throw new MedicalInsuranceRegistrationInputError(
-					"医保授权上下文不可用，请重新完成医保授权",
-				);
-			return { orderId: order.medicalOrderId, status: "authorized" };
+			if (authorization)
+				return { orderId: order.medicalOrderId, status: "authorized" };
+			// created 且短期授权已过期时可以在同一未支付订单上接受新的授权码；
+			// 不创建第二笔业务订单，也不把旧客户端缓存当成恢复依据。
+		}
+		if (!createdForRequest && this.authorizationSubmissionPending(order)) {
+			throw new PaymentPrepayAttemptInProgressError();
+		}
+		if (!createdForRequest) {
+			const claim = await this.claimAuthorizationSubmission(order);
+			if (!claim.claimed) {
+				if (claim.authorizationReady) {
+					return { orderId: claim.order.medicalOrderId, status: "authorized" };
+				}
+				throw new PaymentPrepayAttemptInProgressError();
+			}
+			order = claim.order;
 		}
 		const { identity, patient } = await this.patient(
 			ownerUserId,
@@ -653,6 +1206,7 @@ export class MedicalInsuranceRegistrationService {
 			ownerUserId,
 			context.idempotencyKey,
 		);
+		let createdForRequest = false;
 		if (
 			order &&
 			((order.appointmentId !== undefined &&
@@ -666,6 +1220,18 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance idempotency key conflicts with appointment",
 			);
+		if (!order) {
+			const active = await this.activeBusinessOrders({
+				ownerUserId,
+				businessType: "registration",
+				businessId: appointmentId,
+				patientId: appointment.patientId,
+			});
+			if (active.length > 1) {
+				throw new PaymentNotificationConflictError();
+			}
+			order = active[0];
+		}
 		if (order?.status === "cancelled") {
 			throw new MedicalInsuranceRegistrationInputError(
 				"本次医保授权尝试已作废，请重新展码授权",
@@ -695,8 +1261,8 @@ export class MedicalInsuranceRegistrationService {
 			);
 			throw new MedicalInsuranceAppointmentStaleError();
 		}
-		// 同一个授权幂等键只恢复同一次回跳；新幂等键直接创建独立的新医保
-		// 订单，不按 appointmentId 查找、校验或关闭重复/旧订单。
+		// 同一授权幂等键恢复同一次请求；新请求键也已在上方按挂号业务键查找
+		// 唯一活动单，只有确实不存在时才创建新订单。
 		if (!order) {
 			const now = this.now().toISOString();
 			const medicalOrderId = this.createId();
@@ -728,7 +1294,23 @@ export class MedicalInsuranceRegistrationService {
 				createdAt: now,
 				updatedAt: now,
 			};
-			order = await this.dependencies.orders.insert(newOrder);
+			const claimed = await this.insertOrReuseBusinessOrder(newOrder);
+			order = claimed.order;
+			createdForRequest = claimed.createdForRequest;
+		}
+		order = await this.restorePersistedAuthorization(order);
+		if (order.status === "cancelled") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"本次医保授权尝试已作废，请重新展码授权",
+			);
+		}
+		if (order.status === "failed" || order.status === "manual_review") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance order requires manual review",
+			);
+		}
+		if (order.status !== "created") {
+			return { orderId: order.medicalOrderId, status: "authorized" };
 		}
 		if (order.authorizationId) {
 			const authorization = await this.dependencies.authorizations.get({
@@ -737,12 +1319,22 @@ export class MedicalInsuranceRegistrationService {
 				medicalOrderId: order.medicalOrderId,
 				now: this.now().toISOString(),
 			});
-			if (!authorization) {
-				throw new MedicalInsuranceRegistrationInputError(
-					"医保授权上下文不可用，请重新完成医保授权",
-				);
+			if (authorization)
+				return { orderId: order.medicalOrderId, status: "authorized" };
+			// 与门诊一致：授权过期只允许在同一 created 订单上换新授权码。
+		}
+		if (!createdForRequest && this.authorizationSubmissionPending(order)) {
+			throw new PaymentPrepayAttemptInProgressError();
+		}
+		if (!createdForRequest) {
+			const claim = await this.claimAuthorizationSubmission(order);
+			if (!claim.claimed) {
+				if (claim.authorizationReady) {
+					return { orderId: claim.order.medicalOrderId, status: "authorized" };
+				}
+				throw new PaymentPrepayAttemptInProgressError();
 			}
-			return { orderId: order.medicalOrderId, status: "authorized" };
+			order = claim.order;
 		}
 		const { identity, patient } = await this.patient(
 			ownerUserId,
@@ -834,21 +1426,38 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance order business type is not registration",
 			);
-		if (!order.authorizationId || !order.appointmentId)
-			throw new MedicalInsuranceRegistrationInputError(
-				"Medical insurance authorization is required",
-			);
+		if (order.status === "fee_upload_pending") {
+			return (await this.recoverPersistedFeeUpload(order)) ?? output(order);
+		}
 		if (order.status !== "created") {
+			// 终态或已推进订单必须先返回持久化事实。取消/人工复核时授权或
+			// 费用上下文可能已经按清理策略置空；若先校验这些过程字段，客户端
+			// 恢复原单会被误报成“缺少授权”，并失去 cancelled/manual_review
+			// 这一真正决定后续操作权限的权威状态。
 			const context = await this.dependencies.orders.getSettlementContext(
 				ownerUserId,
 				orderId,
 			);
 			return output(order, context?.cashierUrl);
 		}
+		const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
+		if (recoveredFeeUpload) return recoveredFeeUpload;
+		if (!order.authorizationId || !order.appointmentId)
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance authorization is required",
+			);
 		const appointment = await this.appointment(
 			ownerUserId,
 			order.appointmentId,
 		);
+		const claim = await this.claimFeeUploadSubmission(order);
+		if (!claim.claimed) {
+			return (
+				(await this.recoverPersistedFeeUpload(claim.order)) ??
+				output(claim.order)
+			);
+		}
+		const claimedOrder = claim.order;
 		this.logger.info(
 			{
 				event: "medical-insurance.fees.requested",
@@ -866,7 +1475,7 @@ export class MedicalInsuranceRegistrationService {
 				orderId,
 				ownerUserId,
 				patientId: appointment.providerPatientId,
-				authorizationId: order.authorizationId,
+				authorizationId: claimedOrder.authorizationId ?? order.authorizationId,
 				appointment: {
 					appointmentId: appointment.appointmentId,
 					providerAppointmentId: appointment.providerAppointmentId,
@@ -892,10 +1501,10 @@ export class MedicalInsuranceRegistrationService {
 			context,
 		);
 		const updated = await this.dependencies.orders.applySettlement(
-			order.medicalOrderId,
-			order.version,
+			claimedOrder.medicalOrderId,
+			claimedOrder.version,
 			{
-				...emptySettlementPatch(order),
+				...emptySettlementPatch(claimedOrder),
 				businessType: "registration",
 				orderType: REGISTRATION_ORDER_TYPE,
 				businessId: appointment.appointmentId,
@@ -907,8 +1516,9 @@ export class MedicalInsuranceRegistrationService {
 				acctUsedFlag: result.acctUsedFlag,
 			},
 		);
-		if (!updated)
-			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		if (!updated) {
+			return this.resolveFeeUploadPersistenceRace(claimedOrder, result);
+		}
 		this.logger.info(
 			{
 				event: "medical-insurance.fees.completed",
@@ -945,23 +1555,38 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance order business type is not outpatient",
 			);
-		if (!order.authorizationId)
-			throw new MedicalInsuranceRegistrationInputError(
-				"Medical insurance authorization is required",
-			);
+		if (order.status === "fee_upload_pending") {
+			return (await this.recoverPersistedFeeUpload(order)) ?? output(order);
+		}
 		if (order.status !== "created") {
+			// 与挂号一致，恢复请求先读取订单状态；不能让已经取消或转人工的
+			// DiagPay 因过程凭证已清理而退化成可误解的授权校验错误。
 			const settlement = await this.dependencies.orders.getSettlementContext(
 				ownerUserId,
 				orderId,
 			);
 			return output(order, settlement?.cashierUrl);
 		}
+		const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
+		if (recoveredFeeUpload) return recoveredFeeUpload;
+		if (!order.authorizationId)
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance authorization is required",
+			);
 		const providerContext = await this.outpatientProviderContext(
 			ownerUserId,
 			order.patientId,
 			order.businessId,
 			context,
 		);
+		const claim = await this.claimFeeUploadSubmission(order);
+		if (!claim.claimed) {
+			return (
+				(await this.recoverPersistedFeeUpload(claim.order)) ??
+				output(claim.order)
+			);
+		}
+		const claimedOrder = claim.order;
 		this.logger.info(
 			{
 				event: "medical-insurance.fees.requested",
@@ -986,16 +1611,16 @@ export class MedicalInsuranceRegistrationService {
 				orderId,
 				ownerUserId,
 				patientId: providerContext.providerPatientId,
-				authorizationId: order.authorizationId,
+				authorizationId: claimedOrder.authorizationId ?? order.authorizationId,
 				appointment: business,
 			},
 			context,
 		);
 		const updated = await this.dependencies.orders.applySettlement(
-			order.medicalOrderId,
-			order.version,
+			claimedOrder.medicalOrderId,
+			claimedOrder.version,
 			{
-				...emptySettlementPatch(order),
+				...emptySettlementPatch(claimedOrder),
 				businessType: "outpatient",
 				orderType: "DiagPay",
 				businessId: order.businessId,
@@ -1007,8 +1632,9 @@ export class MedicalInsuranceRegistrationService {
 				acctUsedFlag: result.acctUsedFlag,
 			},
 		);
-		if (!updated)
-			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		if (!updated) {
+			return this.resolveFeeUploadPersistenceRace(claimedOrder, result);
+		}
 		this.logger.info(
 			{
 				event: "medical-insurance.fees.completed",

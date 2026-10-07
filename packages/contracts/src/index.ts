@@ -1039,6 +1039,55 @@ export const MedicalInsuranceAuthorizeResponse = Type.Object({
 	}),
 });
 
+export const MedicalInsuranceOrderStatusSchema = Type.Union([
+	Type.Literal("created"),
+	Type.Literal("fee_upload_pending"),
+	Type.Literal("fee_uploaded"),
+	Type.Literal("order_placed"),
+	Type.Literal("insurance_settled"),
+	Type.Literal("cash_pending"),
+	Type.Literal("awaiting_confirmation"),
+	Type.Literal("manual_review"),
+	Type.Literal("failed"),
+	Type.Literal("cancelled"),
+]);
+
+/**
+ * 小程序不保存医保支付 pending；每次点击都按当前 owner、业务和患者从
+ * 服务端恢复。多笔未取消订单会显式标记冲突，不能由客户端挑一笔重付。
+ */
+export const MedicalInsuranceBusinessRecoveryRequest = Type.Object(
+	{
+		businessType: Type.Union([
+			Type.Literal("registration"),
+			Type.Literal("outpatient"),
+		]),
+		businessId: Type.String({ minLength: 1, maxLength: 128 }),
+		patientId: Type.String({ minLength: 1, maxLength: 128 }),
+	},
+	{ additionalProperties: false },
+);
+
+export const MedicalInsuranceBusinessRecoveryResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: MedicalInsuranceOrderStatusSchema,
+		authorizationReady: Type.Boolean(),
+		/** true 表示授权写请求仍在短暂确认窗口，客户端只查询，不应再次展码。 */
+		authorizationPending: Type.Boolean(),
+		recoveryAllowed: Type.Boolean(),
+		amounts: Type.Optional(
+			Type.Object({
+				totalFen: Type.Integer({ minimum: 1 }),
+				insuranceFen: Type.Integer({ minimum: 0 }),
+				cashFen: Type.Integer({ minimum: 0 }),
+			}),
+		),
+		cashierUrl: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
+	}),
+});
+
 export const MedicalInsuranceOrderCommandRequest = Type.Object(
 	{},
 	{ additionalProperties: false },
@@ -1063,17 +1112,7 @@ export const MedicalInsuranceOrderResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
 		orderId: Type.String({ minLength: 1, maxLength: 64 }),
-		status: Type.Union([
-			Type.Literal("created"),
-			Type.Literal("fee_uploaded"),
-			Type.Literal("order_placed"),
-			Type.Literal("insurance_settled"),
-			Type.Literal("cash_pending"),
-			Type.Literal("awaiting_confirmation"),
-			Type.Literal("manual_review"),
-			Type.Literal("failed"),
-			Type.Literal("cancelled"),
-		]),
+		status: MedicalInsuranceOrderStatusSchema,
 		amounts: Type.Optional(
 			Type.Object({
 				totalFen: Type.Integer({ minimum: 1 }),
@@ -1686,6 +1725,12 @@ export type MedicalInsuranceOutpatientAuthorizeRequestPayload = Static<
 >;
 export type MedicalInsuranceAuthorizePayload = Static<
 	typeof MedicalInsuranceAuthorizeResponse
+>;
+export type MedicalInsuranceBusinessRecoveryRequestPayload = Static<
+	typeof MedicalInsuranceBusinessRecoveryRequest
+>;
+export type MedicalInsuranceBusinessRecoveryPayload = Static<
+	typeof MedicalInsuranceBusinessRecoveryResponse
 >;
 export type MedicalInsuranceAuthorizationContextPayload = Static<
 	typeof MedicalInsuranceAuthorizationContextResponse

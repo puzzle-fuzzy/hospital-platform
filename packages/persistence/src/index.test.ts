@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	type MedicalInsuranceOrder,
 	PatientDirectoryReferenceConflictError,
 	type PaymentOperatorAudit,
 	type PaymentReconciliationResult,
@@ -8,12 +9,13 @@ import {
 import {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
+	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
 	createInMemoryPatientRepository,
+	createInMemoryPaymentOperatorAuditRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentSyncRepository,
-	createInMemoryPaymentOperatorAuditRepository,
 	createInMemoryReportReferenceRepository,
 	createInMemoryUserProfileRepository,
 	createNotConfiguredHealthKnowledgeRepository,
@@ -21,11 +23,79 @@ import {
 	createUnconfiguredPersistence,
 } from "./index";
 
+function createdMedicalOrder(
+	medicalOrderId: string,
+	idempotencyKey: string,
+): MedicalInsuranceOrder {
+	return {
+		medicalOrderId,
+		ownerUserId: "user-medical-business-claim-001",
+		patientId: "patient-medical-business-claim-001",
+		businessType: "registration",
+		orderType: "RegPay",
+		businessId: "appointment-medical-business-claim-001",
+		appointmentId: "appointment-medical-business-claim-001",
+		authorizationId: null,
+		feeUploadId: null,
+		idempotencyKey,
+		medOrgOrd: medicalOrderId,
+		chrgBchno: `batch-${medicalOrderId}`,
+		payOrdId: null,
+		payTokenHash: null,
+		mdtrtId: null,
+		acctUsedFlag: null,
+		status: "created",
+		ordStas: null,
+		amounts: null,
+		setlType: null,
+		revsTokenHash: null,
+		revsTokenExpiresAt: null,
+		lastError: null,
+		version: 1,
+		createdAt: "2026-09-21T00:00:00.000Z",
+		updatedAt: "2026-09-21T00:00:00.000Z",
+	};
+}
+
 test("unconfigured persistence never reports a dependency as ready", async () => {
 	const ports = createUnconfiguredPersistence();
 
 	expect(await ports.database.check()).toBe("not_configured");
 	expect(await ports.redis.check()).toBe("not_configured");
+});
+
+test("内存医保仓储原子认领首次业务订单，不让并发请求各建一单", async () => {
+	const repository = createInMemoryMedicalInsuranceOrderRepository();
+	const results = await Promise.all([
+		repository.insertForBusinessIfAbsent(
+			createdMedicalOrder(
+				"medical-business-claim-a",
+				"medical-business-claim-idempotency-a",
+			),
+		),
+		repository.insertForBusinessIfAbsent(
+			createdMedicalOrder(
+				"medical-business-claim-b",
+				"medical-business-claim-idempotency-b",
+			),
+		),
+	]);
+
+	expect(results.filter((result) => result.inserted)).toHaveLength(1);
+	expect(
+		new Set(
+			results.flatMap((result) =>
+				result.orders.map((order) => order.medicalOrderId),
+			),
+		).size,
+	).toBe(1);
+	await expect(
+		repository.listByOwnerAndBusinessKey?.(
+			"user-medical-business-claim-001",
+			"registration",
+			"appointment-medical-business-claim-001",
+		),
+	).resolves.toHaveLength(1);
 });
 
 test("health knowledge repository stays fail-closed before reviewed content is persisted", async () => {

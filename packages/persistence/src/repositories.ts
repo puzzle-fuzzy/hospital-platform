@@ -13,11 +13,11 @@ import type {
 	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
-	MedicalInsuranceRefund,
-	MedicalInsuranceRefundRepository,
 	MedicalInsuranceProviderQueryIdentity,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceRefund,
+	MedicalInsuranceRefundRepository,
 	MedicalInsuranceSettlementContext,
 	MyDoctor,
 	MyDoctorRepository,
@@ -37,17 +37,17 @@ import type {
 	PaymentOperationEvent,
 	PaymentOperationsBackfillQuery,
 	PaymentOperationsRepository,
-	PaymentReconciliationResult,
 	PaymentOperatorAudit,
 	PaymentOperatorAuditRepository,
-	PaymentSyncRepository,
-	PaymentSyncTask,
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
 	PaymentQuote,
 	PaymentQuoteRepository,
+	PaymentReconciliationResult,
+	PaymentSyncRepository,
+	PaymentSyncTask,
 	RegistrationSelfPaySettlementContext,
 	ReportReference,
 	ReportReferenceRepository,
@@ -272,7 +272,7 @@ export function createInMemoryPaymentSyncRepository(seed?: {
 			tasks.set(task.taskId, clonePaymentSyncTask(task));
 			return clonePaymentSyncTask(task);
 		},
-		async claimDueTasks(now, limit, leaseMs) {
+		async claimDueTasks(now, limit, leaseMs, query = {}) {
 			if (
 				!Number.isSafeInteger(limit) ||
 				limit <= 0 ||
@@ -292,6 +292,10 @@ export function createInMemoryPaymentSyncRepository(seed?: {
 					return (
 						Number.isFinite(nextRunMs) &&
 						nextRunMs <= nowMs &&
+						(query.source === undefined || task.source === query.source) &&
+						(query.kind === undefined || task.kind === query.kind) &&
+						(query.businessKeyPrefix === undefined ||
+							task.businessKey.startsWith(query.businessKeyPrefix)) &&
 						(task.status === "pending" || task.status === "in_progress") &&
 						(!task.claimedUntil ||
 							!Number.isFinite(claimedUntilMs) ||
@@ -321,7 +325,8 @@ export function createInMemoryPaymentSyncRepository(seed?: {
 				.filter((task) => !query.source || task.source === query.source)
 				.filter((task) => !query.kind || task.kind === query.kind)
 				.filter(
-					(task) => !query.aggregateId || task.aggregateId === query.aggregateId,
+					(task) =>
+						!query.aggregateId || task.aggregateId === query.aggregateId,
 				)
 				.sort(
 					(left, right) =>
@@ -1954,6 +1959,9 @@ export function createNotConfiguredRepositories(): {
 			insert: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
+			insertForBusinessIfAbsent: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
 			findByMedicalOrderId: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
@@ -2687,6 +2695,41 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			orders.set(order.medicalOrderId, { ...order });
 			return order;
 		},
+		async insertForBusinessIfAbsent(order) {
+			const businessType = order.businessType ?? "registration";
+			const businessId = order.businessId ?? order.appointmentId;
+			if (!businessId) {
+				throw new Error("medical insurance business id is required");
+			}
+			const active = [...orders.values()]
+				.filter(
+					(candidate) =>
+						candidate.ownerUserId === order.ownerUserId &&
+						(candidate.businessType ?? "registration") === businessType &&
+						(candidate.businessId ?? candidate.appointmentId) === businessId &&
+						candidate.status !== "cancelled",
+				)
+				.sort((left, right) => {
+					const updated = right.updatedAt.localeCompare(left.updatedAt);
+					return (
+						updated || right.medicalOrderId.localeCompare(left.medicalOrderId)
+					);
+				});
+			if (active.length > 0) {
+				return {
+					orders: active.map((candidate) => ({
+						...candidate,
+						...(candidate.amounts ? { amounts: { ...candidate.amounts } } : {}),
+					})),
+					inserted: false,
+				};
+			}
+			if (orders.has(order.medicalOrderId)) {
+				throw new Error(`duplicate medical order ${order.medicalOrderId}`);
+			}
+			orders.set(order.medicalOrderId, { ...order });
+			return { orders: [{ ...order }], inserted: true };
+		},
 		async findByPayOrdId(payOrdId) {
 			return (
 				[...orders.values()].find((order) => order.payOrdId === payOrdId) ??
@@ -2797,6 +2840,25 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				.sort((left, right) =>
 					right.updatedAt.localeCompare(left.updatedAt),
 				)[0];
+		},
+		async listByOwnerAndBusinessKey(ownerUserId, businessType, businessId) {
+			return [...orders.values()]
+				.filter(
+					(order) =>
+						order.ownerUserId === ownerUserId &&
+						(order.businessType ?? "registration") === businessType &&
+						(order.businessId ?? order.appointmentId) === businessId,
+				)
+				.sort((left, right) => {
+					const updated = right.updatedAt.localeCompare(left.updatedAt);
+					return (
+						updated || right.medicalOrderId.localeCompare(left.medicalOrderId)
+					);
+				})
+				.map((order) => ({
+					...order,
+					...(order.amounts ? { amounts: { ...order.amounts } } : {}),
+				}));
 		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			return (

@@ -194,6 +194,76 @@ test("new medical order worker retries non-terminal 6301 evidence", async () => 
 	expect(await worker.runOnce(now)).toBe("idle");
 });
 
+test("6202 调用前门禁尚无金额时先等待在途回包，不立即误判人工复核", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "awaiting_confirmation",
+			ordStas: null,
+			amounts: null,
+			setlType: null,
+			updatedAt: now.toISOString(),
+		}),
+	);
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+	let queryCalls = 0;
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks,
+		orders,
+		medicalInsurance: {
+			query: async () => {
+				queryCalls += 1;
+				return evidence();
+			},
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("retry_scheduled");
+	expect(queryCalls).toBe(0);
+	expect(await worker.runOnce(now)).toBe("idle");
+	expect(
+		await tasks.claimDueForQuery(new Date(now.getTime() + 15_000), 1, 60_000),
+	).toHaveLength(1);
+});
+
+test("6202 门禁长期没有金额时停止自动动作并转人工复核", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			status: "awaiting_confirmation",
+			ordStas: null,
+			amounts: null,
+			setlType: null,
+			updatedAt: new Date(now.getTime() - 2 * 60_000).toISOString(),
+		}),
+	);
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+	let queryCalls = 0;
+	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		tasks,
+		orders,
+		medicalInsurance: {
+			query: async () => {
+				queryCalls += 1;
+				return evidence();
+			},
+		},
+	});
+
+	expect(await worker.runOnce(now)).toBe("manual_review");
+	expect(queryCalls).toBe(0);
+	await expect(
+		orders.findByMedicalOrderId("medical-order-worker-001"),
+	).resolves.toMatchObject({ status: "manual_review", amounts: null });
+	expect(
+		await tasks.claimDueForQuery(
+			new Date(now.getTime() + 15 * 60_000),
+			1,
+			60_000,
+		),
+	).toHaveLength(0);
+});
+
 test("authoritative Yunhealth evidence still waits for the official WeChat medical order", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(
@@ -1286,6 +1356,7 @@ test("sequenced-v1 mixed payment completes medical .32 before cash .2/.29/.15/.5
 					payingId: "paying-cash-001",
 					tradingId: "trading-cash-001",
 					payTypeId: "5033",
+					platformOrderId: "medical-order-worker-001",
 				});
 				calls.push("cash.29");
 				await input.onThirdPartPayAttempt?.();

@@ -10,9 +10,9 @@ import type {
 import {
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceRefundRepository,
-	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentOperationsRepository,
 	createInMemoryPaymentOperatorAuditRepository,
+	createInMemoryPaymentOrderRepository,
 	createInMemoryWechatRefundRepository,
 } from "@hospital/persistence";
 import { projectPaymentOrder } from "./payment-operations-projector";
@@ -229,6 +229,82 @@ test("HIS 微信单腿从医保订单读取完整现金段并复用稳定退款�
 	expect(first.merchantRefundNo).toMatch(/^RFHIS[0-9a-f]{56}$/u);
 	expect(replay.merchantRefundNo).toBe(first.merchantRefundNo);
 	expect(requestCount).toBe(1);
+});
+
+test("HIS 微信单腿可按 outTradeNo 反查医保订单并复用平台退款身份", async () => {
+	const refunds = createInMemoryWechatRefundRepository();
+	const medicalOrders = createInMemoryMedicalInsuranceOrderRepository();
+	const order = paidMedicalOrder();
+	const outTradeNo = order.wechatOutTradeNo;
+	if (!outTradeNo) throw new Error("test order must include wechatOutTradeNo");
+	await medicalOrders.insert(order);
+	let requestCount = 0;
+	const service = new AdminWechatRefundService({
+		refunds,
+		paymentOrders: {} as never,
+		medicalInsuranceOrders: medicalOrders,
+		gateway: {
+			async requestRefund(input) {
+				requestCount += 1;
+				expect(input.outTradeNo).toBe(outTradeNo);
+				return {
+					...input,
+					status: "SUCCESS" as const,
+					providerRefundId: "wechat-his-out-trade-no-refund-001",
+					trace: {
+						provider: "wechat-pay",
+						operation: "refund-request",
+						requestId: "wechat-his-out-trade-no-request-001",
+					},
+				};
+			},
+			async queryRefund() {
+				throw new Error("query should not be needed after success");
+			},
+		},
+	});
+
+	const byOutTradeNo = await service.requestMedicalInsuranceCashByOutTradeNo(
+		{ outTradeNo, reason: "HIS微信退费" },
+		context,
+	);
+	const byOrder = await service.requestMedicalInsuranceCashByOrder(
+		{ orderId: order.medicalOrderId, reason: "HIS微信退费" },
+		context,
+	);
+
+	expect(byOutTradeNo).toMatchObject({
+		source: "medical_insurance",
+		sourceOrderId: order.medicalOrderId,
+		outTradeNo: order.wechatOutTradeNo,
+		refundFen: order.amounts?.cashFen,
+		status: "success",
+	});
+	expect(byOrder.merchantRefundNo).toBe(byOutTradeNo.merchantRefundNo);
+	expect(requestCount).toBe(1);
+});
+
+test("HIS 微信单腿按不存在的 outTradeNo 查单时返回退款未找到", async () => {
+	const service = new AdminWechatRefundService({
+		refunds: createInMemoryWechatRefundRepository(),
+		paymentOrders: {} as never,
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		gateway: {
+			async requestRefund() {
+				throw new Error("refund must not be requested");
+			},
+			async queryRefund() {
+				throw new Error("refund must not be queried");
+			},
+		},
+	});
+
+	await expect(
+		service.requestMedicalInsuranceCashByOutTradeNo(
+			{ outTradeNo: "medical-wechat-out-missing-001" },
+			context,
+		),
+	).rejects.toThrow("Wechat refund record was not found");
 });
 
 test("admin refund does not send a second refund when the first request is unknown", async () => {
@@ -516,7 +592,7 @@ test("admin refund history shows prior payments and only enables the safe refund
 		cashPaymentConfirmed: true,
 		refundReservedFen: 80,
 		refundableFen: 420,
-		refundRoute: "admin",
+		refundRoute: "unavailable",
 		latestMedicalRefund: {
 			refundNo: "RFMIhistory001",
 			status: "succeeded",

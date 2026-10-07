@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { MedicalInsuranceRefundPayload } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
+	isBoundedOpaqueIdentifier,
 	type MedicalInsuranceAuthorizationRepository,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
@@ -9,17 +10,18 @@ import {
 	type MedicalInsuranceRefundGateway,
 	type MedicalInsuranceRefundRepository,
 	type MedicalInsuranceRefundType,
-	type WechatRefund,
+	normalizeAdapterCallContext,
+	type PaymentAggregate,
 	type PaymentOperationsRepository,
 	type PaymentOperatorAuditRepository,
-	isBoundedOpaqueIdentifier,
-	normalizeAdapterCallContext,
+	projectMedicalInsuranceWechatRefund,
+	type WechatRefund,
 } from "@hospital/domain";
+import type { AdminWechatRefundService } from "../admin/wechat-refund-service";
 import {
 	MedicalInsuranceOrderNotFoundError,
 	MedicalInsuranceRegistrationInputError,
 } from "./errors";
-import type { AdminWechatRefundService } from "../admin/wechat-refund-service";
 
 type MedicalInsuranceRefundRequest = {
 	refundType: MedicalInsuranceRefundType;
@@ -262,6 +264,19 @@ export type MedicalInsuranceRefundServiceDependencies = {
 	wechatRefund?: AdminWechatRefundService;
 	paymentOperations?: PaymentOperationsRepository;
 	operatorAudits?: PaymentOperatorAuditRepository;
+	paymentSync?: {
+		enqueue(input: {
+			aggregateId: string;
+			businessKey: string;
+			source: "wechat_pay";
+			kind: "reconcile";
+			maxAttempts: number;
+			nextRunAt: string;
+		}): Promise<unknown>;
+	};
+	ensurePaymentAggregate?: (
+		order: MedicalInsuranceOrder,
+	) => Promise<PaymentAggregate | undefined>;
 	now?: () => Date;
 	createId?: () => string;
 };
@@ -330,9 +345,49 @@ export class MedicalInsuranceRefundService {
 			record.version,
 		);
 		if (!updated) {
+			const current = await this.dependencies.refunds.findByRefundNo(
+				record.refundNo,
+			);
+			if (current) return current;
 			throw new Error("Medical insurance refund record changed concurrently");
 		}
 		return updated;
+	}
+
+	private async enqueueWechatReconciliation(
+		record: MedicalInsuranceRefund,
+		order: MedicalInsuranceOrder,
+	): Promise<void> {
+		if (
+			!this.dependencies.paymentSync ||
+			record.medicalStatus !== "success" ||
+			record.cashFen <= 0 ||
+			(record.wechatStatus !== "requested" &&
+				record.wechatStatus !== "processing" &&
+				record.wechatStatus !== "unknown")
+		) {
+			return;
+		}
+		let aggregate =
+			await this.dependencies.paymentOperations?.findAggregateByBusinessKey(
+				`medical_insurance:${record.medicalOrderId}`,
+			);
+		if (!aggregate && this.dependencies.ensurePaymentAggregate) {
+			aggregate = await this.dependencies.ensurePaymentAggregate(order);
+		}
+		if (!aggregate) {
+			throw new Error(
+				"Medical insurance refund payment aggregate is unavailable",
+			);
+		}
+		await this.dependencies.paymentSync.enqueue({
+			aggregateId: aggregate.aggregateId,
+			businessKey: `medical_refund:${record.refundNo}`,
+			source: "wechat_pay",
+			kind: "reconcile",
+			maxAttempts: 20,
+			nextRunAt: new Date(this.now().getTime() + 60_000).toISOString(),
+		});
 	}
 
 	private async requestMedical(
@@ -420,6 +475,7 @@ export class MedicalInsuranceRefundService {
 
 	private async requestWechat(
 		record: MedicalInsuranceRefund,
+		order: MedicalInsuranceOrder,
 		context: AdapterCallContext,
 		reason?: string,
 	): Promise<MedicalInsuranceRefund> {
@@ -436,9 +492,13 @@ export class MedicalInsuranceRefundService {
 				lastErrorCode: "wechat-refund-not-configured",
 			});
 		}
-		if (record.wechatStatus === "processing") return record;
+		if (record.wechatStatus === "processing") {
+			await this.enqueueWechatReconciliation(record, order);
+			return record;
+		}
+		let result: WechatRefund;
 		try {
-			const result: WechatRefund =
+			result =
 				await this.dependencies.wechatRefund.requestTrustedMedicalInsurance(
 					{
 						orderId: record.medicalOrderId,
@@ -449,25 +509,6 @@ export class MedicalInsuranceRefundService {
 					},
 					{ ...context, idempotencyKey: record.refundNo },
 				);
-			const status =
-				result.status === "success"
-					? "success"
-					: result.status === "processing"
-						? "processing"
-						: result.status === "unknown"
-							? "unknown"
-							: "failed";
-			return this.save(record, {
-				wechatStatus: status,
-				wechatMerchantRefundNo: result.merchantRefundNo,
-				status:
-					status === "success"
-						? "succeeded"
-						: status === "processing"
-							? "processing"
-							: "manual_review",
-				lastErrorCode: status === "success" ? null : result.lastErrorCode,
-			});
 		} catch (error) {
 			return this.save(record, {
 				wechatStatus: unknownProviderFailure(error) ? "unknown" : "failed",
@@ -475,6 +516,68 @@ export class MedicalInsuranceRefundService {
 				lastErrorCode: providerErrorCode(error),
 			});
 		}
+		if (
+			result.source !== "medical_insurance" ||
+			result.sourceOrderId !== record.medicalOrderId ||
+			result.merchantRefundNo !== record.refundNo ||
+			result.refundFen !== record.cashFen
+		) {
+			return this.save(record, {
+				wechatStatus: "failed",
+				status: "manual_review",
+				lastErrorCode: "wechat-refund-record-mismatch",
+			});
+		}
+		const saved = await this.save(record, {
+			...projectMedicalInsuranceWechatRefund(result),
+			wechatMerchantRefundNo: result.merchantRefundNo,
+		});
+		// 队列基础设施失败不能反向覆盖已经持久化的微信受理事实。此处抛错后，
+		// 同一订单重试只会补建查单任务，不会再次申请退款。
+		await this.enqueueWechatReconciliation(saved, order);
+		return saved;
+	}
+
+	private async queryWechat(
+		record: MedicalInsuranceRefund,
+		order: MedicalInsuranceOrder,
+		context: AdapterCallContext,
+	): Promise<MedicalInsuranceRefund> {
+		if (
+			record.medicalStatus !== "success" ||
+			record.cashFen <= 0 ||
+			(record.wechatStatus !== "requested" &&
+				record.wechatStatus !== "processing" &&
+				record.wechatStatus !== "unknown")
+		) {
+			return record;
+		}
+		if (!this.dependencies.wechatRefund) {
+			return this.save(record, {
+				wechatStatus: "failed",
+				status: "manual_review",
+				lastErrorCode: "wechat-refund-not-configured",
+			});
+		}
+		const merchantRefundNo = record.wechatMerchantRefundNo ?? record.refundNo;
+		const result = await this.dependencies.wechatRefund.query(
+			merchantRefundNo,
+			context,
+		);
+		if (
+			result.source !== "medical_insurance" ||
+			result.sourceOrderId !== record.medicalOrderId ||
+			result.merchantRefundNo !== merchantRefundNo ||
+			result.refundFen !== record.cashFen
+		) {
+			throw new Error("Wechat refund query did not match aggregate refund");
+		}
+		const saved = await this.save(record, {
+			...projectMedicalInsuranceWechatRefund(result),
+			wechatMerchantRefundNo: result.merchantRefundNo,
+		});
+		await this.enqueueWechatReconciliation(saved, order);
+		return saved;
 	}
 
 	/**
@@ -550,6 +653,29 @@ export class MedicalInsuranceRefundService {
 	}
 
 	/**
+	 * HIS 医保单腿退费的医保支付订单号入口。payOrdId 仅用于服务端定位
+	 * 平台医保订单；实际退款继续使用平台订单号，以保持退款记录和幂等键稳定。
+	 */
+	async requestMedicalOnlyByPayOrdId(input: {
+		payOrdId: string;
+		reason?: string;
+		context: unknown;
+		operatorRef?: string;
+	}): Promise<MedicalInsuranceRefundPayload["data"]> {
+		const payOrdId = bounded(input.payOrdId, "payOrdId");
+		const order = await this.dependencies.orders.findByPayOrdId(payOrdId);
+		if (!order) throw new MedicalInsuranceOrderNotFoundError();
+		return this.requestMedicalOnlyByOrder({
+			orderId: order.medicalOrderId,
+			...(input.reason !== undefined ? { reason: input.reason } : {}),
+			context: input.context,
+			...(input.operatorRef !== undefined
+				? { operatorRef: input.operatorRef }
+				: {}),
+		});
+	}
+
+	/**
 	 * HIS 医保单腿退费入口。医保金额、授权上下文和 payOrdId 均来自服务端
 	 * 6202 订单事实；HIS 只提交订单号和原因，不能覆盖医保分项金额。
 	 */
@@ -619,10 +745,32 @@ export class MedicalInsuranceRefundService {
 		refundNo: string,
 		context: { requestId?: string; operatorRef?: string } = {},
 	): Promise<MedicalInsuranceRefundPayload["data"] | undefined> {
-		const record = await this.dependencies.refunds.findByRefundNo(
+		let record = await this.dependencies.refunds.findByRefundNo(
 			bounded(refundNo, "refundNo"),
 		);
 		if (!record) return undefined;
+		const queryTraceId = context.requestId ?? `refund-query-${this.createId()}`;
+		let queryError: unknown;
+		if (
+			record.medicalStatus === "success" &&
+			record.cashFen > 0 &&
+			(record.wechatStatus === "requested" ||
+				record.wechatStatus === "processing" ||
+				record.wechatStatus === "unknown")
+		) {
+			const order = await this.dependencies.orders.findByMedicalOrderId(
+				record.medicalOrderId,
+			);
+			if (!order) throw new MedicalInsuranceOrderNotFoundError();
+			try {
+				record = await this.queryWechat(record, order, {
+					traceId: queryTraceId,
+					idempotencyKey: `medical-refund-query:${record.refundNo}`,
+				});
+			} catch (error) {
+				queryError = error;
+			}
+		}
 		if (this.dependencies.operatorAudits) {
 			const aggregateId = this.dependencies.paymentOperations
 				? (
@@ -636,11 +784,13 @@ export class MedicalInsuranceRefundService {
 				operatorRef: context.operatorRef ?? null,
 				action: "refund_query",
 				...(aggregateId ? { aggregateId } : {}),
-				...(context.requestId ? { requestId: context.requestId } : {}),
-				outcome: "succeeded",
+				requestId: queryTraceId,
+				outcome: queryError ? "failed" : "succeeded",
+				...(queryError ? { reasonCode: providerErrorCode(queryError) } : {}),
 				occurredAt: this.now().toISOString(),
 			});
 		}
+		if (queryError) throw queryError;
 		return responseOf(record);
 	}
 
@@ -739,7 +889,7 @@ export class MedicalInsuranceRefundService {
 		}
 		if (record.medicalStatus !== "success") return responseOf(record);
 		if (record.cashFen > 0 && record.wechatStatus !== "success") {
-			record = await this.requestWechat(record, context, plan.reason);
+			record = await this.requestWechat(record, order, context, plan.reason);
 		}
 		return responseOf(record);
 	}

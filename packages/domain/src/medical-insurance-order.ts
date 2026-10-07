@@ -4,14 +4,14 @@ import type {
 } from "./medical-insurance-business";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type {
+	PaymentHistoryStatus,
+	PaymentOperationsBackfillQuery,
+} from "./payment-operations";
+import type {
 	WechatMedicalInsurancePayParams,
 	YunhealthMiniProgramPayParams,
 	YunhealthMiniProgramPrepay,
 } from "./ports";
-import type {
-	PaymentHistoryStatus,
-	PaymentOperationsBackfillQuery,
-} from "./payment-operations";
 
 /**
  * 医保订单域（F 批次）。
@@ -25,6 +25,8 @@ import type {
 
 export type MedicalInsuranceOrderStatus =
 	| "created"
+	/** 服务端已原子取得 6201 发送权；其他请求只能观察或恢复，禁止并发重放。 */
+	| "fee_upload_pending"
 	/** 6201 已发放 payOrdId/payToken；尚无 6202 金额事实。 */
 	| "fee_uploaded"
 	/** 6202 已接受（ordStas 处理中或已含金额）；等待终态。 */
@@ -44,6 +46,7 @@ export type MedicalInsuranceOrderStatus =
 
 const STATUS_VALUES: readonly MedicalInsuranceOrderStatus[] = [
 	"created",
+	"fee_upload_pending",
 	"fee_uploaded",
 	"order_placed",
 	"insurance_settled",
@@ -72,12 +75,14 @@ const ALLOWED_TRANSITIONS: Record<
 	readonly MedicalInsuranceOrderStatus[]
 > = {
 	created: [
+		"fee_upload_pending",
 		"fee_uploaded",
 		"awaiting_confirmation",
 		"failed",
 		"manual_review",
 		"cancelled",
 	],
+	fee_upload_pending: ["fee_uploaded", "manual_review"],
 	fee_uploaded: [
 		"order_placed",
 		// 6202 only records the settlement candidate; 6301 must be queried before
@@ -373,10 +378,15 @@ export type MedicalInsuranceSettlementContext = {
 	insuredAreaCode?: string;
 	/**
 	 * 6201 前置链路的持久化阶段。`pre_6201` 表示 .1 已经产生真实
-	 * 结算流水，重试时必须复用，不能再次创建；`fee_uploaded` 表示 6201
-	 * 已完成。历史上下文没有该字段时按旧流程处理。
+	 * 结算流水，重试时必须复用，不能再次创建；`submitting_6201` 表示
+	 * 不可重放的 6201 已进入发送边界、结果只能由已存凭证或人工核实；
+	 * `fee_uploaded` 表示 6201 已完成。历史上下文没有该字段时按旧流程处理。
 	 */
-	feeUploadStage?: "pre_6201" | "fee_uploaded";
+	feeUploadStage?: "pre_6201" | "submitting_6201" | "fee_uploaded";
+	/** 进入 6201 发送门禁的时间；用于区分仍在途与需要人工收口。 */
+	feeUploadSubmittedAt?: string;
+	/** 6201/6202 共用的个人账户使用标志，只接受医保合同定义的 0/1。 */
+	acctUsedFlag?: "0" | "1";
 	/** .1 已校验通过的真实结算金额，供 6201 安全续跑使用。 */
 	settlementAmountFen?: number;
 	/** .1/.27 返回的就诊结算号，供 6201 重试时复用。 */
@@ -865,6 +875,15 @@ export function isValidMedicalInsuranceReference(value: unknown): boolean {
  */
 export interface MedicalInsuranceOrderRepository {
 	insert(order: MedicalInsuranceOrder): Promise<MedicalInsuranceOrder>;
+	/**
+	 * 在同一持久化事务内按 owner + 业务键检查所有未取消订单；不存在时
+	 * 才插入候选订单。`inserted=false` 时返回现有全部活动单，由业务层处理
+	 * 患者冲突或历史多单，禁止仓储静默挑选其中一笔。
+	 */
+	insertForBusinessIfAbsent(order: MedicalInsuranceOrder): Promise<{
+		orders: readonly MedicalInsuranceOrder[];
+		inserted: boolean;
+	}>;
 	findByMedicalOrderId(
 		medicalOrderId: string,
 	): Promise<MedicalInsuranceOrder | undefined>;
@@ -914,6 +933,15 @@ export interface MedicalInsuranceOrderRepository {
 		businessType: MedicalInsuranceBusinessType,
 		businessId: string,
 	) => Promise<MedicalInsuranceOrder | undefined>;
+	/**
+	 * 患者端无本地支付缓存时按服务端业务键恢复全部历史订单。调用方必须
+	 * 自己处理多笔非取消订单，不能只取最新一笔后误放行新的支付。
+	 */
+	listByOwnerAndBusinessKey?: (
+		ownerUserId: string,
+		businessType: MedicalInsuranceBusinessType,
+		businessId: string,
+	) => Promise<readonly MedicalInsuranceOrder[]>;
 	findByOwnerAndIdempotencyKey(
 		ownerUserId: string,
 		idempotencyKey: string,

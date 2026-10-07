@@ -49,6 +49,10 @@ const QUERY_BATCH_SIZE = 1;
 // 两段结算包含微信查单及最多六个串行 Provider 写入；一分钟租约会在流程尚未
 // 完成时被另一 Worker 抢占。五分钟覆盖正常调用窗口，崩溃后仍可自动回收。
 const QUERY_CLAIM_LEASE_MS = 5 * 60_000;
+// API 在 6202 发出前先写 awaiting_confirmation 并创建查单任务。Worker
+// 可能早于 6202 回包读取到尚无金额的订单；先给正在执行的请求一个短暂窗口，
+// 超时后再进入人工复核，不能把正常并发误判成金额丢失。
+const SETTLEMENT_SUBMISSION_GRACE_MS = 2 * 60_000;
 const WECHAT_PREPAY_VALIDITY_MS = 2 * 60 * 60 * 1000;
 const WECHAT_SELF_PAY_TYPE_ID = "5033";
 
@@ -422,6 +426,24 @@ function sameAmounts(
 			(order.amounts.otherPaymentFen ?? 0) ===
 			evidence.amounts.insuranceFen
 	);
+}
+
+function isSettlementSubmissionWithinGrace(
+	order: MedicalInsuranceOrder,
+	now: Date,
+): boolean {
+	if (
+		order.status !== "awaiting_confirmation" ||
+		!order.feeUploadId ||
+		!order.payOrdId
+	)
+		return false;
+	const updatedAt = Date.parse(order.updatedAt);
+	if (!Number.isFinite(updatedAt)) return false;
+	const ageMs = now.getTime() - updatedAt;
+	// 数据库时间轻微领先 Worker 时仍按在途处理，不能因负 age 把刚发送的
+	// 6202 立即转人工；异常未来时间同样 fail-closed，避免自动重放或误收口。
+	return ageMs < SETTLEMENT_SUBMISSION_GRACE_MS;
 }
 
 function reconciliationFailureCode(error: unknown): string | undefined {
@@ -950,6 +972,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			payTypeId: component.payTypeId,
 			payType: this.dependencies.postPaymentPayType,
 			workStationId: this.dependencies.postPaymentWorkStationId,
+			platformOrderId: order.medicalOrderId,
 			...(thirdParty?.status === "succeeded" && thirdParty.thirdPartPayRecordId
 				? {
 						thirdPartPayRecordId: thirdParty.thirdPartPayRecordId,
@@ -1847,6 +1870,38 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				return "reconciled";
 			}
 			if (!order.amounts) {
+				if (isSettlementSubmissionWithinGrace(order, now)) {
+					const updatedTask = await this.updateTask(task, now, {
+						continueQuery: true,
+						lastErrorCode: "medical-order-settlement-submission-pending",
+					});
+					this.logger.info(
+						{
+							event:
+								"worker.payment.medical_order_query.waiting_for_6202_persistence",
+							taskId: task.taskId,
+							orderId: task.medicalOrderId,
+							queryAttempts: updatedTask.attempts,
+						},
+						"Medical insurance query waits for the in-flight 6202 result to persist",
+					);
+					return updatedTask.status === "manual_review"
+						? "manual_review"
+						: "retry_scheduled";
+				}
+				const reviewed = await this.dependencies.orders.applySettlement(
+					order.medicalOrderId,
+					order.version,
+					{
+						status: "manual_review",
+						ordStas: order.ordStas,
+						amounts: null,
+						setlType: order.setlType,
+						revsTokenHash: order.revsTokenHash,
+						revsTokenExpiresAt: order.revsTokenExpiresAt,
+					},
+				);
+				if (!reviewed) throw new Error("medical order version conflict");
 				await this.updateTask(task, now, {
 					continueQuery: false,
 					manualReview: true,

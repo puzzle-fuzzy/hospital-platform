@@ -4,8 +4,8 @@ import type {
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceSettlementContext,
 	OutboxEvent,
-	PaymentOperatorAudit,
 	PaymentOperationsProjection,
+	PaymentOperatorAudit,
 	PaymentOrder,
 	PaymentPrepayAttempt,
 	WechatPaymentNotification,
@@ -85,6 +85,45 @@ const order: PaymentOrder = {
 	updatedAt: "2026-08-15T00:00:00.000Z",
 };
 
+function medicalInsuranceCreatedOrder(
+	medicalOrderId: string,
+	idempotencyKey: string,
+	businessId = "appointment-001",
+): MedicalInsuranceOrder {
+	return {
+		medicalOrderId,
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		businessType: "registration",
+		orderType: "RegPay",
+		businessId,
+		appointmentId: businessId,
+		authorizationId: null,
+		feeUploadId: null,
+		idempotencyKey,
+		medOrgOrd: `med-org-${medicalOrderId}`,
+		chrgBchno: `batch-${medicalOrderId}`,
+		payOrdId: null,
+		payTokenHash: null,
+		mdtrtId: null,
+		acctUsedFlag: null,
+		status: "created",
+		ordStas: null,
+		amounts: null,
+		setlType: null,
+		revsTokenHash: null,
+		revsTokenExpiresAt: null,
+		lastError: null,
+		wechatMixTradeNo: null,
+		wechatOutTradeNo: null,
+		wechatPaymentState: "not_started",
+		wechatPayParams: null,
+		version: 1,
+		createdAt: "2026-09-03T00:00:00.000Z",
+		updatedAt: "2026-09-03T00:00:00.000Z",
+	};
+}
+
 const createdEvent: OutboxEvent = {
 	eventId: "payment-order:order-001:created",
 	eventName: "payment-order.created",
@@ -98,7 +137,7 @@ const createdEvent: OutboxEvent = {
 
 function paymentOperationsProjection(
 	version: number,
-	): PaymentOperationsProjection {
+): PaymentOperationsProjection {
 	const aggregateId = "payagg-order-001";
 	const legId = "payleg-order-001";
 	return {
@@ -333,14 +372,14 @@ test("MySQL payment operations backfill reads both sources with a stable cursor"
 	expect(state.values[1]?.at(-1)).toBe("source-001");
 });
 
-test("MySQL payment sync claim applies the lease and version fence", async () => {
+test("MySQL payment sync claim applies worker filters, lease and version fence", async () => {
 	const { pool, state } = createFakePool([
 		[
 			{
 				task_id: "payment-sync-task-001",
 				aggregate_id: "payagg-001",
-				business_key: "medical_insurance:medical-001",
-				source: "his",
+				business_key: "medical_refund:refund-001",
+				source: "wechat_pay",
 				kind: "reconcile",
 				status: "pending",
 				attempts: 0,
@@ -363,6 +402,11 @@ test("MySQL payment sync claim applies the lease and version fence", async () =>
 			new Date("2026-09-20T00:00:00.000Z"),
 			1,
 			60_000,
+			{
+				source: "wechat_pay",
+				kind: "reconcile",
+				businessKeyPrefix: "medical_refund:",
+			},
 		),
 	).resolves.toMatchObject([
 		{
@@ -371,6 +415,15 @@ test("MySQL payment sync claim applies the lease and version fence", async () =>
 			version: 2,
 			claimedUntil: "2026-09-20T00:01:00.000Z",
 		},
+	]);
+	expect(state.statements[0]).toContain("source = ?");
+	expect(state.statements[0]).toContain("kind = ?");
+	expect(state.statements[0]).toContain("LEFT(business_key, ?) = ?");
+	expect(state.values[0]?.slice(-4)).toEqual([
+		"wechat_pay",
+		"reconcile",
+		"medical_refund:".length,
+		"medical_refund:",
 	]);
 	expect(state.statements[1]).toContain("version = version + 1");
 });
@@ -578,6 +631,7 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 		payTypeId: "5032",
 		payType: "CREDIT" as const,
 		workStationId: "",
+		platformOrderId: "medical-order-new-001",
 		payParams: {
 			appId: "wx1234567890abcdef",
 			timeStamp: "1789000000",
@@ -1640,38 +1694,10 @@ test("MySQL prepay repository reads a provider-confirmed failed attempt", async 
 });
 
 test("MySQL medical insurance order insert keeps columns and values aligned", async () => {
-	const medicalOrder: MedicalInsuranceOrder = {
-		medicalOrderId: "medical-order-insert-001",
-		ownerUserId: "user-001",
-		patientId: "patient-001",
-		businessType: "registration",
-		orderType: "RegPay",
-		businessId: "appointment-001",
-		appointmentId: "appointment-001",
-		authorizationId: null,
-		feeUploadId: null,
-		idempotencyKey: "medical-order-idempotency-001",
-		medOrgOrd: "med-org-001",
-		chrgBchno: "batch-001",
-		payOrdId: null,
-		payTokenHash: null,
-		mdtrtId: null,
-		acctUsedFlag: null,
-		status: "created",
-		ordStas: null,
-		amounts: null,
-		setlType: null,
-		revsTokenHash: null,
-		revsTokenExpiresAt: null,
-		lastError: null,
-		wechatMixTradeNo: null,
-		wechatOutTradeNo: null,
-		wechatPaymentState: "not_started",
-		wechatPayParams: null,
-		version: 1,
-		createdAt: "2026-09-03T00:00:00.000Z",
-		updatedAt: "2026-09-03T00:00:00.000Z",
-	};
+	const medicalOrder = medicalInsuranceCreatedOrder(
+		"medical-order-insert-001",
+		"medical-order-idempotency-001",
+	);
 	const { pool, state } = createFakePool([{ affectedRows: 1 }]);
 	const repositories = createMySqlRepositories(pool);
 
@@ -1684,6 +1710,56 @@ test("MySQL medical insurance order insert keeps columns and values aligned", as
 	expect(statement).toContain("updated_at");
 	expect(statement.match(/\?/g) ?? []).toHaveLength(values.length);
 	expect(values).toHaveLength(41);
+});
+
+test("MySQL 医保首次业务订单先锁 owner 并在同一事务检查活动单", async () => {
+	const medicalOrder = medicalInsuranceCreatedOrder(
+		"medical-business-claim-001",
+		"medical-business-claim-idempotency-001",
+		"appointment-business-claim-001",
+	);
+	const { pool, state } = createFakePool([
+		[{ user_id: "user-001" }],
+		[],
+		{ affectedRows: 1 },
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.medicalInsuranceOrders.insertForBusinessIfAbsent(medicalOrder),
+	).resolves.toEqual({ orders: [medicalOrder], inserted: true });
+
+	expect(state.committed).toBe(true);
+	expect(state.statements).toHaveLength(3);
+	expect(state.statements[0]).toContain("hp_identity_users");
+	expect(state.statements[0]).toContain("FOR UPDATE");
+	expect(state.statements[1]).toContain("business_type = ?");
+	expect(state.statements[1]).toContain("business_id = ?");
+	expect(state.statements[1]).toContain("status <> 'cancelled'");
+	expect(state.statements[1]).toContain("FOR UPDATE");
+	expect(state.statements[2]).toContain(
+		"INSERT INTO hp_medical_insurance_orders",
+	);
+});
+
+test("MySQL 医保首次业务订单缺少 owner 锁行时失败关闭", async () => {
+	const medicalOrder = medicalInsuranceCreatedOrder(
+		"medical-business-owner-missing-001",
+		"medical-business-owner-missing-idempotency-001",
+		"appointment-business-owner-missing-001",
+	);
+	const { pool, state } = createFakePool([[]]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.medicalInsuranceOrders.insertForBusinessIfAbsent(medicalOrder),
+	).rejects.toThrow("medical insurance order owner is unavailable");
+
+	expect(state.rolledBack).toBe(true);
+	expect(state.committed).toBe(false);
+	expect(state.statements).toHaveLength(1);
+	expect(state.statements[0]).toContain("hp_identity_users");
+	expect(state.statements[0]).toContain("FOR UPDATE");
 });
 
 test("MySQL medical insurance amount-bearing order projects both payment legs in the insert transaction", async () => {

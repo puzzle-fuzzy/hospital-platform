@@ -2,6 +2,8 @@ import {
 	MedicalInsuranceAuthorizationContextResponse,
 	MedicalInsuranceAuthorizeRequest,
 	MedicalInsuranceAuthorizeResponse,
+	MedicalInsuranceBusinessRecoveryRequest,
+	MedicalInsuranceBusinessRecoveryResponse,
 	MedicalInsuranceCancellationResponse,
 	MedicalInsuranceCancelRequest,
 	MedicalInsuranceOrderResponse,
@@ -17,9 +19,9 @@ import { createRequestPrincipalResolver } from "../../plugins/request-authentica
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
 import type { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
+import type { MedicalInsuranceRefundService } from "./refund-service";
 import type { MedicalInsuranceRegistrationService } from "./registration-service";
 import type { MedicalInsuranceNotificationService } from "./service";
-import type { MedicalInsuranceRefundService } from "./refund-service";
 import type { MedicalInsuranceWechatPaymentService } from "./wechat-payment-service";
 
 type MedicalInsuranceWechatNotificationHandler = (input: {
@@ -82,6 +84,11 @@ export function medicalInsuranceModule(
 		"/payments/medical-insurance/wechat-notifications",
 	]);
 	const routes = new Elysia({ name: "medical-insurance-module" })
+		// 医保授权、订单与支付状态都是瞬时权威事实，任何成功响应都不得被
+		// 小程序网络层、反向代理或中间缓存复用为下一次按钮判断。
+		.onAfterHandle(({ set }) => {
+			set.headers["cache-control"] = "no-store";
+		})
 		.onTransform({ as: "local" }, authentication.authenticate)
 		.get(
 			"/payments/medical-insurance/appointments/:appointmentId/authorization-context",
@@ -161,6 +168,27 @@ export function medicalInsuranceModule(
 				headers: MedicalInsuranceCommandHeaders,
 				body: MedicalInsuranceOutpatientAuthorizeRequest,
 				response: { 200: MedicalInsuranceAuthorizeResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.post(
+			"/payments/medical-insurance/business-recovery",
+			async ({ request, headers, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await registrationService.recoverBusinessOrder({
+						ownerUserId: principal.userId,
+						businessType: body.businessType,
+						businessId: body.businessId,
+						patientId: body.patientId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceQueryHeaders,
+				body: MedicalInsuranceBusinessRecoveryRequest,
+				response: { 200: MedicalInsuranceBusinessRecoveryResponse },
 				tags: ["medical-insurance"],
 			},
 		)

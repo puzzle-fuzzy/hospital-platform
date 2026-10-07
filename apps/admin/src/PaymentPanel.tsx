@@ -36,6 +36,7 @@ import {
 	fetchPaymentSyncTasks,
 	fetchWechatRefundPaymentHistory,
 	markPaymentSyncTaskManualReview,
+	queryMedicalInsuranceRefund,
 	requestMedicalInsuranceRefund,
 	retryPaymentSyncTask,
 } from "./api";
@@ -424,6 +425,7 @@ function canAggregateMedicalRefund(
 		record.totalFen > 0 &&
 		record.refundRoute === "admin" &&
 		(record.cashFen <= 0 || record.cashPaymentConfirmed) &&
+		record.refundableFen === record.cashFen &&
 		record.totalFen ===
 			record.cashFen + (record.personalAccountFen ?? 0) + (record.fundFen ?? 0)
 	);
@@ -431,7 +433,9 @@ function canAggregateMedicalRefund(
 
 function paymentRecordColumns(
 	onMedicalRefund: (record: AdminWechatRefundPaymentRecord) => void,
+	onMedicalRefundQuery: (record: AdminWechatRefundPaymentRecord) => void,
 	onOperationDetail: (record: AdminWechatRefundPaymentRecord) => void,
+	refundQueryingNo?: string,
 ): NonNullable<TableProps<AdminWechatRefundPaymentRecord>["columns"]> {
 	return [
 		{
@@ -521,7 +525,7 @@ function paymentRecordColumns(
 			title: "操作",
 			key: "action",
 			fixed: "right",
-			width: 330,
+			width: 420,
 			render: (_, record) => (
 				<Space wrap>
 					<Button
@@ -532,15 +536,32 @@ function paymentRecordColumns(
 						查看账本
 					</Button>
 					{record.source === "medical_insurance" ? (
-						<Button
-							className="payment-refund-button"
-							danger
-							icon={<RollbackOutlined />}
-							disabled={!canAggregateMedicalRefund(record)}
-							onClick={() => onMedicalRefund(record)}
-						>
-							医保 + 微信一并退费
-						</Button>
+						record.latestMedicalRefund ? (
+							<Button
+								type="link"
+								icon={<ReloadOutlined />}
+								loading={
+									refundQueryingNo === record.latestMedicalRefund.refundNo
+								}
+								disabled={Boolean(refundQueryingNo)}
+								onClick={() => onMedicalRefundQuery(record)}
+							>
+								查询退费
+							</Button>
+						) : (
+							<Button
+								className="payment-refund-button"
+								danger
+								icon={<RollbackOutlined />}
+								disabled={
+									Boolean(refundQueryingNo) ||
+									!canAggregateMedicalRefund(record)
+								}
+								onClick={() => onMedicalRefund(record)}
+							>
+								医保 + 微信一并退费
+							</Button>
+						)
 					) : (
 						<Button
 							className="payment-refund-button"
@@ -590,6 +611,7 @@ export function PaymentPanel({
 		useState<AdminWechatRefundPaymentRecord>();
 	const [refundReason, setRefundReason] = useState("");
 	const [refundSubmitting, setRefundSubmitting] = useState(false);
+	const [refundQueryingNo, setRefundQueryingNo] = useState<string>();
 	const [refundResult, setRefundResult] =
 		useState<AdminMedicalInsuranceRefund>();
 	const [operationDetail, setOperationDetail] =
@@ -798,7 +820,7 @@ export function PaymentPanel({
 			setRefundResult(result);
 			void message.success(medicalRefundStatusLabel(result.status));
 			await loadPaymentHistory({
-				queryOrderId: refundRecord.orderId,
+				queryOrderId: historyOrderId,
 				source: historySource,
 				business: historyBusiness,
 				businessDay: historyBusinessDay,
@@ -818,6 +840,7 @@ export function PaymentPanel({
 	}, [
 		historyBusiness,
 		historyBusinessDay,
+		historyOrderId,
 		historyStatus,
 		historySource,
 		loadPaymentHistory,
@@ -827,6 +850,51 @@ export function PaymentPanel({
 		refundRecord,
 		session,
 	]);
+
+	const queryMedicalRefund = useCallback(
+		async (refundNo: string, record?: AdminWechatRefundPaymentRecord) => {
+			setRefundQueryingNo(refundNo);
+			try {
+				const result = await queryMedicalInsuranceRefund(refundNo, session);
+				if (record) {
+					setRefundRecord(record);
+					setRefundReason("");
+				}
+				setRefundResult(result);
+				void message.success(medicalRefundStatusLabel(result.status));
+				await loadPaymentHistory({
+					queryOrderId: historyOrderId,
+					source: historySource,
+					business: historyBusiness,
+					businessDay: historyBusinessDay,
+					status: historyStatus,
+				});
+			} catch (reason) {
+				if (reason instanceof ApiError && reason.status === 401) {
+					onExpired();
+					return;
+				}
+				void message.error(
+					reason instanceof Error ? reason.message : "医保退费查单失败",
+				);
+			} finally {
+				setRefundQueryingNo((current) =>
+					current === refundNo ? undefined : current,
+				);
+			}
+		},
+		[
+			historyBusiness,
+			historyBusinessDay,
+			historyOrderId,
+			historySource,
+			historyStatus,
+			loadPaymentHistory,
+			message,
+			onExpired,
+			session,
+		],
+	);
 
 	const retrySyncTask = useCallback(
 		async (task: AdminPaymentSyncTask) => {
@@ -1083,7 +1151,12 @@ export function PaymentPanel({
 						rowKey={(record) => `${record.source}:${record.orderId}`}
 						columns={paymentRecordColumns(
 							openMedicalRefund,
+							(record) => {
+								const refundNo = record.latestMedicalRefund?.refundNo;
+								if (refundNo) void queryMedicalRefund(refundNo, record);
+							},
 							openOperationDetail,
+							refundQueryingNo,
 						)}
 						dataSource={paymentHistory}
 						loading={historyLoading}
@@ -1470,21 +1543,31 @@ export function PaymentPanel({
 				cancelText="取消"
 				onOk={() => void submitMedicalRefund()}
 				onCancel={() => {
-					if (!refundSubmitting) {
+					if (!refundSubmitting && !refundQueryingNo) {
 						setRefundRecord(undefined);
 						setRefundResult(undefined);
 					}
 				}}
 				footer={
 					refundResult ? (
-						<Button
-							onClick={() => {
-								setRefundRecord(undefined);
-								setRefundResult(undefined);
-							}}
-						>
-							关闭
-						</Button>
+						<Space>
+							<Button
+								icon={<ReloadOutlined />}
+								loading={refundQueryingNo === refundResult.refundNo}
+								onClick={() => void queryMedicalRefund(refundResult.refundNo)}
+							>
+								查询最新状态
+							</Button>
+							<Button
+								disabled={Boolean(refundQueryingNo)}
+								onClick={() => {
+									setRefundRecord(undefined);
+									setRefundResult(undefined);
+								}}
+							>
+								关闭
+							</Button>
+						</Space>
 					) : undefined
 				}
 				destroyOnHidden
@@ -1534,6 +1617,12 @@ export function PaymentPanel({
 											医保腿：{refundResult.medicalStatus}；微信腿：
 											{refundResult.wechatStatus}
 										</Text>
+										{refundResult.status === "manual_review" ? (
+											<Text type="warning">
+												请勿重新发起退费；请按退费单号分别核对 6203、微信退款和
+												HIS 状态后人工处理。
+											</Text>
+										) : null}
 									</Space>
 								}
 							/>

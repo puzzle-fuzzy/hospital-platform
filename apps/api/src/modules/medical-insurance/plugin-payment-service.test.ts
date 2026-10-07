@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import type {
+	HospitalSettlementGateway,
+	MedicalInsuranceSettlementContext,
+	PaymentOrder,
+} from "@hospital/domain";
 import { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
 const context = { traceId: "trace-001", idempotencyKey: "idempotency-001" };
@@ -560,4 +565,114 @@ test("发布前已存在的plugin上下文仍可恢复且不会再次提交2.6.6
 		prepayId: "prepay-001",
 	});
 	expect(result.payParams?.package).toBe("prepay_id=prepay-001");
+});
+
+test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段", async () => {
+	let currentMedicalOrder = { ...medicalOrder(), version: 1 };
+	let currentSettlement: MedicalInsuranceSettlementContext = {
+		...settlement(),
+		plugin: {
+			paymentOrderId: "payment-order-001",
+			payingId: "500001",
+			tradingId: "500002",
+			payTypeId: "5033",
+			payType: "CREDIT" as const,
+			workStationId: "",
+			tradeCode: "REGISTRATION-001",
+			tradeTypeCode: "10",
+			outTradeNo: "payment-order-001",
+			recordCode: "12345678901234567890123456789012",
+			state: "cash_paid" as const,
+		},
+	};
+	let currentPaymentOrder: PaymentOrder = {
+		orderId: "payment-order-001",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		idempotencyKey: "registration-medical-plugin-self-pay:medical-order-001",
+		amounts: { totalFen: 1000, insuranceFen: 800, cashFen: 200 },
+		state: "cash_paid" as const,
+		version: 1,
+		createdAt: "2026-09-29T00:00:00.000Z",
+		updatedAt: "2026-09-29T00:00:00.000Z",
+	};
+	const hospitalSettlement: HospitalSettlementGateway = {
+		writeBack: async (input) => {
+			expect(input.orderId).toBe("payment-order-001");
+			expect(input.registrationContext).toMatchObject({
+				platformOrderId: "medical-order-001",
+			});
+			await input.onThirdPartPayResponse?.({
+				rawResponse:
+					'{"success":true,"data":{"thirdPartPayRecordId":"medical-order-001"}}',
+				thirdPartPayRecordId: "medical-order-001",
+				requestId: "yunhealth-.29-api-001",
+			});
+			return {
+				provider: "yunhealth",
+				operation: "registration-self-pay.2.6.65.5",
+				requestId: "yunhealth-.5-api-001",
+			};
+		},
+	};
+	const service = new MedicalInsurancePluginPaymentService({
+		orders: {
+			findByMedicalOrderId: async () => currentMedicalOrder,
+			getSettlementContext: async () => currentSettlement,
+			saveSettlementContext: async (
+				_owner: string,
+				_orderId: string,
+				next: MedicalInsuranceSettlementContext,
+			) => {
+				currentSettlement = next;
+			},
+			applySettlement: async () => {
+				currentMedicalOrder = {
+					...currentMedicalOrder,
+					status: "insurance_settled",
+					version: currentMedicalOrder.version + 1,
+				};
+				return currentMedicalOrder;
+			},
+		} as never,
+		authorizations: {} as never,
+		identityUsers: {} as never,
+		paymentOrders: {
+			get: async () => currentPaymentOrder,
+			transition: async (
+				_owner: string,
+				_orderId: string,
+				state: PaymentOrder["state"],
+			) => {
+				currentPaymentOrder = {
+					...currentPaymentOrder,
+					state,
+					version: currentPaymentOrder.version + 1,
+				};
+				return currentPaymentOrder;
+			},
+		} as never,
+		wechatPrepay: {} as never,
+		pluginPayment: {} as never,
+		hospitalSettlement,
+		pluginPayTypeId: "5033",
+		pluginPayType: "CREDIT",
+		pluginWorkStationId: "",
+		pluginTradeTypeCode: "10",
+	});
+
+	await expect(
+		service.completeOfficialWechatPayment({
+			ownerUserId: "user-001",
+			orderId: "medical-order-001",
+			context,
+		}),
+	).resolves.toMatchObject({
+		orderId: "medical-order-001",
+		status: "insurance_settled",
+	});
+	expect(currentSettlement.plugin).toMatchObject({
+		thirdPartPayRecordId: "medical-order-001",
+		state: "settled",
+	});
 });

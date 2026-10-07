@@ -113,3 +113,49 @@ export type WechatRefundProviderResult = {
 	successTime?: string;
 	trace: ExternalTrace;
 };
+
+/** 微信退款渠道状态到本地退款台账状态的唯一映射。 */
+export function wechatRefundStatusFromProvider(
+	status: WechatRefundProviderStatus,
+): WechatRefundStatus {
+	return status === "SUCCESS"
+		? "success"
+		: status === "CLOSED"
+			? "closed"
+			: status === "ABNORMAL"
+				? "abnormal"
+				: "processing";
+}
+
+/**
+ * 将已经验签并完成字段白名单映射的微信退款结果投影到本地台账。
+ *
+ * 申请退款与主动查单共用这一条校验，确保退款单号、原支付单、总额和退款额
+ * 任一不一致时都不会覆盖本地事实。
+ */
+export function projectWechatRefundProviderResult(
+	record: WechatRefund,
+	result: WechatRefundProviderResult,
+	updatedAt: string,
+): WechatRefund {
+	if (
+		result.merchantRefundNo !== record.merchantRefundNo ||
+		result.outTradeNo !== record.outTradeNo ||
+		result.totalFen !== record.totalFen ||
+		result.refundFen !== record.refundFen
+	) {
+		throw new Error("Wechat refund response did not match the refund record");
+	}
+	return {
+		...record,
+		status: wechatRefundStatusFromProvider(result.status),
+		providerStatus: result.status,
+		providerRefundId: result.providerRefundId,
+		providerTransactionId: result.providerTransactionId ?? null,
+		providerRequestId: result.trace.requestId,
+		successTime: result.successTime ?? null,
+		lastErrorCode: null,
+		version: record.version + 1,
+		updatedAt,
+	};
+}

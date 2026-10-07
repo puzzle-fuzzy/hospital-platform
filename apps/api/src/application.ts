@@ -39,6 +39,7 @@ import type {
 import {
 	DependencyNotConfiguredError,
 	PaymentOrderService,
+	PaymentSyncCoordinator,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import type {
@@ -52,7 +53,10 @@ import {
 	AdminWechatRefundService,
 	PaymentSyncAdminService,
 } from "./modules/admin";
-import { buildPaymentOrderProjection } from "./modules/admin/payment-operations-projector";
+import {
+	buildPaymentOrderProjection,
+	projectMedicalInsuranceOrder,
+} from "./modules/admin/payment-operations-projector";
 import { AppointmentService } from "./modules/appointments";
 import { AppointmentWriteService } from "./modules/appointments/write-service";
 import {
@@ -239,7 +243,8 @@ export function selectReadyRepositories(
 
 /**
  * 优先从普通自费支付订单密文读取 Provider 关联事实；历史订单才回退到同预约
- * 医保结算密文。这里不接受客户端字段，也不从平台订单号推导。
+ * 医保结算密文。Provider 关联键不接受客户端字段，也不从平台订单号推导；
+ * 仅 .29 的 platformOrderId 会从已归属的根 medicalOrderId 显式投影。
  */
 function resolveRegistrationSelfPayContext(
 	repositories: Pick<
@@ -356,6 +361,7 @@ function resolveRegistrationSelfPayContext(
 				contextText(networkRegister, ["patInHosId", "pat_in_hos_id"]) ?? "0",
 			...(settlement.plugin
 				? {
+						platformOrderId: medicalOrder.medicalOrderId,
 						outTradeNo: settlement.plugin.outTradeNo,
 						recordCode: settlement.plugin.recordCode,
 						payTypeId: settlement.plugin.payTypeId,
@@ -546,6 +552,7 @@ export function createDefaultApplicationServices(
 			gateways.appointmentPatientProfile,
 		medicalInsurance:
 			options.medicalInsuranceGateway ?? gateways.medicalInsurance,
+		credentials: repositories.medicalInsuranceCredentials,
 		outpatientPayments:
 			options.outpatientPaymentGateway ?? gateways.outpatientPayments,
 		core: medicalInsuranceCore,
@@ -667,6 +674,9 @@ export function createDefaultApplicationServices(
 				gateway: options.wechatRefundGateway,
 			})
 		: undefined;
+	const paymentSync = new PaymentSyncCoordinator({
+		repository: repositories.paymentSync,
+	});
 	const medicalInsuranceRefund = options.medicalInsuranceRefundGateway
 		? new MedicalInsuranceRefundService({
 				orders: repositories.medicalInsuranceOrders,
@@ -675,6 +685,14 @@ export function createDefaultApplicationServices(
 				medicalInsuranceRefund: options.medicalInsuranceRefundGateway,
 				paymentOperations: repositories.paymentOperations,
 				operatorAudits: repositories.operatorAudits,
+				paymentSync,
+				ensurePaymentAggregate: async (order) =>
+					(
+						await projectMedicalInsuranceOrder(
+							repositories.paymentOperations,
+							order,
+						)
+					)?.aggregate,
 				...(wechatRefund ? { wechatRefund } : {}),
 			})
 		: undefined;

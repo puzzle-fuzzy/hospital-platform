@@ -6,23 +6,23 @@ import {
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceRefundRepository,
-	type PaymentOperationsRepository,
-	type PaymentOrder,
-	type PaymentOrderRepository,
 	type PaymentAggregate,
+	type PaymentHistoryStatus,
 	type PaymentLeg,
 	type PaymentOperationEvent,
+	type PaymentOperationsRepository,
 	type PaymentOperatorAuditRepository,
-	type PaymentHistoryStatus,
+	type PaymentOrder,
+	type PaymentOrderRepository,
+	parseIsoCalendarDate,
+	projectWechatRefundProviderResult,
 	type WechatRefund,
 	WechatRefundAmountExceededError,
 	type WechatRefundGateway,
 	WechatRefundIdempotencyConflictError,
 	WechatRefundNotFoundError,
-	type WechatRefundProviderStatus,
 	type WechatRefundRepository,
 	type WechatRefundSource,
-	parseIsoCalendarDate,
 } from "@hospital/domain";
 import {
 	projectMedicalInsuranceOrder,
@@ -370,18 +370,6 @@ function refundSummary(refunds: readonly WechatRefund[]): {
 	};
 }
 
-function providerStatusToLocal(
-	status: WechatRefundProviderStatus,
-): WechatRefund["status"] {
-	return status === "SUCCESS"
-		? "success"
-		: status === "CLOSED"
-			? "closed"
-			: status === "ABNORMAL"
-				? "abnormal"
-				: "processing";
-}
-
 function refundIdentityMatches(
 	record: WechatRefund,
 	target: {
@@ -507,27 +495,11 @@ export class AdminWechatRefundService {
 		record: WechatRefund,
 		result: Awaited<ReturnType<WechatRefundGateway["requestRefund"]>>,
 	): Promise<WechatRefund> {
-		if (
-			result.merchantRefundNo !== record.merchantRefundNo ||
-			result.outTradeNo !== record.outTradeNo ||
-			result.totalFen !== record.totalFen ||
-			result.refundFen !== record.refundFen
-		) {
-			throw new Error("Wechat refund response did not match the refund record");
-		}
-		const now = this.now().toISOString();
-		const updated: WechatRefund = {
-			...record,
-			status: providerStatusToLocal(result.status),
-			providerStatus: result.status,
-			providerRefundId: result.providerRefundId,
-			providerTransactionId: result.providerTransactionId ?? null,
-			providerRequestId: result.trace.requestId,
-			successTime: result.successTime ?? null,
-			lastErrorCode: null,
-			version: record.version + 1,
-			updatedAt: now,
-		};
+		const updated = projectWechatRefundProviderResult(
+			record,
+			result,
+			this.now().toISOString(),
+		);
 		const saved = await this.dependencies.refunds.update(
 			updated,
 			record.version,
@@ -906,9 +878,11 @@ export class AdminWechatRefundService {
 								}
 							: {}),
 						refundRoute:
-							(order.status === "insurance_settled" &&
+							!latestMedicalRefund &&
+							refundableFen === cashFen &&
+							((order.status === "insurance_settled" &&
 								(cashFen <= 0 || cashPaymentConfirmed)) ||
-							(order.status === "cash_pending" && cashPaymentConfirmed)
+								(order.status === "cash_pending" && cashPaymentConfirmed))
 								? "admin"
 								: "unavailable",
 						createdAt: order.createdAt,
@@ -1055,6 +1029,32 @@ export class AdminWechatRefundService {
 				idempotencyKey,
 				merchantRefundNo: hisMedicalWechatMerchantRefundNo(orderId),
 				operatorRef: "his-wechat-leg",
+				...(input.reason !== undefined ? { reason: input.reason } : {}),
+			},
+			context,
+		);
+	}
+
+	/**
+	 * HIS 微信单腿退费的外部支付号入口。outTradeNo 只用于定位已落库的医保订单；
+	 * 实际退款仍委托给按平台医保订单号的入口，以保持退款号、金额和幂等身份一致。
+	 */
+	async requestMedicalInsuranceCashByOutTradeNo(
+		input: {
+			outTradeNo: string;
+			reason?: string;
+		},
+		context: AdapterCallContext,
+	): Promise<WechatRefund> {
+		const outTradeNo = requiredText(input.outTradeNo, 32);
+		const order =
+			await this.dependencies.medicalInsuranceOrders.findByWechatOutTradeNo(
+				outTradeNo,
+			);
+		if (!order) throw new WechatRefundNotFoundError();
+		return this.requestMedicalInsuranceCashByOrder(
+			{
+				orderId: order.medicalOrderId,
 				...(input.reason !== undefined ? { reason: input.reason } : {}),
 			},
 			context,

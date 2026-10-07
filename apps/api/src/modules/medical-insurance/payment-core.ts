@@ -189,22 +189,59 @@ export class MedicalInsurancePaymentCore {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		const order = await this.order(ownerUserId, orderId);
-		if (!order.authorizationId || !order.feeUploadId)
-			throw new MedicalInsuranceRegistrationInputError(
-				"Medical insurance fee upload is required",
-			);
-		if (order.status === "awaiting_confirmation") {
-			// 6202 已有事实但任务写入可能因网络故障丢失；重试只补同一 taskId，
-			// 绝不能再次调用 6202 造成重复结算。
+		if (
+			order.status === "order_placed" ||
+			order.status === "awaiting_confirmation"
+		) {
+			// awaiting_confirmation 也可能是 6202 发出前已持久化的未知门禁；
+			// 无论上次是否收到回包，重试都只补同一 taskId，绝不能再次调用
+			// 6202 造成重复结算。
 			await this.enqueueQueryTask(order.medicalOrderId);
 			return output(order);
 		}
 		if (
 			order.status === "insurance_settled" ||
 			order.status === "cash_pending" ||
-			order.status === "failed"
+			order.status === "failed" ||
+			order.status === "manual_review" ||
+			order.status === "cancelled"
 		)
 			return output(order);
+		if (!order.authorizationId || !order.feeUploadId)
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance fee upload is required",
+			);
+		// 6202 的 orgBizSer 要求每次上游请求唯一，不能依赖客户端幂等键安全
+		// 重放。必须先用订单 CAS 持久化“结果待确认”门禁，再发出 6202；这样
+		// 即使进程在发送后、回包落库前退出，下一次请求也只会走 6301 查单。
+		const claimed = await this.dependencies.orders.applySettlement(
+			order.medicalOrderId,
+			order.version,
+			{
+				status: "awaiting_confirmation",
+				ordStas: order.ordStas,
+				amounts: order.amounts,
+				setlType: order.setlType,
+				revsTokenHash: order.revsTokenHash,
+				revsTokenExpiresAt: order.revsTokenExpiresAt,
+				...businessPatch(order),
+			},
+		);
+		if (!claimed) {
+			const latest = await this.order(ownerUserId, orderId);
+			if (
+				latest.status === "order_placed" ||
+				latest.status === "awaiting_confirmation"
+			) {
+				await this.enqueueQueryTask(latest.medicalOrderId);
+				return output(latest);
+			}
+			if (latest.status !== "fee_uploaded") return output(latest);
+			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		}
+		// 查单任务也必须先于外部写入持久化；否则用户退出且 API 进程恰好在
+		// 6202 发送后崩溃时，既没有回包状态，也没有后台任务能够主动收敛。
+		await this.enqueueQueryTask(claimed.medicalOrderId);
 		this.logger.info(
 			{
 				event: "medical-insurance.settlement.requested",
@@ -215,21 +252,29 @@ export class MedicalInsurancePaymentCore {
 			},
 			"Medical insurance settlement requested",
 		);
-		const result = await this.dependencies.medicalInsurance.settle(
-			{
-				orderId,
-				ownerUserId,
-				authorizationId: order.authorizationId,
-				feeUploadId: order.feeUploadId,
-				mdtrtId: order.mdtrtId ?? "",
-				acctUsedFlag: order.acctUsedFlag ?? "",
-			},
-			context,
-		);
+		let result: Awaited<ReturnType<MedicalInsuranceGateway["settle"]>>;
+		try {
+			result = await this.dependencies.medicalInsurance.settle(
+				{
+					orderId,
+					ownerUserId,
+					authorizationId: order.authorizationId,
+					feeUploadId: order.feeUploadId,
+					mdtrtId: claimed.mdtrtId ?? "",
+					acctUsedFlag: claimed.acctUsedFlag ?? "",
+				},
+				context,
+			);
+		} catch (error) {
+			// 请求抛错并不能证明 6202 没有到达医保中心。订单已在调用前进入
+			// awaiting_confirmation，保留同一查单任务和原始异常给调用方。
+			await this.enqueueQueryTask(claimed.medicalOrderId);
+			throw error;
+		}
 		const amounts = assertValidMedicalInsuranceAmounts(result.amounts);
 		const updated = await this.dependencies.orders.applySettlement(
-			order.medicalOrderId,
-			order.version,
+			claimed.medicalOrderId,
+			claimed.version,
 			{
 				status: result.state,
 				ordStas: result.providerStatus,
@@ -237,13 +282,19 @@ export class MedicalInsurancePaymentCore {
 				setlType: amounts.cashFen > 0 ? "CASH" : "ALL",
 				revsTokenHash: null,
 				revsTokenExpiresAt: null,
-				...businessPatch(order),
+				...businessPatch(claimed),
 			},
 		);
-		if (!updated)
-			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		if (!updated) {
+			// 6302/6301 可能先于 6202 HTTP 回包完成并更新同一订单。此时以最新
+			// 服务端事实为准，不能把一次 CAS 竞争误报成可重新提交 6202。
+			const latest = await this.order(ownerUserId, orderId);
+			if (needsMedicalInsuranceQuery(result.finality))
+				await this.enqueueQueryTask(latest.medicalOrderId);
+			return output(latest);
+		}
 		if (needsMedicalInsuranceQuery(result.finality))
-			await this.enqueueQueryTask(order.medicalOrderId);
+			await this.enqueueQueryTask(claimed.medicalOrderId);
 		this.logger.info(
 			{
 				event: "medical-insurance.settlement.completed",
@@ -272,6 +323,12 @@ export class MedicalInsurancePaymentCore {
 		if (isTerminalMedicalOrderStatus(order.status)) {
 			return output(order);
 		}
+		if (!order.amounts) {
+			// 6202 回包落库前中断时，6301 的公共证据只有医保合计，无法还原
+			// 基金/个账等 6202 分项。禁止把合计全部猜成个人账户后写回；保留
+			// awaiting_confirmation，由 Worker 在短暂等待后转人工核对原报文。
+			return output(order);
+		}
 		const result = await this.dependencies.medicalInsurance.query(
 			{
 				orderId,
@@ -284,12 +341,11 @@ export class MedicalInsurancePaymentCore {
 			// 后置 .32 的公共 PaymentAmounts 只保留总额/现金/医保合计；6202 已经
 			// 确认的医院负担、个账细分等事实必须从订单原样带过，不能在后置
 			// 时重建成 0，否则后续高平优惠分项会被错误判成未映射。
-			...(order.amounts ?? {}),
+			...order.amounts,
 			totalFen: result.amounts.totalFen,
 			cashFen: result.amounts.cashFen,
-			personalAccountFen:
-				order.amounts?.personalAccountFen ?? result.amounts.insuranceFen,
-			fundFen: order.amounts?.fundFen ?? 0,
+			personalAccountFen: order.amounts.personalAccountFen,
+			fundFen: order.amounts.fundFen,
 		});
 		const updated = await this.dependencies.orders.applySettlement(
 			order.medicalOrderId,

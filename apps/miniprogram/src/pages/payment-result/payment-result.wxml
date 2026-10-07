@@ -1,7 +1,7 @@
 <scroll-view class="payment-result-scroll" scroll-y="true" enhanced="true">
 	<view class="payment-result-page">
-		<view class="result-hero">
-			<view class="success-icon">✓</view>
+		<view class="result-hero {{resultState === 'success' ? 'result-hero-success' : 'result-hero-confirming'}}">
+			<view class="result-icon">{{resultState === 'success' ? '✓' : '…'}}</view>
 			<text class="success-title">{{title}}</text>
 			<text class="success-subtitle">{{subtitle}}</text>
 		</view>

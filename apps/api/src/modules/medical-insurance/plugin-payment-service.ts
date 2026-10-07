@@ -1078,6 +1078,7 @@ export class MedicalInsurancePluginPaymentService {
 
 	private registrationContext(
 		settlement: MedicalInsuranceSettlementContext,
+		platformOrderId: string,
 	): RegistrationSelfPaySettlementContext {
 		const plugin = settlement.plugin;
 		if (!plugin)
@@ -1111,6 +1112,7 @@ export class MedicalInsurancePluginPaymentService {
 			payTypeId: plugin.payTypeId,
 			payType: plugin.payType,
 			workStationId: plugin.workStationId,
+			platformOrderId,
 			...(plugin.thirdPartPayRecordId
 				? { thirdPartPayRecordId: plugin.thirdPartPayRecordId }
 				: {}),
@@ -1145,7 +1147,10 @@ export class MedicalInsurancePluginPaymentService {
 					cashFen: paymentOrder.amounts.cashFen,
 					trace: [],
 				},
-				registrationContext: this.registrationContext(settlement),
+				registrationContext: this.registrationContext(
+					settlement,
+					medicalOrder.medicalOrderId,
+				),
 				onThirdPartPayResponse: async ({
 					rawResponse,
 					thirdPartPayRecordId,

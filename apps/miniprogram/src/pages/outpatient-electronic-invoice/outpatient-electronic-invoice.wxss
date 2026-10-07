@@ -194,6 +194,23 @@ page {
 	line-height: 1;
 }
 
-.invoice-issue-button::after {
+.invoice-view-button {
+	box-sizing: border-box;
+	display: flex;
+	width: 100%;
+	height: 84rpx;
+	margin-top: 22rpx;
+	align-items: center;
+	justify-content: center;
+	border: 1rpx solid #3d6df6;
+	border-radius: 42rpx;
+	background: #f5f8ff;
+	color: #2f63e6;
+	font-size: 28rpx;
+	line-height: 1;
+}
+
+.invoice-issue-button::after,
+.invoice-view-button::after {
 	border: 0;
 }

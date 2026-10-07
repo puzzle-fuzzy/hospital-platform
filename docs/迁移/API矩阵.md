@@ -72,6 +72,7 @@
 | 旧路径 | 目标边界 | 关键规则 | 状态 |
 | --- | --- | --- | --- |
 | `POST /common/mip-user-query` | `POST /api/v1/payments/insurance/authorization` | 授权码只在服务端兑换；不把 provider 凭证返回小程序 | 服务端已实现；配置、schema 和 provider/真机验收后才开放 |
+| 新平台医保按钮无本地缓存恢复 | `POST /api/v2/payments/medical-insurance/business-recovery` | 每次点击按 owner + 业务键 + 患者查询唯一活动订单；首次建单由 owner 行锁事务原子认领，确认窗口后同单由版本 CAS 抢占；客户端不保存医保 pending 或按钮门禁，多笔活动订单/人工复核/失败状态均 fail-closed | contract、API、小程序和仓储原子 claim 已实现；真实 MySQL 多进程、Provider 中断、进程重启和真机连续点击证据待验收 |
 | `POST /common/mbs-fsi/1101` | `MedicalInsuranceGateway` 内部授权解析 | 只允许由支付编排服务调用；参保信息只在服务端上下文内使用 | 服务端已实现；配置、schema 和 provider验收后才开放 |
 | `POST /common/mbs-fsi/6201` | `MedicalInsuranceGateway.uploadFees` | 费用明细必须来自真实结算信息 | 服务端已实现；配置、schema 和 provider验收后才开放 |
 | `POST /common/mbs-fsi/6202` | `MedicalInsuranceGateway.settle` | 6202 返回的医保订单与金额必须落库 | 服务端已实现；配置、schema 和 provider验收后才开放 |

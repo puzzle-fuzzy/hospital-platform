@@ -240,6 +240,23 @@ function positiveIntegerText(value: unknown, label: string): string {
 	return normalized;
 }
 
+/**
+ * 2.27.2.29 的记录关联号既兼容历史 HIS 数字流水，也兼容 HIS 回显的平台
+ * medicalOrderId。大整数仍要求以字符串返回，避免 JSON number 精度丢失。
+ */
+function thirdPartPayRecordReference(value: unknown, label: string): string {
+	if (typeof value === "number") {
+		if (!Number.isSafeInteger(value) || value <= 0) {
+			throw providerError(THIRD_PART_OPERATION, `${label} is invalid`, {
+				failureStage: "validation",
+				requestOutcome: "not_sent",
+			});
+		}
+		return String(value);
+	}
+	return requiredText(value, label, 128);
+}
+
 function normalizedAuthorization(
 	value: string | undefined,
 ): string | undefined {
@@ -992,12 +1009,17 @@ export function createYunhealthRegistrationSettlementGateway(
 
 			if (!ordinarySelfPay) {
 				const thirdPartPayRecordId = registrationContext?.thirdPartPayRecordId
-					? positiveIntegerText(
+					? thirdPartPayRecordReference(
 							registrationContext.thirdPartPayRecordId,
 							"thirdPartPayRecordId",
 						)
 					: undefined;
 				if (!thirdPartPayRecordId) {
+					const platformOrderId = requiredText(
+						registrationContext?.platformOrderId,
+						"platformOrderId",
+						128,
+					);
 					await input.onThirdPartPayAttempt?.();
 					const thirdPart = await request<unknown>(
 						"2.27.2.29",
@@ -1020,6 +1042,7 @@ export function createYunhealthRegistrationSettlementGateway(
 							psnNo: normalizedContext.psnNo,
 							sceneCode: "OUT",
 							settleId: normalizedContext.businessId,
+							thirdPartPayRecordId: platformOrderId,
 							tradingId: normalizedContext.tradingId,
 							transStatus: "0",
 						},
@@ -1031,7 +1054,7 @@ export function createYunhealthRegistrationSettlementGateway(
 						context,
 						options.logger,
 					);
-					const resolvedThirdPartPayRecordId = positiveIntegerText(
+					const resolvedThirdPartPayRecordId = thirdPartPayRecordReference(
 						nestedValue(thirdPart.data, [
 							"thirdPartPayRecordId",
 							"third_part_pay_record_id",

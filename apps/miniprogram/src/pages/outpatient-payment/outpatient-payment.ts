@@ -7,11 +7,6 @@ import {
 	loadOutpatientPaymentRecords,
 } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
-import {
-	clearPendingPayment,
-	readPendingPayment,
-	startOutpatientMedicalPayment,
-} from "../../services/medical-insurance";
 import { startOutpatientSelfPay } from "../../services/outpatient-self-pay";
 import {
 	disposePageInstance,
@@ -99,10 +94,6 @@ type OutpatientPaymentPageState = OutpatientPaymentPageData & {
 	paymentBusy: PaymentBusyKind;
 };
 
-type MedicalApp = {
-	globalData: { medicalInsuranceAuthCode: string };
-};
-
 type OutpatientPaymentPageMethods = {
 	loadPage(): Promise<void>;
 	loadRecords(
@@ -127,7 +118,6 @@ type OutpatientPaymentPageMethods = {
 		record: OutpatientPaymentRecordView,
 		patientId: string,
 	): Promise<void>;
-	resumePendingMedicalPayment(): Promise<void>;
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
@@ -139,40 +129,22 @@ type OutpatientPaymentPageMethods = {
 	isPatientContextCurrent(): boolean;
 };
 
-let resumingOutpatientPayment = false;
-
 function paymentResultUrl(
 	patientId: string,
 	recordId: string,
 	channel: PaymentMethod,
-	options?: { orderId?: string; totalFen?: number },
+	options?: { orderId?: string },
 ): string {
 	const orderId = options?.orderId
 		? `&orderId=${encodeURIComponent(options.orderId)}`
 		: "";
-	const totalFen =
-		options?.totalFen !== undefined
-			? `&totalFen=${encodeURIComponent(String(options.totalFen))}`
-			: "";
-	return `/pages/payment-result/payment-result?business=outpatient&channel=${channel}&patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(recordId)}${orderId}${totalFen}`;
+	return `/pages/payment-result/payment-result?business=outpatient&channel=${channel}&patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(recordId)}${orderId}`;
 }
 
 function showPaymentToast(message: string): void {
 	const title = message.replace(/\s+/gu, " ").trim().slice(0, 32);
 	if (!title) return;
 	wx.showToast({ title, icon: "none", duration: 2600 });
-}
-
-function isPendingForRecord(
-	pending: ReturnType<typeof readPendingPayment>,
-	patientId: string,
-	recordId: string,
-): boolean {
-	return Boolean(
-		pending?.businessType === "outpatient" &&
-			pending.patientId === patientId &&
-			pending.recordId === recordId,
-	);
 }
 
 Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
@@ -231,40 +203,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 			this.setData({ hasShown: true });
 			return;
 		}
-		void this.resumePendingMedicalPayment();
 		this.loadPage();
-	},
-
-	/** 医保小程序回跳后立即进入结算页，由结算页展示并继续处理接口进度。 */
-	async resumePendingMedicalPayment(): Promise<void> {
-		if (resumingOutpatientPayment) return;
-		const pending = readPendingPayment();
-		const app = getApp<MedicalApp>();
-		const authCode = String(
-			app?.globalData?.medicalInsuranceAuthCode || "",
-		).trim();
-		if (
-			!authCode ||
-			!pending ||
-			pending.businessType !== "outpatient" ||
-			!pending.recordId
-		) {
-			if (authCode && app?.globalData)
-				app.globalData.medicalInsuranceAuthCode = "";
-			return;
-		}
-		resumingOutpatientPayment = true;
-		wx.navigateTo({
-			url: "/pages/outpatient-medical-settlement/outpatient-medical-settlement",
-			fail: () => {
-				resumingOutpatientPayment = false;
-				if (app?.globalData) app.globalData.medicalInsuranceAuthCode = authCode;
-				showPaymentToast("结算页面打开失败，请稍后重试");
-			},
-			success: () => {
-				resumingOutpatientPayment = false;
-			},
-		});
 	},
 
 	/** 先确认当前患者归属，再读取门诊费用，避免把临床患者映射交给页面。 */
@@ -564,42 +503,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 			event.currentTarget?.dataset?.viewKey,
 		);
 		const patientId = this.data.selectedPatient?.id;
-		if (!record || record.status !== "unpaid" || !patientId) return;
-		const pending = readPendingPayment();
-		if (isPendingForRecord(pending, patientId, record.recordId)) {
-			if (
-				pending?.phase === "medical_cash_required" ||
-				pending?.phase === "cash_payment"
-			) {
-				wx.navigateTo({
-					url: "/pages/outpatient-medical-settlement/outpatient-medical-settlement",
-				});
-				return;
-			}
-			if (pending?.phase === "authorization") {
-				const app = getApp<MedicalApp>();
-				const authCode = String(
-					app?.globalData?.medicalInsuranceAuthCode || "",
-				).trim();
-				if (authCode) {
-					// 回跳结果已经到达但 onShow 尚未完成恢复时，直接把同一
-					// 个授权上下文交给结算页，避免点击事件与生命周期竞争。
-					void this.resumePendingMedicalPayment();
-					return;
-				}
-				if (pending.orderId) {
-					// 已有服务端订单时不能覆盖本地上下文并创建第二笔订单。
-					wx.showToast({
-						title: "上一笔医保订单正在处理中，请稍后再试",
-						icon: "none",
-					});
-					return;
-				}
-				// 只有本地授权尚未换成服务端订单的残留上下文，才允许
-				// 重新打开支付方式并发起一次全新的医保授权。
-				clearPendingPayment();
-			}
-		}
+		if (record?.status !== "unpaid" || !patientId) return;
 		this.setData({
 			paymentSheetVisible: true,
 			paymentRecord: record,
@@ -659,20 +563,11 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 				: "正在准备微信支付",
 		);
 		if (method === "medical") {
-			try {
-				await startOutpatientMedicalPayment(
-					record.recordId,
-					patientId,
-					(_stage, message) => showPaymentToast(message),
-					"mixed",
-				);
-			} catch (error) {
-				showPaymentToast(
-					errorMessageWithCode(error, "门诊医保支付未完成，请稍后重试"),
-				);
-			} finally {
-				this.setData({ paymentBusy: "" });
-			}
+			wx.navigateTo({
+				url: `/pages/outpatient-medical-settlement/outpatient-medical-settlement?patientId=${encodeURIComponent(patientId)}&recordId=${encodeURIComponent(record.recordId)}&start=1`,
+				fail: () => showPaymentToast("结算页面打开失败，请稍后重试"),
+				complete: () => this.setData({ paymentBusy: "" }),
+			});
 			return;
 		}
 		try {
@@ -684,7 +579,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 			if (result.data.status === "cash_paid") {
 				wx.redirectTo({
 					url: paymentResultUrl(patientId, record.recordId, "wechat", {
-						totalFen: result.data.totalFen,
+						orderId: result.data.orderId,
 					}),
 				});
 			}

@@ -6,6 +6,7 @@ import {
 	type PaymentSyncRepository,
 	type PaymentSyncSource,
 	type PaymentSyncTask,
+	type PaymentSyncTaskClaimQuery,
 } from "./payment-sync";
 
 export type PaymentSyncObservation = {
@@ -141,8 +142,19 @@ export class PaymentSyncCoordinator {
 		now: Date,
 		limit = 20,
 		leaseMs = 60_000,
+		query: PaymentSyncTaskClaimQuery = {},
 	): Promise<readonly PaymentSyncTask[]> {
-		return this.dependencies.repository.claimDueTasks(now, limit, leaseMs);
+		const businessKeyPrefix = query.businessKeyPrefix
+			? assertPaymentSyncIdentifier(
+					query.businessKeyPrefix,
+					"businessKeyPrefix",
+				)
+			: undefined;
+		return this.dependencies.repository.claimDueTasks(now, limit, leaseMs, {
+			...(query.source ? { source: query.source } : {}),
+			...(query.kind ? { kind: query.kind } : {}),
+			...(businessKeyPrefix ? { businessKeyPrefix } : {}),
+		});
 	}
 
 	async recordObservation(input: {
@@ -235,6 +247,29 @@ export class PaymentSyncCoordinator {
 				lastErrorCode: boundedReason(input.reasonCode),
 				version: input.task.version + 1,
 				nextRunAt: input.nextRunAt ?? now,
+				updatedAt: now,
+			},
+			input.task.version,
+		);
+	}
+
+	async markManualReview(input: {
+		task: PaymentSyncTask;
+		reasonCode: string;
+	}): Promise<PaymentSyncTask> {
+		if (input.task.status !== "in_progress") {
+			throw new Error("Payment sync task is not claimed");
+		}
+		const now = this.now().toISOString();
+		return this.dependencies.repository.updateTask(
+			{
+				...input.task,
+				status: "manual_review",
+				attempts: input.task.attempts + 1,
+				claimedUntil: null,
+				lastErrorCode: boundedReason(input.reasonCode),
+				version: input.task.version + 1,
+				nextRunAt: now,
 				updatedAt: now,
 			},
 			input.task.version,

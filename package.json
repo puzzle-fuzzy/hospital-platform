@@ -22,6 +22,7 @@
 		"error:contract:audit": "bun tools/error-contract-audit.mjs",
 		"env:template:audit": "bun tools/env-template-audit.mjs",
 		"health:source:audit": "bun tools/health-knowledge-source-audit.mjs",
+		"his-refund:fixture": "bun apps/api/scripts/his-refund-local-fixture.ts",
 		"health:quality:findings": "bun tools/health-knowledge-quality-findings.mjs",
 		"health:remediation:ledger": "bun tools/health-knowledge-remediation-ledger.mjs",
 		"health:review:queue": "bun tools/health-knowledge-review-queue.mjs",

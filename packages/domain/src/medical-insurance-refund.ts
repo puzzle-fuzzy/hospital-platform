@@ -1,5 +1,5 @@
-import type { AdapterCallContext } from "./ports";
-import type { ExternalTrace } from "./ports";
+import type { AdapterCallContext, ExternalTrace } from "./ports";
+import type { WechatRefund } from "./wechat-refund";
 
 export type MedicalInsuranceRefundType = "ALL" | "CASH" | "HI";
 
@@ -63,6 +63,50 @@ export type MedicalInsuranceRefundRepository = {
 		expectedVersion: number,
 	): Promise<MedicalInsuranceRefund | undefined>;
 };
+
+export type MedicalInsuranceRefundWechatProjection = Pick<
+	MedicalInsuranceRefund,
+	"wechatStatus" | "status" | "lastErrorCode"
+>;
+
+/**
+ * 微信现金腿的状态只从本地微信退款台账投影，聚合服务和后台 Worker 共用。
+ * unknown/processing 仍是可主动查单的非终态；CLOSED/ABNORMAL/明确申请失败
+ * 会形成医保已退、现金未退的部分成功，必须进入人工复核。
+ */
+export function projectMedicalInsuranceWechatRefund(
+	refund: WechatRefund,
+): MedicalInsuranceRefundWechatProjection {
+	if (refund.status === "success") {
+		return {
+			wechatStatus: "success",
+			status: "succeeded",
+			lastErrorCode: null,
+		};
+	}
+	if (
+		refund.status === "requested" ||
+		refund.status === "processing" ||
+		refund.status === "unknown"
+	) {
+		return {
+			wechatStatus: refund.status === "unknown" ? "unknown" : "processing",
+			status: "processing",
+			lastErrorCode: refund.lastErrorCode,
+		};
+	}
+	return {
+		wechatStatus: "failed",
+		status: "manual_review",
+		lastErrorCode:
+			refund.lastErrorCode ??
+			(refund.status === "closed"
+				? "wechat-refund-closed"
+				: refund.status === "abnormal"
+					? "wechat-refund-abnormal"
+					: "wechat-refund-request-failed"),
+	};
+}
 
 /** 6203 的窄端口；原始授权号只在构造 payload 的服务端调用栈内出现。 */
 export type MedicalInsuranceRefundGateway = {

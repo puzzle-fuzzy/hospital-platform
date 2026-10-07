@@ -143,6 +143,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 幂等键可选 | 服务端幂等调用 HIS `.5` 并返回 `awaiting_confirmation`、`cash_paid` 或 `failed`；只有 `isSettle=1` 才完成，调起成功不代表支付完成 |
 | `GET` | `/api/v2/payments/medical-insurance/appointments/{appointmentId}/authorization-context` | Bearer + 幂等键可选 | 按预约锁定的就诊人返回医保授权跳转上下文；本人只返回 `payForRelatives=false`，亲属只额外返回官方格式的 `familyId` 摘要，不返回实名资料 |
 | `POST` | `/api/v2/payments/medical-insurance/authorize` | Bearer + 必填幂等键 | body 为 `{appointmentId, authCode}`；授权码只在服务端调用医保授权 adapter，成功后返回服务端 `orderId` |
+| `POST` | `/api/v2/payments/medical-insurance/business-recovery` | Bearer；幂等键可选 | 医保授权、结算和支付按钮每次点击前都提交当前 `businessType`、`businessId`、`patientId`，由服务端按 owner 返回唯一活动订单、`authorizationReady/authorizationPending`、金额和是否允许恢复。首次创建由仓储事务串行认领，短暂授权确认窗口只允许查询、不再次展码，窗口后同单仍以版本 CAS 抢占；本地 storage 不参与门禁，多笔活动订单、失败或人工复核会显式拒绝继续 |
 | `GET` | `/api/v2/payments/medical-insurance/outpatient-records/{recordId}/authorization-context` | Bearer + 幂等键可选 | 必填 query `patientId`；服务端重新确认该门诊待缴记录属于当前就诊人，再返回本人/亲属医保授权跳转上下文，不返回 Provider 订单号或实名资料 |
 | `POST` | `/api/v2/payments/medical-insurance/outpatient/authorize` | Bearer + 必填幂等键 | body 为 `{recordId, patientId, authCode}`；服务端重新调用门诊 2.6.33 解析 `outTradeOrderIds`，创建 `DiagPay` 医保订单并返回服务端 `orderId`；后续费用、结算、微信支付与挂号共用订单命令 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/fees` | Bearer + 必填幂等键 | 从挂号预约或门诊待缴记录读取服务端金额和患者映射；门诊订单重新使用 2.6.33 的 `outTradeOrderIds`，统一执行医保费用上传 |

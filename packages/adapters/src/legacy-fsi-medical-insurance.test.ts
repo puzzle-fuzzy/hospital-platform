@@ -674,7 +674,10 @@ test("历史 5031 门诊医保合单只调用一次 .32 和一次 .5", async () 
 		hospitalId: "10389001",
 		patientId: "patient-outpatient-split-001",
 		networkRegister: {},
-		outNetworkSettleMain: { settleSource: 4001 },
+		outNetworkSettleMain: {
+			settleBackNo: "stale-settlement-back-no",
+			settleSource: 4001,
+		},
 		nationalUpDetailList: [],
 		upDetailList: [{ detailId: "detail-outpatient-split-001" }],
 		tradeOrderIds: ["trade-outpatient-split-001"],
@@ -784,11 +787,126 @@ test("历史 5031 门诊医保合单只调用一次 .32 和一次 .5", async () 
 		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
 	expect(providerBodies[0]?.outNetworkSettleMain).toMatchObject({
+		settleBackNo: "medical-order-outpatient-split-001",
 		transId: "paying-outpatient-combined-001",
 	});
 	expect(settlementContext.settlementCompletion?.status).toBe("succeeded");
 	expect(settlementContext.selfPaySettlementWriteback).toBeUndefined();
 	expect(settlementContext.selfPaySettlementCompletion).toBeUndefined();
+});
+
+test("历史拆分支付的两次 .32 都回传平台 orderId 到 settleBackNo", async () => {
+	const medicalOrder = {
+		medicalOrderId: "medical-order-legacy-split-001",
+		ownerUserId: "user-legacy-split-001",
+		businessType: "outpatient",
+		payOrdId: "pay-order-legacy-split-001",
+		amounts: {
+			totalFen: 100,
+			cashFen: 20,
+			personalAccountFen: 0,
+			fundFen: 80,
+		},
+	} as MedicalInsuranceOrder;
+	let settlementContext: MedicalInsuranceSettlementContext = {
+		businessId: "business-legacy-split-001",
+		hospitalId: "hospital-legacy-split-001",
+		patientId: "patient-legacy-split-001",
+		insuredAreaCode: "140581",
+		networkRegister: {},
+		outNetworkSettleMain: { settleSource: 4003 },
+		nationalUpDetailList: [],
+		upDetailList: [{ detailId: "detail-legacy-split-001" }],
+		tradeOrderIds: ["trade-legacy-split-001"],
+		postPaymentCompletedAt: "2026-09-29T00:00:00.000Z",
+		postPaymentComponents: [
+			{
+				componentId: "medical-order-legacy-split-001:medical",
+				kind: "medical",
+				totalFen: 100,
+				amountFen: 80,
+				payModel: "H5",
+				payTypeId: "2",
+				recordCode: "record-legacy-medical-001",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "paying-legacy-medical-001",
+				tradingId: "trading-legacy-medical-001",
+				updatedAt: "2026-09-29T00:00:00.000Z",
+			},
+			{
+				componentId: "medical-order-legacy-split-001:wechat-cash",
+				kind: "wechat_cash",
+				totalFen: 100,
+				amountFen: 20,
+				payModel: "H5",
+				payTypeId: "5031",
+				recordCode: "record-legacy-wechat-001",
+				state: "succeeded",
+				attempts: 1,
+				payingId: "paying-legacy-wechat-001",
+				tradingId: "trading-legacy-wechat-001",
+				updatedAt: "2026-09-29T00:00:00.000Z",
+			},
+		],
+	};
+	const notifyBodies: Record<string, unknown>[] = [];
+	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		legacyFsi: {} as never,
+		orders: {
+			findByMedicalOrderId: async () => medicalOrder,
+			getSettlementContext: async () => settlementContext,
+			saveSettlementContext: async (
+				_owner: string,
+				_orderId: string,
+				next: MedicalInsuranceSettlementContext,
+			) => {
+				settlementContext = next;
+			},
+		} as never,
+		authorizations: {} as never,
+		credentials: {} as never,
+		relayUrl: "https://relay.example",
+		relayAuthorizationToken: "synthetic-token",
+		foundationBaseUrl: "https://foundation.example",
+		zhongyangBaseUrl: "https://zhongyang.example",
+		fetcher: async (input, init) => {
+			const path = new URL(String(input)).pathname;
+			if (
+				path.endsWith("/settle-info/notify") &&
+				typeof init?.body === "string"
+			) {
+				notifyBodies.push(JSON.parse(init.body) as Record<string, unknown>);
+			}
+			const data = path.endsWith("/settle-info/notify")
+				? { success: true, data: { insur: "SUCCESS", settle: "SUCCESS" } }
+				: { success: true, data: { isSettle: 1 } };
+			return new Response(JSON.stringify(data), {
+				status: 200,
+				headers: { "content-type": "application/json" },
+			});
+		},
+	});
+
+	const result = await gateway.query(
+		{
+			orderId: medicalOrder.medicalOrderId,
+			ownerUserId: medicalOrder.ownerUserId,
+			cashPaymentConfirmed: true,
+		},
+		context,
+	);
+
+	expect(result).toMatchObject({
+		state: "insurance_settled",
+		authoritative: true,
+	});
+	expect(notifyBodies).toHaveLength(2);
+	for (const notifyBody of notifyBodies) {
+		expect(notifyBody.outNetworkSettleMain).toMatchObject({
+			settleBackNo: medicalOrder.medicalOrderId,
+		});
+	}
 });
 
 test(".32 失败后不重复提交同一结算 ID", async () => {
@@ -1229,6 +1347,7 @@ async function assertSequencedRegistrationMedicalWriteback(
 		request.path.endsWith("/settle-info/notify"),
 	)?.body;
 	expect(notifyBody?.outNetworkSettleMain).toMatchObject({
+		settleBackNo: "medical-order-sequence-001",
 		transId: "paying-sequence-001",
 		fixmedinsCode: "H14058101270",
 		fixmedinsName: "高平市人民医院",
@@ -1243,6 +1362,7 @@ async function assertSequencedRegistrationMedicalWriteback(
 	expect(notifyBodies[0]).toMatchObject({
 		tradingId: "trading-sequence-001",
 		outNetworkSettleMain: {
+			settleBackNo: "medical-order-sequence-001",
 			transId: "paying-sequence-001",
 			settleSource: 4003,
 		},

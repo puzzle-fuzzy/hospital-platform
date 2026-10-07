@@ -43,7 +43,10 @@
 					<text class="invoice-label">发票号码</text>
 					<text class="invoice-value">{{item.billNo}}</text>
 				</view>
-				<view wx:if="{{item.issueState === 'issued'}}" class="invoice-issued-hint">电子票据已生成；票据影像以医院电子票据平台返回结果为准。</view>
+				<block wx:if="{{item.issueState === 'issued'}}">
+					<view class="invoice-issued-hint">电子票据已生成；票据影像以医院电子票据平台返回结果为准。</view>
+					<button class="invoice-view-button" bindtap="onView" data-view-key="{{item.viewKey}}">查看电子票据</button>
+				</block>
 				<button
 					wx:else
 					class="invoice-issue-button"

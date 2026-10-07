@@ -22,9 +22,9 @@ import type {
 	MyDoctorDeletePayload,
 	MyDoctorListPayload,
 	MyDoctorResponsePayload,
-	OutpatientMedicalRecordListPayload,
 	OutpatientElectronicInvoiceIssuePayload,
 	OutpatientElectronicInvoiceListPayload,
+	OutpatientMedicalRecordListPayload,
 	OutpatientPaymentDetailPayload,
 	OutpatientPaymentListPayload,
 	OutpatientSelfPayPayload,
@@ -189,6 +189,8 @@ export type OutpatientElectronicInvoiceView = OutpatientElectronicInvoice & {
 	viewKey: string;
 	/** 已开具成功的本地结果在下一次列表刷新前仍需保持不可重复开具。 */
 	issueState: "ready" | "issued";
+	/** 2.6.29 开票成功时返回的票据二维码，仅驻留在当前页面内供用户查看。 */
+	billQrCode?: string;
 	amountLabel?: string;
 };
 export type OutpatientElectronicInvoicePageData = {

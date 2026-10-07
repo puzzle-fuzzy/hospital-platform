@@ -1,19 +1,26 @@
 import {
-	type MedicalPaymentAmounts,
+	queryAppointmentSelfPay,
+	queryOutpatientSelfPay,
+} from "../../services/api-client";
+import {
+	type MedicalBusinessRecovery,
+	type MedicalOrder,
+	queryMedicalBusinessRecovery,
 	queryMedicalOrder,
-	readLastMedicalPaymentResult,
 } from "../../services/medical-insurance";
 
 const HOSPITAL_NAME = "高平市人民医院";
 
 type PaymentBusiness = "registration" | "outpatient";
 type PaymentChannel = "medical" | "wechat";
+type PaymentResultState = "confirming" | "success";
 
 type PaymentResultPageData = {
 	business: PaymentBusiness;
 	channel: PaymentChannel;
 	businessLabel: string;
 	channelLabel: string;
+	resultState: PaymentResultState;
 	title: string;
 	subtitle: string;
 	hospitalName: string;
@@ -33,10 +40,19 @@ type PaymentResultPageData = {
 type PaymentResultPageMethods = {
 	onViewDetail(): void;
 	onBackHome(): void;
-	loadAmounts(
-		orderId: string,
-		fallbackAmounts?: MedicalPaymentAmounts,
-	): Promise<void>;
+	loadMedicalResult(input: {
+		business: PaymentBusiness;
+		patientId: string;
+		appointmentId: string;
+		recordId: string;
+		orderId: string;
+	}): Promise<void>;
+	loadWechatResult(input: {
+		business: PaymentBusiness;
+		patientId: string;
+		appointmentId: string;
+		recordId: string;
+	}): Promise<void>;
 };
 
 type PaymentResultRouteOptions = {
@@ -46,7 +62,6 @@ type PaymentResultRouteOptions = {
 	appointmentId?: string;
 	recordId?: string;
 	orderId?: string;
-	totalFen?: string;
 };
 
 function decode(value: string | undefined): string {
@@ -70,37 +85,8 @@ function safeReference(value: string | undefined, max = 128): string {
 	return decoded;
 }
 
-function parseFen(value: string | undefined): number | undefined {
-	const normalized = safeReference(value, 16);
-	if (!/^\d+$/u.test(normalized)) return undefined;
-	const amount = Number(normalized);
-	return Number.isSafeInteger(amount) && amount > 0 ? amount : undefined;
-}
-
 function formatFen(value: number): string {
 	return `${(value / 100).toFixed(2)}元`;
-}
-
-function matchesPaymentResult(
-	result: ReturnType<typeof readLastMedicalPaymentResult>,
-	business: PaymentBusiness,
-	patientId: string,
-	appointmentId: string,
-	recordId: string,
-): result is NonNullable<ReturnType<typeof readLastMedicalPaymentResult>> {
-	// 门诊结果页的业务引用是 recordId，路由不会额外携带 appointmentId；
-	// 兼容旧版本地结果把门诊 recordId 写入 appointmentId 的情况。
-	const matchesBusinessReference =
-		business === "outpatient"
-			? result?.recordId === recordId || result?.appointmentId === recordId
-			: result?.appointmentId === appointmentId;
-	return Boolean(
-		result &&
-			result.patientId === patientId &&
-			matchesBusinessReference &&
-			(!result.businessType || result.businessType === business) &&
-			patientId,
-	);
 }
 
 function isBusiness(value: string): value is PaymentBusiness {
@@ -136,6 +122,7 @@ function emptyData(): PaymentResultPageData {
 		business: "registration",
 		channel: "medical",
 		...labels("registration", "medical"),
+		resultState: "confirming",
 		hospitalName: HOSPITAL_NAME,
 		patientId: "",
 		appointmentId: "",
@@ -168,73 +155,154 @@ Page<PaymentResultPageData, PaymentResultPageMethods>({
 		const patientId = safeReference(options?.patientId);
 		const appointmentId = safeReference(options?.appointmentId, 64);
 		const recordId = safeReference(options?.recordId);
-		const storedResult = readLastMedicalPaymentResult();
-		const matchingStoredResult = matchesPaymentResult(
-			storedResult,
-			businessValue,
-			patientId,
-			appointmentId,
-			recordId,
-		)
-			? storedResult
-			: null;
-		const orderId =
-			safeReference(options?.orderId, 64) ||
-			matchingStoredResult?.orderId ||
-			"";
-		const routeTotalFen = parseFen(options?.totalFen);
-		const routeAmounts =
-			routeTotalFen === undefined
-				? undefined
-				: {
-						totalFen: routeTotalFen,
-						insuranceFen: 0,
-						cashFen: routeTotalFen,
-					};
-		const fallbackAmounts =
-			(channelValue === "wechat" ? routeAmounts : undefined) ??
-			matchingStoredResult?.amounts ??
-			routeAmounts;
+		const orderId = safeReference(options?.orderId, 64);
 		const detail = labels(businessValue, channelValue);
+		const hasBusinessDetail =
+			Boolean(patientId) &&
+			(businessValue === "registration"
+				? Boolean(appointmentId)
+				: Boolean(recordId));
 		this.setData({
 			business: businessValue,
 			channel: channelValue,
 			...detail,
+			title: `${detail.businessLabel}${detail.channelLabel}结果确认中`,
+			subtitle: "正在查询服务端权威订单状态",
+			resultState: "confirming",
 			patientId,
 			appointmentId,
 			recordId,
 			orderId,
-			hasDetail:
-				Boolean(patientId) &&
-				(businessValue === "registration"
-					? Boolean(appointmentId)
-					: Boolean(recordId)),
-			amountBreakdownVisible: Boolean(fallbackAmounts),
-			amountBreakdownLoading: channelValue === "medical" && Boolean(orderId),
-			...(fallbackAmounts
-				? {
-						totalAmountLabel: formatFen(fallbackAmounts.totalFen),
-						insuranceAmountLabel: formatFen(fallbackAmounts.insuranceFen),
-						cashAmountLabel: formatFen(fallbackAmounts.cashFen),
-					}
-				: {}),
+			// 挂号详情本身会重新查服务端，可在确认中查看；门诊的 paid 详情
+			// 只有医保订单终态成功后才开放，不能用结果页路由提前宣称已缴费。
+			hasDetail: hasBusinessDetail && businessValue === "registration",
+			amountBreakdownVisible: false,
+			amountBreakdownLoading: true,
+			totalAmountLabel: "",
+			insuranceAmountLabel: "",
+			cashAmountLabel: "",
+			amountBreakdownHint: "",
 		});
 		wx.setNavigationBarTitle({ title: "支付结果" });
-		void this.loadAmounts(orderId, fallbackAmounts);
+		if (channelValue === "medical") {
+			void this.loadMedicalResult({
+				business: businessValue,
+				patientId,
+				appointmentId,
+				recordId,
+				orderId,
+			});
+		} else {
+			void this.loadWechatResult({
+				business: businessValue,
+				patientId,
+				appointmentId,
+				recordId,
+			});
+		}
 	},
 
-	async loadAmounts(
-		orderId: string,
-		fallbackAmounts?: MedicalPaymentAmounts,
-	): Promise<void> {
-		if (this.data.channel !== "medical" || !orderId) {
-			this.setData({ amountBreakdownLoading: false });
-			return;
-		}
+	async loadWechatResult(input) {
 		try {
-			const order = await queryMedicalOrder(orderId);
+			const response =
+				input.business === "registration"
+					? await queryAppointmentSelfPay(input.appointmentId)
+					: await queryOutpatientSelfPay(input.recordId, input.patientId);
+			const result = response.data;
+			if (result.status !== "cash_paid") {
+				const failed = result.status === "failed";
+				this.setData({
+					resultState: "confirming",
+					orderId: result.orderId,
+					title: failed
+						? `${this.data.businessLabel}微信支付未完成`
+						: `${this.data.businessLabel}微信支付结果待确认`,
+					subtitle: failed
+						? "服务端确认原订单未支付成功，可返回重新选择支付方式"
+						: "服务端尚未确认全部完成，请返回原支付页面再次查询，勿重复付款",
+					amountBreakdownLoading: false,
+					amountBreakdownVisible: false,
+					amountBreakdownHint: "未取得服务端成功状态，不展示客户端金额",
+					hasDetail:
+						input.business === "registration" && Boolean(input.appointmentId),
+				});
+				return;
+			}
+			const detail = labels(input.business, "wechat");
+			this.setData({
+				...detail,
+				resultState: "success",
+				orderId: result.orderId,
+				hasDetail: true,
+				amountBreakdownVisible: true,
+				amountBreakdownLoading: false,
+				totalAmountLabel: formatFen(result.totalFen),
+				insuranceAmountLabel: formatFen(0),
+				cashAmountLabel: formatFen(result.totalFen),
+				amountBreakdownHint: "",
+			});
+			return;
+		} catch {
+			// 路由参数和旧客户端快照都不能替代服务端查单结果。
+		}
+		this.setData({
+			resultState: "confirming",
+			title: `${this.data.businessLabel}微信支付结果待确认`,
+			subtitle: "暂时无法核实服务端状态，请返回原支付页面再次查询",
+			amountBreakdownLoading: false,
+			amountBreakdownVisible: false,
+			amountBreakdownHint: "未取得服务端权威金额，不展示本地或路由金额",
+		});
+	},
+
+	async loadMedicalResult(input) {
+		try {
+			let order: MedicalOrder | MedicalBusinessRecovery | null = input.orderId
+				? await queryMedicalOrder(input.orderId)
+				: null;
+			const businessId =
+				input.business === "registration"
+					? input.appointmentId
+					: input.recordId;
+			if (!order && input.patientId && businessId) {
+				order = await queryMedicalBusinessRecovery({
+					businessType: input.business,
+					businessId,
+					patientId: input.patientId,
+				});
+			}
+			if (!order) {
+				throw new Error("medical order is unavailable");
+			}
+			if (order.status !== "insurance_settled") {
+				this.setData({
+					resultState: "confirming",
+					orderId: order.orderId,
+					title: `${this.data.businessLabel}医保支付结果待确认`,
+					subtitle:
+						"服务端尚未确认全部完成，请返回原支付页面再次查询，勿重复付款",
+					amountBreakdownLoading: false,
+					amountBreakdownVisible: Boolean(order.amounts),
+					...(order.amounts
+						? {
+								totalAmountLabel: formatFen(order.amounts.totalFen),
+								insuranceAmountLabel: formatFen(order.amounts.insuranceFen),
+								cashAmountLabel: formatFen(order.amounts.cashFen),
+								amountBreakdownHint: "当前仅为已保存金额，支付最终状态仍在确认",
+							}
+						: {
+								amountBreakdownHint: "支付金额明细正在同步，请稍后查询原订单",
+							}),
+				});
+				return;
+			}
+			const detail = labels(input.business, "medical");
 			if (order.amounts) {
 				this.setData({
+					...detail,
+					resultState: "success",
+					hasDetail: true,
+					orderId: order.orderId,
 					amountBreakdownVisible: true,
 					amountBreakdownLoading: false,
 					totalAmountLabel: formatFen(order.amounts.totalFen),
@@ -244,17 +312,27 @@ Page<PaymentResultPageData, PaymentResultPageMethods>({
 				});
 				return;
 			}
+			this.setData({
+				...detail,
+				resultState: "success",
+				hasDetail: true,
+				orderId: order.orderId,
+				amountBreakdownVisible: false,
+				amountBreakdownLoading: false,
+				amountBreakdownHint: "支付金额明细正在同步，请稍后查看缴费记录",
+			});
+			return;
 		} catch {
-			// 结果页不能把金额明细查询失败误报成支付失败；保留已完成摘要，
-			// 若本地没有最终金额则只提示同步中，不自行猜测医保/自费分摊。
+			// 查询失败既不能推断支付失败，也不能继续展示成功；用户返回原业务
+			// 后再次点击会重新查询服务端，不使用当前页面或本地缓存续跑。
 		}
 		this.setData({
+			resultState: "confirming",
+			title: `${this.data.businessLabel}医保支付结果待确认`,
+			subtitle: "暂时无法核实服务端状态，请返回原支付页面再次查询",
 			amountBreakdownLoading: false,
-			...(fallbackAmounts
-				? {}
-				: {
-						amountBreakdownHint: "支付金额明细正在同步，请稍后查看门诊缴费记录",
-					}),
+			amountBreakdownVisible: false,
+			amountBreakdownHint: "未取得服务端权威金额，不展示本地或路由金额",
 		});
 	},
 

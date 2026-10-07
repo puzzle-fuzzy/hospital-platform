@@ -17,11 +17,11 @@ import type {
 	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
-	MedicalInsuranceRefund,
-	MedicalInsuranceRefundRepository,
 	MedicalInsuranceProviderQueryIdentity,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceRefund,
+	MedicalInsuranceRefundRepository,
 	MedicalInsuranceSettlementContext,
 	MyDoctor,
 	MyDoctorRepository,
@@ -40,25 +40,25 @@ import type {
 	PatientRecord,
 	PatientRelationship,
 	PatientRepository,
-	PaymentManualReviewItem,
-	PaymentOrder,
-	PaymentOrderRepository,
 	PaymentAggregate,
+	PaymentHistoryStatus,
 	PaymentLeg,
-	PaymentOperatorAudit,
-	PaymentOperatorAuditRepository,
+	PaymentManualReviewItem,
 	PaymentOperationEvent,
 	PaymentOperationsBackfillQuery,
 	PaymentOperationsProjection,
 	PaymentOperationsRepository,
-	PaymentHistoryStatus,
-	PaymentReconciliationResult,
-	PaymentSyncRepository,
-	PaymentSyncTaskListQuery,
-	PaymentSyncTask,
+	PaymentOperatorAudit,
+	PaymentOperatorAuditRepository,
+	PaymentOrder,
+	PaymentOrderRepository,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
 	PaymentQuoteRepository,
+	PaymentReconciliationResult,
+	PaymentSyncRepository,
+	PaymentSyncTask,
+	PaymentSyncTaskListQuery,
 	RegistrationSelfPaySettlementContext,
 	ReportReference,
 	ReportReferenceRepository,
@@ -1045,8 +1045,16 @@ function deserializeMedicalInsuranceSettlementContext(
 		!Array.isArray((parsed as { upDetailList?: unknown }).upDetailList) ||
 		!Array.isArray((parsed as { tradeOrderIds?: unknown }).tradeOrderIds) ||
 		((parsed as { feeUploadStage?: unknown }).feeUploadStage !== undefined &&
-			!new Set(["pre_6201", "fee_uploaded"]).has(
+			!new Set(["pre_6201", "submitting_6201", "fee_uploaded"]).has(
 				String((parsed as { feeUploadStage?: unknown }).feeUploadStage),
+			)) ||
+		((parsed as { feeUploadSubmittedAt?: unknown }).feeUploadSubmittedAt !==
+			undefined &&
+			typeof (parsed as { feeUploadSubmittedAt?: unknown })
+				.feeUploadSubmittedAt !== "string") ||
+		((parsed as { acctUsedFlag?: unknown }).acctUsedFlag !== undefined &&
+			!new Set(["0", "1"]).has(
+				String((parsed as { acctUsedFlag?: unknown }).acctUsedFlag),
 			)) ||
 		((parsed as { settlementAmountFen?: unknown }).settlementAmountFen !==
 			undefined &&
@@ -1118,6 +1126,7 @@ const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"payType",
 	"workStationId",
 	"payParams",
+	"platformOrderId",
 	"thirdPartPayRecordId",
 	"thirdPartPayRawResponse",
 	"refundWriteBack",
@@ -1231,6 +1240,10 @@ function deserializeRegistrationSelfPayContext(
 		(record.outTradeNoSource === "yunhealth_2_6_65_2" &&
 			!validYunhealthPayParams(record.payParams)) ||
 		!new Set(["CREDIT", "POS", "CROWD_FUNDING"]).has(String(record.payType)) ||
+		(record.platformOrderId !== undefined &&
+			(typeof record.platformOrderId !== "string" ||
+				!record.platformOrderId.trim() ||
+				record.platformOrderId.length > 128)) ||
 		(record.thirdPartPayRecordId !== undefined &&
 			(typeof record.thirdPartPayRecordId !== "string" ||
 				!record.thirdPartPayRecordId.trim())) ||
@@ -1857,7 +1870,7 @@ function medicalAdminStatusCondition(
 		case "created":
 			return "status = 'created'";
 		case "pending":
-			return "(status IN ('fee_uploaded', 'order_placed', 'cash_pending') OR (status = 'insurance_settled' AND cash_fen > 0 AND wechat_payment_state <> 'cash_paid'))";
+			return "(status IN ('fee_upload_pending', 'fee_uploaded', 'order_placed', 'cash_pending') OR (status = 'insurance_settled' AND cash_fen > 0 AND wechat_payment_state <> 'cash_paid'))";
 		case "paid":
 			return "status = 'insurance_settled' AND (cash_fen = 0 OR wechat_payment_state = 'cash_paid')";
 		case "failed":
@@ -3832,7 +3845,7 @@ export function createMySqlRepositories(
 			);
 			return rows.map(paymentOperationEvent);
 		},
-		};
+	};
 
 	const paymentSyncTaskSelect = `SELECT task_id, aggregate_id, business_key, source, kind, status, attempts, max_attempts, next_run_at, claimed_until, last_error_code, result_digest, version, created_at, updated_at FROM hp_payment_sync_tasks`;
 	const paymentReconciliationSelect = `SELECT result_id, aggregate_id, source, observation_key, outcome, expected_amount_fen, observed_amount_fen, amount_delta_fen, expected_status, observed_status, resolution, evidence_digest, observed_at, created_at FROM hp_payment_reconciliation_results`;
@@ -3893,7 +3906,7 @@ export function createMySqlRepositories(
 			}
 			return persisted;
 		},
-		async claimDueTasks(now, limit, leaseMs) {
+		async claimDueTasks(now, limit, leaseMs, query = {}) {
 			if (
 				!Number.isSafeInteger(limit) ||
 				limit <= 0 ||
@@ -3906,15 +3919,30 @@ export function createMySqlRepositories(
 			const nowValue = mysqlDateTime(now);
 			const leaseUntil = mysqlDateTime(new Date(now.getTime() + leaseMs));
 			return withTransaction(pool, async (connection) => {
+				const conditions = [
+					"((status = 'pending' AND next_run_at <= ?) OR (status = 'in_progress' AND claimed_until <= ?))",
+					"(claimed_until IS NULL OR claimed_until <= ?)",
+				];
+				const params: unknown[] = [nowValue, nowValue, nowValue];
+				if (query.source) {
+					conditions.push("source = ?");
+					params.push(query.source);
+				}
+				if (query.kind) {
+					conditions.push("kind = ?");
+					params.push(query.kind);
+				}
+				if (query.businessKeyPrefix) {
+					conditions.push("LEFT(business_key, ?) = ?");
+					params.push(query.businessKeyPrefix.length, query.businessKeyPrefix);
+				}
 				const rows = await execute<PaymentSyncTaskRow[]>(
 					connection,
 					`${paymentSyncTaskSelect}
-					 WHERE ((status = 'pending' AND next_run_at <= ?)
-					    OR (status = 'in_progress' AND claimed_until <= ?))
-					   AND (claimed_until IS NULL OR claimed_until <= ?)
+					 WHERE ${conditions.join(" AND ")}
 					 ORDER BY next_run_at, task_id
 					 LIMIT ${boundedLimit} FOR UPDATE`,
-					[nowValue, nowValue, nowValue],
+					params,
 				);
 				const claimed: PaymentSyncTask[] = [];
 				for (const row of rows) {
@@ -3963,7 +3991,9 @@ export function createMySqlRepositories(
 				params.push(query.aggregateId);
 			}
 			const boundedLimit = Math.min(query.limit, 100);
-			const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
+			const where = conditions.length
+				? ` WHERE ${conditions.join(" AND ")}`
+				: "";
 			const rows = await execute<PaymentSyncTaskRow[]>(
 				pool,
 				`${paymentSyncTaskSelect}${where} ORDER BY updated_at DESC, task_id LIMIT ${boundedLimit}`,
@@ -5006,7 +5036,12 @@ export function createMySqlRepositories(
 				return order;
 			});
 		},
-		async updateWithPaymentOperations(order, expectedVersion, event, projection) {
+		async updateWithPaymentOperations(
+			order,
+			expectedVersion,
+			event,
+			projection,
+		) {
 			return withTransaction(pool, async (connection) => {
 				const result = await execute<ResultSetHeader>(
 					connection,
@@ -6255,74 +6290,122 @@ export function createMySqlRepositories(
 		},
 	};
 
+	const medicalInsuranceOrderInsertValues = (
+		order: MedicalInsuranceOrder,
+	): readonly unknown[] => {
+		const values = [
+			order.medicalOrderId,
+			order.ownerUserId,
+			order.patientId,
+			order.businessType ?? "registration",
+			order.orderType ?? "RegPay",
+			order.businessId ?? order.appointmentId ?? null,
+			order.appointmentId ?? null,
+			order.authorizationId ?? null,
+			order.feeUploadId ?? null,
+			order.idempotencyKey,
+			order.medOrgOrd,
+			order.chrgBchno,
+			order.payOrdId,
+			order.payTokenHash,
+			order.mdtrtId ?? null,
+			order.acctUsedFlag ?? null,
+			order.status,
+			order.ordStas,
+			order.amounts?.totalFen ?? 0,
+			order.amounts?.cashFen ?? 0,
+			order.amounts?.personalAccountFen ?? 0,
+			order.amounts?.fundFen ?? 0,
+			order.amounts?.otherPaymentFen ?? 0,
+			order.amounts?.hospitalPartFen ?? 0,
+			order.amounts?.personalAccountMutualAidFen ?? 0,
+			order.amounts?.personalAccountSelfFen ?? 0,
+			order.amounts?.depositFen ?? 0,
+			order.amounts?.deliveryFeeFen ?? 0,
+			order.setlType,
+			order.revsTokenHash,
+			order.revsTokenExpiresAt,
+			order.lastError,
+			order.medInsFailReason ?? null,
+			order.wechatMixTradeNo ?? null,
+			order.wechatOutTradeNo ?? null,
+			order.wechatPaymentState ?? "not_started",
+			order.wechatPayParams
+				? requiredPrepayCipher().seal(JSON.stringify(order.wechatPayParams))
+				: null,
+			order.wechatPrepayExpiresAt
+				? mysqlDateTime(order.wechatPrepayExpiresAt)
+				: null,
+			order.version,
+			mysqlDateTime(order.createdAt),
+			mysqlDateTime(order.updatedAt),
+		] satisfies readonly unknown[];
+		if (values.length !== MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.length) {
+			throw new SqlParameterCountMismatchError(
+				MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.length,
+				values.length,
+			);
+		}
+		return values;
+	};
+
+	const insertMedicalInsuranceOrder = async (
+		connection: PoolConnection,
+		order: MedicalInsuranceOrder,
+	): Promise<void> => {
+		const values = medicalInsuranceOrderInsertValues(order);
+		await execute<ResultSetHeader>(
+			connection,
+			`INSERT INTO hp_medical_insurance_orders (${MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.join(", ")}) VALUES (${sqlParameterPlaceholders(values.length)})`,
+			values,
+		);
+		const projection = buildMedicalInsuranceOrderOperationsProjection(order);
+		if (projection) {
+			await upsertPaymentOperationsProjection(connection, projection);
+		}
+	};
+
 	const medicalInsuranceOrders: MedicalInsuranceOrderRepository = {
 		async insert(order) {
-			const values = [
-				order.medicalOrderId,
-				order.ownerUserId,
-				order.patientId,
-				order.businessType ?? "registration",
-				order.orderType ?? "RegPay",
-				order.businessId ?? order.appointmentId ?? null,
-				order.appointmentId ?? null,
-				order.authorizationId ?? null,
-				order.feeUploadId ?? null,
-				order.idempotencyKey,
-				order.medOrgOrd,
-				order.chrgBchno,
-				order.payOrdId,
-				order.payTokenHash,
-				order.mdtrtId ?? null,
-				order.acctUsedFlag ?? null,
-				order.status,
-				order.ordStas,
-				order.amounts?.totalFen ?? 0,
-				order.amounts?.cashFen ?? 0,
-				order.amounts?.personalAccountFen ?? 0,
-				order.amounts?.fundFen ?? 0,
-				order.amounts?.otherPaymentFen ?? 0,
-				order.amounts?.hospitalPartFen ?? 0,
-				order.amounts?.personalAccountMutualAidFen ?? 0,
-				order.amounts?.personalAccountSelfFen ?? 0,
-				order.amounts?.depositFen ?? 0,
-				order.amounts?.deliveryFeeFen ?? 0,
-				order.setlType,
-				order.revsTokenHash,
-				order.revsTokenExpiresAt,
-				order.lastError,
-				order.medInsFailReason ?? null,
-				order.wechatMixTradeNo ?? null,
-				order.wechatOutTradeNo ?? null,
-				order.wechatPaymentState ?? "not_started",
-				order.wechatPayParams
-					? requiredPrepayCipher().seal(JSON.stringify(order.wechatPayParams))
-					: null,
-				order.wechatPrepayExpiresAt
-					? mysqlDateTime(order.wechatPrepayExpiresAt)
-					: null,
-				order.version,
-				mysqlDateTime(order.createdAt),
-				mysqlDateTime(order.updatedAt),
-			] satisfies readonly unknown[];
-			if (values.length !== MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.length) {
-				throw new SqlParameterCountMismatchError(
-					MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.length,
-					values.length,
-				);
+			await withTransaction(pool, (connection) =>
+				insertMedicalInsuranceOrder(connection, order),
+			);
+			return order;
+		},
+		async insertForBusinessIfAbsent(order) {
+			const businessType = order.businessType ?? "registration";
+			const businessId = order.businessId ?? order.appointmentId;
+			if (!businessId) {
+				throw new Error("medical insurance business id is required");
 			}
-				await withTransaction(pool, async (connection) => {
-					await execute<ResultSetHeader>(
-						connection,
-						`INSERT INTO hp_medical_insurance_orders (${MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.join(", ")}) VALUES (${sqlParameterPlaceholders(values.length)})`,
-						values,
-					);
-					const projection =
-						buildMedicalInsuranceOrderOperationsProjection(order);
-					if (projection) {
-						await upsertPaymentOperationsProjection(connection, projection);
-					}
-				});
-				return order;
+			return withTransaction(pool, async (connection) => {
+				// 所有首次医保订单都先锁当前 owner 的稳定身份行。两个 API 进程
+				// 即使同时查询到“无活动单”，也会在这里串行化；后到者必须看见
+				// 先到者已提交的订单，不能各自消费一次授权码。
+				const owners = await execute<(RowDataPacket & { user_id: string })[]>(
+					connection,
+					"SELECT user_id FROM hp_identity_users WHERE user_id = ? LIMIT 1 FOR UPDATE",
+					[order.ownerUserId],
+				);
+				if (!owners[0]) {
+					// 没有 owner 行就没有可串行化的锁。继续查询再插入会让代码看似
+					// 具备并发保护、实际却退化为无锁竞态，因此必须回滚并失败关闭。
+					throw new Error("medical insurance order owner is unavailable");
+				}
+				const rows = await execute<MIRow[]>(
+					connection,
+					`${MI_SELECT} WHERE owner_user_id = ? AND business_type = ? AND business_id = ? AND status <> 'cancelled' ORDER BY updated_at DESC, medical_order_id DESC FOR UPDATE`,
+					[order.ownerUserId, businessType, businessId],
+				);
+				if (rows.length > 0) {
+					return {
+						orders: rows.map((row) => miOrder(row, prepayCipher)),
+						inserted: false,
+					};
+				}
+				await insertMedicalInsuranceOrder(connection, order);
+				return { orders: [order], inserted: true };
+			});
 		},
 		async findByPayOrdId(payOrdId) {
 			const rows = await execute<MIRow[]>(
@@ -6492,6 +6575,14 @@ export function createMySqlRepositories(
 				[ownerUserId, businessType, businessId],
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
+		},
+		async listByOwnerAndBusinessKey(ownerUserId, businessType, businessId) {
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_SELECT} WHERE owner_user_id = ? AND business_type = ? AND business_id = ? ORDER BY updated_at DESC, medical_order_id DESC`,
+				[ownerUserId, businessType, businessId],
+			);
+			return rows.map((row) => miOrder(row, prepayCipher));
 		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			const rows = await execute<MIRow[]>(
@@ -6670,9 +6761,9 @@ export function createMySqlRepositories(
 		},
 		async applySettlement(medicalOrderId, expectedVersion, patch) {
 			return withTransaction(pool, async (connection) => {
-			const result = await execute<ResultSetHeader>(
-				connection,
-				`UPDATE hp_medical_insurance_orders SET
+				const result = await execute<ResultSetHeader>(
+					connection,
+					`UPDATE hp_medical_insurance_orders SET
 					status = ?, ord_stas = ?, total_fen = ?, cash_fen = ?, personal_account_fen = ?, fund_fen = ?,
 					other_payment_fen = ?, hospital_part_fen = ?, personal_account_mutual_aid_fen = ?, personal_account_self_fen = ?, deposit_fen = ?, delivery_fee_fen = ?,
 					pay_ord_id = COALESCE(?, pay_ord_id), pay_token_hash = COALESCE(?, pay_token_hash),
@@ -6691,53 +6782,53 @@ export function createMySqlRepositories(
 					wechat_prepay_expires_at = COALESCE(?, wechat_prepay_expires_at),
 					version = version + 1, updated_at = NOW(3)
 				WHERE medical_order_id = ? AND version = ?`,
-				[
-					patch.status,
-					patch.ordStas,
-					patch.amounts?.totalFen ?? 0,
-					patch.amounts?.cashFen ?? 0,
-					patch.amounts?.personalAccountFen ?? 0,
-					patch.amounts?.fundFen ?? 0,
-					patch.amounts?.otherPaymentFen ?? 0,
-					patch.amounts?.hospitalPartFen ?? 0,
-					patch.amounts?.personalAccountMutualAidFen ?? 0,
-					patch.amounts?.personalAccountSelfFen ?? 0,
-					patch.amounts?.depositFen ?? 0,
-					patch.amounts?.deliveryFeeFen ?? 0,
-					patch.payOrdId ?? null,
-					patch.payTokenHash ?? null,
-					patch.mdtrtId ?? null,
-					patch.acctUsedFlag ?? null,
-					patch.setlType,
-					patch.revsTokenHash,
-					patch.revsTokenExpiresAt,
-					patch.medInsFailReason === undefined ? 0 : 1,
-					patch.medInsFailReason ?? null,
-					patch.businessType ?? null,
-					patch.orderType ?? null,
-					patch.businessId ?? null,
-					patch.appointmentId ?? null,
-					patch.authorizationId ?? null,
-					patch.feeUploadId ?? null,
-					patch.wechatMixTradeNo ?? null,
-					patch.wechatOutTradeNo ?? null,
-					patch.wechatPaymentState ?? null,
-					patch.wechatPayParams === undefined
-						? null
-						: patch.wechatPayParams === null
+					[
+						patch.status,
+						patch.ordStas,
+						patch.amounts?.totalFen ?? 0,
+						patch.amounts?.cashFen ?? 0,
+						patch.amounts?.personalAccountFen ?? 0,
+						patch.amounts?.fundFen ?? 0,
+						patch.amounts?.otherPaymentFen ?? 0,
+						patch.amounts?.hospitalPartFen ?? 0,
+						patch.amounts?.personalAccountMutualAidFen ?? 0,
+						patch.amounts?.personalAccountSelfFen ?? 0,
+						patch.amounts?.depositFen ?? 0,
+						patch.amounts?.deliveryFeeFen ?? 0,
+						patch.payOrdId ?? null,
+						patch.payTokenHash ?? null,
+						patch.mdtrtId ?? null,
+						patch.acctUsedFlag ?? null,
+						patch.setlType,
+						patch.revsTokenHash,
+						patch.revsTokenExpiresAt,
+						patch.medInsFailReason === undefined ? 0 : 1,
+						patch.medInsFailReason ?? null,
+						patch.businessType ?? null,
+						patch.orderType ?? null,
+						patch.businessId ?? null,
+						patch.appointmentId ?? null,
+						patch.authorizationId ?? null,
+						patch.feeUploadId ?? null,
+						patch.wechatMixTradeNo ?? null,
+						patch.wechatOutTradeNo ?? null,
+						patch.wechatPaymentState ?? null,
+						patch.wechatPayParams === undefined
 							? null
-							: requiredPrepayCipher().seal(
-									JSON.stringify(patch.wechatPayParams),
-								),
-					patch.wechatPrepayExpiresAt
-						? mysqlDateTime(patch.wechatPrepayExpiresAt)
-						: null,
-					medicalOrderId,
-					expectedVersion,
-				],
-			);
-			if (result.affectedRows === 0) return undefined;
-			const rows = await execute<MIRow[]>(
+							: patch.wechatPayParams === null
+								? null
+								: requiredPrepayCipher().seal(
+										JSON.stringify(patch.wechatPayParams),
+									),
+						patch.wechatPrepayExpiresAt
+							? mysqlDateTime(patch.wechatPrepayExpiresAt)
+							: null,
+						medicalOrderId,
+						expectedVersion,
+					],
+				);
+				if (result.affectedRows === 0) return undefined;
+				const rows = await execute<MIRow[]>(
 					connection,
 					`${MI_SELECT} WHERE medical_order_id = ? LIMIT 1`,
 					[medicalOrderId],
@@ -6752,18 +6843,17 @@ export function createMySqlRepositories(
 				const existingAggregate = aggregateRows[0]
 					? paymentAggregate(aggregateRows[0])
 					: undefined;
-				const projection =
-					buildMedicalInsuranceOrderOperationsProjection(
-						updated,
-						existingAggregate,
-					);
-					if (projection) {
-						await upsertPaymentOperationsProjection(connection, projection);
-					}
-					return updated;
-				});
-			},
-		};
+				const projection = buildMedicalInsuranceOrderOperationsProjection(
+					updated,
+					existingAggregate,
+				);
+				if (projection) {
+					await upsertPaymentOperationsProjection(connection, projection);
+				}
+				return updated;
+			});
+		},
+	};
 
 	/**
 	 * 医保 6301 查单任务仓储。

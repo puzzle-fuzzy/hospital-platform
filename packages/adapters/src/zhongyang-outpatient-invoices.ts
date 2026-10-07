@@ -112,6 +112,38 @@ function optionalText(
 	return normalized;
 }
 
+/**
+ * 众阳将没有可用公网票据地址的可选资源字段返回为空字符串。空值不应让已经
+ * 成功开具的发票被误判为整份响应非法；但其他文本字段（例如票据号）仍保持
+ * 严格校验，避免把缺失的业务标识静默吞掉。
+ */
+function optionalResourceText(
+	value: unknown,
+	field: string,
+	requestId: string,
+	maxLength = MAX_RESOURCE_LENGTH,
+): string | undefined {
+	if (value === undefined || value === null) return undefined;
+	if (typeof value !== "string" && typeof value !== "number") {
+		throw providerError(
+			`Zhongyang electronic invoice field ${field} is invalid`,
+			requestId,
+		);
+	}
+	const normalized = String(value).trim();
+	if (!normalized) return undefined;
+	if (
+		normalized.length > maxLength ||
+		Array.from(normalized).some((character) => character.charCodeAt(0) < 0x20)
+	) {
+		throw providerError(
+			`Zhongyang electronic invoice field ${field} is invalid`,
+			requestId,
+		);
+	}
+	return normalized;
+}
+
 function normalizeInput(value: unknown): {
 	invoiceMainId: string;
 	outSettleMainId: string;
@@ -228,18 +260,16 @@ function mapInvoice(
 			requestId,
 		);
 	}
-	const pictureNetUrl = optionalText(
+	const pictureNetUrl = optionalResourceText(
 		item.pictureNetUrl,
 		"pictureNetUrl",
 		requestId,
-		MAX_RESOURCE_LENGTH,
 	);
 	if (pictureNetUrl !== undefined) invoice.pictureNetUrl = pictureNetUrl;
-	const pictureUrl = optionalText(
+	const pictureUrl = optionalResourceText(
 		item.pictureUrl,
 		"pictureUrl",
 		requestId,
-		MAX_RESOURCE_LENGTH,
 	);
 	if (pictureUrl !== undefined) invoice.pictureUrl = pictureUrl;
 	const random = optionalText(item.random, "random", requestId);

@@ -22,10 +22,17 @@ page {
 	height: 324rpx;
 	padding: 42rpx 32rpx 0;
 	border-radius: 0 0 58rpx 58rpx;
+}
+
+.result-hero-success {
 	background: #3f79e5;
 }
 
-.success-icon {
+.result-hero-confirming {
+	background: #b7791f;
+}
+
+.result-icon {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -37,6 +44,10 @@ page {
 	font-size: 58rpx;
 	font-weight: 700;
 	line-height: 1;
+}
+
+.result-hero-confirming .result-icon {
+	color: #b7791f;
 }
 
 .success-title,

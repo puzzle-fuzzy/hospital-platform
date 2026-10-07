@@ -247,6 +247,13 @@ export type RegistrationSelfPaySettlementContext = {
 	workStationId?: string;
 	/** 2.6.65.2 返回并由服务端校验后的 APIv2 小程序收银台参数。 */
 	payParams?: YunhealthMiniProgramPayParams;
+	/**
+	 * 医保混合现金链路在 2.27.2.29 请求中提交给 HIS 的平台根订单号。
+	 * 必须是 medicalOrderId，不能使用支付子单或 6202 分项 componentId；它也
+	 * 不是 2.27.2.29 的 HIS 成功回执，不能用于判断该步骤是否已完成。
+	 */
+	platformOrderId?: string;
+	/** HIS 在 2.27.2.29 成功响应中给出的记录号；存在时表明该步骤不可重放。 */
 	thirdPartPayRecordId?: string;
 	/** 仅允许保存在服务端 AES-GCM 密文中，不得写入日志或 API 响应。 */
 	thirdPartPayRawResponse?: string;

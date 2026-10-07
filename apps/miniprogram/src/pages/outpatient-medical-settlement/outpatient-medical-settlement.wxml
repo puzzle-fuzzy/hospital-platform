@@ -67,6 +67,13 @@
 		<view wx:elif="{{error}}" class="state-card error-state">
 			<text class="state-title">结算页面不可用</text>
 			<text class="state-message">{{error}}</text>
+			<button
+				wx:if="{{canRetrySettlement}}"
+				class="primary-button"
+				bindtap="onRetrySettlement"
+				loading="{{paymentBusy}}"
+				disabled="{{paymentBusy}}"
+			>查询原订单</button>
 			<button class="back-button" bindtap="onBack">返回门诊缴费</button>
 		</view>
 

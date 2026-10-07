@@ -35,6 +35,13 @@ export type PaymentSyncTaskListQuery = {
 	aggregateId?: string;
 };
 
+export type PaymentSyncTaskClaimQuery = {
+	source?: PaymentSyncSource;
+	kind?: PaymentSyncKind;
+	/** 仅允许 Worker 领取自己能够解释的持久化业务键。 */
+	businessKeyPrefix?: string;
+};
+
 export type PaymentReconciliationSource =
 	| "his"
 	| "medical_insurance"
@@ -80,6 +87,7 @@ export type PaymentSyncRepository = {
 		now: Date,
 		limit: number,
 		leaseMs: number,
+		query?: PaymentSyncTaskClaimQuery,
 	): Promise<readonly PaymentSyncTask[]>;
 	/** 仅供 Admin 运营台读取，不返回 Provider 原文或凭证。 */
 	listTasksForAdmin(

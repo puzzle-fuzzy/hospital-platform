@@ -22,6 +22,7 @@ import {
 	type HospitalSettlementGateway,
 	type PaymentOrder,
 	PaymentOrderService,
+	PaymentSyncCoordinator,
 	type RegistrationSelfPaySettlementContext,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -33,6 +34,10 @@ import {
 	MedicalInsuranceOrderReconciliationWorker,
 	type MedicalInsuranceOrderReconciliationWorkerResult,
 } from "./medical-insurance-order-reconciliation-worker";
+import {
+	MedicalInsuranceRefundReconciliationWorker,
+	type MedicalInsuranceRefundReconciliationWorkerResult,
+} from "./medical-insurance-refund-reconciliation-worker";
 import { OutboxWorker, type OutboxWorkerResult } from "./outbox-worker";
 import { createPaymentOrderAuditEventHandler } from "./payment-order-audit-handler";
 import {
@@ -60,6 +65,7 @@ export type WorkerRuntime = {
 		outbox: OutboxWorkerResult;
 		reconciliation: PaymentReconciliationWorkerResult;
 		medicalInsuranceReconciliation?: MedicalInsuranceOrderReconciliationWorkerResult;
+		medicalInsuranceRefundReconciliation?: MedicalInsuranceRefundReconciliationWorkerResult;
 	}>;
 	close(): Promise<void>;
 };
@@ -75,7 +81,8 @@ const REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX =
 
 /**
  * worker 与 API 使用同一条 owner + appointment 关联规则读取医保结算上下文。
- * 三个 Provider 关联键只从加密仓储解封后的事实中投影，绝不从平台订单号补造。
+ * 三个 Provider 关联键只从加密仓储解封后的事实中投影，绝不从平台订单号补造；
+ * 仅 .29 的 platformOrderId 会从已归属的根 medicalOrderId 显式投影。
  */
 function resolveRegistrationSelfPayContext(
 	repositories: NonNullable<PersistenceRuntime["repositories"]>,
@@ -175,6 +182,7 @@ function resolveRegistrationSelfPayContext(
 				contextText(networkRegister, ["patInHosId", "pat_in_hos_id"]) ?? "0",
 			...(settlement.plugin
 				? {
+						platformOrderId: medicalOrder.medicalOrderId,
 						outTradeNo: settlement.plugin.outTradeNo,
 						recordCode: settlement.plugin.recordCode,
 						payTypeId: settlement.plugin.payTypeId,
@@ -657,6 +665,17 @@ export function createWorkerRuntime(
 					logger,
 				})
 			: undefined;
+	const medicalInsuranceRefundReconciliation = wechatPayment
+		? new MedicalInsuranceRefundReconciliationWorker({
+				sync: new PaymentSyncCoordinator({
+					repository: repositories.paymentSync,
+				}),
+				medicalRefunds: repositories.medicalInsuranceRefunds,
+				wechatRefunds: repositories.wechatRefunds,
+				wechatRefund: wechatPayment,
+				logger,
+			})
+		: undefined;
 	const medicalInsuranceReconciliation = medicalInsuranceGateway
 		? new MedicalInsuranceOrderReconciliationWorker({
 				tasks: repositories.medicalInsuranceQueryTasks,
@@ -738,6 +757,12 @@ export function createWorkerRuntime(
 				reconciliation: reconciliation
 					? await reconciliation.runOnce(now)
 					: ("idle" as const),
+				...(medicalInsuranceRefundReconciliation
+					? {
+							medicalInsuranceRefundReconciliation:
+								await medicalInsuranceRefundReconciliation.runOnce(now),
+						}
+					: {}),
 			};
 			if (medicalInsuranceReconciliation) {
 				return {

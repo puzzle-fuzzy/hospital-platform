@@ -570,6 +570,8 @@ export type {
 	WechatRefundStatus,
 } from "./wechat-refund";
 export {
+	projectWechatRefundProviderResult,
+	wechatRefundStatusFromProvider,
 	WechatRefundAmountExceededError,
 	WechatRefundIdempotencyConflictError,
 	WechatRefundNotFoundError,
@@ -582,6 +584,7 @@ export type {
 	MedicalInsuranceRefundStatus,
 	MedicalInsuranceRefundType,
 } from "./medical-insurance-refund";
+export { projectMedicalInsuranceWechatRefund } from "./medical-insurance-refund";
 export type {
 	PaymentAggregate,
 	PaymentAggregateBusiness,
@@ -606,6 +609,7 @@ export type {
 	PaymentSyncRepository,
 	PaymentSyncSource,
 	PaymentSyncTask,
+	PaymentSyncTaskClaimQuery,
 	PaymentSyncTaskListQuery,
 	PaymentSyncTaskStatus,
 } from "./payment-sync";

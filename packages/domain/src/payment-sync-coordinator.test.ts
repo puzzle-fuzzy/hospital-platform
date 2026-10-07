@@ -170,4 +170,26 @@ test("payment sync mismatches and exhausted failures remain manual review", asyn
 	expect((await repository.findTaskById(failureTask.taskId))?.status).toBe(
 		"manual_review",
 	);
+
+	const permanentTask = await coordinator.enqueue({
+		aggregateId: "payagg-004",
+		businessKey: "medical_refund:refund-004",
+		source: "wechat_pay",
+		kind: "reconcile",
+		maxAttempts: 20,
+	});
+	const [permanentClaim] = await coordinator.claimDue(now, 1, 60_000, {
+		source: "wechat_pay",
+		businessKeyPrefix: "medical_refund:",
+	});
+	if (!permanentClaim) throw new Error("expected a permanent failure task");
+	await coordinator.markManualReview({
+		task: permanentClaim,
+		reasonCode: "refund-identity-mismatch",
+	});
+	expect(await repository.findTaskById(permanentTask.taskId)).toMatchObject({
+		status: "manual_review",
+		attempts: 1,
+		lastErrorCode: "refund-identity-mismatch",
+	});
 });

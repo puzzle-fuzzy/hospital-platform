@@ -230,6 +230,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "external-session",
 		legacyPaths: [],
 		legacyActions: ["首页:companion"],
+		// 该入口的冻结契约是直接切换原生“就诊”Tab，不经过 feature-status。
+		// 用实际事件绑定验证入口存在；目标路径由小程序导航验收独立锁定。
+		safeActionTarget: "pages/consult/consult",
+		legacyActionBindings: {
+			"首页:companion": "onRightAction",
+		},
 		requiredMaterials: [
 			"external-subject",
 			"session-owner",

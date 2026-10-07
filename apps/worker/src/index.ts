@@ -34,6 +34,11 @@ export {
 	MedicalInsuranceReconciliationWorker,
 	type MedicalInsuranceReconciliationWorkerResult,
 } from "./medical-insurance-reconciliation-worker";
+export {
+	MedicalInsuranceRefundReconciliationWorker,
+	type MedicalInsuranceRefundReconciliationWorkerResult,
+	medicalInsuranceRefundQueryDelayMs,
+} from "./medical-insurance-refund-reconciliation-worker";
 export type { OutboxWorkerResult } from "./outbox-worker";
 export { OutboxWorker } from "./outbox-worker";
 export {

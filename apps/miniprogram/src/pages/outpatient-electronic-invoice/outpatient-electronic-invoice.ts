@@ -1,5 +1,4 @@
 import {
-	ApiError,
 	getCurrentUser,
 	issueOutpatientElectronicInvoice,
 } from "../../services/api-client";
@@ -39,6 +38,8 @@ import type {
 	ViewKeyEvent,
 } from "../../types";
 
+const INVOICE_QR_PREVIEW_PATH = `${wx.env.USER_DATA_PATH}/outpatient-electronic-invoice-qr.png`;
+
 function findInvoice(
 	items: readonly OutpatientElectronicInvoiceView[],
 	viewKey: unknown,
@@ -49,6 +50,41 @@ function findInvoice(
 
 function isIssued(invoice: OutpatientElectronicInvoice): boolean {
 	return Boolean(invoice.billBatchCode && invoice.billNo);
+}
+
+function invoiceImageBase64(
+	invoice: OutpatientElectronicInvoiceView,
+): string | undefined {
+	for (const candidate of [
+		invoice.pictureNetUrl,
+		invoice.pictureUrl,
+		invoice.billQrCode,
+	]) {
+		if (typeof candidate !== "string") continue;
+		const normalized = candidate.trim();
+		const dataUrl =
+			/^data:image\/(?:png|jpe?g|webp);base64,([A-Za-z0-9+/]+={0,2})$/iu.exec(
+				normalized,
+			);
+		const base64 = dataUrl?.[1] ?? normalized;
+		if (
+			base64.length >= 4 &&
+			base64.length <= 8_000_000 &&
+			base64.length % 4 === 0 &&
+			/^[A-Za-z0-9+/]+={0,2}$/u.test(base64)
+		) {
+			return base64;
+		}
+	}
+	return undefined;
+}
+
+function hasHospitalInvoiceLink(
+	invoice: OutpatientElectronicInvoiceView,
+): boolean {
+	return [invoice.pictureNetUrl, invoice.pictureUrl].some(
+		(value) => typeof value === "string" && /^https?:\/\//iu.test(value.trim()),
+	);
 }
 
 function toView(
@@ -71,6 +107,7 @@ type OutpatientElectronicInvoicePageMethods = {
 	onChangePatient(): void;
 	onRetry(): void;
 	onIssue(event: ViewKeyEvent): void;
+	onView(event: ViewKeyEvent): void;
 	issueInvoice(
 		invoice: OutpatientElectronicInvoiceView,
 		patient: Patient,
@@ -263,6 +300,47 @@ Page<
 		});
 	},
 
+	/**
+	 * 已开具记录只查看 Provider 已返回的影像/二维码，绝不复用开票命令。
+	 * 不能把 Provider 的任意 H5 地址作为通用 WebView 打开；这既会违反
+	 * 微信业务域名限制，也会绕过小程序的外部地址边界。
+	 */
+	onView(event: ViewKeyEvent): void {
+		const invoice = findInvoice(
+			this.data.items,
+			event.currentTarget?.dataset?.viewKey,
+		);
+		if (invoice?.issueState !== "issued") return;
+
+		const base64 = invoiceImageBase64(invoice);
+		if (base64) {
+			try {
+				wx.getFileSystemManager().writeFileSync(
+					INVOICE_QR_PREVIEW_PATH,
+					base64,
+					"base64",
+				);
+				wx.previewImage({
+					urls: [INVOICE_QR_PREVIEW_PATH],
+					current: INVOICE_QR_PREVIEW_PATH,
+					fail: () => wx.showToast({ title: "票据影像预览失败", icon: "none" }),
+				});
+			} catch {
+				wx.showToast({ title: "票据影像预览失败", icon: "none" });
+			}
+			return;
+		}
+
+		wx.showModal({
+			title: "暂不能在小程序内查看",
+			content: hasHospitalInvoiceLink(invoice)
+				? "医院返回的是票据网页地址，但尚未配置为小程序可用的电子票据业务域名。请医院提供可配置的 HTTPS 域名后再开通。"
+				: "医院尚未返回可预览的票据影像或二维码，请稍后刷新电子发票记录。",
+			showCancel: false,
+			confirmText: "知道了",
+		});
+	},
+
 	async issueInvoice(
 		invoice: OutpatientElectronicInvoiceView,
 		patient: Patient,
@@ -290,7 +368,8 @@ Page<
 				expectedSessionGeneration,
 				"Electronic invoice session changed while issuing",
 			);
-			if (!guard.isCurrent(token) || !isCurrentSelectedPatient(patient.id)) return;
+			if (!guard.isCurrent(token) || !isCurrentSelectedPatient(patient.id))
+				return;
 			this.setData({
 				items: this.data.items.map((item) =>
 					item.viewKey !== invoice.viewKey
@@ -313,6 +392,9 @@ Page<
 								...(result.data.invoice.pictureUrl === undefined
 									? {}
 									: { pictureUrl: result.data.invoice.pictureUrl }),
+								...(result.data.invoice.billQrCode === undefined
+									? {}
+									: { billQrCode: result.data.invoice.billQrCode }),
 								...(result.data.invoice.random === undefined
 									? {}
 									: { random: result.data.invoice.random }),
@@ -325,10 +407,7 @@ Page<
 				this.setData({
 					error: errorMessageWithCode(
 						error,
-						patientContextErrorMessage(
-							error,
-							"电子发票开具失败，请稍后重试",
-						),
+						patientContextErrorMessage(error, "电子发票开具失败，请稍后重试"),
 					),
 				});
 			}

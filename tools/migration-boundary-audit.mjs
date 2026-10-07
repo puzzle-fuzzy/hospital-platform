@@ -90,6 +90,13 @@ const featureStatusActions = new Set(migrationBreadth.featureStatusActions);
 
 const ACTION_EVENT_SOURCES = new Map([
 	[
+		"首页",
+		{
+			script: await readSource("apps/miniprogram/src/pages/index/index.ts"),
+			template: await readSource("apps/miniprogram/src/pages/index/index.wxml"),
+		},
+	],
+	[
 		"报告详情",
 		{
 			script: await readSource(
@@ -373,11 +380,13 @@ for await (const file of miniprogramGlob.scan({
 
 for (const gate of FROZEN_DOMAIN_GATES) {
 	const failureCount = gateFailureCounts.get(gate.name) ?? 1;
-	const targetDescription = gate.safeReadOnlyTarget
-		? `${gate.safeReadOnlyTarget}（${gate.readiness}；独立写入能力仍按 contract 管理）`
-		: gate.safeSurfaceTarget
-			? `${gate.safeSurfaceTarget}（${gate.readiness}；真实 contract 仍关闭）`
-			: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;
+	const targetDescription = gate.safeActionTarget
+		? `${gate.safeActionTarget}（冻结导航；真实 contract 仍关闭）`
+		: gate.safeReadOnlyTarget
+			? `${gate.safeReadOnlyTarget}（${gate.readiness}；独立写入能力仍按 contract 管理）`
+			: gate.safeSurfaceTarget
+				? `${gate.safeSurfaceTarget}（${gate.readiness}；真实 contract 仍关闭）`
+				: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;
 	console.log(
 		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧页面 + ${(gate.legacyActions ?? []).length} 个 action-only 入口 -> ${targetDescription}`,
 	);

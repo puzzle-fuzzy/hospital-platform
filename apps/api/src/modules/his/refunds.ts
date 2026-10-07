@@ -2,18 +2,18 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { success } from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
+	type WechatRefund,
 	WechatRefundAmountExceededError,
 	WechatRefundIdempotencyConflictError,
 	WechatRefundNotFoundError,
-	type WechatRefund,
 } from "@hospital/domain";
 import type { AppLogger } from "@hospital/observability";
 import type { HisRefundSecurityStore } from "@hospital/persistence";
 import { Elysia, t } from "elysia";
 import { HttpError } from "../../errors";
 import {
-	requestHadClientProvidedRequestId,
 	adapterContextFromHeaders,
+	requestHadClientProvidedRequestId,
 } from "../../plugins/request-context";
 import {
 	AdminWechatRefundInputError,
@@ -51,6 +51,24 @@ const HisRefundBody = t.Object(
 	{ additionalProperties: false },
 );
 
+/** 医保中心 6201 返回的支付订单号；仅用于定位平台医保订单。 */
+const HisRefundByPayOrdIdBody = t.Object(
+	{
+		payOrdId: t.String({ minLength: 1, maxLength: 64 }),
+		reason: t.Optional(t.String({ maxLength: 80 })),
+	},
+	{ additionalProperties: false },
+);
+
+/** 微信原支付商户单号；当前微信 APIv3 退款适配器上限为 32 位。 */
+const HisRefundByOutTradeNoBody = t.Object(
+	{
+		outTradeNo: t.String({ minLength: 1, maxLength: 32 }),
+		reason: t.Optional(t.String({ maxLength: 80 })),
+	},
+	{ additionalProperties: false },
+);
+
 const HisRefundParams = t.Object({
 	refundNo: t.String({ minLength: 1, maxLength: 64 }),
 });
@@ -68,17 +86,23 @@ type HisRefundModuleOptions = {
 type HisRefundSplitServices = {
 	medicalInsurance?: Pick<
 		MedicalInsuranceRefundService,
-		"requestMedicalOnlyByOrder"
+		"requestMedicalOnlyByOrder" | "requestMedicalOnlyByPayOrdId"
 	>;
 	wechat?: Pick<
 		AdminWechatRefundService,
-		"requestMedicalInsuranceCashByOrder" | "query"
+		| "requestMedicalInsuranceCashByOrder"
+		| "requestMedicalInsuranceCashByOutTradeNo"
+		| "query"
 	>;
 };
 
 const HIS_MEDICAL_REFUND_PATH = "/his/medical-insurance-refunds";
 const HIS_MEDICAL_LEG_REFUND_PATH = "/his/medical-insurance-leg-refunds";
 const HIS_WECHAT_LEG_REFUND_PATH = "/his/wechat-leg-refunds";
+const HIS_MEDICAL_LEG_BY_PAY_ORD_ID_REFUND_PATH =
+	"/his/medical-insurance-leg-refunds/by-pay-ord-id";
+const HIS_WECHAT_LEG_BY_OUT_TRADE_NO_REFUND_PATH =
+	"/his/wechat-leg-refunds/by-out-trade-no";
 const HIS_MEDICAL_LEG_OPERATOR_REF = "his-medical-leg";
 
 function constantTimeEqual(left: string, right: string): boolean {
@@ -556,6 +580,46 @@ export function hisMedicalInsuranceRefundModule(
 				detail: { hide: true },
 			},
 		)
+		.post(
+			HIS_MEDICAL_LEG_BY_PAY_ORD_ID_REFUND_PATH,
+			async ({ headers, body, request }) =>
+				executeHisRequest({
+					request,
+					headers,
+					method: "POST",
+					path: HIS_MEDICAL_LEG_BY_PAY_ORD_ID_REFUND_PATH,
+					body,
+					operation: "medical_insurance_leg_by_pay_ord_id",
+					// 仅写入哈希日志；外部医保号不会进入普通业务日志。
+					orderId: body.payOrdId,
+					options,
+					now,
+					invoke: async (auth) => {
+						if (!splitServices.medicalInsurance) {
+							throw new DependencyNotConfiguredError(
+								"his.medicalInsuranceRefundLeg",
+							);
+						}
+						return success(
+							await splitServices.medicalInsurance.requestMedicalOnlyByPayOrdId(
+								{
+									payOrdId: body.payOrdId,
+									...(body.reason !== undefined ? { reason: body.reason } : {}),
+									operatorRef: HIS_MEDICAL_LEG_OPERATOR_REF,
+									context: adapterContextFromHeaders({
+										"x-request-id": auth.requestId,
+									}),
+								},
+							),
+						);
+					},
+				}),
+			{
+				headers: HisRefundHeaders,
+				body: HisRefundByPayOrdIdBody,
+				detail: { hide: true },
+			},
+		)
 		.get(
 			`${HIS_MEDICAL_LEG_REFUND_PATH}/:refundNo`,
 			async ({ headers, params, request }) =>
@@ -617,6 +681,43 @@ export function hisMedicalInsuranceRefundModule(
 			{
 				headers: HisRefundHeaders,
 				body: HisRefundBody,
+				detail: { hide: true },
+			},
+		)
+		.post(
+			HIS_WECHAT_LEG_BY_OUT_TRADE_NO_REFUND_PATH,
+			async ({ headers, body, request }) =>
+				executeHisRequest({
+					request,
+					headers,
+					method: "POST",
+					path: HIS_WECHAT_LEG_BY_OUT_TRADE_NO_REFUND_PATH,
+					body,
+					operation: "wechat_leg_by_out_trade_no",
+					// 仅写入哈希日志；微信原支付单号不会进入普通业务日志。
+					orderId: body.outTradeNo,
+					options,
+					now,
+					invoke: async (auth) => {
+						if (!splitServices.wechat) {
+							throw new DependencyNotConfiguredError("his.wechatRefundLeg");
+						}
+						const result =
+							await splitServices.wechat.requestMedicalInsuranceCashByOutTradeNo(
+								{
+									outTradeNo: body.outTradeNo,
+									...(body.reason !== undefined ? { reason: body.reason } : {}),
+								},
+								adapterContextFromHeaders({
+									"x-request-id": auth.requestId,
+								}),
+							);
+						return success(safeWechatRefundResponse(result));
+					},
+				}),
+			{
+				headers: HisRefundHeaders,
+				body: HisRefundByOutTradeNoBody,
 				detail: { hide: true },
 			},
 		)

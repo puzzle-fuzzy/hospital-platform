@@ -1,12 +1,246 @@
 import { expect, test } from "bun:test";
 import type { MedicalInsuranceOrder } from "@hospital/domain";
-import { createInMemoryMedicalInsuranceOrderRepository } from "@hospital/persistence";
+import {
+	createInMemoryMedicalInsuranceOrderRepository,
+	createInMemoryMedicalInsuranceQueryTaskRepository,
+} from "@hospital/persistence";
 import { MedicalInsurancePaymentCore } from "./payment-core";
 
 const context = {
 	traceId: "trace-medical-payment-core-001",
 	idempotencyKey: "idem-medical-payment-core-001",
 };
+
+function settlementOrder(
+	overrides: Partial<MedicalInsuranceOrder> = {},
+): MedicalInsuranceOrder {
+	return {
+		medicalOrderId: "medical-order-settle-retry-001",
+		ownerUserId: "owner-settle-retry-001",
+		patientId: "patient-settle-retry-001",
+		businessType: "registration",
+		orderType: "RegPay",
+		businessId: "appointment-settle-retry-001",
+		appointmentId: "appointment-settle-retry-001",
+		authorizationId: "authorization-settle-retry-001",
+		feeUploadId: "fee-settle-retry-001",
+		idempotencyKey: "medical-idem-settle-retry-001",
+		medOrgOrd: "medical-org-settle-retry-001",
+		chrgBchno: "batch-settle-retry-001",
+		payOrdId: "pay-order-settle-retry-001",
+		payTokenHash: "a".repeat(64),
+		mdtrtId: "mdtrt-settle-retry-001",
+		acctUsedFlag: "1",
+		status: "order_placed",
+		ordStas: "1",
+		amounts: {
+			totalFen: 100,
+			cashFen: 20,
+			personalAccountFen: 30,
+			fundFen: 50,
+		},
+		setlType: "CASH",
+		revsTokenHash: null,
+		revsTokenExpiresAt: null,
+		lastError: null,
+		version: 2,
+		createdAt: "2026-09-21T00:00:00.000Z",
+		updatedAt: "2026-09-21T00:00:01.000Z",
+		...overrides,
+	};
+}
+
+test("6202 已形成订单事实时重复 settle 只补查单任务，不重放 6202", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const original = settlementOrder();
+	await orders.insert(original);
+	const queryTasks = createInMemoryMedicalInsuranceQueryTaskRepository();
+	let settleCalls = 0;
+	const core = new MedicalInsurancePaymentCore({
+		orders,
+		queryTasks,
+		medicalInsurance: {
+			settle: async () => {
+				settleCalls += 1;
+				throw new Error("6202 must not be replayed");
+			},
+		} as never,
+		now: () => new Date("2026-09-21T00:01:00.000Z"),
+	});
+
+	await expect(
+		core.settle({
+			ownerUserId: original.ownerUserId,
+			orderId: original.medicalOrderId,
+			context,
+		}),
+	).resolves.toMatchObject({
+		orderId: original.medicalOrderId,
+		status: "order_placed",
+	});
+	expect(settleCalls).toBe(0);
+	expect(
+		await queryTasks.claimDueForQuery(
+			new Date("2026-09-21T00:01:00.000Z"),
+			1,
+			60_000,
+		),
+	).toHaveLength(1);
+});
+
+test("门诊 DiagPay 的 order_placed 恢复同样不会重放 6202", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const original = settlementOrder({
+		medicalOrderId: "medical-order-outpatient-retry-001",
+		businessType: "outpatient",
+		orderType: "DiagPay",
+		businessId: "outpatient-record-retry-001",
+	});
+	delete original.appointmentId;
+	await orders.insert(original);
+	let settleCalls = 0;
+	const core = new MedicalInsurancePaymentCore({
+		orders,
+		medicalInsurance: {
+			settle: async () => {
+				settleCalls += 1;
+				throw new Error("DiagPay 6202 must not be replayed");
+			},
+		} as never,
+	});
+
+	await expect(
+		core.settle({
+			ownerUserId: original.ownerUserId,
+			orderId: original.medicalOrderId,
+			context,
+		}),
+	).resolves.toMatchObject({ status: "order_placed" });
+	expect(settleCalls).toBe(0);
+});
+
+test("6202 在上游调用前先持久化未知门禁，异常后重试只查单", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const original = settlementOrder({
+		medicalOrderId: "medical-order-settle-unknown-001",
+		status: "fee_uploaded",
+		ordStas: null,
+		amounts: null,
+		setlType: null,
+	});
+	await orders.insert(original);
+	const queryTasks = createInMemoryMedicalInsuranceQueryTaskRepository();
+	let settleCalls = 0;
+	const core = new MedicalInsurancePaymentCore({
+		orders,
+		queryTasks,
+		medicalInsurance: {
+			settle: async () => {
+				settleCalls += 1;
+				await expect(
+					orders.findByMedicalOrderId(original.medicalOrderId),
+				).resolves.toMatchObject({ status: "awaiting_confirmation" });
+				throw new Error("6202 response lost");
+			},
+		} as never,
+		now: () => new Date("2026-09-21T00:02:00.000Z"),
+	});
+
+	await expect(
+		core.settle({
+			ownerUserId: original.ownerUserId,
+			orderId: original.medicalOrderId,
+			context,
+		}),
+	).rejects.toThrow("6202 response lost");
+	expect(settleCalls).toBe(1);
+	await expect(
+		orders.findByMedicalOrderId(original.medicalOrderId),
+	).resolves.toMatchObject({ status: "awaiting_confirmation" });
+
+	await expect(
+		core.settle({
+			ownerUserId: original.ownerUserId,
+			orderId: original.medicalOrderId,
+			context,
+		}),
+	).resolves.toMatchObject({ status: "awaiting_confirmation" });
+	expect(settleCalls).toBe(1);
+	expect(
+		await queryTasks.claimDueForQuery(
+			new Date("2026-09-21T00:02:00.000Z"),
+			1,
+			60_000,
+		),
+	).toHaveLength(1);
+});
+
+test("缺少 6202 金额基线时查单不猜测基金与个人账户分项", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const original = settlementOrder({
+		medicalOrderId: "medical-order-query-without-amounts-001",
+		status: "awaiting_confirmation",
+		ordStas: null,
+		amounts: null,
+		setlType: null,
+	});
+	await orders.insert(original);
+	let queryCalls = 0;
+	const core = new MedicalInsurancePaymentCore({
+		orders,
+		medicalInsurance: {
+			query: async () => {
+				queryCalls += 1;
+				throw new Error("6301 must not be used to invent 6202 amount details");
+			},
+		} as never,
+	});
+
+	await expect(
+		core.query({
+			ownerUserId: original.ownerUserId,
+			orderId: original.medicalOrderId,
+			context,
+		}),
+	).resolves.toEqual({
+		orderId: original.medicalOrderId,
+		status: "awaiting_confirmation",
+	});
+	expect(queryCalls).toBe(0);
+});
+
+test("人工复核或已取消订单重复 settle 不再访问医保上游", async () => {
+	for (const status of ["manual_review", "cancelled"] as const) {
+		const orders = createInMemoryMedicalInsuranceOrderRepository();
+		const original = settlementOrder({
+			medicalOrderId: `medical-order-${status}-001`,
+			status,
+			...(status === "cancelled"
+				? { authorizationId: null, feeUploadId: null }
+				: {}),
+		});
+		await orders.insert(original);
+		let settleCalls = 0;
+		const core = new MedicalInsurancePaymentCore({
+			orders,
+			medicalInsurance: {
+				settle: async () => {
+					settleCalls += 1;
+					throw new Error("terminal order must not be replayed");
+				},
+			} as never,
+		});
+
+		await expect(
+			core.settle({
+				ownerUserId: original.ownerUserId,
+				orderId: original.medicalOrderId,
+				context,
+			}),
+		).resolves.toMatchObject({ status });
+		expect(settleCalls).toBe(0);
+	}
+});
 
 test("6301查单不丢失6202已经确认的扩展金额", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();

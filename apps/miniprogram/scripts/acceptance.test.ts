@@ -21,13 +21,13 @@ import {
 	createUpcomingDateRange,
 	formatPlatformDate,
 } from "../src/services/dashboard-service";
+import { getDischargeFollowupFormDefinition } from "../src/services/discharge-followup-form-catalog";
 import { createLatestRequestGuard } from "../src/services/latest-request-guard";
 import { resolvePatientSelection } from "../src/services/patient-selection-service";
 import {
 	LABORATORY_FLAG_LABELS,
 	toLaboratoryReportItemView,
 } from "../src/services/report-presenter";
-import { getDischargeFollowupFormDefinition } from "../src/services/discharge-followup-form-catalog";
 import type { Patient } from "../src/types";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
@@ -395,11 +395,23 @@ test("consult tab keeps the old three-tab shell while realtime remains closed", 
 
 test("native page action buttons use explicit heights instead of native button defaults", async () => {
 	const actionStyles = [
-		["pages/admission-preconsultation/admission-preconsultation.wxss", ".admission-submit", "84rpx"],
+		[
+			"pages/admission-preconsultation/admission-preconsultation.wxss",
+			".admission-submit",
+			"84rpx",
+		],
 		["pages/pre-visit/pre-visit.wxss", ".pre-visit-submit", "84rpx"],
 		["pages/risk-evaluation/risk-evaluation.wxss", ".risk-submit", "84rpx"],
-		["pages/self-test-question/self-test-question.wxss", ".self-test-submit", "84rpx"],
-		["pages/inpatient-payment/inpatient-payment.wxss", ".inpatient-payment-primary", "88rpx"],
+		[
+			"pages/self-test-question/self-test-question.wxss",
+			".self-test-submit",
+			"84rpx",
+		],
+		[
+			"pages/inpatient-payment/inpatient-payment.wxss",
+			".inpatient-payment-primary",
+			"88rpx",
+		],
 	] as const;
 
 	for (const [stylePath, selector, height] of actionStyles) {
@@ -812,21 +824,19 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentPage).toContain("paymentActionMessage");
 	expect(paymentPage).not.toContain("errorMessageWithCode");
 	expect(paymentTemplate).not.toContain('class="error-text"');
-	expect(paymentPage).toContain("支付上下文已清除");
+	expect(paymentPage).toContain("原订单已保留");
+	expect(paymentPage).toContain("resumeMedicalSettlementFromPending");
 	expect(paymentPage).toContain("如已扣款请联系医院核实");
-	expect(paymentPage).toContain("canSwitchMedicalAuthorizationToSelfPay");
+	expect(paymentPage).toContain("queryMedicalBusinessRecovery");
 	expect(paymentPage).toContain("autoStartPaymentMode");
 	expect(paymentPage).toContain("autoStartInFlight");
 	expect(paymentPage).toContain(
 		"void this.startOrResumePayment(autoStartMode)",
 	);
-	expect(paymentPage).toContain("不能让 onShow 抢先恢复本地旧支付上下文");
+	expect(paymentPage).toContain("continueServerMedicalPayment");
 	expect(paymentPage).toContain("medical-insurance-insutype-unavailable");
-	expect(paymentPage).toContain(
-		"当前就诊人没有可用于本次支付的有效医保参保信息",
-	);
-	expect(paymentPage).toContain('confirmText: "改用微信支付"');
-	expect(paymentPage).toContain('cancelText: "暂不支付"');
+	expect(paymentPage).toContain("医保订单状态以服务端为准");
+	expect(paymentPage).not.toContain("canSwitchMedicalAuthorizationToSelfPay");
 	expect(paymentTemplate).not.toContain('class="footnote"');
 	expect(paymentTemplate).toContain('class="payment-actions"');
 	expect(paymentStyles).toContain("flex-direction: column");
@@ -886,13 +896,14 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentTemplate).not.toContain("纯医保支付");
 	expect(paymentTemplate).not.toContain("医保混合支付");
 	expect(paymentTemplate).not.toContain("普通自费支付");
-	// 新入口隐藏纯医保按钮，但历史订单仍能由“医保支付”继续确认。
-	expect(paymentPage).toContain('mode === "medical" ? "mixed"');
-	expect(paymentPage).toContain('mode !== "medical" && mode !== "mixed"');
+	// 医保按钮每次都按当前业务键查询服务端订单，不依赖历史本地 pending。
+	expect(paymentPage).toContain('value !== "mixed" && value !== "self"');
+	expect(paymentPage).toContain("continueServerMedicalPayment");
+	expect(paymentPage).toContain("queryMedicalBusinessRecovery");
 	// 用户关闭微信/医保收银台只退出本次支付尝试，不能调用 payment-exit 取消预约。
 	expect(paymentPage).not.toContain("exitPayment");
 	expect(paymentPage).toContain("用户取消收银台只代表本次支付尝试退出");
-	expect(paymentPage).toContain("已取消支付，预约已保留");
+	expect(paymentPage).toContain("已取消本次支付操作，预约已保留");
 	expect(insurance).not.toContain("requestAppointmentPaymentExit");
 });
 
@@ -921,26 +932,78 @@ test("native mixed payment resumes by querying the existing order", async () => 
 	const page = await source(
 		"pages/registration-payment/registration-payment.ts",
 	);
+	const settlementPage = await source(
+		"pages/outpatient-medical-settlement/outpatient-medical-settlement.ts",
+	);
 
-	expect(service).toContain("medicalCashConfirmation");
+	// 每次用户点击都重新查询服务端，不能复用上一次点击留下的模块级 Promise。
+	expect(service).not.toContain("medicalCashConfirmation");
+	expect(service).not.toContain("confirmMedicalCashPayment");
+	expect(service).toContain("queryMedicalCashPayment");
 	expect(service).toContain("resumeMedicalCashPaymentFromPending");
+	expect(service).toContain("resumeOrContinueMedicalCashPaymentFromPending");
+	expect(service).toContain('confirmation.payment?.status === "cash_pending"');
+	expect(service).toContain('["not_started", "prepay_ready"]');
 	expect(service).toContain("paymentWasCancelled");
-	expect(page).toContain("resumeMedicalCashPaymentFromPending");
-	expect(page).toContain("正在确认微信医保支付并回写医院");
+	expect(page).toContain("queryMedicalBusinessRecovery");
+	expect(page).toContain("continueServerMedicalPayment");
+	expect(page).not.toContain("paymentCompletionRedirecting");
+	expect(page).toContain("completionRedirecting");
+	expect(settlementPage).toContain(
+		"resumeOrContinueMedicalCashPaymentFromPending",
+	);
+	expect(settlementPage).toContain("正在重新查询服务端医保订单");
 	expect(page).toContain("请勿重复付款");
 });
 
-test("native self payment clears only a server-cancelled stale context", async () => {
+test("native registration payment never replaces an unresolved server order", async () => {
+	const appEntry = await source("app.ts");
+	const authHandoff = await source(
+		"services/medical-insurance-auth-handoff.ts",
+	);
+	const service = await source("services/medical-insurance.ts");
 	const page = await source(
 		"pages/registration-payment/registration-payment.ts",
 	);
+	const settlementPage = await source(
+		"pages/outpatient-medical-settlement/outpatient-medical-settlement.ts",
+	);
+	const cashier = await source("pages/medical-cashier/medical-cashier.ts");
 
-	// 本地 pending 不足以判定上一笔支付失效；必须先读取服务端预约详情，
-	// 并且只在明确 cancelled 时解除对新预约微信支付的拦截。
-	expect(page).toContain("while recovering a cancelled payment context");
-	expect(page).toContain('previousDetail.data.status === "cancelled"');
-	expect(page).toContain("已清除已取消预约的旧支付状态");
-	expect(page).toContain("已有其他挂号支付在处理中，请先完成或退出");
+	// 医保按钮不读取本地 pending；每次都按 owner + 业务键查询服务端活动订单，
+	// 未决订单只能续跑同一 orderId，不能用新客户端幂等键开第二单。
+	expect(page).toContain("queryMedicalBusinessRecovery");
+	expect(page).toContain("createMedicalPaymentContext");
+	expect(service).toContain(
+		'url: "/payments/medical-insurance/business-recovery"',
+	);
+	expect(service).toContain('typeof data.authorizationPending !== "boolean"');
+	expect(service).toContain("本地存储不参与这个判断");
+	expect(service).not.toContain("getStorageSync");
+	expect(service).not.toContain("setStorageSync");
+	expect(service).not.toContain("removeStorageSync");
+	expect(service).not.toContain("pendingMedicalPayment");
+	expect(service).not.toContain("lastMedicalPaymentResult");
+	expect(page).toContain('this.data.selectedMode === "self"');
+	expect(page).toContain("startSelfPayment");
+	expect(page).not.toContain("readPendingPayment");
+	expect(page).not.toContain("readLastSelfPaymentResult");
+	expect(page).toContain("recovery?.authorizationPending");
+	expect(page).not.toContain("let resumingPayment");
+	expect(appEntry).not.toContain("medicalInsuranceAuthExtraData");
+	expect(appEntry).toContain("receiveMedicalInsuranceAuthReturn");
+	expect(authHandoff).toContain("matchesBusiness(result, business)");
+	expect(authHandoff).toContain("state.medicalInsuranceAuthResult = null");
+	expect(authHandoff).not.toContain("getStorage");
+	expect(authHandoff).not.toContain("setStorage");
+	expect(page).toContain("consumeMedicalInsuranceAuthReturn");
+	expect(page).toContain("clearMedicalInsuranceAuthHandoff({");
+	expect(settlementPage).toContain("clearMedicalInsuranceAuthHandoff({");
+	expect(cashier).toContain("queryMedicalOrder");
+	expect(cashier).not.toContain("readPendingPayment");
+	expect(cashier).not.toContain("getStorage");
+	expect(page).not.toContain("requestAppointmentPaymentExit");
+	expect(page).not.toContain("previousDetail.data.status");
 });
 
 test("native client requests patient synchronization through the Hospital API", async () => {
@@ -3143,18 +3206,22 @@ test("outpatient payment cards reject stale status events", async () => {
 	expect(template).not.toContain('data-status="{{item.status}}"');
 });
 
-test("outpatient payment can retry a stale authorization without duplicating an order", async () => {
+test("outpatient payment restores an existing medical order instead of duplicating it", async () => {
 	const payment = await source(
 		"pages/outpatient-payment/outpatient-payment.ts",
 	);
+	const settlement = await source(
+		"pages/outpatient-medical-settlement/outpatient-medical-settlement.ts",
+	);
 
-	// 授权页取消或回跳丢失时，本地只有 authorization 阶段且没有 orderId；
-	// 这类上下文必须清掉并允许重新授权。已经有服务端订单的上下文则必须
-	// 保留，不能让再次点击创建第二笔医保订单。
-	expect(payment).toContain("clearPendingPayment");
-	expect(payment).toContain('pending?.phase === "authorization"');
-	expect(payment).toContain("if (pending.orderId)");
-	expect(payment).toContain("上一笔医保订单正在处理中，请稍后再试");
+	// 列表只携带当前业务引用进入结算页；结算页每次从服务端恢复唯一活动单，
+	// 不读取或清理某一笔本地医保 pending。
+	expect(payment).toContain("outpatient-medical-settlement?patientId=");
+	expect(payment).toContain("&start=1");
+	expect(payment).not.toContain("readPendingPayment");
+	expect(payment).not.toContain("clearPendingPayment");
+	expect(settlement).toContain("queryMedicalBusinessRecovery");
+	expect(settlement).toContain("createMedicalPaymentContext");
 	expect(payment).not.toContain('title: "请先完成医保授权"');
 });
 
@@ -3687,7 +3754,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatientTemplate).toContain("加载更多缴费记录");
 	expect(outpatientTemplate).toContain("{{item.billDateLabel}}");
 	expect(outpatient).toContain("formatOutpatientBillDateLabel");
-	expect(outpatient).toContain("startOutpatientMedicalPayment");
+	expect(outpatient).not.toContain("startOutpatientMedicalPayment");
 	expect(outpatient).toContain("onPaymentTap(event: ViewKeyEvent)");
 	expect(outpatient).toContain(
 		"/pages/outpatient-medical-settlement/outpatient-medical-settlement",
@@ -3735,22 +3802,41 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(settlementTemplate).toContain('bindtap="onPay"');
 	expect(settlementPage).toContain("resumeAuthorizedPayment");
 	expect(settlementPage).toContain("continueMedicalPayment");
+	expect(settlementPage).toContain("queryMedicalBusinessRecovery");
+	expect(settlementPage).not.toContain("readPendingPayment");
 	expect(settlementPage).toContain("settlementProgressMessage");
+	expect(settlementPage).toContain(
+		"医保支付已确认，但结果页打开失败，请再次查询原订单",
+	);
+	expect(settlementPage).toContain("canRetrySettlement: true");
 	expect(settlementStyle).toContain("position: fixed;");
 	expect(settlementStyle).toContain(".settlement-bottom-bar");
 	expect(settlementStyle).toContain(".settlement-loading-mask");
 	expect(settlementStyle).toContain("background: rgba(0, 0, 0, 0.56);");
-	expect(paymentResultTemplate).toContain('class="result-hero"');
+	expect(paymentResultTemplate).toContain('class="result-hero {{');
+	expect(paymentResultTemplate).toContain("resultState === 'success'");
+	expect(paymentResultTemplate).not.toContain('class="success-icon"');
 	expect(paymentResultTemplate).toContain("{{hospitalName}}");
 	expect(paymentResultTemplate).toContain("本次费用明细");
 	expect(paymentResultTemplate).not.toContain("paid-badge");
 	expect(paymentResultTemplate).not.toContain("confirmed-message");
 	expect(paymentResultStyle).toContain(".primary-button,");
+	expect(paymentResultStyle).toContain(".result-hero-confirming");
 	expect(paymentResultStyle).toContain("flex: 1;");
 	expect(paymentResultPage).toContain("queryMedicalOrder");
-	// 测试期不对同一医保订单自动做支付中拦截：不能从小程序调用
-	// /cancel，否则会进入 Provider 的 .4/.11/.6 关单链路。
-	expect(medicalInsurance).toContain("测试期重复订单规则");
+	expect(paymentResultPage).toContain("queryMedicalBusinessRecovery");
+	expect(paymentResultPage).toContain('order.status !== "insurance_settled"');
+	expect(paymentResultPage).toContain('resultState: "confirming"');
+	expect(paymentResultPage).toContain('resultState: "success"');
+	expect(paymentResultPage).toContain("queryAppointmentSelfPay");
+	expect(paymentResultPage).toContain("queryOutpatientSelfPay");
+	expect(paymentResultPage).not.toContain("readLastSelfPaymentResult");
+	expect(paymentResultPage).not.toContain("getStorage");
+	expect(paymentResultPage).toContain("未取得服务端权威金额");
+	// 恢复同一医保订单时复用 6201/6202 幂等键并查单，不能从小程序调用
+	// /cancel，也不能清掉上下文后重新建单。
+	expect(medicalInsurance).toContain("resumeMedicalSettlementFromPending");
+	expect(medicalInsurance).toContain('phase: "medical_processing"');
 	expect(medicalInsurance).not.toContain("cancelPaymentInProgress");
 	expect(medicalInsurance).not.toContain("medical-cancel-in-progress");
 	expect(my).toContain("navigateToPatientSelector");
@@ -3775,22 +3861,18 @@ test("outpatient payment detail keeps unpaid fees read-only", async () => {
 		"pages/outpatient-payment-detail/outpatient-payment-detail.wxss",
 	);
 
-	// 付款入口统一收口到门诊费用列表；详情页只保留费用事实和回跳恢复兼容，
-	// 不能再提供一条绕过列表半窗口的旧支付路径。
-	expect(detailPage).toContain("continueMedicalPayment");
+	// 付款入口统一收口到门诊费用列表；详情页只保留费用事实，不能再
+	// 读取本地医保 pending 或提供一条绕过列表半窗口的旧支付路径。
+	expect(detailPage).not.toContain("continueMedicalPayment");
+	expect(detailPage).not.toContain("readPendingPayment");
 	expect(detailTemplate).toContain("请返回费用列表缴费");
 	expect(detailTemplate).toContain("点击本笔记录的“缴费”按钮");
 	expect(detailTemplate).not.toContain('bindtap="onMedicalPay"');
 	expect(detailTemplate).not.toContain('bindtap="onWechatPay"');
-	// 支付完成后的详情读取是独立读链路；只有同笔近期完成结果才能把
-	// Provider/网络失败降级为成功提示，患者或会话错误不得被掩盖。
-	expect(detailPage).toContain("isRecentCompletedOutpatientPayment");
-	expect(detailPage).toContain("isPaidDetailReadUnavailable");
+	// 详情读取失败不能用本地“最近完成”缓存伪装成服务端成功。
+	expect(detailPage).not.toContain("isRecentCompletedOutpatientPayment");
+	expect(detailPage).not.toContain("readLastSelfPaymentResult");
 	expect(detailPage).not.toContain('"provider-response-invalid",');
-	expect(detailPage).toContain("completed.patientId !== patientId");
-	expect(detailPage).toContain(
-		"支付已成功，不影响本次结算；费用详情暂时无法同步",
-	);
 	expect(detailTemplate).toContain("paid-sync-state");
 	expect(detailTemplate).toContain("支付已成功");
 	expect(detailStyle).toContain(".paid-sync-state");

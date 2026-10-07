@@ -2,13 +2,22 @@ import { expect, test } from "bun:test";
 import type {
 	MedicalInsuranceGateway,
 	MedicalInsuranceOrder,
+	MedicalInsuranceSettlementContext,
+} from "@hospital/domain";
+import {
+	PaymentNotificationConflictError,
+	PaymentPrepayAttemptInProgressError,
 } from "@hospital/domain";
 import {
 	createInMemoryMedicalInsuranceAuthorizationRepository,
+	createInMemoryMedicalInsuranceCredentialRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
 } from "@hospital/persistence";
-import { MedicalInsuranceRegistrationService } from "./registration-service";
+import {
+	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegistrationService,
+} from "./registration-service";
 
 const now = new Date("2026-09-03T00:00:00.000Z");
 
@@ -39,6 +48,25 @@ function order(
 		version: 1,
 		createdAt: now.toISOString(),
 		updatedAt: now.toISOString(),
+		...overrides,
+	};
+}
+
+function settlementContext(
+	overrides: Partial<MedicalInsuranceSettlementContext> = {},
+): MedicalInsuranceSettlementContext {
+	return {
+		businessId: "appointment-service-001",
+		businessCode: "registration-service-001",
+		hospitalId: "10389001",
+		patientId: "provider-patient-service-001",
+		chrgBchno: "charge-service-001",
+		networkRegister: {},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: [],
+		insuredAreaCode: "140581",
 		...overrides,
 	};
 }
@@ -115,6 +143,848 @@ test("non-terminal 6202 settlement is persisted and enqueued exactly once", asyn
 		status: "awaiting_confirmation",
 	});
 	expect(settleCalls).toBe(1);
+});
+
+test("业务恢复只使用唯一服务端订单并从持久化授权修复订单引用", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-business-recovery-001",
+			patientId: "patient-business-recovery-001",
+			appointmentId: "appointment-business-recovery-001",
+			businessType: "registration",
+			orderType: "RegPay",
+			businessId: "appointment-business-recovery-001",
+			authorizationId: null,
+			feeUploadId: null,
+			payOrdId: null,
+			status: "created",
+		}),
+	);
+	await authorizations.put({
+		authorizationId: "authorization-business-recovery-001",
+		ownerUserId: "user-service-001",
+		medicalOrderId: "medical-business-recovery-001",
+		providerSubject: "openid-business-recovery-001",
+		payAuthNo: "pay-auth-business-recovery-001",
+		patient: {
+			idNo: "140581199001010011",
+			userName: "业务恢复测试人",
+			idType: "01",
+		},
+		psnNo: "psn-business-recovery-001",
+		insutype: "310",
+		insuplcAdmdvs: "140581",
+		insuCode: "140581",
+		expiresAt: "2026-09-03T00:15:00.000Z",
+		createdAt: now.toISOString(),
+	});
+	let providerCalls = 0;
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations,
+		appointments: {} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			authorize: async () => {
+				providerCalls += 1;
+				throw new Error("business recovery must not replay authorization");
+			},
+		} as never,
+		now: () => now,
+	});
+
+	await expect(
+		service.recoverBusinessOrder({
+			ownerUserId: "user-service-001",
+			businessType: "registration",
+			businessId: "appointment-business-recovery-001",
+			patientId: "patient-business-recovery-001",
+			context: {
+				traceId: "business-recovery-trace-001",
+				idempotencyKey: "business-recovery-idempotency-001",
+			},
+		}),
+	).resolves.toMatchObject({
+		orderId: "medical-business-recovery-001",
+		status: "created",
+		authorizationReady: true,
+		recoveryAllowed: true,
+	});
+	expect(providerCalls).toBe(0);
+	await expect(
+		orders.findByMedicalOrderId("medical-business-recovery-001"),
+	).resolves.toMatchObject({
+		authorizationId: "authorization-business-recovery-001",
+	});
+});
+
+test("业务恢复遇到多笔活动订单时拒绝客户端挑单", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	for (const suffix of ["a", "b"]) {
+		await orders.insert(
+			order({
+				medicalOrderId: `medical-ambiguous-${suffix}`,
+				patientId: "patient-ambiguous-001",
+				appointmentId: "appointment-ambiguous-001",
+				businessType: "registration",
+				orderType: "RegPay",
+				businessId: "appointment-ambiguous-001",
+				authorizationId: null,
+				feeUploadId: null,
+				payOrdId: null,
+				idempotencyKey: `medical-ambiguous-idempotency-${suffix}`,
+				medOrgOrd: `medical-ambiguous-${suffix}`,
+				chrgBchno: `charge-ambiguous-${suffix}`,
+				status: "created",
+			}),
+		);
+	}
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {} as never,
+		now: () => now,
+	});
+
+	await expect(
+		service.recoverBusinessOrder({
+			ownerUserId: "user-service-001",
+			businessType: "registration",
+			businessId: "appointment-ambiguous-001",
+			patientId: "patient-ambiguous-001",
+			context: {
+				traceId: "business-recovery-ambiguous-trace",
+				idempotencyKey: "business-recovery-ambiguous-idempotency",
+			},
+		}),
+	).rejects.toBeInstanceOf(PaymentNotificationConflictError);
+	await expect(
+		service.recoverBusinessOrder({
+			ownerUserId: "user-service-001",
+			businessType: "registration",
+			businessId: "appointment-missing-001",
+			patientId: "patient-ambiguous-001",
+			context: {
+				traceId: "business-recovery-missing-trace",
+				idempotencyKey: "business-recovery-missing-idempotency",
+			},
+		}),
+	).rejects.toBeInstanceOf(MedicalInsuranceOrderNotFoundError);
+
+	const authorizationService = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: "appointment-ambiguous-001",
+				ownerUserId: "user-service-001",
+				patientId: "patient-ambiguous-001",
+				providerPatientId: "provider-patient-ambiguous-001",
+				providerAppointmentId: "provider-appointment-ambiguous-001",
+				departmentName: "测试科室",
+				doctorName: "测试医生",
+				workDate: "2026-09-03",
+				shiftName: "上午",
+				sourceSerialNumber: "1",
+				totalFen: 1000,
+				status: "booked",
+				createdAt: now.toISOString(),
+				updatedAt: now.toISOString(),
+			}),
+		} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			authorize: async () => {
+				throw new Error("ambiguous order must not reach Provider");
+			},
+		} as never,
+		now: () => now,
+	});
+	await expect(
+		authorizationService.authorize({
+			ownerUserId: "user-service-001",
+			appointmentId: "appointment-ambiguous-001",
+			authCode: "auth-code-ambiguous-001",
+			context: {
+				traceId: "authorization-ambiguous-trace",
+				idempotencyKey: "authorization-ambiguous-idempotency",
+			},
+		}),
+	).rejects.toBeInstanceOf(PaymentNotificationConflictError);
+});
+
+test("授权结果短暂未知时按钮只查服务端且新请求不重复调用 Provider", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-authorization-pending-001",
+			patientId: "patient-authorization-pending-001",
+			appointmentId: "appointment-authorization-pending-001",
+			businessType: "registration",
+			orderType: "RegPay",
+			businessId: "appointment-authorization-pending-001",
+			authorizationId: null,
+			feeUploadId: null,
+			payOrdId: null,
+			idempotencyKey: "authorization-pending-original-idempotency",
+			status: "created",
+			createdAt: now.toISOString(),
+			updatedAt: now.toISOString(),
+		}),
+	);
+	let providerCalls = 0;
+	const dependencies = {
+		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: "appointment-authorization-pending-001",
+				ownerUserId: "user-service-001",
+				patientId: "patient-authorization-pending-001",
+				status: "booked",
+				createdAt: now.toISOString(),
+				updatedAt: now.toISOString(),
+			}),
+		} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			authorize: async () => {
+				providerCalls += 1;
+				throw new Error("authorization pending must not replay Provider");
+			},
+		} as never,
+	};
+	const activeService = new MedicalInsuranceRegistrationService({
+		...dependencies,
+		now: () => now,
+	});
+	const recoveryInput = {
+		ownerUserId: "user-service-001",
+		businessType: "registration" as const,
+		businessId: "appointment-authorization-pending-001",
+		patientId: "patient-authorization-pending-001",
+		context: {
+			traceId: "authorization-pending-recovery-trace",
+			idempotencyKey: "authorization-pending-recovery-idempotency",
+		},
+	};
+
+	await expect(
+		activeService.recoverBusinessOrder(recoveryInput),
+	).resolves.toMatchObject({
+		authorizationReady: false,
+		authorizationPending: true,
+		recoveryAllowed: true,
+	});
+	await expect(
+		activeService.authorize({
+			ownerUserId: "user-service-001",
+			appointmentId: "appointment-authorization-pending-001",
+			authCode: "authorization-pending-new-code",
+			context: {
+				traceId: "authorization-pending-new-trace",
+				idempotencyKey: "authorization-pending-new-idempotency",
+			},
+		}),
+	).rejects.toBeInstanceOf(PaymentPrepayAttemptInProgressError);
+	expect(providerCalls).toBe(0);
+
+	const staleService = new MedicalInsuranceRegistrationService({
+		...dependencies,
+		now: () => new Date("2026-09-03T00:03:00.000Z"),
+	});
+	await expect(
+		staleService.recoverBusinessOrder(recoveryInput),
+	).resolves.toMatchObject({
+		authorizationReady: false,
+		authorizationPending: false,
+		recoveryAllowed: true,
+	});
+});
+
+test("授权确认窗口结束后同一订单仍由服务端 CAS 阻止并发重放", async () => {
+	const currentNow = new Date();
+	const staleAt = new Date(currentNow.getTime() - 3 * 60_000).toISOString();
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-authorization-cas-001",
+			patientId: "patient-authorization-cas-001",
+			appointmentId: "appointment-authorization-cas-001",
+			businessType: "registration",
+			orderType: "RegPay",
+			businessId: "appointment-authorization-cas-001",
+			authorizationId: null,
+			feeUploadId: null,
+			payOrdId: null,
+			idempotencyKey: "authorization-cas-original-idempotency",
+			status: "created",
+			createdAt: staleAt,
+			updatedAt: staleAt,
+		}),
+	);
+	let providerCalls = 0;
+	let notifyProviderEntered: (() => void) | undefined;
+	let releaseProvider: (() => void) | undefined;
+	const providerEntered = new Promise<void>((resolve) => {
+		notifyProviderEntered = resolve;
+	});
+	const providerRelease = new Promise<void>((resolve) => {
+		releaseProvider = resolve;
+	});
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations,
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: "appointment-authorization-cas-001",
+				ownerUserId: "user-service-001",
+				patientId: "patient-authorization-cas-001",
+				providerPatientId: "his-patient-authorization-cas-001",
+				providerAppointmentId: "provider-appointment-authorization-cas-001",
+				departmentName: "测试科室",
+				doctorName: "测试医生",
+				workDate: "2026-09-03",
+				shiftName: "上午",
+				sourceSerialNumber: "1",
+				totalFen: 1000,
+				status: "booked",
+				createdAt: currentNow.toISOString(),
+				updatedAt: currentNow.toISOString(),
+			}),
+		} as never,
+		patients: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-authorization-cas-001",
+				provider: "zhongyang",
+				providerPatientId: "directory-patient-authorization-cas-001",
+			}),
+		} as never,
+		identityUsers: {
+			findByUserId: async () => ({
+				userId: "user-service-001",
+				providerSubject: "openid-authorization-cas-001",
+				unionId: "unionid-authorization-cas-001",
+			}),
+		} as never,
+		patientProfile: {
+			resolve: async () => ({
+				patient: {
+					providerPatientId: "his-patient-authorization-cas-001",
+					name: "授权并发测试人",
+					cardNo: "card-authorization-cas-001",
+					idNo: "140581199001010011",
+					phone: "13800000000",
+				},
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-patient-profile",
+					requestId: "profile-authorization-cas-001",
+				},
+			}),
+		} as never,
+		medicalInsurance: {
+			authorize: async (input: {
+				ownerUserId: string;
+				orderId: string;
+				providerSubject: string;
+			}) => {
+				providerCalls += 1;
+				notifyProviderEntered?.();
+				await providerRelease;
+				await authorizations.put({
+					authorizationId: "authorization-cas-001",
+					ownerUserId: input.ownerUserId,
+					medicalOrderId: input.orderId,
+					providerSubject: input.providerSubject,
+					payAuthNo: "pay-auth-authorization-cas-001",
+					patient: {
+						idNo: "140581199001010011",
+						userName: "授权并发测试人",
+						idType: "01",
+					},
+					psnNo: "psn-authorization-cas-001",
+					insutype: "310",
+					insuplcAdmdvs: "140581",
+					insuCode: "140581",
+					expiresAt: new Date(currentNow.getTime() + 15 * 60_000).toISOString(),
+					createdAt: currentNow.toISOString(),
+				});
+				return {
+					authorizationId: "authorization-cas-001",
+					trace: {
+						provider: "medical-insurance" as const,
+						operation: "medical-insurance.authorize",
+						requestId: "authorize-cas-001",
+					},
+				};
+			},
+		} as never,
+		now: () => currentNow,
+	});
+	const authorize = (suffix: string) =>
+		service.authorize({
+			ownerUserId: "user-service-001",
+			appointmentId: "appointment-authorization-cas-001",
+			authCode: `authorization-cas-code-${suffix}`,
+			context: {
+				traceId: `authorization-cas-trace-${suffix}`,
+				idempotencyKey: `authorization-cas-idempotency-${suffix}`,
+			},
+		});
+
+	const first = authorize("first");
+	let firstError: unknown;
+	void first.catch((error) => {
+		firstError = error;
+		notifyProviderEntered?.();
+	});
+	await providerEntered;
+	if (firstError) throw firstError;
+	await expect(authorize("second")).rejects.toBeInstanceOf(
+		PaymentPrepayAttemptInProgressError,
+	);
+	expect(providerCalls).toBe(1);
+	releaseProvider?.();
+	await expect(first).resolves.toEqual({
+		orderId: "medical-authorization-cas-001",
+		status: "authorized",
+	});
+	expect(providerCalls).toBe(1);
+});
+
+test("6201 回包已持久化时从加密凭证恢复订单且不重放 Provider", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const credentials = createInMemoryMedicalInsuranceCredentialRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-fee-recovery-001",
+			patientId: "patient-fee-recovery-001",
+			appointmentId: "appointment-fee-recovery-001",
+			businessType: "registration",
+			orderType: "RegPay",
+			businessId: "appointment-fee-recovery-001",
+			feeUploadId: null,
+			payOrdId: null,
+			payTokenHash: null,
+			mdtrtId: null,
+			acctUsedFlag: null,
+			status: "fee_upload_pending",
+		}),
+	);
+	await orders.saveSettlementContext(
+		"user-service-001",
+		"medical-fee-recovery-001",
+		settlementContext({
+			businessId: "appointment-fee-recovery-001",
+			feeUploadStage: "fee_uploaded",
+			feeUploadSubmittedAt: now.toISOString(),
+			mdtrtId: "mdtrt-fee-recovery-001",
+			acctUsedFlag: "1",
+		}),
+	);
+	const credentialBase = {
+		ownerUserId: "user-service-001",
+		medicalOrderId: "medical-fee-recovery-001",
+		payOrdId: "pay-fee-recovery-001",
+		payToken: "pay-token-fee-recovery-001",
+		providerQueryIdentity: {
+			orgCodg: "HOSPITAL-001",
+			idNo: "140581199001010011",
+			userName: "费用恢复测试人",
+			idType: "01",
+		},
+		expiresAt: "2026-09-03T00:15:00.000Z",
+		createdAt: now.toISOString(),
+	};
+	await credentials.put({
+		...credentialBase,
+		credentialId: "credential-fee-recovery-settlement",
+		purpose: "settlement",
+	});
+	await credentials.put({
+		...credentialBase,
+		credentialId: "credential-fee-recovery-query",
+		purpose: "query",
+	});
+	let providerCalls = 0;
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		credentials,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			uploadFees: async () => {
+				providerCalls += 1;
+				throw new Error("persisted 6201 must not be replayed");
+			},
+		} as never,
+		now: () => now,
+	});
+
+	await expect(
+		service.recoverBusinessOrder({
+			ownerUserId: "user-service-001",
+			businessType: "registration",
+			businessId: "appointment-fee-recovery-001",
+			patientId: "patient-fee-recovery-001",
+			context: {
+				traceId: "fee-recovery-trace",
+				idempotencyKey: "fee-recovery-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({
+		orderId: "medical-fee-recovery-001",
+		status: "fee_uploaded",
+		recoveryAllowed: true,
+	});
+	expect(providerCalls).toBe(0);
+	await expect(
+		orders.findByMedicalOrderId("medical-fee-recovery-001"),
+	).resolves.toMatchObject({
+		status: "fee_uploaded",
+		feeUploadId: "credential-fee-recovery-settlement",
+		payOrdId: "pay-fee-recovery-001",
+		mdtrtId: "mdtrt-fee-recovery-001",
+		acctUsedFlag: "1",
+	});
+});
+
+test("6201 发送门禁在途时只观察，超时缺证据后转人工且都不重放", async () => {
+	const activeOrders = createInMemoryMedicalInsuranceOrderRepository();
+	await activeOrders.insert(
+		order({
+			medicalOrderId: "medical-fee-pending-active",
+			feeUploadId: null,
+			payOrdId: null,
+			status: "fee_upload_pending",
+			updatedAt: now.toISOString(),
+		}),
+	);
+	let activeProviderCalls = 0;
+	const activeService = new MedicalInsuranceRegistrationService({
+		orders: activeOrders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			uploadFees: async () => {
+				activeProviderCalls += 1;
+				throw new Error("in-flight 6201 must not be replayed");
+			},
+		} as never,
+		now: () => now,
+	});
+	await expect(
+		activeService.uploadFees({
+			ownerUserId: "user-service-001",
+			orderId: "medical-fee-pending-active",
+			context: {
+				traceId: "fee-pending-active-trace",
+				idempotencyKey: "fee-pending-active-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({ status: "fee_upload_pending" });
+	expect(activeProviderCalls).toBe(0);
+
+	const staleOrders = createInMemoryMedicalInsuranceOrderRepository();
+	await staleOrders.insert(
+		order({
+			medicalOrderId: "medical-fee-pending-stale",
+			feeUploadId: null,
+			payOrdId: null,
+			status: "fee_upload_pending",
+			updatedAt: now.toISOString(),
+		}),
+	);
+	let staleProviderCalls = 0;
+	const staleService = new MedicalInsuranceRegistrationService({
+		orders: staleOrders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			uploadFees: async () => {
+				staleProviderCalls += 1;
+				throw new Error("stale unknown 6201 must not be replayed");
+			},
+		} as never,
+		now: () => new Date("2026-09-03T00:03:00.000Z"),
+	});
+	await expect(
+		staleService.uploadFees({
+			ownerUserId: "user-service-001",
+			orderId: "medical-fee-pending-stale",
+			context: {
+				traceId: "fee-pending-stale-trace",
+				idempotencyKey: "fee-pending-stale-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({ status: "manual_review" });
+	expect(staleProviderCalls).toBe(0);
+
+	const preparedOrders = createInMemoryMedicalInsuranceOrderRepository();
+	await preparedOrders.insert(
+		order({
+			medicalOrderId: "medical-fee-prepared-stale",
+			businessType: "registration",
+			orderType: "RegPay",
+			businessId: "appointment-fee-prepared-stale",
+			appointmentId: "appointment-fee-prepared-stale",
+			feeUploadId: null,
+			payOrdId: null,
+			status: "fee_upload_pending",
+			updatedAt: now.toISOString(),
+		}),
+	);
+	await preparedOrders.saveSettlementContext(
+		"user-service-001",
+		"medical-fee-prepared-stale",
+		settlementContext({
+			businessId: "appointment-fee-prepared-stale",
+			feeUploadStage: "pre_6201",
+		}),
+	);
+	let preparedProviderCalls = 0;
+	const preparedService = new MedicalInsuranceRegistrationService({
+		orders: preparedOrders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			uploadFees: async () => {
+				preparedProviderCalls += 1;
+				throw new Error("stale pre-6201 must not be resumed without fencing");
+			},
+		} as never,
+		now: () => new Date("2026-09-03T00:03:00.000Z"),
+	});
+	await expect(
+		preparedService.uploadFees({
+			ownerUserId: "user-service-001",
+			orderId: "medical-fee-prepared-stale",
+			context: {
+				traceId: "fee-prepared-stale-trace",
+				idempotencyKey: "fee-prepared-stale-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({ status: "manual_review" });
+	expect(preparedProviderCalls).toBe(0);
+});
+
+test("并发 6201 请求只有 CAS 胜者可以调用 Provider", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-fee-concurrent-001",
+			businessType: "registration",
+			orderType: "RegPay",
+			businessId: "appointment-service-001",
+			feeUploadId: null,
+			payOrdId: null,
+			payTokenHash: null,
+			mdtrtId: null,
+			acctUsedFlag: null,
+			status: "created",
+		}),
+	);
+	let providerCalls = 0;
+	let releaseProvider!: () => void;
+	let markProviderStarted!: () => void;
+	const providerStarted = new Promise<void>((resolve) => {
+		markProviderStarted = resolve;
+	});
+	const providerRelease = new Promise<void>((resolve) => {
+		releaseProvider = resolve;
+	});
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: "appointment-service-001",
+				ownerUserId: "user-service-001",
+				patientId: "patient-service-001",
+				providerPatientId: "provider-patient-service-001",
+				providerAppointmentId: "provider-appointment-service-001",
+				departmentName: "测试科室",
+				doctorName: "测试医生",
+				workDate: "2026-09-03",
+				shiftName: "上午",
+				sourceSerialNumber: "1",
+				totalFen: 1000,
+				status: "booked",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			}),
+		} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			uploadFees: async () => {
+				providerCalls += 1;
+				markProviderStarted();
+				await providerRelease;
+				return {
+					feeUploadId: "fee-concurrent-001",
+					payOrdId: "pay-concurrent-001",
+					payTokenHash: "c".repeat(64),
+					mdtrtId: "mdtrt-concurrent-001",
+					acctUsedFlag: "1",
+					trace: {
+						provider: "medical-insurance",
+						operation: "medical-insurance.6201",
+						requestId: "6201-concurrent-001",
+					},
+				};
+			},
+		} as never,
+		now: () => new Date(),
+	});
+	const input = {
+		ownerUserId: "user-service-001",
+		orderId: "medical-fee-concurrent-001",
+		context: {
+			traceId: "fee-concurrent-trace",
+			idempotencyKey: "fee-concurrent-idempotency",
+		},
+	};
+	const winner = service.uploadFees(input);
+	await providerStarted;
+	await expect(service.uploadFees(input)).resolves.toMatchObject({
+		status: "fee_upload_pending",
+	});
+	expect(providerCalls).toBe(1);
+	releaseProvider();
+	await expect(winner).resolves.toMatchObject({ status: "fee_uploaded" });
+	expect(providerCalls).toBe(1);
+});
+
+test("6201 回包落库被并发恢复抢先推进时原请求返回同一订单事实", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-fee-persist-race-001",
+			businessType: "registration",
+			orderType: "RegPay",
+			businessId: "appointment-fee-persist-race-001",
+			appointmentId: "appointment-fee-persist-race-001",
+			feeUploadId: null,
+			payOrdId: null,
+			payTokenHash: null,
+			mdtrtId: null,
+			acctUsedFlag: null,
+			status: "created",
+		}),
+	);
+	const result = {
+		feeUploadId: "fee-persist-race-001",
+		payOrdId: "pay-persist-race-001",
+		payTokenHash: "d".repeat(64),
+		mdtrtId: "mdtrt-persist-race-001",
+		acctUsedFlag: "1",
+		trace: {
+			provider: "medical-insurance" as const,
+			operation: "medical-insurance.6201",
+			requestId: "6201-persist-race-001",
+		},
+	};
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: "appointment-fee-persist-race-001",
+				ownerUserId: "user-service-001",
+				patientId: "patient-service-001",
+				providerPatientId: "provider-patient-persist-race-001",
+				providerAppointmentId: "provider-appointment-persist-race-001",
+				departmentName: "测试科室",
+				doctorName: "测试医生",
+				workDate: "2026-09-03",
+				shiftName: "上午",
+				sourceSerialNumber: "1",
+				totalFen: 1000,
+				status: "booked",
+				createdAt: now.toISOString(),
+				updatedAt: now.toISOString(),
+			}),
+		} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			uploadFees: async () => {
+				const claimed = await orders.findByMedicalOrderId(
+					"medical-fee-persist-race-001",
+				);
+				expect(claimed?.status).toBe("fee_upload_pending");
+				const recovered = await orders.applySettlement(
+					"medical-fee-persist-race-001",
+					claimed?.version ?? -1,
+					{
+						status: "fee_uploaded",
+						ordStas: null,
+						amounts: null,
+						setlType: null,
+						revsTokenHash: null,
+						revsTokenExpiresAt: null,
+						businessType: "registration",
+						orderType: "RegPay",
+						businessId: "appointment-fee-persist-race-001",
+						appointmentId: "appointment-fee-persist-race-001",
+						feeUploadId: result.feeUploadId,
+						payOrdId: result.payOrdId,
+						payTokenHash: result.payTokenHash,
+						mdtrtId: result.mdtrtId,
+						acctUsedFlag: result.acctUsedFlag,
+					},
+				);
+				expect(recovered?.status).toBe("fee_uploaded");
+				return result;
+			},
+		} as never,
+		now: () => now,
+	});
+
+	await expect(
+		service.uploadFees({
+			ownerUserId: "user-service-001",
+			orderId: "medical-fee-persist-race-001",
+			context: {
+				traceId: "fee-persist-race-trace",
+				idempotencyKey: "fee-persist-race-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({
+		orderId: "medical-fee-persist-race-001",
+		status: "fee_uploaded",
+	});
 });
 
 test("medical authorization resolves the directory reference instead of the HIS patient id", async () => {
@@ -422,7 +1292,108 @@ test("医保授权后尚未产生 6201 支付流水时可以直接作废订单",
 	).resolves.toMatchObject({ status: "cancelled" });
 });
 
-test("重新展码直接创建新订单，不校验或关闭重复旧订单", async () => {
+test("挂号终态恢复先返回权威状态，不因授权上下文已清理而重跑 6201", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-cancelled-recovery-001",
+			businessType: "registration",
+			orderType: "RegPay",
+			businessId: "appointment-service-001",
+			status: "cancelled",
+			authorizationId: null,
+			feeUploadId: null,
+			payOrdId: null,
+		}),
+	);
+	let providerCalls = 0;
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {
+			findRegistration: async () => {
+				throw new Error("terminal order must not reload appointment");
+			},
+		} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {
+			uploadFees: async () => {
+				providerCalls += 1;
+				throw new Error("terminal order must not replay 6201");
+			},
+		} as never,
+	});
+
+	await expect(
+		service.uploadFees({
+			ownerUserId: "user-service-001",
+			orderId: "medical-cancelled-recovery-001",
+			context: {
+				traceId: "medical-cancelled-recovery-trace",
+				idempotencyKey: "medical-cancelled-recovery-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({
+		orderId: "medical-cancelled-recovery-001",
+		status: "cancelled",
+	});
+	expect(providerCalls).toBe(0);
+});
+
+test("门诊人工复核恢复保留原状态，不因授权上下文已清理而重跑 6201", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(
+		order({
+			medicalOrderId: "medical-outpatient-review-recovery-001",
+			businessType: "outpatient",
+			orderType: "DiagPay",
+			businessId: "outpatient-review-record-001",
+			status: "manual_review",
+			authorizationId: null,
+			feeUploadId: null,
+			payOrdId: null,
+		}),
+	);
+	let providerCalls = 0;
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		outpatientPayments: {
+			resolvePaymentContext: async () => {
+				throw new Error("manual review must not reload outpatient fees");
+			},
+		} as never,
+		medicalInsurance: {
+			uploadFees: async () => {
+				providerCalls += 1;
+				throw new Error("manual review must not replay 6201");
+			},
+		} as never,
+	});
+
+	await expect(
+		service.uploadOutpatientFees({
+			ownerUserId: "user-service-001",
+			orderId: "medical-outpatient-review-recovery-001",
+			context: {
+				traceId: "medical-outpatient-review-recovery-trace",
+				idempotencyKey: "medical-outpatient-review-recovery-idempotency",
+			},
+		}),
+	).resolves.toMatchObject({
+		orderId: "medical-outpatient-review-recovery-001",
+		status: "manual_review",
+	});
+	expect(providerCalls).toBe(0);
+});
+
+test("新授权幂等键仍复用同一业务活动订单，不创建第二笔医保订单", async () => {
 	const authorizations =
 		createInMemoryMedicalInsuranceAuthorizationRepository();
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
@@ -592,10 +1563,10 @@ test("重新展码直接创建新订单，不校验或关闭重复旧订单", as
 		},
 	});
 	expect(authorized).toEqual({
-		orderId: "medical-reauth-new",
+		orderId: "medical-reauth-old",
 		status: "authorized",
 	});
-	expect(calls).toEqual(["authorize:fresh-auth-code:medical-reauth-new"]);
+	expect(calls).toEqual([]);
 	await expect(
 		service.authorize({
 			ownerUserId: "user-service-001",
@@ -607,55 +1578,45 @@ test("重新展码直接创建新订单，不校验或关闭重复旧订单", as
 			},
 		}),
 	).resolves.toEqual({
-		orderId: "medical-reauth-new",
+		orderId: "medical-reauth-old",
 		status: "authorized",
 	});
-	expect(calls).toHaveLength(1);
+	expect(calls).toHaveLength(0);
 	await expect(
 		service.uploadFees({
 			ownerUserId: "user-service-001",
-			orderId: "medical-reauth-new",
+			orderId: "medical-reauth-old",
 			context: {
 				traceId: "medical-reauth-6201-trace",
 				idempotencyKey: "medical-reauth-6201-idempotency",
 			},
 		}),
 	).resolves.toMatchObject({
-		orderId: "medical-reauth-new",
+		orderId: "medical-reauth-old",
 		status: "fee_uploaded",
 	});
 	await expect(
 		service.settle({
 			ownerUserId: "user-service-001",
-			orderId: "medical-reauth-new",
+			orderId: "medical-reauth-old",
 			context: {
 				traceId: "medical-reauth-6202-trace",
 				idempotencyKey: "medical-reauth-6202-idempotency",
 			},
 		}),
 	).resolves.toMatchObject({
-		orderId: "medical-reauth-new",
+		orderId: "medical-reauth-old",
 		status: "insurance_settled",
 	});
-	expect(calls).toEqual([
-		"authorize:fresh-auth-code:medical-reauth-new",
-		"6201:medical-reauth-new",
-		"6202:medical-reauth-new",
-	]);
+	expect(calls).toEqual(["6202:medical-reauth-old"]);
 	await expect(
 		orders.findByMedicalOrderId("medical-reauth-old"),
 	).resolves.toMatchObject({
-		status: "fee_uploaded",
+		status: "insurance_settled",
 	});
 	await expect(
 		orders.findByMedicalOrderId("medical-reauth-new"),
-	).resolves.toMatchObject({
-		idempotencyKey: "medical-reauth-new-idempotency",
-		authorizationId: "authorization-reauth-new",
-		feeUploadId: "fee-reauth-new",
-		payOrdId: "pay-reauth-new",
-		status: "insurance_settled",
-	});
+	).resolves.toBeUndefined();
 });
 
 test("门诊医保授权复用统一订单核心并从 2.6.33 解析支付事实", async () => {

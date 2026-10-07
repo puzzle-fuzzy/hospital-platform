@@ -1,10 +1,14 @@
 import { registerBootstrapApp } from "./services/app-runtime-context";
+import { resolveErrorNumericCode } from "./services/error-registry";
 import {
 	ensureGlobalUserProfile,
 	type GlobalUserProfileState,
 } from "./services/global-user-profile";
+import {
+	type MedicalInsuranceAuthHandoffState,
+	receiveMedicalInsuranceAuthReturn,
+} from "./services/medical-insurance-auth-handoff";
 import { installClientPageTelemetry } from "./services/page-telemetry";
-import { resolveErrorNumericCode } from "./services/error-registry";
 import { recordClientTelemetryEvent } from "./services/telemetry";
 
 /**
@@ -12,14 +16,11 @@ import { recordClientTelemetryEvent } from "./services/telemetry";
  * TypeScript import，但运行包不能携带 CommonJS 的 `define/exports/require`
  * 启动壳；build.ts 会对 app.ts 做 IIFE bundle，并对产物继续执行全局脚本门禁。
  */
-type AppGlobalData = {
+type AppGlobalData = MedicalInsuranceAuthHandoffState & {
 	// 线上小程序固定访问已备案的 HTTPS 域名，真实业务路由由 apiPrefix 隔离。
 	apiBaseUrl: string;
 	apiPrefix: "/api/v2" | "/api/v1";
 	accessToken: string;
-	/** 医保授权小程序回跳的一次性 opaque 授权结果，只在回跳后消费。 */
-	medicalInsuranceAuthCode: string;
-	medicalInsuranceAuthExtraData: Record<string, unknown> | null;
 	sessionStatus: "signed_out" | "signed_in";
 	/** 最近一次通过 `/me` 或微信登录响应确认的 owner；token 轮换不等于账号切换。 */
 	sessionOwnerId: string;
@@ -69,8 +70,8 @@ const APP_GLOBAL_DATA: AppGlobalData = {
 	apiBaseUrl: "https://test-hp.meiyi.pro",
 	apiPrefix: "/api/v2",
 	accessToken: "",
-	medicalInsuranceAuthCode: "",
-	medicalInsuranceAuthExtraData: null,
+	medicalInsuranceAuthIntent: null,
+	medicalInsuranceAuthResult: null,
 	sessionStatus: "signed_out",
 	sessionOwnerId: "",
 	sessionGeneration: 0,
@@ -192,9 +193,8 @@ App<{ globalData: AppGlobalData }>({
 		const authCode = String(
 			extraData?.authCode || extraData?.qrcode || "",
 		).trim();
-		if (authCode) {
-			this.globalData.medicalInsuranceAuthCode = authCode;
-			this.globalData.medicalInsuranceAuthExtraData = extraData || null;
-		}
+		// 只把本次回跳码交给内存中精确匹配的业务意图；冷启动、过期、
+		// 返回到其他业务或无授权码时都会清空，且从不写入 storage。
+		receiveMedicalInsuranceAuthReturn(this.globalData, authCode);
 	},
 });

@@ -1401,6 +1401,20 @@ function composeOutNetworkSettleMain(
 	return main;
 }
 
+/**
+ * HIS 已确认：2.27.2.32 的 settleBackNo 用于保存平台医保订单关联号，
+ * 以便 HIS 在结算后的退费和对账流程中回传平台 medicalOrderId。
+ */
+function withHisSettlementBackNo(
+	outNetworkSettleMain: ProviderRecord,
+	platformOrderId: string,
+): ProviderRecord {
+	return {
+		...outNetworkSettleMain,
+		settleBackNo: platformOrderId,
+	};
+}
+
 function requiredProviderField(
 	primary: ProviderRecord,
 	secondary: ProviderRecord | undefined,
@@ -1734,7 +1748,7 @@ function providerResultLabel(value: unknown): string {
 	return "success=unknown";
 }
 
-export function accountFlag(insuplcAdmdvs: string): string {
+export function accountFlag(insuplcAdmdvs: string): "0" | "1" {
 	// 高平本地参保人为 0，其他参保地均显式传 1，避免依赖 6202 默认值。
 	return insuplcAdmdvs.trim() === "140581" ? "0" : "1";
 }
@@ -2281,7 +2295,10 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				nationalUpDetailList: settlementContext.nationalUpDetailList,
 				networkRegister: normalizedNetworkRegister,
 				outNetworkSettleMain: {
-					...settlementContext.outNetworkSettleMain,
+					...withHisSettlementBackNo(
+						settlementContext.outNetworkSettleMain,
+						input.orderId,
+					),
 					transId: finalPayingId,
 				},
 				outSettleMainId: settlementContext.businessId,
@@ -2476,7 +2493,10 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					nationalUpDetailList: settlementContext.nationalUpDetailList,
 					networkRegister: normalizedNetworkRegister,
 					outNetworkSettleMain: {
-						...settlementContext.outNetworkSettleMain,
+						...withHisSettlementBackNo(
+							settlementContext.outNetworkSettleMain,
+							input.orderId,
+						),
 						settleSource: DEFAULT_SETTLEMENT_SOURCE,
 						transId: selfPayComponent.payingId,
 					},
@@ -3196,6 +3216,17 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				input.ownerUserId,
 				input.orderId,
 			);
+			if (
+				priorSettlementContext?.feeUploadStage === "submitting_6201" ||
+				priorSettlementContext?.feeUploadStage === "fee_uploaded"
+			) {
+				// 服务编排层应先用已落库凭证恢复订单；适配器自身也必须拒绝
+				// 越过发送门禁，避免未来绕过服务层的调用重新执行 6201。
+				throw responseError(
+					"medical-insurance.6201",
+					"6201 已进入发送或完成状态，禁止重复提交",
+				);
+			}
 			const resumePre6201 =
 				priorSettlementContext?.feeUploadStage === "pre_6201";
 			let applyPayload: ProviderRecord = {};
@@ -3832,6 +3863,36 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				},
 				"Medical insurance 6201 payload is ready",
 			);
+			const feeUploadSubmittedAt = now().toISOString();
+			// 6201 的结果不能假设可安全重放。先保存发送门禁和完整请求前置事实，
+			// 再越过 Provider 边界；回包丢失时服务端只能从已保存凭证恢复，
+			// 或在宽限期后转人工核实，不能再次调用 6201。
+			await options.orders.saveSettlementContext(
+				input.ownerUserId,
+				input.orderId,
+				{
+					businessId,
+					businessCode,
+					hospitalId,
+					patientId: providerPatientId,
+					chrgBchno: chargeBatch,
+					networkRegister,
+					outNetworkSettleMain,
+					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
+						? (settleInfo.nationalUpDetailList as ProviderRecord[])
+						: [],
+					upDetailList,
+					tradeOrderIds,
+					insuredAreaCode: auth.insuplcAdmdvs,
+					feeUploadStage: "submitting_6201",
+					feeUploadSubmittedAt,
+					acctUsedFlag,
+					settlementAmountFen,
+					...(preResolvedMdtrtId ? { mdtrtId: preResolvedMdtrtId } : {}),
+					settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
+					settlementDetailsProviderRequestId: detailResponse.requestId,
+				},
+			);
 			const feeResult = await options.legacyFsi.uploadFees(
 				{
 					...(preResolvedMdtrtId ? { mdtrtId: preResolvedMdtrtId } : {}),
@@ -3958,6 +4019,8 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					tradeOrderIds,
 					insuredAreaCode: auth.insuplcAdmdvs,
 					feeUploadStage: "fee_uploaded",
+					feeUploadSubmittedAt,
+					acctUsedFlag,
 					settlementAmountFen,
 					...(mdtrtId ? { mdtrtId } : {}),
 					settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,

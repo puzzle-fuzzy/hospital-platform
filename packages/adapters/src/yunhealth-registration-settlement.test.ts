@@ -36,6 +36,7 @@ const registrationContext = {
 	recordCode: "0123456789abcdef0123456789abcdef",
 	payTypeId: "5027",
 	payType: "CREDIT" as const,
+	platformOrderId: "medical-order-001",
 };
 
 function gateway(fetcher: ProviderFetcher, workStationId = "") {
@@ -802,7 +803,7 @@ test("医保支付入口的微信自费回写仍严格执行 .29 -> .15 -> .5", 
 		});
 		call += 1;
 		const body = path.endsWith("/thirdPartPay/start")
-			? { success: true, data: { thirdPartPayRecordId: "9007199254740993" } }
+			? { success: true, data: { thirdPartPayRecordId: "medical-order-001" } }
 			: path.endsWith("/complete-settle")
 				? { success: true, data: { isSettle: 1 } }
 				: { success: true, data: {} };
@@ -868,15 +869,16 @@ test("医保支付入口的微信自费回写仍严格执行 .29 -> .15 -> .5", 
 		payTypeId: 5033,
 		payingId: "1952638941030000002",
 		settleId: "settlement-business-001",
+		thirdPartPayRecordId: "medical-order-001",
 		tradingId: "1952638941030000003",
 		transStatus: "0",
 	});
 	expect(savedThirdPart).toEqual({
 		rawResponse: JSON.stringify({
 			success: true,
-			data: { thirdPartPayRecordId: "9007199254740993" },
+			data: { thirdPartPayRecordId: "medical-order-001" },
 		}),
-		thirdPartPayRecordId: "9007199254740993",
+		thirdPartPayRecordId: "medical-order-001",
 		requestId: "yunhealth-request-1",
 	});
 	expect(requests[1]?.bodyText).toContain('"payingId":1952638941030000002');
@@ -920,6 +922,39 @@ test("医保支付入口的微信自费回写仍严格执行 .29 -> .15 -> .5", 
 		"attempt:.5",
 		"request:/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 	]);
+});
+
+test("医保混合自费 .29 缺少平台主订单号时不得出网", async () => {
+	let calls = 0;
+	const gatewayInstance = gateway(async () => {
+		calls += 1;
+		return new Response(JSON.stringify({ success: true, data: {} }), {
+			status: 200,
+		});
+	});
+
+	await expect(
+		gatewayInstance.writeBack(
+			{
+				orderId: "payment-order-no-platform-id-001",
+				settlementFlow: "medical-mixed-cash",
+				settlement: {
+					orderId: "payment-order-no-platform-id-001",
+					state: "cash_paid",
+					totalFen: 100,
+					insuranceFen: 0,
+					cashFen: 100,
+					trace: [],
+				},
+				registrationContext: {
+					...registrationContext,
+					platformOrderId: "",
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({ requestOutcome: "not_sent" });
+	expect(calls).toBe(0);
 });
 
 test("历史 5031 自费回写可跳过 .5 但仍严格执行 .29 -> .15", async () => {

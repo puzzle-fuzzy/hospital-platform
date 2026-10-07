@@ -14,11 +14,5 @@ export const MEDICAL_INSURANCE_CONFIG = {
 	medicalOrgAppId: "1JRP6UK6P1AO4460C80A00008AF003C5",
 	medicalOrgCode: "H14058101270",
 	medicalOrgChannelCredential: "__MINIPROGRAM_MEDICAL_ORG_CHANNEL_CREDENTIAL__",
-	pendingPaymentMaxAgeMs: 15 * 60 * 1000,
 	insurancePollDelaysMs: [1_500, 3_000, 5_000, 8_000] as const,
-} as const;
-
-export const MINIPROGRAM_STORAGE_KEYS = {
-	pendingMedicalPayment: "hospital-platform.pending-medical-payment.v1",
-	lastMedicalPaymentResult: "hospital-platform.last-medical-payment-result",
 } as const;
