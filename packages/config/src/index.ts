@@ -59,7 +59,7 @@ export type RuntimeConfig = {
 	/** 官方医保 Java SDK 的构建产物目录；未配置时使用当前 release 的默认目录。 */
 	medicalInsuranceJavaSdkDirectory: string | undefined;
 	medicalInsuranceEncryptionEnabled: boolean;
-	/** 当前医保测试环境暂按兼容模式运行；拿到严格回包验签证据后再显式打开。 */
+	/** 当前按所有者要求保持非严格兼容模式；正式回包验签结果另行验证。 */
 	medicalInsuranceVerifyStrict: boolean;
 	/** 仅用于医保 payToken 短期上下文密文，必须与微信支付密钥分离。 */
 	medicalInsuranceCredentialEncryptionKey: string | undefined;
@@ -1230,8 +1230,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			optional(env.MBS_SM2_USER_ID) ?? "1234567812345678",
 		medicalInsuranceJavaSdkDirectory: optional(env.MBS_JAVA_SDK_DIR),
 		medicalInsuranceEncryptionEnabled: boolean(env.MBS_ENCRYPT_ENABLE, true),
-		// 当前测试环境回包业务成功但签名不通过，先按非严格模式兼容；
-		// 取得平台回包验签证据后，由部署环境显式设为 true。
+		// 当前按所有者要求保持非严格兼容模式；正式回包验签结果另行验证。
 		medicalInsuranceVerifyStrict: boolean(env.MBS_SM2_VERIFY_STRICT, false),
 		medicalInsuranceCredentialEncryptionKey: optional(
 			env.MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY,
