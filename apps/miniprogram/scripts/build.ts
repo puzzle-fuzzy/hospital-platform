@@ -31,7 +31,7 @@ const repositoryRoot = join(root, "..", "..");
 const source = join(root, "src");
 const medicalCredentialPath = join(
 	root,
-	"../../.local/medical-insurance/test-environment-key-material.json",
+	"../../.local/medical-insurance/production-environment-key-material.json",
 );
 const medicalCredentialPlaceholder =
 	"__MINIPROGRAM_MEDICAL_ORG_CHANNEL_CREDENTIAL__";

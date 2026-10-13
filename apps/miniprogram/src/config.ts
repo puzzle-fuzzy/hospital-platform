@@ -1,12 +1,12 @@
 /**
  * 医保授权跳转的非敏感业务配置。
  *
- * 机构渠道凭证只从本机 `.local/medical-insurance/test-environment-key-material.json`
+ * 机构渠道凭证只从本机 `.local/medical-insurance/production-environment-key-material.json`
  * 在构建阶段注入；源码、页面状态和平台 API 请求都不保存该凭证。
  */
 export const MEDICAL_INSURANCE_CONFIG = {
 	medicalAppId: "wxe183cd55df4b4369",
-	medicalEnvVersion: "trial" as const,
+	medicalEnvVersion: "release" as const,
 	medicalBizType: "04107",
 	medicalCityCode: "140500",
 	medicalChannel: "AAG9GbS6mPa4tT_ldqyvQIY_",

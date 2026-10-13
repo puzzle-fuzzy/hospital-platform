@@ -156,6 +156,7 @@ function authorizationSelectionFixture(
 	insuinfo: readonly Record<string, unknown>[],
 ) {
 	let requestCount = 0;
+	const relayRequests: Record<string, unknown>[] = [];
 	let storedAuthorization: MedicalInsuranceAuthorizationContext | undefined;
 	const gateway = createLegacyFsiMedicalInsuranceGateway({
 		legacyFsi: {} as never,
@@ -174,8 +175,9 @@ function authorizationSelectionFixture(
 		zhongyangBaseUrl: "https://zhongyang.example",
 		createId: () => "authorization-selection-001",
 		now: () => new Date("2026-09-10T01:00:00.000Z"),
-		fetcher: async () => {
+		fetcher: async (_input, init) => {
 			requestCount += 1;
+			relayRequests.push(JSON.parse(String(init?.body)));
 			const data =
 				requestCount === 1
 					? {
@@ -197,6 +199,7 @@ function authorizationSelectionFixture(
 		gateway,
 		readStored: () => storedAuthorization,
 		readRequestCount: () => requestCount,
+		readRelayRequests: () => relayRequests,
 	};
 }
 
@@ -214,6 +217,16 @@ const authorizationSelectionInput = {
 		phone: "13800000000",
 	},
 };
+
+test("医保 adapter 未显式覆盖 userQuery 时通过 relay 使用正式地址", async () => {
+	const fixture = authorizationSelectionFixture([
+		{ insutype: "310", psn_no: "psn-default-001", insuplc_admdvs: "140581" },
+	]);
+	await fixture.gateway.authorize(authorizationSelectionInput, context);
+	expect(fixture.readRelayRequests()[0]).toMatchObject({
+		base_url: "https://receiver.wecity.qq.com",
+	});
+});
 
 test("1101同险种多条同参保地不依赖返回顺序", async () => {
 	const fixture = authorizationSelectionFixture([

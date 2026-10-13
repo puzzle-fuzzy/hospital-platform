@@ -58,6 +58,23 @@ test("runtime config defaults to safe development gates", () => {
 	});
 });
 
+test("医保 userQuery 缺省使用正式地址，测试渠道必须显式覆盖", () => {
+	for (const value of [undefined, "", "   "]) {
+		const config = loadRuntimeConfig({ MBS_USER_QUERY_BASE_URL: value });
+		expect(config.medicalInsuranceUserQueryBaseUrl).toBe(
+			"https://receiver.wecity.qq.com",
+		);
+		expect(config.medicalInsuranceReady).toBeFalse();
+		expect(config.wechatMedicalInsuranceTestEnvironment).toBeFalse();
+		expect(config.medicalInsuranceDirectBaseUrl).toBeUndefined();
+	}
+	expect(
+		loadRuntimeConfig({
+			MBS_USER_QUERY_BASE_URL: "https://test-receiver.wecity.qq.com",
+		}).medicalInsuranceUserQueryBaseUrl,
+	).toBe("https://test-receiver.wecity.qq.com");
+});
+
 test("2.6.29 电子发票配置保留空 workStationId 并校验服务端固定参数", () => {
 	const incomplete = loadRuntimeConfig({
 		ZHONGYANG_OUTPATIENT_ELECTRONIC_INVOICE_READY: "true",

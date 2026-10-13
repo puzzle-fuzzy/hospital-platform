@@ -52,7 +52,7 @@ test("legacy FSI gateway sends standalone 1101 through configured foundation rou
 	const api = createLegacyFsiGateway({
 		relayUrl: "https://relay.example.test/forward",
 		directBaseUrl: "https://medical.example.test",
-		foundationBaseUrl: "http://124.164.248.83:51000",
+		foundationBaseUrl: "http://124.164.248.83:50080",
 		foundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
 		relayAuthorizationToken: "relay-token-for-test",
 		crypto: createCrypto(),
@@ -84,7 +84,7 @@ test("legacy FSI gateway sends standalone 1101 through configured foundation rou
 		trace: { operation: "legacy-fsi.1101", requestId: "relay-1101-001" },
 	});
 	expect(requestBody).toMatchObject({
-		base_url: "http://124.164.248.83:51000",
+		base_url: "http://124.164.248.83:50080",
 		path: "/mbs-fsi-jc/web/api/fsi/callService",
 	});
 	expect(relayBody).toMatchObject({
@@ -100,7 +100,7 @@ test("1101 foundation rejection is reported as an upstream business rejection", 
 	const api = createLegacyFsiGateway({
 		relayUrl: "https://relay.example.test/forward",
 		directBaseUrl: "https://medical.example.test",
-		foundationBaseUrl: "http://124.164.248.83:51000",
+		foundationBaseUrl: "http://124.164.248.83:50080",
 		foundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
 		relayAuthorizationToken: "relay-token-for-test",
 		crypto: createCrypto(),

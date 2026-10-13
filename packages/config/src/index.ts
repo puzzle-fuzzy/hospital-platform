@@ -1238,7 +1238,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		medicalInsuranceUserQueryBaseUrl: providerBaseUrl(
 			env.MBS_USER_QUERY_BASE_URL,
-			"https://test-receiver.wecity.qq.com",
+			"https://receiver.wecity.qq.com",
 		),
 		medicalInsuranceUserQueryPath:
 			optional(env.MBS_USER_QUERY_PATH) ??

@@ -39,3 +39,5 @@ docs/release/wechat-preview-*.png
 .local/wechat-payment/
 # docs/相关文档/ 内含真实凭据反馈单与大体量规范原件，仓库只登记 SHA-256 指纹，原件不入库。
 docs/相关文档/
+# 医保测试/正式渠道反馈单含真实凭据；只登记环境和文件指纹，原件留在本机。
+docs/文献/

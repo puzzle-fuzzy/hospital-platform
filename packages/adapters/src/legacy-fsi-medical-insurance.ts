@@ -38,7 +38,7 @@ import type {
 	ProviderDiagnosticLogger,
 } from "./legacy-fsi-gateway";
 
-const DEFAULT_USER_QUERY_BASE_URL = "https://test-receiver.wecity.qq.com";
+const DEFAULT_USER_QUERY_BASE_URL = "https://receiver.wecity.qq.com";
 const DEFAULT_USER_QUERY_PATH = "/api/mipuserquery/userQuery/50010828";
 const DEFAULT_FOUNDATION_PATH = "/mbs-fsi/web/api/fsi/callService";
 const DEFAULT_AUTH_SYS_CODE = "thirdSelfMachine";
