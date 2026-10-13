@@ -17,6 +17,7 @@ import {
 	resolveReadinessStability,
 	runReadinessStabilityProbe,
 } from "./readiness-stability";
+import { isWorkerCliEntry } from "./worker-cli-entry";
 
 /**
  * 目录 smoke 支持的能力；`patient-sync` 是显式开启的幂等 POST，除此之外只读。
@@ -1127,7 +1128,7 @@ function parseCapabilities(
 	return capabilities as ProviderSmokeCapability[];
 }
 
-if (import.meta.main) {
+if (isWorkerCliEntry(import.meta.main, "provider-directory-smoke")) {
 	const logger = createLogger({
 		service: "hospital-provider-directory-smoke",
 		environment: Bun.env.NODE_ENV ?? "development",
