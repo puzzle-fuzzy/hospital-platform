@@ -154,9 +154,14 @@ test("2.6.65.1 挂号参数优先使用 hisRegisterId", () => {
 
 function authorizationSelectionFixture(
 	insuinfo: readonly Record<string, unknown>[],
+	userQueryOptions: {
+		userQueryPath?: string;
+		userQueryPartnerSecret?: string | undefined;
+	} = {},
 ) {
 	let requestCount = 0;
 	const relayRequests: Record<string, unknown>[] = [];
+	const relayHeaders: Headers[] = [];
 	let storedAuthorization: MedicalInsuranceAuthorizationContext | undefined;
 	const gateway = createLegacyFsiMedicalInsuranceGateway({
 		legacyFsi: {} as never,
@@ -173,11 +178,14 @@ function authorizationSelectionFixture(
 		foundationBaseUrl: "https://foundation.example",
 		foundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
 		zhongyangBaseUrl: "https://zhongyang.example",
+		userQueryPartnerSecret: "synthetic-user-query-secret",
+		...userQueryOptions,
 		createId: () => "authorization-selection-001",
 		now: () => new Date("2026-09-10T01:00:00.000Z"),
 		fetcher: async (_input, init) => {
 			requestCount += 1;
 			relayRequests.push(JSON.parse(String(init?.body)));
+			relayHeaders.push(new Headers(init?.headers));
 			const data =
 				requestCount === 1
 					? {
@@ -200,6 +208,7 @@ function authorizationSelectionFixture(
 		readStored: () => storedAuthorization,
 		readRequestCount: () => requestCount,
 		readRelayRequests: () => relayRequests,
+		readRelayHeaders: () => relayHeaders,
 	};
 }
 
@@ -226,6 +235,80 @@ test("医保 adapter 未显式覆盖 userQuery 时通过 relay 使用正式地�
 	expect(fixture.readRelayRequests()[0]).toMatchObject({
 		base_url: "https://receiver.wecity.qq.com",
 	});
+});
+
+test("userQuery 签名只透传给医保授权接口，不污染 relay 或 1101 请求", async () => {
+	const fixture = authorizationSelectionFixture(
+		[
+			{
+				insutype: "310",
+				psn_no: "psn-signature-001",
+				insuplc_admdvs: "140581",
+			},
+		],
+		{ userQueryPath: "/api/mipuserquery/userQuery/synthetic-partner" },
+	);
+	await fixture.gateway.authorize(authorizationSelectionInput, context);
+	const [queryRequest, foundationRequest] = fixture.readRelayRequests();
+	expect(queryRequest).toMatchObject({
+		path: "/api/mipuserquery/userQuery/synthetic-partner",
+		body: {
+			qrcode: authorizationSelectionInput.authCode,
+			openid: authorizationSelectionInput.providerSubject,
+		},
+		headers: {
+			"Content-Type": "application/json",
+			"god-portal-timestamp": "1789002000000",
+			"god-portal-request-id": expect.stringMatching(/^[a-f0-9]{32}$/u),
+			"god-portal-signature":
+				"7b0cb6cc727b35cc9633c4b953b8bb074cd5a3e3e5bf82850d60ef1211f385b9",
+		},
+	});
+	expect(
+		Object.keys(queryRequest?.headers as Record<string, unknown>).sort(),
+	).toEqual([
+		"Content-Type",
+		"god-portal-request-id",
+		"god-portal-signature",
+		"god-portal-timestamp",
+	]);
+	expect(foundationRequest?.headers).toEqual({
+		"Content-Type": "application/json",
+	});
+	for (const headers of fixture.readRelayHeaders()) {
+		expect(headers.get("authorization")).toBe("Bearer synthetic-token");
+		expect(headers.has("god-portal-signature")).toBe(false);
+	}
+	expect(JSON.stringify(fixture.readRelayRequests())).not.toContain(
+		"synthetic-user-query-secret",
+	);
+	expect(JSON.stringify(fixture.readStored())).not.toContain(
+		"synthetic-user-query-secret",
+	);
+});
+
+test.each([undefined, "", " \t "])(
+	"授权配置没有 partnerSecret 时拒绝发送未签名请求",
+	async (userQueryPartnerSecret) => {
+		const fixture = authorizationSelectionFixture([], {
+			userQueryPartnerSecret,
+		});
+		await expect(
+			fixture.gateway.authorize(authorizationSelectionInput, context),
+		).rejects.toMatchObject({ name: "AdapterNotConfiguredError" });
+		expect(fixture.readRequestCount()).toBe(0);
+		expect(fixture.readStored()).toBeUndefined();
+	},
+);
+
+test("授权路径包含额外片段时在 Provider 请求前拒绝", async () => {
+	const fixture = authorizationSelectionFixture([], {
+		userQueryPath: "/api/mipuserquery/userQuery/synthetic-partner?other=1",
+	});
+	await expect(
+		fixture.gateway.authorize(authorizationSelectionInput, context),
+	).rejects.toMatchObject({ name: "AdapterNotConfiguredError" });
+	expect(fixture.readRequestCount()).toBe(0);
 });
 
 test("1101同险种多条同参保地不依赖返回顺序", async () => {
@@ -337,6 +420,7 @@ test("授权查询按 family_pay_auth_no 判定亲情付并保存绑卡人身份
 		foundationPath: "/mbs-fsi-jc/web/api/fsi/callService",
 		zhongyangBaseUrl: "https://zhongyang.example",
 		createId: () => "authorization-family-001",
+		userQueryPartnerSecret: "synthetic-user-query-secret",
 		now: () => new Date("2026-09-09T01:00:00.000Z"),
 		fetcher: async (_url, init) => {
 			requestCount += 1;

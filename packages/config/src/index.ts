@@ -65,6 +65,8 @@ export type RuntimeConfig = {
 	medicalInsuranceCredentialEncryptionKey: string | undefined;
 	medicalInsuranceUserQueryBaseUrl: string;
 	medicalInsuranceUserQueryPath: string;
+	/** 腾讯 userQuery 签名密钥；独立于省医保 FSI 渠道密钥，不得回退或下发客户端。 */
+	medicalInsuranceUserQueryPartnerSecret: string | undefined;
 	medicalInsuranceOrgCode: string;
 	medicalInsuranceHospitalId: string;
 	/** 允许用于医保支付的险种，按优先级排列；MBS_INSUTYPE 支持逗号分隔。 */
@@ -412,6 +414,10 @@ export function medicalInsuranceConfigurationMissingFields(
 		},
 		{ name: "MBS_APP_ID", value: runtimeConfig.medicalInsuranceAppId },
 		{ name: "MBS_APP_SECRET", value: runtimeConfig.medicalInsuranceAppSecret },
+		{
+			name: "MBS_USER_QUERY_PARTNER_SECRET",
+			value: runtimeConfig.medicalInsuranceUserQueryPartnerSecret,
+		},
 		{
 			name: "MBS_SM2_PRIVATE_KEY_B64",
 			value: runtimeConfig.medicalInsuranceSm2PrivateKeyB64,
@@ -1242,6 +1248,9 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		medicalInsuranceUserQueryPath:
 			optional(env.MBS_USER_QUERY_PATH) ??
 			"/api/mipuserquery/userQuery/50010828",
+		medicalInsuranceUserQueryPartnerSecret: optional(
+			env.MBS_USER_QUERY_PARTNER_SECRET,
+		),
 		medicalInsuranceOrgCode:
 			optional(env.MBS_INSURANCE_ORG_CODE) ?? "H14058101270",
 		medicalInsuranceHospitalId: optional(env.MBS_HOSPITAL_ID) ?? "10389001",

@@ -75,6 +75,45 @@ test("医保 userQuery 缺省使用正式地址，测试渠道必须显式覆盖
 	).toBe("https://test-receiver.wecity.qq.com");
 });
 
+test("医保 userQuery partnerSecret 必须独立配置且不能回退省医保渠道密钥", () => {
+	for (const value of [undefined, "", "   "]) {
+		const config = loadRuntimeConfig({
+			MEDICAL_INSURANCE_READY: "true",
+			MBS_APP_SECRET: "fixture-fsi-channel-secret",
+			MBS_USER_QUERY_PARTNER_SECRET: value,
+		});
+		expect(config.medicalInsuranceUserQueryPartnerSecret).toBeUndefined();
+		expect(medicalInsuranceConfigurationMissingFields(config)).toContain(
+			"MBS_USER_QUERY_PARTNER_SECRET",
+		);
+		expect(medicalInsuranceConfigurationStatus(config)).toBe("incomplete");
+	}
+	const configured = loadRuntimeConfig({
+		MEDICAL_INSURANCE_READY: "true",
+		MBS_FORWARD_RELAY_URL: "https://relay.example.test/forward",
+		MBS_FORWARD_BASE_URL_6201: "http://fsi.internal",
+		MBS_FORWARD_BASE_URL: "http://foundation.internal",
+		MBS_FORWARD_AUTHORIZATION_TOKEN: "fixture-relay-token",
+		MBS_APP_ID: "fixture-medical-app",
+		MBS_APP_SECRET: "fixture-fsi-channel-secret",
+		MBS_SM2_PRIVATE_KEY_B64: "fixture-private-key",
+		MBS_SM2_OWN_PUBLIC_B64: "fixture-own-public-key",
+		MBS_SM2_PLATFORM_PUBLIC_B64: "fixture-platform-public-key",
+		MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY: "fixture-encryption-key",
+		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+		MBS_USER_QUERY_PARTNER_SECRET: " fixture-tencent-partner-secret ",
+	});
+	expect(configured.medicalInsuranceUserQueryPartnerSecret).toBe(
+		"fixture-tencent-partner-secret",
+	);
+	expect(configured.medicalInsuranceAppSecret).toBe(
+		"fixture-fsi-channel-secret",
+	);
+	expect(configured.medicalInsuranceVerifyStrict).toBeFalse();
+	expect(medicalInsuranceConfigurationMissingFields(configured)).toEqual([]);
+	expect(medicalInsuranceConfigurationStatus(configured)).toBe("configured");
+});
+
 test("2.6.29 电子发票配置保留空 workStationId 并校验服务端固定参数", () => {
 	const incomplete = loadRuntimeConfig({
 		ZHONGYANG_OUTPATIENT_ELECTRONIC_INVOICE_READY: "true",

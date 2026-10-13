@@ -658,6 +658,8 @@ export function createWorkerRuntime(
 						: {}),
 					userQueryBaseUrl: runtimeConfig.medicalInsuranceUserQueryBaseUrl,
 					userQueryPath: runtimeConfig.medicalInsuranceUserQueryPath,
+					userQueryPartnerSecret:
+						runtimeConfig.medicalInsuranceUserQueryPartnerSecret ?? "",
 					orgCode: runtimeConfig.medicalInsuranceOrgCode,
 					hospitalId: runtimeConfig.medicalInsuranceHospitalId,
 					insutypes: runtimeConfig.medicalInsuranceInsutypes,

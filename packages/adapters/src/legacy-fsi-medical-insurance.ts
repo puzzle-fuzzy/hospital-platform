@@ -37,6 +37,7 @@ import type {
 	LegacyFsiGateway,
 	ProviderDiagnosticLogger,
 } from "./legacy-fsi-gateway";
+import { createWechatMedicalUserQueryHeaders } from "./wechat-medical-user-query-signature";
 
 const DEFAULT_USER_QUERY_BASE_URL = "https://receiver.wecity.qq.com";
 const DEFAULT_USER_QUERY_PATH = "/api/mipuserquery/userQuery/50010828";
@@ -100,6 +101,8 @@ export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	zhongyangAuthorizationToken?: string;
 	userQueryBaseUrl?: string;
 	userQueryPath?: string;
+	/** 腾讯医保合作方密钥，只用于服务端 userQuery 请求签名。 */
+	userQueryPartnerSecret?: string | undefined;
 	orgCode?: string;
 	hospitalId?: string;
 	/** 1101 可接受险种，按优先级排列。 */
@@ -2763,6 +2766,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		baseUrl: string,
 		path: string,
 		body: unknown,
+		forwardHeaders?: Readonly<Record<string, string>>,
 	) =>
 		requestJson<unknown>(
 			{
@@ -2776,7 +2780,10 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					method: "POST",
 					base_url: baseUrl,
 					path,
-					headers: { "Content-Type": "application/json" },
+					headers: {
+						"Content-Type": "application/json",
+						...forwardHeaders,
+					},
 					body,
 				},
 			},
@@ -2810,12 +2817,18 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		context: AdapterCallContext,
 	) => {
 		const currentDate = now();
+		const userQueryHeaders = createWechatMedicalUserQueryHeaders({
+			path: userQueryPath,
+			partnerSecret: options.userQueryPartnerSecret,
+			now: () => currentDate,
+		});
 		const queryResponse = await relayPost(
 			"medical-insurance.authorization.user-query",
 			context,
 			userQueryBaseUrl,
 			userQueryPath,
 			{ qrcode: input.authCode, openid: input.providerSubject },
+			userQueryHeaders,
 		);
 		const queryPayload = objectPayload(
 			queryResponse.data,
