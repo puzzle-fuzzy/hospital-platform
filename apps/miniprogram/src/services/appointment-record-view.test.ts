@@ -21,6 +21,7 @@ test("预约状态文案在所有页面保持同一套中文解释", () => {
 	expect(APPOINTMENT_RECORD_STATUS_LABELS).toEqual({
 		scheduled: "已预约",
 		cancelled: "已取消",
+		expired: "已过期",
 		completed: "已完成",
 		missed: "已爽约",
 		stopped: "停诊",
@@ -65,11 +66,47 @@ test("在线挂号展示边界拒绝绕过响应校验的未知状态", () => {
 });
 
 test("全部挂号保留同一份完整读模型中的已取消记录", () => {
-	const records = [record("scheduled"), record("cancelled")];
+	const records = [record("scheduled"), record("cancelled"), record("expired")];
 
 	expect(isAppointmentRecordTabAvailable("online")).toBe(true);
 	expect(isAppointmentRecordTabAvailable("all")).toBe(true);
 	expect(filterAppointmentRecords(records, "all")).toEqual(records);
+});
+
+test("待缴费和过期预约保持各自列表语义，医院终态不能显示待缴费", () => {
+	const pending: AppointmentRecord = {
+		...record("scheduled"),
+		appointmentId: "appointment-pay-001",
+		paymentStatus: "pending",
+		canPay: true,
+		payExpiresAt: "2099-01-01T00:15:00.000Z",
+	};
+	const expired: AppointmentRecord = {
+		...pending,
+		status: "expired",
+		paymentStatus: "expired",
+		canPay: false,
+	};
+	const cancelled: AppointmentRecord = { ...pending, status: "cancelled" };
+	expect(
+		filterAppointmentRecords([pending, expired, cancelled], "online"),
+	).toEqual([pending]);
+	expect(
+		filterAppointmentRecords([pending, expired, cancelled], "all"),
+	).toHaveLength(3);
+	expect(
+		toAppointmentRecordView(pending, 0, "appointment-record"),
+	).toMatchObject({
+		statusLabel: "待缴费",
+		canContinuePayment: true,
+		payDeadlineLabel: "2099-01-01 08:15:00",
+	});
+	expect(
+		toAppointmentRecordView(cancelled, 0, "appointment-record"),
+	).toMatchObject({ statusLabel: "已取消", canContinuePayment: false });
+	expect(
+		toAppointmentRecordView(expired, 0, "appointment-record"),
+	).toMatchObject({ statusLabel: "已过期", canContinuePayment: false });
 });
 
 test("预约摘要视图 key 只用于渲染且不改变业务状态", () => {

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createFixtureHospitalSettlementGateway } from "@hospital/adapters";
 import { PaymentOrderService } from "@hospital/domain";
 import { createInMemoryPaymentOrderRepository } from "@hospital/persistence";
+import { AppointmentPaymentUnavailableError } from "../appointments/write-service";
 import {
 	RegistrationSelfPayService,
 	registrationSelfPayOrderKey,
@@ -23,6 +24,9 @@ const order = {
 
 function appointments() {
 	return {
+		assertPaymentAllowed: async () => {
+			throw new AppointmentPaymentUnavailableError();
+		},
 		getPaymentContext: async () => ({
 			appointmentId,
 			patientId: order.patientId,
@@ -30,6 +34,81 @@ function appointments() {
 		}),
 	} as never;
 }
+
+test("过期预约新建自费在订单和 Provider 写入前被阻止", async () => {
+	const repository = createInMemoryPaymentOrderRepository();
+	const service = new RegistrationSelfPayService({
+		appointments: appointments(),
+		paymentOrders: new PaymentOrderService({ orders: repository }),
+		identityUsers: {} as never,
+		wechatPrepay: {} as never,
+		preparation: {} as never,
+		hospitalSettlement: {} as never,
+		saveRegistrationContext: async () => undefined,
+	});
+	await expect(
+		service.create({
+			ownerUserId,
+			appointmentId,
+			context: { traceId: "expired-new", idempotencyKey: "expired-new" },
+		}),
+	).rejects.toBeInstanceOf(AppointmentPaymentUnavailableError);
+	expect(
+		await repository.findByOwnerAndIdempotencyKey(
+			ownerUserId,
+			registrationSelfPayOrderKey(appointmentId),
+		),
+	).toBeUndefined();
+});
+
+test("取消预约保留 cash_pending 查单，不调用新支付门禁或关闭资金订单", async () => {
+	const repository = createInMemoryPaymentOrderRepository([
+		{ ...order, state: "cash_pending" },
+	]);
+	let queryCalls = 0;
+	const service = new RegistrationSelfPayService({
+		appointments: appointments(),
+		paymentOrders: new PaymentOrderService({ orders: repository }),
+		identityUsers: {} as never,
+		wechatPrepay: {
+			reconcile: async () => {
+				queryCalls += 1;
+				return { state: "cash_pending", status: "unknown" };
+			},
+		} as never,
+		preparation: {} as never,
+		hospitalSettlement: {} as never,
+		saveRegistrationContext: async () => undefined,
+	});
+	await expect(
+		service.create({
+			ownerUserId,
+			appointmentId,
+			context: {
+				traceId: "expired-existing",
+				idempotencyKey: "expired-existing",
+			},
+		}),
+	).rejects.toBeInstanceOf(AppointmentPaymentUnavailableError);
+	expect(
+		(
+			await service.query({
+				ownerUserId,
+				appointmentId,
+				context: { traceId: "expired-query", idempotencyKey: "expired-query" },
+			})
+		).status,
+	).toBe("awaiting_confirmation");
+	expect(queryCalls).toBe(1);
+	expect(
+		(
+			await repository.findByOwnerAndIdempotencyKey(
+				ownerUserId,
+				order.idempotencyKey,
+			)
+		)?.state,
+	).toBe("cash_pending");
+});
 
 test("自费微信已支付后必须先回写 HIS，再进入 completed", async () => {
 	const repository = createInMemoryPaymentOrderRepository([order]);

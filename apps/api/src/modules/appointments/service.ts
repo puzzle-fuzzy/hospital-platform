@@ -27,6 +27,7 @@ import {
 	type ExternalTrace,
 	ExternalTraceReadModelValidationError,
 	isBoundedOpaqueIdentifier,
+	type MedicalInsuranceOrderRepository,
 	normalizeAdapterCallContext,
 	normalizeAppointmentDepartmentGroupResults,
 	normalizeAppointmentDepartmentResults,
@@ -36,6 +37,7 @@ import {
 	normalizeAppointmentScheduleSourceResults,
 	normalizeExternalTrace,
 	type PatientRepository,
+	type PaymentOrderRepository,
 	parseIsoCalendarDate,
 	validatePatientProviderReference,
 } from "@hospital/domain";
@@ -44,6 +46,11 @@ import {
 	createNoopLogger,
 	providerFailureMetadata,
 } from "@hospital/observability";
+import {
+	appointmentPaymentFacts,
+	projectAppointmentPayment,
+	synchronizeAppointmentCancellation,
+} from "./payment-state";
 
 export type AppointmentServiceDependencies = {
 	directory: AppointmentDirectoryGateway;
@@ -56,7 +63,10 @@ export type AppointmentServiceDependencies = {
 	appointmentWrites?: Pick<
 		AppointmentWriteRepository,
 		"listRegistrationsByPatient"
-	>;
+	> &
+		Partial<Pick<AppointmentWriteRepository, "updateRegistration">>;
+	paymentOrders?: PaymentOrderRepository;
+	medicalInsuranceOrders?: MedicalInsuranceOrderRepository;
 	/** 只读排班观察事实；预约写入由独立 AppointmentWriteService 复核。 */
 	snapshots?: AppointmentScheduleSnapshotRepository;
 	logger?: AppLogger;
@@ -1069,6 +1079,7 @@ export class AppointmentService {
 			const providerRecords = normalizeAppointmentRecordResults(
 				rawResult.records,
 			);
+			validateAppointmentRecordWindow(providerRecords, query);
 			const providerRecordReferences =
 				normalizeAppointmentRecordProviderReferences(
 					rawResult.providerRecordReferences,
@@ -1092,23 +1103,47 @@ export class AppointmentService {
 			const providerReferenceByIndex = new Map(
 				providerRecordReferences.map((reference) => [
 					reference.recordIndex,
-					reference.providerAppointmentId,
+					reference,
 				]),
 			);
 			// Provider 是预约记录和状态的唯一事实源。本地仓储只负责把已经
 			// 通过稳定 providerAppointmentId 关联上的平台 opaque appointmentId
-			// 补回去，绝不覆盖 Provider status，也不补入 Provider 没有返回的本地行。
-			const recordsWithPlatformReferences = providerRecords.map(
-				(record, recordIndex) => {
-					const providerAppointmentId =
-						providerReferenceByIndex.get(recordIndex);
-					const local = providerAppointmentId
-						? localByProviderAppointmentId.get(providerAppointmentId)
+			// 补回去。只有明确的系统超时取消细分为 expired，不补入 Provider 缺失行。
+			const recordsWithPlatformReferences = await mapWithConcurrency(
+				providerRecords,
+				4,
+				async (record, recordIndex) => {
+					const providerReference = providerReferenceByIndex.get(recordIndex);
+					const local = providerReference
+						? localByProviderAppointmentId.get(
+								providerReference.providerAppointmentId,
+							)
 						: undefined;
 					if (local) matchedLocalRegistrationIds.add(local.appointmentId);
-					return local
-						? { ...record, appointmentId: local.appointmentId }
-						: record;
+					if (
+						!local &&
+						providerReference?.needPay === undefined &&
+						providerReference?.payExpiresAt === undefined
+					)
+						return record;
+					const projection = projectAppointmentPayment({
+						record,
+						...(providerReference ? { reference: providerReference } : {}),
+						...(local ? { registration: local } : {}),
+						...(await appointmentPaymentFacts(local, this.dependencies)),
+						now: this.now(),
+					});
+					await synchronizeAppointmentCancellation(
+						local,
+						projection,
+						this.dependencies.appointmentWrites ?? {},
+						this.now(),
+					);
+					return {
+						...record,
+						...projection,
+						...(local ? { appointmentId: local.appointmentId } : {}),
+					};
 				},
 			);
 			const normalizedRecords = normalizeAppointmentRecordResults(

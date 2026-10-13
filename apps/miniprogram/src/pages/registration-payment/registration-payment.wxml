@@ -16,7 +16,7 @@
 				<view class="success-icon">✓</view>
 				<view>
 					<text class="success-title">预约已写入</text>
-					<text class="success-subtitle">请选择本次挂号的支付方式</text>
+					<text class="success-subtitle">{{canPay ? '请选择本次挂号的支付方式' : '请查看当前预约和支付状态'}}</text>
 				</view>
 			</view>
 
@@ -30,6 +30,7 @@
 				<view class="info-row"><text>就诊时间</text><text>{{workDate}} {{shiftName}} {{workTime}}</text></view>
 				<view class="info-row"><text>挂号序号</text><text>{{sourceSerialNumber}}号</text></view>
 				<view class="info-row amount-row"><text>挂号费用</text><text>{{totalLabel}}</text></view>
+				<view wx:if="{{payDeadlineLabel}}" class="info-row"><text>支付截止时间</text><text>{{payDeadlineLabel}}</text></view>
 			</view>
 
 			<view class="info-card">
@@ -46,9 +47,11 @@
 				<view class="section-title">选择支付方式</view>
 				<view class="payment-actions">
 					<!-- UI 只提供两条入口：医保支付沿用内部 mixed 的医保授权/结算链路，微信支付沿用内部 self 的普通微信收款链路。 -->
-					<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy}}">医保支付</button>
-					<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy}}">微信支付</button>
+					<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy || !canPay}}">医保支付</button>
+					<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy || !canPay}}">微信支付</button>
 				</view>
+				<button wx:if="{{!canPay}}" class="secondary-button" bindtap="onOpenDetail">查看挂号详情</button>
+				<button wx:if="{{canQueryOriginalPayment}}" class="secondary-button" bindtap="onQueryOriginalPayment" disabled="{{busy}}">查询原支付结果</button>
 			</view>
 			<view wx:else class="completed-card">
 				<text>最终支付和医院结算已确认</text>

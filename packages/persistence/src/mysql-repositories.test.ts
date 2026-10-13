@@ -85,6 +85,41 @@ const order: PaymentOrder = {
 	updatedAt: "2026-08-15T00:00:00.000Z",
 };
 
+test("医院过期预约可以按 owner 读取，终态同步保留 CAS 并不更新资金表", async () => {
+	const row = {
+		appointment_id: "expired-appointment-001",
+		owner_user_id: "expiry-owner-001",
+		patient_id: "expiry-patient-001",
+		hold_id: "expiry-hold-001",
+		idempotency_key: "expiry-register-001",
+		provider_appointment_id: "expiry-provider-001",
+		provider_patient_id: "expiry-provider-patient-001",
+		department_name: "风湿免疫门诊",
+		doctor_name: "门诊医生",
+		work_date: "2026-10-13",
+		shift_name: "下午",
+		source_serial_number: "12",
+		total_fen: 1000,
+		status: "expired",
+		created_at: "2026-10-13 05:50:35.000",
+		updated_at: "2026-10-13 06:05:47.000",
+	};
+	const { pool, state } = createFakePool([[row], { affectedRows: 1 }, [row]]);
+	const repo = createMySqlRepositories(pool).appointmentWrites;
+	const found = await repo.findRegistration(
+		row.owner_user_id,
+		row.appointment_id,
+	);
+	expect(found?.status).toBe("expired");
+	expect(found).toBeDefined();
+	if (!found) throw new Error("Expired appointment was not readable");
+	const updated = await repo.updateRegistration(found, "booked");
+	expect(updated?.status).toBe("expired");
+	expect(state.statements[1]).toContain("AND status = ?");
+	expect(state.values[1]?.at(-1)).toBe("booked");
+	expect(state.statements.join("\n")).not.toContain("hp_payment_orders");
+});
+
 function medicalInsuranceCreatedOrder(
 	medicalOrderId: string,
 	idempotencyKey: string,

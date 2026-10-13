@@ -39,7 +39,10 @@ export function filterConsultRecords<T extends AppointmentRecord>(
 
 	return records.filter((record) => {
 		if (
-			record.status === "cancelled" &&
+			(record.status === "cancelled" ||
+				record.status === "expired" ||
+				record.paymentStatus === "expired" ||
+				record.paymentStatus === "cancelled") &&
 			(tab === "today" || tab === "upcoming")
 		) {
 			return false;

@@ -506,6 +506,8 @@ export type AppointmentRecordView = AppointmentRecord & {
 	viewKey: string;
 	statusLabel: string;
 	statusClass: string;
+	canContinuePayment: boolean;
+	payDeadlineLabel: string;
 	/** 旧端把就诊日期与上午/下午作为独立视觉层级展示。 */
 	periodLabel: string;
 };

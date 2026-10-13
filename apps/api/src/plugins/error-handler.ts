@@ -59,6 +59,7 @@ import {
 	AppointmentCancellationPaymentActiveError,
 	AppointmentHoldExpiredError,
 	AppointmentHoldNotFoundError,
+	AppointmentPaymentUnavailableError,
 	AppointmentRegistrationNotFoundError,
 	AppointmentWriteInputError,
 	AppointmentWritePatientNotFoundError,
@@ -97,14 +98,14 @@ import {
 	MedicalRecordQueryError,
 } from "../modules/medical-records/service";
 import {
+	OutpatientElectronicInvoiceQueryError,
+	OutpatientElectronicInvoiceRecordNotFoundError,
+} from "../modules/outpatient-invoices";
+import {
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
 	OutpatientPaymentRecordNotFoundError,
 } from "../modules/outpatient-payments";
-import {
-	OutpatientElectronicInvoiceQueryError,
-	OutpatientElectronicInvoiceRecordNotFoundError,
-} from "../modules/outpatient-invoices";
 import { PatientFeedbackAppointmentNotFoundError } from "../modules/patient-feedback/service";
 import {
 	PatientBindingDirectoryConfirmationError,
@@ -167,6 +168,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-registration-not-found": 30440,
 	"appointment-medical-payment-active": 30450,
 	"appointment-payment-active": 30455,
+	"appointment-payment-unavailable": 30458,
 	"appointment-source-unavailable": 30460,
 	"appointment-refund-context-unavailable": 30465,
 	"appointment-refund-pending": 30470,
@@ -781,6 +783,14 @@ export function errorHandlerPlugin() {
 			if (error instanceof AppointmentWriteInputError) {
 				set.status = 400;
 				return errorPayload("appointment-write-invalid", "预约请求参数不合法");
+			}
+
+			if (error instanceof AppointmentPaymentUnavailableError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-payment-unavailable",
+					"预约已取消、过期或暂不可支付，请刷新挂号详情",
+				);
 			}
 
 			if (error instanceof AppointmentWritePatientNotFoundError) {

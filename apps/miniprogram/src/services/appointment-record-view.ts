@@ -1,4 +1,9 @@
 import type { AppointmentRecord, AppointmentRecordView } from "../types";
+import {
+	appointmentPayDeadlineLabel,
+	appointmentPaymentStatusLabel,
+	canContinueAppointmentPayment,
+} from "./appointment-payment-view";
 
 /**
  * 预约历史的状态文案必须由一个展示边界统一维护。
@@ -11,6 +16,7 @@ import type { AppointmentRecord, AppointmentRecordView } from "../types";
 export const APPOINTMENT_RECORD_STATUS_LABELS = Object.freeze({
 	scheduled: "已预约",
 	cancelled: "已取消",
+	expired: "已过期",
 	completed: "已完成",
 	missed: "已爽约",
 	stopped: "停诊",
@@ -37,7 +43,10 @@ export function isOnlineAppointmentRecord(record: AppointmentRecord): boolean {
 	// 不在枚举中的值必须在这里 fail-closed。
 	return (
 		Object.hasOwn(APPOINTMENT_RECORD_STATUS_LABELS, record.status) &&
-		record.status !== "cancelled"
+		record.status !== "cancelled" &&
+		record.status !== "expired" &&
+		record.paymentStatus !== "expired" &&
+		record.paymentStatus !== "cancelled"
 	);
 }
 
@@ -107,8 +116,14 @@ export function toAppointmentRecordView(
 	return {
 		...record,
 		viewKey: `${prefix}-${renderGeneration}-${index}`,
-		statusLabel: APPOINTMENT_RECORD_STATUS_LABELS[record.status],
+		statusLabel: appointmentPaymentStatusLabel(
+			record,
+			APPOINTMENT_RECORD_STATUS_LABELS[record.status],
+		),
 		statusClass: `record-status-${record.status}`,
+		canContinuePayment:
+			Boolean(record.appointmentId) && canContinueAppointmentPayment(record),
+		payDeadlineLabel: appointmentPayDeadlineLabel(record.payExpiresAt),
 		periodLabel: toPeriodLabel(record.workTime),
 	};
 }

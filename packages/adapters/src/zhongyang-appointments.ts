@@ -23,6 +23,7 @@ import {
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
 	MAX_APPOINTMENT_SOURCE_ITEMS,
 	parseIsoCalendarDate,
+	parseStrictIsoInstant,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
@@ -643,9 +644,38 @@ function ensureUniqueAppointmentIds(
 			);
 		}
 		seen.add(appointmentId);
-		references.push({ recordIndex, providerAppointmentId: appointmentId });
+		const needPay = appointmentNeedPay(item.needPayFlag);
+		const payExpiresAt = appointmentPayExpiresAt(item.latestPayTime);
+		references.push({
+			recordIndex,
+			providerAppointmentId: appointmentId,
+			...(needPay !== undefined ? { needPay } : {}),
+			...(payExpiresAt !== undefined ? { payExpiresAt } : {}),
+			...(item.cancelChannel === "smc_sys" ? { cancelledBySystem: true } : {}),
+		});
 	}
 	return references;
+}
+
+function appointmentNeedPay(value: unknown): boolean | undefined {
+	if (value === "1" || value === 1) return true;
+	if (value === "0" || value === 0) return false;
+	return undefined;
+}
+
+/** 院方无时区的 latestPayTime 使用北京时间，不依赖构建机或服务端本地时区。 */
+function appointmentPayExpiresAt(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const text = value.trim();
+	const instant =
+		/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/u.test(text)
+			? `${text.replace(" ", "T")}+08:00`
+			: text;
+	const timestamp = parseStrictIsoInstant(instant);
+	// 无效/缺失截止时间只缺少支付许可事实，不猜一个默认期限，也不破坏历史只读列表。
+	return timestamp === undefined
+		? undefined
+		: new Date(timestamp).toISOString();
 }
 
 /**

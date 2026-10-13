@@ -58,7 +58,11 @@ export type AppointmentHold = {
 	updatedAt: string;
 };
 
-export type AppointmentRegistrationStatus = "booked" | "cancelled" | "unknown";
+export type AppointmentRegistrationStatus =
+	| "booked"
+	| "cancelled"
+	| "expired"
+	| "unknown";
 
 /** 取消预约必须依赖这个服务端映射，不能把 provider appointment id 交给小程序。 */
 export type AppointmentRegistration = {

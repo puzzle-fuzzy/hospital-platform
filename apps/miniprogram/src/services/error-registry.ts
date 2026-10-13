@@ -44,6 +44,7 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-registration-not-found": 30440,
 	"appointment-medical-payment-active": 30450,
 	"appointment-payment-active": 30455,
+	"appointment-payment-unavailable": 30458,
 	"appointment-source-unavailable": 30460,
 	"appointment-refund-context-unavailable": 30465,
 	"appointment-refund-pending": 30470,

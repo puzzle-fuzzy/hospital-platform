@@ -17,9 +17,9 @@ import type {
 	IntelligentGuideModelGateway,
 	IntelligentGuideSpeechGateway,
 	KnowledgeSearchGateway,
-	OutpatientMedicalRecordGateway,
 	OutpatientElectronicInvoiceGateway,
 	OutpatientElectronicInvoiceQueryGateway,
+	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
@@ -76,9 +76,9 @@ import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance
 import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
+import { OutpatientElectronicInvoiceService } from "./modules/outpatient-invoices";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { OutpatientSelfPayService } from "./modules/outpatient-payments/self-pay-service";
-import { OutpatientElectronicInvoiceService } from "./modules/outpatient-invoices";
 import { PatientFeedbackService } from "./modules/patient-feedback";
 import { PatientService } from "./modules/patients";
 import { PatientBindingService } from "./modules/patients/binding-service";
@@ -518,6 +518,8 @@ export function createDefaultApplicationServices(
 		records:
 			options.appointmentRecordDirectoryGateway ?? gateways.appointmentRecords,
 		appointmentWrites: repositories.appointmentWrites,
+		paymentOrders: repositories.paymentOrders,
+		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
 		snapshots: repositories.appointmentScheduleSnapshots,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
@@ -529,6 +531,9 @@ export function createDefaultApplicationServices(
 			options.appointmentPatientProfileGateway ??
 			gateways.appointmentPatientProfile,
 		gateway: options.appointmentWriteGateway ?? gateways.appointmentWrites,
+		records:
+			options.appointmentRecordDirectoryGateway ?? gateways.appointmentRecords,
+		requireHospitalPaymentState: true,
 		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
 		paymentOrders: repositories.paymentOrders,
 		snapshots: repositories.appointmentScheduleSnapshots,
@@ -545,6 +550,12 @@ export function createDefaultApplicationServices(
 		orders: repositories.medicalInsuranceOrders,
 		authorizations: repositories.medicalInsuranceAuthorizations,
 		appointments: repositories.appointmentWrites,
+		assertAppointmentPaymentAllowed: (ownerUserId, appointmentId, context) =>
+			appointmentWrites.assertPaymentAllowed(
+				ownerUserId,
+				appointmentId,
+				context,
+			),
 		patients: repositories.patients,
 		identityUsers: repositories.identityUsers,
 		patientProfile:
@@ -563,6 +574,12 @@ export function createDefaultApplicationServices(
 		identityUsers: repositories.identityUsers,
 		attempts: repositories.paymentPrepayAttempts,
 		wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
+		assertAppointmentPaymentAllowed: (ownerUserId, appointmentId, context) =>
+			appointmentWrites.assertPaymentAllowed(
+				ownerUserId,
+				appointmentId,
+				context,
+			),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	// 挂号自费和历史插件版医保支付共用官方 APIv3 WechatPrepayService；

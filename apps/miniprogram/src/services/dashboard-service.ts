@@ -7,9 +7,9 @@ import type {
 	HealthResponse,
 	InpatientEpisode,
 	InpatientEpisodeListResponse,
+	OutpatientElectronicInvoiceListResponse,
 	OutpatientMedicalRecord,
 	OutpatientMedicalRecordListResponse,
-	OutpatientElectronicInvoiceListResponse,
 	OutpatientPaymentDetail,
 	OutpatientPaymentRecord,
 	Patient,
@@ -41,6 +41,7 @@ import {
 	syncPatients,
 } from "./api-client";
 import { getRegisteredApp } from "./app-runtime-context";
+import { readAppointmentPaymentFields } from "./appointment-payment-view";
 import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import {
 	isBoundedPatientId,
@@ -379,6 +380,7 @@ function optionalAppointmentPhotoUrl(value: unknown): string | undefined {
 }
 
 const APPOINTMENT_RECORD_STATUSES = new Set<AppointmentRecord["status"]>([
+	"expired",
 	"scheduled",
 	"cancelled",
 	"completed",
@@ -1305,7 +1307,9 @@ export function requireAppointmentRecordListData(
 			64,
 			"Appointment record response item is invalid",
 		);
+		const paymentFields = readAppointmentPaymentFields(item);
 		if (
+			paymentFields === null ||
 			!APPOINTMENT_RECORD_STATUSES.has(
 				item.status as AppointmentRecord["status"],
 			) ||
@@ -1317,6 +1321,7 @@ export function requireAppointmentRecordListData(
 			});
 		}
 		items.push({
+			...paymentFields,
 			...(appointmentId === undefined ? {} : { appointmentId }),
 			status: item.status as AppointmentRecord["status"],
 			workDate: item.workDate,

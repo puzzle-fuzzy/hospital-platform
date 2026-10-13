@@ -2,8 +2,15 @@ import {
 	ApiError,
 	contextualApiErrorMessage,
 	getCurrentUser,
+	queryAppointmentSelfPay,
 	requestAppointmentDetail,
 } from "../../services/api-client";
+import {
+	appointmentPayDeadlineLabel,
+	appointmentPaymentBlockedMessage,
+	canContinueAppointmentPayment,
+	hasKnownAppointmentPayment,
+} from "../../services/appointment-payment-view";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import {
 	continueMedicalPayment,
@@ -14,6 +21,7 @@ import {
 	type PaymentMode,
 	type PaymentProgress,
 	queryMedicalBusinessRecovery,
+	queryMedicalOrder,
 	resumeMedicalSettlementFromPending,
 	startMedicalPayment,
 	startSelfPayment,
@@ -24,11 +32,13 @@ import {
 	consumeMedicalInsuranceAuthReturn,
 	hasMedicalInsuranceAuthReturn,
 } from "../../services/medical-insurance-auth-handoff";
+import { isCurrentSelectedPatient } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
+import type { AppointmentDetail } from "../../types";
 
 type RegistrationPaymentPageData = {
 	loading: boolean;
@@ -48,6 +58,9 @@ type RegistrationPaymentPageData = {
 	sourceSerialNumber: string;
 	totalLabel: string;
 	ready: boolean;
+	canPay: boolean;
+	canQueryOriginalPayment: boolean;
+	payDeadlineLabel: string;
 	busy: boolean;
 	hasPendingPayment: boolean;
 	selectedMode: PaymentMode | "";
@@ -165,6 +178,11 @@ Page<
 		onLoad(options: Record<string, string | undefined>): void;
 		onShow(): void;
 		loadDetail(): Promise<void>;
+		refreshPaymentAvailability(): Promise<boolean>;
+		refreshOriginalPaymentAvailability(
+			detail: AppointmentDetail,
+		): Promise<void>;
+		onQueryOriginalPayment(): Promise<void>;
 		handleReturn(): Promise<void>;
 		onPaymentTap(event: PaymentModeEvent): void;
 		startOrResumePayment(mode: PaymentMode): Promise<void>;
@@ -194,6 +212,9 @@ Page<
 		sourceSerialNumber: "",
 		totalLabel: "以医院实际收费为准",
 		ready: false,
+		canPay: false,
+		canQueryOriginalPayment: false,
+		payDeadlineLabel: "",
 		busy: false,
 		hasPendingPayment: false,
 		selectedMode: "",
@@ -213,6 +234,9 @@ Page<
 			this.setData({
 				loading: false,
 				ready: false,
+				canPay: false,
+				canQueryOriginalPayment: false,
+				payDeadlineLabel: "",
 				busy: false,
 				hasPendingPayment: false,
 				appointmentId: "",
@@ -273,7 +297,10 @@ Page<
 				context.sessionGeneration,
 				"Registration payment page session changed before detail request",
 			);
-			if (context.patient.id !== this.data.patientId) {
+			if (
+				context.patient.id !== this.data.patientId ||
+				!isCurrentSelectedPatient(this.data.patientId)
+			) {
 				throw new ApiError("当前就诊人已变更，请重新选择", {
 					code: "patient-selection-required",
 				});
@@ -287,9 +314,18 @@ Page<
 				context.sessionGeneration,
 				"Registration payment page session changed before detail commit",
 			);
+			if (!isCurrentSelectedPatient(this.data.patientId)) {
+				throw new ApiError("当前就诊人已变更，请重新选择", {
+					code: "patient-selection-required",
+				});
+			}
+			const canPay = canContinueAppointmentPayment(detail.data);
 			this.setData({
 				loading: false,
 				ready: true,
+				canPay,
+				payDeadlineLabel: appointmentPayDeadlineLabel(detail.data.payExpiresAt),
+				message: canPay ? "" : appointmentPaymentBlockedMessage(detail.data),
 				patientName: detail.data.patient.displayName,
 				patientRelationship: context.patient.relationship,
 				patientCardLabel:
@@ -308,6 +344,11 @@ Page<
 				totalLabel: `${(detail.data.totalFen / 100).toFixed(2)} 元`,
 				sessionGeneration: context.sessionGeneration,
 			});
+			await this.refreshOriginalPaymentAvailability(detail.data);
+			if (!canPay) {
+				this.setData({ autoStartMode: "" });
+				return;
+			}
 			if (
 				hasMedicalInsuranceAuthReturn({
 					businessType: "registration",
@@ -331,8 +372,153 @@ Page<
 			this.setData({
 				loading: false,
 				ready: false,
+				canPay: false,
+				canQueryOriginalPayment: false,
 				error: paymentError(error),
 			});
+		}
+	},
+
+	async refreshPaymentAvailability(): Promise<boolean> {
+		const { appointmentId, patientId, sessionGeneration } = this.data;
+		assertSessionGeneration(
+			sessionGeneration,
+			"Registration payment session changed before status refresh",
+		);
+		if (!isCurrentSelectedPatient(patientId))
+			throw new ApiError("当前就诊人已变更，请重新选择", {
+				code: "patient-selection-required",
+			});
+		const detail = await requestAppointmentDetail(
+			appointmentId,
+			patientId,
+			sessionGeneration,
+		);
+		assertSessionGeneration(
+			sessionGeneration,
+			"Registration payment session changed after status refresh",
+		);
+		if (!isCurrentSelectedPatient(patientId))
+			throw new ApiError("当前就诊人已变更，请重新选择", {
+				code: "patient-selection-required",
+			});
+		const canPay = canContinueAppointmentPayment(detail.data);
+		this.setData({
+			canPay,
+			payDeadlineLabel: appointmentPayDeadlineLabel(detail.data.payExpiresAt),
+			...(canPay
+				? {}
+				: {
+						stage: "",
+						message: appointmentPaymentBlockedMessage(detail.data),
+					}),
+		});
+		await this.refreshOriginalPaymentAvailability(detail.data);
+		return canPay;
+	},
+
+	async refreshOriginalPaymentAvailability(
+		detail: AppointmentDetail,
+	): Promise<void> {
+		const { appointmentId, patientId, sessionGeneration } = this.data;
+		let canQueryOriginalPayment = hasKnownAppointmentPayment(detail);
+		// 已过期的医保单可能没有自费状态；按业务键确认存在原单后才显示查单入口。
+		if (!canQueryOriginalPayment && !canContinueAppointmentPayment(detail)) {
+			try {
+				canQueryOriginalPayment = Boolean(
+					await queryMedicalBusinessRecovery({
+						businessType: "registration",
+						businessId: appointmentId,
+						patientId,
+					}),
+				);
+			} catch {
+				// 查询可用性探测失败不改变预约/资金事实，也不能开启新付款。
+			}
+		}
+		assertSessionGeneration(
+			sessionGeneration,
+			"Registration payment session changed during original payment lookup",
+		);
+		if (!isCurrentSelectedPatient(patientId))
+			throw new ApiError("当前就诊人已变更，请重新选择", {
+				code: "patient-selection-required",
+			});
+		this.setData({ canQueryOriginalPayment });
+	},
+
+	async onQueryOriginalPayment(): Promise<void> {
+		if (
+			this.data.busy ||
+			!this.data.ready ||
+			!this.data.canQueryOriginalPayment
+		)
+			return;
+		const { appointmentId, patientId, sessionGeneration } = this.data;
+		this.setData({
+			busy: true,
+			stage: "polling",
+			message: "正在查询原支付结果，请勿重复付款",
+		});
+		let resultMessage =
+			"原支付结果暂时无法确认，请稍后查询；如已扣款请联系医院核实";
+		try {
+			assertSessionGeneration(
+				sessionGeneration,
+				"Registration payment session changed before original payment query",
+			);
+			if (!isCurrentSelectedPatient(patientId))
+				throw new ApiError("当前就诊人已变更，请重新选择", {
+					code: "patient-selection-required",
+				});
+			const medical = await queryMedicalBusinessRecovery({
+				businessType: "registration",
+				businessId: appointmentId,
+				patientId,
+			});
+			assertSessionGeneration(
+				sessionGeneration,
+				"Registration payment session changed before order query",
+			);
+			if (!isCurrentSelectedPatient(patientId))
+				throw new ApiError("当前就诊人已变更，请重新选择", {
+					code: "patient-selection-required",
+				});
+			if (medical) {
+				const result = await queryMedicalOrder(medical.orderId);
+				resultMessage =
+					result.status === "insurance_settled"
+						? "医保结算状态已返回，现金支付结果请在挂号详情核对"
+						: "原医保订单尚未确认完成，请稍后查询；如已扣款请勿重复付款";
+			} else {
+				// 专用“无医保订单”业务码只转入原自费单查询，不创建任何新订单。
+				const result = await queryAppointmentSelfPay(appointmentId);
+				resultMessage =
+					result.data.status === "cash_paid"
+						? "原微信支付已确认，请查看挂号详情"
+						: "原微信支付尚未确认完成，请稍后查询；如已扣款请勿重复付款";
+			}
+		} catch {
+			// 无自费单、查单失败或结果未知都不能显示支付成功。
+		} finally {
+			try {
+				await this.refreshPaymentAvailability();
+				assertSessionGeneration(
+					sessionGeneration,
+					"Registration payment session changed after original payment query",
+				);
+				this.setData({
+					message: `${resultMessage}${this.data.canPay ? "" : `；${this.data.message}`}`,
+				});
+			} catch {
+				// 会话/患者变化或详情读取失败时保持旧预约的付款入口关闭。
+				this.setData({
+					canPay: false,
+					canQueryOriginalPayment: false,
+					message: "查询未完成，请返回挂号详情重新核实支付状态",
+				});
+			}
+			this.setData({ busy: false });
 		}
 	},
 
@@ -351,6 +537,7 @@ Page<
 			message: "正在调用医保授权接口，请勿重复提交",
 		});
 		try {
+			if (!(await this.refreshPaymentAvailability())) return;
 			await this.continueServerMedicalPayment(authCode);
 		} catch (error) {
 			await this.handlePaymentError(error);
@@ -461,6 +648,7 @@ Page<
 						: "正在准备医保支付，请勿重复点击",
 		});
 		try {
+			if (!(await this.refreshPaymentAvailability())) return;
 			if (mode !== "self") {
 				await this.continueServerMedicalPayment();
 				return;
@@ -492,6 +680,28 @@ Page<
 	},
 
 	async handlePaymentError(error: unknown): Promise<void> {
+		if (
+			error instanceof ApiError &&
+			error.code === "appointment-payment-unavailable"
+		) {
+			let message =
+				"预约已取消、过期或暂不可支付，请刷新挂号详情；如已扣款，请联系医院核对原支付结果";
+			try {
+				if (!(await this.refreshPaymentAvailability()))
+					message = this.data.message;
+			} catch {
+				// 刷新失败仍以服务端已经拒绝本次付款的事实关闭按钮。
+			}
+			this.setData({
+				canPay: false,
+				hasPendingPayment: true,
+				stage: "",
+				error: "",
+				message,
+				completed: false,
+			});
+			return;
+		}
 		if (
 			error instanceof MedicalAuthNavigationCancelledError ||
 			error instanceof WechatPaymentCancelledError

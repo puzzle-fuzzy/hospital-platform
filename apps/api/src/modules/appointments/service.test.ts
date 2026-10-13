@@ -811,6 +811,8 @@ test("appointment records associate provider facts with local detail references"
 				workDate: "2026-09-07",
 				serialNumber: "1",
 				status: "cancelled",
+				paymentStatus: "cancelled",
+				canPay: false,
 			},
 		],
 		total: 1,

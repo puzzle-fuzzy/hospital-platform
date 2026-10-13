@@ -910,6 +910,96 @@ test("众阳预约记录只固定微信查询参数并移除患者和支付字�
 	expect(JSON.stringify(result)).not.toContain("registFree");
 });
 
+test("院方付款截止按北京时间归一化，取消来源只留在服务端关联中", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							appointmentInfoId: "expiry-record-001",
+							workDate: "2026-10-13",
+							status: 1,
+							needPayFlag: "1",
+							latestPayTime: "2026-10-13 14:05:35",
+							cancelChannel: "smc_sys",
+							isPay: "1",
+						},
+					],
+				}),
+				{ status: 200 },
+			),
+	});
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-expiry-patient",
+			query: { scope: "all" },
+		},
+		context,
+	);
+	expect(result.providerRecordReferences).toEqual([
+		{
+			recordIndex: 0,
+			providerAppointmentId: "expiry-record-001",
+			needPay: true,
+			payExpiresAt: "2026-10-13T06:05:35.000Z",
+			cancelledBySystem: true,
+		},
+	]);
+	expect(result.records).toEqual([
+		{ workDate: "2026-10-13", status: "cancelled" },
+	]);
+	expect(JSON.stringify(result.records)).not.toContain("latestPayTime");
+	expect(JSON.stringify(result.records)).not.toContain("isPay");
+});
+
+test("缺失或非法院方付款截止不猜默认期限，isPay 不能替代 needPayFlag", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							appointmentInfoId: "expiry-invalid-date",
+							workDate: "2026-10-13",
+							status: 0,
+							needPayFlag: "1",
+							latestPayTime: "2026-02-30 14:05:35",
+						},
+						{
+							appointmentInfoId: "expiry-invalid-flag",
+							workDate: "2026-10-13",
+							status: 0,
+							isPay: "1",
+							latestPayTime: "2026-10-13T14:05:35+08:00",
+						},
+					],
+				}),
+				{ status: 200 },
+			),
+	});
+	const result = await gateway.listRecords(
+		{ providerPatientId: "expiry-patient", query: { scope: "all" } },
+		context,
+	);
+	expect(result.providerRecordReferences).toEqual([
+		{
+			recordIndex: 0,
+			providerAppointmentId: "expiry-invalid-date",
+			needPay: true,
+		},
+		{
+			recordIndex: 1,
+			providerAppointmentId: "expiry-invalid-flag",
+			payExpiresAt: "2026-10-13T06:05:35.000Z",
+		},
+	]);
+});
+
 test("众阳全部预约记录使用渠道 4 且不附带日期窗口", async () => {
 	let requestUrl = "";
 	const gateway = createZhongyangAppointmentGateway({

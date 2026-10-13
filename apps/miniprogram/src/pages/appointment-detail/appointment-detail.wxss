@@ -274,3 +274,15 @@
 	line-height: 1.6;
 	text-align: center;
 }
+
+.detail-pay-button {
+	margin-top: 20rpx;
+	border-radius: 44rpx;
+	background: #3d6df6;
+	color: #fff;
+	font-size: 30rpx;
+}
+
+.detail-pay-button::after {
+	border: 0;
+}

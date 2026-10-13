@@ -59,6 +59,11 @@ export type MedicalInsuranceRegistrationServiceDependencies = {
 	orders: MedicalInsuranceOrderRepository;
 	authorizations: MedicalInsuranceAuthorizationRepository;
 	appointments: AppointmentWriteRepository;
+	assertAppointmentPaymentAllowed?: (
+		ownerUserId: string,
+		appointmentId: string,
+		context: unknown,
+	) => Promise<void>;
 	patients: PatientRepository;
 	identityUsers: UserIdentityRepository;
 	patientProfile: AppointmentPatientProfileGateway;
@@ -581,12 +586,13 @@ export class MedicalInsuranceRegistrationService {
 	private async appointment(
 		ownerUserId: string,
 		appointmentId: string,
+		allowInactive = false,
 	): Promise<AppointmentRegistration> {
 		const appointment = await this.dependencies.appointments.findRegistration(
 			ownerUserId,
 			appointmentId,
 		);
-		if (appointment?.status !== "booked")
+		if (!appointment || (!allowInactive && appointment.status !== "booked"))
 			throw new MedicalInsuranceAppointmentNotFoundError();
 		return appointment;
 	}
@@ -804,6 +810,11 @@ export class MedicalInsuranceRegistrationService {
 		const context = contextOf(input.context);
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const appointmentId = opaque(input.appointmentId, "appointmentId");
+		await this.dependencies.assertAppointmentPaymentAllowed?.(
+			ownerUserId,
+			appointmentId,
+			context,
+		);
 		const appointment = await this.appointment(ownerUserId, appointmentId);
 		const patients = await this.dependencies.patients.listByOwner(ownerUserId);
 		const selected = patients.find(
@@ -1199,7 +1210,11 @@ export class MedicalInsuranceRegistrationService {
 			input.authCode.length > 512
 		)
 			throw new MedicalInsuranceRegistrationInputError("authCode is invalid");
-		const appointment = await this.appointment(ownerUserId, appointmentId);
+		const appointment = await this.appointment(
+			ownerUserId,
+			appointmentId,
+			Boolean(this.dependencies.assertAppointmentPaymentAllowed),
+		);
 		const appointmentCreatedAt = Date.parse(appointment.createdAt);
 		const appointmentAge = this.now().getTime() - appointmentCreatedAt;
 		let order = await this.dependencies.orders.findByOwnerAndIdempotencyKey(
@@ -1237,10 +1252,20 @@ export class MedicalInsuranceRegistrationService {
 				"本次医保授权尝试已作废，请重新展码授权",
 			);
 		}
-		// 15 分钟只限制创建新的医保订单。同一次幂等重试必须继续按原单恢复，
-		// 否则客户端本地上下文过期会让已扣款订单永久失联。先校验再关闭旧单，
-		// 避免一个已经失效的新授权尝试破坏仍需查单的旧支付事实。
+		// 生产以医院当前截止和预约状态决定新发起权限。旧隔离测试未注入
+		// 医院查询时才保留 15 分钟兼容边界；已推进订单仍按原单恢复。
 		if (
+			(!order || order.status === "created") &&
+			this.dependencies.assertAppointmentPaymentAllowed
+		) {
+			await this.dependencies.assertAppointmentPaymentAllowed(
+				ownerUserId,
+				appointmentId,
+				context,
+			);
+		}
+		if (
+			!this.dependencies.assertAppointmentPaymentAllowed &&
 			!order &&
 			(!Number.isFinite(appointmentCreatedAt) ||
 				appointmentAge < 0 ||
@@ -1446,6 +1471,11 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance authorization is required",
 			);
+		await this.dependencies.assertAppointmentPaymentAllowed?.(
+			ownerUserId,
+			order.appointmentId,
+			context,
+		);
 		const appointment = await this.appointment(
 			ownerUserId,
 			order.appointmentId,

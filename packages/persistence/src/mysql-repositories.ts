@@ -2705,7 +2705,7 @@ function appointmentRegistration(
 	if (!Number.isSafeInteger(totalFen) || totalFen <= 0) {
 		throw new Error("Persistence returned an invalid appointment amount");
 	}
-	if (!["booked", "cancelled", "unknown"].includes(row.status)) {
+	if (!["booked", "cancelled", "expired", "unknown"].includes(row.status)) {
 		throw new Error("Persistence returned an invalid appointment status");
 	}
 	return {

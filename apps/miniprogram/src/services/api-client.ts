@@ -23,9 +23,9 @@ import type {
 	MyDoctorDeleteResponse,
 	MyDoctorListResponse,
 	MyDoctorResponse,
-	OutpatientMedicalRecordListResponse,
 	OutpatientElectronicInvoiceIssueResponse,
 	OutpatientElectronicInvoiceListResponse,
+	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentDetailResponse,
 	OutpatientPaymentListResponse,
 	OutpatientSelfPayResponse,
@@ -53,6 +53,7 @@ import {
 	sanitizeApiRequestPath,
 } from "./api-request-observability";
 import { getRegisteredApp } from "./app-runtime-context";
+import { readAppointmentPaymentFields } from "./appointment-payment-view";
 import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import { resolveErrorNumericCode } from "./error-registry";
 import { isBoundedPatientId } from "./patient-identifiers";
@@ -199,6 +200,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"medical-insurance-invalid": "医保请求参数或流程状态不合法，请稍后再试",
 		"medical-insurance-appointment-not-found": "未找到可进行医保支付的预约",
 		"medical-insurance-order-not-found": "未找到对应的医保订单",
+		"appointment-payment-unavailable":
+			"预约已取消、过期或暂不可支付，请刷新挂号详情",
 		"medical-insurance-appointment-stale":
 			"当前预约已失效，请重新获取号源并预约",
 		"medical-insurance-payment-in-progress":
@@ -3252,6 +3255,7 @@ export function requestAppointmentRecords(
 }
 
 const APPOINTMENT_DETAIL_STATUSES = new Set([
+	"expired",
 	"scheduled",
 	"cancelled",
 	"completed",
@@ -3299,7 +3303,9 @@ export function requireAppointmentDetailResponse(
 		return invalidAppointmentDetailResponse();
 	}
 	const data = value.data;
+	const paymentFields = readAppointmentPaymentFields(data);
 	if (
+		paymentFields === null ||
 		typeof data.appointmentId !== "string" ||
 		data.appointmentId !== expectedAppointmentId ||
 		typeof data.patientId !== "string" ||
@@ -3330,6 +3336,7 @@ export function requireAppointmentDetailResponse(
 	return {
 		success: true,
 		data: {
+			...paymentFields,
 			appointmentId: data.appointmentId,
 			patientId: data.patientId,
 			patient: {
@@ -3747,9 +3754,9 @@ export function requireOutpatientElectronicInvoiceIssueResponse(
 	expectedRecordId: string,
 ): OutpatientElectronicInvoiceIssueResponse {
 	const payload =
-		requireSuccessDataResponse<OutpatientElectronicInvoiceIssueResponse["data"]>(
-			value,
-		);
+		requireSuccessDataResponse<
+			OutpatientElectronicInvoiceIssueResponse["data"]
+		>(value);
 	const data = payload.data;
 	if (
 		data.recordId !== expectedRecordId ||

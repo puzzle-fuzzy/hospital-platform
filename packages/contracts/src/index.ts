@@ -428,6 +428,7 @@ export const AppointmentScheduleSourceListResponse = Type.Object({
 export const AppointmentRecordStatusSchema = Type.Union([
 	Type.Literal("scheduled"),
 	Type.Literal("cancelled"),
+	Type.Literal("expired"),
 	Type.Literal("completed"),
 	Type.Literal("missed"),
 	Type.Literal("stopped"),
@@ -464,6 +465,16 @@ export function isAppointmentRecordWorkTime(value: unknown): value is string {
  * 支付和患者身份字段仍然不进入列表。平台 appointmentId 只用于当前 owner
  * 打开自己的详情页，服务端详情接口还会再次校验 owner + patientId。
  */
+/** 平台按 HIS 预约事实与已确认资金状态生成，不直接透传 HIS 支付标记。 */
+export const AppointmentPaymentStatusSchema = Type.Union([
+	Type.Literal("pending"),
+	Type.Literal("confirming"),
+	Type.Literal("paid"),
+	Type.Literal("expired"),
+	Type.Literal("cancelled"),
+	Type.Literal("unavailable"),
+]);
+
 export const AppointmentRecordSchema = Type.Object({
 	appointmentId: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
@@ -481,6 +492,9 @@ export const AppointmentRecordSchema = Type.Object({
 	location: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
 	serialNumber: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 	status: AppointmentRecordStatusSchema,
+	paymentStatus: Type.Optional(AppointmentPaymentStatusSchema),
+	canPay: Type.Optional(Type.Boolean()),
+	payExpiresAt: Type.Optional(Type.String({ minLength: 1, maxLength: 40 })),
 });
 
 export const AppointmentRecordListResponse = Type.Object({
@@ -542,6 +556,9 @@ export const AppointmentDetailResponse = Type.Object({
 		totalFen: Type.Integer({ minimum: 1 }),
 		selfPayStatus: AppointmentSelfPayStatusSchema,
 		status: AppointmentRecordStatusSchema,
+		paymentStatus: Type.Optional(AppointmentPaymentStatusSchema),
+		canPay: Type.Optional(Type.Boolean()),
+		payExpiresAt: Type.Optional(Type.String({ minLength: 1, maxLength: 40 })),
 	}),
 });
 

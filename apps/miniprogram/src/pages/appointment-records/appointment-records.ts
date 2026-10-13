@@ -1,4 +1,5 @@
 import { getCurrentUser } from "../../services/api-client";
+import { canContinueAppointmentPayment } from "../../services/appointment-payment-view";
 import { appointmentRecordsErrorMessage } from "../../services/appointment-record-error";
 import {
 	appointmentRecordScopeForTab,
@@ -10,6 +11,7 @@ import {
 	loadAppointmentRecords,
 	loadCurrentPatientForOwner,
 } from "../../services/dashboard-service";
+import { searchDepartmentLocation } from "../../services/department-location";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	disposePageInstance,
@@ -33,13 +35,11 @@ import {
 	hasPlatformSession,
 	sessionStateAfterAuthenticatedReadError,
 } from "../../services/session-service";
-import { searchDepartmentLocation } from "../../services/department-location";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
 	AppointmentRecordTab,
 	AppointmentRecordView,
-	DepartmentLocationView,
 	ViewKeyEvent,
 } from "../../types";
 
@@ -66,6 +66,7 @@ type AppointmentRecordsPageMethods = {
 	closeHospitalModal(): void;
 	stopHospitalPropagation(): void;
 	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
+	onContinuePayment(event: ViewKeyEvent): void;
 	stopRecordActionPropagation(): void;
 	onPreVisit(event: WechatMiniprogram.TouchEvent): void;
 	onHospitalGuide(event: WechatMiniprogram.TouchEvent): void;
@@ -417,6 +418,24 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	 * 只有旧 Provider 历史记录没有平台详情引用时，才把已经在列表 contract
 	 * 中确认的摘要字段带到详情页只读展示，绝不拼接 provider 原始参数。
 	 */
+	onContinuePayment(event: ViewKeyEvent): void {
+		if (this.data.loading || !this.isPatientContextCurrent()) return;
+		const record = findVisibleRecord(
+			this.data.visibleRecords,
+			event.currentTarget?.dataset?.viewKey,
+		);
+		const patientId = this.data.selectedPatient?.id;
+		if (!record?.appointmentId || !patientId) return;
+		if (!canContinueAppointmentPayment(record)) {
+			void this.loadRecords();
+			return;
+		}
+		// 使用既有预约引用，支付页还会重新读取服务端状态；这里不新建预约或订单。
+		wx.navigateTo({
+			url: `/pages/registration-payment/registration-payment?patientId=${encodeURIComponent(patientId)}&appointmentId=${encodeURIComponent(record.appointmentId)}`,
+		});
+	},
+
 	onRecordTap(event: ViewKeyEvent): void {
 		if (!this.isPatientContextCurrent()) return;
 		const record = findVisibleRecord(

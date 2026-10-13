@@ -587,6 +587,7 @@ test("public API documentation lists every stable public error code", async () =
 		"appointment-registration-not-found",
 		"appointment-medical-payment-active",
 		"appointment-payment-active",
+		"appointment-payment-unavailable",
 		"appointment-refund-context-unavailable",
 		"appointment-refund-pending",
 		"appointment-refund-failed",

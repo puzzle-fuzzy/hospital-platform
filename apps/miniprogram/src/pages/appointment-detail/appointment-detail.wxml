@@ -87,6 +87,16 @@
 				<text>这条记录来自历史挂号摘要，当前未建立平台详情引用，仅展示已核实信息。</text>
 			</view>
 
+			<view wx:if="{{localDetail}}" class="detail-card">
+				<view wx:if="{{payDeadlineLabel}}" class="detail-row">
+					<text class="detail-row-label">支付截止时间</text>
+					<text class="detail-row-value">{{payDeadlineLabel}}</text>
+				</view>
+				<text wx:if="{{paymentMessage}}" class="detail-notice">{{paymentMessage}}</text>
+				<button wx:if="{{canPay}}" class="detail-pay-button" bindtap="onContinuePayment" disabled="{{loading || canceling || !canPay}}">继续支付</button>
+				<button wx:if="{{canViewOriginalPayment}}" class="detail-cancel-button" bindtap="onViewOriginalPayment" disabled="{{loading || canceling}}">查看原支付状态</button>
+			</view>
+
 			<view
 				wx:if="{{canCancel}}"
 				class="detail-actions"
