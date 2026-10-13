@@ -112,6 +112,13 @@ sudoers、仓库、聊天记录或日志。若 `visudo` 校验失败，必须删
 
 ## 2. 切换前检查
 
+小程序更新后，必须检查其新增的支付前置接口在候选 API 中实际存在，不能仅凭 readiness 判断版本配套。
+挂号微信支付依赖 `POST /api/v1/payments/medical-insurance/business-recovery`；使用结构合法的合成业务引用、
+不携带登录凭据检查时应返回 `401`，不能返回路由缺失的 `404 / NOT_FOUND`。
+该检查在认证阶段结束，不执行真实支付；“未找到医保订单”的业务 404 只能由已认证的真实恢复逻辑返回。
+内部健康探针路径是 `/health/ready`，地址应使用有效配置中的 HOST/PORT；当前线上 HOST 为 `10.0.0.3`。
+涉及支付状态或持久化密文阶段变化时，应同步检查 Worker 协议兼容性，必要时成对发布 API 和 Worker。
+
 以下命令由 `ps` 执行。`<sha>` 必须是已经通过适用的本地代码门禁和独立生产 env smoke 的候选 commit；完整
 `pnpm check:candidate` 可作为全量候选门禁，但本机没有 Java 时按 2.0 的 API/TypeScript-only 规则执行，不得
 把本机 Java SDK 编译失败误判为 API 候选失败。`pnpm release:baseline:audit` 是切换完成后的线上一致性门禁，
