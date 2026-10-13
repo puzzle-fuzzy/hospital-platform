@@ -125,6 +125,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/patients/sync` | Bearer + 必填幂等键 | 从 provider 刷新当前用户的患者目录；不接受 body |
 | `POST` | `/api/v2/patients/bind` | Bearer + 必填幂等键 | body 为 `{displayName,mobile,identityNumber,consent:true,legacyLoginCode?}`；当前小程序实名表单会调用该平台 API，服务端保留 fail-closed 行为，只有患者绑定 contract、旧服务身份校验和 Provider gateway 就绪后才按旧服务顺序查档、建档（必要时）、绑卡并同步脱敏目录 |
 | `GET` | `/api/v2/patients` | Bearer | 返回当前用户 owner-scoped 的脱敏患者目录 |
+| `GET` | `/api/v2/patients/{patientId}/qr` | Bearer | 服务端复核当前用户对就诊人的归属并实时查询就诊卡号，返回 `{imageDataUrl}` 的 GIF 二维码图片；响应设置 `Cache-Control: no-store` |
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
 | `GET` | `/api/v2/appointments/department-tree` | Bearer；幂等键可选 | 返回挂号页的一级/二级真实科室树 |
 | `GET` | `/api/v2/appointments/clinic-departments` | Bearer；幂等键可选 | 必填 `parentDepartmentId`；返回该受控二级科室下的三级可预约门诊 |
