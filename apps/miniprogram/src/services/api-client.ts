@@ -625,7 +625,7 @@ function requireMyDoctorItem(
 		value.departmentLocation,
 		256,
 	);
-	const doctorAvatarUrl = optionalMyDoctorText(value.doctorAvatarUrl, 2048);
+	const doctorAvatarUrl = optionalMyDoctorText(value.doctorAvatarUrl, 512);
 	if (
 		doctorAvatarUrl !== undefined &&
 		!/^https?:\/\/[^\s]+$/u.test(doctorAvatarUrl)
