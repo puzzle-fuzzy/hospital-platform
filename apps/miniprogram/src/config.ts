@@ -1,12 +1,12 @@
 /**
  * 医保授权跳转的非敏感业务配置。
  *
- * 机构应用 ID 与渠道凭证只从本机正式材料集合在构建阶段成对注入，
- * 防止正式认证码与历史测试应用 ID 混用；页面状态和平台 API 不保存该凭证。
+ * 本测试分支从本机测试反馈单在构建阶段成对注入机构应用 ID 与渠道凭证，
+ * 不回退正式材料；页面状态和平台 API 不保存该凭证。
  */
 export const MEDICAL_INSURANCE_CONFIG = {
 	medicalAppId: "wxe183cd55df4b4369",
-	medicalEnvVersion: "release" as const,
+	medicalEnvVersion: "trial" as const,
 	medicalBizType: "04107",
 	medicalCityCode: "140500",
 	medicalChannel: "AAG9GbS6mPa4tT_ldqyvQIY_",

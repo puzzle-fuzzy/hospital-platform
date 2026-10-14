@@ -1,8 +1,45 @@
 import { expect, test } from "bun:test";
-import { resolveProductionMedicalAuthorizationMaterial } from "./medical-authorization-material";
+import {
+	resolveProductionMedicalAuthorizationMaterial,
+	resolveTestMedicalAuthorizationMaterial,
+} from "./medical-authorization-material";
 
 const formalAppId = "synthetic-formal-application-001";
 const formalCredential = "Synthetic/Formal/InstitutionCredential";
+
+test("测试授权使用测试应用和认证码，不能回退正式材料", () => {
+	const fixture = {
+		environment: "test",
+		paymentChannelFeedback: { appId: "synthetic-test-app" },
+		identityVerificationFeedback: {
+			orgChannelAuthCode: "Synthetic/Test/Credential",
+		},
+	};
+	expect(resolveTestMedicalAuthorizationMaterial(fixture)).toEqual({
+		orgAppId: "synthetic-test-app",
+		orgChannelCredential: "Synthetic/Test/Credential",
+	});
+	expect(() =>
+		resolveTestMedicalAuthorizationMaterial(productionFixture()),
+	).toThrow(Error);
+	expect(() => resolveProductionMedicalAuthorizationMaterial(fixture)).toThrow(
+		Error,
+	);
+});
+
+test("测试材料缺失时两项不可用，已有材料缺半对时拒绝", () => {
+	expect(resolveTestMedicalAuthorizationMaterial(undefined)).toEqual({
+		orgAppId: "",
+		orgChannelCredential: "",
+	});
+	expect(() =>
+		resolveTestMedicalAuthorizationMaterial({
+			environment: "test",
+			paymentChannelFeedback: { appId: "synthetic-test-app" },
+			identityVerificationFeedback: {},
+		}),
+	).toThrow(Error);
+});
 
 function productionFixture() {
 	return {

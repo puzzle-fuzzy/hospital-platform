@@ -8,7 +8,7 @@ import {
 	rm,
 } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
-import { resolveProductionMedicalAuthorizationMaterial } from "./medical-authorization-material";
+import { resolveTestMedicalAuthorizationMaterial } from "./medical-authorization-material";
 import {
 	type DevelopmentMiniProgramRuntimeSnapshot,
 	resolveDevelopmentMiniProgramRuntimeSnapshot,
@@ -32,7 +32,7 @@ const repositoryRoot = join(root, "..", "..");
 const source = join(root, "src");
 const medicalCredentialPath = join(
 	root,
-	"../../.local/medical-insurance/production-environment-key-material.json",
+	"../../.local/medical-insurance/test-environment-key-material.json",
 );
 const medicalCredentialPlaceholder =
 	"__MINIPROGRAM_MEDICAL_ORG_CHANNEL_CREDENTIAL__";
@@ -42,7 +42,7 @@ async function loadMedicalAuthorizationMaterial() {
 	const localConfig: unknown = (await Bun.file(medicalCredentialPath).exists())
 		? JSON.parse(await Bun.file(medicalCredentialPath).text())
 		: undefined;
-	return resolveProductionMedicalAuthorizationMaterial(localConfig);
+	return resolveTestMedicalAuthorizationMaterial(localConfig);
 }
 
 async function injectMedicalCredential(runtime: string): Promise<void> {
