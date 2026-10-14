@@ -1,5 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 
+export { normalizeAppointmentCancellationMessage } from "./appointment-cancellation-message";
+
 /** 存活检查只证明 API 进程能响应，不代表数据库或外部 provider 可用。 */
 export const HealthResponse = Type.Object({
 	success: Type.Literal(true),

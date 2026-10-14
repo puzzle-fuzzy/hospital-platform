@@ -554,6 +554,18 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						wx.showToast({ title: "取消预约成功", icon: "success" });
 					})
 					.catch((error: unknown) => {
+						if (
+							error instanceof ApiError &&
+							error.code === "appointment-cancellation-rejected"
+						) {
+							// 医院取消规则较长，用完整弹窗保留窗口处理等关键指引。
+							wx.showModal({
+								title: "取消预约失败",
+								content: safeApiErrorMessage(error, "取消预约失败，请稍后再试"),
+								showCancel: false,
+							});
+							return;
+						}
 						wx.showToast({
 							title: safeApiErrorMessage(error, "取消预约失败，请稍后再试"),
 							icon: "none",

@@ -49,6 +49,7 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-refund-context-unavailable": 30465,
 	"appointment-refund-pending": 30470,
 	"appointment-refund-failed": 30480,
+	"appointment-cancellation-rejected": 30485,
 	"appointment-refund-not-configured": 30490,
 	"medical-insurance-invalid": 30500,
 	"medical-insurance-appointment-not-found": 30510,

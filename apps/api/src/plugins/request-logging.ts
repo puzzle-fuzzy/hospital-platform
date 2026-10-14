@@ -112,6 +112,14 @@ function errorMetadataFor(request: Request): ErrorMetadata | undefined {
 function publicErrorCode(error: unknown): string | undefined {
 	if (error instanceof HttpError) return error.code;
 	if (error instanceof ProviderRequestError) {
+		if (
+			error.reason === "appointment-cancellation-rejected" &&
+			error.provider === "zhongyang" &&
+			error.operation === "appointment-cancellation" &&
+			!error.retryable &&
+			!error.responseInvalid
+		)
+			return "appointment-cancellation-rejected";
 		if (error.reason === "appointment-source-unavailable")
 			return "appointment-source-unavailable";
 		if (error.reason === "medical-insurance-payment-in-progress")

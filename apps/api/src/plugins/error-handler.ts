@@ -1,4 +1,5 @@
 import { ProviderRequestError } from "@hospital/adapters";
+import { normalizeAppointmentCancellationMessage } from "@hospital/contracts";
 import {
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
@@ -173,6 +174,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-refund-context-unavailable": 30465,
 	"appointment-refund-pending": 30470,
 	"appointment-refund-failed": 30480,
+	"appointment-cancellation-rejected": 30485,
 	"appointment-refund-not-configured": 30490,
 	"medical-insurance-invalid": 30500,
 	"medical-insurance-appointment-not-found": 30510,
@@ -494,6 +496,21 @@ export function errorHandlerPlugin() {
 			}
 
 			if (error instanceof ProviderRequestError) {
+				if (
+					error.reason === "appointment-cancellation-rejected" &&
+					error.provider === "zhongyang" &&
+					error.operation === "appointment-cancellation" &&
+					!error.retryable &&
+					!error.responseInvalid
+				) {
+					set.status = 409;
+					return errorPayload(
+						"appointment-cancellation-rejected",
+						normalizeAppointmentCancellationMessage(
+							error.providerErrorMessage,
+						) ?? "预约取消失败，请联系医院核实原因",
+					);
+				}
 				if (isMedicalInsuranceGatewayTimeout(error)) {
 					set.status = 503;
 					return errorPayload(

@@ -517,6 +517,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 30465 | `appointment-refund-context-unavailable` | 已完成的插件自费订单缺少经核验的 `.2 out_trade_no` 或退款关联上下文；不会猜测退款目标，预约保留 |
 | 409 | 30470 | `appointment-refund-pending` | 微信退款或退款后的医院收费系统 `.15` 回写尚未确认；预约保留，稍后可重试同一取消动作 |
 | 409 | 30480 | `appointment-refund-failed` | 微信退款已明确失败；预约保留，由收费端处理 |
+| 409 | 30485 | `appointment-cancellation-rejected` | HIS 明确拒绝取消，返回经校验的真实业务原因；预约保留，取消失败不继续重复预约 |
 | 503 | 30490 | `appointment-refund-not-configured` | 自费退款或医院收费系统回写通道未配置；预约保留 |
 | 400 | 30500 | `medical-insurance-invalid` | 医保授权、费用上传或结算请求状态不合法 |
 | 404 | 30510 | `medical-insurance-appointment-not-found` | 关联预约不存在、已取消或不属于当前用户 |
