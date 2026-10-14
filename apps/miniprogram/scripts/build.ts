@@ -8,6 +8,7 @@ import {
 	rm,
 } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
+import { resolveProductionMedicalAuthorizationMaterial } from "./medical-authorization-material";
 import {
 	type DevelopmentMiniProgramRuntimeSnapshot,
 	resolveDevelopmentMiniProgramRuntimeSnapshot,
@@ -35,29 +36,33 @@ const medicalCredentialPath = join(
 );
 const medicalCredentialPlaceholder =
 	"__MINIPROGRAM_MEDICAL_ORG_CHANNEL_CREDENTIAL__";
+const medicalOrgAppIdPlaceholder = "__MINIPROGRAM_MEDICAL_ORG_APP_ID__";
 
-async function loadMedicalOrgChannelCredential(): Promise<string> {
-	if (!(await Bun.file(medicalCredentialPath).exists())) return "";
-	const localConfig = JSON.parse(
-		await Bun.file(medicalCredentialPath).text(),
-	) as {
-		identityVerificationFeedback?: { orgChannelAuthCode?: unknown };
-	};
-	return String(
-		localConfig.identityVerificationFeedback?.orgChannelAuthCode || "",
-	).trim();
+async function loadMedicalAuthorizationMaterial() {
+	const localConfig: unknown = (await Bun.file(medicalCredentialPath).exists())
+		? JSON.parse(await Bun.file(medicalCredentialPath).text())
+		: undefined;
+	return resolveProductionMedicalAuthorizationMaterial(localConfig);
 }
 
 async function injectMedicalCredential(runtime: string): Promise<void> {
-	const credential = await loadMedicalOrgChannelCredential();
-	const sourceLiteral = JSON.stringify(medicalCredentialPlaceholder);
-	const runtimeLiteral = JSON.stringify(credential);
+	const material = await loadMedicalAuthorizationMaterial();
+	const replacements = [
+		[medicalCredentialPlaceholder, material.orgChannelCredential],
+		[medicalOrgAppIdPlaceholder, material.orgAppId],
+	] as const;
 	for (const file of await listRuntimeFiles(runtime)) {
 		if (!file.endsWith(".js")) continue;
 		const path = join(runtime, file);
 		const contents = await Bun.file(path).text();
-		if (!contents.includes(sourceLiteral)) continue;
-		await Bun.write(path, contents.replaceAll(sourceLiteral, runtimeLiteral));
+		let injected = contents;
+		for (const [placeholder, value] of replacements) {
+			injected = injected.replaceAll(
+				JSON.stringify(placeholder),
+				JSON.stringify(value),
+			);
+		}
+		if (injected !== contents) await Bun.write(path, injected);
 	}
 }
 
