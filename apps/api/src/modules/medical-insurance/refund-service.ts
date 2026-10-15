@@ -207,6 +207,15 @@ function refundNoOf(orderId: string, idempotencyKey: string): string {
 		.slice(0, 48)}`;
 }
 
+/** 6203 限长 40；保留内部及微信退款身份，仅缩短平台生成的医保外部流水号。 */
+function appRefdSnOf(refundNo: string): string {
+	if (refundNo.length <= 40) return refundNo;
+	if (/^RFMI[0-9a-f]{48}$/.test(refundNo)) return refundNo.slice(0, 40);
+	throw new MedicalInsuranceRegistrationInputError(
+		"医保应用退费流水号超过 40 字符且不是平台生成的旧退款号",
+	);
+}
+
 function providerErrorCode(error: unknown): string {
 	if (error && typeof error === "object") {
 		const providerErrorCode = (error as { providerErrorCode?: unknown })
@@ -414,14 +423,27 @@ export class MedicalInsuranceRefundService {
 				lastErrorCode: "authorization-context-unavailable",
 			});
 		}
-		const processing = await this.save(record, {
-			medicalStatus: "processing",
-			status: "processing",
-			lastErrorCode: null,
-		});
+		const appRefdSn = appRefdSnOf(record.refundNo);
+		// 出站请求必须由本次 CAS 更新成功者执行，冲突回读不能视为领取成功。
+		const processing = await this.dependencies.refunds.update(
+			{
+				...record,
+				medicalStatus: "processing",
+				status: "processing",
+				lastErrorCode: null,
+				version: record.version + 1,
+				updatedAt: this.now().toISOString(),
+			},
+			record.version,
+		);
+		if (!processing) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"退费记录已变化，请重新核查，不能重复提交医保退费",
+			);
+		}
 		const data: Record<string, unknown> = {
 			payOrdId: record.payOrdId,
-			appRefdSn: record.refundNo,
+			appRefdSn,
 			appRefdTime: beijingTimestamp(this.now()),
 			refdType: record.refundType,
 			totlRefdAmt: yuan(record.totalFen),
@@ -578,6 +600,161 @@ export class MedicalInsuranceRefundService {
 		});
 		await this.enqueueWechatReconciliation(saved, order);
 		return saved;
+	}
+
+	/**
+	 * 仅供受控运维恢复，不能注册为普通 HTTP/UI 重试入口。
+	 * 操作者须先根据原请求日志确认 APP_REFD_SN 过长，核查该订单全部退款
+	 * 及渠道无已退事实，并排除同订单并行退费；360221 本身不足以自动重试。
+	 */
+	async recoverRejectedAppRefdSn(input: {
+		refundNo: string;
+		expectedVersion: number;
+		expectedProviderRequestId: string;
+		confirmedRejection: "APP_REFD_SN_TOO_LONG";
+		operatorRef: string;
+		context: unknown;
+		reason?: string;
+	}): Promise<MedicalInsuranceRefundPayload["data"]> {
+		const refundNo = bounded(input.refundNo, "refundNo");
+		const operatorRef = bounded(input.operatorRef, "operatorRef");
+		const rejectedRequestId = bounded(
+			input.expectedProviderRequestId,
+			"expectedProviderRequestId",
+		);
+		const context = contextOf(input.context);
+		const reason = reasonOf(input.reason);
+		if (
+			input.confirmedRejection !== "APP_REFD_SN_TOO_LONG" ||
+			!Number.isSafeInteger(input.expectedVersion) ||
+			input.expectedVersion < 1 ||
+			!/^RFMI[0-9a-f]{48}$/.test(refundNo) ||
+			!this.dependencies.operatorAudits
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"医保退费恢复确认信息不完整",
+			);
+		}
+		const record = await this.dependencies.refunds.findByRefundNo(refundNo);
+		if (
+			!record ||
+			record.version !== input.expectedVersion ||
+			record.medicalProviderRequestId !== rejectedRequestId ||
+			record.status !== "failed" ||
+			record.medicalStatus !== "failed" ||
+			record.medicalRefStatus !== null ||
+			record.lastErrorCode !== "360221" ||
+			record.refundType !== "ALL" ||
+			record.idempotencyKey !== `admin-medical-full:${record.medicalOrderId}` ||
+			(record.cashFen > 0
+				? record.wechatStatus !== "requested" ||
+					record.wechatMerchantRefundNo !== record.refundNo
+				: record.wechatStatus !== "not_required" ||
+					record.wechatMerchantRefundNo !== null)
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"当前退款记录不符合医保流水号超长恢复条件",
+			);
+		}
+		const order = await this.dependencies.orders.findByMedicalOrderId(
+			record.medicalOrderId,
+		);
+		const latest = await this.dependencies.refunds.findLatestByMedicalOrderId(
+			record.medicalOrderId,
+		);
+		if (
+			!order?.amounts ||
+			!order.authorizationId ||
+			order.ownerUserId !== record.ownerUserId ||
+			order.payOrdId !== record.payOrdId ||
+			latest?.refundNo !== record.refundNo ||
+			(order.status !== "insurance_settled" &&
+				!(
+					order.status === "cash_pending" &&
+					order.wechatPaymentState === "cash_paid"
+				)) ||
+			(record.cashFen > 0 && order.wechatPaymentState !== "cash_paid")
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"原支付订单已变化，不能恢复医保退费",
+			);
+		}
+		const plan = planOf({ refundType: "ALL" }, order.amounts);
+		if (
+			record.totalFen !== plan.totalFen ||
+			record.cashFen !== plan.cashFen ||
+			record.personalAccountFen !== plan.personalAccountFen ||
+			record.fundFen !== plan.fundFen
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"退款金额与原结算金额不一致",
+			);
+		}
+		if (record.cashFen > 0) {
+			if (!this.dependencies.wechatRefund) {
+				throw new MedicalInsuranceRegistrationInputError(
+					"微信退款台账核查不可用",
+				);
+			}
+			const existing =
+				await this.dependencies.wechatRefund.findMedicalInsuranceRefundByOrder(
+					record.medicalOrderId,
+					{ requireLedgerLookup: true },
+				);
+			if (existing) {
+				throw new MedicalInsuranceRegistrationInputError(
+					"该订单已有微信退款记录，须人工核查",
+				);
+			}
+		}
+		const authorization = await this.dependencies.authorizations.getForRefund({
+			authorizationId: order.authorizationId,
+			ownerUserId: order.ownerUserId,
+			medicalOrderId: order.medicalOrderId,
+		});
+		if (!authorization) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"原医保授权上下文不可用",
+			);
+		}
+		await this.appendAdminRefundAudit({
+			orderId: record.medicalOrderId,
+			requestId: rejectedRequestId,
+			operatorRef,
+			outcome: "succeeded",
+			reasonCode: "app-refd-sn-length-recovery-confirmed",
+		});
+		let recovered: MedicalInsuranceRefund;
+		try {
+			recovered = await this.requestMedical(record, order, context);
+			if (recovered.medicalStatus === "success" && recovered.cashFen > 0) {
+				recovered = await this.requestWechat(recovered, order, context, reason);
+			}
+		} catch (error) {
+			await this.appendAdminRefundAudit({
+				orderId: record.medicalOrderId,
+				requestId: context.traceId,
+				operatorRef,
+				outcome: "failed",
+				reasonCode: "app-refd-sn-recovery-interrupted",
+			});
+			throw error;
+		}
+		await this.appendAdminRefundAudit({
+			orderId: record.medicalOrderId,
+			requestId: context.traceId,
+			operatorRef,
+			outcome:
+				recovered.status === "failed"
+					? "failed"
+					: recovered.status === "manual_review"
+						? "rejected"
+						: "succeeded",
+			reasonCode:
+				recovered.lastErrorCode?.slice(0, 64) ??
+				"app-refd-sn-recovery-accepted",
+		});
+		return responseOf(recovered);
 	}
 
 	/**

@@ -363,6 +363,40 @@ test("6203 enforces refund type and original settlement bounds", () => {
 	).toThrow(LegacyFsiContractError);
 });
 
+test("6203 limits the application refund serial number to 40 characters", () => {
+	const original = {
+		totalFen: 1000,
+		cashFen: 200,
+		personalAccountFen: 0,
+		fundFen: 800,
+	};
+	const payload = {
+		payOrdId: "pay-order-001",
+		appRefdSn: "R".repeat(40),
+		ecToken: "ec-token-001",
+		appRefdTime: "20261015161930",
+		refdType: "ALL",
+		totlRefdAmt: "10.00",
+		cashRefdAmt: "2.00",
+		psnAcctRefdAmt: "0.00",
+		fundRefdAmt: "8.00",
+	};
+	expect(validate6203Refund(payload, original)).toMatchObject({
+		refdType: "ALL",
+		totalFen: 1000,
+	});
+	for (const appRefdSn of ["R".repeat(41), ` ${"R".repeat(40)}`]) {
+		expect(() =>
+			validate6203Refund({ ...payload, appRefdSn }, original),
+		).toThrow("appRefdSn must not exceed 40 characters");
+	}
+	for (const appRefdSn of ["", " "]) {
+		expect(() =>
+			validate6203Refund({ ...payload, appRefdSn }, original),
+		).toThrow("appRefdSn is required");
+	}
+});
+
 test("6203 and 6401 reject ambiguous success responses", () => {
 	expect(validate6203Response({ body: { refStatus: "SUCC" } })).toBe("SUCC");
 	expect(() =>

@@ -1143,9 +1143,17 @@ export class AdminWechatRefundService {
 	/** 仅供聚合退费编排服务防止与 HIS 微信单腿重复发起。 */
 	async findMedicalInsuranceRefundByOrder(
 		orderId: string,
+		options: { requireLedgerLookup?: boolean } = {},
 	): Promise<WechatRefund | undefined> {
 		const find = this.dependencies.refunds.findBySourceAndSourceOrder;
-		if (!find) return undefined;
+		if (!find) {
+			if (options.requireLedgerLookup) {
+				throw new Error(
+					"Medical insurance Wechat refund ledger lookup is unavailable",
+				);
+			}
+			return undefined;
+		}
 		const records = await find("medical_insurance", requiredText(orderId, 64));
 		return [...records].sort((left, right) => {
 			const updated = right.updatedAt.localeCompare(left.updatedAt);

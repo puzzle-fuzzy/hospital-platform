@@ -614,6 +614,9 @@ export function validate6203Refund(
 	const infno = "6203" as const;
 	requiredText(payload, "payOrdId", infno);
 	requiredText(payload, "appRefdSn", infno);
+	if (typeof payload.appRefdSn === "string" && payload.appRefdSn.length > 40) {
+		contractError(infno, "appRefdSn must not exceed 40 characters");
+	}
 	const hasEcToken =
 		typeof payload.ecToken === "string" && Boolean(payload.ecToken.trim());
 	const hasPayAuthNo =

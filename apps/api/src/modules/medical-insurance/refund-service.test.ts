@@ -149,6 +149,13 @@ test("医保全额退费先调用 6203，再调用微信 APIv3 现金退款并�
 	expect(second).toEqual(first);
 	expect(medicalCalls).toBe(1);
 	expect(wechatCalls).toBe(1);
+	expect(first.refundNo).toHaveLength(52);
+	expect(medicalPayload?.appRefdSn).toBe(first.refundNo.slice(0, 40));
+	expect(medicalPayload?.appRefdSn).toHaveLength(40);
+	expect(
+		(await wechatRefunds.findByMerchantRefundNo(first.refundNo))
+			?.merchantRefundNo,
+	).toBe(first.refundNo);
 	expect(medicalPayload?.payAuthNo).toBe("pay-auth-refund-001");
 	expect(medicalPayload?.totlRefdAmt).toBe("10.00");
 	expect(projection).toBeDefined();
