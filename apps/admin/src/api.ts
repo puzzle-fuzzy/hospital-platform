@@ -4,6 +4,8 @@ import type {
 	AdminLogRecord,
 	AdminMedicalInsuranceRefund,
 	AdminPaymentOperationDetail,
+	AdminPaymentRefundResult,
+	AdminPaymentRefundType,
 	AdminPaymentSyncTask,
 	AdminWechatRefundPaymentHistoryPage,
 	AdminWechatRefundPaymentHistoryQuery,
@@ -14,6 +16,7 @@ import type {
 	RawLogTrace,
 	Session,
 	WechatRefund,
+	WechatRefundSource,
 } from "./types";
 
 const SESSION_KEY = "admin.session";
@@ -424,6 +427,47 @@ export async function requestMedicalInsuranceRefund(
 					...(input.reason ? { reason: input.reason } : {}),
 				}),
 			},
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function requestPaymentRefund(
+	input: {
+		source: WechatRefundSource;
+		orderId: string;
+		refundType: AdminPaymentRefundType;
+		reason?: string;
+	},
+	session: Session,
+): Promise<AdminPaymentRefundResult> {
+	try {
+		return await request<AdminPaymentRefundResult>("/api/refunds/payment", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${session.accessToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(input),
+		});
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function queryPaymentRefund(
+	source: WechatRefundSource,
+	orderId: string,
+	session: Session,
+	refundType: AdminPaymentRefundType = "ALL",
+): Promise<AdminPaymentRefundResult> {
+	try {
+		return await request<AdminPaymentRefundResult>(
+			`/api/refunds/payment/${encodeURIComponent(source)}/${encodeURIComponent(orderId)}?refundType=${encodeURIComponent(refundType)}`,
+			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
 		);
 	} catch (error) {
 		if (error instanceof ApiError && error.status === 401) clearSession();
