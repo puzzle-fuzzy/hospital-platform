@@ -29,6 +29,8 @@ function order(
 		medicalOrderId: "medical-refund-001",
 		ownerUserId: "user-refund-001",
 		patientId: "patient-refund-001",
+		orderType: "DiagPay",
+		businessType: "outpatient",
 		authorizationId: "authorization-refund-001",
 		feeUploadId: "fee-refund-001",
 		idempotencyKey: "payment-idempotency-001",

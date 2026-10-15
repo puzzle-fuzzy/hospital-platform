@@ -77,7 +77,9 @@ import {
 	buildMedicalInsuranceOrderOperationsProjection,
 	isValidMedicalInsuranceProviderQueryIdentity,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+	MedicalInsuranceRefundAmountExceededError,
 	MyDoctorAlreadyExistsError,
+	medicalRefundReservesMedicalAmount,
 	normalizeMyDoctorReadModel,
 	normalizeOutpatientPaymentRecords,
 	normalizeUserProfileReadModel,
@@ -5181,7 +5183,31 @@ export function createMySqlRepositories(
 
 	const wechatRefunds: WechatRefundRepository = {
 		async reserve(record) {
+			if (
+				!Number.isSafeInteger(record.refundFen) ||
+				record.refundFen <= 0 ||
+				!Number.isSafeInteger(record.totalFen) ||
+				record.totalFen <= 0
+			)
+				throw new WechatRefundAmountExceededError();
 			return withTransaction(pool, async (connection) => {
+				// 两种退款仓储先锁同一来源订单，覆盖首笔记录尚不存在的并发窗口。
+				const sourceRows = await execute<RowDataPacket[]>(
+					connection,
+					record.source === "medical_insurance"
+						? "SELECT medical_order_id, cash_fen, wechat_out_trade_no FROM hp_medical_insurance_orders WHERE medical_order_id = ? FOR UPDATE"
+						: "SELECT order_id, cash_fen FROM hp_payment_orders WHERE order_id = ? FOR UPDATE",
+					[record.sourceOrderId],
+				);
+				const source = sourceRows[0];
+				if (
+					!source ||
+					safeFen(source.cash_fen) < record.totalFen ||
+					(record.source === "medical_insurance" &&
+						source.wechat_out_trade_no !== record.outTradeNo)
+				) {
+					throw new WechatRefundAmountExceededError();
+				}
 				const columns =
 					"refund_record_id, merchant_refund_no, idempotency_key, source, source_order_id, out_trade_no, total_fen, refund_fen, reason, status, provider_status, provider_refund_id, provider_transaction_id, provider_request_id, success_time, last_error_code, version, created_at, updated_at";
 				const existingRows = await execute<WechatRefundRow[]>(
@@ -5228,7 +5254,37 @@ export function createMySqlRepositories(
 					[record.source, record.sourceOrderId],
 				);
 				const reservedFen = safeFen(sumRows[0]?.reserved_fen ?? 0);
-				if (reservedFen + record.refundFen > record.totalFen) {
+				let medicalReservedFen = 0;
+				if (record.source === "medical_insurance") {
+					const medicalRows = await execute<
+						(RowDataPacket & {
+							cash_fen: number | string;
+							wechat_merchant_refund_no: string | null;
+						})[]
+					>(
+						connection,
+						"SELECT cash_fen, wechat_merchant_refund_no FROM hp_medical_insurance_refunds WHERE medical_order_id = ? AND cash_fen > 0 FOR UPDATE",
+						[record.sourceOrderId],
+					);
+					medicalReservedFen = medicalRows
+						.filter(
+							(row) =>
+								row.wechat_merchant_refund_no !== record.merchantRefundNo,
+						)
+						.reduce((sum, row) => sum + safeFen(row.cash_fen), 0);
+					if (
+						medicalRows.some(
+							(row) =>
+								row.wechat_merchant_refund_no === record.merchantRefundNo &&
+								safeFen(row.cash_fen) !== record.refundFen,
+						)
+					)
+						throw new WechatRefundIdempotencyConflictError();
+				}
+				if (
+					reservedFen + medicalReservedFen + record.refundFen >
+					record.totalFen
+				) {
 					throw new WechatRefundAmountExceededError();
 				}
 				await execute<ResultSetHeader>(
@@ -5320,10 +5376,34 @@ export function createMySqlRepositories(
 
 	const medicalInsuranceRefunds: MedicalInsuranceRefundRepository = {
 		async reserve(record) {
+			if (
+				![
+					record.cashFen,
+					record.personalAccountFen,
+					record.fundFen,
+					record.totalFen,
+				].every((value) => Number.isSafeInteger(value) && value >= 0) ||
+				record.totalFen <= 0 ||
+				record.totalFen !==
+					record.cashFen + record.personalAccountFen + record.fundFen
+			)
+				throw new MedicalInsuranceRefundAmountExceededError();
 			const columns =
 				"refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no, idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen, fund_fen, medical_status, medical_ref_status, medical_provider_request_id, wechat_status, wechat_merchant_refund_no, status, last_error_code, version, created_at, updated_at";
 			try {
 				return await withTransaction(pool, async (connection) => {
+					const sourceRows = await execute<RowDataPacket[]>(
+						connection,
+						"SELECT medical_order_id, owner_user_id, pay_ord_id, cash_fen, personal_account_fen, fund_fen FROM hp_medical_insurance_orders WHERE medical_order_id = ? FOR UPDATE",
+						[record.medicalOrderId],
+					);
+					const source = sourceRows[0];
+					if (
+						!source ||
+						source.owner_user_id !== record.ownerUserId ||
+						source.pay_ord_id !== record.payOrdId
+					)
+						throw new MedicalInsuranceRefundAmountExceededError();
 					const existingRows = await execute<MedicalInsuranceRefundRow[]>(
 						connection,
 						`SELECT ${columns} FROM hp_medical_insurance_refunds
@@ -5348,6 +5428,38 @@ export function createMySqlRepositories(
 							status: "existing" as const,
 							record: medicalInsuranceRefund(existingByRefundNo),
 						};
+					const priorRows = await execute<MedicalInsuranceRefundRow[]>(
+						connection,
+						`SELECT ${columns} FROM hp_medical_insurance_refunds WHERE medical_order_id = ? FOR UPDATE`,
+						[record.medicalOrderId],
+					);
+					const prior = priorRows.map(medicalInsuranceRefund);
+					const held = prior.filter(medicalRefundReservesMedicalAmount);
+					const cashRows = await execute<WechatRefundRow[]>(
+						connection,
+						"SELECT merchant_refund_no, refund_fen FROM hp_wechat_refunds WHERE source = 'medical_insurance' AND source_order_id = ? AND status IN ('requested', 'processing', 'success', 'unknown') FOR UPDATE",
+						[record.medicalOrderId],
+					);
+					const cash =
+						prior.reduce((sum, item) => sum + item.cashFen, 0) +
+						cashRows
+							.filter(
+								(row) =>
+									!prior.some(
+										(medical) =>
+											medical.wechatMerchantRefundNo === row.merchant_refund_no,
+									),
+							)
+							.reduce((sum, row) => sum + safeFen(row.refund_fen), 0);
+					if (
+						held.reduce((sum, item) => sum + item.personalAccountFen, 0) +
+							record.personalAccountFen >
+							safeFen(source.personal_account_fen) ||
+						held.reduce((sum, item) => sum + item.fundFen, 0) + record.fundFen >
+							safeFen(source.fund_fen) ||
+						cash + record.cashFen > safeFen(source.cash_fen)
+					)
+						throw new MedicalInsuranceRefundAmountExceededError();
 					await execute<ResultSetHeader>(
 						connection,
 						`INSERT INTO hp_medical_insurance_refunds
@@ -5401,6 +5513,30 @@ export function createMySqlRepositories(
 				[refundNo],
 			);
 			return rows[0] ? medicalInsuranceRefund(rows[0]) : undefined;
+		},
+		async listByMedicalOrderId(medicalOrderId) {
+			const rows = await execute<MedicalInsuranceRefundRow[]>(
+				pool,
+				`SELECT refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no, idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen, fund_fen, medical_status, medical_ref_status, medical_provider_request_id, wechat_status, wechat_merchant_refund_no, status, last_error_code, version, created_at, updated_at FROM hp_medical_insurance_refunds WHERE medical_order_id = ? ORDER BY created_at, refund_id`,
+				[medicalOrderId],
+			);
+			return rows.map(medicalInsuranceRefund);
+		},
+		async listAwaitingMedicalNotification(limit) {
+			if (!Number.isSafeInteger(limit) || limit < 1)
+				throw new Error("Medical notification limit is invalid");
+			const rows = await execute<MedicalInsuranceRefundRow[]>(
+				pool,
+				`SELECT refunds.* FROM hp_medical_insurance_refunds AS refunds
+				 WHERE refunds.medical_status = 'success' AND refunds.medical_ref_status = 'SUCC'
+				   AND refunds.personal_account_fen + refunds.fund_fen > 0
+				   AND (refunds.last_error_code = 'medical-refund-notify-pending' OR NOT EXISTS
+				       (SELECT 1 FROM hp_payment_sync_tasks AS tasks
+				        WHERE tasks.business_key LIKE CONCAT('medical_refund_notify:', refunds.refund_no, ':%')))
+				 ORDER BY refunds.updated_at, refunds.refund_id LIMIT ?`,
+				[Math.min(limit, 100)],
+			);
+			return rows.map(medicalInsuranceRefund);
 		},
 		async findLatestByMedicalOrderId(medicalOrderId) {
 			const columns =
@@ -7365,6 +7501,26 @@ export function createMySqlRepositories(
 				payToken: payload.payToken,
 				providerQueryIdentity: payload.providerQueryIdentity,
 			} satisfies MedicalInsuranceCredentialContext;
+		},
+		async getForRefund(input) {
+			if (input.purpose !== "query") return undefined;
+			const cipher = requiredMedicalInsuranceCredentialCipher();
+			const rows = await execute<MedicalInsuranceCredentialRow[]>(
+				pool,
+				`SELECT credential_id, owner_user_id, medical_order_id, pay_ord_id,
+				 purpose, payload_ciphertext, expires_at, created_at
+				 FROM hp_medical_insurance_credentials
+				 WHERE owner_user_id = ? AND medical_order_id = ? AND pay_ord_id = ? AND purpose = ?
+				   AND revoked_at IS NULL
+				 ORDER BY created_at DESC, credential_id DESC LIMIT 1`,
+				[input.ownerUserId, input.medicalOrderId, input.payOrdId, "query"],
+			);
+			const row = rows[0];
+			if (!row) return undefined;
+			const payload = deserializeMedicalInsuranceCredentialPayload(
+				cipher.open(row.payload_ciphertext),
+			);
+			return { ...medicalInsuranceCredentialHandle(row), ...payload };
 		},
 		async revoke(input) {
 			const result = await execute<ResultSetHeader>(

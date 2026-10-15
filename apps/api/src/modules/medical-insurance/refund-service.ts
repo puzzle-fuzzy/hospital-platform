@@ -10,6 +10,7 @@ import {
 	type MedicalInsuranceRefundGateway,
 	type MedicalInsuranceRefundRepository,
 	type MedicalInsuranceRefundType,
+	medicalRefundReservesMedicalAmount,
 	normalizeAdapterCallContext,
 	type PaymentAggregate,
 	type PaymentOperationsRepository,
@@ -91,8 +92,9 @@ function planOf(
 	original: NonNullable<MedicalInsuranceOrder["amounts"]>,
 ): RefundPlan {
 	if (
+		input.refundType === "ALL" &&
 		original.totalFen !==
-		original.cashFen + original.personalAccountFen + original.fundFen
+			original.cashFen + original.personalAccountFen + original.fundFen
 	) {
 		throw new MedicalInsuranceRegistrationInputError(
 			"当前医保订单包含 6203 未覆盖的扩展支付分项，暂不能安全退费",
@@ -265,6 +267,19 @@ function responseOf(
 	};
 }
 
+export type MedicalInsuranceRefundPaymentVerification = {
+	orderId: string;
+	version: number;
+	payOrdId: string;
+	mixTradeNo?: string | null;
+	outTradeNo?: string | null;
+	amounts: NonNullable<MedicalInsuranceOrder["amounts"]>;
+	actualCashFen: number;
+	paidMedical: boolean;
+	paidCash: boolean;
+	queriedAt: string;
+};
+
 export type MedicalInsuranceRefundServiceDependencies = {
 	orders: MedicalInsuranceOrderRepository;
 	authorizations: MedicalInsuranceAuthorizationRepository;
@@ -273,6 +288,10 @@ export type MedicalInsuranceRefundServiceDependencies = {
 	wechatRefund?: AdminWechatRefundService;
 	paymentOperations?: PaymentOperationsRepository;
 	operatorAudits?: PaymentOperatorAuditRepository;
+	verifyPaymentForRefund?: (
+		order: Readonly<MedicalInsuranceOrder>,
+		scope?: MedicalInsuranceRefundType,
+	) => Promise<MedicalInsuranceRefundPaymentVerification>;
 	paymentSync?: {
 		enqueue(input: {
 			aggregateId: string;
@@ -867,13 +886,28 @@ export class MedicalInsuranceRefundService {
 		if (!order) throw new MedicalInsuranceOrderNotFoundError();
 		const context = contextOf(input.context);
 		const idempotencyKey = `his-medical-leg:${orderId}`;
-		const existing =
-			await this.dependencies.refunds.findLatestByMedicalOrderId(orderId);
-		if (existing && existing.idempotencyKey !== idempotencyKey) {
+		const records =
+			await this.dependencies.refunds.listByMedicalOrderId(orderId);
+		const existing = records.find(
+			(record) => record.idempotencyKey === idempotencyKey,
+		);
+		if (existing) return responseOf(existing);
+		if (records.some((record) => record.refundType === "ALL")) {
 			throw new MedicalInsuranceRegistrationInputError(
 				"该医保订单已有其他退费记录，不能再次单独退医保",
 			);
 		}
+		const held = records.filter(medicalRefundReservesMedicalAmount);
+		const personalAccountRefundFen = Math.max(
+			0,
+			(order.amounts?.personalAccountFen ?? 0) -
+				held.reduce((sum, item) => sum + item.personalAccountFen, 0),
+		);
+		const fundRefundFen = Math.max(
+			0,
+			(order.amounts?.fundFen ?? 0) -
+				held.reduce((sum, item) => sum + item.fundFen, 0),
+		);
 		let result: MedicalInsuranceRefundPayload["data"];
 		try {
 			result = await this.request({
@@ -881,12 +915,8 @@ export class MedicalInsuranceRefundService {
 				orderId,
 				refund: {
 					refundType: "HI",
-					...(order.amounts?.personalAccountFen !== undefined
-						? { personalAccountRefundFen: order.amounts.personalAccountFen }
-						: {}),
-					...(order.amounts?.fundFen !== undefined
-						? { fundRefundFen: order.amounts.fundFen }
-						: {}),
+					personalAccountRefundFen,
+					fundRefundFen,
 					...(input.reason !== undefined ? { reason: input.reason } : {}),
 				},
 				context: { ...context, idempotencyKey },
@@ -989,7 +1019,69 @@ export class MedicalInsuranceRefundService {
 				"医保订单尚未形成可退费的 6202 结算事实",
 			);
 		}
+		const plan = planOf(input.refund, order.amounts);
+		const refundNo = refundNoOf(orderId, context.idempotencyKey);
+		const previous = await this.dependencies.refunds.findByRefundNo(refundNo);
+		if (previous && plan.refundType === "HI") {
+			if (
+				previous.medicalOrderId !== orderId ||
+				previous.ownerUserId !== ownerUserId ||
+				previous.payOrdId !== order.payOrdId ||
+				previous.refundType !== "HI" ||
+				previous.totalFen !== plan.totalFen ||
+				previous.cashFen !== 0 ||
+				previous.personalAccountFen !== plan.personalAccountFen ||
+				previous.fundFen !== plan.fundFen
+			)
+				throw new MedicalInsuranceRegistrationInputError(
+					"相同幂等键对应的退费金额或类型不一致",
+				);
+			return responseOf(previous);
+		}
+		let verifiedPayment = false;
+		if (this.dependencies.verifyPaymentForRefund) {
+			const proof = await this.dependencies.verifyPaymentForRefund(
+				order,
+				plan.refundType,
+			);
+			const age = this.now().getTime() - Date.parse(proof.queriedAt);
+			verifiedPayment =
+				Number.isFinite(age) &&
+				age >= 0 &&
+				age <= 60_000 &&
+				proof.orderId === order.medicalOrderId &&
+				proof.version === order.version &&
+				proof.payOrdId === order.payOrdId &&
+				(proof.mixTradeNo ?? null) === (order.wechatMixTradeNo ?? null) &&
+				(proof.outTradeNo ?? null) === (order.wechatOutTradeNo ?? null) &&
+				[
+					"totalFen",
+					"cashFen",
+					"personalAccountFen",
+					"fundFen",
+					"otherPaymentFen",
+					"hospitalPartFen",
+					"personalAccountMutualAidFen",
+					"personalAccountSelfFen",
+					"depositFen",
+					"deliveryFeeFen",
+				].every(
+					(key) =>
+						proof.amounts[key as keyof typeof proof.amounts] ===
+						order.amounts?.[key as keyof typeof proof.amounts],
+				) &&
+				Number.isSafeInteger(proof.actualCashFen) &&
+				proof.actualCashFen >= 0 &&
+				proof.actualCashFen <= order.amounts.cashFen &&
+				(plan.personalAccountFen + plan.fundFen === 0 || proof.paidMedical) &&
+				(plan.cashFen === 0 || proof.paidCash);
+			if (!verifiedPayment)
+				throw new MedicalInsuranceRegistrationInputError(
+					"所选退款分项尚未确认支付成功或支付核验已过期",
+				);
+		}
 		if (
+			!verifiedPayment &&
 			order.status !== "insurance_settled" &&
 			!(
 				order.status === "cash_pending" &&
@@ -1000,13 +1092,22 @@ export class MedicalInsuranceRefundService {
 				"医保订单尚未完成支付，不能发起退费",
 			);
 		}
-		const plan = planOf(input.refund, order.amounts);
 		if (plan.cashFen > 0 && order.wechatPaymentState !== "cash_paid") {
 			throw new MedicalInsuranceRegistrationInputError(
 				"微信自费段尚未确认支付成功，不能退现金段",
 			);
 		}
-		const refundNo = refundNoOf(orderId, context.idempotencyKey);
+		const currentOrder =
+			await this.dependencies.orders.findByMedicalOrderId(orderId);
+		if (
+			!currentOrder ||
+			currentOrder.version !== order.version ||
+			currentOrder.payOrdId !== order.payOrdId ||
+			currentOrder.ownerUserId !== order.ownerUserId
+		)
+			throw new MedicalInsuranceRegistrationInputError(
+				"支付订单已变化，请重新核验后退费",
+			);
 		const now = this.now().toISOString();
 		const initial: MedicalInsuranceRefund = {
 			refundId: `medical-refund-${this.createId()}`,
@@ -1031,7 +1132,10 @@ export class MedicalInsuranceRefundService {
 			createdAt: now,
 			updatedAt: now,
 		};
-		const reserved = await this.dependencies.refunds.reserve(initial);
+		const reserved = await this.dependencies.refunds.reserve(
+			initial,
+			order.amounts,
+		);
 		let record = reserved.record;
 		if (
 			record.medicalOrderId !== orderId ||

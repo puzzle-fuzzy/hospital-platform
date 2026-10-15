@@ -2,7 +2,8 @@
  * 医保 6201 凭证上下文。
  *
  * payToken 只能在服务端 provider 调用的窄边界内出现。公共 handle 和订单
- * 读模型都不含原文；持久化实现必须只保存加密载荷，并在过期/撤销后拒绝读取。
+ * 读模型都不含原文；持久化实现必须只保存加密载荷。普通读取拒绝过期/撤销凭证；
+ * 退费查证仅允许 getForRefund 按原支付精确绑定读取未撤销的 query 凭证。
  */
 export type MedicalInsuranceCredentialPurpose = "settlement" | "query";
 
@@ -82,6 +83,13 @@ export type MedicalInsuranceCredentialRepository = {
 		medicalOrderId: string;
 		purpose: MedicalInsuranceCredentialPurpose;
 		now: string;
+	}): Promise<MedicalInsuranceCredentialContext | undefined>;
+	/** 仅供退费查证：读取原支付的精确绑定 query 凭证；不延长有效期，不用于新结算。 */
+	getForRefund?(input: {
+		ownerUserId: string;
+		medicalOrderId: string;
+		payOrdId: string;
+		purpose: "query";
 	}): Promise<MedicalInsuranceCredentialContext | undefined>;
 	revoke(input: {
 		credentialId: string;

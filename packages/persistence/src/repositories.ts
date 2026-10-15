@@ -62,7 +62,9 @@ import type {
 } from "@hospital/domain";
 import {
 	isValidMedicalInsuranceProviderQueryIdentity,
+	MedicalInsuranceRefundAmountExceededError,
 	MyDoctorAlreadyExistsError,
+	medicalRefundReservesMedicalAmount,
 	normalizeMyDoctorReadModel,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
@@ -1375,13 +1377,25 @@ export function createInMemoryPaymentQuoteRepository(
 	};
 }
 
+/** 同一内存组合根共享两种退款台账，模拟 MySQL 的源订单锁与跨腿额度。 */
+export function createInMemoryRefundReservationContext() {
+	return {
+		medical: new Map<string, MedicalInsuranceRefund>(),
+		wechat: new Map<string, WechatRefund>(),
+		caps: new Map<
+			string,
+			{ cashFen: number; personalAccountFen: number; fundFen: number }
+		>(),
+	};
+}
+
 /** 仅用于 Admin 退款服务测试；生产使用 MySQL 的行锁和唯一键实现。 */
 export function createInMemoryWechatRefundRepository(
 	seed: readonly WechatRefund[] = [],
+	shared = createInMemoryRefundReservationContext(),
 ): WechatRefundRepository {
-	const records = new Map(
-		seed.map((record) => [record.refundRecordId, record]),
-	);
+	const records = shared.wechat;
+	for (const record of seed) records.set(record.refundRecordId, { ...record });
 	const activeStatuses = new Set([
 		"requested",
 		"processing",
@@ -1400,6 +1414,13 @@ export function createInMemoryWechatRefundRepository(
 		left.refundFen === right.refundFen;
 	return {
 		async reserve(record) {
+			if (
+				!Number.isSafeInteger(record.refundFen) ||
+				record.refundFen <= 0 ||
+				!Number.isSafeInteger(record.totalFen) ||
+				record.totalFen <= 0
+			)
+				throw new WechatRefundAmountExceededError();
 			const existingByIdempotency = [...records.values()].find(
 				(candidate) => candidate.idempotencyKey === record.idempotencyKey,
 			);
@@ -1424,7 +1445,30 @@ export function createInMemoryWechatRefundRepository(
 						activeStatuses.has(candidate.status),
 				)
 				.reduce((sum, candidate) => sum + candidate.refundFen, 0);
-			if (reservedFen + record.refundFen > record.totalFen) {
+			let medicalReservedFen = 0;
+			if (record.source === "medical_insurance") {
+				if (
+					[...shared.medical.values()].some(
+						(item) =>
+							item.medicalOrderId === record.sourceOrderId &&
+							item.wechatMerchantRefundNo === record.merchantRefundNo &&
+							item.cashFen !== record.refundFen,
+					)
+				)
+					throw new WechatRefundIdempotencyConflictError();
+				medicalReservedFen = [...shared.medical.values()]
+					.filter(
+						(item) =>
+							item.medicalOrderId === record.sourceOrderId &&
+							item.cashFen > 0 &&
+							item.wechatMerchantRefundNo !== record.merchantRefundNo,
+					)
+					.reduce((sum, item) => sum + item.cashFen, 0);
+			}
+			if (
+				reservedFen + medicalReservedFen + record.refundFen >
+				record.totalFen
+			) {
 				throw new WechatRefundAmountExceededError();
 			}
 			records.set(record.refundRecordId, { ...record });
@@ -1461,8 +1505,10 @@ export function createInMemoryWechatRefundRepository(
 /** 仅用于 API 集成测试；生产使用 MySQL 的唯一键和 CAS 更新。 */
 export function createInMemoryMedicalInsuranceRefundRepository(
 	seed: readonly MedicalInsuranceRefund[] = [],
+	shared = createInMemoryRefundReservationContext(),
 ): MedicalInsuranceRefundRepository {
-	const records = new Map(seed.map((record) => [record.refundId, record]));
+	const records = shared.medical;
+	for (const record of seed) records.set(record.refundId, { ...record });
 	const sameIdentity = (
 		left: MedicalInsuranceRefund,
 		right: MedicalInsuranceRefund,
@@ -1478,7 +1524,19 @@ export function createInMemoryMedicalInsuranceRefundRepository(
 		left.personalAccountFen === right.personalAccountFen &&
 		left.fundFen === right.fundFen;
 	return {
-		async reserve(record) {
+		async reserve(record, originalAmounts) {
+			if (
+				![
+					record.cashFen,
+					record.personalAccountFen,
+					record.fundFen,
+					record.totalFen,
+				].every((value) => Number.isSafeInteger(value) && value >= 0) ||
+				record.totalFen <= 0 ||
+				record.totalFen !==
+					record.cashFen + record.personalAccountFen + record.fundFen
+			)
+				throw new MedicalInsuranceRefundAmountExceededError();
 			const existing = [...records.values()].find(
 				(candidate) =>
 					candidate.medicalOrderId === record.medicalOrderId &&
@@ -1499,6 +1557,61 @@ export function createInMemoryMedicalInsuranceRefundRepository(
 				}
 				return { status: "existing", record: { ...existingByRefundNo } };
 			}
+			const original = originalAmounts ??
+				shared.caps.get(record.medicalOrderId) ?? {
+					cashFen: record.cashFen,
+					personalAccountFen: record.personalAccountFen,
+					fundFen: record.fundFen,
+				};
+			const previousCap = shared.caps.get(record.medicalOrderId);
+			if (
+				previousCap &&
+				(previousCap.cashFen !== original.cashFen ||
+					previousCap.personalAccountFen !== original.personalAccountFen ||
+					previousCap.fundFen !== original.fundFen)
+			)
+				throw new MedicalInsuranceRefundAmountExceededError();
+			if (
+				![
+					original.cashFen,
+					original.personalAccountFen,
+					original.fundFen,
+				].every((value) => Number.isSafeInteger(value) && value >= 0)
+			)
+				throw new MedicalInsuranceRefundAmountExceededError();
+			const prior = [...records.values()].filter(
+				(item) => item.medicalOrderId === record.medicalOrderId,
+			);
+			const held = prior.filter(medicalRefundReservesMedicalAmount);
+			const personal = held.reduce(
+				(sum, item) => sum + item.personalAccountFen,
+				0,
+			);
+			const fund = held.reduce((sum, item) => sum + item.fundFen, 0);
+			const cash =
+				prior.reduce((sum, item) => sum + item.cashFen, 0) +
+				[...shared.wechat.values()]
+					.filter(
+						(item) =>
+							item.source === "medical_insurance" &&
+							item.sourceOrderId === record.medicalOrderId &&
+							["requested", "processing", "success", "unknown"].includes(
+								item.status,
+							) &&
+							!prior.some(
+								(medical) =>
+									medical.wechatMerchantRefundNo === item.merchantRefundNo,
+							),
+					)
+					.reduce((sum, item) => sum + item.refundFen, 0);
+			if (
+				personal + record.personalAccountFen > original.personalAccountFen ||
+				fund + record.fundFen > original.fundFen ||
+				cash + record.cashFen > original.cashFen
+			) {
+				throw new MedicalInsuranceRefundAmountExceededError();
+			}
+			shared.caps.set(record.medicalOrderId, { ...original });
 			records.set(record.refundId, { ...record });
 			return { status: "inserted", record: { ...record } };
 		},
@@ -1507,6 +1620,24 @@ export function createInMemoryMedicalInsuranceRefundRepository(
 				(candidate) => candidate.refundNo === refundNo,
 			);
 			return record ? { ...record } : undefined;
+		},
+		async listByMedicalOrderId(medicalOrderId) {
+			return [...records.values()]
+				.filter((item) => item.medicalOrderId === medicalOrderId)
+				.map((item) => ({ ...item }));
+		},
+		async listAwaitingMedicalNotification(limit) {
+			if (!Number.isSafeInteger(limit) || limit < 1)
+				throw new Error("Medical notification limit is invalid");
+			return [...records.values()]
+				.filter(
+					(item) =>
+						item.medicalStatus === "success" &&
+						item.medicalRefStatus === "SUCC" &&
+						item.personalAccountFen + item.fundFen > 0,
+				)
+				.slice(0, Math.min(limit, 100))
+				.map((item) => ({ ...item }));
 		},
 		async findLatestByMedicalOrderId(medicalOrderId) {
 			const record = [...records.values()]
@@ -2044,6 +2175,9 @@ export function createNotConfiguredRepositories(): {
 			},
 		},
 		medicalInsuranceRefunds: {
+			listByMedicalOrderId: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-refunds");
+			},
 			reserve: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-refunds");
 			},
@@ -2552,6 +2686,36 @@ export function createInMemoryMedicalInsuranceCredentialRepository(
 			stored.revokedAt = input.now;
 			stored.payloadCiphertext = "";
 			return true;
+		},
+		async getForRefund(input) {
+			if (input.purpose !== "query") return undefined;
+			const stored = [...credentials.values()]
+				.filter(
+					(candidate) =>
+						!candidate.revokedAt &&
+						candidate.ownerUserId === input.ownerUserId &&
+						candidate.medicalOrderId === input.medicalOrderId &&
+						candidate.payOrdId === input.payOrdId &&
+						candidate.purpose === "query",
+				)
+				.sort(
+					(left, right) =>
+						right.createdAt.localeCompare(left.createdAt) ||
+						right.credentialId.localeCompare(left.credentialId),
+				)[0];
+			if (!stored) return undefined;
+			const payload = deserializePayload(cipher.open(stored.payloadCiphertext));
+			return {
+				credentialId: stored.credentialId,
+				ownerUserId: stored.ownerUserId,
+				medicalOrderId: stored.medicalOrderId,
+				payOrdId: stored.payOrdId,
+				purpose: stored.purpose,
+				expiresAt: stored.expiresAt,
+				createdAt: stored.createdAt,
+				payToken: payload.payToken,
+				providerQueryIdentity: payload.providerQueryIdentity,
+			};
 		},
 	};
 }
