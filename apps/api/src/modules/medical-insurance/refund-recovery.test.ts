@@ -34,6 +34,7 @@ async function fixture(
 		refund?: Partial<MedicalInsuranceRefund>;
 		order?: Partial<MedicalInsuranceOrder>;
 		cashless?: boolean;
+		insuredAreaCode?: string;
 		newerRefund?: boolean;
 		existingWechatRefund?: boolean;
 		withoutWechat?: boolean;
@@ -57,6 +58,8 @@ async function fixture(
 		chrgBchno: "batch-recovery-001",
 		payOrdId: "pay-ord-recovery-001",
 		payTokenHash: "a".repeat(64),
+		orderType: "DiagPay",
+		businessType: "outpatient",
 		status: "insurance_settled",
 		ordStas: "6",
 		amounts: {
@@ -121,6 +124,23 @@ async function fixture(
 	]);
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(medicalOrder);
+	if (options.insuredAreaCode !== undefined) {
+		await orders.saveSettlementContext(
+			medicalOrder.ownerUserId,
+			medicalOrder.medicalOrderId,
+			{
+				businessId: "registration-recovery-001",
+				hospitalId: "hospital-recovery-001",
+				patientId: medicalOrder.patientId,
+				networkRegister: {},
+				outNetworkSettleMain: {},
+				nationalUpDetailList: [],
+				upDetailList: [],
+				tradeOrderIds: [],
+				insuredAreaCode: options.insuredAreaCode,
+			},
+		);
+	}
 	const authorizations =
 		createInMemoryMedicalInsuranceAuthorizationRepository();
 	await authorizations.put({
@@ -367,6 +387,25 @@ test("两次并发恢复只有 CAS 领取成功的一次调用 6203 和微信", 
 	);
 	expect(f.calls.medical).toHaveLength(1);
 	expect(f.calls.wechat).toHaveLength(1);
+});
+
+test("挂号遗留 ALL 恢复按原参保地确认实际现金，仍复用原退款身份", async () => {
+	const f = await fixture({
+		order: { orderType: "RegPay", businessType: "registration" },
+		insuredAreaCode: "140100",
+	});
+	expect(await f.service.recoverRejectedAppRefdSn(f.input)).toMatchObject({
+		refundNo: f.legacy.refundNo,
+		status: "succeeded",
+		medicalStatus: "success",
+		wechatStatus: "success",
+	});
+	expect(f.calls.sequence).toEqual(["medical", "wechat"]);
+	expect(f.calls.wechat[0]?.[0]).toMatchObject({
+		merchantRefundNo: f.legacy.refundNo,
+		totalFen: 200,
+		refundFen: 200,
+	});
 });
 
 for (const [label, patch] of [
