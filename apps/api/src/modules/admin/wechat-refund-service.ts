@@ -1207,10 +1207,18 @@ export class AdminWechatRefundService {
 		input: {
 			orderId: string;
 			reason?: string;
+			expectedCashFen?: number;
 		},
 		context: AdapterCallContext,
 	): Promise<WechatRefund> {
 		const orderId = requiredText(input.orderId, 64);
+		if (
+			input.expectedCashFen !== undefined &&
+			(!Number.isSafeInteger(input.expectedCashFen) ||
+				input.expectedCashFen <= 0)
+		) {
+			throw new AdminWechatRefundInputError("已核实的微信实付金额不合法");
+		}
 		const existingMedicalRefunds = await this.medicalRefundHistory(orderId);
 		if (
 			existingMedicalRefunds.some(
@@ -1237,6 +1245,13 @@ export class AdminWechatRefundService {
 				record.merchantRefundNo === hisMedicalWechatMerchantRefundNo(orderId),
 		);
 		if (canonical) {
+			if (
+				input.expectedCashFen !== undefined &&
+				canonical.totalFen !== input.expectedCashFen
+			)
+				throw new AdminWechatRefundInputError(
+					"已有微信退款与已核实的原支付金额不一致",
+				);
 			return canonical.status === "requested" || canonical.status === "unknown"
 				? this.query(canonical.merchantRefundNo, context)
 				: canonical;
@@ -1248,6 +1263,13 @@ export class AdminWechatRefundService {
 			idempotencyKey,
 			...(input.reason !== undefined ? { reason: input.reason } : {}),
 		});
+		if (
+			input.expectedCashFen !== undefined &&
+			target.totalFen !== input.expectedCashFen
+		)
+			throw new AdminWechatRefundInputError(
+				"微信实付金额在核验后已变化，请刷新重试",
+			);
 		const refundFen = Math.max(
 			0,
 			target.totalFen -

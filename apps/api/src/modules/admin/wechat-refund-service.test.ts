@@ -20,7 +20,10 @@ import {
 	createInMemoryWechatRefundRepository,
 } from "@hospital/persistence";
 import { projectPaymentOrder } from "./payment-operations-projector";
-import { AdminWechatRefundService } from "./wechat-refund-service";
+import {
+	AdminWechatRefundService,
+	hisMedicalWechatMerchantRefundNo,
+} from "./wechat-refund-service";
 
 const context = {
 	traceId: "admin-refund-test-trace-001",
@@ -419,6 +422,44 @@ test("微信单腿检查全部医保退费历史，较新的 HI 不能遮盖旧 
 		),
 	).rejects.toThrow("已有整笔聚合退费记录");
 	expect(fixture.providerCalls()).toBe(0);
+});
+
+test("现金核验金额必须同时匹配实际支付拆分和已有固定退款身份", async () => {
+	const order = paidMedicalOrder();
+	const fresh = await medicalOptionsFixture(order);
+	await expect(
+		fresh.service.requestMedicalInsuranceCashByOrder(
+			{ orderId: order.medicalOrderId, expectedCashFen: 499 },
+			context,
+		),
+	).rejects.toThrow("核验后已变化");
+	expect(fresh.providerCalls()).toBe(0);
+	const existing = ledgerRefund({
+		refundRecordId: "fixed-cash-unknown",
+		merchantRefundNo: hisMedicalWechatMerchantRefundNo(order.medicalOrderId),
+		source: "medical_insurance",
+		sourceOrderId: order.medicalOrderId,
+		refundFen: 500,
+		status: "unknown",
+		updatedAt: order.updatedAt,
+	});
+	const canonical = await medicalOptionsFixture(
+		order,
+		[],
+		[
+			{
+				...existing,
+				idempotencyKey: `his-medical-wechat-leg:${order.medicalOrderId}`,
+			},
+		],
+	);
+	await expect(
+		canonical.service.requestMedicalInsuranceCashByOrder(
+			{ orderId: order.medicalOrderId, expectedCashFen: 499 },
+			context,
+		),
+	).rejects.toThrow("原支付金额不一致");
+	expect(canonical.providerCalls()).toBe(0);
 });
 
 test("普通挂号只在医院已完成且配置取消编排时开放退款并取消能力", async () => {
