@@ -25,6 +25,16 @@ const context = {
 	traceId: "test-wechat-pay-trace-001",
 	idempotencyKey: "test-wechat-pay-idempotency-001",
 };
+
+const medicalRefundNotice = {
+	mixTradeNo: "mix-refund-notice-001",
+	totalFen: 800,
+	fundFen: 500,
+	personalAccountFen: 300,
+	otherFen: 0,
+	merchantRefundNo: "RFMI-notification-001",
+	successTime: "2026-08-15T00:00:00.000Z",
+};
 const fixedNow = new Date("2026-08-15T00:00:00.000Z");
 const merchantKeys = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const platformKeys = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -139,6 +149,222 @@ function createMedicalGateway(
 		},
 	});
 }
+
+test("medical refund notification signs the exact body and accepts only verified empty 204", async () => {
+	let calls = 0;
+	const gateway = createGateway(async (url, init) => {
+		calls++;
+		const path =
+			"/v3/med-ins/refunds/notify?mix_trade_no=mix-refund-notice-001";
+		expect(String(url)).toBe(`https://pay.example.test${path}`);
+		expect(init?.method).toBe("POST");
+		expect(init?.redirect).toBe("error");
+		const body = String(init?.body);
+		expect(JSON.parse(body)).toEqual({
+			med_refund_total_fee: 800,
+			med_refund_gov_fee: 500,
+			med_refund_self_fee: 300,
+			med_refund_other_fee: 0,
+			out_refund_no: medicalRefundNotice.merchantRefundNo,
+			refund_time: medicalRefundNotice.successTime,
+		});
+		verifyRequestAuthorization(init, "POST", path, body);
+		return new Response(null, {
+			status: 204,
+			headers: providerResponseHeaders(""),
+		});
+	});
+	await expect(
+		gateway.notifyMedicalRefund(medicalRefundNotice, context),
+	).resolves.toEqual({ requestId: "provider-request-001" });
+	expect(calls).toBe(1);
+});
+
+test.each([
+	"invalid_signature",
+	"missing_signature",
+	"wrong_serial",
+	"unexpected_200",
+])("medical notification rejects %s responses", async (failure) => {
+	const body = failure === "unexpected_200" ? "{}" : "";
+	const headers =
+		failure === "missing_signature"
+			? new Headers()
+			: providerResponseHeaders(body, failure !== "invalid_signature");
+	if (failure === "wrong_serial")
+		headers.set("Wechatpay-Serial", "wrong-platform");
+	const gateway = createGateway(
+		async () =>
+			new Response(body || null, {
+				status: failure === "unexpected_200" ? 200 : 204,
+				headers,
+			}),
+	);
+	await expect(
+		gateway.notifyMedicalRefund(medicalRefundNotice, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "medical-refund-notify",
+		requestOutcome: "unknown",
+	});
+});
+
+test("medical notification preserves signed provider HTTP rejection", async () => {
+	const body = JSON.stringify({
+		code: "PARAM_ERROR",
+		message: "test rejected",
+	});
+	const gateway = createGateway(
+		async () =>
+			new Response(body, {
+				status: 400,
+				headers: providerResponseHeaders(body),
+			}),
+	);
+	await expect(
+		gateway.notifyMedicalRefund(medicalRefundNotice, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "medical-refund-notify",
+		statusCode: 400,
+		requestOutcome: "rejected",
+		providerErrorCode: "PARAM_ERROR",
+	});
+});
+
+test("medical notification normalizes escaped merchant and platform PEM newlines", async () => {
+	const gateway = new WechatPaymentApiGateway({
+		appId: "wx-app-001",
+		mchId: "mch-001",
+		merchantCertificateSerial: "merchant-serial-001",
+		merchantPrivateKey: merchantPrivateKey.replaceAll("\n", "\\n"),
+		platformCertificateSerial: "platform-serial-001",
+		platformPublicKey: platformPublicKey.replaceAll("\n", "\\r\\n"),
+		apiV3Key: "0123456789abcdef0123456789abcdef",
+		notifyUrl: "https://hospital.example.test/notify",
+		baseUrl: "https://pay.example.test",
+		now: () => fixedNow,
+		nonce: () => "pem-normalization-nonce",
+		fetcher: async (_url, init) => {
+			verifyRequestAuthorization(
+				init,
+				"POST",
+				"/v3/med-ins/refunds/notify?mix_trade_no=mix-refund-notice-001",
+				String(init?.body),
+			);
+			return new Response(null, {
+				status: 204,
+				headers: providerResponseHeaders(""),
+			});
+		},
+	});
+	await expect(
+		gateway.notifyMedicalRefund(medicalRefundNotice, context),
+	).resolves.toHaveProperty("requestId");
+});
+
+test("invalid medical notification amount or time never leaves the adapter", async () => {
+	let calls = 0;
+	const gateway = createGateway(async () => {
+		calls++;
+		throw new Error("must not send");
+	});
+	for (const invalid of [
+		{ totalFen: 799 },
+		{ fundFen: -1 },
+		{ successTime: "tomorrow" },
+		{ totalFen: 0, fundFen: 0, personalAccountFen: 0 },
+	]) {
+		await expect(
+			gateway.notifyMedicalRefund(
+				{ ...medicalRefundNotice, ...invalid },
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			requestOutcome: "not_sent",
+		});
+	}
+	expect(calls).toBe(0);
+});
+
+test.each(["SUCCESS", "REFUND"])(
+	"refund-only payment query accepts signed matching %s original payment",
+	async (tradeState) => {
+		const body = JSON.stringify({
+			appid: "wx-app-001",
+			mchid: "mch-001",
+			out_trade_no: "order-refund-query",
+			transaction_id: "test-paid-transaction",
+			trade_state: tradeState,
+			amount: { total: 1000 },
+		});
+		const gateway = createGateway(
+			async () =>
+				new Response(body, {
+					status: 200,
+					headers: providerResponseHeaders(body),
+				}),
+		);
+		await expect(
+			gateway.queryPaidOrderForRefund(
+				{ orderId: "order-refund-query" },
+				context,
+			),
+		).resolves.toMatchObject({
+			state: "cash_paid",
+			providerState: tradeState,
+			totalFen: 1000,
+		});
+	},
+);
+
+test.each([
+	{ appid: "wrong-app" },
+	{ mchid: "wrong-merchant" },
+	{ out_trade_no: "wrong-order" },
+])("refund payment query rejects mismatched identity %j", async (identity) => {
+	const body = JSON.stringify({
+		appid: "wx-app-001",
+		mchid: "mch-001",
+		out_trade_no: "order-refund-query",
+		transaction_id: "test-paid-transaction",
+		trade_state: "REFUND",
+		amount: { total: 1000 },
+		...identity,
+	});
+	const gateway = createGateway(
+		async () =>
+			new Response(body, {
+				status: 200,
+				headers: providerResponseHeaders(body),
+			}),
+	);
+	await expect(
+		gateway.queryPaidOrderForRefund({ orderId: "order-refund-query" }, context),
+	).rejects.toMatchObject({ name: "ProviderRequestError" });
+});
+
+test("normal payment query never promotes refunded payment back to cash_paid", async () => {
+	const body = JSON.stringify({
+		appid: "wx-app-001",
+		mchid: "mch-001",
+		out_trade_no: "order-refund-query",
+		transaction_id: "test-paid-transaction",
+		trade_state: "REFUND",
+		amount: { total: 1000 },
+	});
+	const gateway = createGateway(
+		async () =>
+			new Response(body, {
+				status: 200,
+				headers: providerResponseHeaders(body),
+			}),
+	);
+	await expect(
+		gateway.query({ orderId: "order-refund-query" }, context),
+	).rejects.toMatchObject({ name: "ProviderRequestError" });
+});
 
 function medicalCreateInput(input: {
 	outTradeNo: string;
