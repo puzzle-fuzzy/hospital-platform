@@ -1,0 +1,10 @@
+<image
+	wx:for="{{[imageSrc]}}"
+	wx:key="*this"
+	class="doctor-avatar-image"
+	src="{{item}}"
+	data-src="{{item}}"
+	mode="aspectFill"
+	aria-label="{{label}}"
+	binderror="onImageError"
+/>

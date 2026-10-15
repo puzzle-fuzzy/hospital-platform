@@ -275,6 +275,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0054_payment_operator_audits.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0055_my_doctor_avatar_resource_url",
+		file: "../migrations/0055_my_doctor_avatar_resource_url.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**

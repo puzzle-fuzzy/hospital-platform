@@ -382,7 +382,8 @@ test("众阳旧端医生目录使用 scheduling-doctors 并展开嵌套排班", 
 			titleName: "主任医师",
 			introduction: "心血管疾病诊疗",
 			expertise: "冠心病",
-			doctorPhotoUrl: "https://img.example.test/doctor.jpg",
+			doctorPhotoUrl:
+				"https://zhongyang.example.test/proxy/forward?url=https%3A%2F%2Fimg.example.test%2Fdoctor.jpg",
 			workDate: "2026-08-20",
 			shiftName: "上午",
 			totalSlots: 10,
@@ -1381,7 +1382,7 @@ test("众阳排班映射医生照片并拒绝不可用 URL", async () => {
 	);
 	expect(result.schedules[0]).toMatchObject({
 		doctorPhotoUrl:
-			"https://web-wlx-oss.oss-cn-beijing.aliyuncs.com/doctors/001.jpg",
+			"https://zhongyang.example.test/proxy/forward?url=https%3A%2F%2Fweb-wlx-oss.oss-cn-beijing.aliyuncs.com%2Fdoctors%2F001.jpg",
 	});
 
 	const badGateway = createZhongyangAppointmentGateway({
@@ -1419,4 +1420,125 @@ test("众阳排班映射医生照片并拒绝不可用 URL", async () => {
 		requestId: "photo-bad-001",
 		retryable: false,
 	});
+});
+
+test("众阳医生照片通过配置同源代理保留完整资源参数且不重复代理", async () => {
+	const baseUrl = "https://zhongyang.example.test/upstream/";
+	const photo = "http://img.example.test/doctor%20one.jpg?width=200&crop=a%2Bb";
+	const existingProxy = `https://zhongyang.example.test/proxy/forward?url=${encodeURIComponent(photo)}`;
+	for (const doctorPic of [photo, existingProxy, "", null, undefined]) {
+		const gateway = createZhongyangAppointmentGateway({
+			baseUrl,
+			fetcher: async () =>
+				new Response(
+					JSON.stringify([
+						{
+							hisScheduleId: "schedule-photo-proxy",
+							deptId: "dept-001",
+							deptName: "心内科",
+							docId: "doctor-001",
+							docName: "李医生",
+							doctorPic,
+							workDate: "2026-08-20",
+							shiftName: "上午",
+							totalNum: 10,
+							usableSourceNum: 4,
+						},
+					]),
+				),
+		});
+		const result = await gateway.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			context,
+		);
+		const servedPhoto = result.schedules[0]?.doctorPhotoUrl;
+		if (!doctorPic) {
+			expect(servedPhoto).toBeUndefined();
+			continue;
+		}
+		const proxy = new URL(servedPhoto ?? "");
+		expect(proxy.origin).toBe("https://zhongyang.example.test");
+		expect(proxy.pathname).toBe("/proxy/forward");
+		expect(proxy.searchParams.getAll("url")).toEqual([photo]);
+	}
+});
+
+test("众阳医生照片拒绝凭据、片段、坏代理和超长编码资源", async () => {
+	const baseUrl = "https://zhongyang.example.test";
+	const source = "https://img.example.test/doctor.jpg";
+	const proxy = `${baseUrl}/proxy/forward?url=${encodeURIComponent(source)}`;
+	const invalidPhotos = [
+		"https://user:password@img.example.test/doctor.jpg",
+		`${source}#preview`,
+		"https://img.example.test\\doctor.jpg",
+		`${baseUrl}/proxy/forward?url=${encodeURIComponent(source)}&url=${encodeURIComponent(source)}`,
+		`${proxy}&token=invalid`,
+		`${baseUrl}/proxy/forward?url=${encodeURIComponent(proxy)}`,
+		`https://img.example.test/${"a".repeat(512)}`,
+		`https://img.example.test/${"医".repeat(450)}.jpg`,
+	];
+	for (const doctorPic of invalidPhotos) {
+		const gateway = createZhongyangAppointmentGateway({
+			baseUrl,
+			fetcher: async () =>
+				new Response(
+					JSON.stringify([
+						{
+							hisScheduleId: "schedule-photo-invalid",
+							deptId: "dept-001",
+							deptName: "心内科",
+							docId: "doctor-001",
+							docName: "李医生",
+							doctorPic,
+							workDate: "2026-08-20",
+							shiftName: "上午",
+							totalNum: 10,
+							usableSourceNum: 4,
+						},
+					]),
+				),
+		});
+		await expect(
+			gateway.listSchedules(
+				{ startDate: "2026-08-20", endDate: "2026-08-21" },
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "appointment-schedules",
+			retryable: false,
+		});
+	}
+});
+
+test("众阳医生照片允许代理编码后超过旧512字符上限的资源", async () => {
+	const photo = `https://img.example.test/${"医".repeat(150)}.jpg`;
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-photo-long",
+						deptId: "dept-001",
+						deptName: "心内科",
+						docId: "doctor-001",
+						docName: "李医生",
+						doctorPic: photo,
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalNum: 10,
+						usableSourceNum: 4,
+					},
+				]),
+			),
+	});
+	const result = await gateway.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		context,
+	);
+	const servedPhoto = result.schedules[0]?.doctorPhotoUrl ?? "";
+	expect(servedPhoto.length).toBeGreaterThan(512);
+	expect(servedPhoto.length).toBeLessThanOrEqual(2048);
+	expect(new URL(servedPhoto).searchParams.get("url")).toBe(photo);
 });

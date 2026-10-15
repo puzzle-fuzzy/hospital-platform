@@ -1,8 +1,7 @@
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
-	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
-	formatOutpatientRatioLabel,
+	formatOutpatientPaymentRecordView,
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentRecords,
 } from "../../services/dashboard-service";
@@ -598,44 +597,8 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 		renderGeneration: number,
 	): OutpatientPaymentRecordView {
 		return {
-			...record,
+			...formatOutpatientPaymentRecordView(record),
 			viewKey: `outpatient-payment-${renderGeneration}-${index}`,
-			amountLabel: formatOutpatientAmountLabel(record.amountFen),
-			...(record.spec || record.quantity || record.unitName
-				? {
-						specQuantityLabel: [
-							record.spec,
-							record.quantity ? `× ${record.quantity}` : undefined,
-							record.unitName,
-						]
-							.filter(Boolean)
-							.join(" "),
-					}
-				: {}),
-			...(record.priceFen !== undefined
-				? { priceLabel: formatOutpatientAmountLabel(record.priceFen) }
-				: {}),
-			...(record.preferentialAmountFen !== undefined
-				? {
-						preferentialAmountLabel: formatOutpatientAmountLabel(
-							record.preferentialAmountFen,
-						),
-					}
-				: {}),
-			...(record.ascendAmountFen !== undefined
-				? {
-						ascendAmountLabel: formatOutpatientAmountLabel(
-							record.ascendAmountFen,
-						),
-					}
-				: {}),
-			...(record.selfBurdenRatio !== undefined
-				? {
-						selfBurdenRatioLabel: formatOutpatientRatioLabel(
-							record.selfBurdenRatio,
-						),
-					}
-				: {}),
 			billDateLabel: formatOutpatientBillDateLabel(record.billDate),
 		};
 	},

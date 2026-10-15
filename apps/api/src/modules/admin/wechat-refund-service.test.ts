@@ -1,11 +1,15 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
-import type {
-	MedicalInsuranceOrder,
-	MedicalInsuranceRefund,
-	PaymentOrder,
-	WechatRefund,
-	WechatRefundProviderResult,
+import {
+	type MedicalInsuranceOrder,
+	type MedicalInsuranceRefund,
+	PatientReadModelValidationError,
+	type PatientRecord,
+	type PaymentOrder,
+	type UserProfile,
+	UserProfileReadModelValidationError,
+	type WechatRefund,
+	type WechatRefundProviderResult,
 } from "@hospital/domain";
 import {
 	createInMemoryMedicalInsuranceOrderRepository,
@@ -686,3 +690,315 @@ test("payment operation detail omits patient identity and records a read audit",
 		},
 	]);
 });
+
+function historyPatient(overrides: Partial<PatientRecord> = {}): PatientRecord {
+	return {
+		id: paidOrder().patientId,
+		ownerUserId: paidOrder().ownerUserId,
+		displayName: "测试就诊人甲",
+		relationship: "self",
+		cardNumberMasked: "12345*********7890",
+		source: "hospital-his",
+		clinicalAccess: "ready",
+		...overrides,
+	};
+}
+
+function historyUserProfile(overrides: Partial<UserProfile> = {}): UserProfile {
+	return {
+		userId: paidOrder().ownerUserId,
+		displayName: "测试下单用户",
+		gender: "unknown",
+		age: null,
+		email: null,
+		version: 1,
+		...overrides,
+	};
+}
+
+async function participantHistoryService(
+	lookups: Pick<
+		ConstructorParameters<typeof AdminWechatRefundService>[0],
+		"patients" | "userProfiles"
+	> = {},
+	paymentOrders: readonly PaymentOrder[] = [paidOrder()],
+	medicalOrders: readonly MedicalInsuranceOrder[] = [paidMedicalOrder()],
+) {
+	const medicalInsuranceOrders =
+		createInMemoryMedicalInsuranceOrderRepository();
+	for (const order of medicalOrders) await medicalInsuranceOrders.insert(order);
+	return new AdminWechatRefundService({
+		refunds: createInMemoryWechatRefundRepository(),
+		paymentOrders: createInMemoryPaymentOrderRepository(paymentOrders),
+		medicalInsuranceOrders,
+		...lookups,
+		gateway: {
+			async requestRefund() {
+				throw new Error("participant history must not request a refund");
+			},
+			async queryRefund() {
+				throw new Error("participant history must not call Wechat");
+			},
+		},
+	});
+}
+
+test("payment history matches each source to its own patient and caches names only within the request", async () => {
+	let patientReads = 0;
+	let userReads = 0;
+	let userName = "测试下单用户";
+	const medicalOrder = {
+		...paidMedicalOrder(),
+		patientId: "fixture-patient-002",
+	};
+	const service = await participantHistoryService(
+		{
+			patients: {
+				async listByOwner(ownerUserId) {
+					patientReads += 1;
+					expect(ownerUserId).toBe(paidOrder().ownerUserId);
+					return [
+						{
+							...historyPatient(),
+							providerPatientId: "sensitive-provider-patient",
+							idNo: "sensitive-patient-id-number",
+							phone: "sensitive-patient-phone",
+						},
+						historyPatient({
+							id: medicalOrder.patientId,
+							displayName: "测试就诊人乙",
+							relationship: "child",
+						}),
+					];
+				},
+			},
+			userProfiles: {
+				async findByUserId(userId) {
+					userReads += 1;
+					expect(userId).toBe(paidOrder().ownerUserId);
+					return {
+						...historyUserProfile({ displayName: userName }),
+						email: "sensitive-email@example.com",
+						openid: "sensitive-openid",
+						unionId: "sensitive-union-id",
+					};
+				},
+			},
+		},
+		[paidOrder()],
+		[medicalOrder],
+	);
+	const first = await service.listPaymentHistory();
+	expect(first.items).toHaveLength(2);
+	expect(
+		first.items.find((record) => record.source === "payment_order"),
+	).toMatchObject({
+		patientDisplayName: "测试就诊人甲",
+		orderUserDisplayName: "测试下单用户",
+	});
+	expect(
+		first.items.find((record) => record.source === "medical_insurance"),
+	).toMatchObject({
+		patientDisplayName: "测试就诊人乙",
+		orderUserDisplayName: "测试下单用户",
+	});
+	expect(patientReads).toBe(1);
+	expect(userReads).toBe(1);
+	for (const record of first.items) {
+		for (const field of [
+			"patientId",
+			"ownerUserId",
+			"cardNumberMasked",
+			"relationship",
+			"email",
+			"openid",
+			"unionId",
+			"providerPatientId",
+			"idNo",
+			"phone",
+			"payer",
+		]) {
+			expect(record).not.toHaveProperty(field);
+		}
+	}
+	expect(JSON.stringify(first)).not.toContain("sensitive-");
+	userName = "更新后的下单用户";
+	const second = await service.listPaymentHistory();
+	expect(
+		second.items.every((record) => record.orderUserDisplayName === userName),
+	).toBe(true);
+	expect(patientReads).toBe(2);
+	expect(userReads).toBe(2);
+});
+
+test("payment history never shares participant names between order owners", async () => {
+	const otherOrder = {
+		...paidMedicalOrder(),
+		ownerUserId: "fixture-other-owner",
+	};
+	const ownersRead: string[] = [];
+	const service = await participantHistoryService(
+		{
+			patients: {
+				async listByOwner(ownerUserId) {
+					ownersRead.push(ownerUserId);
+					return [
+						historyPatient({
+							ownerUserId,
+							displayName: `就诊人-${ownerUserId}`,
+						}),
+					];
+				},
+			},
+			userProfiles: {
+				async findByUserId(userId) {
+					return historyUserProfile({
+						userId,
+						displayName: `下单用户-${userId}`,
+					});
+				},
+			},
+		},
+		[paidOrder()],
+		[otherOrder],
+	);
+	const page = await service.listPaymentHistory();
+	expect(ownersRead.sort()).toEqual(
+		[paidOrder().ownerUserId, otherOrder.ownerUserId].sort(),
+	);
+	for (const record of page.items) {
+		const owner =
+			record.source === "payment_order"
+				? paidOrder().ownerUserId
+				: otherOrder.ownerUserId;
+		expect(record).toMatchObject({
+			patientDisplayName: `就诊人-${owner}`,
+			orderUserDisplayName: `下单用户-${owner}`,
+		});
+	}
+});
+
+for (const scenario of [
+	{
+		name: "another owner in the patient directory",
+		patient: historyPatient({ ownerUserId: "other-owner" }),
+		profile: historyUserProfile(),
+		patientVisible: false,
+		userVisible: true,
+	},
+	{
+		name: "another user's profile",
+		patient: historyPatient(),
+		profile: historyUserProfile({ userId: "other-owner" }),
+		patientVisible: true,
+		userVisible: false,
+	},
+	{
+		name: "a patient display name containing a control character",
+		patient: historyPatient({ displayName: "不合法\n姓名" }),
+		profile: historyUserProfile(),
+		patientVisible: false,
+		userVisible: true,
+	},
+	{
+		name: "a user display name containing a control character",
+		patient: historyPatient(),
+		profile: historyUserProfile({ displayName: "不合法\n昵称" }),
+		patientVisible: true,
+		userVisible: false,
+	},
+]) {
+	test(`payment history omits invalid participant data: ${scenario.name}`, async () => {
+		const service = await participantHistoryService({
+			patients: {
+				async listByOwner() {
+					return [scenario.patient];
+				},
+			},
+			userProfiles: {
+				async findByUserId() {
+					return scenario.profile;
+				},
+			},
+		});
+		for (const record of (await service.listPaymentHistory()).items) {
+			if (scenario.patientVisible) {
+				expect(record.patientDisplayName).toBe(scenario.patient.displayName);
+			} else {
+				expect(record).not.toHaveProperty("patientDisplayName");
+			}
+			if (scenario.userVisible) {
+				expect(record.orderUserDisplayName).toBe(scenario.profile.displayName);
+			} else {
+				expect(record).not.toHaveProperty("orderUserDisplayName");
+			}
+		}
+	});
+}
+
+test("payment history leaves names absent for missing lookups or missing linked records", async () => {
+	for (const lookups of [
+		{},
+		{
+			patients: {
+				async listByOwner() {
+					return [historyPatient({ id: "unrelated-patient" })];
+				},
+			},
+			userProfiles: {
+				async findByUserId() {
+					return undefined;
+				},
+			},
+		},
+	]) {
+		const service = await participantHistoryService(lookups);
+		for (const record of (await service.listPaymentHistory()).items) {
+			expect(record).not.toHaveProperty("patientDisplayName");
+			expect(record).not.toHaveProperty("orderUserDisplayName");
+		}
+	}
+});
+
+test("payment history omits names when a repository rejects an invalid domain read model", async () => {
+	const service = await participantHistoryService({
+		patients: {
+			async listByOwner() {
+				throw new PatientReadModelValidationError("patient-owner-mismatch");
+			},
+		},
+		userProfiles: {
+			async findByUserId() {
+				throw new UserProfileReadModelValidationError("profile-user-mismatch");
+			},
+		},
+	});
+	for (const record of (await service.listPaymentHistory()).items) {
+		expect(record).not.toHaveProperty("patientDisplayName");
+		expect(record).not.toHaveProperty("orderUserDisplayName");
+	}
+});
+
+for (const lookup of ["patients", "userProfiles"] as const) {
+	test(`payment history propagates ${lookup} repository failures`, async () => {
+		const failure = new Error("participant repository unavailable");
+		const service = await participantHistoryService({
+			...(lookup === "patients"
+				? {
+						patients: {
+							async listByOwner() {
+								throw failure;
+							},
+						},
+					}
+				: {
+						userProfiles: {
+							async findByUserId() {
+								throw failure;
+							},
+						},
+					}),
+		});
+		await expect(service.listPaymentHistory()).rejects.toBe(failure);
+	});
+}

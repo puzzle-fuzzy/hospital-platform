@@ -3,5 +3,8 @@
 	"navigationBarBackgroundColor": "#f8f8f8",
 	"navigationBarTextStyle": "black",
 	"backgroundColor": "#f6f8fc",
-	"disableScroll": true
+	"disableScroll": true,
+	"usingComponents": {
+		"doctor-avatar": "/components/doctor-avatar/doctor-avatar"
+	}
 }

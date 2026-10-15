@@ -82,7 +82,7 @@ const REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX =
 /**
  * worker 与 API 使用同一条 owner + appointment 关联规则读取医保结算上下文。
  * 三个 Provider 关联键只从加密仓储解封后的事实中投影，绝不从平台订单号补造；
- * 仅 .29 的 platformOrderId 会从已归属的根 medicalOrderId 显式投影。
+ * platformOrderId 仅保留为历史兼容的本地元数据，不再作为 .29 请求参数。
  */
 function resolveRegistrationSelfPayContext(
 	repositories: NonNullable<PersistenceRuntime["repositories"]>,

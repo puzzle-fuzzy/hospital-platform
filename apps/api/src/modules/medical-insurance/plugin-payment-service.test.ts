@@ -567,7 +567,7 @@ test("发布前已存在的plugin上下文仍可恢复且不会再次提交2.6.6
 	expect(result.payParams?.package).toBe("prepay_id=prepay-001");
 });
 
-test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段", async () => {
+test("医保混合现金完成时保留 HIS 生成的 .29 数值回执", async () => {
 	let currentMedicalOrder = { ...medicalOrder(), version: 1 };
 	let currentSettlement: MedicalInsuranceSettlementContext = {
 		...settlement(),
@@ -599,13 +599,10 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 	const hospitalSettlement: HospitalSettlementGateway = {
 		writeBack: async (input) => {
 			expect(input.orderId).toBe("payment-order-001");
-			expect(input.registrationContext).toMatchObject({
-				platformOrderId: "medical-order-001",
-			});
 			await input.onThirdPartPayResponse?.({
 				rawResponse:
-					'{"success":true,"data":{"thirdPartPayRecordId":"medical-order-001"}}',
-				thirdPartPayRecordId: "medical-order-001",
+					'{"success":true,"data":{"thirdPartPayRecordId":"1952638941030000004"}}',
+				thirdPartPayRecordId: "1952638941030000004",
 				requestId: "yunhealth-.29-api-001",
 			});
 			return {
@@ -672,7 +669,7 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 		status: "insurance_settled",
 	});
 	expect(currentSettlement.plugin).toMatchObject({
-		thirdPartPayRecordId: "medical-order-001",
+		thirdPartPayRecordId: "1952638941030000004",
 		state: "settled",
 	});
 });

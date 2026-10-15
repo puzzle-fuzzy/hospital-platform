@@ -223,6 +223,65 @@ page {
 	color: #ee875e;
 }
 
+.record-fee-items {
+	margin-top: 24rpx;
+	border-top: 1rpx solid #edf0f4;
+}
+
+.record-fee-heading,
+.record-fee-title-line {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 20rpx;
+}
+
+.record-fee-heading {
+	padding-top: 20rpx;
+	color: #555f6d;
+	font-size: 25rpx;
+}
+
+.record-fee-count {
+	flex-shrink: 0;
+	font-size: 23rpx;
+}
+
+.record-fee-item {
+	padding: 20rpx 0;
+	border-bottom: 1rpx solid #edf0f4;
+}
+
+.record-fee-name {
+	min-width: 0;
+	color: #333333;
+	font-size: 27rpx;
+	line-height: 1.5;
+	word-break: break-all;
+}
+
+.record-fee-amount {
+	flex-shrink: 0;
+	color: #333333;
+	font-size: 27rpx;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.record-fee-meta {
+	margin-top: 8rpx;
+	color: #657080;
+	font-size: 23rpx;
+	line-height: 1.5;
+	word-break: break-all;
+}
+
+.record-fee-spec {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6rpx 20rpx;
+}
+
 .record-footer {
 	display: flex;
 	align-items: center;
@@ -277,6 +336,16 @@ page {
 
 .record-pay-button::after {
 	border: 0;
+}
+
+.record-card-group .record-payment-action {
+	width: 100%;
+}
+
+.record-card-group .record-pay-button {
+	width: 100%;
+	height: 88rpx;
+	min-height: 44px;
 }
 
 .load-more {
@@ -394,6 +463,40 @@ page {
 	font-size: 52rpx;
 	font-weight: 300;
 	line-height: 48rpx;
+}
+
+.payment-sheet-summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 24rpx;
+	margin: 0 12rpx 14rpx;
+	padding-bottom: 24rpx;
+	border-bottom: 1rpx solid #edf0f4;
+}
+
+.payment-sheet-title,
+.payment-sheet-count {
+	display: block;
+}
+
+.payment-sheet-title {
+	color: #20242b;
+	font-size: 29rpx;
+	font-weight: 600;
+}
+
+.payment-sheet-count {
+	margin-top: 8rpx;
+	color: #657080;
+	font-size: 24rpx;
+}
+
+.payment-sheet-amount {
+	flex-shrink: 0;
+	color: #d76735;
+	font-size: 36rpx;
+	font-weight: 700;
 }
 
 .payment-method-list {

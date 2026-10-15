@@ -460,6 +460,20 @@ function paymentRecordColumns(
 			render: (_, record) => paymentBusinessLabel(record),
 		},
 		{
+			title: "就诊人",
+			key: "patientDisplayName",
+			width: 120,
+			ellipsis: true,
+			render: (_, record) => record.patientDisplayName?.trim() || "未关联",
+		},
+		{
+			title: "下单用户",
+			key: "orderUserDisplayName",
+			width: 160,
+			ellipsis: true,
+			render: (_, record) => record.orderUserDisplayName?.trim() || "未设置",
+		},
+		{
 			title: "支付来源",
 			key: "source",
 			width: 170,
@@ -1179,7 +1193,7 @@ export function PaymentPanel({
 									status: historyStatus,
 								}),
 						}}
-						scroll={{ x: 1600 }}
+						scroll={{ x: 1880 }}
 						size="small"
 					/>
 				</Space>

@@ -5,15 +5,15 @@ import type {
 	MyDoctorResponsePayload,
 } from "@hospital/contracts";
 import {
+	type AdapterCallContext,
 	adapterContextTraceId,
 	isBoundedOpaqueIdentifier,
 	MyDoctorAlreadyExistsError,
 	MyDoctorInputError,
 	MyDoctorNotFoundError,
+	type MyDoctorRepository,
 	normalizeAdapterCallContext,
 	normalizeMyDoctorReadModel,
-	type AdapterCallContext,
-	type MyDoctorRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import type { AppointmentService } from "../appointments/service";
@@ -21,6 +21,8 @@ import type { AppointmentService } from "../appointments/service";
 export type MyDoctorServiceDependencies = {
 	repository: MyDoctorRepository;
 	appointments: AppointmentService;
+	/** 从服务端确认的旧医生照片生成固定资源代理 URL；不会保存新关系。 */
+	resolveDoctorPhotoUrl?: (value: string) => string;
 	logger?: AppLogger;
 	now?: () => Date;
 };
@@ -81,21 +83,30 @@ function requireFollowInput(value: unknown): string {
 
 function toPayload(
 	doctor: ReturnType<typeof normalizeMyDoctorReadModel>,
+	resolveDoctorPhotoUrl?: (value: string) => string,
 ): MyDoctorResponsePayload["data"] {
+	const normalized = normalizeMyDoctorReadModel({
+		...doctor,
+		...(doctor.doctorAvatarUrl && resolveDoctorPhotoUrl
+			? { doctorAvatarUrl: resolveDoctorPhotoUrl(doctor.doctorAvatarUrl) }
+			: {}),
+	});
 	return {
-		doctorId: doctor.doctorId,
-		doctorName: doctor.doctorName,
-		...(doctor.titleName ? { titleName: doctor.titleName } : {}),
-		...(doctor.introduction ? { introduction: doctor.introduction } : {}),
-		...(doctor.expertise ? { expertise: doctor.expertise } : {}),
-		...(doctor.departmentLocation
-			? { departmentLocation: doctor.departmentLocation }
+		doctorId: normalized.doctorId,
+		doctorName: normalized.doctorName,
+		...(normalized.titleName ? { titleName: normalized.titleName } : {}),
+		...(normalized.introduction
+			? { introduction: normalized.introduction }
 			: {}),
-		departmentName: doctor.departmentName,
-		...(doctor.doctorAvatarUrl
-			? { doctorAvatarUrl: doctor.doctorAvatarUrl }
+		...(normalized.expertise ? { expertise: normalized.expertise } : {}),
+		...(normalized.departmentLocation
+			? { departmentLocation: normalized.departmentLocation }
 			: {}),
-		createdAt: doctor.createdAt,
+		departmentName: normalized.departmentName,
+		...(normalized.doctorAvatarUrl
+			? { doctorAvatarUrl: normalized.doctorAvatarUrl }
+			: {}),
+		createdAt: normalized.createdAt,
 	};
 }
 
@@ -116,7 +127,11 @@ export class MyDoctorService {
 		const owner = requireOwner(ownerUserId);
 		try {
 			const items = (await this.dependencies.repository.listByOwner(owner)).map(
-				(doctor) => toPayload(normalizeMyDoctorReadModel(doctor)),
+				(doctor) =>
+					toPayload(
+						normalizeMyDoctorReadModel(doctor),
+						this.dependencies.resolveDoctorPhotoUrl,
+					),
 			);
 			this.logger.info(
 				{
@@ -160,7 +175,10 @@ export class MyDoctorService {
 			},
 			"My doctor loaded",
 		);
-		return toPayload(normalizeMyDoctorReadModel(stored));
+		return toPayload(
+			normalizeMyDoctorReadModel(stored),
+			this.dependencies.resolveDoctorPhotoUrl,
+		);
 	}
 
 	/**
@@ -179,7 +197,11 @@ export class MyDoctorService {
 			owner,
 			doctorId,
 		);
-		if (existing) return toPayload(normalizeMyDoctorReadModel(existing));
+		if (existing)
+			return toPayload(
+				normalizeMyDoctorReadModel(existing),
+				this.dependencies.resolveDoctorPhotoUrl,
+			);
 
 		const startDate = shanghaiDate(this.now());
 		const schedules = await this.dependencies.appointments.listSchedules(
@@ -217,7 +239,10 @@ export class MyDoctorService {
 				},
 				"My doctor followed",
 			);
-			return toPayload(normalizeMyDoctorReadModel(created));
+			return toPayload(
+				normalizeMyDoctorReadModel(created),
+				this.dependencies.resolveDoctorPhotoUrl,
+			);
 		} catch (error) {
 			if (!(error instanceof MyDoctorAlreadyExistsError)) throw error;
 			const raced = await this.dependencies.repository.findByOwnerAndDoctor(
@@ -225,7 +250,10 @@ export class MyDoctorService {
 				doctorId,
 			);
 			if (!raced) throw error;
-			return toPayload(normalizeMyDoctorReadModel(raced));
+			return toPayload(
+				normalizeMyDoctorReadModel(raced),
+				this.dependencies.resolveDoctorPhotoUrl,
+			);
 		}
 	}
 

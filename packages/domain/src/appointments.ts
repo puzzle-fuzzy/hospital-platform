@@ -39,7 +39,7 @@ export type AppointmentScheduleDetails = {
 	doctorId: string;
 	doctorName: string;
 	/**
-	 * 旧端 `doctorPic` 的受控照片展示字段：只允许完整 http(s) URL。
+	 * 旧端 `doctorPic` 的受控照片展示字段：只允许完整 http(s) 资源 URL。
 	 * 域名可用性由小程序平台的图片域名白名单约束，不接受相对路径、
 	 * 任意协议或携带空白的值；空值合法（无图医生用占位展示）。
 	 */
@@ -509,7 +509,7 @@ function optionalAppointmentDoctorPhotoUrl(
 	if (value === undefined || value === null || value === "") return undefined;
 	if (
 		typeof value !== "string" ||
-		value.length > 512 ||
+		value.length > 2048 ||
 		!/^https?:\/\/[^\s]+$/u.test(value)
 	) {
 		invalidAppointmentDirectoryResult("schedule-field-invalid");
@@ -703,7 +703,7 @@ export function validateAppointmentScheduleSnapshot(
 		(schedule.doctorPhotoUrl !== undefined &&
 			schedule.doctorPhotoUrl !== null &&
 			(typeof schedule.doctorPhotoUrl !== "string" ||
-				schedule.doctorPhotoUrl.length > 512 ||
+				schedule.doctorPhotoUrl.length > 2048 ||
 				!/^https?:\/\/[^\s]+$/u.test(schedule.doctorPhotoUrl))) ||
 		(schedule.startTime !== undefined &&
 			!hasSafeAppointmentText(schedule.startTime, 32)) ||

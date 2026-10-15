@@ -12,14 +12,6 @@
 		</view>
 
 		<block wx:else>
-			<view class="success-banner">
-				<view class="success-icon">✓</view>
-				<view>
-					<text class="success-title">预约已写入</text>
-					<text class="success-subtitle">{{canPay ? '请选择本次挂号的支付方式' : '请查看当前预约和支付状态'}}</text>
-				</view>
-			</view>
-
 			<view class="info-card">
 				<view class="card-title">预约信息</view>
 				<view class="info-row"><text>医院</text><text>{{hospitalName}}</text></view>

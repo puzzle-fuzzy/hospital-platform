@@ -1857,6 +1857,12 @@ test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
 		}),
 	);
 	let uploaded: unknown;
+	const snapshot = {
+		recordId: "outpatient-record-fees-001",
+		status: "unpaid" as const,
+		billDate: "2026-09-03 08:00:00",
+		amountFen: 2000,
+	};
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
 		authorizations,
@@ -1873,6 +1879,7 @@ test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
 		outpatientPayments: {
 			resolvePaymentContext: async () => ({
 				recordId: "outpatient-record-fees-001",
+				record: snapshot,
 				providerPatientId: "his-fees-outpatient-001",
 				outTradeOrderIds: ["out-trade-fees-001", "out-trade-fees-002"],
 				totalFen: 2000,
@@ -1918,6 +1925,7 @@ test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
 	expect(uploaded).toEqual({
 		businessType: "outpatient",
 		recordId: "outpatient-record-fees-001",
+		outpatientPaymentRecord: snapshot,
 		providerPatientId: "his-fees-outpatient-001",
 		outTradeOrderIds: ["out-trade-fees-001", "out-trade-fees-002"],
 		totalFen: 2000,

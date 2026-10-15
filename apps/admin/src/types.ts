@@ -240,12 +240,14 @@ export type AdminMedicalInsuranceRefund = {
 	};
 };
 
-/** 管理端退款页使用的最小历史支付读模型；不含患者、凭证或支付调起参数。 */
+/** 管理端退款页使用的最小历史支付读模型；仅含就诊人和下单用户展示名，不含身份标识、凭证或支付调起参数。 */
 export type AdminWechatRefundPaymentRecord = {
 	source: WechatRefundSource;
 	orderId: string;
 	operationAggregateId?: string;
 	business: "registration" | "outpatient" | "other";
+	patientDisplayName?: string;
+	orderUserDisplayName?: string;
 	totalFen: number;
 	insuranceFen?: number;
 	paymentState: string;

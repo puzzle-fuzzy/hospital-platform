@@ -657,6 +657,12 @@ const services = createDefaultApplicationServices({
 		? { intelligentCustomerSpeech: intelligentGuideSpeech }
 		: {}),
 	...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
+	...(appointmentGateway
+		? {
+				resolveDoctorPhotoUrl:
+					appointmentGateway.resolveDoctorPhotoUrl.bind(appointmentGateway),
+			}
+		: {}),
 	...(appointmentDepartmentTreeGateway
 		? { appointmentDepartmentTreeGateway }
 		: {}),

@@ -77,7 +77,10 @@ import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insuranc
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
 import { OutpatientElectronicInvoiceService } from "./modules/outpatient-invoices";
-import { OutpatientPaymentService } from "./modules/outpatient-payments";
+import {
+	createOutpatientPaidRecordSnapshotResolver,
+	OutpatientPaymentService,
+} from "./modules/outpatient-payments";
 import { OutpatientSelfPayService } from "./modules/outpatient-payments/self-pay-service";
 import { PatientFeedbackService } from "./modules/patient-feedback";
 import { PatientService } from "./modules/patients";
@@ -184,6 +187,8 @@ export type ApplicationServiceOptions = {
 	intelligentCustomerSpeech?: IntelligentGuideSpeechGateway;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
+	/** 只投影服务端已确认的医生照片字段，沿用固定的 Provider 资源代理。 */
+	resolveDoctorPhotoUrl?: (value: string) => string;
 	/** 挂号页一级/二级树及受控三级科室读取，独立于既有扁平目录契约。 */
 	appointmentDepartmentTreeGateway?: AppointmentDepartmentTreeGateway;
 	/** 预约历史使用独立 endpoint，必须独立完成合同和真实环境验收。 */
@@ -244,7 +249,7 @@ export function selectReadyRepositories(
 /**
  * 优先从普通自费支付订单密文读取 Provider 关联事实；历史订单才回退到同预约
  * 医保结算密文。Provider 关联键不接受客户端字段，也不从平台订单号推导；
- * 仅 .29 的 platformOrderId 会从已归属的根 medicalOrderId 显式投影。
+ * platformOrderId 仅保留为历史兼容的本地元数据，不再作为 .29 请求参数。
  */
 function resolveRegistrationSelfPayContext(
 	repositories: Pick<
@@ -688,6 +693,8 @@ export function createDefaultApplicationServices(
 				medicalInsuranceRefunds: repositories.medicalInsuranceRefunds,
 				paymentOperations: repositories.paymentOperations,
 				operatorAudits: repositories.operatorAudits,
+				patients: repositories.patients,
+				userProfiles: repositories.userProfiles,
 				gateway: options.wechatRefundGateway,
 			})
 		: undefined;
@@ -838,6 +845,9 @@ export function createDefaultApplicationServices(
 		myDoctors: new MyDoctorService({
 			repository: repositories.myDoctors,
 			appointments,
+			...(options.resolveDoctorPhotoUrl
+				? { resolveDoctorPhotoUrl: options.resolveDoctorPhotoUrl }
+				: {}),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		patientFeedback: new PatientFeedbackService({
@@ -880,6 +890,8 @@ export function createDefaultApplicationServices(
 		outpatientPayments: new OutpatientPaymentService({
 			repository: repositories.patients,
 			gateway: options.outpatientPaymentGateway ?? gateways.outpatientPayments,
+			resolvePaidRecordSnapshot:
+				createOutpatientPaidRecordSnapshotResolver(repositories),
 			// 渠道码必须来自已确认的运行配置；缺失时由服务层 fail-closed，
 			// 不能在组合根再次猜测 Provider 渠道。
 			authSysCode: options.outpatientPaymentAuthSysCode ?? "",

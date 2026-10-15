@@ -46,6 +46,9 @@ const DEPARTMENT_TREE_PATH = "/msun-middle-business-amc-server/v1/first-depts";
 const SCHEDULE_PATH = "/msun-middle-business-amc-server/v1/schedulings";
 const DOCTOR_SCHEDULE_PATH =
 	"/msun-middle-business-amc-server/v1/schedulings/scheduling-doctors";
+const DOCTOR_PHOTO_PROXY_PATH = "/proxy/forward";
+const MAX_PROVIDER_DOCTOR_PHOTO_URL_LENGTH = 512;
+const MAX_DOCTOR_PHOTO_URL_LENGTH = 2048;
 const SCHEDULE_SOURCES_PATH = "/msun-middle-business-amc-server/v1/sources/";
 const RECORD_PATH =
 	"/msun-middle-business-appointment-server/v1/appointment-infos/";
@@ -913,10 +916,73 @@ function ensureUniqueDepartmentTreeIds(
 	}
 }
 
+/** 医生照片沿用旧端的固定资源代理；来源只能是已读取的 Provider 排班字段。 */
+function doctorPhotoUrl(
+	value: unknown,
+	baseUrl: string,
+	operation: string,
+	requestId: string,
+): string | undefined {
+	const photo = optionalText(
+		value,
+		"doctorPic",
+		operation,
+		requestId,
+		MAX_DOCTOR_PHOTO_URL_LENGTH,
+	);
+	if (!photo) return undefined;
+	const invalidPhoto = (): never => {
+		throw providerError(
+			operation,
+			"Zhongyang appointment doctorPic is not a usable http(s) URL",
+			requestId,
+		);
+	};
+	const parsePhoto = (source: string): URL => {
+		if (!/^https?:\/\/[^\s]+$/u.test(source) || /[\\#]/u.test(source)) {
+			return invalidPhoto();
+		}
+		let url: URL;
+		try {
+			url = new URL(source);
+		} catch {
+			return invalidPhoto();
+		}
+		if (url.username || url.password || url.hash) return invalidPhoto();
+		return url;
+	};
+	const proxy = new URL(DOCTOR_PHOTO_PROXY_PATH, baseUrl);
+	const parsed = parsePhoto(photo);
+	let source = photo;
+	if (parsed.origin === proxy.origin && parsed.pathname === proxy.pathname) {
+		// 已经由相同资源代理服务的照片只解出一层再规范化，避免重复包裹。
+		const sources = parsed.searchParams.getAll("url");
+		if (
+			sources.length !== 1 ||
+			Array.from(parsed.searchParams.keys()).some((key) => key !== "url")
+		) {
+			return invalidPhoto();
+		}
+		source = sources[0] ?? "";
+		const target = parsePhoto(source);
+		if (target.origin === proxy.origin && target.pathname === proxy.pathname) {
+			return invalidPhoto();
+		}
+	}
+	if (source.length > MAX_PROVIDER_DOCTOR_PHOTO_URL_LENGTH) {
+		return invalidPhoto();
+	}
+	proxy.searchParams.set("url", source);
+	const result = proxy.toString();
+	if (result.length > MAX_DOCTOR_PHOTO_URL_LENGTH) return invalidPhoto();
+	return result;
+}
+
 function mapSchedule(
 	value: ProviderObject,
 	operation: string,
 	requestId: string,
+	baseUrl: string,
 ): AppointmentProviderSchedule {
 	const availabilityStatus = mapScheduleAvailability(
 		value.scheduleStatus,
@@ -975,22 +1041,12 @@ function mapSchedule(
 		requestId,
 		32,
 	);
-	// 旧端 doctorPic 是排班响应里的医生照片展示字段；空值合法，非空但
-	// 不是完整 http(s) URL 时拒绝整批，不能把相对路径或脚本串带给 <image>。
-	const rawDoctorPhotoUrl = optionalText(
+	const servedDoctorPhotoUrl = doctorPhotoUrl(
 		value.doctorPic,
-		"doctorPic",
+		baseUrl,
 		operation,
 		requestId,
-		512,
 	);
-	if (rawDoctorPhotoUrl && !/^https?:\/\/[^\s]+$/u.test(rawDoctorPhotoUrl)) {
-		throw providerError(
-			operation,
-			"Zhongyang appointment doctorPic is not a usable http(s) URL",
-			requestId,
-		);
-	}
 	const titleName = optionalText(
 		value.postTitleName,
 		"postTitleName",
@@ -1055,7 +1111,7 @@ function mapSchedule(
 		...(departmentLocation ? { departmentLocation } : {}),
 		doctorId: requiredText(value.docId, "docId", operation, requestId),
 		doctorName: requiredText(value.docName, "docName", operation, requestId),
-		...(rawDoctorPhotoUrl ? { doctorPhotoUrl: rawDoctorPhotoUrl } : {}),
+		...(servedDoctorPhotoUrl ? { doctorPhotoUrl: servedDoctorPhotoUrl } : {}),
 		workDate,
 		shiftName: requiredText(
 			value.shiftName ?? value.shiftCode,
@@ -1085,6 +1141,7 @@ function mapDoctorSchedules(
 	value: ProviderObject,
 	operation: string,
 	requestId: string,
+	baseUrl: string,
 ): AppointmentProviderSchedule[] {
 	const schedulingList = value.schedulingList;
 	if (!Array.isArray(schedulingList)) {
@@ -1115,6 +1172,7 @@ function mapDoctorSchedules(
 			},
 			operation,
 			requestId,
+			baseUrl,
 		);
 	});
 }
@@ -1174,6 +1232,14 @@ export class ZhongyangAppointmentApiGateway
 		this.baseUrl = requiredConfig(options.baseUrl);
 		this.authorizationToken = options.authorizationToken?.trim() || undefined;
 		this.fetcher = options.fetcher ?? fetch;
+	}
+
+	/** 仅在服务端投影已有医生关系的照片，不发起网络请求或改写关系。 */
+	resolveDoctorPhotoUrl(value: string): string {
+		return (
+			doctorPhotoUrl(value, this.baseUrl, "appointment-doctor-photo", "") ??
+			value
+		);
 	}
 
 	private headers(): Record<string, string> | undefined {
@@ -1357,7 +1423,9 @@ export class ZhongyangAppointmentApiGateway
 			operation,
 			response.requestId,
 			MAX_APPOINTMENT_SCHEDULE_ITEMS,
-		).map((item) => mapSchedule(item, operation, response.requestId));
+		).map((item) =>
+			mapSchedule(item, operation, response.requestId, this.baseUrl),
+		);
 		ensureUniqueScheduleIds(schedules, operation, response.requestId);
 		return { schedules, trace: trace(operation, response.requestId) };
 	}
@@ -1434,7 +1502,7 @@ export class ZhongyangAppointmentApiGateway
 			)
 			.map(({ item }) => item);
 		const schedules = orderedDoctorItems.flatMap((item) =>
-			mapDoctorSchedules(item, operation, response.requestId),
+			mapDoctorSchedules(item, operation, response.requestId, this.baseUrl),
 		);
 		if (schedules.length > MAX_APPOINTMENT_SCHEDULE_ITEMS) {
 			throw providerError(
@@ -1556,6 +1624,7 @@ export function createZhongyangAppointmentGateway(
 	options: ZhongyangGatewayOptions,
 ): AppointmentDirectoryGateway &
 	AppointmentDepartmentTreeGateway &
-	AppointmentRecordDirectoryGateway {
+	AppointmentRecordDirectoryGateway &
+	Pick<ZhongyangAppointmentApiGateway, "resolveDoctorPhotoUrl"> {
 	return new ZhongyangAppointmentApiGateway(options);
 }

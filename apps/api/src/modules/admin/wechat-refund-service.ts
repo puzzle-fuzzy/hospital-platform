@@ -6,6 +6,10 @@ import {
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceRefundRepository,
+	normalizePatientReadModel,
+	normalizeUserProfileReadModel,
+	PatientReadModelValidationError,
+	type PatientRepository,
 	type PaymentAggregate,
 	type PaymentHistoryStatus,
 	type PaymentLeg,
@@ -16,6 +20,8 @@ import {
 	type PaymentOrderRepository,
 	parseIsoCalendarDate,
 	projectWechatRefundProviderResult,
+	UserProfileReadModelValidationError,
+	type UserProfileRepository,
 	type WechatRefund,
 	WechatRefundAmountExceededError,
 	type WechatRefundGateway,
@@ -68,12 +74,15 @@ export type AdminPaymentOperationDetail = {
 const ADMIN_PAYMENT_HISTORY_SCAN_LIMIT = 10_000;
 
 /**
- * Admin 退款页面仅使用此最小支付读模型。患者、支付凭证、微信调起参数、
+ * Admin 退款页面仅投影就诊人和下单用户名称；患者标识、支付凭证、微信调起参数、
  * out_trade_no 和加密 Provider 上下文一律不离开服务端。
  */
 export type AdminWechatRefundPaymentRecord = {
 	source: WechatRefundSource;
 	orderId: string;
+	patientDisplayName?: string;
+	/** 下单平台用户的普通资料名称，不表示实际微信付款人的实名。 */
+	orderUserDisplayName?: string;
 	/** 平台支付聚合账本 ID；用于 Admin 后续详情与对账关联。 */
 	operationAggregateId?: string;
 	business: "registration" | "outpatient" | "other";
@@ -419,6 +428,8 @@ export class AdminWechatRefundService {
 			paymentOrders: PaymentOrderRepository;
 			medicalInsuranceOrders: MedicalInsuranceOrderRepository;
 			medicalInsuranceRefunds?: MedicalInsuranceRefundRepository;
+			patients?: Pick<PatientRepository, "listByOwner">;
+			userProfiles?: Pick<UserProfileRepository, "findByUserId">;
 			paymentOperations?: PaymentOperationsRepository;
 			operatorAudits?: PaymentOperatorAuditRepository;
 			gateway: WechatRefundGateway;
@@ -737,6 +748,67 @@ export class AdminWechatRefundService {
 					: right.order.medicalOrderId;
 			return updated || rightId.localeCompare(leftId);
 		});
+		const patientNamesByOwner = new Map<
+			string,
+			Promise<ReadonlyMap<string, string>>
+		>();
+		const orderUserNamesByOwner = new Map<
+			string,
+			Promise<string | undefined>
+		>();
+		const participantNamesFor = async (
+			order: Pick<PaymentOrder, "ownerUserId" | "patientId">,
+		) => {
+			const owner = order.ownerUserId;
+			let patientNames = patientNamesByOwner.get(owner);
+			if (!patientNames) {
+				patientNames = (async () => {
+					try {
+						const records =
+							await this.dependencies.patients?.listByOwner(owner);
+						if (records === undefined) return new Map<string, string>();
+						return new Map(
+							normalizePatientReadModel(records, owner).map((patient) => [
+								patient.id,
+								patient.displayName,
+							]),
+						);
+					} catch (error) {
+						if (error instanceof PatientReadModelValidationError) {
+							return new Map<string, string>();
+						}
+						throw error;
+					}
+				})();
+				patientNamesByOwner.set(owner, patientNames);
+			}
+			let orderUserName = orderUserNamesByOwner.get(owner);
+			if (!orderUserName) {
+				orderUserName = (async () => {
+					try {
+						const profile =
+							await this.dependencies.userProfiles?.findByUserId(owner);
+						if (profile === undefined) return undefined;
+						return normalizeUserProfileReadModel(profile, owner).displayName;
+					} catch (error) {
+						if (error instanceof UserProfileReadModelValidationError) {
+							return undefined;
+						}
+						throw error;
+					}
+				})();
+				orderUserNamesByOwner.set(owner, orderUserName);
+			}
+			const [patients, orderUserDisplayName] = await Promise.all([
+				patientNames,
+				orderUserName,
+			]);
+			const patientDisplayName = patients.get(order.patientId);
+			return {
+				...(patientDisplayName ? { patientDisplayName } : {}),
+				...(orderUserDisplayName ? { orderUserDisplayName } : {}),
+			};
+		};
 		const records = await Promise.all(
 			candidates
 				.slice((query.page - 1) * query.pageSize, query.page * query.pageSize)
@@ -745,27 +817,32 @@ export class AdminWechatRefundService {
 						candidate.source === "payment_order"
 							? candidate.order.orderId
 							: candidate.order.medicalOrderId;
-					const [refunds, latestMedicalRefund, operationProjection] =
-						await Promise.all([
-							findRefunds(candidate.source, orderId),
-							candidate.source === "medical_insurance" &&
-							this.dependencies.medicalInsuranceRefunds
-								? this.dependencies.medicalInsuranceRefunds.findLatestByMedicalOrderId(
-										orderId,
+					const [
+						refunds,
+						latestMedicalRefund,
+						operationProjection,
+						participants,
+					] = await Promise.all([
+						findRefunds(candidate.source, orderId),
+						candidate.source === "medical_insurance" &&
+						this.dependencies.medicalInsuranceRefunds
+							? this.dependencies.medicalInsuranceRefunds.findLatestByMedicalOrderId(
+									orderId,
+								)
+							: Promise.resolve(undefined),
+						this.dependencies.paymentOperations
+							? candidate.source === "payment_order"
+								? projectPaymentOrder(
+										this.dependencies.paymentOperations,
+										candidate.order,
 									)
-								: Promise.resolve(undefined),
-							this.dependencies.paymentOperations
-								? candidate.source === "payment_order"
-									? projectPaymentOrder(
-											this.dependencies.paymentOperations,
-											candidate.order,
-										)
-									: projectMedicalInsuranceOrder(
-											this.dependencies.paymentOperations,
-											candidate.order,
-										)
-								: Promise.resolve(undefined),
-						]);
+								: projectMedicalInsuranceOrder(
+										this.dependencies.paymentOperations,
+										candidate.order,
+									)
+							: Promise.resolve(undefined),
+						participantNamesFor(candidate.order),
+					]);
 					const summary = refundSummary(refunds);
 					if (candidate.source === "payment_order") {
 						const order = candidate.order;
@@ -779,6 +856,7 @@ export class AdminWechatRefundService {
 						return {
 							source: candidate.source,
 							orderId,
+							...participants,
 							...(operationProjection
 								? {
 										operationAggregateId:
@@ -816,6 +894,7 @@ export class AdminWechatRefundService {
 					return {
 						source: candidate.source,
 						orderId,
+						...participants,
 						...(operationProjection
 							? {
 									operationAggregateId:

@@ -667,6 +667,26 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 		payType: "CREDIT" as const,
 		workStationId: "",
 		platformOrderId: "medical-order-new-001",
+		outpatientPaymentRecord: {
+			recordId: "outpatient-group-001",
+			status: "unpaid" as const,
+			billDate: "2026-09-18 10:00:00",
+			amountFen: 9700,
+			items: [
+				{
+					recordId: "outpatient-leaf-001",
+					status: "unpaid" as const,
+					billDate: "2026-09-18 10:00:00",
+					amountFen: 8000,
+				},
+				{
+					recordId: "outpatient-leaf-002",
+					status: "unpaid" as const,
+					billDate: "2026-09-18 10:00:00",
+					amountFen: 1700,
+				},
+			],
+		},
 		payParams: {
 			appId: "wx1234567890abcdef",
 			timeStamp: "1789000000",
@@ -689,6 +709,7 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 	await save("user-001", "payment-order-new-001", context);
 	const ciphertext = String(state.values[0]?.[0]);
 	expect(ciphertext).not.toContain(context.certNo);
+	expect(ciphertext).not.toContain(context.outpatientPaymentRecord.recordId);
 	expect(state.statements[0]).toContain(
 		"registration_self_pay_context_ciphertext",
 	);
@@ -699,6 +720,17 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 		context,
 	);
 	expect(state.values[1]).toEqual(["user-001", "payment-order-new-001"]);
+	const statementCount = state.statements.length;
+	await expect(
+		save("user-001", "payment-order-new-001", {
+			...context,
+			outpatientPaymentRecord: {
+				...context.outpatientPaymentRecord,
+				amountFen: 1,
+			},
+		}),
+	).rejects.toThrow();
+	expect(state.statements).toHaveLength(statementCount);
 });
 
 test("MySQL patient directory upsert stores provider mapping but returns internal id", async () => {
@@ -2010,6 +2042,12 @@ test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 	});
 	const context: MedicalInsuranceSettlementContext = {
 		businessId: "provider-business-001",
+		outpatientPaymentRecord: {
+			recordId: "outpatient-medical-record-001",
+			status: "unpaid",
+			billDate: "2026-09-03 08:00:00",
+			amountFen: 100,
+		},
 		hospitalId: "provider-hospital-001",
 		patientId: "provider-patient-001",
 		networkRegister: {},
@@ -2054,6 +2092,30 @@ test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 		"settlement_context_ciphertext IS NULL",
 	);
 	expect(state.values[0]?.[0]).not.toContain(context.businessId);
+	const ciphertext = String(state.values[0]?.[0]);
+	expect(ciphertext).not.toContain(context.outpatientPaymentRecord?.recordId);
+	state.responses.push([{ settlement_context_ciphertext: ciphertext }]);
+	await expect(
+		repositories.medicalInsuranceOrders.getSettlementContext(
+			"user-repair-001",
+			"medical-repair-001",
+		),
+	).resolves.toEqual(context);
+	const snapshot = context.outpatientPaymentRecord;
+	if (!snapshot) throw new Error("outpatient snapshot fixture missing");
+	await expect(
+		repositories.medicalInsuranceOrders.saveSettlementContext(
+			"user-repair-001",
+			"medical-repair-001",
+			{
+				...context,
+				outpatientPaymentRecord: {
+					...snapshot,
+					amountFen: -1,
+				},
+			},
+		),
+	).rejects.toThrow();
 });
 
 test("MySQL 医保上下文可加密读回历史 5031 自费回写事实", async () => {

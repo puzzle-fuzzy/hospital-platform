@@ -4,6 +4,7 @@ import type {
 	MedicalInsuranceAuthorizationContext,
 	MedicalInsuranceOrder,
 	MedicalInsuranceSettlementContext,
+	OutpatientPaymentRecord,
 } from "@hospital/domain";
 import {
 	accountFlag,
@@ -151,6 +152,395 @@ test("2.6.65.1 挂号参数优先使用 hisRegisterId", () => {
 		}),
 	).toBeUndefined();
 });
+
+function feeUploadDepartmentFixture(
+	children: readonly Record<string, unknown>[],
+	resume = false,
+	outpatientSnapshot?: OutpatientPaymentRecord,
+	detailOverrides: Readonly<Record<string, unknown>> = {},
+) {
+	const providerUrls: URL[] = [];
+	const feeUploads: Record<string, unknown>[] = [];
+	const contextWrites: MedicalInsuranceSettlementContext[] = [];
+	const detail = {
+		outTradeOrderId: "trade-current-001",
+		chargeId: "charge-current-001",
+		chargeCode: "CHARGE-001",
+		chargeName: "挂号费",
+		networkItemCode: "INSURANCE-ITEM-001",
+		networkItemName: "挂号费",
+		outSettleDetailId: "detail-current-001",
+		amount: "10.00",
+		price: "10.00",
+		quantity: 1,
+		selfBurdenRatio: "0",
+		createTime: "2026-10-15 14:00:00",
+		billDeptCode: "DEPT-CODE-001",
+		billDeptId: "dept-id-from-detail-must-not-be-used",
+		billDeptName: "开单科室",
+		billDocCode: "doctor-user-code-001",
+		billDocName: "测试医生",
+		...detailOverrides,
+	};
+	let settlementContext: MedicalInsuranceSettlementContext | undefined = resume
+		? {
+				businessId: "business-current-001",
+				businessCode: "business-code-current-001",
+				hospitalId: "10389001",
+				patientId: "patient-current-001",
+				networkRegister: {},
+				outNetworkSettleMain: {},
+				nationalUpDetailList: [],
+				upDetailList: mapSettlementDetails(
+					[detail],
+					[],
+					"medical-insurance.2.27.2.27",
+					"detail-request-cached-001",
+					"registration",
+				),
+				tradeOrderIds: ["trade-current-001"],
+				feeUploadStage: "pre_6201",
+				settlementAmountFen: 1000,
+				settlementDetailsFetchedAt: "2026-10-15T06:00:00.000Z",
+				...(outpatientSnapshot
+					? { outpatientPaymentRecord: outpatientSnapshot }
+					: {}),
+			}
+		: undefined;
+	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		legacyFsi: {
+			uploadFees: async (input) => {
+				if (outpatientSnapshot) {
+					expect(settlementContext?.outpatientPaymentRecord).toEqual(
+						outpatientSnapshot,
+					);
+					expect(settlementContext?.feeUploadStage).toBe("submitting_6201");
+				}
+				feeUploads.push(input);
+				return {
+					totalFen: 1000,
+					mdtrtId: "visit-current-001",
+					credential: {
+						payOrdId: "pay-current-001",
+						payToken: "synthetic-token",
+					},
+					trace: {
+						provider: "legacy-fsi",
+						operation: "legacy-fsi.6201",
+						requestId: "synthetic-fee-upload-001",
+					},
+				};
+			},
+			createPaymentOrder: async () => {
+				throw new Error("6202 must not run during fee upload");
+			},
+		},
+		orders: {
+			findByMedicalOrderId: async () => ({
+				medicalOrderId: "order-current-001",
+				ownerUserId: "owner-current-001",
+				businessType: outpatientSnapshot ? "outpatient" : "registration",
+			}),
+			getSettlementContext: async () => settlementContext,
+			saveSettlementContext: async (
+				_owner: string,
+				_order: string,
+				next: MedicalInsuranceSettlementContext,
+			) => {
+				settlementContext = next;
+				contextWrites.push(next);
+			},
+		} as never,
+		authorizations: {
+			get: async () => ({
+				payAuthNo: "synthetic-auth-001",
+				patient: { idNo: "synthetic-id", userName: "测试患者", idType: "01" },
+				psnNo: "synthetic-person-001",
+				insutype: "310",
+				insuplcAdmdvs: "140581",
+				insuCode: "140581",
+			}),
+		} as never,
+		credentials: { put: async () => undefined } as never,
+		relayUrl: "https://relay.example",
+		relayAuthorizationToken: "synthetic-token",
+		foundationBaseUrl: "https://foundation.example",
+		zhongyangBaseUrl: "https://zhongyang.example",
+		now: () => new Date("2026-10-15T06:00:00.000Z"),
+		fetcher: async (input) => {
+			const url = new URL(String(input));
+			providerUrls.push(url);
+			let data: unknown;
+			if (url.pathname.endsWith("/apply-pay-settle")) {
+				data = {
+					businessId: "business-current-001",
+					businessCode: "business-code-current-001",
+					tradeOrderIdList: ["trade-current-001"],
+					getAmount: "10.00",
+				};
+			} else if (url.pathname.endsWith("/outpatient-child-payment-records")) {
+				data = children;
+			} else if (url.pathname.endsWith("/out-insur-settle-infos")) {
+				data = { outSettleDetailList: [detail] };
+			} else if (url.pathname.endsWith("/depts")) {
+				data = [
+					{
+						deptId: url.searchParams.get("deptId"),
+						deptCode: "DEPT-CODE-001",
+						nationalDeptInsuranceCode: "insurance-dept-code-001",
+					},
+				];
+			} else if (url.pathname.endsWith("/users")) {
+				data = [
+					{
+						userCode: "doctor-user-code-001",
+						medicalInsuranceCode: "insurance-doctor-001",
+					},
+				];
+			} else {
+				throw new Error(`Unexpected synthetic provider path: ${url.pathname}`);
+			}
+			return new Response(
+				JSON.stringify({ success: true, code: "0000", data }),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		},
+	});
+	return {
+		providerUrls,
+		feeUploads,
+		contextWrites,
+		readSettlementContext: () => settlementContext,
+		upload: () =>
+			gateway.uploadFees(
+				{
+					orderId: "order-current-001",
+					ownerUserId: "owner-current-001",
+					patientId: "patient-current-001",
+					authorizationId: "authorization-current-001",
+					appointment: outpatientSnapshot
+						? {
+								businessType: "outpatient",
+								recordId: outpatientSnapshot.recordId,
+								outpatientPaymentRecord: outpatientSnapshot,
+								providerPatientId: "patient-current-001",
+								outTradeOrderIds: ["trade-current-001"],
+								doctorId: "doctor-user-code-001",
+								doctorName: "测试医生",
+								departmentName: "开单科室",
+								totalFen: 1000,
+							}
+						: {
+								appointmentId: "appointment-current-001",
+								providerAppointmentId: "registration-current-001",
+								providerPatientId: "patient-current-001",
+								departmentId: "appointment-dept-id-must-not-be-used",
+								departmentName: "预约科室",
+								doctorId: "doctor-user-code-001",
+								doctorName: "测试医生",
+								workDate: "2026-10-15",
+								shiftName: "上午",
+								sourceSerialNumber: "1",
+								totalFen: 1000,
+							},
+				},
+				context,
+			),
+	};
+}
+
+const currentDepartmentChild = {
+	outTradeOrderId: "trade-current-001",
+	chargeId: "charge-current-001",
+	billDeptId: "6309619828601651001",
+	billDeptCode: "DEPT-CODE-001",
+};
+
+test.each(
+	["registration", "outpatient"].flatMap((businessType) =>
+		[
+			{
+				name: "orderId 和 orderMainId 均有值时仍传空字符串",
+				detail: { orderId: "order-001", orderMainId: "order-main-001" },
+				expected: "",
+			},
+			{
+				name: "orderMainId 有值时仍传空字符串",
+				detail: { orderId: null, orderMainId: "order-main-001" },
+				expected: "",
+			},
+			{
+				name: "orderId 为空字符串时仍不使用 orderMainId",
+				detail: { orderId: "", orderMainId: "order-main-001" },
+				expected: "",
+			},
+			{
+				name: "两个字段缺失时传空字符串",
+				detail: {},
+				expected: "",
+			},
+			{
+				name: "两个字段为空时不使用其他标识兜底",
+				detail: {
+					orderId: null,
+					orderMainId: null,
+					rxno: "legacy-rxno-must-not-be-used",
+					outDocOrderId: "8843788158791400001",
+					presCode: "-1",
+				},
+				expected: "",
+			},
+		].map((scenario) => ({ ...scenario, businessType })),
+	),
+)(
+	"6201 rxno $businessType - $name",
+	async ({ businessType, detail, expected }) => {
+		const fixture = feeUploadDepartmentFixture(
+			[currentDepartmentChild],
+			false,
+			businessType === "outpatient"
+				? {
+						recordId: "0123456789abcdef0123456789abcdef",
+						status: "unpaid",
+						billDate: "2026-10-15 14:00:00",
+						amountFen: 1000,
+					}
+				: undefined,
+			detail,
+		);
+		await fixture.upload();
+		expect(fixture.feeUploads).toHaveLength(1);
+		expect(fixture.feeUploads[0]).toMatchObject({
+			feedetailList: [expect.objectContaining({ rxno: expected })],
+		});
+	},
+);
+
+test.each([false, true])(
+	"门诊合缴快照与6201各阶段同次保存，恢复路径=%s",
+	async (resume) => {
+		const snapshot: OutpatientPaymentRecord = {
+			recordId: "outpatient-group-snapshot",
+			status: "unpaid",
+			billDate: "2026-10-15 14:00:00",
+			amountFen: 1000,
+			items: [
+				{
+					recordId: "outpatient-leaf-a",
+					status: "unpaid",
+					billDate: "2026-10-15 14:00:00",
+					amountFen: 400,
+				},
+				{
+					recordId: "outpatient-leaf-b",
+					status: "unpaid",
+					billDate: "2026-10-15 14:00:00",
+					amountFen: 600,
+				},
+			],
+		};
+		const fixture = feeUploadDepartmentFixture(
+			[currentDepartmentChild],
+			resume,
+			snapshot,
+		);
+		await fixture.upload();
+		expect(fixture.contextWrites.length).toBeGreaterThan(2);
+		for (const written of fixture.contextWrites)
+			expect(written.outpatientPaymentRecord).toEqual(snapshot);
+		expect(
+			fixture.contextWrites.map((written) => written.feeUploadStage),
+		).toContain("submitting_6201");
+		expect(fixture.readSettlementContext()).toMatchObject({
+			feeUploadStage: "fee_uploaded",
+			outpatientPaymentRecord: snapshot,
+		});
+	},
+);
+
+test("2.1.9 使用同一结算费用的 2.6.33 billDeptId，不发送科室编码或其他记录", async () => {
+	const fixture = feeUploadDepartmentFixture([
+		{
+			...currentDepartmentChild,
+			outTradeOrderId: "trade-other-001",
+			billDeptId: "other-order-dept",
+		},
+		{
+			...currentDepartmentChild,
+			chargeId: "charge-other-001",
+			billDeptId: "other-charge-dept",
+		},
+		currentDepartmentChild,
+	]);
+	await expect(fixture.upload()).resolves.toMatchObject({
+		payOrdId: "pay-current-001",
+	});
+	const departmentQueries = fixture.providerUrls.filter((url) =>
+		url.pathname.endsWith("/depts"),
+	);
+	expect(departmentQueries).toHaveLength(1);
+	expect(departmentQueries[0]?.searchParams.get("deptId")).toBe(
+		currentDepartmentChild.billDeptId,
+	);
+	expect(fixture.feeUploads).toHaveLength(1);
+	expect(fixture.feeUploads[0]).toMatchObject({
+		deptCode: "DEPT-CODE-001",
+		caty: "insurance-dept-code-001",
+	});
+});
+
+test("pre_6201 恢复复用 .27 快照，但科室 ID 仍来自本次 .33 返回", async () => {
+	const fixture = feeUploadDepartmentFixture([currentDepartmentChild], true);
+	await expect(fixture.upload()).resolves.toMatchObject({
+		payOrdId: "pay-current-001",
+	});
+	expect(fixture.providerUrls.map((url) => url.pathname)).toEqual([
+		"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records",
+		"/msun-middle-base-common/v1/depts",
+		"/msun-middle-base-common/v1/users",
+	]);
+	expect(fixture.providerUrls[1]?.searchParams.get("deptId")).toBe(
+		currentDepartmentChild.billDeptId,
+	);
+	expect(fixture.readSettlementContext()?.feeUploadStage).toBe("fee_uploaded");
+});
+
+test.each([
+	{
+		name: "缺少 billDeptId",
+		children: [{ ...currentDepartmentChild, billDeptId: null }],
+		error: /billDeptId is required/,
+	},
+	{
+		name: "没有当前订单",
+		children: [
+			{ ...currentDepartmentChild, outTradeOrderId: "trade-other-001" },
+		],
+		error: /未匹配到/,
+	},
+	{
+		name: "同费用科室冲突",
+		children: [
+			currentDepartmentChild,
+			{ ...currentDepartmentChild, billDeptId: "different-department-id" },
+		],
+		error: /多个不同的 billDeptId/,
+	},
+])(
+	"2.6.33 $name 时不以 .27 或预约科室兜底且不调用 6201",
+	async ({ children, error }) => {
+		const fixture = feeUploadDepartmentFixture(children);
+		await expect(fixture.upload()).rejects.toThrow(error);
+		expect(
+			fixture.providerUrls.some((url) => url.pathname.endsWith("/depts")),
+		).toBe(false);
+		expect(fixture.feeUploads).toHaveLength(0);
+		expect(fixture.readSettlementContext()?.feeUploadStage).toBe("pre_6201");
+	},
+);
 
 function authorizationSelectionFixture(
 	insuinfo: readonly Record<string, unknown>[],

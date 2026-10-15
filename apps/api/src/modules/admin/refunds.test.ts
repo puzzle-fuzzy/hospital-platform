@@ -14,6 +14,8 @@ const historyRecord: AdminWechatRefundPaymentRecord = {
 	source: "payment_order",
 	orderId: "payment-history-route-001",
 	business: "outpatient",
+	patientDisplayName: "测试就诊人",
+	orderUserDisplayName: "测试下单用户",
 	totalFen: 500,
 	insuranceFen: 0,
 	paymentState: "completed",

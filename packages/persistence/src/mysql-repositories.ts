@@ -79,6 +79,7 @@ import {
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	MyDoctorAlreadyExistsError,
 	normalizeMyDoctorReadModel,
+	normalizeOutpatientPaymentRecords,
 	normalizeUserProfileReadModel,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
@@ -648,7 +649,17 @@ type MedicalInsuranceCredentialPayload = {
 function serializeMedicalInsuranceSettlementContext(
 	input: MedicalInsuranceSettlementContext,
 ): string {
-	return JSON.stringify(input);
+	return JSON.stringify({
+		...input,
+		...(input.outpatientPaymentRecord !== undefined
+			? {
+					outpatientPaymentRecord: normalizeOutpatientPaymentRecords(
+						[input.outpatientPaymentRecord],
+						"unpaid",
+					)[0],
+				}
+			: {}),
+	});
 }
 
 function deserializeMedicalInsuranceSettlementContext(
@@ -1103,11 +1114,22 @@ function deserializeMedicalInsuranceSettlementContext(
 	) {
 		throw new Error("Medical insurance settlement context is invalid");
 	}
-	return parsed as MedicalInsuranceSettlementContext;
+	const result = parsed as MedicalInsuranceSettlementContext;
+	if (result.outpatientPaymentRecord !== undefined) {
+		const snapshot = normalizeOutpatientPaymentRecords(
+			[result.outpatientPaymentRecord],
+			"unpaid",
+		)[0];
+		if (!snapshot)
+			throw new Error("Medical insurance outpatient snapshot is invalid");
+		result.outpatientPaymentRecord = snapshot;
+	}
+	return result;
 }
 
 const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"businessId",
+	"outpatientPaymentRecord",
 	"tradeTypeCode",
 	"businessCode",
 	"payingId",
@@ -1258,7 +1280,17 @@ function deserializeRegistrationSelfPayContext(
 	) {
 		throw new Error("Registration self-pay context is invalid");
 	}
-	return parsed as RegistrationSelfPaySettlementContext;
+	const result = parsed as RegistrationSelfPaySettlementContext;
+	if (result.outpatientPaymentRecord !== undefined) {
+		const snapshot = normalizeOutpatientPaymentRecords(
+			[result.outpatientPaymentRecord],
+			"unpaid",
+		)[0];
+		if (!snapshot)
+			throw new Error("Registration self-pay outpatient snapshot is invalid");
+		result.outpatientPaymentRecord = snapshot;
+	}
+	return result;
 }
 
 function serializeRegistrationSelfPayContext(

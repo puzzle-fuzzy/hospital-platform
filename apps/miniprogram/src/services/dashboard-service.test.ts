@@ -15,6 +15,7 @@ import {
 	createUpcomingDateRange,
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
+	formatOutpatientPaymentRecordView,
 	formatPlatformDate,
 	loadAppointmentClinicDepartments,
 	loadAppointmentDepartmentTree,
@@ -975,6 +976,27 @@ test("预约排班响应必须绑定请求科室并保持号源语义", () => {
 
 	expect(requireAppointmentScheduleListData(valid, "dept-001")).toEqual(valid);
 
+	// 代理对原地址编码后可能超过旧的 512 字符限制，展示字段仍有明确上限。
+	const photoUrlPrefix = "https://image.example.test/proxy/forward?url=";
+	const doctorPhotoUrl =
+		photoUrlPrefix + "a".repeat(2048 - photoUrlPrefix.length);
+	const longPhoto = {
+		...valid,
+		items: valid.items.map((item) => ({ ...item, doctorPhotoUrl })),
+	};
+	expect(requireAppointmentScheduleListData(longPhoto, "dept-001")).toEqual(
+		longPhoto,
+	);
+	expect(() =>
+		requireAppointmentScheduleListData(
+			{
+				...longPhoto,
+				items: [{ ...valid.items[0], doctorPhotoUrl: `${doctorPhotoUrl}a` }],
+			},
+			"dept-001",
+		),
+	).toThrow("Appointment");
+
 	for (const invalid of [
 		{
 			...valid,
@@ -1137,6 +1159,184 @@ test("门诊费用列表必须保持查询状态和公共记录字段一致", ()
 			"Outpatient payment response",
 		);
 	}
+});
+
+test("门诊同笔费用保留全部安全明细和整笔合计，支付引用仍是父记录", () => {
+	const fees = [
+		{
+			recordId: "fee-ultrasound",
+			status: "unpaid" as const,
+			billDate: "2026-10-15 15:34:12",
+			itemName: "模拟超声检查",
+			executionDepartmentName: "模拟超声科",
+			quantity: "1",
+			unitName: "项",
+			priceFen: 8000,
+			amountFen: 8000,
+		},
+		{
+			recordId: "fee-ecg",
+			status: "unpaid" as const,
+			billDate: "2026-10-15 15:34:12",
+			itemName: "模拟心电图检查",
+			executionDepartmentName: "模拟心电图室",
+			quantity: "1",
+			unitName: "次",
+			priceFen: 1700,
+			amountFen: 1700,
+		},
+	];
+	const group = {
+		recordId: "outpatient-group",
+		status: "unpaid" as const,
+		billDate: "2026-10-15 15:34:12",
+		amountFen: 9700,
+		departmentName: "模拟门诊",
+		items: fees,
+	};
+	const parsed = requireOutpatientPaymentListData(
+		{
+			status: "unpaid",
+			items: [
+				{
+					...group,
+					providerOnlyField: "must-drop",
+					items: fees.map((fee) => ({
+						...fee,
+						providerOnlyField: "must-drop",
+					})),
+				},
+			],
+			total: 1,
+		},
+		"unpaid",
+	);
+	expect(parsed).toEqual({ items: [group], total: 1 });
+	const parsedGroup = parsed.items[0];
+	const firstFee = fees[0];
+	if (!parsedGroup || !firstFee) throw new Error("payment fixture is missing");
+	const view = formatOutpatientPaymentRecordView(parsedGroup);
+	expect(view.recordId).toBe("outpatient-group");
+	expect(view.amountLabel).toBe("¥97.00");
+	expect(view.itemCount).toBe(2);
+	expect(view.items?.map((fee) => fee.amountLabel)).toEqual([
+		"¥80.00",
+		"¥17.00",
+	]);
+	expect(view.items?.map((fee) => fee.specQuantityLabel)).toEqual([
+		"× 1 项",
+		"× 1 次",
+	]);
+	expect(view.items?.map((fee) => fee.priceLabel)).toEqual([
+		"¥80.00",
+		"¥17.00",
+	]);
+	expect(view.billDateLabel).toBe(group.billDate);
+	const single = formatOutpatientPaymentRecordView(firstFee);
+	expect(single.itemCount).toBe(1);
+	expect(single.items).toBeUndefined();
+	expect(single.amountLabel).toBe("¥80.00");
+});
+
+test("门诊费用分组拒绝损坏、重复、嵌套、跨状态明细与不一致合计", () => {
+	const first = {
+		recordId: "fee-a",
+		status: "unpaid" as const,
+		billDate: "2026-10-15 15:34:12",
+		amountFen: 8000,
+	};
+	const second = { ...first, recordId: "fee-b", amountFen: 1700 };
+	const group = {
+		...first,
+		recordId: "group-ab",
+		amountFen: 9700,
+		items: [first, second],
+	};
+	for (const invalidGroup of [
+		{ ...group, items: null },
+		{ ...group, items: [] },
+		{ ...group, items: [first] },
+		{ ...group, amountFen: 9600 },
+		{ ...group, items: [first, { ...second, amountFen: 17.5 }] },
+		{ ...group, items: [first, { ...second, status: "paid" }] },
+		{ ...group, items: [first, { ...second, paymentStatus: "refunding" }] },
+		{ ...group, items: [first, { ...second, recordId: first.recordId }] },
+		{ ...group, items: [first, { ...second, items: undefined }] },
+		{ ...group, items: [first, { ...second, items: [first, second] }] },
+		{
+			...group,
+			items: [
+				{ ...first, amountFen: Number.MAX_SAFE_INTEGER },
+				{ ...second, amountFen: 1 },
+			],
+		},
+		{
+			...group,
+			items: Array.from({ length: 513 }, (_, index) => ({
+				...first,
+				recordId: `fee-${index}`,
+				amountFen: 1,
+			})),
+			amountFen: 513,
+		},
+	]) {
+		expect(() =>
+			requireOutpatientPaymentListData(
+				{ status: "unpaid", items: [invalidGroup], total: 1 },
+				"unpaid",
+			),
+		).toThrow("Outpatient payment response");
+	}
+	expect(() =>
+		requireOutpatientPaymentListData(
+			{ status: "unpaid", items: [group, first], total: 2 },
+			"unpaid",
+		),
+	).toThrow("Outpatient payment response");
+	const manyFees = Array.from({ length: 512 }, (_, index) => ({
+		...first,
+		recordId: `fee-${index}`,
+		amountFen: 1,
+	}));
+	expect(
+		requireOutpatientPaymentListData(
+			{
+				status: "unpaid",
+				items: [{ ...group, items: manyFees, amountFen: 512 }],
+				total: 1,
+			},
+			"unpaid",
+		).items[0]?.items,
+	).toHaveLength(512);
+	const paid = {
+		...group,
+		status: "paid" as const,
+		items: [first, second].map((fee) => ({ ...fee, status: "paid" as const })),
+	};
+	expect(() =>
+		requireOutpatientPaymentListData(
+			{
+				status: "paid",
+				items: [{ ...paid, paymentStatus: "refunding" }],
+				total: 1,
+			},
+			"paid",
+		),
+	).toThrow("Outpatient payment response");
+	const refunding = {
+		...paid,
+		paymentStatus: "refunding" as const,
+		items: paid.items.map((fee) => ({
+			...fee,
+			paymentStatus: "refunding" as const,
+		})),
+	};
+	expect(
+		requireOutpatientPaymentListData(
+			{ status: "paid", items: [refunding], total: 1 },
+			"paid",
+		).items[0],
+	).toEqual(refunding);
 });
 
 test("门诊病历响应只接受无 Provider 主键的安全摘要", () => {

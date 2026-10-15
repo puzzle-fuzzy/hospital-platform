@@ -24,6 +24,22 @@ describe("my doctor domain contract", () => {
 		).toMatchObject({ departmentLocation: location });
 	});
 
+	test("keeps encoded doctor avatar URLs within the 2048 character boundary", () => {
+		const doctorAvatarUrl = `https://provider.example.test/proxy/forward?url=${encodeURIComponent(`https://img.example.test/${"医".repeat(150)}.jpg`)}`;
+		expect(doctorAvatarUrl.length).toBeGreaterThan(512);
+		expect(
+			normalizeMyDoctorReadModel({ ...relation, doctorAvatarUrl }),
+		).toMatchObject({
+			doctorAvatarUrl,
+		});
+		expect(() =>
+			normalizeMyDoctorReadModel({
+				...relation,
+				doctorAvatarUrl: `https://img.example.test/${"a".repeat(2048)}`,
+			}),
+		).toThrow(MyDoctorReadModelValidationError);
+	});
+
 	test("rejects provider or display fields with unsafe values", () => {
 		expect(() =>
 			normalizeMyDoctorReadModel({

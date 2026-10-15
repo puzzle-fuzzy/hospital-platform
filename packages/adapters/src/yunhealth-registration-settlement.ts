@@ -1015,11 +1015,7 @@ export function createYunhealthRegistrationSettlementGateway(
 						)
 					: undefined;
 				if (!thirdPartPayRecordId) {
-					const platformOrderId = requiredText(
-						registrationContext?.platformOrderId,
-						"platformOrderId",
-						128,
-					);
+					// 沿用旧端：请求不传三方记录 ID，由 HIS 生成并在成功响应中返回。
 					await input.onThirdPartPayAttempt?.();
 					const thirdPart = await request<unknown>(
 						"2.27.2.29",
@@ -1042,7 +1038,6 @@ export function createYunhealthRegistrationSettlementGateway(
 							psnNo: normalizedContext.psnNo,
 							sceneCode: "OUT",
 							settleId: normalizedContext.businessId,
-							thirdPartPayRecordId: platformOrderId,
 							tradingId: normalizedContext.tradingId,
 							transStatus: "0",
 						},

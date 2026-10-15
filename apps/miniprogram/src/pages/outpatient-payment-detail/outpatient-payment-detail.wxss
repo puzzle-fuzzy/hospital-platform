@@ -105,6 +105,55 @@ page {
 	font-weight: 700;
 }
 
+.detail-fee-heading,
+.detail-fee-title-line {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 20rpx;
+}
+
+.detail-fee-heading {
+	padding-top: 24rpx;
+	color: #555f6d;
+	font-size: 25rpx;
+}
+
+.detail-fee-item {
+	padding: 22rpx 0;
+	border-bottom: 1rpx solid #edf0f4;
+}
+
+.detail-fee-name {
+	min-width: 0;
+	color: #20242b;
+	font-size: 27rpx;
+	line-height: 1.5;
+	word-break: break-all;
+}
+
+.detail-fee-amount {
+	flex-shrink: 0;
+	color: #20242b;
+	font-size: 27rpx;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.detail-fee-meta {
+	margin-top: 8rpx;
+	color: #657080;
+	font-size: 23rpx;
+	line-height: 1.5;
+	word-break: break-all;
+}
+
+.detail-fee-spec {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6rpx 20rpx;
+}
+
 .notice-card {
 	background: #f1f6ff;
 	border: 1rpx solid #dce9ff;

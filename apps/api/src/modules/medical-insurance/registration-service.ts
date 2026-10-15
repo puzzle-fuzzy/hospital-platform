@@ -20,6 +20,7 @@ import {
 	type MedicalInsuranceQueryTaskRepository,
 	medicalInsuranceOrderTypeForBusiness,
 	normalizeAdapterCallContext,
+	normalizeOutpatientPaymentRecords,
 	type OutpatientMedicalInsuranceContext,
 	type OutpatientPaymentGateway,
 	type PatientRepository,
@@ -707,6 +708,22 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"门诊缴费事实不可用，无法发起医保支付",
 			);
+		}
+		if (resolved.record !== undefined) {
+			const snapshot = normalizeOutpatientPaymentRecords(
+				[resolved.record],
+				"unpaid",
+			)[0];
+			if (
+				!snapshot ||
+				snapshot.recordId !== recordId ||
+				snapshot.amountFen !== resolved.totalFen
+			) {
+				throw new MedicalInsuranceRegistrationInputError(
+					"门诊费用快照与本次缴费事实不一致",
+				);
+			}
+			return { ...resolved, record: snapshot };
 		}
 		return resolved;
 	}
@@ -1632,6 +1649,9 @@ export class MedicalInsuranceRegistrationService {
 		const business: OutpatientMedicalInsuranceContext = {
 			businessType: "outpatient",
 			recordId: order.businessId,
+			...(providerContext.record
+				? { outpatientPaymentRecord: providerContext.record }
+				: {}),
 			providerPatientId: providerContext.providerPatientId,
 			outTradeOrderIds: providerContext.outTradeOrderIds,
 			totalFen: providerContext.totalFen,
