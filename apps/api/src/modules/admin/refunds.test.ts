@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MedicalInsuranceRefundAmountExceededError } from "@hospital/domain";
 import { Elysia } from "elysia";
 import { errorHandlerPlugin } from "../../plugins/error-handler";
 import {
@@ -205,6 +206,37 @@ test("旧 Admin 整笔医保退费入口在提供统一服务时只委托 ALL", 
 		refundType: "ALL",
 		context: { traceId: "compat-trace", idempotencyKey: "compat-trace" },
 	});
+});
+
+test("Admin 医保分项已被其它入口占用时返回冲突，不能当成服务故障", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).use(
+		adminPaymentRefundModule(
+			{
+				async request() {
+					throw new MedicalInsuranceRefundAmountExceededError();
+				},
+				async query() {
+					throw new Error("not used");
+				},
+			},
+			"admin-budget-token",
+		),
+	);
+	const response = await app.handle(
+		new Request("http://localhost/admin/payment-refunds", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-refund-token": "admin-budget-token",
+			},
+			body: JSON.stringify({
+				source: "medical_insurance",
+				orderId: "medical-budget-order",
+				refundType: "HI",
+			}),
+		}),
+	);
+	expect(response.status).toBe(409);
 });
 
 test("Admin 微信退款历史只接受退款令牌并返回最小支付读模型", async () => {

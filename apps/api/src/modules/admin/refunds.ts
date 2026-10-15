@@ -1,5 +1,6 @@
 import { success } from "@hospital/contracts";
 import {
+	MedicalInsuranceRefundAmountExceededError,
 	WechatRefundAmountExceededError,
 	WechatRefundIdempotencyConflictError,
 	WechatRefundNotFoundError,
@@ -213,6 +214,9 @@ function authorize(
 }
 
 function mapError(error: unknown): never {
+	if (error instanceof MedicalInsuranceRefundAmountExceededError) {
+		throw new HttpError(409, "refund_amount_exceeded", error.message);
+	}
 	if (error instanceof AdminWechatRefundInputError) {
 		throw new HttpError(400, "validation", error.message);
 	}
@@ -408,13 +412,7 @@ export function adminMedicalInsuranceRefundModule(
 						}),
 					);
 				} catch (error) {
-					if (error instanceof MedicalInsuranceOrderNotFoundError) {
-						throw new HttpError(404, "not_found", "医保订单不存在或尚未落库");
-					}
-					if (error instanceof MedicalInsuranceRegistrationInputError) {
-						throw new HttpError(400, "validation", error.message);
-					}
-					throw error;
+					return mapPaymentRefundError(error);
 				}
 			},
 			{
