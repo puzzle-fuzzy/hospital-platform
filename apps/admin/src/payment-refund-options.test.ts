@@ -3,6 +3,7 @@ import {
 	hasPendingRefund,
 	hasRefundReceipt,
 	PAYMENT_REFUND_TYPES,
+	paymentRefundLabel,
 	paymentRefundOption,
 	paymentRefundPreview,
 } from "./payment-refund-options";
@@ -205,5 +206,17 @@ describe("admin refund scope and authoritative capabilities", () => {
 		expect(paymentRefundOption(record, "ALL").reason).toBe("挂号请先取消预约");
 		for (const type of PAYMENT_REFUND_TYPES)
 			expect(paymentRefundOption(record, type).enabled).toBe(false);
+	});
+
+	test("server-enabled completed registration offers refund and cancellation together", () => {
+		const record = payment({
+			source: "payment_order",
+			refundRoute: "appointment_cancel",
+			paymentState: "completed",
+		});
+		expect(paymentRefundOption(record, "ALL").enabled).toBe(true);
+		expect(paymentRefundOption(record, "CASH").enabled).toBe(true);
+		expect(paymentRefundLabel(record, "ALL")).toBe("整笔退款并取消挂号");
+		expect(paymentRefundLabel(record, "CASH")).toBe("退微信并取消挂号");
 	});
 });

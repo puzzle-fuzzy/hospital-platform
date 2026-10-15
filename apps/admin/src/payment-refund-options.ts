@@ -16,6 +16,19 @@ export const PAYMENT_REFUND_LABELS: Record<AdminPaymentRefundType, string> = {
 	CASH: "只退微信",
 };
 
+export function paymentRefundLabel(
+	record: AdminWechatRefundPaymentRecord,
+	type: AdminPaymentRefundType,
+): string {
+	if (
+		record.source === "payment_order" &&
+		record.refundRoute === "appointment_cancel" &&
+		type !== "HI"
+	)
+		return type === "ALL" ? "整笔退款并取消挂号" : "退微信并取消挂号";
+	return PAYMENT_REFUND_LABELS[type];
+}
+
 export function paymentRefundKey(
 	record: Pick<AdminWechatRefundPaymentRecord, "source" | "orderId">,
 ): string {
@@ -51,13 +64,6 @@ export function paymentRefundOption(
 			enabled: false,
 			amountFen: 0,
 			reason: "退款能力暂不可用，请刷新支付数据或查询已有退款",
-		};
-	}
-	if (record.refundRoute === "appointment_cancel") {
-		return {
-			...option,
-			enabled: false,
-			reason: option.reason || "请先通过预约取消流程退号退款",
 		};
 	}
 	if (hasPendingRefund(record)) {

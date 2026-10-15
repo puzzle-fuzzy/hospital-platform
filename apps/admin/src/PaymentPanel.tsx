@@ -48,6 +48,7 @@ import {
 	PAYMENT_REFUND_LABELS,
 	PAYMENT_REFUND_TYPES,
 	paymentRefundKey,
+	paymentRefundLabel,
 	paymentRefundOption,
 	paymentRefundPreview,
 } from "./payment-refund-options";
@@ -623,7 +624,7 @@ function paymentRecordColumns(
 											disabled={Boolean(refundQueryingNo) || !option.enabled}
 											onClick={() => onRefund(record, option.type)}
 										>
-											{PAYMENT_REFUND_LABELS[option.type]}
+											{paymentRefundLabel(record, option.type)}
 										</Button>
 									</span>
 								</Tooltip>
@@ -1763,7 +1764,7 @@ export function PaymentPanel({
 				title={
 					refundResult
 						? "退款结果与渠道状态"
-						: `确认${PAYMENT_REFUND_LABELS[refundType]}`
+						: `确认${refundRecord ? paymentRefundLabel(refundRecord, refundType) : PAYMENT_REFUND_LABELS[refundType]}`
 				}
 				open={Boolean(refundRecord)}
 				confirmLoading={refundSubmitting}
@@ -1836,7 +1837,12 @@ export function PaymentPanel({
 							title={
 								PAYMENT_REFUND_LABELS[refundResult?.refundType ?? refundType]
 							}
-							description="退款按原支付渠道退回。医院减免不属于实付金额，不计入本次退款。"
+							description={
+								refundRecord.source === "payment_order" &&
+								refundRecord.refundRoute === "appointment_cancel"
+									? "本次操作将退款并取消挂号，退款结果回写医院。退款按原微信支付渠道退回。"
+									: "退款按原支付渠道退回。医院减免不属于实付金额，不计入本次退款。"
+							}
 						/>
 						<Descriptions
 							bordered
