@@ -363,5 +363,7 @@ test("通知恢复扫描只返回成功医保腿并按稳定退款身份排除�
 		"last_error_code = 'medical-refund-notify-pending' OR NOT EXISTS",
 	);
 	expect(state.statements[0]).toContain("medical_refund_notify:");
-	expect(state.values[0]).toEqual([20]);
+	expect(state.statements[0]).toContain("LIMIT 20");
+	expect(state.statements[0]).not.toContain("LIMIT ?");
+	expect(state.values[0]).toEqual([]);
 });

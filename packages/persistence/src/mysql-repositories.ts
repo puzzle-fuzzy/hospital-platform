@@ -5525,6 +5525,8 @@ export function createMySqlRepositories(
 		async listAwaitingMedicalNotification(limit) {
 			if (!Number.isSafeInteger(limit) || limit < 1)
 				throw new Error("Medical notification limit is invalid");
+			// mysql2/MySQL 8.4 rejects a prepared numeric LIMIT; interpolate only this bounded integer.
+			const boundedLimit = Math.min(limit, 100);
 			const rows = await execute<MedicalInsuranceRefundRow[]>(
 				pool,
 				`SELECT refunds.* FROM hp_medical_insurance_refunds AS refunds
@@ -5533,8 +5535,7 @@ export function createMySqlRepositories(
 				   AND (refunds.last_error_code = 'medical-refund-notify-pending' OR NOT EXISTS
 				       (SELECT 1 FROM hp_payment_sync_tasks AS tasks
 				        WHERE tasks.business_key LIKE CONCAT('medical_refund_notify:', refunds.refund_no, ':%')))
-				 ORDER BY refunds.updated_at, refunds.refund_id LIMIT ?`,
-				[Math.min(limit, 100)],
+				 ORDER BY refunds.updated_at, refunds.refund_id LIMIT ${boundedLimit}`,
 			);
 			return rows.map(medicalInsuranceRefund);
 		},
