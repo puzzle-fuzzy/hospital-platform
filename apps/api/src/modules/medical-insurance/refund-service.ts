@@ -280,6 +280,48 @@ export type MedicalInsuranceRefundPaymentVerification = {
 	queriedAt: string;
 };
 
+function paymentVerificationMatches(
+	order: Readonly<MedicalInsuranceOrder>,
+	plan: RefundPlan,
+	proof: MedicalInsuranceRefundPaymentVerification,
+	now: Date,
+): boolean {
+	if (!order.amounts) return false;
+	const age = now.getTime() - Date.parse(proof.queriedAt);
+	return (
+		Number.isFinite(age) &&
+		age >= 0 &&
+		age <= 60_000 &&
+		proof.orderId === order.medicalOrderId &&
+		proof.version === order.version &&
+		proof.payOrdId === order.payOrdId &&
+		(proof.mixTradeNo ?? null) === (order.wechatMixTradeNo ?? null) &&
+		(proof.outTradeNo ?? null) === (order.wechatOutTradeNo ?? null) &&
+		[
+			"totalFen",
+			"cashFen",
+			"personalAccountFen",
+			"fundFen",
+			"otherPaymentFen",
+			"hospitalPartFen",
+			"personalAccountMutualAidFen",
+			"personalAccountSelfFen",
+			"depositFen",
+			"deliveryFeeFen",
+		].every(
+			(key) =>
+				proof.amounts[key as keyof typeof proof.amounts] ===
+				order.amounts?.[key as keyof typeof proof.amounts],
+		) &&
+		Number.isSafeInteger(proof.actualCashFen) &&
+		proof.actualCashFen >= 0 &&
+		proof.actualCashFen <= order.amounts.cashFen &&
+		plan.cashFen <= proof.actualCashFen &&
+		(plan.personalAccountFen + plan.fundFen === 0 || proof.paidMedical) &&
+		(plan.cashFen === 0 || proof.paidCash)
+	);
+}
+
 export type MedicalInsuranceRefundServiceDependencies = {
 	orders: MedicalInsuranceOrderRepository;
 	authorizations: MedicalInsuranceAuthorizationRepository;
@@ -422,6 +464,7 @@ export class MedicalInsuranceRefundService {
 		record: MedicalInsuranceRefund,
 		order: MedicalInsuranceOrder,
 		context: AdapterCallContext,
+		paymentVerification?: MedicalInsuranceRefundPaymentVerification,
 	): Promise<MedicalInsuranceRefund> {
 		if (!order.authorizationId) {
 			return this.save(record, {
@@ -441,6 +484,19 @@ export class MedicalInsuranceRefundService {
 				status: "manual_review",
 				lastErrorCode: "authorization-context-unavailable",
 			});
+		}
+		if (
+			paymentVerification &&
+			!paymentVerificationMatches(
+				order,
+				record,
+				paymentVerification,
+				this.now(),
+			)
+		) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"原退款计划与已核实的实际支付不一致或支付核验已过期，不能恢复退费",
+			);
 		}
 		const appRefdSn = appRefdSnOf(record.refundNo);
 		// 出站请求必须由本次 CAS 更新成功者执行，冲突回读不能视为领取成功。
@@ -709,6 +765,9 @@ export class MedicalInsuranceRefundService {
 				"退款金额与原结算金额不一致",
 			);
 		}
+		let paymentVerification:
+			| MedicalInsuranceRefundPaymentVerification
+			| undefined;
 		if (record.cashFen > 0) {
 			if (!this.dependencies.wechatRefund) {
 				throw new MedicalInsuranceRegistrationInputError(
@@ -723,6 +782,36 @@ export class MedicalInsuranceRefundService {
 			if (existing) {
 				throw new MedicalInsuranceRegistrationInputError(
 					"该订单已有微信退款记录，须人工核查",
+				);
+			}
+			if (!this.dependencies.verifyPaymentForRefund) {
+				throw new MedicalInsuranceRegistrationInputError(
+					"原支付实时核验不可用，不能恢复含现金的医保退费",
+				);
+			}
+			const proof = await this.dependencies.verifyPaymentForRefund(
+				order,
+				"ALL",
+			);
+			if (!paymentVerificationMatches(order, plan, proof, this.now())) {
+				throw new MedicalInsuranceRegistrationInputError(
+					"原退款计划与已核实的实际支付不一致或支付核验已过期，不能恢复退费",
+				);
+			}
+			paymentVerification = proof;
+			const currentOrder = await this.dependencies.orders.findByMedicalOrderId(
+				order.medicalOrderId,
+			);
+			if (
+				!currentOrder ||
+				currentOrder.version !== order.version ||
+				currentOrder.payOrdId !== order.payOrdId ||
+				currentOrder.ownerUserId !== order.ownerUserId ||
+				currentOrder.wechatOutTradeNo !== order.wechatOutTradeNo ||
+				currentOrder.wechatMixTradeNo !== order.wechatMixTradeNo
+			) {
+				throw new MedicalInsuranceRegistrationInputError(
+					"支付订单已变化，请重新核验后恢复退费",
 				);
 			}
 		}
@@ -745,7 +834,12 @@ export class MedicalInsuranceRefundService {
 		});
 		let recovered: MedicalInsuranceRefund;
 		try {
-			recovered = await this.requestMedical(record, order, context);
+			recovered = await this.requestMedical(
+				record,
+				order,
+				context,
+				paymentVerification,
+			);
 			if (recovered.medicalStatus === "success" && recovered.cashFen > 0) {
 				recovered = await this.requestWechat(recovered, order, context, reason);
 			}
@@ -1044,37 +1138,12 @@ export class MedicalInsuranceRefundService {
 				order,
 				plan.refundType,
 			);
-			const age = this.now().getTime() - Date.parse(proof.queriedAt);
-			verifiedPayment =
-				Number.isFinite(age) &&
-				age >= 0 &&
-				age <= 60_000 &&
-				proof.orderId === order.medicalOrderId &&
-				proof.version === order.version &&
-				proof.payOrdId === order.payOrdId &&
-				(proof.mixTradeNo ?? null) === (order.wechatMixTradeNo ?? null) &&
-				(proof.outTradeNo ?? null) === (order.wechatOutTradeNo ?? null) &&
-				[
-					"totalFen",
-					"cashFen",
-					"personalAccountFen",
-					"fundFen",
-					"otherPaymentFen",
-					"hospitalPartFen",
-					"personalAccountMutualAidFen",
-					"personalAccountSelfFen",
-					"depositFen",
-					"deliveryFeeFen",
-				].every(
-					(key) =>
-						proof.amounts[key as keyof typeof proof.amounts] ===
-						order.amounts?.[key as keyof typeof proof.amounts],
-				) &&
-				Number.isSafeInteger(proof.actualCashFen) &&
-				proof.actualCashFen >= 0 &&
-				proof.actualCashFen <= order.amounts.cashFen &&
-				(plan.personalAccountFen + plan.fundFen === 0 || proof.paidMedical) &&
-				(plan.cashFen === 0 || proof.paidCash);
+			verifiedPayment = paymentVerificationMatches(
+				order,
+				plan,
+				proof,
+				this.now(),
+			);
 			if (!verifiedPayment)
 				throw new MedicalInsuranceRegistrationInputError(
 					"所选退款分项尚未确认支付成功或支付核验已过期",
@@ -1140,6 +1209,9 @@ export class MedicalInsuranceRefundService {
 		if (
 			record.medicalOrderId !== orderId ||
 			record.ownerUserId !== ownerUserId ||
+			record.payOrdId !== order.payOrdId ||
+			record.idempotencyKey !== context.idempotencyKey ||
+			record.refundNo !== refundNo ||
 			record.totalFen !== plan.totalFen ||
 			record.cashFen !== plan.cashFen ||
 			record.personalAccountFen !== plan.personalAccountFen ||

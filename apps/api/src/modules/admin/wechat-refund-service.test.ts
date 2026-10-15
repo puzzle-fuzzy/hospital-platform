@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	type MedicalInsuranceOrder,
+	type MedicalInsurancePostPaymentComponent,
 	type MedicalInsuranceRefund,
 	PatientReadModelValidationError,
 	type PatientRecord,
@@ -134,6 +135,7 @@ async function medicalOptionsFixture(
 ) {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
 	await orders.insert(order);
+	const operations = createInMemoryPaymentOperationsRepository();
 	let providerCalls = 0;
 	const service = new AdminWechatRefundService({
 		refunds: createInMemoryWechatRefundRepository(wechat),
@@ -141,6 +143,7 @@ async function medicalOptionsFixture(
 		medicalInsuranceOrders: orders,
 		medicalInsuranceRefunds:
 			createInMemoryMedicalInsuranceRefundRepository(medical),
+		paymentOperations: operations,
 		gateway: {
 			async requestRefund() {
 				providerCalls += 1;
@@ -152,7 +155,28 @@ async function medicalOptionsFixture(
 			},
 		},
 	});
-	return { orders, service, providerCalls: () => providerCalls };
+	return { orders, operations, service, providerCalls: () => providerCalls };
+}
+
+function hospitalReductionComponent(
+	order: MedicalInsuranceOrder,
+): MedicalInsurancePostPaymentComponent {
+	return {
+		componentId: `${order.medicalOrderId}:medical`,
+		kind: "medical",
+		totalFen: 1000,
+		amountFen: 1000,
+		payModel: "H5",
+		payTypeId: "2",
+		payTypeParams: [
+			{ kind: "fund", payTypeId: "2", amountFen: 800 },
+			{ kind: "hospital_reduce", payTypeId: "50", amountFen: 200 },
+		],
+		recordCode: "fixture-medical-discount",
+		state: "succeeded",
+		attempts: 1,
+		updatedAt: order.updatedAt,
+	};
 }
 
 test("高平挂号现金减免不进入微信可退金额，历史读模型不调用提供商", async () => {
@@ -183,13 +207,20 @@ test("高平挂号现金减免不进入微信可退金额，历史读模型不�
 			upDetailList: [],
 			tradeOrderIds: [],
 			insuredAreaCode: "140581",
+			postPaymentPlanVersion: "sequenced-v1",
+			postPaymentComponents: [hospitalReductionComponent(order)],
 		},
 	);
 	const item = (await fixture.service.listPaymentHistory()).items[0];
 	expect(item).toMatchObject({
+		totalFen: 1000,
+		insuranceFen: 800,
 		cashFen: 200,
 		actualCashFen: 0,
 		hospitalDiscountFen: 200,
+		actualPaidFen: 800,
+		amountBreakdownStatus: "confirmed",
+		cashPaymentConfirmed: false,
 		refundableFen: 0,
 		medicalRefundableFen: 800,
 		refundOptions: {
@@ -198,6 +229,30 @@ test("高平挂号现金减免不进入微信可退金额，历史读模型不�
 			CASH: { enabled: false, amountFen: 0 },
 		},
 	});
+	const aggregateId = item?.operationAggregateId;
+	if (!aggregateId) throw new Error("fixture aggregate missing");
+	const originalAggregate =
+		await fixture.operations.findAggregateById(aggregateId);
+	const originalLegs = await fixture.operations.listLegs(aggregateId);
+	const originalEvents = await fixture.operations.listEvents(aggregateId);
+	const detail = await fixture.service.getPaymentOperationDetail(aggregateId);
+	expect(detail.aggregate).toMatchObject({
+		insuranceFen: 800,
+		cashFen: 0,
+		actualCashFen: 0,
+		hospitalDiscountFen: 200,
+		actualPaidFen: 800,
+		amountBreakdownStatus: "confirmed",
+	});
+	expect(detail.legs.map((leg) => [leg.legType, leg.amountFen])).toEqual([
+		["medical_insurance", 800],
+		["hospital_reduce", 200],
+	]);
+	expect(detail.events).toEqual(originalEvents);
+	expect(await fixture.operations.findAggregateById(aggregateId)).toEqual(
+		originalAggregate,
+	);
+	expect(await fixture.operations.listLegs(aggregateId)).toEqual(originalLegs);
 	await expect(
 		fixture.service.requestMedicalInsuranceCashByOrder(
 			{ orderId: order.medicalOrderId },
@@ -225,6 +280,8 @@ test("医保已退仍允许未退微信腿；两腿均已退时三个选项都�
 		(await cashPending.service.listPaymentHistory()).items[0],
 	).toMatchObject({
 		actualCashFen: 6680,
+		actualPaidFen: 8000,
+		amountBreakdownStatus: "confirmed",
 		medicalRefundableFen: 0,
 		refundableFen: 6680,
 		refundOptions: {
@@ -326,10 +383,100 @@ test("只确认医保付款时只开放医保金额；缺失挂号区域或订�
 	]) {
 		const incomplete = await medicalOptionsFixture(incompleteOrder);
 		const item = (await incomplete.service.listPaymentHistory()).items[0];
+		expect(item).toMatchObject({
+			actualCashFen: null,
+			hospitalDiscountFen: null,
+			actualPaidFen: null,
+			amountBreakdownStatus: "unverified",
+			cashPaymentConfirmed: false,
+		});
+		const aggregateId = item?.operationAggregateId;
+		if (!aggregateId) throw new Error("fixture aggregate missing");
+		const detail =
+			await incomplete.service.getPaymentOperationDetail(aggregateId);
+		expect(detail.aggregate).toMatchObject({
+			cashFen: null,
+			actualCashFen: null,
+			hospitalDiscountFen: null,
+			actualPaidFen: null,
+			amountBreakdownStatus: "unverified",
+		});
+		expect(
+			detail.legs.every((leg) => leg.legType === "medical_insurance"),
+		).toBe(true);
 		for (const option of Object.values(item?.refundOptions ?? {})) {
 			expect(option.enabled).toBe(false);
 			expect(option.reason).toContain("支付上下文不完整");
 		}
+	}
+});
+
+test("历史减免分项缺失、未确认或与原微信分项冲突时显示待核实且禁用退款", async () => {
+	const order: MedicalInsuranceOrder = {
+		...paidMedicalOrder(),
+		orderType: "RegPay",
+		businessType: "registration",
+		payOrdId: "historical-discount-order",
+		status: "insurance_settled",
+		amounts: {
+			totalFen: 1000,
+			cashFen: 200,
+			personalAccountFen: 0,
+			fundFen: 800,
+		},
+	};
+	for (const components of [
+		[],
+		[{ ...hospitalReductionComponent(order), state: "pending" as const }],
+		[
+			{
+				...hospitalReductionComponent(order),
+				payTypeParams: [
+					{ kind: "fund" as const, payTypeId: "2" as const, amountFen: 800 },
+					{
+						kind: "wechat_cash" as const,
+						payTypeId: "5033" as const,
+						amountFen: 200,
+					},
+				],
+			},
+		],
+	]) {
+		const fixture = await medicalOptionsFixture(order);
+		await fixture.orders.saveSettlementContext(
+			order.ownerUserId,
+			order.medicalOrderId,
+			{
+				businessId: "historical-discount-business",
+				hospitalId: "fixture-hospital",
+				patientId: order.patientId,
+				networkRegister: {},
+				outNetworkSettleMain: {},
+				nationalUpDetailList: [],
+				upDetailList: [],
+				tradeOrderIds: [],
+				insuredAreaCode: "140581",
+				postPaymentComponents: components,
+			},
+		);
+		const item = (await fixture.service.listPaymentHistory()).items[0];
+		expect(item).toMatchObject({
+			insuranceFen: 800,
+			actualCashFen: null,
+			hospitalDiscountFen: null,
+			actualPaidFen: null,
+			amountBreakdownStatus: "unverified",
+			refundRoute: "unavailable",
+		});
+		for (const option of Object.values(item?.refundOptions ?? {}))
+			expect(option.enabled).toBe(false);
+		await expect(
+			fixture.service.requestMedicalInsuranceCashByOrder(
+				{ orderId: order.medicalOrderId },
+				context,
+			),
+		).rejects.toThrow("不能确认实际微信支付金额");
+		expect(fixture.providerCalls()).toBe(0);
 	}
 });
 

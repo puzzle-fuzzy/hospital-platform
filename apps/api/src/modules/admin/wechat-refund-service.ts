@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	type AdapterCallContext,
@@ -67,8 +68,17 @@ export type AdminPaymentHistoryPage = {
 	pageSize: number;
 };
 
+type AdminPaymentAmounts = {
+	insuranceFen: number;
+	actualCashFen: number | null;
+	hospitalDiscountFen: number | null;
+	actualPaidFen: number | null;
+	amountBreakdownStatus: "confirmed" | "unverified";
+};
+
 export type AdminPaymentOperationDetail = {
-	aggregate: Omit<PaymentAggregate, "ownerUserId" | "patientId">;
+	aggregate: Omit<PaymentAggregate, "ownerUserId" | "patientId" | "cashFen"> &
+		AdminPaymentAmounts & { cashFen: number | null };
 	legs: readonly PaymentLeg[];
 	events: readonly PaymentOperationEvent[];
 };
@@ -79,7 +89,7 @@ const ADMIN_PAYMENT_HISTORY_SCAN_LIMIT = 10_000;
  * Admin 退款页面仅投影就诊人和下单用户名称；患者标识、支付凭证、微信调起参数、
  * out_trade_no 和加密 Provider 上下文一律不离开服务端。
  */
-export type AdminWechatRefundPaymentRecord = {
+export type AdminWechatRefundPaymentRecord = AdminPaymentAmounts & {
 	source: WechatRefundSource;
 	orderId: string;
 	patientDisplayName?: string;
@@ -90,13 +100,10 @@ export type AdminWechatRefundPaymentRecord = {
 	business: "registration" | "outpatient" | "other";
 	/** 管理端可展示的金额事实；不包含患者身份或支付调起参数。 */
 	totalFen: number;
-	insuranceFen?: number;
 	/** 普通自费为本地订单状态；医保混合单为微信现金段状态。 */
 	paymentState: string;
 	cashPaymentConfirmed: boolean;
 	cashFen: number;
-	actualCashFen: number;
-	hospitalDiscountFen: number;
 	medicalRefundableFen: number;
 	refundOptions: Record<
 		"ALL" | "HI" | "CASH",
@@ -489,15 +496,90 @@ export class AdminWechatRefundService {
 			);
 		}
 		try {
-			return medicalInsurancePaymentBreakdown({
+			const breakdown = medicalInsurancePaymentBreakdown({
 				amounts: order.amounts,
 				orderType: order.orderType,
 				insuredAreaCode: settlement?.insuredAreaCode ?? "",
 			});
+			const hospitalDiscountFen = breakdown.cashReduceDetails.reduce(
+				(sum, detail) => sum + detail.cashReduceFen,
+				0,
+			);
+			// 当前优惠规则不能覆盖历史交易事实；已有分项冲突时停止推断。
+			const savedLegs = (settlement?.postPaymentComponents ?? []).flatMap(
+				(component) =>
+					component.kind === "medical" || component.kind === "combined"
+						? (component.payTypeParams ?? []).map((leg) => ({
+								kind: leg.kind,
+								amountFen: leg.amountFen,
+								state: component.state,
+							}))
+						: [
+								{
+									kind: component.kind,
+									amountFen: component.amountFen,
+									state: component.state,
+								},
+							],
+			);
+			const cashLegs = savedLegs.filter((leg) => leg.kind === "wechat_cash");
+			const discountLegs = savedLegs.filter(
+				(leg) => leg.kind === "hospital_reduce",
+			);
+			if (
+				(cashLegs.length > 0 &&
+					cashLegs.reduce((sum, leg) => sum + leg.amountFen, 0) !==
+						breakdown.wechatCashFen) ||
+				(discountLegs.length > 0 &&
+					discountLegs.reduce((sum, leg) => sum + leg.amountFen, 0) !==
+						hospitalDiscountFen + (order.amounts.hospitalPartFen ?? 0)) ||
+				(hospitalDiscountFen > 0 &&
+					!discountLegs.some((leg) => leg.state === "succeeded"))
+			) {
+				throw new AdminWechatRefundInputError(
+					"原支付分项缺少医院减免确认或与当前拆分不一致，请核实历史支付金额",
+				);
+			}
+			return breakdown;
 		} catch {
 			throw new AdminWechatRefundInputError(
 				"支付分项不完整，不能确认实际微信支付金额",
 			);
+		}
+	}
+
+	private async medicalAmountMetadata(order: MedicalInsuranceOrder): Promise<{
+		amounts: AdminPaymentAmounts;
+		unavailableReason?: string;
+	}> {
+		const insuranceFen =
+			(order.amounts?.fundFen ?? 0) + (order.amounts?.personalAccountFen ?? 0);
+		try {
+			const breakdown = await this.medicalCashBreakdown(order);
+			return {
+				amounts: {
+					insuranceFen,
+					actualCashFen: breakdown.wechatCashFen,
+					hospitalDiscountFen: breakdown.cashReduceDetails.reduce(
+						(sum, detail) => sum + detail.cashReduceFen,
+						0,
+					),
+					actualPaidFen: insuranceFen + breakdown.wechatCashFen,
+					amountBreakdownStatus: "confirmed",
+				},
+			};
+		} catch (error) {
+			if (!(error instanceof AdminWechatRefundInputError)) throw error;
+			return {
+				amounts: {
+					insuranceFen,
+					actualCashFen: null,
+					hospitalDiscountFen: null,
+					actualPaidFen: null,
+					amountBreakdownStatus: "unverified",
+				},
+				unavailableReason: error.message,
+			};
 		}
 	}
 
@@ -939,6 +1021,8 @@ export class AdminWechatRefundService {
 							cashFen: order.amounts.cashFen,
 							actualCashFen: order.amounts.cashFen,
 							hospitalDiscountFen: 0,
+							actualPaidFen: order.amounts.insuranceFen + order.amounts.cashFen,
+							amountBreakdownStatus: "confirmed",
 							medicalRefundableFen: 0,
 							refundOptions: refundOptions(
 								refundableFen,
@@ -968,22 +1052,16 @@ export class AdminWechatRefundService {
 						} satisfies AdminWechatRefundPaymentRecord;
 					}
 					const order = candidate.order;
-					const cashPaymentConfirmed = order.wechatPaymentState === "cash_paid";
+					const mixedPaymentCompleted =
+						order.wechatPaymentState === "cash_paid";
 					const cashFen = order.amounts?.cashFen ?? 0;
-					let actualCashFen = 0;
-					let hospitalDiscountFen = 0;
-					let unavailable: string | undefined;
-					try {
-						const breakdown = await this.medicalCashBreakdown(order);
-						actualCashFen = breakdown.wechatCashFen;
-						hospitalDiscountFen = breakdown.cashReduceDetails.reduce(
-							(sum, item) => sum + item.cashReduceFen,
-							0,
-						);
-					} catch (error) {
-						if (!(error instanceof AdminWechatRefundInputError)) throw error;
-						unavailable = error.message;
-					}
+					const metadata = await this.medicalAmountMetadata(order);
+					const { actualCashFen } = metadata.amounts;
+					const cashPaymentConfirmed =
+						mixedPaymentCompleted &&
+						actualCashFen !== null &&
+						actualCashFen > 0;
+					let unavailable = metadata.unavailableReason;
 					if (!this.dependencies.medicalInsuranceRefunds)
 						unavailable ??= "退款台账不可用，请先核对退款记录";
 					const reservedMedicalFen = medicalRefunds.reduce(
@@ -1004,12 +1082,12 @@ export class AdminWechatRefundService {
 					}, 0);
 					const reservedCashFen = ledgerCashReserved + aggregateCashReserved;
 					const refundableFen = cashPaymentConfirmed
-						? Math.max(0, actualCashFen - reservedCashFen)
+						? Math.max(0, (actualCashFen ?? 0) - reservedCashFen)
 						: 0;
 					const medicalPaymentConfirmed =
 						order.status === "insurance_settled" ||
 						["4", "5", "6"].includes(order.ordStas ?? "") ||
-						(order.status === "manual_review" && cashPaymentConfirmed);
+						(order.status === "manual_review" && mixedPaymentCompleted);
 					const medicalRefundableFen =
 						medicalPaymentConfirmed && order.payOrdId
 							? Math.max(
@@ -1039,8 +1117,7 @@ export class AdminWechatRefundService {
 						paymentState: order.wechatPaymentState ?? "not_started",
 						cashPaymentConfirmed,
 						cashFen,
-						actualCashFen,
-						hospitalDiscountFen,
+						...metadata.amounts,
 						medicalRefundableFen,
 						refundOptions: options,
 						...(order.amounts?.personalAccountFen === undefined
@@ -1138,7 +1215,80 @@ export class AdminWechatRefundService {
 			patientId: _patientId,
 			...safeAggregate
 		} = aggregate;
-		return { aggregate: safeAggregate, legs, events };
+		if (!aggregate.businessKey.startsWith("medical_insurance:")) {
+			return {
+				aggregate: {
+					...safeAggregate,
+					actualCashFen: aggregate.cashFen,
+					hospitalDiscountFen: 0,
+					actualPaidFen: aggregate.insuranceFen + aggregate.cashFen,
+					amountBreakdownStatus: "confirmed",
+				},
+				legs,
+				events,
+			};
+		}
+		const orderId = aggregate.businessKey.slice("medical_insurance:".length);
+		const order =
+			await this.dependencies.medicalInsuranceOrders.findByMedicalOrderId(
+				orderId,
+			);
+		const amounts: AdminPaymentAmounts = order
+			? (await this.medicalAmountMetadata(order)).amounts
+			: {
+					insuranceFen: aggregate.insuranceFen,
+					actualCashFen: null,
+					hospitalDiscountFen: null,
+					actualPaidFen: null,
+					amountBreakdownStatus: "unverified",
+				};
+		// 修正本次响应的展示分项，不改写旧账本及其历史事件。
+		const displayLegs: PaymentLeg[] = legs
+			.filter((leg) => leg.legType === "medical_insurance")
+			.map((leg) => ({ ...leg, amountFen: amounts.insuranceFen }));
+		if (amounts.amountBreakdownStatus === "confirmed") {
+			for (const [legType, amountFen] of [
+				["wechat_cash", amounts.actualCashFen],
+				["hospital_reduce", amounts.hospitalDiscountFen],
+			] as const) {
+				if (amountFen === null || amountFen <= 0) continue;
+				const existing = legs.find((leg) => leg.legType === legType);
+				displayLegs.push({
+					legId:
+						existing?.legId ??
+						`view-${createHash("sha256").update(`${aggregateId}:${legType}`).digest("hex").slice(0, 24)}`,
+					aggregateId,
+					legType,
+					source: legType === "wechat_cash" ? "wechat_pay" : "platform",
+					sourceOrderId: orderId,
+					amountFen,
+					status:
+						existing?.status ??
+						(legType === "hospital_reduce" ||
+						order?.wechatPaymentState === "cash_paid"
+							? "confirmed"
+							: "pending"),
+					...(existing?.providerReferenceDigest && legType === "wechat_cash"
+						? { providerReferenceDigest: existing.providerReferenceDigest }
+						: {}),
+					...(existing?.confirmedAt
+						? { confirmedAt: existing.confirmedAt }
+						: {}),
+					version: existing?.version ?? aggregate.version,
+					createdAt: existing?.createdAt ?? aggregate.createdAt,
+					updatedAt: existing?.updatedAt ?? aggregate.updatedAt,
+				});
+			}
+		}
+		return {
+			aggregate: {
+				...safeAggregate,
+				...amounts,
+				cashFen: amounts.actualCashFen,
+			},
+			legs: displayLegs,
+			events,
+		};
 	}
 
 	/**

@@ -18,7 +18,10 @@ import {
 import { projectMedicalInsuranceOrder } from "../admin/payment-operations-projector";
 import { AdminWechatRefundService } from "../admin/wechat-refund-service";
 import { MedicalInsuranceRegistrationInputError } from "./errors";
-import { MedicalInsuranceRefundService } from "./refund-service";
+import {
+	type MedicalInsuranceRefundPaymentVerification,
+	MedicalInsuranceRefundService,
+} from "./refund-service";
 
 type RecoveryInput = Parameters<
 	MedicalInsuranceRefundService["recoverRejectedAppRefdSn"]
@@ -40,11 +43,15 @@ async function fixture(
 		withoutWechat?: boolean;
 		withoutLedgerLookup?: boolean;
 		withoutAudits?: boolean;
+		withoutPaymentVerification?: boolean;
+		verification?: Partial<MedicalInsuranceRefundPaymentVerification>;
 		auditFailure?: boolean;
 		rejectClaim?: boolean;
 		wechatFailure?: boolean;
 		medicalRefStatus?: "SUCC" | "FAIL" | "EXP";
 		waitForMedical?: () => Promise<void>;
+		afterRecoveryAudit?: () => void;
+		now?: () => Date;
 	} = {},
 ) {
 	const medicalOrder: MedicalInsuranceOrder = {
@@ -186,6 +193,7 @@ async function fixture(
 		medical: [] as Parameters<MedicalInsuranceRefundGateway["refund"]>[],
 		wechat: [] as Parameters<WechatRefundGateway["requestRefund"]>[],
 		sequence: [] as string[],
+		verification: [] as string[],
 	};
 	const wechatRefundRepository = { ...wechatRefunds };
 	if (options.withoutLedgerLookup) {
@@ -250,6 +258,32 @@ async function fixture(
 			},
 		},
 		...(options.withoutWechat ? {} : { wechatRefund }),
+		...(options.withoutPaymentVerification
+			? {}
+			: {
+					verifyPaymentForRefund: async (
+						order: Readonly<MedicalInsuranceOrder>,
+						scope?: string,
+					) => {
+						if (!order.payOrdId || !order.amounts) {
+							throw new Error("Recovery fixture payment context is incomplete");
+						}
+						calls.verification.push(scope ?? "ALL");
+						return {
+							orderId: order.medicalOrderId,
+							version: order.version,
+							payOrdId: order.payOrdId,
+							mixTradeNo: order.wechatMixTradeNo ?? null,
+							outTradeNo: order.wechatOutTradeNo ?? null,
+							amounts: order.amounts,
+							actualCashFen: order.amounts.cashFen,
+							paidMedical: true,
+							paidCash: !options.cashless,
+							queriedAt: "2026-10-15T08:30:00.000Z",
+							...options.verification,
+						};
+					},
+				}),
 		paymentOperations: operations,
 		...(options.withoutAudits
 			? {}
@@ -261,9 +295,18 @@ async function fixture(
 									throw new Error("audit unavailable");
 								},
 							}
-						: audits,
+						: options.afterRecoveryAudit
+							? {
+									...audits,
+									append: async (record) => {
+										const stored = await audits.append(record);
+										options.afterRecoveryAudit?.();
+										return stored;
+									},
+								}
+							: audits,
 				}),
-		now: () => new Date("2026-10-15T08:30:00.000Z"),
+		now: options.now ?? (() => new Date("2026-10-15T08:30:00.000Z")),
 		createId: () => `recovery-fixture-${++sequence}`,
 	});
 	const input: RecoveryInput = {
@@ -303,6 +346,7 @@ test("受控恢复保留原退款身份和金额，6203 成功后才退款微信
 		},
 	});
 	expect(f.calls.sequence).toEqual(["medical", "wechat"]);
+	expect(f.calls.verification).toEqual(["ALL"]);
 	expect(f.calls.medical).toHaveLength(1);
 	expect(f.calls.medical[0]?.[0]).toEqual({
 		payOrdId: f.legacy.payOrdId,
@@ -406,6 +450,77 @@ test("挂号遗留 ALL 恢复按原参保地确认实际现金，仍复用原退
 		totalFen: 200,
 		refundFen: 200,
 	});
+});
+
+test("医院减免的旧ALL现金计划在CAS及6203前拒绝，原失败台账不变", async () => {
+	const f = await fixture({
+		order: { orderType: "RegPay", businessType: "registration" },
+		insuredAreaCode: "140581",
+		verification: { actualCashFen: 0, paidCash: false },
+	});
+	await expect(f.service.recoverRejectedAppRefdSn(f.input)).rejects.toThrow(
+		"实际支付",
+	);
+	expect(f.calls.verification).toEqual(["ALL"]);
+	expect(f.calls.sequence).toEqual([]);
+	expect(await f.refunds.findByRefundNo(f.legacy.refundNo)).toEqual(f.legacy);
+});
+
+test("含现金旧ALL恢复缺少实时支付核验时不改变台账或请求渠道", async () => {
+	const f = await fixture({ withoutPaymentVerification: true });
+	await expect(f.service.recoverRejectedAppRefdSn(f.input)).rejects.toThrow(
+		"实时核验不可用",
+	);
+	expect(f.calls.sequence).toEqual([]);
+	expect(await f.refunds.findByRefundNo(f.legacy.refundNo)).toEqual(f.legacy);
+});
+
+test("恢复审计等待导致支付证据过期时CAS前再次拒绝，不重复查单", async () => {
+	let currentTime = new Date("2026-10-15T08:30:00.000Z");
+	const f = await fixture({
+		now: () => currentTime,
+		afterRecoveryAudit: () => {
+			currentTime = new Date("2026-10-15T08:31:00.001Z");
+		},
+	});
+	await expect(f.service.recoverRejectedAppRefdSn(f.input)).rejects.toThrow(
+		"支付核验已过期",
+	);
+	expect(f.calls.verification).toEqual(["ALL"]);
+	expect(f.calls.sequence).toEqual([]);
+	expect(await f.refunds.findByRefundNo(f.legacy.refundNo)).toEqual(f.legacy);
+});
+
+test("旧ALL恢复只接受新鲜且原单身份、金额和已付腿均匹配的支付证据", async () => {
+	for (const verification of [
+		{ orderId: "other-order" },
+		{ version: 9 },
+		{ payOrdId: "other-payment" },
+		{ mixTradeNo: "other-mixed-order" },
+		{ outTradeNo: "other-cash-order" },
+		{ queriedAt: "2026-10-15T08:28:59.999Z" },
+		{ queriedAt: "2026-10-15T08:30:00.001Z" },
+		{
+			amounts: {
+				totalFen: 1000,
+				cashFen: 200,
+				personalAccountFen: 0,
+				fundFen: 799,
+			},
+		},
+		{ paidMedical: false },
+		{ paidCash: false },
+		{ actualCashFen: 100 },
+		{ actualCashFen: 201 },
+		{ actualCashFen: -1 },
+	] satisfies Partial<MedicalInsuranceRefundPaymentVerification>[]) {
+		const f = await fixture({ verification });
+		await expect(f.service.recoverRejectedAppRefdSn(f.input)).rejects.toThrow(
+			"实际支付",
+		);
+		expect(f.calls.sequence).toEqual([]);
+		expect(await f.refunds.findByRefundNo(f.legacy.refundNo)).toEqual(f.legacy);
+	}
 });
 
 for (const [label, patch] of [
@@ -537,7 +652,11 @@ test("医保恢复成功但微信失败时，审计不能记为整笔退费成�
 });
 
 test("纯医保 ALL 恢复无需微信适配器，仍保留原52位平台退款号", async () => {
-	const f = await fixture({ cashless: true, withoutWechat: true });
+	const f = await fixture({
+		cashless: true,
+		withoutWechat: true,
+		withoutPaymentVerification: true,
+	});
 	expect(await f.service.recoverRejectedAppRefdSn(f.input)).toMatchObject({
 		refundNo: f.legacy.refundNo,
 		status: "succeeded",

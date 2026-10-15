@@ -43,6 +43,7 @@ import {
 	requestPaymentRefund,
 	retryPaymentSyncTask,
 } from "./api";
+import { paymentAmountLines } from "./payment-amount-display";
 import {
 	hasRefundReceipt,
 	PAYMENT_REFUND_LABELS,
@@ -263,18 +264,18 @@ function flowTitle(flow: PaymentFlowSummary) {
 	);
 }
 
-function fen(value: number | undefined): string {
-	return value === undefined
-		? "—"
-		: `${value.toLocaleString("zh-CN")} 分（¥${(value / 100).toFixed(2)}）`;
+function fen(value: number | null | undefined): string {
+	return value === null
+		? "待核实"
+		: value === undefined
+			? "—"
+			: `${value.toLocaleString("zh-CN")} 分（¥${(value / 100).toFixed(2)}）`;
 }
 
 function paymentSourceLabel(
 	source: AdminWechatRefundPaymentRecord["source"],
 ): string {
-	return source === "medical_insurance"
-		? "医保 + 微信聚合订单"
-		: "普通微信支付订单";
+	return source === "medical_insurance" ? "医保支付订单" : "普通微信支付订单";
 }
 
 function paymentBusinessLabel(record: AdminWechatRefundPaymentRecord): string {
@@ -315,40 +316,7 @@ function paymentStatusLabel(record: AdminWechatRefundPaymentRecord): string {
 }
 
 function amountBreakdown(record: AdminWechatRefundPaymentRecord): string[] {
-	const items = [
-		`订单总额 ${fen(record.totalFen)}`,
-		`微信实付 ${fen(record.actualCashFen)}`,
-	];
-	if (record.actualCashFen === undefined)
-		items.push(`原现金分项 ${fen(record.cashFen)}`);
-	if (record.hospitalDiscountFen !== undefined) {
-		items.push(`医院减免 ${fen(record.hospitalDiscountFen)}（不退款）`);
-	}
-	if (record.insuranceFen !== undefined) {
-		items.push(`医保 ${fen(record.insuranceFen)}`);
-	}
-	if (record.personalAccountFen !== undefined) {
-		items.push(`个人账户 ${fen(record.personalAccountFen)}`);
-	}
-	if (record.fundFen !== undefined) items.push(`基金 ${fen(record.fundFen)}`);
-	if (record.otherPaymentFen !== undefined) {
-		items.push(`其他支付 ${fen(record.otherPaymentFen)}`);
-	}
-	if (record.hospitalPartFen !== undefined) {
-		items.push(`医院承担 ${fen(record.hospitalPartFen)}`);
-	}
-	if (record.personalAccountMutualAidFen !== undefined) {
-		items.push(`个账共济 ${fen(record.personalAccountMutualAidFen)}`);
-	}
-	if (record.personalAccountSelfFen !== undefined) {
-		items.push(`本人个账 ${fen(record.personalAccountSelfFen)}`);
-	}
-	if (record.depositFen !== undefined)
-		items.push(`押金 ${fen(record.depositFen)}`);
-	if (record.deliveryFeeFen !== undefined) {
-		items.push(`配送费 ${fen(record.deliveryFeeFen)}`);
-	}
-	return items;
+	return paymentAmountLines(record, record.cashPaymentConfirmed);
 }
 
 function refundStatusLabel(
@@ -1152,7 +1120,10 @@ export function PaymentPanel({
 		(record) => record.source === "medical_insurance",
 	).length;
 	const confirmedPaymentCount = paymentHistory.filter(
-		(record) => record.cashPaymentConfirmed,
+		(record) =>
+			record.actualCashFen !== null &&
+			record.actualCashFen > 0 &&
+			record.cashPaymentConfirmed,
 	).length;
 	const refundableCashFen = paymentHistory.reduce(
 		(total, record) => total + record.refundableFen,
@@ -1196,7 +1167,7 @@ export function PaymentPanel({
 				</Card>
 				<Card className="metric-card metric-card-medical">
 					<Statistic
-						title="当前页医保 + 微信"
+						title="当前页医保支付订单"
 						value={medicalOrderCount}
 						suffix="笔"
 					/>
@@ -1252,7 +1223,7 @@ export function PaymentPanel({
 								});
 							}}
 							options={[
-								{ value: "medical_insurance", label: "医保 + 微信" },
+								{ value: "medical_insurance", label: "医保支付订单" },
 								{ value: "payment_order", label: "普通微信" },
 							]}
 							style={{ width: 140 }}
@@ -1723,7 +1694,14 @@ export function PaymentPanel({
 								{
 									key: "total",
 									label: "金额",
-									children: `总额 ${fen(operationDetail.aggregate.totalFen)}；医保 ${fen(operationDetail.aggregate.insuranceFen)}；现金 ${fen(operationDetail.aggregate.cashFen)}`,
+									children: paymentAmountLines(
+										operationDetail.aggregate,
+										operationDetail.legs.some(
+											(leg) =>
+												leg.legType === "wechat_cash" &&
+												["confirmed", "refunded"].includes(leg.status),
+										),
+									).join("；"),
 								},
 								{
 									key: "source",
