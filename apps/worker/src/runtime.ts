@@ -20,6 +20,7 @@ import type { DependencyState } from "@hospital/contracts";
 import {
 	buildPaymentOrderOperationsProjection,
 	type HospitalSettlementGateway,
+	MedicalInsuranceRefundNotificationCoordinator,
 	type PaymentOrder,
 	PaymentOrderService,
 	PaymentSyncCoordinator,
@@ -66,6 +67,10 @@ export type WorkerRuntime = {
 		reconciliation: PaymentReconciliationWorkerResult;
 		medicalInsuranceReconciliation?: MedicalInsuranceOrderReconciliationWorkerResult;
 		medicalInsuranceRefundReconciliation?: MedicalInsuranceRefundReconciliationWorkerResult;
+		medicalInsuranceRefundNotification?:
+			| "idle"
+			| "succeeded"
+			| "retry_scheduled";
 	}>;
 	close(): Promise<void>;
 };
@@ -678,6 +683,24 @@ export function createWorkerRuntime(
 				logger,
 			})
 		: undefined;
+	const medicalInsuranceRefundNotification = wechatPayment
+		? new MedicalInsuranceRefundNotificationCoordinator({
+				tasks: repositories.paymentSync,
+				refunds: repositories.medicalInsuranceRefunds,
+				orders: repositories.medicalInsuranceOrders,
+				wechatRefunds: repositories.wechatRefunds,
+				gateway: wechatPayment,
+				resolveAggregateId: async (order) => {
+					const aggregate =
+						await repositories.paymentOperations.findAggregateByBusinessKey(
+							`medical_insurance:${order.medicalOrderId}`,
+						);
+					if (!aggregate)
+						throw new Error("medical-refund-notify-aggregate-missing");
+					return aggregate.aggregateId;
+				},
+			})
+		: undefined;
 	const medicalInsuranceReconciliation = medicalInsuranceGateway
 		? new MedicalInsuranceOrderReconciliationWorker({
 				tasks: repositories.medicalInsuranceQueryTasks,
@@ -759,6 +782,12 @@ export function createWorkerRuntime(
 				reconciliation: reconciliation
 					? await reconciliation.runOnce(now)
 					: ("idle" as const),
+				...(medicalInsuranceRefundNotification
+					? {
+							medicalInsuranceRefundNotification:
+								await medicalInsuranceRefundNotification.runOnce(),
+						}
+					: {}),
 				...(medicalInsuranceRefundReconciliation
 					? {
 							medicalInsuranceRefundReconciliation:

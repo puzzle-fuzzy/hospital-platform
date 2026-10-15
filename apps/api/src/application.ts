@@ -17,6 +17,7 @@ import type {
 	IntelligentGuideModelGateway,
 	IntelligentGuideSpeechGateway,
 	KnowledgeSearchGateway,
+	MedicalInsuranceRefundNotificationGateway,
 	OutpatientElectronicInvoiceGateway,
 	OutpatientElectronicInvoiceQueryGateway,
 	OutpatientMedicalRecordGateway,
@@ -38,6 +39,7 @@ import type {
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
+	MedicalInsuranceRefundNotificationCoordinator,
 	PaymentOrderService,
 	PaymentSyncCoordinator,
 } from "@hospital/domain";
@@ -57,6 +59,10 @@ import {
 	buildPaymentOrderProjection,
 	projectMedicalInsuranceOrder,
 } from "./modules/admin/payment-operations-projector";
+import {
+	AdminPaymentRefundService,
+	type AdminPaymentRefundServiceDependencies,
+} from "./modules/admin/payment-refund-service";
 import { AppointmentService } from "./modules/appointments";
 import { AppointmentWriteService } from "./modules/appointments/write-service";
 import {
@@ -141,6 +147,7 @@ export type ApplicationServices = {
 	adminInsuranceQuery?: AdminInsuranceQueryService;
 	/** Admin 发起/查询微信自费退款；未配置微信退款 adapter 时保持不可用。 */
 	wechatRefund?: AdminWechatRefundService;
+	adminPaymentRefund?: AdminPaymentRefundService;
 	/** Admin 只操作同步任务状态；不直接修改支付聚合单终态。 */
 	paymentSyncAdmin?: PaymentSyncAdminService;
 	sessions: SessionTokenService;
@@ -227,6 +234,11 @@ export type ApplicationServiceOptions = {
 	medicalInsuranceWechatPaymentGateway?: import("@hospital/domain").MedicalInsuranceWechatPaymentGateway;
 	/** 6203 退费 adapter；使用现有 legacy FSI gateway 的固定 refund_Order 路由。 */
 	medicalInsuranceRefundGateway?: import("@hospital/domain").MedicalInsuranceRefundGateway;
+	medicalInsuranceRefundPaymentVerifier?: {
+		verify: AdminPaymentRefundServiceDependencies["verifyPaymentForRefund"];
+	};
+	medicalInsuranceRefundNotificationGateway?: MedicalInsuranceRefundNotificationGateway;
+	verifyWechatRefundPayment?: AdminPaymentRefundServiceDependencies["verifyPaymentOrder"];
 	/** 旧服务第二次云健康 .2 插件预下单；未配置时保持 fail-closed。 */
 	yunhealthRegistrationPluginPaymentGateway?: YunhealthRegistrationPluginPaymentGateway;
 	yunhealthRegistrationPluginPayTypeId?: string;
@@ -685,6 +697,7 @@ export function createDefaultApplicationServices(
 			),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const refundPaymentVerifier = options.medicalInsuranceRefundPaymentVerifier;
 	const wechatRefund = options.wechatRefundGateway
 		? new AdminWechatRefundService({
 				refunds: repositories.wechatRefunds,
@@ -696,6 +709,10 @@ export function createDefaultApplicationServices(
 				patients: repositories.patients,
 				userProfiles: repositories.userProfiles,
 				gateway: options.wechatRefundGateway,
+				registrationRefundEnabled: Boolean(
+					options.appointmentWriteGateway &&
+						options.registrationSelfPayRefundNotificationGateway,
+				),
 			})
 		: undefined;
 	const paymentSync = new PaymentSyncCoordinator({
@@ -710,6 +727,12 @@ export function createDefaultApplicationServices(
 				paymentOperations: repositories.paymentOperations,
 				operatorAudits: repositories.operatorAudits,
 				paymentSync,
+				...(refundPaymentVerifier
+					? {
+							verifyPaymentForRefund: (order, scope) =>
+								refundPaymentVerifier.verify(order, scope ?? "HI"),
+						}
+					: {}),
 				ensurePaymentAggregate: async (order) =>
 					(
 						await projectMedicalInsuranceOrder(
@@ -747,6 +770,72 @@ export function createDefaultApplicationServices(
 		},
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const medicalRefundNotification =
+		options.medicalInsuranceRefundNotificationGateway
+			? new MedicalInsuranceRefundNotificationCoordinator({
+					tasks: repositories.paymentSync,
+					refunds: repositories.medicalInsuranceRefunds,
+					orders: repositories.medicalInsuranceOrders,
+					wechatRefunds: repositories.wechatRefunds,
+					gateway: options.medicalInsuranceRefundNotificationGateway,
+					resolveAggregateId: async (order) => {
+						const projection = await projectMedicalInsuranceOrder(
+							repositories.paymentOperations,
+							order,
+						);
+						if (!projection)
+							throw new DependencyNotConfiguredError("payment-operations");
+						return projection.aggregate.aggregateId;
+					},
+				})
+			: undefined;
+	const adminPaymentRefund =
+		wechatRefund && medicalInsuranceRefund && refundPaymentVerifier
+			? new AdminPaymentRefundService({
+					orders: repositories.medicalInsuranceOrders,
+					paymentOrders: repositories.paymentOrders,
+					medicalRefunds: repositories.medicalInsuranceRefunds,
+					wechatRefunds: repositories.wechatRefunds,
+					medicalService: medicalInsuranceRefund,
+					wechatService: wechatRefund,
+					verifyPaymentForRefund: (order, scope) =>
+						refundPaymentVerifier.verify(order, scope),
+					...(options.verifyWechatRefundPayment
+						? { verifyPaymentOrder: options.verifyWechatRefundPayment }
+						: {}),
+					...(medicalRefundNotification
+						? {
+								notifyMedicalRefund: (order, refund) =>
+									medicalRefundNotification.notify(order, refund),
+							}
+						: {}),
+					...(options.appointmentWriteGateway &&
+					options.registrationSelfPayRefundNotificationGateway
+						? {
+								refundRegistrationPayment: async (order, context) => {
+									const prefix = "registration-self-pay:";
+									if (!order.idempotencyKey.startsWith(prefix))
+										throw new DependencyNotConfiguredError(
+											"registration-refund-context",
+										);
+									const appointmentId = order.idempotencyKey.slice(
+										prefix.length,
+									);
+									if (!appointmentId)
+										throw new DependencyNotConfiguredError(
+											"registration-refund-context",
+										);
+									await registrationPaymentExit.abandon({
+										ownerUserId: order.ownerUserId,
+										appointmentId,
+										mode: "self",
+										context,
+									});
+								},
+							}
+						: {}),
+				})
+			: undefined;
 	const yunhealthPaymentQuery = new YunhealthPaymentQueryService({
 		orders: repositories.paymentOrders,
 		medicalOrders: repositories.medicalInsuranceOrders,
@@ -936,6 +1025,7 @@ export function createDefaultApplicationServices(
 		}),
 		...(adminInsuranceQuery ? { adminInsuranceQuery } : {}),
 		...(wechatRefund ? { wechatRefund } : {}),
+		...(adminPaymentRefund ? { adminPaymentRefund } : {}),
 		paymentSyncAdmin,
 		sessions,
 	};
