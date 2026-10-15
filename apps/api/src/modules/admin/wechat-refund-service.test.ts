@@ -93,6 +93,363 @@ function paidMedicalOrder(): MedicalInsuranceOrder {
 	};
 }
 
+function medicalLedgerRefund(
+	order: MedicalInsuranceOrder,
+	patch: Partial<MedicalInsuranceRefund> = {},
+): MedicalInsuranceRefund {
+	return {
+		refundId: `hi-${order.medicalOrderId}`,
+		medicalOrderId: order.medicalOrderId,
+		ownerUserId: order.ownerUserId,
+		payOrdId: order.payOrdId ?? "query-order-001",
+		refundNo: `RFMI-${order.medicalOrderId}`,
+		idempotencyKey: `his-medical-leg:${order.medicalOrderId}`,
+		refundType: "HI",
+		totalFen:
+			(order.amounts?.fundFen ?? 0) + (order.amounts?.personalAccountFen ?? 0),
+		cashFen: 0,
+		personalAccountFen: order.amounts?.personalAccountFen ?? 0,
+		fundFen: order.amounts?.fundFen ?? 0,
+		medicalStatus: "success",
+		medicalRefStatus: "SUCC",
+		medicalProviderRequestId: "6203-history-success",
+		wechatStatus: "not_required",
+		wechatMerchantRefundNo: null,
+		status: "succeeded",
+		lastErrorCode: null,
+		version: 3,
+		createdAt: order.createdAt,
+		updatedAt: order.updatedAt,
+		...patch,
+	};
+}
+
+async function medicalOptionsFixture(
+	order: MedicalInsuranceOrder,
+	medical: readonly MedicalInsuranceRefund[] = [],
+	wechat: readonly WechatRefund[] = [],
+) {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(order);
+	let providerCalls = 0;
+	const service = new AdminWechatRefundService({
+		refunds: createInMemoryWechatRefundRepository(wechat),
+		paymentOrders: createInMemoryPaymentOrderRepository(),
+		medicalInsuranceOrders: orders,
+		medicalInsuranceRefunds:
+			createInMemoryMedicalInsuranceRefundRepository(medical),
+		gateway: {
+			async requestRefund() {
+				providerCalls += 1;
+				throw new Error("unexpected provider write");
+			},
+			async queryRefund() {
+				providerCalls += 1;
+				throw new Error("unexpected provider query");
+			},
+		},
+	});
+	return { orders, service, providerCalls: () => providerCalls };
+}
+
+test("高平挂号现金减免不进入微信可退金额，历史读模型不调用提供商", async () => {
+	const order: MedicalInsuranceOrder = {
+		...paidMedicalOrder(),
+		orderType: "RegPay",
+		businessType: "registration",
+		payOrdId: "paid-discount-order",
+		status: "manual_review",
+		amounts: {
+			totalFen: 1000,
+			cashFen: 200,
+			personalAccountFen: 0,
+			fundFen: 800,
+		},
+	};
+	const fixture = await medicalOptionsFixture(order);
+	await fixture.orders.saveSettlementContext(
+		order.ownerUserId,
+		order.medicalOrderId,
+		{
+			businessId: "registration-discount-001",
+			hospitalId: "hospital-fixture",
+			patientId: order.patientId,
+			networkRegister: {},
+			outNetworkSettleMain: {},
+			nationalUpDetailList: [],
+			upDetailList: [],
+			tradeOrderIds: [],
+			insuredAreaCode: "140581",
+		},
+	);
+	const item = (await fixture.service.listPaymentHistory()).items[0];
+	expect(item).toMatchObject({
+		cashFen: 200,
+		actualCashFen: 0,
+		hospitalDiscountFen: 200,
+		refundableFen: 0,
+		medicalRefundableFen: 800,
+		refundOptions: {
+			ALL: { enabled: true, amountFen: 800 },
+			HI: { enabled: true, amountFen: 800 },
+			CASH: { enabled: false, amountFen: 0 },
+		},
+	});
+	await expect(
+		fixture.service.requestMedicalInsuranceCashByOrder(
+			{ orderId: order.medicalOrderId },
+			context,
+		),
+	).rejects.toThrow("没有可退的微信自费金额");
+	expect(fixture.providerCalls()).toBe(0);
+});
+
+test("医保已退仍允许未退微信腿；两腿均已退时三个选项都禁用", async () => {
+	const order: MedicalInsuranceOrder = {
+		...paidMedicalOrder(),
+		payOrdId: "paid-mixed-order",
+		status: "manual_review",
+		amounts: {
+			totalFen: 8000,
+			cashFen: 6680,
+			personalAccountFen: 0,
+			fundFen: 1320,
+		},
+	};
+	const hi = medicalLedgerRefund(order);
+	const cashPending = await medicalOptionsFixture(order, [hi]);
+	expect(
+		(await cashPending.service.listPaymentHistory()).items[0],
+	).toMatchObject({
+		actualCashFen: 6680,
+		medicalRefundableFen: 0,
+		refundableFen: 6680,
+		refundOptions: {
+			ALL: { enabled: true, amountFen: 6680 },
+			HI: { enabled: false, amountFen: 0 },
+			CASH: { enabled: true, amountFen: 6680 },
+		},
+	});
+	const cash = ledgerRefund({
+		refundRecordId: "cash-mixed-success",
+		merchantRefundNo: "RF-WX-mixed-success",
+		source: "medical_insurance",
+		sourceOrderId: order.medicalOrderId,
+		refundFen: 6680,
+		status: "success",
+		updatedAt: order.updatedAt,
+	});
+	const completed = await medicalOptionsFixture(order, [hi], [cash]);
+	const options = (await completed.service.listPaymentHistory()).items[0]
+		?.refundOptions;
+	for (const option of Object.values(options ?? {}))
+		expect(option).toMatchObject({ enabled: false, amountFen: 0 });
+	expect(completed.providerCalls()).toBe(0);
+});
+
+test("失败旧 ALL 记录和未知医保记录保留占用，不允许换入口再次退款", async () => {
+	const order: MedicalInsuranceOrder = {
+		...paidMedicalOrder(),
+		payOrdId: "paid-legacy-all",
+		status: "manual_review",
+		amounts: {
+			totalFen: 8000,
+			cashFen: 6680,
+			personalAccountFen: 0,
+			fundFen: 1320,
+		},
+	};
+	const legacy = medicalLedgerRefund(order, {
+		refundType: "ALL",
+		totalFen: 8000,
+		cashFen: 6680,
+		medicalStatus: "failed",
+		medicalRefStatus: null,
+		wechatStatus: "requested",
+		wechatMerchantRefundNo: "RFMI-old52",
+		status: "failed",
+		lastErrorCode: "360221",
+	});
+	const fixture = await medicalOptionsFixture(order, [legacy]);
+	const item = (await fixture.service.listPaymentHistory()).items[0];
+	expect(item).toMatchObject({
+		refundableFen: 0,
+		medicalRefundableFen: 0,
+		refundRoute: "unavailable",
+	});
+	for (const option of Object.values(item?.refundOptions ?? {}))
+		expect(option.enabled).toBe(false);
+	const unknown = await medicalOptionsFixture(order, [
+		medicalLedgerRefund(order, {
+			medicalStatus: "unknown",
+			medicalRefStatus: null,
+			status: "manual_review",
+		}),
+	]);
+	expect(
+		(await unknown.service.listPaymentHistory()).items[0]?.refundOptions.HI
+			.enabled,
+	).toBe(false);
+});
+
+test("只确认医保付款时只开放医保金额；缺失挂号区域或订单类型时保守禁用", async () => {
+	const order: MedicalInsuranceOrder = {
+		...paidMedicalOrder(),
+		payOrdId: "paid-hi-only",
+		ordStas: "4",
+		wechatPaymentState: "unknown",
+		amounts: {
+			totalFen: 8000,
+			cashFen: 6680,
+			personalAccountFen: 0,
+			fundFen: 1320,
+		},
+	};
+	const fixture = await medicalOptionsFixture(order);
+	expect((await fixture.service.listPaymentHistory()).items[0]).toMatchObject({
+		refundableFen: 0,
+		medicalRefundableFen: 1320,
+		refundOptions: {
+			ALL: { enabled: true, amountFen: 1320 },
+			HI: { enabled: true, amountFen: 1320 },
+			CASH: { enabled: false, amountFen: 0 },
+		},
+	});
+	const missingType = { ...order };
+	delete missingType.orderType;
+	for (const incompleteOrder of [
+		{ ...order, orderType: "RegPay" as const },
+		missingType,
+	]) {
+		const incomplete = await medicalOptionsFixture(incompleteOrder);
+		const item = (await incomplete.service.listPaymentHistory()).items[0];
+		for (const option of Object.values(item?.refundOptions ?? {})) {
+			expect(option.enabled).toBe(false);
+			expect(option.reason).toContain("支付上下文不完整");
+		}
+	}
+});
+
+test("微信单腿只申请历史部分退费后的剩余额，重复调用复用同一退款", async () => {
+	const order: MedicalInsuranceOrder = {
+		...paidMedicalOrder(),
+		amounts: {
+			totalFen: 8000,
+			cashFen: 6680,
+			personalAccountFen: 0,
+			fundFen: 1320,
+		},
+	};
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	await orders.insert(order);
+	const previous = ledgerRefund({
+		refundRecordId: "previous-partial-cash",
+		merchantRefundNo: "RF-previous-partial-cash",
+		source: "medical_insurance",
+		sourceOrderId: order.medicalOrderId,
+		refundFen: 100,
+		status: "success",
+		updatedAt: order.updatedAt,
+	});
+	let calls = 0;
+	const service = new AdminWechatRefundService({
+		refunds: createInMemoryWechatRefundRepository([
+			{
+				...previous,
+				totalFen: 6680,
+				outTradeNo: "medical-wechat-out-history-001",
+			},
+		]),
+		paymentOrders: createInMemoryPaymentOrderRepository(),
+		medicalInsuranceOrders: orders,
+		medicalInsuranceRefunds: createInMemoryMedicalInsuranceRefundRepository(),
+		gateway: {
+			async requestRefund(input) {
+				calls += 1;
+				expect(input).toMatchObject({
+					totalFen: 6680,
+					refundFen: 6580,
+					outTradeNo: order.wechatOutTradeNo,
+				});
+				return { ...result("PROCESSING"), ...input };
+			},
+			async queryRefund() {
+				throw new Error("processing record must not reapply");
+			},
+		},
+	});
+	const first = await service.requestMedicalInsuranceCashByOrder(
+		{ orderId: order.medicalOrderId },
+		context,
+	);
+	const repeated = await service.requestMedicalInsuranceCashByOrder(
+		{ orderId: order.medicalOrderId },
+		context,
+	);
+	expect(first.refundFen).toBe(6580);
+	expect(repeated.merchantRefundNo).toBe(first.merchantRefundNo);
+	expect(calls).toBe(1);
+});
+
+test("微信单腿检查全部医保退费历史，较新的 HI 不能遮盖旧 ALL 占用", async () => {
+	const order: MedicalInsuranceOrder = {
+		...paidMedicalOrder(),
+		payOrdId: "old-all-history",
+		amounts: {
+			totalFen: 8000,
+			cashFen: 6680,
+			personalAccountFen: 0,
+			fundFen: 1320,
+		},
+	};
+	const oldAll = medicalLedgerRefund(order, {
+		refundId: "old-all-record",
+		refundNo: "RFMI-old-all",
+		refundType: "ALL",
+		totalFen: 8000,
+		cashFen: 6680,
+		updatedAt: "2026-09-18T01:00:00.000Z",
+	});
+	const latestHi = medicalLedgerRefund(order);
+	const fixture = await medicalOptionsFixture(order, [oldAll, latestHi]);
+	await expect(
+		fixture.service.requestMedicalInsuranceCashByOrder(
+			{ orderId: order.medicalOrderId },
+			context,
+		),
+	).rejects.toThrow("已有整笔聚合退费记录");
+	expect(fixture.providerCalls()).toBe(0);
+});
+
+test("普通挂号只在医院已完成且配置取消编排时开放退款并取消能力", async () => {
+	for (const state of ["completed", "cash_paid"] as const) {
+		const order: PaymentOrder = {
+			...paidOrder(),
+			idempotencyKey: "registration-self-pay:appointment-cancel-options",
+			state,
+		};
+		const service = new AdminWechatRefundService({
+			refunds: createInMemoryWechatRefundRepository(),
+			paymentOrders: createInMemoryPaymentOrderRepository([order]),
+			medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+			registrationRefundEnabled: true,
+			gateway: {
+				async requestRefund() {
+					throw new Error("history must not refund");
+				},
+				async queryRefund() {
+					throw new Error("history must not query provider");
+				},
+			},
+		});
+		const item = (await service.listPaymentHistory()).items[0];
+		expect(item?.refundRoute).toBe("appointment_cancel");
+		expect(item?.refundOptions.ALL.enabled).toBe(state === "completed");
+		expect(item?.refundOptions.CASH.enabled).toBe(state === "completed");
+		expect(item?.refundOptions.HI.enabled).toBe(false);
+	}
+});
+
 function ledgerRefund(input: {
 	refundRecordId: string;
 	merchantRefundNo: string;
@@ -594,8 +951,8 @@ test("admin refund history shows prior payments and only enables the safe refund
 		personalAccountFen: paidMedicalOrder().amounts?.personalAccountFen,
 		fundFen: paidMedicalOrder().amounts?.fundFen,
 		cashPaymentConfirmed: true,
-		refundReservedFen: 80,
-		refundableFen: 420,
+		refundReservedFen: 580,
+		refundableFen: 0,
 		refundRoute: "unavailable",
 		latestMedicalRefund: {
 			refundNo: "RFMIhistory001",
