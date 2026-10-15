@@ -155,7 +155,11 @@ export class MedicalInsuranceRefundNotificationCoordinator {
 		});
 		let identities: readonly string[];
 		if (breakdown.wechatCashFen <= 0)
-			identities = [refund.refundNo.slice(0, 40)];
+			// WeChat accepts the full refund identity. The short HIS identifier is
+			// retained only to match immutable notifications scheduled by older code.
+			identities = [
+				...new Set([refund.refundNo, refund.refundNo.slice(0, 40)]),
+			];
 		else {
 			const cashRecords =
 				(await this.dependencies.wechatRefunds.findBySourceAndSourceOrder?.(

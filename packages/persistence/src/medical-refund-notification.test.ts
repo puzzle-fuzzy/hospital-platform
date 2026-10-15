@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import type {
 	AdapterCallContext,
 	MedicalInsuranceOrder,
 	MedicalInsuranceRefund,
 	PaymentSyncRepository,
+	PaymentSyncTask,
 } from "@hospital/domain";
 import {
 	MedicalInsuranceRefundNotificationCoordinator,
@@ -156,7 +158,7 @@ async function fixture(
 	};
 }
 
-test("pure HI notification reuses the controlled 40-character refund number and clears only the pending marker", async () => {
+test("new pure HI notification uses the full 52-character refund identity and clears only the pending marker", async () => {
 	const f = await fixture({ discount: true });
 	await f.coordinator().notify(f.order, f.refund);
 	expect(f.calls).toHaveLength(1);
@@ -166,10 +168,11 @@ test("pure HI notification reuses the controlled 40-character refund number and 
 		fundFen: 800,
 		personalAccountFen: 0,
 		otherFen: 0,
-		merchantRefundNo: ledgerRefundNo.slice(0, 40),
+		merchantRefundNo: ledgerRefundNo,
 		successTime: fixedTime,
 	});
-	expect(f.calls[0]?.context.idempotencyKey).toBe(ledgerRefundNo.slice(0, 40));
+	expect(f.calls[0]?.context.idempotencyKey).toBe(ledgerRefundNo);
+	expect(f.calls[0]?.input.merchantRefundNo).toHaveLength(52);
 	expect(await f.currentRefund()).toMatchObject({
 		medicalStatus: "success",
 		medicalRefStatus: "SUCC",
@@ -179,6 +182,117 @@ test("pure HI notification reuses the controlled 40-character refund number and 
 	const [task] = await f.tasks.listTasksForAdmin({ limit: 10 });
 	expect(task?.businessKey.length).toBeLessThanOrEqual(128);
 	expect(task).toMatchObject({ status: "succeeded", attempts: 1 });
+});
+
+function legacyPureMedicalTask(
+	status: "pending" | "succeeded" = "pending",
+): PaymentSyncTask {
+	const originalInput: NotifyInput = {
+		mixTradeNo: "test-mix-trade",
+		totalFen: 800,
+		fundFen: 800,
+		personalAccountFen: 0,
+		otherFen: 0,
+		merchantRefundNo: ledgerRefundNo.slice(0, 40),
+		successTime: fixedTime,
+	};
+	const fingerprint = createHash("sha256")
+		.update(JSON.stringify(originalInput))
+		.digest("base64url");
+	return {
+		taskId: `medrefundnotify-${createHash("sha256").update(ledgerRefundNo).digest("hex").slice(0, 40)}`,
+		aggregateId: "test-payment-aggregate",
+		businessKey: `medical_refund_notify:${ledgerRefundNo}:${Date.parse(fixedTime).toString(36)}:${fingerprint}`,
+		source: "wechat_pay",
+		kind: "writeback",
+		status,
+		attempts: status === "succeeded" ? 1 : 0,
+		maxAttempts: 20,
+		nextRunAt: fixedTime,
+		claimedUntil: null,
+		lastErrorCode: null,
+		resultDigest:
+			status === "succeeded"
+				? createHash("sha256").update("original-notify-receipt").digest("hex")
+				: null,
+		version: 1,
+		createdAt: fixedTime,
+		updatedAt: fixedTime,
+	};
+}
+
+test("frozen short40 pure HI task retries with its original body, amount and time after restart", async () => {
+	const f = await fixture({ discount: true });
+	const originalTask = legacyPureMedicalTask();
+	await f.tasks.enqueueTask(originalTask);
+	f.setFailures(1);
+	await expect(f.coordinator().notify(f.order, f.refund)).rejects.toThrow(
+		"transport-unknown",
+	);
+	const current = await f.currentRefund();
+	await f.refunds.update(
+		{
+			...current,
+			updatedAt: "2026-10-15T02:00:30.000Z",
+			version: current.version + 1,
+		},
+		current.version,
+	);
+	f.advance();
+	expect(await f.coordinator().runOnce()).toBe("succeeded");
+	expect(f.calls).toHaveLength(2);
+	expect(f.calls[0]?.input).toEqual({
+		mixTradeNo: "test-mix-trade",
+		totalFen: 800,
+		fundFen: 800,
+		personalAccountFen: 0,
+		otherFen: 0,
+		merchantRefundNo: ledgerRefundNo.slice(0, 40),
+		successTime: fixedTime,
+	});
+	expect(f.calls[1]?.input).toEqual(f.calls[0]?.input);
+	expect(f.calls.map((call) => call.context.idempotencyKey)).toEqual([
+		ledgerRefundNo.slice(0, 40),
+		ledgerRefundNo.slice(0, 40),
+	]);
+	const stored = await f.tasks.findTaskById(originalTask.taskId);
+	expect(stored).toMatchObject({
+		status: "succeeded",
+		attempts: 2,
+		businessKey: originalTask.businessKey,
+		createdAt: fixedTime,
+	});
+	expect((await f.currentRefund()).fundFen).toBe(800);
+});
+
+test("succeeded frozen short40 task is neither sent nor reopened when a pending marker is reconciled", async () => {
+	const f = await fixture();
+	const originalTask = legacyPureMedicalTask("succeeded");
+	await f.tasks.enqueueTask(originalTask);
+	f.advance();
+	const tasks: PaymentSyncRepository = {
+		...f.tasks,
+		enqueueTask: async () => {
+			throw new Error("Must not recreate a succeeded task");
+		},
+		updateTask: async () => {
+			throw new Error("Must not reopen or rewrite a succeeded task");
+		},
+		claimDueTasks: async () => {
+			throw new Error("Must not claim an accepted notification");
+		},
+	};
+	await f.coordinator({ tasks }).notify(f.order, await f.currentRefund());
+	expect(f.calls).toHaveLength(0);
+	expect(await f.tasks.findTaskById(originalTask.taskId)).toEqual(originalTask);
+	expect(await f.currentRefund()).toMatchObject({
+		status: "succeeded",
+		medicalStatus: "success",
+		medicalRefStatus: "SUCC",
+		fundFen: 800,
+		personalAccountFen: 0,
+		lastErrorCode: null,
+	});
 });
 
 test("persisted task retries after restart with identical body, identity and success time despite newer cash state", async () => {
