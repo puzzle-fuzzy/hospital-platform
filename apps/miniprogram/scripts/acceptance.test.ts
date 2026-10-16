@@ -2882,7 +2882,8 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(scheduleTemplate).toContain("registrationClassName");
 	expect(scheduleStyle).toContain("schedule-registration-class");
 	expect(home).toContain("navigateToAuthenticatedPage");
-	expect(home).toContain('"/pages/hospital-list/hospital-list"');
+	expect(home).toContain('"/pages/appointment-directory/appointment-directory"');
+	expect(home).not.toContain('"/pages/hospital-list/hospital-list"');
 	expect(home).toContain("navigateToPatientScopedPage");
 	expect(home).toContain('"/pages/appointment-records/appointment-records"');
 	expect(home).not.toContain("预约下单功能仍在迁移中");
@@ -3259,7 +3260,7 @@ test("outpatient payment preserves the legacy patient and hospital selector rows
 	expect(sharedContextStyle).toContain(".patient-hospital-context-card-number");
 });
 
-test("native mini program preserves the legacy static hospital entry boundary", async () => {
+test("native mini program skips fixed hospital selection and retains legacy page compatibility", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");
 	const page = await source("pages/hospital-list/hospital-list.ts");
@@ -3272,9 +3273,10 @@ test("native mini program preserves the legacy static hospital entry boundary", 
 
 	expect(app).toContain('"pages/hospital-list/hospital-list"');
 	expect(home).toContain("navigateToAuthenticatedPage");
-	expect(home).toContain('"/pages/hospital-list/hospital-list"');
-	// 旧首页顶部“互联网医院”实际指向 pagesB/hospital/hospitalList，
-	// 不能因为标签名称而误判为必须恢复外部 web-view。
+	expect(home).toContain('"/pages/appointment-directory/appointment-directory"');
+	expect(home).not.toContain('"/pages/hospital-list/hospital-list"');
+	// 首页顶部“互联网医院”与预约挂号共用单院区科室入口；
+	// 旧院区页仍保留注册，兼容历史链接。
 	expect(home).toContain('action: "hospital-list"');
 	expect(home).toContain('case "hospital-list"');
 	expect(page).toContain("STATIC_HOSPITAL");
