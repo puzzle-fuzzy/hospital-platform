@@ -341,6 +341,7 @@ test("有效预约仍按同一个预约引用恢复原支付，详情读后换�
 	expect(eligible.calls).toEqual([
 		`/api/v2/appointments/registrations/${detail.appointmentId}`,
 		"/api/v2/payments/medical-insurance/business-recovery",
+		"/api/v2/payments/medical-insurance/business-recovery",
 		`/api/v2/payments/appointments/${detail.appointmentId}/self-pay`,
 	]);
 	expect(eligible.page.data.completed).toBeTrue();
@@ -392,7 +393,10 @@ test("确认中和已过期的原自费单只查单并刷新详情，不创建�
 		);
 		expect(selfQueryIndex).toBeGreaterThan(-1);
 		expect(fixture.methods[selfQueryIndex]).toBe("GET");
-		expect(fixture.calls.at(-1)).toContain("/appointments/registrations/");
+		expect(fixture.calls.slice(-2)).toEqual([
+			`/api/v2/appointments/registrations/${detail.appointmentId}`,
+			"/api/v2/payments/medical-insurance/business-recovery",
+		]);
 		expect(fixture.page.data.canPay).toBeFalse();
 		expect(fixture.nativeCalls()).toBe(0);
 	}

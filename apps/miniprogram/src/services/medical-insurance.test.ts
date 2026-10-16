@@ -7,6 +7,33 @@ const originalGetAppDescriptor = Object.getOwnPropertyDescriptor(
 	"getApp",
 );
 
+test("参保地公共错误码不依赖 Error 原型，数字回退必须是 ApiError 形态", async () => {
+	const { isMedicalInsuranceRegionUnsupported } = await import(
+		"./medical-insurance"
+	);
+	const prototypeLost = Object.assign(Object.create(null), {
+		code: "medical-insurance-region-unsupported",
+	});
+	for (const error of [
+		prototypeLost,
+		{ code: "medical-insurance-region-unsupported" },
+		{ name: "ApiError", numericCode: 30580 },
+	]) {
+		expect(isMedicalInsuranceRegionUnsupported(error)).toBeTrue();
+	}
+	for (const error of [
+		null,
+		30580,
+		{ numericCode: 30580 },
+		{ name: "Error", numericCode: 30580 },
+		{ name: "ApiError", numericCode: "30580" },
+		{ name: "ApiError", numericCode: 30581 },
+		{ message: "当前参保地暂未开通医保支付，请选择微信支付" },
+	]) {
+		expect(isMedicalInsuranceRegionUnsupported(error)).toBeFalse();
+	}
+});
+
 test("医保入口资格读取当前业务的服务端判断，未知不会从客户端区划猜测", async () => {
 	const requests: string[] = [];
 	let eligibility: string | undefined = "unsupported";
@@ -140,6 +167,80 @@ test("参保地暂未开通的授权拒绝不会继续上传费用或自动转�
 	expect(requests[1]).toEndWith(
 		"/payments/medical-insurance/outpatient/authorize",
 	);
+});
+
+test("新门诊授权复核精确匹配当次业务和患者，未知资格或读取失败原样保留错误", async () => {
+	const { continueMedicalPayment, createMedicalPaymentContext } = await import(
+		"./medical-insurance"
+	);
+	for (const eligibility of [
+		"unsupported",
+		"unknown",
+		"read-failure",
+	] as const) {
+		const requests: string[] = [];
+		const originalError = new Error("authorization transport fixture");
+		Object.assign(globalThis, {
+			getApp: () => ({
+				globalData: {
+					apiBaseUrl: "https://hospital.example.test",
+					apiPrefix: "/api/v2",
+					accessToken: "outpatient-authorization-return-session",
+					sessionStatus: "signed_in",
+				},
+			}),
+			wx: {
+				getStorageSync: () => undefined,
+				request: (options: {
+					url: string;
+					success(response: unknown): void;
+				}) => {
+					requests.push(options.url);
+					if (options.url.endsWith("/outpatient/authorize")) {
+						throw originalError;
+					}
+					expect(options.url).toEndWith(
+						"/outpatient-records/current-record/authorization-context?patientId=current-patient",
+					);
+					options.success({
+						statusCode: eligibility === "read-failure" ? 503 : 200,
+						header: {},
+						data:
+							eligibility === "read-failure"
+								? {
+										success: false,
+										error: { code: "provider-temporarily-unavailable" },
+									}
+								: {
+										success: true,
+										data: {
+											payForRelatives: false,
+											medicalInsurancePaymentEligibility: eligibility,
+										},
+									},
+					});
+				},
+			},
+		});
+		const continuation = continueMedicalPayment(
+			"current-outpatient-auth-code",
+			createMedicalPaymentContext({
+				businessType: "outpatient",
+				businessId: "current-record",
+				patientId: "current-patient",
+				phase: "authorization",
+			}),
+			() => undefined,
+		);
+		if (eligibility === "unsupported") {
+			await expect(continuation).rejects.toMatchObject({
+				code: "medical-insurance-region-unsupported",
+			});
+		} else {
+			await expect(continuation).rejects.toBe(originalError);
+		}
+		expect(requests).toHaveLength(2);
+	}
 });
 
 test("已知外地参保不跳转医保，未知仍可授权且亲情付路由保持完整", async () => {
