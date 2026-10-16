@@ -29,6 +29,7 @@ import {
 	Typography,
 } from "antd";
 import { useCallback, useEffect, useState } from "react";
+import { formatAdminTime as formatTime } from "./admin-time";
 import {
 	ApiError,
 	fetchPaymentDay,
@@ -80,13 +81,6 @@ function todayInShanghai(): string {
 		month: "2-digit",
 		day: "2-digit",
 	}).format(new Date());
-}
-
-function formatTime(value: string): string {
-	const time = new Date(value);
-	return Number.isNaN(time.getTime())
-		? value
-		: time.toLocaleString("zh-CN", { hour12: false });
 }
 
 function statusText(status: PaymentStatus): string {
@@ -441,7 +435,11 @@ function paymentRecordColumns(
 			render: (_value, _record, index) => index + 1,
 		},
 		{
-			title: "更新时间",
+			title: (
+				<Tooltip title="订单状态或结算上下文最后更新的时间，不是支付完成时间。">
+					<span>更新时间（北京时间）</span>
+				</Tooltip>
+			),
 			dataIndex: "updatedAt",
 			key: "updatedAt",
 			width: 172,

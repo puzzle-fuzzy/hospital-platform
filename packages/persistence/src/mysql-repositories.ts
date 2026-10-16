@@ -2898,8 +2898,8 @@ function paymentOrder(row: PaymentOrderRow): PaymentOrder {
 			1,
 			"Persistence returned an invalid payment order version",
 		),
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
 	};
 }
 
@@ -5107,7 +5107,7 @@ export function createMySqlRepositories(
 				`UPDATE hp_payment_orders
 				 SET registration_self_pay_context_ciphertext = ?,
 				     registration_self_pay_record_code_hash = ?,
-				     updated_at = NOW(3)
+				     updated_at = UTC_TIMESTAMP(3)
 				 WHERE owner_user_id = ? AND order_id = ?`,
 				[
 					requiredPrepayCipher().seal(
@@ -6766,7 +6766,7 @@ export function createMySqlRepositories(
 			const result = await execute<ResultSetHeader>(
 				pool,
 				`UPDATE hp_medical_insurance_orders
-				 SET settlement_context_ciphertext = ?, updated_at = NOW(3)
+				 SET settlement_context_ciphertext = ?, updated_at = UTC_TIMESTAMP(3)
 				 WHERE medical_order_id = ? AND owner_user_id = ?`,
 				[
 					cipher.seal(serializeMedicalInsuranceSettlementContext(context)),
@@ -6785,7 +6785,7 @@ export function createMySqlRepositories(
 			const result = await execute<ResultSetHeader>(
 				pool,
 				`UPDATE hp_medical_insurance_orders
-				 SET settlement_context_ciphertext = ?, updated_at = NOW(3)
+				 SET settlement_context_ciphertext = ?, updated_at = UTC_TIMESTAMP(3)
 				 WHERE medical_order_id = ? AND owner_user_id = ?
 				 AND settlement_context_ciphertext IS NULL`,
 				[
@@ -6949,7 +6949,7 @@ export function createMySqlRepositories(
 					wechat_payment_state = COALESCE(?, wechat_payment_state),
 					wechat_pay_params_ciphertext = COALESCE(?, wechat_pay_params_ciphertext),
 					wechat_prepay_expires_at = COALESCE(?, wechat_prepay_expires_at),
-					version = version + 1, updated_at = NOW(3)
+					version = version + 1, updated_at = UTC_TIMESTAMP(3)
 				WHERE medical_order_id = ? AND version = ?`,
 					[
 						patch.status,
