@@ -2957,6 +2957,19 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			payer = { idNo: payerIdNo, userName: payerName, idType: "01" };
 		}
 
+		const authorizedInsuredArea =
+			findTextAnywhere(
+				queryResponse.data,
+				["city_id"],
+				authorizationOperation,
+				queryResponse.requestId,
+			) ??
+			findTextAnywhere(
+				queryPayload,
+				["city_id"],
+				authorizationOperation,
+				queryResponse.requestId,
+			);
 		const infoResponse = await relayPost(
 			"medical-insurance.1101",
 			context,
@@ -2969,7 +2982,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				)
 					.toString()
 					.padStart(4, "0")}`,
-				insuplc_admdvs: "",
+				insuplc_admdvs: authorizedInsuredArea ?? "",
 				mdtrtarea_admvs: "140581",
 				dev_no: "",
 				dev_safe_info: "",

@@ -548,8 +548,16 @@ function authorizationSelectionFixture(
 		userQueryPath?: string;
 		userQueryPartnerSecret?: string | undefined;
 	} = {},
+	userQueryResponses: readonly unknown[] = [
+		{
+			code: 0,
+			message: "success",
+			pay_auth_no: "AUTH-SELECTION-001",
+		},
+	],
 ) {
 	let requestCount = 0;
+	let userQueryCount = 0;
 	const relayRequests: Record<string, unknown>[] = [];
 	const relayHeaders: Headers[] = [];
 	let storedAuthorization: MedicalInsuranceAuthorizationContext | undefined;
@@ -574,16 +582,15 @@ function authorizationSelectionFixture(
 		now: () => new Date("2026-09-10T01:00:00.000Z"),
 		fetcher: async (_input, init) => {
 			requestCount += 1;
-			relayRequests.push(JSON.parse(String(init?.body)));
+			const relayRequest = JSON.parse(String(init?.body));
+			relayRequests.push(relayRequest);
 			relayHeaders.push(new Headers(init?.headers));
-			const data =
-				requestCount === 1
-					? {
-							code: 0,
-							message: "success",
-							pay_auth_no: "AUTH-SELECTION-001",
-						}
-					: { baseinfo: {}, insuinfo };
+			const data = String(relayRequest.path).startsWith(
+				"/api/mipuserquery/userQuery/",
+			)
+				? userQueryResponses[userQueryCount++]
+				: { baseinfo: {}, insuinfo };
+			if (!data) throw new Error("Unexpected authorization query in fixture");
 			return new Response(JSON.stringify(data), {
 				status: 200,
 				headers: {
@@ -625,6 +632,95 @@ test("医保 adapter 未显式覆盖 userQuery 时通过 relay 使用正式地�
 	expect(fixture.readRelayRequests()[0]).toMatchObject({
 		base_url: "https://receiver.wecity.qq.com",
 	});
+	expect(fixture.readRelayRequests()[1]).toMatchObject({
+		body: { insuplc_admdvs: "", mdtrtarea_admvs: "140581" },
+	});
+});
+
+test.each([
+	{
+		label: "直接返回参保地",
+		response: { pay_auth_no: "AUTH-CITY-DIRECT", city_id: "110000" },
+		expectedCity: "110000",
+	},
+	{
+		label: "嵌套返回参保地",
+		response: {
+			body: { data: { pay_auth_no: "AUTH-CITY-NESTED", city_id: "140500" } },
+		},
+		expectedCity: "140500",
+	},
+	{
+		label: "兼容旧relay返回的JSON字符串",
+		response: JSON.stringify({
+			code: 0,
+			output: { pay_auth_no: "AUTH-CITY-STRING", city_id: "510100" },
+		}),
+		expectedCity: "510100",
+	},
+	{
+		label: "嵌套冲突沿用字段 helper 的直接字段优先级",
+		response: {
+			city_id: "440100",
+			data: { pay_auth_no: "AUTH-CITY-PRECEDENCE", city_id: "110000" },
+		},
+		expectedCity: "440100",
+	},
+])(
+	"首次1101使用当次授权查询参保地：$label",
+	async ({ response, expectedCity }) => {
+		const fixture = authorizationSelectionFixture(
+			[{ insutype: "310", psn_no: "psn-city-001", insuplc_admdvs: "140581" }],
+			{},
+			[response],
+		);
+		await fixture.gateway.authorize(authorizationSelectionInput, context);
+		expect(fixture.readRelayRequests()[1]).toMatchObject({
+			body: { insuplc_admdvs: expectedCity, mdtrtarea_admvs: "140581" },
+		});
+		// 首次查询路由不覆盖 1101 返回的真实参保地选择。
+		expect(fixture.readStored()).toMatchObject({
+			insuplcAdmdvs: "140581",
+			regionCode: "140581",
+		});
+	},
+);
+
+test("同一gateway多次授权的首次1101参保地不串单，缺失时保持空串", async () => {
+	const fixture = authorizationSelectionFixture(
+		[
+			{
+				insutype: "310",
+				psn_no: "psn-city-sequence",
+				insuplc_admdvs: "140581",
+			},
+		],
+		{},
+		[
+			{ pay_auth_no: "AUTH-CITY-FIRST", city_id: "110000" },
+			{ pay_auth_no: "AUTH-CITY-SECOND", city_id: "140500" },
+			{ pay_auth_no: "AUTH-CITY-MISSING" },
+		],
+	);
+	for (let index = 0; index < 3; index += 1) {
+		await fixture.gateway.authorize(
+			{
+				...authorizationSelectionInput,
+				orderId: `order-city-${index}`,
+				authCode: `authorization-city-${index}`,
+			},
+			context,
+		);
+	}
+	const foundationRequests = fixture
+		.readRelayRequests()
+		.filter((request) => request.base_url === "https://foundation.example");
+	expect(foundationRequests).toHaveLength(3);
+	for (const [index, expectedCity] of ["110000", "140500", ""].entries()) {
+		expect(foundationRequests[index]).toMatchObject({
+			body: { insuplc_admdvs: expectedCity, mdtrtarea_admvs: "140581" },
+		});
+	}
 });
 
 test("userQuery 签名只透传给医保授权接口，不污染 relay 或 1101 请求", async () => {
@@ -827,6 +923,7 @@ test("授权查询按 family_pay_auth_no 判定亲情付并保存绑卡人身份
 							message: "success",
 							pay_auth_no: "",
 							family_pay_auth_no: "AUTH-FAMILY-001",
+							city_id: "110000",
 							user_name: "当前绑卡人",
 							user_card_no: "140581198001010022",
 						}
@@ -876,6 +973,17 @@ test("授权查询按 family_pay_auth_no 判定亲情付并保存绑卡人身份
 	expect(foundationForwardBody).toMatchObject({
 		base_url: "https://foundation.example",
 		path: "/mbs-fsi-jc/web/api/fsi/callService",
+		body: {
+			insuplc_admdvs: "110000",
+			mdtrtarea_admvs: "140581",
+			input: {
+				data: {
+					psn_name: "选中儿童",
+					certno: "140581201501010011",
+					mdtrt_cert_no: "AUTH-FAMILY-001",
+				},
+			},
+		},
 	});
 	expect(storedAuthorization).toMatchObject({
 		payAuthNo: "AUTH-FAMILY-001",
