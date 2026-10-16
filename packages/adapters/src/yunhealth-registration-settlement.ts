@@ -618,6 +618,60 @@ function requireYunhealthSuccess(
 	});
 }
 
+/**
+ * .15 的外层 success/code 只确认请求已受理。接口合同明确要求业务 data 为
+ * 字符串 "success"；上游也可能把 HIS XML 异常放在这个字段，不能把 HTTP
+ * 200 或外层 success:true 当成医院已经完成回写。
+ */
+function requireYunhealthPaymentNotifySuccess(
+	response: Parameters<typeof requireYunhealthSuccess>[0],
+	operation: string,
+	context: AdapterCallContext,
+	logger?: ProviderRequestLogger,
+): void {
+	requireYunhealthSuccess(response, operation, context, logger);
+	const envelope = providerRecord(response.data);
+	const code = envelope?.code;
+	const hasSuccessCode = ["0", "200", "0000"].includes(String(code ?? ""));
+	if (
+		envelope &&
+		(envelope.success === undefined || envelope.success === true) &&
+		(code === undefined || code === "" || hasSuccessCode) &&
+		(envelope.success === true || hasSuccessCode) &&
+		typeof envelope.data === "string" &&
+		envelope.data.trim() === "success"
+	) {
+		return;
+	}
+	const diagnostic =
+		typeof envelope?.data === "string"
+			? providerScalarText(envelope.data, 256)
+			: undefined;
+	logger?.warn(
+		{
+			event: "provider.response.business_unconfirmed",
+			provider: "yunhealth",
+			operation,
+			traceId: context.traceId,
+			providerRequestId: response.requestId,
+			providerStatusCode: response.statusCode,
+			providerResponseBusinessSuccess: false,
+		},
+		"Yunhealth payment notification was not confirmed",
+	);
+	throw providerError(
+		operation,
+		"Yunhealth payment notification was not confirmed",
+		{
+			requestId: response.requestId,
+			failureStage: "response",
+			responseInvalid: true,
+			requestOutcome: "unknown",
+			...(diagnostic ? { providerErrorMessage: diagnostic } : {}),
+		},
+	);
+}
+
 function normalizeContext(
 	value: RegistrationSelfPaySettlementContext | undefined,
 ): NormalizedContext {
@@ -952,7 +1006,12 @@ export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
 				},
 				fetcher,
 			);
-			requireYunhealthSuccess(response, operation, context, options.logger);
+			requireYunhealthPaymentNotifySuccess(
+				response,
+				operation,
+				context,
+				options.logger,
+			);
 			return {
 				provider: "yunhealth",
 				operation,
@@ -1207,7 +1266,7 @@ export function createYunhealthRegistrationSettlementGateway(
 							workStationId: requestWorkStationId,
 						}),
 					);
-					requireYunhealthSuccess(
+					requireYunhealthPaymentNotifySuccess(
 						paymentNotify,
 						PAYMENT_NOTIFY_OPERATION,
 						context,

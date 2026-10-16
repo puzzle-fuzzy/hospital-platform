@@ -192,6 +192,10 @@ export class RegistrationPaymentExitService {
 			) {
 				throw new RegistrationPaymentExitRefundContextError();
 			}
+			// 历史适配器曾只检查外层 success。不能据旧 marker 宣布完成，
+			// 也不能把所有旧 marker 自动重复通知；待按原退款号核实后恢复。
+			if (existing.validationVersion !== 1)
+				throw new RegistrationPaymentExitRefundSyncPendingError();
 			return;
 		}
 		try {
@@ -213,6 +217,7 @@ export class RegistrationPaymentExitService {
 						merchantRefundNo: input.refund.merchantRefundNo,
 						refundFen: input.order.amounts.cashFen,
 						syncedAt: this.now().toISOString(),
+						validationVersion: 1,
 					},
 				},
 			});

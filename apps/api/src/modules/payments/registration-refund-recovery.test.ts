@@ -65,6 +65,7 @@ const originalContext: RegistrationSelfPaySettlementContext = {
 async function fixture(
 	options: {
 		notifyFailures?: number;
+		innerNotifyFailures?: number;
 		saveFailures?: number;
 		cancelFailures?: number;
 		queryFailures?: number;
@@ -74,7 +75,9 @@ async function fixture(
 			| "requested"
 			| "processing"
 			| "unknown"
-			| "request_failed";
+			| "request_failed"
+			| "success";
+		initiallyCancelled?: boolean;
 		initialRefundStatus?: WechatRefundProviderResult["status"];
 		contextPatch?: Partial<RegistrationSelfPaySettlementContext>;
 		legacy?: boolean;
@@ -114,8 +117,11 @@ async function fixture(
 		reason: "挂号预约取消退款",
 		idempotencyKey: `registration-self-pay-refund:${appointmentId}`,
 		status: options.priorRefundStatus ?? "requested",
-		providerStatus: null,
-		providerRefundId: null,
+		providerStatus: options.priorRefundStatus === "success" ? "SUCCESS" : null,
+		providerRefundId:
+			options.priorRefundStatus === "success"
+				? "wechat-refund-recovery-test"
+				: null,
 		providerTransactionId: null,
 		providerRequestId: null,
 		successTime: null,
@@ -134,9 +140,10 @@ async function fixture(
 		idempotencyKey: string | null;
 	}[] = [];
 	let cancelAttempts = 0;
-	let cancelled = false;
+	let cancelled = options.initiallyCancelled ?? false;
 	let providerStatus = options.initialRefundStatus ?? "SUCCESS";
 	let notifyFailures = options.notifyFailures ?? 0;
+	let innerNotifyFailures = options.innerNotifyFailures ?? 0;
 	let saveFailures = options.saveFailures ?? 0;
 	let cancelFailures = options.cancelFailures ?? 0;
 	let queryFailures = options.queryFailures ?? 0;
@@ -215,7 +222,14 @@ async function fixture(
 					idempotencyKey: new Headers(init?.headers).get("idempotency-key"),
 				});
 				return new Response(
-					JSON.stringify({ success: !(notifyFailures-- > 0), data: {} }),
+					JSON.stringify({
+						success: !(notifyFailures-- > 0),
+						code: "0000",
+						data:
+							innerNotifyFailures-- > 0
+								? "XML解析错误：无法解析医院退款回执"
+								: "success",
+					}),
 					{
 						status: 200,
 						headers: { "x-request-id": "his-notify-recovery-test" },
@@ -393,6 +407,91 @@ test("医院回写成功而取消失败时返回取消待恢复；重试复用�
 	expect(f.queryCalls).toHaveLength(0);
 	expect(f.cancelAttempts()).toBe(2);
 	expect((await f.readContext())?.refundWriteBack).toEqual(confirmedWriteback);
+});
+
+test("外层 success 包含 XML 错误时保持医院回写待恢复，不写成功凭据也不取消预约", async () => {
+	const f = await fixture({ innerNotifyFailures: 1 });
+	expect(await f.request()).toMatchObject({
+		status: "processing",
+		registrationRefundStage: "hospital_writeback_pending",
+		wechatRefund: { status: "success", refundFen: 1000 },
+	});
+	expect((await f.readContext())?.refundWriteBack).toBeUndefined();
+	expect(f.cancelled()).toBe(false);
+	expect(f.cancelAttempts()).toBe(0);
+	expect(f.moneyCalls).toHaveLength(1);
+	expect(await f.query()).toMatchObject({
+		status: "succeeded",
+		registrationRefundStage: "completed",
+	});
+	expect(f.moneyCalls).toHaveLength(1);
+	expect(f.queryCalls).toHaveLength(0);
+	expect(f.notifyCalls).toHaveLength(2);
+	expect((await f.readContext())?.refundWriteBack).toMatchObject({
+		validationVersion: 1,
+		merchantRefundNo: f.moneyCalls[0]?.merchantRefundNo,
+		refundFen: 1000,
+	});
+});
+
+test("历史未验证回写凭据不能误报完成或自动重放，已成功的原退款和已取消预约保持不变", async () => {
+	const legacyMarker = {
+		merchantRefundNo: "RF-PO-HISTORICAL-TEST",
+		refundFen: 1000,
+		syncedAt: "2026-10-16T03:59:00.000Z",
+	};
+	const f = await fixture({
+		priorRefundStatus: "success",
+		initiallyCancelled: true,
+		contextPatch: { refundWriteBack: legacyMarker },
+	});
+	const before = await f.readRefunds();
+	for (let attempt = 0; attempt < 2; attempt++) {
+		expect(await f.query()).toMatchObject({
+			status: "processing",
+			registrationRefundStage: "hospital_writeback_pending",
+			wechatRefund: {
+				status: "success",
+				merchantRefundNo: legacyMarker.merchantRefundNo,
+				refundFen: 1000,
+			},
+		});
+	}
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.queryCalls).toHaveLength(0);
+	expect(f.notifyCalls).toHaveLength(0);
+	expect(f.cancelAttempts()).toBe(0);
+	expect(f.cancelled()).toBe(true);
+	expect((await f.readContext())?.refundWriteBack).toEqual(legacyMarker);
+	expect(await f.readRefunds()).toEqual(before);
+});
+
+test("严格验证过的回写凭据可复用，已退款已取消订单核对不触发任何网络步骤", async () => {
+	const marker = {
+		merchantRefundNo: "RF-PO-HISTORICAL-TEST",
+		refundFen: 1000,
+		syncedAt: "2026-10-16T03:59:00.000Z",
+		validationVersion: 1 as const,
+	};
+	const f = await fixture({
+		priorRefundStatus: "success",
+		initiallyCancelled: true,
+		contextPatch: { refundWriteBack: marker },
+	});
+	expect(await f.query()).toMatchObject({
+		status: "succeeded",
+		registrationRefundStage: "completed",
+		wechatRefund: {
+			status: "success",
+			merchantRefundNo: marker.merchantRefundNo,
+			refundFen: 1000,
+		},
+	});
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.queryCalls).toHaveLength(0);
+	expect(f.notifyCalls).toHaveLength(0);
+	expect(f.cancelAttempts()).toBe(0);
+	expect((await f.readContext())?.refundWriteBack).toEqual(marker);
 });
 
 test("微信处理中与查单异常均保留预约，随后仅查原退款号再回写取消", async () => {

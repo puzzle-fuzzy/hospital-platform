@@ -263,7 +263,8 @@ export type RegistrationSelfPaySettlementContext = {
 	paymentNotifyCompleted?: boolean;
 	/**
 	 * 微信退款 SUCCESS 后，众阳 .15 退款回写已经确认成功的事实。该字段同样
-	 * 只存入服务端密文；没有它时重试会复用同一退款单并再次安全回写。
+	 * 只存入服务端密文。旧凭据没有 validationVersion，不能视作内层业务成功，
+	 * 也不能自动重放医院通知；须按原退款号核查后恢复。
 	 */
 	refundWriteBack?: RegistrationSelfPayRefundWriteBack;
 };
@@ -272,6 +273,8 @@ export type RegistrationSelfPayRefundWriteBack = {
 	merchantRefundNo: string;
 	refundFen: number;
 	syncedAt: string;
+	/** 1 表示 .15 的内部业务回执已经过严格成功校验，外层 success 不够。 */
+	validationVersion?: 1;
 };
 
 /** 旧插件链路兼容回调；非 HIS .5/.9 流程不会调用。 */

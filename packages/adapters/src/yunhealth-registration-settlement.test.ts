@@ -362,10 +362,13 @@ test("微信退款确认成功后按原插件上下文回写云健康 .15 退款
 					body: JSON.parse(bodyText) as Record<string, unknown>,
 					headers: new Headers(init?.headers),
 				};
-				return new Response(JSON.stringify({ success: true, data: {} }), {
-					status: 200,
-					headers: { "x-request-id": "yunhealth-refund-notify-15" },
-				});
+				return new Response(
+					JSON.stringify({ success: true, data: "success" }),
+					{
+						status: 200,
+						headers: { "x-request-id": "yunhealth-refund-notify-15" },
+					},
+				);
 			},
 		});
 
@@ -481,6 +484,160 @@ function refundRegistrationContext(): RegistrationSelfPaySettlementContext {
 }
 
 test.each([
+	{ success: true, code: "0000", data: "success" },
+	{ success: true, code: "", data: "success" },
+	{ code: "0000", data: " success " },
+])("云健康 .15 仅业务 data 明确 success 才确认退款回写 %j", async (body) => {
+	const notification = refundNotificationGateway(
+		async () =>
+			new Response(JSON.stringify(body), {
+				status: 200,
+				headers: { "x-request-id": "refund-business-success" },
+			}),
+	);
+	await expect(
+		notification.notifyRefund(
+			{
+				orderId: "payment-order-refund-001",
+				merchantRefundNo: "RF-PO-registration-001",
+				refundFen: 1000,
+				registrationContext: refundRegistrationContext(),
+			},
+			context,
+		),
+	).resolves.toMatchObject({ requestId: "refund-business-success" });
+});
+
+const unconfirmedPaymentNotifyBodies = [
+	{
+		success: true,
+		code: "0000",
+		data: "Content is not allowed in prolog.，医院名称：测试医院",
+	},
+	{ success: true, code: "0000", data: "" },
+	{ success: true, code: "0000", data: "   " },
+	{ success: true, code: "0000" },
+	{ success: true, code: "0000", data: null },
+	{ success: true, code: "0000", data: {} },
+	{ success: true, code: "0000", data: { success: true } },
+	{ success: true, data: { success: true, code: "0000", data: "success" } },
+	{ success: true, code: "0000", data: { data: "success" } },
+	{ success: true, code: "0000", data: ["success"] },
+	{ success: true, code: "0000", data: true },
+	{ success: true, code: "0000", data: "SUCCESS" },
+	{ success: true, code: "0000", data: "success: false" },
+	{ success: true, code: "500", data: "success" },
+	{ success: true, code: "0000", data: { code: "500", data: "success" } },
+];
+
+test.each(unconfirmedPaymentNotifyBodies)(
+	"云健康 .15 外层成功但业务未确认时不能返回退款成功 trace %j",
+	async (body) => {
+		let calls = 0;
+		const notification = refundNotificationGateway(async () => {
+			calls += 1;
+			return new Response(JSON.stringify(body), {
+				status: 200,
+				headers: { "x-request-id": "refund-business-unconfirmed" },
+			});
+		});
+		await expect(
+			notification.notifyRefund(
+				{
+					orderId: "payment-order-refund-001",
+					merchantRefundNo: "RF-PO-registration-001",
+					refundFen: 1000,
+					registrationContext: refundRegistrationContext(),
+				},
+				context,
+			),
+		).rejects.toMatchObject({
+			operation: "registration-self-pay.2.6.65.15.refund",
+			requestId: "refund-business-unconfirmed",
+			failureStage: "response",
+			responseInvalid: true,
+			requestOutcome: "unknown",
+			...(typeof body.data === "string" && body.data.trim()
+				? { providerErrorMessage: body.data }
+				: {}),
+		});
+		expect(calls).toBe(1);
+	},
+);
+
+test.each([
+	{ success: false, code: "500", data: "success" },
+	{ success: true, data: { success: false, code: "500", data: "success" } },
+])("云健康 .15 明确业务拒绝时不被 success 字符串覆盖 %j", async (body) => {
+	const notification = refundNotificationGateway(
+		async () => new Response(JSON.stringify(body), { status: 200 }),
+	);
+	await expect(
+		notification.notifyRefund(
+			{
+				orderId: "payment-order-refund-001",
+				merchantRefundNo: "RF-PO-registration-001",
+				refundFen: 1000,
+				registrationContext: refundRegistrationContext(),
+			},
+			context,
+		),
+	).rejects.toMatchObject({ requestOutcome: "rejected" });
+});
+
+test.each(unconfirmedPaymentNotifyBodies)(
+	"收款 .15 同样验证业务结果，未确认时不保存完成标记也不调用 .5 %j",
+	async (body) => {
+		const paths: string[] = [];
+		let markedCompleted = false;
+		let attemptedComplete = false;
+		const settlementGateway = gateway(async (input) => {
+			paths.push(new URL(String(input)).pathname);
+			return new Response(JSON.stringify(body), {
+				status: 200,
+				headers: { "x-request-id": "payment-business-unconfirmed" },
+			});
+		});
+		await expect(
+			settlementGateway.writeBack(
+				{
+					orderId: "payment-order-001",
+					settlementFlow: "medical-mixed-cash",
+					settlement: {
+						orderId: "payment-order-001",
+						state: "cash_paid",
+						totalFen: 1000,
+						insuranceFen: 0,
+						cashFen: 1000,
+						trace: [],
+					},
+					registrationContext: {
+						...registrationContext,
+						thirdPartPayRecordId: "9007199254740993",
+					},
+					onPaymentNotifyResponse() {
+						markedCompleted = true;
+					},
+					onCompleteSettlementAttempt() {
+						attemptedComplete = true;
+					},
+				},
+				context,
+			),
+		).rejects.toMatchObject({
+			operation: "registration-self-pay.2.6.65.15",
+			responseInvalid: true,
+			requestOutcome: "unknown",
+		});
+		expect(paths).toEqual([
+			"/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
+		]);
+		expect(markedCompleted).toBeFalse();
+		expect(attemptedComplete).toBeFalse();
+	},
+);
+
+test.each([
 	{ baseUrl: "https://gpsrmyy.meiyi.pro", authorizationToken: undefined },
 	{
 		baseUrl: "https://gpsrmyy.meiyi.pro/",
@@ -509,10 +666,13 @@ test.each([
 						headers: new Headers(init?.headers),
 						body: String(init?.body),
 					};
-					return new Response(JSON.stringify({ success: true, data: {} }), {
-						status: 200,
-						headers: { "x-request-id": "signed-relay-refund-notify-15" },
-					});
+					return new Response(
+						JSON.stringify({ success: true, data: "success" }),
+						{
+							status: 200,
+							headers: { "x-request-id": "signed-relay-refund-notify-15" },
+						},
+					);
 				},
 			});
 		const input = {
@@ -1379,7 +1539,7 @@ test.each(["10", "2"])(
 				? { success: true, data: { thirdPartPayRecordId: "9007199254740995" } }
 				: path.endsWith("/complete-settle")
 					? { success: true, data: { isSettle: 1 } }
-					: { success: true, data: {} };
+					: { success: true, data: "success" };
 			return new Response(JSON.stringify(body), {
 				status: 200,
 				headers: { "x-request-id": `yunhealth-request-${call}` },
@@ -1516,7 +1676,7 @@ test("医保现金回写无需平台订单号作为 .29 参数", async () => {
 			? { success: true, data: { thirdPartPayRecordId: "9007199254740995" } }
 			: path.endsWith("/complete-settle")
 				? { success: true, data: { isSettle: 1 } }
-				: { success: true, data: {} };
+				: { success: true, data: "success" };
 		return new Response(JSON.stringify(body), {
 			status: 200,
 		});
@@ -1571,7 +1731,7 @@ test("历史 5031 自费回写可跳过 .5 但仍严格执行 .29 -> .15", async
 							success: true,
 							data: { thirdPartPayRecordId: "9007199254740994" },
 						}
-					: { success: true, data: {} },
+					: { success: true, data: "success" },
 			),
 			{
 				status: 200,
@@ -1651,7 +1811,7 @@ test("云健康自费回写复用已保存 .29 并以精确 64 位数字 token �
 			JSON.stringify(
 				path.endsWith("/complete-settle")
 					? { success: true, data: { isSettle: 1 } }
-					: { success: true, data: {} },
+					: { success: true, data: "success" },
 			),
 			{
 				status: 200,
