@@ -550,7 +550,7 @@ test("云健康 .15 真正回写前重新校验上下文，不复用旧预检结
 	expect(calls).toBe(0);
 });
 
-test("历史 5031 医保合单 .2 固定外层 H5/2 并保留原支付腿", async () => {
+test("历史 5031 医保合单 .2 有基金支付时外层使用 H5/2 并保留原支付腿", async () => {
 	let body: Record<string, unknown> | undefined;
 	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
 		baseUrl: "https://yunhealth.example.test",
@@ -621,6 +621,192 @@ test("历史 5031 医保合单 .2 固定外层 H5/2 并保留原支付腿", asyn
 		],
 	});
 });
+
+const medicalGroupInput = {
+	orderId: "medical-order-group",
+	businessId: "settlement-business-001",
+	tradeCode: "REGISTRATION-001",
+	totalFen: 1000,
+	hospitalId: "10389001",
+	patientId: "100001",
+	payTypeId: "5",
+	payModel: "H5" as const,
+	payType: "CREDIT" as const,
+	workStationId: "",
+	recordCode: "0123456789abcdef0123456789abcdef",
+	tradeTypeCode: "10",
+};
+
+function medicalGroupGateway(fetcher: ProviderFetcher) {
+	return createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		pluginPayTypeId: "5033",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		fetcher,
+	});
+}
+
+for (const scenario of [
+	{
+		name: "纯个人账户使用外层 5",
+		payTypeId: "5",
+		payTypeParams: [{ payTypeId: "5", amountFen: 1000 }],
+	},
+	{
+		name: "个人账户加减免使用外层 5",
+		payTypeId: "5",
+		payTypeParams: [
+			{ payTypeId: "5", amountFen: 800 },
+			{ payTypeId: "50", amountFen: 200 },
+		],
+	},
+	{
+		name: "个人账户与基金并存时优先外层 2",
+		payTypeId: "2",
+		payTypeParams: [
+			{ payTypeId: "5", amountFen: 800 },
+			{ payTypeId: "2", amountFen: 200 },
+		],
+	},
+]) {
+	test(`医保合单 .2 ${scenario.name}，H5 SUCCESS 不要求微信参数`, async () => {
+		let body: Record<string, unknown> | undefined;
+		const gatewayInstance = medicalGroupGateway(async (_input, init) => {
+			body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						payingId: "600001",
+						tradingId: "600002",
+						result: "SUCCESS",
+					},
+				}),
+				{ status: 200 },
+			);
+		});
+
+		const result = await gatewayInstance.createPreOrder(
+			{ ...medicalGroupInput, ...scenario },
+			context,
+		);
+
+		expect(body).toMatchObject({
+			payModel: "H5",
+			payTypeId: Number(scenario.payTypeId),
+			paymentSystemUserId: "",
+			total: 10,
+			payTypeParams: scenario.payTypeParams.map((item) => ({
+				payTypeId: Number(item.payTypeId),
+				amount: item.amountFen / 100,
+				paymentSystemUserId: "",
+				spbillCreateIp: "",
+			})),
+		});
+		expect(result.payTypeId).toBe(scenario.payTypeId);
+		expect(result.payParams).toBeUndefined();
+	});
+}
+
+for (const scenario of [
+	{
+		name: "外层 2 没有基金支付腿",
+		payTypeId: "2",
+		payTypeParams: [{ payTypeId: "5", amountFen: 1000 }],
+	},
+	{
+		name: "外层 5 含正金额基金支付腿",
+		payTypeId: "5",
+		payTypeParams: [
+			{ payTypeId: "5", amountFen: 800 },
+			{ payTypeId: "2", amountFen: 200 },
+		],
+	},
+	{
+		name: "只有减免",
+		payTypeId: "5",
+		payTypeParams: [{ payTypeId: "50", amountFen: 1000 }],
+	},
+	{
+		name: "只有现金",
+		payTypeId: "2",
+		payTypeParams: [{ payTypeId: "5033", amountFen: 1000 }],
+	},
+	{
+		name: "减免加现金没有医保支付腿",
+		payTypeId: "2",
+		payTypeParams: [
+			{ payTypeId: "50", amountFen: 800 },
+			{ payTypeId: "5033", amountFen: 200 },
+		],
+	},
+	{
+		name: "支付腿为空",
+		payTypeId: "5",
+		payTypeParams: [],
+	},
+	{
+		name: "含零金额支付腿",
+		payTypeId: "5",
+		payTypeParams: [
+			{ payTypeId: "2", amountFen: 0 },
+			{ payTypeId: "5", amountFen: 1000 },
+		],
+	},
+	{
+		name: "含负金额支付腿",
+		payTypeId: "2",
+		payTypeParams: [
+			{ payTypeId: "2", amountFen: 1000 },
+			{ payTypeId: "5", amountFen: -1 },
+		],
+	},
+	{
+		name: "使用小程序模式",
+		payTypeId: "5",
+		payModel: "MINI_PROGRAM" as const,
+		payTypeParams: [{ payTypeId: "5", amountFen: 1000 }],
+	},
+	{
+		name: "外层携带 openid",
+		payTypeId: "5",
+		paymentSystemUserId: "openid-grouped-not-allowed",
+		payTypeParams: [{ payTypeId: "5", amountFen: 1000 }],
+	},
+	{
+		name: "支付腿总额不等于分项金额",
+		payTypeId: "5",
+		amountFen: 900,
+		payTypeParams: [{ payTypeId: "5", amountFen: 1000 }],
+	},
+	{
+		name: "支付腿总额超过结算总额",
+		payTypeId: "5",
+		payTypeParams: [{ payTypeId: "5", amountFen: 1001 }],
+	},
+]) {
+	test(`医保合单 .2 在请求前拒绝${scenario.name}`, async () => {
+		let calls = 0;
+		const gatewayInstance = medicalGroupGateway(async () => {
+			calls += 1;
+			return new Response(JSON.stringify({ success: true }), { status: 200 });
+		});
+
+		await expect(
+			gatewayInstance.createPreOrder(
+				{ ...medicalGroupInput, ...scenario },
+				context,
+			),
+		).rejects.toMatchObject({
+			provider: "yunhealth",
+			failureStage: "validation",
+			requestOutcome: "not_sent",
+		});
+		expect(calls).toBe(0);
+	});
+}
 
 test("医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结果", async () => {
 	let request:

@@ -268,6 +268,7 @@ export {
 	medicalInsuranceStatusForNotification,
 	normalizeMedicalInsuranceSettlementNotification,
 } from "./medical-insurance-order";
+export { medicalInsuranceGroupPayTypeId } from "./medical-insurance-payment-types";
 export type {
 	MedicalInsuranceRefund,
 	MedicalInsuranceRefundGateway,

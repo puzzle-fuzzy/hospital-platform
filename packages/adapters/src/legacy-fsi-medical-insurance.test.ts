@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type {
 	AdapterCallContext,
+	MedicalInsuranceAmounts,
 	MedicalInsuranceAuthorizationContext,
 	MedicalInsuranceOrder,
 	MedicalInsuranceSettlementContext,
@@ -1615,6 +1616,212 @@ test(".32 失败后不重复提交同一结算 ID", async () => {
 	expect(settlementContext.settlementWriteback).toMatchObject({
 		status: "failed",
 		providerStatus: "insur=SUCCESS,settle=FAIL",
+	});
+});
+
+type WritebackComponent = NonNullable<
+	MedicalInsuranceSettlementContext["postPaymentComponents"]
+>[number];
+
+function writebackComponent(
+	kind: WritebackComponent["kind"],
+	payTypeId: WritebackComponent["payTypeId"],
+	amountFen: number,
+	overrides: Partial<WritebackComponent> = {},
+): WritebackComponent {
+	return {
+		componentId: `writeback:${kind}:${payTypeId}`,
+		kind,
+		payTypeId,
+		totalFen: 100,
+		amountFen,
+		payModel: "H5",
+		recordCode: `record-${kind}-${payTypeId}`,
+		state: "succeeded",
+		attempts: 1,
+		payingId: `paying-${kind}-${payTypeId}`,
+		tradingId: `trading-${kind}-${payTypeId}`,
+		updatedAt: "2026-10-16T04:00:00.000Z",
+		...overrides,
+	};
+}
+
+function primaryMedicalWritebackFixture(
+	components: readonly WritebackComponent[] | undefined,
+	amounts: MedicalInsuranceAmounts = {
+		totalFen: 100,
+		cashFen: 0,
+		personalAccountFen: 100,
+		fundFen: 0,
+	},
+) {
+	const medicalOrder = {
+		medicalOrderId: "medical-primary-writeback-001",
+		ownerUserId: "user-primary-writeback-001",
+		businessType: "registration",
+		appointmentId: "appointment-primary-writeback-001",
+		amounts,
+	} as MedicalInsuranceOrder;
+	let settlementContext: MedicalInsuranceSettlementContext = {
+		businessId: "business-primary-writeback-001",
+		hospitalId: "10389001",
+		patientId: "patient-primary-writeback-001",
+		insuredAreaCode: "140581",
+		networkRegister: {},
+		outNetworkSettleMain: { transId: "stale-top-paying" },
+		nationalUpDetailList: [],
+		upDetailList: [{ detailId: "detail-primary-writeback-001" }],
+		tradeOrderIds: ["trade-primary-writeback-001"],
+		postPaymentPlanVersion: "sequenced-v1",
+		postPaymentCompletedAt: "2026-10-16T04:00:00.000Z",
+		payingId: "stale-top-paying",
+		tradingId: "stale-top-trading",
+		...(components === undefined ? {} : { postPaymentComponents: components }),
+	};
+	const requests: { path: string; body: Record<string, unknown> }[] = [];
+	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		legacyFsi: {} as never,
+		orders: {
+			findByMedicalOrderId: async () => medicalOrder,
+			getSettlementContext: async () => settlementContext,
+			saveSettlementContext: async (
+				_owner: string,
+				_orderId: string,
+				next: MedicalInsuranceSettlementContext,
+			) => {
+				settlementContext = next;
+			},
+		} as never,
+		authorizations: {} as never,
+		credentials: {} as never,
+		relayUrl: "https://relay.example",
+		relayAuthorizationToken: "synthetic-token",
+		foundationBaseUrl: "https://foundation.example",
+		zhongyangBaseUrl: "https://zhongyang.example",
+		fetcher: async (input, init) => {
+			const path = new URL(String(input)).pathname;
+			requests.push({ path, body: JSON.parse(String(init?.body)) });
+			const data = path.endsWith("/settle-info/notify")
+				? { insur: "SUCCESS", settle: "SUCCESS" }
+				: { isSettle: 1 };
+			return Response.json({ success: true, data });
+		},
+	});
+	return {
+		requests,
+		readContext: () => settlementContext,
+		query: () =>
+			gateway.query(
+				{
+					orderId: medicalOrder.medicalOrderId,
+					ownerUserId: medicalOrder.ownerUserId,
+					cashPaymentConfirmed: true,
+				},
+				context,
+			),
+	};
+}
+
+test.each(["medical", "combined", "personal_account"] as const)(
+	".32 纯个账使用成功的 %s / 5 流水并且不重放",
+	async (kind) => {
+		const account = writebackComponent(kind, "5", 100);
+		const fixture = primaryMedicalWritebackFixture([account]);
+		await expect(fixture.query()).resolves.toMatchObject({
+			state: "insurance_settled",
+			authoritative: true,
+		});
+		await fixture.query();
+		expect(fixture.requests.map((request) => request.path)).toEqual([
+			"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+			"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+		]);
+		expect(fixture.requests[0]?.body).toMatchObject({
+			tradingId: account.tradingId,
+			outNetworkSettleMain: { transId: account.payingId },
+		});
+	},
+);
+
+test(".32 个账主组不被现金、减免或顶层旧流水覆盖", async () => {
+	const account = writebackComponent("medical", "5", 80, { totalFen: 120 });
+	const fixture = primaryMedicalWritebackFixture(
+		[
+			writebackComponent("wechat_cash", "5033", 20, { totalFen: 120 }),
+			writebackComponent("hospital_reduce", "50", 20, { totalFen: 120 }),
+			account,
+		],
+		{
+			totalFen: 120,
+			cashFen: 20,
+			personalAccountFen: 80,
+			fundFen: 0,
+			otherPaymentFen: 20,
+		},
+	);
+	await expect(fixture.query()).resolves.toMatchObject({ authoritative: true });
+	const notify = fixture.requests[0]?.body;
+	expect(notify).toMatchObject({
+		tradingId: account.tradingId,
+		outNetworkSettleMain: { transId: account.payingId },
+	});
+	expect(JSON.stringify(notify)).not.toContain("paying-wechat_cash");
+	expect(JSON.stringify(notify)).not.toContain("paying-hospital_reduce");
+});
+
+test(".32 统筹优先于先出现的个账流水", async () => {
+	const fund = writebackComponent("fund", "2", 40);
+	const fixture = primaryMedicalWritebackFixture(
+		[writebackComponent("personal_account", "5", 60), fund],
+		{ totalFen: 100, cashFen: 0, personalAccountFen: 60, fundFen: 40 },
+	);
+	await fixture.query();
+	expect(fixture.requests[0]?.body).toMatchObject({
+		tradingId: fund.tradingId,
+		outNetworkSettleMain: { transId: fund.payingId },
+	});
+});
+
+test.each([
+	{
+		label: "只有现金",
+		components: [writebackComponent("wechat_cash", "5033", 100)],
+	},
+	{
+		label: "只有减免",
+		components: [writebackComponent("hospital_reduce", "50", 100)],
+	},
+	{ label: "空分项", components: [] },
+	{
+		label: "医保组未成功",
+		components: [writebackComponent("medical", "5", 100, { state: "pending" })],
+	},
+	{
+		label: "医保组缺少流水",
+		components: [writebackComponent("medical", "5", 100, { tradingId: "" })],
+	},
+	{
+		label: "医保组金额为零",
+		components: [writebackComponent("medical", "5", 0)],
+	},
+])(".32 $label 时不沿用顶层流水", async ({ components }) => {
+	const fixture = primaryMedicalWritebackFixture(components);
+	await expect(fixture.query()).resolves.toMatchObject({
+		authoritative: false,
+	});
+	expect(fixture.requests).toEqual([]);
+	expect(fixture.readContext().settlementWriteback).toBeUndefined();
+});
+
+test(".32 未保存分项的历史上下文仍使用原顶层流水", async () => {
+	const fixture = primaryMedicalWritebackFixture(undefined);
+	await expect(fixture.query()).resolves.toMatchObject({
+		state: "insurance_settled",
+		authoritative: true,
+	});
+	expect(fixture.requests[0]?.body).toMatchObject({
+		tradingId: "stale-top-trading",
+		outNetworkSettleMain: { transId: "stale-top-paying" },
 	});
 });
 

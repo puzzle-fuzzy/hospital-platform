@@ -22,6 +22,7 @@ import {
 	isMedicalInsuranceOrderType,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	medicalInsuranceCashPrepay,
+	medicalInsuranceGroupPayTypeId,
 	medicalInsuranceOrderTypeForBusiness,
 	medicalInsurancePaymentBreakdown,
 } from "@hospital/domain";
@@ -130,6 +131,7 @@ function expectedPrePaymentComponents(input: {
 	insuredAreaCode: string;
 	now: Date;
 	mode: "sequenced" | "combined" | "legacy";
+	savedMedicalComponent?: MedicalInsurancePostPaymentComponent;
 }): readonly MedicalInsurancePostPaymentComponent[] {
 	const amounts = input.order.amounts;
 	if (!amounts) throw new Error("medical payment amounts are unavailable");
@@ -154,13 +156,30 @@ function expectedPrePaymentComponents(input: {
 		);
 		const components: MedicalInsurancePostPaymentComponent[] = [];
 		if (medicalFen > 0) {
+			// 旧成功流水只参与原计划比对；没有真实医保支付腿时不能据此新建 .2。
+			const savedMedicalComponent = input.savedMedicalComponent;
+			const preserveSucceededLegacyGroup =
+				!medicalLegs.some(
+					(component) =>
+						(component.payTypeId === "2" || component.payTypeId === "5") &&
+						component.amountFen > 0,
+				) &&
+				savedMedicalComponent?.kind === "medical" &&
+				savedMedicalComponent.payTypeId === "2" &&
+				savedMedicalComponent.state === "succeeded" &&
+				Boolean(
+					savedMedicalComponent.payingId?.trim() &&
+						savedMedicalComponent.tradingId?.trim(),
+				);
 			components.push({
 				componentId: `${input.order.medicalOrderId}:medical`,
 				kind: "medical",
 				totalFen: amounts.totalFen,
 				amountFen: medicalFen,
 				payModel: "H5",
-				payTypeId: "2",
+				payTypeId: preserveSucceededLegacyGroup
+					? "2"
+					: medicalInsuranceGroupPayTypeId(medicalLegs),
 				payTypeParams: medicalLegs,
 				recordCode: stableComponentCode(
 					`medical-post-payment:${input.order.medicalOrderId}:medical`,
@@ -294,6 +313,36 @@ function samePrePaymentPlan(
 		planned.every((plannedComponent) =>
 			saved.some((savedComponent) =>
 				samePrePaymentComponent(savedComponent, plannedComponent),
+			),
+		)
+	);
+}
+
+/** 旧成功医保流水保留原返回类型与真实双流水，不重新创建或改写。 */
+function samePrePaymentPlanWithSucceededLegacyMedicalGroup(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): boolean {
+	return (
+		saved.length === planned.length &&
+		planned.every((plannedComponent) =>
+			saved.some(
+				(savedComponent) =>
+					samePrePaymentComponent(savedComponent, plannedComponent, true) ||
+					(savedComponent.kind === "medical" &&
+						plannedComponent.kind === "medical" &&
+						savedComponent.payTypeId === "2" &&
+						plannedComponent.payTypeId === "5" &&
+						savedComponent.state === "succeeded" &&
+						Boolean(
+							savedComponent.payingId?.trim() &&
+								savedComponent.tradingId?.trim(),
+						) &&
+						samePrePaymentComponent(
+							{ ...savedComponent, payTypeId: "5" },
+							plannedComponent,
+							true,
+						)),
 			),
 		)
 	);
@@ -1344,26 +1393,33 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		}
 		const sequenced = settlement.postPaymentPlanVersion === "sequenced-v1";
 		const combined = saved.some((component) => component.kind === "combined");
+		const medicalComponent = saved.find(
+			(component) => component.kind === "medical",
+		);
 		const planned = expectedPrePaymentComponents({
 			order,
 			insuredAreaCode: settlement.insuredAreaCode,
 			now,
 			mode: sequenced ? "sequenced" : combined ? "combined" : "legacy",
+			...(sequenced && medicalComponent
+				? { savedMedicalComponent: medicalComponent }
+				: {}),
 		});
 		// 新两段计划、旧合单必须精确匹配；历史拆分只按既有事实续跑。
 		if (
 			((sequenced || combined) &&
 				!samePrePaymentPlan(saved, planned) &&
-				!samePrePaymentPlanWithLegacyWechatCash(saved, planned)) ||
+				!samePrePaymentPlanWithLegacyWechatCash(saved, planned) &&
+				!(
+					sequenced &&
+					samePrePaymentPlanWithSucceededLegacyMedicalGroup(saved, planned)
+				)) ||
 			(!sequenced &&
 				!combined &&
 				!sameOrCompletedLegacyMiniProgramPrePaymentPlan(saved, planned))
 		) {
 			throw new Error("medical-insurance-pre-payment-plan-changed");
 		}
-		const medicalComponent = saved.find(
-			(component) => component.kind === "medical",
-		);
 		if (
 			sequenced
 				? Boolean(medicalComponent && medicalComponent.state !== "succeeded")

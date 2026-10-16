@@ -10,6 +10,7 @@ import {
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsurancePostPaymentComponent,
 	type MedicalInsuranceSettlementContext,
+	medicalInsuranceGroupPayTypeId,
 	medicalInsurancePaymentBreakdown,
 	type PaymentOrder,
 	PaymentOrderInputError,
@@ -155,6 +156,7 @@ function sequencedPrePaymentComponents(input: {
 	order: MedicalInsuranceOrder;
 	insuredAreaCode: string;
 	now: Date;
+	succeededMedicalGroup?: MedicalInsurancePostPaymentComponent | undefined;
 }): readonly MedicalInsurancePostPaymentComponent[] {
 	const amounts = input.order.amounts;
 	if (!amounts) throw new Error("medical payment amounts are unavailable");
@@ -176,13 +178,26 @@ function sequencedPrePaymentComponents(input: {
 	);
 	const components: MedicalInsurancePostPaymentComponent[] = [];
 	if (medicalFen > 0) {
+		const saved = input.succeededMedicalGroup;
+		// 只沿用已经成功的历史减免组；后续仍须逐项核对原计划，不能创建新流水。
+		const reuseSucceededLegacyGroup =
+			!medicalLegs.some(
+				(leg) =>
+					(leg.payTypeId === "2" || leg.payTypeId === "5") && leg.amountFen > 0,
+			) &&
+			saved?.kind === "medical" &&
+			saved.payTypeId === "2" &&
+			saved.state === "succeeded" &&
+			Boolean(saved.payingId?.trim() && saved.tradingId?.trim());
 		components.push({
 			componentId: `${input.order.medicalOrderId}:medical`,
 			kind: "medical",
 			totalFen: amounts.totalFen,
 			amountFen: medicalFen,
 			payModel: "H5",
-			payTypeId: "2",
+			payTypeId: reuseSucceededLegacyGroup
+				? "2"
+				: medicalInsuranceGroupPayTypeId(medicalLegs),
 			payTypeParams: medicalLegs,
 			recordCode: stableCode(
 				`medical-post-payment:${input.order.medicalOrderId}:medical`,
@@ -307,6 +322,36 @@ function samePrePaymentPlan(
 		planned.every((plannedComponent) =>
 			saved.some((savedComponent) =>
 				samePrePaymentComponent(savedComponent, plannedComponent),
+			),
+		)
+	);
+}
+
+/** 旧成功医保流水保留原返回类型与真实双流水，不重新创建或改写。 */
+function samePrePaymentPlanWithSucceededLegacyMedicalGroup(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): boolean {
+	return (
+		saved.length === planned.length &&
+		planned.every((plannedComponent) =>
+			saved.some(
+				(savedComponent) =>
+					samePrePaymentComponent(savedComponent, plannedComponent, true) ||
+					(savedComponent.kind === "medical" &&
+						plannedComponent.kind === "medical" &&
+						savedComponent.payTypeId === "2" &&
+						plannedComponent.payTypeId === "5" &&
+						savedComponent.state === "succeeded" &&
+						Boolean(
+							savedComponent.payingId?.trim() &&
+								savedComponent.tradingId?.trim(),
+						) &&
+						samePrePaymentComponent(
+							{ ...savedComponent, payTypeId: "5" },
+							plannedComponent,
+							true,
+						)),
 			),
 		)
 	);
@@ -645,6 +690,12 @@ export class MedicalInsurancePluginPaymentService {
 			order: medicalOrder,
 			insuredAreaCode: loadedSettlement.insuredAreaCode,
 			now: this.now(),
+			succeededMedicalGroup:
+				loadedSettlement.postPaymentPlanVersion === "sequenced-v1"
+					? loadedSettlement.postPaymentComponents?.find(
+							(component) => component.kind === "medical",
+						)
+					: undefined,
 		});
 		let planned = sequencedPlan;
 		let settlement = loadedSettlement;
@@ -653,7 +704,11 @@ export class MedicalInsurancePluginPaymentService {
 			if (settlement.postPaymentPlanVersion === "sequenced-v1") {
 				if (
 					!samePrePaymentPlan(saved, sequencedPlan) &&
-					!samePrePaymentPlanWithLegacyWechatCash(saved, sequencedPlan)
+					!samePrePaymentPlanWithLegacyWechatCash(saved, sequencedPlan) &&
+					!samePrePaymentPlanWithSucceededLegacyMedicalGroup(
+						saved,
+						sequencedPlan,
+					)
 				) {
 					throw new Error("medical-insurance-pre-payment-plan-changed");
 				}
@@ -783,7 +838,7 @@ export class MedicalInsurancePluginPaymentService {
 						amountFen: attempted.amountFen,
 						hospitalId: settlement.hospitalId,
 						patientId: settlement.patientId,
-						payTypeId: "2",
+						payTypeId: attempted.payTypeId,
 						payModel: "H5",
 						payTypeParams: payTypeParams.map(({ payTypeId, amountFen }) => ({
 							payTypeId,
@@ -942,9 +997,8 @@ export class MedicalInsurancePluginPaymentService {
 						: {}),
 					updatedAt: this.now().toISOString(),
 				};
-				// .32 的 PayNotifyService 只接受医保统筹分项（payTypeId=2）
-				// 的 payingId/tradingId。不能让后续的医院减免、个账或微信
-				// 分项覆盖结算上下文的主流水关联键。
+				// 历史分项上下文优先保留统筹流水关联键，避免后续分项覆盖。
+				// .32 按已成功的医保分项选择统筹或个账 payingId/tradingId。
 				const primaryMedicalComponent = components.find(
 					(component) =>
 						component.kind === "fund" &&

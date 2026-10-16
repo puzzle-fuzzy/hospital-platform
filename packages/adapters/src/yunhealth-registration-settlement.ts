@@ -10,6 +10,7 @@ import type {
 	YunhealthMiniProgramPayParams,
 	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
+import { medicalInsuranceGroupPayTypeId } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import {
 	type ProviderFetcher,
@@ -45,7 +46,7 @@ const WECHAT_SELF_PAY_TYPE_IDS = new Set([
 ]);
 /** 6202 返回有个人账户实际支付金额时使用的支付方式。 */
 const PERSONAL_ACCOUNT_PAY_TYPE_ID = 5;
-/** 医保合单 2.6.65.2 的内部支付腿；外层固定 H5/payTypeId=2。 */
+/** 医保合单 2.6.65.2 的内部支付腿；外层按正金额医保腿选择 H5/2 或 H5/5。 */
 const COMBINED_MEDICAL_PAY_TYPE_IDS = new Set([
 	2,
 	PERSONAL_ACCOUNT_PAY_TYPE_ID,
@@ -1558,7 +1559,8 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 
 /**
  * 医保支付的第一笔 2.6.65.2 只聚合医保基金、医院优惠和个人账户；微信
- * 自费金额在医保 `.32` 完成后另建一笔 5033。外层仍固定 H5/payTypeId=2，
+ * 自费金额在医保 `.32` 完成后另建一笔 5033。外层 H5 优先使用正金额基金 2，
+ * 无基金金额时使用实际存在的个人账户 5；
  * 组内实际支付腿放到 payTypeParams。历史整单合并请求继续兼容。
  *
  * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的
@@ -1646,6 +1648,20 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);
 			}
+			let groupedPayTypeId: "2" | "5" | undefined;
+			if (combinedPayTypeParams) {
+				try {
+					groupedPayTypeId = medicalInsuranceGroupPayTypeId(
+						combinedPayTypeParams,
+					);
+				} catch {
+					throw providerError(
+						"registration-self-pay.2.6.65.2.plugin",
+						"grouped payment requires a positive medical fund or personal account amount",
+						{ failureStage: "validation", requestOutcome: "not_sent" },
+					);
+				}
+			}
 			const groupedAmountFen = combinedPayTypeParams?.reduce(
 				(sum, item) => sum + item.amountFen,
 				0,
@@ -1681,12 +1697,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			if (
 				isCombinedMedicalPayment &&
 				(payModel !== "H5" ||
-					requestPayTypeId !== 2 ||
+					String(requestPayTypeId) !== groupedPayTypeId ||
 					Boolean(input.paymentSystemUserId?.trim()))
 			) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
-					"combined payment outer fields must be H5/payTypeId=2 without openid",
+					"combined payment outer fields must be H5 with the matching medical payTypeId and without openid",
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);
 			}

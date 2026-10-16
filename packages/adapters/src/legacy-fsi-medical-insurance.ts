@@ -2302,16 +2302,37 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"真实费用明细不存在",
 				);
 			}
-			const primaryMedicalComponent =
-				settlementContext.postPaymentComponents?.find(
+			const completedMedicalComponents =
+				settlementContext.postPaymentComponents?.filter(
 					(component) =>
 						(component.kind === "medical" ||
 							component.kind === "combined" ||
-							component.kind === "fund") &&
-						component.payTypeId === "2" &&
+							(component.kind === "fund" && component.payTypeId === "2") ||
+							(component.kind === "personal_account" &&
+								component.payTypeId === "5")) &&
+						(component.payTypeId === "2" || component.payTypeId === "5") &&
+						component.amountFen > 0 &&
 						component.state === "succeeded" &&
 						Boolean(component.payingId && component.tradingId),
 				);
+			// .32 使用已成功的主医保组流水，统筹优先、个账次之。已有分项时
+			// 不再沿用可能被后续现金或医院减免覆盖的顶层关联键。
+			const primaryMedicalComponent =
+				completedMedicalComponents?.find(
+					(component) => component.payTypeId === "2",
+				) ??
+				completedMedicalComponents?.find(
+					(component) => component.payTypeId === "5",
+				);
+			if (
+				settlementContext.postPaymentComponents !== undefined &&
+				!primaryMedicalComponent
+			) {
+				throw responseError(
+					"medical-insurance.2.27.2.32",
+					"支付后置分项缺少已成功的医保统筹或个人账户流水",
+				);
+			}
 			const finalPayingId =
 				primaryMedicalComponent?.payingId ?? settlementContext.payingId;
 			const finalTradingId =
@@ -2337,7 +2358,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						existingTransId: existingTransIdText,
 						finalPayingId,
 					},
-					"Medical insurance .32 transId corrected to combined payTypeId=2 payingId",
+					"Medical insurance .32 transId corrected to primary medical payment payingId",
 				);
 			}
 
