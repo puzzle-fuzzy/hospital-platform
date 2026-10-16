@@ -125,6 +125,7 @@ type OutpatientPaymentPageMethods = {
 		patientId: string,
 	): Promise<void>;
 	onOriginalMedicalPayment(): Promise<void>;
+	queryOriginalMedicalPayment(): Promise<void>;
 	onClosePaymentSheet(): void;
 	onStopPaymentSheet(): void;
 	onConfirmPayment(): void;
@@ -597,7 +598,11 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 		});
 	},
 
-	async onOriginalMedicalPayment(): Promise<void> {
+	onOriginalMedicalPayment(): Promise<void> {
+		return this.queryOriginalMedicalPayment();
+	},
+
+	async queryOriginalMedicalPayment(): Promise<void> {
 		const record = this.data.paymentRecord;
 		const patientId = this.data.selectedPatient?.id;
 		if (

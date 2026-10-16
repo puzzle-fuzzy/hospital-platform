@@ -679,6 +679,7 @@ test("外地患者的门诊原单查询只查原订单，不续传费用、不�
 				Object.assign(this.data, patch);
 			},
 			isPatientContextCurrent: () => true,
+			queryOriginalMedicalPayment: captured.queryOriginalMedicalPayment,
 		};
 		await (
 			captured.onOriginalMedicalPayment as (this: typeof page) => Promise<void>
