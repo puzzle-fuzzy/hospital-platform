@@ -6,8 +6,13 @@ import {
 	paymentRefundLabel,
 	paymentRefundOption,
 	paymentRefundPreview,
+	registrationRefundFeedback,
 } from "./payment-refund-options";
-import type { AdminWechatRefundPaymentRecord } from "./types";
+import type {
+	AdminPaymentRefundResult,
+	AdminWechatRefundPaymentRecord,
+	RegistrationRefundStage,
+} from "./types";
 
 function payment(
 	overrides: Partial<AdminWechatRefundPaymentRecord> = {},
@@ -222,5 +227,80 @@ describe("admin refund scope and authoritative capabilities", () => {
 		expect(paymentRefundOption(record, "CASH").enabled).toBe(true);
 		expect(paymentRefundLabel(record, "ALL")).toBe("整笔退款并取消挂号");
 		expect(paymentRefundLabel(record, "CASH")).toBe("退微信并取消挂号");
+	});
+});
+
+describe("registration refund progress", () => {
+	const result: AdminPaymentRefundResult = {
+		source: "payment_order",
+		orderId: "registration-progress-fixture",
+		refundType: "ALL",
+		status: "processing",
+		amounts: { totalFen: 300, cashFen: 300, personalAccountFen: 0, fundFen: 0 },
+	};
+	for (const [stage, title, description] of [
+		[
+			"wechat_refund_pending",
+			"微信退款处理中",
+			"微信退款确认成功后，系统才会回写医院并取消挂号",
+		],
+		[
+			"hospital_writeback_pending",
+			"微信已退款，等待医院退费回写",
+			"医院退费回写和取消挂号尚未完成",
+		],
+		[
+			"appointment_cancellation_pending",
+			"微信已退款、医院已回写，等待取消挂号",
+			"挂号尚未取消",
+		],
+	] satisfies [RegistrationRefundStage, string, string][]) {
+		test(`${stage} reports the remaining step instead of full success`, () => {
+			const feedback = registrationRefundFeedback({
+				...result,
+				registrationRefundStage: stage,
+			});
+			expect(feedback?.title).toBe(title);
+			expect(feedback?.description).toContain(description);
+			expect(feedback?.type).not.toBe("success");
+		});
+	}
+	test("only confirmed completion labels all three steps completed", () => {
+		expect(
+			registrationRefundFeedback({
+				...result,
+				status: "succeeded",
+				registrationRefundStage: "completed",
+			}),
+		).toEqual({
+			title: "退款并取消挂号已完成",
+			description: "微信退款、医院退费回写和取消挂号均已确认完成。",
+			type: "success",
+		});
+		expect(
+			registrationRefundFeedback({
+				...result,
+				registrationRefundStage: "completed",
+			})?.type,
+		).toBe("warning");
+	});
+	test("unknown WeChat result never promises a refund or cancellation", () => {
+		expect(
+			registrationRefundFeedback({
+				...result,
+				status: "manual_review",
+				registrationRefundStage: "wechat_refund_pending",
+			}),
+		).toMatchObject({ title: "微信退款结果待确认", type: "warning" });
+	});
+	test("missing stage remains compatible and medical result is not a registration", () => {
+		expect(registrationRefundFeedback(result)).toBeUndefined();
+		expect(
+			registrationRefundFeedback({
+				...result,
+				source: "medical_insurance",
+				registrationRefundStage: "completed",
+			}),
+		).toBeUndefined();
 	});
 });

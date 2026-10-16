@@ -53,6 +53,7 @@ import {
 	paymentRefundLabel,
 	paymentRefundOption,
 	paymentRefundPreview,
+	registrationRefundFeedback,
 } from "./payment-refund-options";
 import type {
 	AdminMedicalInsuranceRefund,
@@ -880,7 +881,10 @@ export function PaymentPanel({
 			);
 			setRefundResult(result);
 			setRefundNeedsQuery(false);
-			void message.info(medicalRefundStatusLabel(result.status));
+			void message.info(
+				registrationRefundFeedback(result)?.title ??
+					medicalRefundStatusLabel(result.status),
+			);
 			const refreshed = await fetchWechatRefundPaymentHistory(
 				{
 					source: refundRecord.source,
@@ -1003,7 +1007,10 @@ export function PaymentPanel({
 				setRefundResult(result);
 				setRefundType(result.refundType);
 				setRefundNeedsQuery(false);
-				void message.info(medicalRefundStatusLabel(result.status));
+				void message.info(
+					registrationRefundFeedback(result)?.title ??
+						medicalRefundStatusLabel(result.status),
+				);
 				const refreshed = await fetchWechatRefundPaymentHistory(
 					{
 						source: record.source,
@@ -1146,6 +1153,9 @@ export function PaymentPanel({
 	const confirmedMedicalFen = refundResult
 		? refundResult.amounts.personalAccountFen + refundResult.amounts.fundFen
 		: refundPreview?.medicalFen;
+	const registrationFeedback = refundResult
+		? registrationRefundFeedback(refundResult)
+		: undefined;
 
 	return (
 		<main className="console-content payment-page">
@@ -1739,7 +1749,9 @@ export function PaymentPanel({
 			<Modal
 				title={
 					refundResult
-						? "退款结果与渠道状态"
+						? registrationFeedback
+							? "退款与取消挂号进度"
+							: "退款结果与渠道状态"
 						: `确认${refundRecord ? paymentRefundLabel(refundRecord, refundType) : PAYMENT_REFUND_LABELS[refundType]}`
 				}
 				open={Boolean(refundRecord)}
@@ -1816,7 +1828,7 @@ export function PaymentPanel({
 							description={
 								refundRecord.source === "payment_order" &&
 								refundRecord.refundRoute === "appointment_cancel"
-									? "本次操作将退款并取消挂号，退款结果回写医院。退款按原微信支付渠道退回。"
+									? "微信退款确认成功后，先回写医院退费结果，再取消挂号。退款按原微信支付渠道退回。"
 									: "退款按原支付渠道退回。医院减免不属于实付金额，不计入本次退款。"
 							}
 						/>
@@ -1859,18 +1871,25 @@ export function PaymentPanel({
 						{refundResult ? (
 							<Alert
 								type={
-									refundResult.status === "succeeded"
+									registrationFeedback?.type ??
+									(refundResult.status === "succeeded"
 										? "success"
 										: refundResult.status === "manual_review"
 											? "warning"
 											: refundResult.status === "failed"
 												? "error"
-												: "info"
+												: "info")
 								}
 								showIcon
-								title={medicalRefundStatusLabel(refundResult.status)}
+								title={
+									registrationFeedback?.title ??
+									medicalRefundStatusLabel(refundResult.status)
+								}
 								description={
 									<Space orientation="vertical" size={2}>
+										{registrationFeedback ? (
+											<Text>{registrationFeedback.description}</Text>
+										) : null}
 										{refundResult.medicalRefund ? (
 											<>
 												<Text>
@@ -1907,7 +1926,8 @@ export function PaymentPanel({
 													: "本次未发起"}
 											</Text>
 										)}
-										{refundResult.status === "manual_review" ? (
+										{refundResult.status === "manual_review" &&
+										!registrationFeedback ? (
 											<Text type="warning">
 												请查询最新状态，分别核对医保、微信与 HIS
 												回执。结果未确认的渠道不能重复退款。

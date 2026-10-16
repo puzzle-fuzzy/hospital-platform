@@ -248,6 +248,12 @@ export type AdminPaymentRefundOption = {
 	reason?: string;
 };
 
+export type RegistrationRefundStage =
+	| "wechat_refund_pending"
+	| "hospital_writeback_pending"
+	| "appointment_cancellation_pending"
+	| "completed";
+
 export type AdminPaymentRefundResult = {
 	source: WechatRefundSource;
 	orderId: string;
@@ -256,6 +262,7 @@ export type AdminPaymentRefundResult = {
 	amounts: AdminMedicalInsuranceRefund["amounts"];
 	medicalRefund?: AdminMedicalInsuranceRefund;
 	wechatRefund?: WechatRefund;
+	registrationRefundStage?: RegistrationRefundStage;
 };
 
 export type AdminPaymentDisplayAmounts = {

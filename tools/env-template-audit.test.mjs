@@ -9,7 +9,7 @@ test("仓库开发模板与生产 API 模板通过职责和安全默认值审计
 
 	expect(result.passed).toBe(true);
 	expect(result.failures).toEqual([]);
-	expect(result.sharedKeyCount).toBe(102);
+	expect(result.sharedKeyCount).toBe(103);
 });
 
 test("生产 AI Runtime 只允许 HTTP(S) 回环地址，其他服务仍禁止本机地址", async () => {

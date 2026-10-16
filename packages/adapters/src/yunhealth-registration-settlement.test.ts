@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { RegistrationSelfPaySettlementContext } from "@hospital/domain";
 import type { ProviderFetcher, ProviderRequestLogger } from "./http";
 import {
 	createYunhealthRegistrationPluginPaymentGateway,
@@ -303,6 +304,250 @@ test("云健康 .15 退款回写在缺少服务端授权时拒绝初始化", () 
 			tradeTypeCode: "10",
 		}),
 	).toThrow("authorizationToken is invalid");
+});
+
+function refundNotificationGateway(fetcher: ProviderFetcher) {
+	const gateway = createYunhealthRegistrationSelfPayRefundNotificationGateway({
+		baseUrl: "https://yunhealth.example.test",
+		authorizationToken: "server-token",
+		paymentOrgId: "10756",
+		pluginPayTypeId: "5033",
+		pluginPayType: "CREDIT",
+		workStationId: "registration-machine-01",
+		paymentSource: "1",
+		authSysCode: "thirdSelfMachine",
+		tradeTypeCode: "10",
+		fetcher,
+	});
+	if (!gateway.validateRefundContext)
+		throw new Error("Missing refund preflight");
+	return { ...gateway, validateRefundContext: gateway.validateRefundContext };
+}
+
+function refundRegistrationContext(): RegistrationSelfPaySettlementContext {
+	return {
+		...registrationContext,
+		tradeTypeCode: "10",
+		payingId: "1952638941030000002",
+		payTypeId: "5032",
+		workStationId: "registration-machine-01",
+		outTradeNo: "REGISTRATION-SELF-001",
+		outTradeNoSource: "yunhealth_2_6_65_2",
+		payParams: {
+			appId: yunhealthMd5Result.appId,
+			timeStamp: yunhealthMd5Result.timeStamp,
+			nonceStr: yunhealthMd5Result.nonceStr,
+			package: yunhealthMd5Result.package,
+			signType: "MD5",
+			paySign: yunhealthMd5Result.sign,
+		},
+	};
+}
+
+test.each([
+	{ baseUrl: "https://gpsrmyy.meiyi.pro", authorizationToken: undefined },
+	{
+		baseUrl: "https://gpsrmyy.meiyi.pro/",
+		authorizationToken: "must-not-forward",
+	},
+])(
+	"云健康 .15 显式 signed-relay 复用原回写路径且不发送 Bearer %j",
+	async (config) => {
+		let request: { url: string; headers: Headers; body: string } | undefined;
+		const notification =
+			createYunhealthRegistrationSelfPayRefundNotificationGateway({
+				baseUrl: config.baseUrl,
+				refundAuthorizationMode: "signed-relay",
+				...(config.authorizationToken
+					? { authorizationToken: config.authorizationToken }
+					: {}),
+				paymentOrgId: "10756",
+				pluginPayTypeId: "5033",
+				pluginPayType: "CREDIT",
+				workStationId: "registration-machine-01",
+				paymentSource: "1",
+				fetcher: async (input, init) => {
+					expect(init?.redirect).toBe("error");
+					request = {
+						url: String(input),
+						headers: new Headers(init?.headers),
+						body: String(init?.body),
+					};
+					return new Response(JSON.stringify({ success: true, data: {} }), {
+						status: 200,
+						headers: { "x-request-id": "signed-relay-refund-notify-15" },
+					});
+				},
+			});
+		const input = {
+			orderId: "payment-order-refund-001",
+			merchantRefundNo: "RF-PO-registration-001",
+			refundFen: 1234,
+			registrationContext: refundRegistrationContext(),
+		};
+		if (!notification.validateRefundContext)
+			throw new Error("Missing refund preflight");
+		notification.validateRefundContext(input);
+		expect(request).toBeUndefined();
+		const trace = await notification.notifyRefund(input, context);
+		expect(request?.url).toBe(
+			"https://gpsrmyy.meiyi.pro/msun-middle-open-settlepay/api/v2/open/payment/pay-notify",
+		);
+		expect(request?.headers.has("authorization")).toBe(false);
+		expect(request?.body).not.toContain("must-not-forward");
+		expect(request?.body).toContain('"payingId":1952638941030000002');
+		const wireBody = JSON.parse(request?.body ?? "{}") as {
+			requestParam: string;
+		};
+		expect(JSON.parse(wireBody.requestParam)).toMatchObject({
+			payingType: "3",
+		});
+		expect(trace.requestId).toBe("signed-relay-refund-notify-15");
+	},
+);
+
+test.each([
+	"http://gpsrmyy.meiyi.pro",
+	"https://gpsrmyy.meiyi.pro:443",
+	"https://gpsrmyy.meiyi.pro:8443",
+	"https://yunhealth.example.test",
+	"https://gpsrmyy.meiyi.pro.attacker.test",
+	"https://GPSRMYY.meiyi.pro",
+	"https://user@gpsrmyy.meiyi.pro",
+	"https://gpsrmyy.meiyi.pro/path",
+	"https://gpsrmyy.meiyi.pro/path/..",
+	"https://gpsrmyy.meiyi.pro//",
+	"https://gpsrmyy.meiyi.pro?mode=signed-relay",
+	"https://gpsrmyy.meiyi.pro/#fragment",
+	"https://%67psrmyy.meiyi.pro",
+])("云健康 .15 signed-relay 拒绝不匹配的受信地址 %s", (baseUrl) => {
+	let calls = 0;
+	expect(() =>
+		createYunhealthRegistrationSelfPayRefundNotificationGateway({
+			baseUrl,
+			refundAuthorizationMode: "signed-relay",
+			paymentOrgId: "10756",
+			pluginPayTypeId: "5033",
+			pluginPayType: "CREDIT",
+			workStationId: "registration-machine-01",
+			paymentSource: "1",
+			fetcher: async () => {
+				calls++;
+				throw new Error("untrusted relay must not send HTTP");
+			},
+		}),
+	).toThrow();
+	expect(calls).toBe(0);
+});
+
+test("云健康 .15 不支持的显式授权模式在请求前失败", () => {
+	expect(() =>
+		createYunhealthRegistrationSelfPayRefundNotificationGateway({
+			baseUrl: "https://gpsrmyy.meiyi.pro",
+			refundAuthorizationMode: "unsupported" as "signed-relay",
+			paymentOrgId: "10756",
+			pluginPayTypeId: "5033",
+			pluginPayType: "CREDIT",
+			workStationId: "registration-machine-01",
+			paymentSource: "1",
+		}),
+	).toThrow("refundAuthorizationMode is invalid");
+});
+
+test("云健康 .15 退款前预检验证完整插件上下文且不发送 HTTP", () => {
+	let calls = 0;
+	const notification = refundNotificationGateway(async () => {
+		calls++;
+		throw new Error("preflight must not send HTTP");
+	});
+	expect(notification.validateRefundContext).toBeDefined();
+	expect(() =>
+		notification.validateRefundContext({
+			orderId: "payment-order-refund-001",
+			refundFen: 1234,
+			registrationContext: refundRegistrationContext(),
+		}),
+	).not.toThrow();
+	expect(calls).toBe(0);
+});
+
+test.each([
+	"payingId",
+	"tradingId",
+	"payTypeId",
+	"recordCode",
+	"tradeTypeCode",
+	"workStationId",
+	"hospitalId",
+] as const)(
+	"云健康 .15 退款前预检拒绝有 payParams 但缺少 %s 的上下文",
+	(field) => {
+		let calls = 0;
+		const notification = refundNotificationGateway(async () => {
+			calls++;
+			throw new Error("invalid context must not send HTTP");
+		});
+		const missingContext = {
+			...refundRegistrationContext(),
+			[field]: undefined,
+		} as unknown as RegistrationSelfPaySettlementContext;
+		expect(missingContext.payParams).toBeDefined();
+		expect(() =>
+			notification.validateRefundContext({
+				orderId: "payment-order-refund-001",
+				refundFen: 1234,
+				registrationContext: missingContext,
+			}),
+		).toThrow(`${field} is invalid`);
+		expect(calls).toBe(0);
+	},
+);
+
+test.each([
+	{ tradeTypeCode: "2" },
+	{ workStationId: "different-workstation" },
+	{ recordCode: "not-the-original-record-code" },
+	{ hospitalId: "0" },
+	{ payTypeId: "not-an-integer" },
+])("云健康 .15 退款前预检拒绝错误的关联事实或服务端配置不匹配 %j", (patch) => {
+	let calls = 0;
+	const notification = refundNotificationGateway(async () => {
+		calls++;
+		throw new Error("invalid context must not send HTTP");
+	});
+	expect(() =>
+		notification.validateRefundContext({
+			orderId: "payment-order-refund-001",
+			refundFen: 1234,
+			registrationContext: { ...refundRegistrationContext(), ...patch },
+		}),
+	).toThrow();
+	expect(calls).toBe(0);
+});
+
+test("云健康 .15 真正回写前重新校验上下文，不复用旧预检结果", async () => {
+	let calls = 0;
+	const notification = refundNotificationGateway(async () => {
+		calls++;
+		throw new Error("changed context must not send HTTP");
+	});
+	const input = {
+		orderId: "payment-order-refund-001",
+		refundFen: 1234,
+		registrationContext: refundRegistrationContext(),
+	};
+	notification.validateRefundContext(input);
+	input.registrationContext.recordCode = "invalid-record-code";
+	await expect(
+		notification.notifyRefund(
+			{ ...input, merchantRefundNo: "RF-PO-registration-001" },
+			context,
+		),
+	).rejects.toMatchObject({
+		failureStage: "validation",
+		requestOutcome: "not_sent",
+	});
+	expect(calls).toBe(0);
 });
 
 test("历史 5031 医保合单 .2 固定外层 H5/2 并保留原支付腿", async () => {

@@ -115,6 +115,7 @@ import {
 import { PatientServiceInputError } from "../modules/patients/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import {
+	RegistrationPaymentExitCancellationPendingError,
 	RegistrationPaymentExitInputError,
 	RegistrationPaymentExitRefundContextError,
 	RegistrationPaymentExitRefundFailedError,
@@ -871,6 +872,16 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"appointment-refund-pending",
 					"退款已成功，正在同步医院收费系统，预约暂未取消，请稍后查看",
+				);
+			}
+
+			if (error instanceof RegistrationPaymentExitCancellationPendingError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-refund-pending",
+					error.hospitalWritebackConfirmed
+						? "微信已退款、医院已回写，挂号取消待确认，请稍后查看"
+						: "微信已退款，挂号取消待确认，请稍后查看",
 				);
 			}
 

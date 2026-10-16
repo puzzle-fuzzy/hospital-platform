@@ -653,7 +653,11 @@ test("MD5 挂号自费使用 .2 返回的商户单号退款并在 .15 回写后�
 				idempotencyKey: "exit-refund-md5-001",
 			},
 		}),
-	).resolves.toEqual({ appointmentId, status: "cancelled" });
+	).resolves.toEqual({
+		appointmentId,
+		status: "cancelled",
+		hospitalWritebackConfirmed: true,
+	});
 
 	expect(refundInput).toMatchObject({
 		orderId: completedOrder.orderId,

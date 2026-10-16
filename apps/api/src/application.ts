@@ -63,6 +63,10 @@ import {
 	AdminPaymentRefundService,
 	type AdminPaymentRefundServiceDependencies,
 } from "./modules/admin/payment-refund-service";
+import {
+	type RegistrationRefundUnavailableReason,
+	resolveRegistrationRefundUnavailableReason,
+} from "./modules/admin/wechat-refund-service";
 import { AppointmentService } from "./modules/appointments";
 import { AppointmentWriteService } from "./modules/appointments/write-service";
 import {
@@ -172,6 +176,8 @@ export type ApplicationServiceOptions = {
 	registrationSelfPayPreparationGateway?: RegistrationSelfPayPreparationGateway;
 	/** 仅在微信退款 SUCCESS 后回写众阳 .15；未配置时新 MD5 自费退款 fail-closed。 */
 	registrationSelfPayRefundNotificationGateway?: RegistrationSelfPayRefundNotificationGateway;
+	/** 仅传可公开的能力分类；配置值和服务端授权内容不得进入管理端读模型。 */
+	registrationRefundUnavailableReason?: RegistrationRefundUnavailableReason;
 	/** 只有完成众阳/HIS 合同和真实环境验收后才打开。 */
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 新增或绑定就诊人必须使用独立的查档/建档/绑卡 adapter。 */
@@ -698,6 +704,15 @@ export function createDefaultApplicationServices(
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const refundPaymentVerifier = options.medicalInsuranceRefundPaymentVerifier;
+	const registrationRefundUnavailableReason =
+		options.registrationRefundUnavailableReason ??
+		resolveRegistrationRefundUnavailableReason({
+			cancellationConfigured: Boolean(options.appointmentWriteGateway),
+			writeBackConfigured: Boolean(
+				options.registrationSelfPayRefundNotificationGateway,
+			),
+			writeBackAuthorized: true,
+		});
 	const wechatRefund = options.wechatRefundGateway
 		? new AdminWechatRefundService({
 				refunds: repositories.wechatRefunds,
@@ -711,8 +726,12 @@ export function createDefaultApplicationServices(
 				gateway: options.wechatRefundGateway,
 				registrationRefundEnabled: Boolean(
 					options.appointmentWriteGateway &&
-						options.registrationSelfPayRefundNotificationGateway,
+						options.registrationSelfPayRefundNotificationGateway &&
+						!registrationRefundUnavailableReason,
 				),
+				...(registrationRefundUnavailableReason
+					? { registrationRefundUnavailableReason }
+					: {}),
 			})
 		: undefined;
 	const paymentSync = new PaymentSyncCoordinator({
@@ -810,7 +829,8 @@ export function createDefaultApplicationServices(
 							}
 						: {}),
 					...(options.appointmentWriteGateway &&
-					options.registrationSelfPayRefundNotificationGateway
+					options.registrationSelfPayRefundNotificationGateway &&
+					!registrationRefundUnavailableReason
 						? {
 								refundRegistrationPayment: async (order, context) => {
 									const prefix = "registration-self-pay:";
@@ -825,7 +845,7 @@ export function createDefaultApplicationServices(
 										throw new DependencyNotConfiguredError(
 											"registration-refund-context",
 										);
-									await registrationPaymentExit.abandon({
+									return registrationPaymentExit.abandon({
 										ownerUserId: order.ownerUserId,
 										appointmentId,
 										mode: "self",

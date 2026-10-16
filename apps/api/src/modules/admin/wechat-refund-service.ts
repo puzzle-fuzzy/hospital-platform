@@ -444,6 +444,17 @@ function isUnknownProviderFailure(error: unknown): boolean {
 	);
 }
 
+function isRefundQueryNotFound(error: unknown): boolean {
+	return (
+		error instanceof ProviderRequestError &&
+		error.provider === "wechat-pay" &&
+		error.operation === "refund-query" &&
+		error.statusCode === 404 &&
+		error.providerErrorCode === "RESOURCE_NOT_EXISTS" &&
+		error.requestOutcome === "rejected"
+	);
+}
+
 function errorCode(error: unknown): string {
 	if (error instanceof ProviderRequestError) {
 		return error.providerErrorCode ?? error.operation;
@@ -453,6 +464,43 @@ function errorCode(error: unknown): string {
 
 export function hisMedicalWechatMerchantRefundNo(orderId: string): string {
 	return medicalInsuranceWechatCashRefundIdentity(orderId).merchantRefundNo;
+}
+
+export type RegistrationRefundUnavailableReason =
+	| "cancellation_not_configured"
+	| "write_back_not_configured"
+	| "authentication_not_supported"
+	| "write_back_authorization_missing";
+
+export function resolveRegistrationRefundUnavailableReason(capabilities: {
+	cancellationConfigured: boolean;
+	writeBackConfigured: boolean;
+	writeBackAuthorized: boolean;
+	writeBackAuthenticationSupported?: boolean;
+}): RegistrationRefundUnavailableReason | undefined {
+	if (!capabilities.cancellationConfigured)
+		return "cancellation_not_configured";
+	if (!capabilities.writeBackConfigured) return "write_back_not_configured";
+	if (capabilities.writeBackAuthenticationSupported === false)
+		return "authentication_not_supported";
+	if (!capabilities.writeBackAuthorized)
+		return "write_back_authorization_missing";
+	return undefined;
+}
+
+function registrationRefundUnavailableMessage(
+	reason: RegistrationRefundUnavailableReason | undefined,
+): string {
+	switch (reason) {
+		case "write_back_not_configured":
+			return "医院退费回写服务未配置，暂不能退款并取消挂号";
+		case "write_back_authorization_missing":
+			return "医院退费回写缺少服务端授权，暂不能退款并取消挂号";
+		case "authentication_not_supported":
+			return "医院退费回写鉴权配置不受支持，暂不能退款并取消挂号";
+		default:
+			return "取消挂号服务未配置，暂不能退款并取消挂号";
+	}
 }
 
 export class AdminWechatRefundService {
@@ -468,6 +516,7 @@ export class AdminWechatRefundService {
 			patients?: Pick<PatientRepository, "listByOwner">;
 			userProfiles?: Pick<UserProfileRepository, "findByUserId">;
 			registrationRefundEnabled?: boolean;
+			registrationRefundUnavailableReason?: RegistrationRefundUnavailableReason;
 			paymentOperations?: PaymentOperationsRepository;
 			operatorAudits?: PaymentOperatorAuditRepository;
 			gateway: WechatRefundGateway;
@@ -773,9 +822,34 @@ export class AdminWechatRefundService {
 				return record;
 			}
 			if (record.status === "requested" || record.status === "unknown") {
-				return this.query(record.merchantRefundNo, context);
+				try {
+					return await this.query(record.merchantRefundNo, context);
+				} catch (error) {
+					if (isRefundQueryNotFound(error)) {
+						return this.requestStoredRefund(
+							record,
+							context,
+							options.operatorRef,
+						);
+					}
+					// 查单失败不能把已预留的未知退款误报为可重新申请的确定失败。
+					return (
+						(await this.dependencies.refunds.findByMerchantRefundNo(
+							record.merchantRefundNo,
+						)) ?? record
+					);
+				}
 			}
 		}
+		return this.requestStoredRefund(record, context, options.operatorRef);
+	}
+
+	/** 查单明确不存在时，也只能重发台账已预留的原退款身份和原参数。 */
+	private async requestStoredRefund(
+		record: WechatRefund,
+		context: AdapterCallContext,
+		operatorRef?: string,
+	): Promise<WechatRefund> {
 		let saved: WechatRefund;
 		try {
 			saved = await this.applyProviderResult(
@@ -793,12 +867,12 @@ export class AdminWechatRefundService {
 			);
 		} catch (error) {
 			const saved = await this.markRequestFailure(record, error);
-			if (!input.idempotencyKey.startsWith("medical-refund:")) {
+			if (!record.idempotencyKey.startsWith("medical-refund:")) {
 				await this.appendRefundAudit({
-					source: target.source,
-					orderId: target.sourceOrderId,
+					source: record.source,
+					orderId: record.sourceOrderId,
 					requestId: context.traceId,
-					...(options.operatorRef ? { operatorRef: options.operatorRef } : {}),
+					...(operatorRef ? { operatorRef } : {}),
 					action: "refund_request",
 					outcome: "failed",
 					reasonCode: errorCode(error),
@@ -806,12 +880,12 @@ export class AdminWechatRefundService {
 			}
 			return saved;
 		}
-		if (!input.idempotencyKey.startsWith("medical-refund:")) {
+		if (!record.idempotencyKey.startsWith("medical-refund:")) {
 			await this.appendRefundAudit({
-				source: target.source,
-				orderId: target.sourceOrderId,
+				source: record.source,
+				orderId: record.sourceOrderId,
 				requestId: context.traceId,
-				...(options.operatorRef ? { operatorRef: options.operatorRef } : {}),
+				...(operatorRef ? { operatorRef } : {}),
 				action: "refund_request",
 				outcome: "succeeded",
 			});
@@ -1027,13 +1101,16 @@ export class AdminWechatRefundService {
 							refundOptions: refundOptions(
 								refundableFen,
 								0,
-								business === "registration" &&
-									!(
-										order.state === "completed" &&
-										this.dependencies.registrationRefundEnabled
-									)
-									? "普通挂号需先核对医院完成状态，再通过退款并取消挂号流程处理"
-									: undefined,
+								business !== "registration"
+									? undefined
+									: order.state !== "completed"
+										? "医院完成状态未确认，请先核对挂号结果"
+										: this.dependencies.registrationRefundUnavailableReason ||
+												!this.dependencies.registrationRefundEnabled
+											? registrationRefundUnavailableMessage(
+													this.dependencies.registrationRefundUnavailableReason,
+												)
+											: undefined,
 							),
 							refundReservedFen: summary.reservedFen,
 							refundableFen,

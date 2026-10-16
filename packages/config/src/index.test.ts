@@ -8,6 +8,7 @@ import {
 	appointmentRecordsConfigurationStatus,
 	inpatientEpisodesConfigurationMissingFields,
 	inpatientEpisodesConfigurationStatus,
+	isYunhealthRegistrationRefundSignedRelayBaseUrl,
 	loadRuntimeConfig,
 	medicalInsuranceConfigurationMissingFields,
 	medicalInsuranceConfigurationStatus,
@@ -27,6 +28,7 @@ import {
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
+	yunhealthRegistrationRefundAuthorizationStatus,
 	yunhealthRegistrationSettlementConfigurationMissingFields,
 	yunhealthRegistrationSettlementConfigurationStatus,
 } from "./index";
@@ -44,6 +46,7 @@ test("runtime config defaults to safe development gates", () => {
 		medicalInsuranceReady: false,
 		medicalInsuranceFoundationPath: "/mbs-fsi/web/api/fsi/callService",
 		yunhealthRegistrationSettlementReady: false,
+		yunhealthRegistrationRefundAuthMode: "bearer",
 		outpatientElectronicInvoiceReady: false,
 		outpatientElectronicInvoiceWorkStationId: "",
 		yunhealthRegistrationPaymentSource: "1",
@@ -280,6 +283,92 @@ test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", (
 			obsoleteWechatSelfPayType,
 		),
 	).toContain("YUNHEALTH_PLUGIN_PAY_TYPE_ID(5033)");
+});
+
+test("挂号退费默认 Bearer；签名中转必须显式开启且不要求额外 Token", () => {
+	for (const mode of [undefined, "", "   ", "bearer"]) {
+		const runtime = loadRuntimeConfig({
+			YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: mode,
+			YUNHEALTH_BASE_URL: "https://gpsrmyy.meiyi.pro",
+		});
+		expect(runtime.yunhealthRegistrationRefundAuthMode).toBe("bearer");
+		expect(yunhealthRegistrationRefundAuthorizationStatus(runtime)).toBe(
+			"missing_authorization",
+		);
+	}
+	const signed = loadRuntimeConfig({
+		YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: "signed-relay",
+		ZHONGYANG_BASE_URL: "  https://gpsrmyy.meiyi.pro/  ",
+	});
+	expect(signed.yunhealthRegistrationRefundAuthMode).toBe("signed-relay");
+	expect(signed.yunhealthAuthorizationToken).toBeUndefined();
+	expect(yunhealthRegistrationRefundAuthorizationStatus(signed)).toBe(
+		"configured",
+	);
+	expect(
+		yunhealthRegistrationRefundAuthorizationStatus(
+			loadRuntimeConfig({
+				YUNHEALTH_AUTH_TOKEN: "synthetic-server-authorization",
+				YUNHEALTH_BASE_URL: "https://another-provider.example.test",
+			}),
+		),
+	).toBe("configured");
+});
+
+test.each([
+	"http://gpsrmyy.meiyi.pro",
+	"https://gpsrmyy.meiyi.pro:443",
+	"https://gpsrmyy.meiyi.pro:8443",
+	"https://gpsrmyy.meiyi.pro/pay-notify",
+	"https://gpsrmyy.meiyi.pro/forward",
+	"https://gpsrmyy.meiyi.pro?target=other",
+	"https://gpsrmyy.meiyi.pro/#fragment",
+	"https://user@gpsrmyy.meiyi.pro",
+	"https://gpsrmyy.meiyi.pro@other.example.test",
+	"https://gpsrmyy.meiyi.pro.other.example.test",
+	"https://GPSRMYY.MEIYI.PRO",
+	"https://gpsrmyy.meiyi.pro.",
+	"https://gpsrmyy.meiyi.pro//",
+	"https://other.example.test",
+	"https://gpsrmyy.meiyi.pro/../",
+	undefined,
+])("签名中转拒绝不支持的准确地址 %s，即使有 Token 也不能降级", (baseUrl) => {
+	expect(isYunhealthRegistrationRefundSignedRelayBaseUrl(baseUrl)).toBe(false);
+	const runtime = loadRuntimeConfig({
+		YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: "signed-relay",
+		YUNHEALTH_BASE_URL: baseUrl,
+		YUNHEALTH_AUTH_TOKEN: "synthetic-server-authorization",
+	});
+	expect(yunhealthRegistrationRefundAuthorizationStatus(runtime)).toBe(
+		"unsupported",
+	);
+});
+
+test("错误显式鉴权模式不会退回 Bearer，明确的错误云健康地址不回退其他上游", () => {
+	for (const mode of ["none", "SIGNED-RELAY", "unsupported"]) {
+		const runtime = loadRuntimeConfig({
+			YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: mode,
+			YUNHEALTH_BASE_URL: "https://gpsrmyy.meiyi.pro",
+			YUNHEALTH_AUTH_TOKEN: "synthetic-server-authorization",
+		});
+		expect(runtime.yunhealthRegistrationRefundAuthMode).toBeUndefined();
+		expect(yunhealthRegistrationRefundAuthorizationStatus(runtime)).toBe(
+			"unsupported",
+		);
+	}
+	const runtime = loadRuntimeConfig({
+		YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: "signed-relay",
+		YUNHEALTH_BASE_URL: "https://other.example.test",
+		ZHONGYANG_BASE_URL: "https://gpsrmyy.meiyi.pro",
+	});
+	expect(yunhealthRegistrationRefundAuthorizationStatus(runtime)).toBe(
+		"unsupported",
+	);
+	for (const baseUrl of [
+		"https://gpsrmyy.meiyi.pro",
+		"https://gpsrmyy.meiyi.pro/",
+	])
+		expect(isYunhealthRegistrationRefundSignedRelayBaseUrl(baseUrl)).toBe(true);
 });
 
 test("production runtime listens on container interfaces by default", () => {

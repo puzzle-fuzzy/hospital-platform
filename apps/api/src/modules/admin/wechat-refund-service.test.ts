@@ -10,6 +10,7 @@ import {
 	type UserProfile,
 	UserProfileReadModelValidationError,
 	type WechatRefund,
+	type WechatRefundGateway,
 	type WechatRefundProviderResult,
 } from "@hospital/domain";
 import {
@@ -24,6 +25,8 @@ import { projectPaymentOrder } from "./payment-operations-projector";
 import {
 	AdminWechatRefundService,
 	hisMedicalWechatMerchantRefundNo,
+	type RegistrationRefundUnavailableReason,
+	resolveRegistrationRefundUnavailableReason,
 } from "./wechat-refund-service";
 
 const context = {
@@ -638,6 +641,107 @@ test("普通挂号只在医院已完成且配置取消编排时开放退款并�
 	}
 });
 
+test("挂号退费能力分类区分取消、回写及服务端授权缺失", () => {
+	const enabled = {
+		cancellationConfigured: true,
+		writeBackConfigured: true,
+		writeBackAuthorized: true,
+	};
+	expect(resolveRegistrationRefundUnavailableReason(enabled)).toBeUndefined();
+	expect(
+		resolveRegistrationRefundUnavailableReason({
+			...enabled,
+			cancellationConfigured: false,
+		}),
+	).toBe("cancellation_not_configured");
+	expect(
+		resolveRegistrationRefundUnavailableReason({
+			...enabled,
+			writeBackConfigured: false,
+		}),
+	).toBe("write_back_not_configured");
+	expect(
+		resolveRegistrationRefundUnavailableReason({
+			...enabled,
+			writeBackAuthorized: false,
+		}),
+	).toBe("write_back_authorization_missing");
+});
+
+for (const [reason, message] of [
+	["cancellation_not_configured", "取消挂号服务未配置"],
+	["write_back_not_configured", "医院退费回写服务未配置"],
+	["write_back_authorization_missing", "医院退费回写缺少服务端授权"],
+	["authentication_not_supported", "医院退费回写鉴权配置不受支持"],
+] satisfies [RegistrationRefundUnavailableReason, string][]) {
+	test(`普通挂号已完成时准确提示${message}，不能被旧 enabled 标志放开`, async () => {
+		const order: PaymentOrder = {
+			...paidOrder(),
+			idempotencyKey: "registration-self-pay:appointment-capability-reason",
+			state: "completed",
+		};
+		const service = new AdminWechatRefundService({
+			refunds: createInMemoryWechatRefundRepository(),
+			paymentOrders: createInMemoryPaymentOrderRepository([order]),
+			medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+			registrationRefundEnabled: true,
+			registrationRefundUnavailableReason: reason,
+			gateway: {
+				async requestRefund() {
+					throw new Error("history must not refund");
+				},
+				async queryRefund() {
+					throw new Error("history must not query provider");
+				},
+			},
+		});
+		const item = (await service.listPaymentHistory()).items[0];
+		for (const type of ["ALL", "CASH"] as const) {
+			expect(item?.refundOptions[type]).toMatchObject({
+				enabled: false,
+				amountFen: 300,
+			});
+			expect(item?.refundOptions[type].reason).toContain(message);
+			expect(item?.refundOptions[type].reason).not.toContain("先核对");
+		}
+	});
+}
+
+test("普通挂号未完成优先提示医院状态，未完成订单不会因能力齐全而放开", async () => {
+	for (const state of ["cash_paid", "his_written_back"] as const) {
+		const order: PaymentOrder = {
+			...paidOrder(),
+			idempotencyKey: "registration-self-pay:appointment-unconfirmed",
+			state,
+		};
+		const service = new AdminWechatRefundService({
+			refunds: createInMemoryWechatRefundRepository(),
+			paymentOrders: createInMemoryPaymentOrderRepository([order]),
+			medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+			registrationRefundEnabled: true,
+			registrationRefundUnavailableReason: "write_back_authorization_missing",
+			gateway: {} as never,
+		});
+		const item = (await service.listPaymentHistory()).items[0];
+		expect(item?.refundOptions.ALL).toMatchObject({
+			enabled: false,
+			reason: "医院完成状态未确认，请先核对挂号结果",
+		});
+	}
+});
+
+test("挂号能力缺失不会阻止普通门诊微信退款选项", async () => {
+	const service = new AdminWechatRefundService({
+		refunds: createInMemoryWechatRefundRepository(),
+		paymentOrders: createInMemoryPaymentOrderRepository([paidOrder()]),
+		medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
+		registrationRefundUnavailableReason: "write_back_authorization_missing",
+		gateway: {} as never,
+	});
+	const item = (await service.listPaymentHistory()).items[0];
+	expect(item?.refundOptions.CASH).toEqual({ enabled: true, amountFen: 300 });
+});
+
 function ledgerRefund(input: {
 	refundRecordId: string;
 	merchantRefundNo: string;
@@ -905,6 +1009,274 @@ test("admin refund does not send a second refund when the first request is unkno
 		context,
 	);
 	expect(recovered.status).toBe("processing");
+	expect(requestCount).toBe(1);
+});
+
+function refundQueryNotFound(): ProviderRequestError {
+	return new ProviderRequestError({
+		provider: "wechat-pay",
+		operation: "refund-query",
+		message: "refund does not exist",
+		statusCode: 404,
+		providerErrorCode: "RESOURCE_NOT_EXISTS",
+		retryable: false,
+		failureStage: "http",
+		requestOutcome: "rejected",
+	});
+}
+
+function pendingRefund(status: "requested" | "unknown"): WechatRefund {
+	return {
+		...ledgerRefund({
+			refundRecordId: "refund-before-send-001",
+			merchantRefundNo: "RF-PO-before-send-001",
+			source: "payment_order",
+			sourceOrderId: paidOrder().orderId,
+			refundFen: 100,
+			status,
+			updatedAt: "2026-09-18T01:02:00.000Z",
+		}),
+		outTradeNo: paidOrder().orderId,
+		idempotencyKey: "refund-before-send-idempotency-001",
+		reason: "原退款原因",
+		providerStatus: null,
+	};
+}
+
+test.each(["requested", "unknown"] as const)(
+	"refund %s recovers an explicit missing Provider refund with its exact saved identity",
+	async (status) => {
+		const original = pendingRefund(status);
+		const refunds = createInMemoryWechatRefundRepository([original]);
+		const requests: Parameters<WechatRefundGateway["requestRefund"]>[0][] = [];
+		let queryCount = 0;
+		const service = new AdminWechatRefundService({
+			refunds,
+			paymentOrders: createInMemoryPaymentOrderRepository([paidOrder()]),
+			medicalInsuranceOrders: {} as never,
+			gateway: {
+				async requestRefund(input) {
+					requests.push(input);
+					return { ...result("PROCESSING"), ...input };
+				},
+				async queryRefund(input) {
+					expect(input.merchantRefundNo).toBe(original.merchantRefundNo);
+					queryCount += 1;
+					if (queryCount === 1) throw refundQueryNotFound();
+					return {
+						...result("SUCCESS"),
+						merchantRefundNo: original.merchantRefundNo,
+					};
+				},
+			},
+		});
+		const recovered = await service.request(
+			{
+				source: original.source,
+				orderId: original.sourceOrderId,
+				refundFen: original.refundFen,
+				idempotencyKey: original.idempotencyKey,
+				reason: "重试时不能替换原原因",
+			},
+			context,
+		);
+		expect(recovered).toMatchObject({
+			refundRecordId: original.refundRecordId,
+			merchantRefundNo: original.merchantRefundNo,
+			idempotencyKey: original.idempotencyKey,
+			status: "processing",
+		});
+		expect(requests).toEqual([
+			{
+				outTradeNo: original.outTradeNo,
+				merchantRefundNo: original.merchantRefundNo,
+				totalFen: original.totalFen,
+				refundFen: original.refundFen,
+				reason: "原退款原因",
+			},
+		]);
+		const confirmed = await service.query(original.merchantRefundNo, context);
+		expect(confirmed.status).toBe("success");
+		expect(requests).toHaveLength(1);
+		expect(queryCount).toBe(2);
+		expect(
+			await refunds.findBySourceAndSourceOrder?.(
+				original.source,
+				original.sourceOrderId,
+			),
+		).toHaveLength(1);
+	},
+);
+
+test.each([
+	{
+		label: "timeout",
+		statusCode: undefined,
+		code: undefined,
+		outcome: "unknown",
+	},
+	{
+		label: "system error",
+		statusCode: 500,
+		code: "SYSTEM_ERROR",
+		outcome: "unknown",
+	},
+	{
+		label: "unclassified missing",
+		statusCode: 404,
+		code: "NOT_FOUND",
+		outcome: "rejected",
+	},
+	{
+		label: "uncertain missing",
+		statusCode: 404,
+		code: "RESOURCE_NOT_EXISTS",
+		outcome: "unknown",
+	},
+	{
+		label: "wrong HTTP status",
+		statusCode: 400,
+		code: "RESOURCE_NOT_EXISTS",
+		outcome: "rejected",
+	},
+] as const)(
+	"refund query $label never resubmits and request replay preserves its pending identity",
+	async ({ statusCode, code, outcome }) => {
+		const original = pendingRefund("unknown");
+		const refunds = createInMemoryWechatRefundRepository([original]);
+		let requestCount = 0;
+		const queryError = new ProviderRequestError({
+			provider: "wechat-pay",
+			operation: "refund-query",
+			message: "query failed",
+			retryable: true,
+			...(statusCode ? { statusCode } : {}),
+			...(code ? { providerErrorCode: code } : {}),
+			requestOutcome: outcome,
+		});
+		const service = new AdminWechatRefundService({
+			refunds,
+			paymentOrders: createInMemoryPaymentOrderRepository([paidOrder()]),
+			medicalInsuranceOrders: {} as never,
+			gateway: {
+				async requestRefund() {
+					requestCount += 1;
+					throw new Error("query uncertainty must not cause a refund");
+				},
+				async queryRefund() {
+					throw queryError;
+				},
+			},
+		});
+		await expect(
+			service.query(original.merchantRefundNo, context),
+		).rejects.toBe(queryError);
+		const replay = await service.request(
+			{
+				source: original.source,
+				orderId: original.sourceOrderId,
+				refundFen: original.refundFen,
+				idempotencyKey: original.idempotencyKey,
+			},
+			context,
+		);
+		expect(replay).toEqual(original);
+		expect(requestCount).toBe(0);
+		expect(
+			await refunds.findByMerchantRefundNo(original.merchantRefundNo),
+		).toEqual(original);
+	},
+);
+
+test.each([
+	"requested",
+	"unknown",
+	"processing",
+	"success",
+	"closed",
+	"abnormal",
+	"request_failed",
+] as const)(
+	"refund %s is never resubmitted by a missing query result",
+	async (status) => {
+		const original = { ...pendingRefund("requested"), status };
+		let requestCount = 0;
+		const service = new AdminWechatRefundService({
+			refunds: createInMemoryWechatRefundRepository([original]),
+			paymentOrders: {} as never,
+			medicalInsuranceOrders: {} as never,
+			gateway: {
+				async requestRefund() {
+					requestCount += 1;
+					throw new Error("known refund must not be resubmitted by query");
+				},
+				async queryRefund() {
+					throw refundQueryNotFound();
+				},
+			},
+		});
+		await expect(
+			service.query(original.merchantRefundNo, context),
+		).rejects.toThrow("refund does not exist");
+		expect(requestCount).toBe(0);
+	},
+);
+
+test("a timed out original-number resubmission stays unknown and is queried before another attempt", async () => {
+	const original = pendingRefund("requested");
+	const refunds = createInMemoryWechatRefundRepository([original]);
+	let requestCount = 0;
+	let queryCount = 0;
+	const service = new AdminWechatRefundService({
+		refunds,
+		paymentOrders: createInMemoryPaymentOrderRepository([paidOrder()]),
+		medicalInsuranceOrders: {} as never,
+		gateway: {
+			async requestRefund() {
+				requestCount += 1;
+				throw new ProviderRequestError({
+					provider: "wechat-pay",
+					operation: "refund-request",
+					message: "timeout",
+					retryable: true,
+					requestOutcome: "unknown",
+				});
+			},
+			async queryRefund() {
+				queryCount += 1;
+				if (queryCount === 1) throw refundQueryNotFound();
+				throw new ProviderRequestError({
+					provider: "wechat-pay",
+					operation: "refund-query",
+					message: "timeout",
+					retryable: true,
+					requestOutcome: "unknown",
+				});
+			},
+		},
+	});
+	const recovered = await service.requestTrustedPaymentOrder(
+		{
+			orderId: original.sourceOrderId,
+			outTradeNo: original.outTradeNo,
+			refundFen: original.refundFen,
+			idempotencyKey: original.idempotencyKey,
+		},
+		context,
+	);
+	expect(recovered.status).toBe("unknown");
+	const replay = await service.request(
+		{
+			source: original.source,
+			orderId: original.sourceOrderId,
+			refundFen: original.refundFen,
+			idempotencyKey: original.idempotencyKey,
+		},
+		context,
+	);
+	expect(replay.status).toBe("unknown");
+	expect(replay.merchantRefundNo).toBe(original.merchantRefundNo);
+	expect(queryCount).toBe(2);
 	expect(requestCount).toBe(1);
 });
 

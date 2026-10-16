@@ -643,6 +643,12 @@ export interface RegistrationSelfPayPreparationGateway {
  * 查到微信退款 SUCCESS，才能通知 HIS。
  */
 export interface RegistrationSelfPayRefundNotificationGateway {
+	/** 微信退款前纯校验 .15 必需上下文和服务端配置，不发送 Provider 请求。 */
+	validateRefundContext?(input: {
+		orderId: string;
+		refundFen: number;
+		registrationContext: RegistrationSelfPaySettlementContext;
+	}): void;
 	notifyRefund(
 		input: {
 			orderId: string;
