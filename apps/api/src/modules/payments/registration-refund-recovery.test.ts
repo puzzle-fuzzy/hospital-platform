@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
 	createYunhealthRegistrationSelfPayRefundNotificationGateway,
 	ProviderRequestError,
@@ -23,6 +23,7 @@ import { AdminPaymentRefundService } from "../admin/payment-refund-service";
 import { AdminWechatRefundService } from "../admin/wechat-refund-service";
 import {
 	RegistrationPaymentExitCancellationPendingError,
+	RegistrationPaymentExitRefundContextError,
 	RegistrationPaymentExitRefundPendingError,
 	RegistrationPaymentExitService,
 } from "./registration-payment-exit-service";
@@ -69,7 +70,11 @@ async function fixture(
 		queryFailures?: number;
 		requestFailures?: number;
 		missingRefundQueries?: number;
-		priorRefundStatus?: "requested" | "processing" | "unknown";
+		priorRefundStatus?:
+			| "requested"
+			| "processing"
+			| "unknown"
+			| "request_failed";
 		initialRefundStatus?: WechatRefundProviderResult["status"];
 		contextPatch?: Partial<RegistrationSelfPaySettlementContext>;
 		legacy?: boolean;
@@ -285,6 +290,7 @@ async function fixture(
 	});
 	return {
 		order,
+		cash,
 		admin,
 		exit,
 		moneyCalls,
@@ -496,6 +502,59 @@ test("有 MD5 参数但医院退费上下文缺字段时，纯校验在退款台
 		expect(f.notifyCalls).toHaveLength(0);
 		expect(f.cancelAttempts()).toBe(0);
 	}
+});
+
+test.each(["request_failed", "unknown"] as const)(
+	"历史 MD5 商户单号等于医院业务号时拒绝恢复 %s 退款，不发送退款或取消预约",
+	async (priorRefundStatus) => {
+		const hospitalBusinessCode = "MZJSD-FIXTURE-ONLY";
+		const f = await fixture({
+			priorRefundStatus,
+			missingRefundQueries: 1,
+			contextPatch: {
+				businessCode: hospitalBusinessCode,
+				outTradeNo: hospitalBusinessCode,
+			},
+		});
+		const trustedRefund = spyOn(f.cash, "requestTrustedPaymentOrder");
+		f.advance();
+		await expect(f.request()).rejects.toBeInstanceOf(
+			RegistrationPaymentExitRefundContextError,
+		);
+		if (priorRefundStatus === "unknown")
+			await expect(f.query()).rejects.toBeInstanceOf(
+				RegistrationPaymentExitRefundContextError,
+			);
+		expect(trustedRefund).not.toHaveBeenCalled();
+		expect(f.moneyCalls).toHaveLength(0);
+		expect(f.queryCalls).toHaveLength(0);
+		expect(f.notifyCalls).toHaveLength(0);
+		expect(f.cancelAttempts()).toBe(0);
+		expect(f.cancelled()).toBe(false);
+		expect(await f.readRefunds()).toHaveLength(1);
+		trustedRefund.mockRestore();
+	},
+);
+
+test("历史 5031 商户单号与医院业务号相同仍保留原退款链路", async () => {
+	const f = await fixture({
+		contextPatch: {
+			payTypeId: "5031",
+			businessCode: originalContext.outTradeNo ?? "",
+		},
+	});
+	expect(await f.request()).toMatchObject({
+		status: "succeeded",
+		registrationRefundStage: "completed",
+	});
+	expect(f.moneyCalls).toHaveLength(1);
+	expect(f.moneyCalls[0]?.outTradeNo).toBe(originalContext.outTradeNo);
+	expect(f.notifyCalls).toHaveLength(1);
+	expect(
+		JSON.parse(String(f.notifyCalls[0]?.body.requestParam)).recordList[0]
+			.payTypeId,
+	).toBe(5031);
+	expect(f.cancelAttempts()).toBe(1);
 });
 
 test("Admin 查询历史 pending 退款也先校验医院上下文，缺字段时不能通过404同号恢复绕过", async () => {

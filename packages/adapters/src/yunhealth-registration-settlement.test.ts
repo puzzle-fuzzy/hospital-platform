@@ -160,7 +160,10 @@ test("历史 5031 云健康 .2 将 result 的 MD5 sign 安全投影为小程序 
 					data: {
 						payingId: 500001,
 						tradingId: 500002,
-						payRecord: { outTradeNo: "REGISTRATION-001" },
+						payRecord: {
+							outTradeNo: "REGISTRATION-001",
+							tradeNo: "LEGACY-HIS-REFERENCE-001",
+						},
 						result: JSON.stringify(yunhealthMd5Result),
 					},
 				}),
@@ -197,6 +200,139 @@ test("历史 5031 云健康 .2 将 result 的 MD5 sign 安全投影为小程序 
 	});
 	expect(result.outTradeNo).toBe("REGISTRATION-001");
 });
+
+async function manualSelfPayPreOrder(data: Record<string, unknown>) {
+	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
+		baseUrl: "https://yunhealth.example.test",
+		pluginPayTypeId: "5033",
+		pluginPayType: "CREDIT",
+		workStationId: "",
+		miniProgramAppId: yunhealthMd5Result.appId,
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						payingId: "9007199254740993",
+						tradingId: "9007199254740994",
+						result: JSON.stringify(yunhealthMd5Result),
+						...data,
+					},
+				}),
+				{ status: 200, headers: { "x-request-id": "manual-wechat-5032" } },
+			),
+	});
+	return gatewayInstance.createPreOrder(
+		{
+			orderId: "manual-payment-001",
+			businessId: "settlement-business-001",
+			tradeCode: "HIS-BUSINESS-001",
+			totalFen: 1000,
+			hospitalId: "10389001",
+			patientId: "100001",
+			payTypeId: "5032",
+			payModel: "MINI_PROGRAM",
+			paymentSystemUserId: "openid-manual-001",
+			payType: "CREDIT",
+			workStationId: "",
+			recordCode: "0123456789abcdef0123456789abcdef",
+			tradeTypeCode: "10",
+		},
+		context,
+	);
+}
+
+const manualWechatPayRecord = {
+	payTypeId: "5032",
+	payModel: "MINI_PROGRAM",
+	payTypeCode: "WECHAT",
+	tradeNo: "wx-merchant-order-001",
+	outTradeNo: "HIS-BUSINESS-001",
+	tradeCode: "HIS-BUSINESS-001",
+};
+
+test("普通微信 5032 使用支付记录 tradeNo，忽略根字段和其他支付腿的单号", async () => {
+	const result = await manualSelfPayPreOrder({
+		outTradeNo: "ROOT-HIS-BUSINESS-001",
+		tradeNo: "ROOT-HIS-REFERENCE-001",
+		payRecord: manualWechatPayRecord,
+		payRecords: [
+			{ payTypeId: "5", tradeNo: "OTHER-PAYMENT-LEG-001" },
+			{ ...manualWechatPayRecord, payTypeId: 5032 },
+		],
+	});
+	expect(result.outTradeNo).toBe("wx-merchant-order-001");
+});
+
+test.each([
+	{
+		data: { payRecords: [manualWechatPayRecord] },
+		expected: "wx-merchant-order-001",
+	},
+	{
+		data: { payRecord: { payTypeId: "5032", trade_no: "merchant-alias-001" } },
+		expected: "merchant-alias-001",
+	},
+	{
+		data: { payRecord: { ...manualWechatPayRecord, tradeNo: "a".repeat(32) } },
+		expected: "a".repeat(32),
+	},
+])(
+	"普通微信 5032 读取明确支付记录并接受 32 位以内商户单号 %j",
+	async ({ data, expected }) => {
+		const result = await manualSelfPayPreOrder(data);
+		expect(result.outTradeNo).toBe(expected);
+	},
+);
+
+test.each([
+	{ payRecord: { outTradeNo: "legacy-wechat-order-001" } },
+	{ out_trade_no: "legacy-wechat-order-001" },
+])("普通微信 5032 兼容没有渠道结构的历史商户单号 %j", async (data) => {
+	const result = await manualSelfPayPreOrder(data);
+	expect(result.outTradeNo).toBe("legacy-wechat-order-001");
+});
+
+const invalidManualWechatResponses: Record<string, unknown>[] = [
+	{ payRecord: { ...manualWechatPayRecord, tradeNo: undefined } },
+	{ payRecord: { ...manualWechatPayRecord, tradeNo: "" } },
+	{ payRecord: { ...manualWechatPayRecord, tradeNo: "HIS-BUSINESS-001" } },
+	{ payRecord: { ...manualWechatPayRecord, tradeNo: "a".repeat(33) } },
+	{ payRecord: { ...manualWechatPayRecord, tradeNo: "merchant/order" } },
+	{ payRecord: { ...manualWechatPayRecord, tradeNo: "merchant\norder" } },
+	{ payRecord: { ...manualWechatPayRecord, tradeNo: 9007199254740992 } },
+	{ payRecord: { ...manualWechatPayRecord, payModel: "H5" } },
+	{ payRecord: { ...manualWechatPayRecord, payTypeCode: "ALIPAY" } },
+	{
+		payRecord: {
+			...manualWechatPayRecord,
+			trade_no: "conflicting-merchant-order",
+		},
+	},
+	{
+		payRecord: manualWechatPayRecord,
+		payRecords: [
+			{ ...manualWechatPayRecord, tradeNo: "second-merchant-order" },
+		],
+	},
+	{
+		outTradeNo: "legacy-wechat-order-001",
+		payRecord: { outTradeNo: "different-legacy-order-001" },
+	},
+	{ payRecord: { outTradeNo: "HIS-BUSINESS-001" } },
+	{ payRecord: { payTypeId: "5", tradeNo: "other-channel-order-001" } },
+];
+test.each(invalidManualWechatResponses)(
+	"普通微信 5032 拒绝缺失、非法或冲突单号，不能回退成 HIS outTradeNo %j",
+	async (data) => {
+		await expect(manualSelfPayPreOrder(data)).rejects.toMatchObject({
+			operation: "registration-self-pay.2.6.65.2.plugin",
+			failureStage: "response",
+			responseInvalid: true,
+			requestOutcome: "unknown",
+		});
+	},
+);
 
 test("微信退款确认成功后按原插件上下文回写云健康 .15 退款分支", async () => {
 	let request:
@@ -1662,8 +1798,21 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 				payRecord: {
 					payingId: "1952638941030000002",
 					tradingId: "1952638941030000003",
-					outTradeNo: "REGISTRATION-SELF-001",
+					payTypeId: "5032",
+					payModel: "MINI_PROGRAM",
+					payTypeCode: "WECHAT",
+					tradeNo: "wx-registration-self-001",
+					outTradeNo: "REG-20260907-001",
+					tradeCode: "REG-20260907-001",
 				},
+				payRecords: [
+					{
+						payTypeId: "5032",
+						payModel: "MINI_PROGRAM",
+						tradeNo: "wx-registration-self-001",
+						outTradeNo: "REG-20260907-001",
+					},
+				],
 				result: JSON.stringify(yunhealthMd5Result),
 			},
 		},
@@ -1746,7 +1895,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		payingId: "1952638941030000002",
 		tradingId: "1952638941030000003",
 		patientId: "1952638941030000200",
-		outTradeNo: "REGISTRATION-SELF-001",
+		outTradeNo: "wx-registration-self-001",
 		outTradeNoSource: "yunhealth_2_6_65_2",
 		payParams: {
 			appId: yunhealthMd5Result.appId,

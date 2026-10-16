@@ -260,7 +260,11 @@ export class RegistrationPaymentExitService {
 		if (registrationContext?.payParams) {
 			if (
 				registrationContext.outTradeNoSource !== "yunhealth_2_6_65_2" ||
-				!registrationContext.outTradeNo
+				!registrationContext.outTradeNo ||
+				// 历史 5032 .2 映射曾把医院业务号保存为微信商户单号；须核实
+				// 修复原上下文和退款台账后再恢复，不能继续向错误目标退款。
+				(registrationContext.payTypeId === "5032" &&
+					registrationContext.outTradeNo === registrationContext.businessCode)
 			) {
 				throw new RegistrationPaymentExitRefundContextError();
 			}

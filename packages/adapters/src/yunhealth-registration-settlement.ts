@@ -527,6 +527,76 @@ function providerScalarText(
 	return normalized && normalized.length <= maxLength ? normalized : undefined;
 }
 
+/**
+ * 普通微信 5032 的 payRecord.tradeNo 才是微信商户单号；同一记录的
+ * outTradeNo/tradeCode 是 HIS 业务单号。只检查支付记录，避免根字段或
+ * 其他支付腿覆盖真实商户单号；重复记录必须一致。
+ */
+function manualSelfPayWechatOutTradeNo(
+	value: unknown,
+	hisTradeCode: string,
+): string | undefined {
+	const data = responseData(value);
+	const records = [
+		data.payRecord,
+		...(Array.isArray(data.payRecords) ? data.payRecords : []),
+	].filter(
+		(record): record is Record<string, unknown> =>
+			typeof record === "object" && record !== null && !Array.isArray(record),
+	);
+	const matchingRecords = records.filter(
+		(record) =>
+			record.payTypeId === undefined ||
+			String(record.payTypeId) === String(MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID),
+	);
+	if (records.length > 0 && matchingRecords.length === 0) return undefined;
+	const validMerchantNo = (candidate: unknown): string | undefined => {
+		if (typeof candidate !== "string") return undefined;
+		const normalized = providerScalarText(candidate, 32);
+		return normalized &&
+			normalized !== hisTradeCode &&
+			/^[A-Za-z0-9_\-*]+$/u.test(normalized)
+			? normalized
+			: undefined;
+	};
+	const hasStructuredPayment = matchingRecords.some((record) =>
+		["payTypeId", "payModel", "payTypeCode", "tradeNo", "trade_no"].some(
+			(key) => record[key] !== undefined,
+		),
+	);
+	const candidates: string[] = [];
+	if (hasStructuredPayment) {
+		for (const record of matchingRecords) {
+			if (record.payModel !== undefined && record.payModel !== "MINI_PROGRAM")
+				return undefined;
+			if (record.payTypeCode !== undefined && record.payTypeCode !== "WECHAT")
+				return undefined;
+			const rawValues = [record.tradeNo, record.trade_no].filter(
+				(item) => item !== undefined,
+			);
+			if (rawValues.length === 0) return undefined;
+			for (const raw of rawValues) {
+				const candidate = validMerchantNo(raw);
+				if (!candidate) return undefined;
+				candidates.push(candidate);
+			}
+		}
+	} else {
+		// 历史简化响应只有 outTradeNo，没有带渠道信息的 payRecord。
+		for (const record of [data, ...matchingRecords]) {
+			for (const key of ["outTradeNo", "out_trade_no"]) {
+				if (record[key] === undefined) continue;
+				const candidate = validMerchantNo(record[key]);
+				if (!candidate) return undefined;
+				candidates.push(candidate);
+			}
+		}
+	}
+	return candidates.length > 0 && new Set(candidates).size === 1
+		? candidates[0]
+		: undefined;
+}
+
 function requireYunhealthSuccess(
 	response: {
 		data: unknown;
@@ -1817,10 +1887,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						})
 					: undefined;
 			const outTradeNo = payParams
-				? providerScalarText(
-						nestedValue(response.data, ["outTradeNo", "out_trade_no"]),
-						32,
-					)
+				? requestPayTypeId === MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID
+					? manualSelfPayWechatOutTradeNo(response.data, tradeCode)
+					: providerScalarText(
+							nestedValue(response.data, ["outTradeNo", "out_trade_no"]),
+							32,
+						)
 				: undefined;
 			if (
 				payParams &&
