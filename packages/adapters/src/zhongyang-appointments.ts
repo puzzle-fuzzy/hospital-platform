@@ -438,6 +438,30 @@ function optionalText(
 	return requiredText(value, field, operation, requestId, maxLength);
 }
 
+/** 医生简介与擅长可包含段落换行；只在这两个描述字段的 Provider 边界规范化。 */
+function optionalDoctorDescription(
+	value: unknown,
+	field: "introduce" | "specialty",
+	operation: string,
+	requestId: string,
+	maxLength: number,
+): string | undefined {
+	const normalized =
+		typeof value === "string" ? value.replace(/[\r\n]+/gu, " ") : value;
+	// 只有空白、没有其它控制字符的可选描述等同于未填写。
+	if (
+		typeof normalized === "string" &&
+		!normalized.trim() &&
+		!Array.from(normalized).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	) {
+		return undefined;
+	}
+	return optionalText(normalized, field, operation, requestId, maxLength);
+}
+
 function requiredInteger(
 	value: unknown,
 	field: string,
@@ -1054,14 +1078,14 @@ function mapSchedule(
 		requestId,
 		128,
 	);
-	const introduction = optionalText(
+	const introduction = optionalDoctorDescription(
 		value.introduce,
 		"introduce",
 		operation,
 		requestId,
 		512,
 	);
-	const expertise = optionalText(
+	const expertise = optionalDoctorDescription(
 		value.specialty,
 		"specialty",
 		operation,
