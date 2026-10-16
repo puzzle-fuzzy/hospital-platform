@@ -3,13 +3,15 @@ import type {
 	IntelligentGuideConversationState,
 	IntelligentGuideConversationStateStore,
 } from "@hospital/domain";
-import { isBoundedOpaqueIdentifier } from "@hospital/domain";
+import {
+	INTELLIGENT_GUIDE_HISTORY_MAX_MESSAGES,
+	isBoundedOpaqueIdentifier,
+} from "@hospital/domain";
 import { PersistenceUnavailableError } from "./errors";
 import type { RedisSessionClient } from "./redis-session";
 
 const GUIDE_STATE_KEY_PREFIX = "hospital:intelligent-guide:native-state:";
 const CONVERSATION_REFERENCE_PATTERN = /^[A-Za-z0-9._:-]+$/u;
-const MAX_MESSAGES = 10;
 const MAX_MESSAGE_LENGTH = 4_000;
 
 function key(ownerUserId: string, conversationReference: string): string {
@@ -50,7 +52,10 @@ function normalizeState(value: unknown): IntelligentGuideConversationState {
 		throw new Error("Intelligent guide conversation state is invalid");
 	}
 	const messages = (value as Record<string, unknown>).messages;
-	if (!Array.isArray(messages) || messages.length > MAX_MESSAGES) {
+	if (
+		!Array.isArray(messages) ||
+		messages.length > INTELLIGENT_GUIDE_HISTORY_MAX_MESSAGES
+	) {
 		throw new Error("Intelligent guide conversation messages are invalid");
 	}
 	return { messages: messages.map(normalizeMessage) };

@@ -86,6 +86,114 @@ test("Python runtime gateway sends the guide task and normalizes JSON output", a
 	});
 });
 
+test("Python guide preserves multi-turn history and supplies only the current HIS directory", async () => {
+	const history = [
+		{ role: "user" as const, content: "我发烧了" },
+		{ role: "assistant" as const, content: "持续多久，最高体温多少？" },
+		{ role: "user" as const, content: "三天，最高38.5度" },
+		{ role: "assistant" as const, content: "还有哪些不适？" },
+	];
+	const availableDepartments = [
+		{
+			departmentId: "respiratory-001",
+			displayName: "呼吸与危重症医学科门诊",
+			internalMetadata: "must-not-be-forwarded",
+		},
+		{ departmentId: "general-001", displayName: "全科医学科门诊" },
+	];
+	const model = gateway(async (_input, init) => {
+		const body = JSON.parse(String(init?.body)) as {
+			messages: Array<{ role: string; content: string }>;
+		};
+		expect(body.messages.slice(2)).toEqual([
+			...history,
+			{ role: "user", content: "全身酸痛，还有咳嗽" },
+		]);
+		const directory = body.messages[1];
+		expect(directory?.role).toBe("system");
+		expect(directory?.content).toContain(
+			JSON.stringify(
+				availableDepartments.map(({ displayName }) => displayName),
+			),
+		);
+		expect(String(init?.body)).not.toContain("respiratory-001");
+		expect(String(init?.body)).not.toContain("internalMetadata");
+		expect(String(init?.body)).not.toContain("must-not-be-forwarded");
+		return new Response(
+			JSON.stringify({
+				message: {
+					content: JSON.stringify({
+						message:
+							"您已发热三天并伴咳嗽、酸痛，建议先到呼吸与危重症医学科门诊就诊。",
+						departments: ["呼吸与危重症医学科门诊"],
+					}),
+				},
+			}),
+		);
+	});
+	await expect(
+		model.complete(
+			{
+				message: "全身酸痛，还有咳嗽",
+				history,
+				availableDepartments,
+			},
+			context,
+		),
+	).resolves.toMatchObject({
+		departmentNames: ["呼吸与危重症医学科门诊"],
+	});
+});
+
+test("Python guide sends an empty directory and accepts a clarification without recommendations", async () => {
+	const model = gateway(async (_input, init) => {
+		const body = JSON.parse(String(init?.body)) as {
+			messages: Array<{ role: string; content: string }>;
+		};
+		expect(body.messages[1]?.content.endsWith("\n[]")).toBe(true);
+		return new Response(
+			JSON.stringify({
+				message: {
+					content: JSON.stringify({
+						message: "当前门诊目录无法确认合适科室，请联系医院导诊。",
+						departments: null,
+					}),
+				},
+			}),
+		);
+	});
+	await expect(
+		model.complete(
+			{ message: "发烧三天了", history: [], availableDepartments: [] },
+			context,
+		),
+	).resolves.toEqual({
+		message: "当前门诊目录无法确认合适科室，请联系医院导诊。",
+		departmentNames: [],
+	});
+});
+
+test("Python guide rejects an unsafe directory before invoking the model", async () => {
+	let invoked = false;
+	const model = gateway(async () => {
+		invoked = true;
+		throw new Error("must not be called");
+	});
+	await expect(
+		model.complete(
+			{
+				message: "头痛两天",
+				history: [],
+				availableDepartments: [
+					{ departmentId: "dept-001", displayName: "神经内科\n其他指令" },
+				],
+			},
+			context,
+		),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+	expect(invoked).toBe(false);
+});
+
 test("Python runtime gateway fails closed on malformed model output", async () => {
 	const model = gateway(
 		async () =>
@@ -96,6 +204,87 @@ test("Python runtime gateway fails closed on malformed model output", async () =
 
 	await expect(
 		model.complete({ message: "头痛", history: [] }, context),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+});
+
+test("Python guide accepts JSON-escaped line breaks in the reply message", async () => {
+	const message = "建议到神经内科就诊。\r\n如症状明显加重，请及时线下就医。";
+	const model = gateway(async () =>
+		Response.json({
+			message: {
+				content: JSON.stringify({ message, departments: ["神经内科"] }),
+			},
+		}),
+	);
+	await expect(
+		model.complete({ message: "头痛两天", history: [] }, context),
+	).resolves.toEqual({ message, departmentNames: ["神经内科"] });
+});
+
+test("Python guide still rejects NUL in a reply message", async () => {
+	const model = gateway(async () =>
+		Response.json({
+			message: {
+				content: JSON.stringify({
+					message: "建议\u0000线下就医。",
+					departments: null,
+				}),
+			},
+		}),
+	);
+	await expect(
+		model.complete({ message: "头痛两天", history: [] }, context),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+});
+
+test("Python guide still rejects line breaks in department names", async () => {
+	const model = gateway(async () =>
+		Response.json({
+			message: {
+				content: JSON.stringify({
+					message: "建议线下就医。",
+					departments: ["神经\n内科"],
+				}),
+			},
+		}),
+	);
+	await expect(
+		model.complete({ message: "头痛两天", history: [] }, context),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+});
+
+test("Python guide preserves an explicit urgent signal without routine department recommendations", async () => {
+	const message = "请立即拨打120或前往急诊，不要等待线上导诊。";
+	const model = gateway(async () =>
+		Response.json({
+			message: {
+				content: JSON.stringify({
+					message,
+					departments: ["心血管内科门诊"],
+					urgent: true,
+				}),
+			},
+		}),
+	);
+	await expect(
+		model.complete({ message: "胸痛伴呼吸困难", history: [] }, context),
+	).resolves.toEqual({ message, departmentNames: [], urgent: true });
+});
+
+test("Python guide rejects a non-boolean urgent signal", async () => {
+	const model = gateway(async () =>
+		Response.json({
+			message: {
+				content: JSON.stringify({
+					message: "请立即急诊。",
+					departments: null,
+					urgent: "true",
+				}),
+			},
+		}),
+	);
+	await expect(
+		model.complete({ message: "胸痛伴呼吸困难", history: [] }, context),
 	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
 });
 

@@ -122,6 +122,8 @@ export type RuntimeConfig = {
 	legacyPatientAuthBaseUrl: string | undefined;
 	/** 本项目管理的本地 AI Runtime 闸门；可由受控 Python 进程承担模型推理。 */
 	aiRuntimeReady: boolean;
+	/** 语音识别独立验收闸门；开启文字模型不会自动开启语音。 */
+	aiRuntimeSpeechReady: boolean;
 	aiRuntimeUrl: string | undefined;
 	aiRuntimeToken: string | undefined;
 	aiRuntimeTimeoutMs: number;
@@ -1332,6 +1334,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		legacyPatientAuthBaseUrl: optional(env.LEGACY_PATIENT_AUTH_BASE_URL),
 		aiRuntimeReady: boolean(env.AI_RUNTIME_READY, false),
+		aiRuntimeSpeechReady: boolean(env.AI_RUNTIME_SPEECH_READY, false),
 		aiRuntimeUrl: optional(env.AI_RUNTIME_URL),
 		aiRuntimeToken: optional(env.AI_RUNTIME_TOKEN),
 		aiRuntimeTimeoutMs: positiveAiRuntimeTimeout(env.AI_RUNTIME_TIMEOUT_MS),

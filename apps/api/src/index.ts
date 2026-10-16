@@ -153,6 +153,7 @@ const intelligentGuideModel =
 			})
 		: undefined;
 const intelligentGuideSpeech =
+	config.aiRuntimeSpeechReady &&
 	aiRuntimeStatus === "configured" &&
 	config.aiRuntimeUrl &&
 	config.aiRuntimeToken

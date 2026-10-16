@@ -9,7 +9,47 @@ test("仓库开发模板与生产 API 模板通过职责和安全默认值审计
 
 	expect(result.passed).toBe(true);
 	expect(result.failures).toEqual([]);
-	expect(result.sharedKeyCount).toBe(96);
+	expect(result.sharedKeyCount).toBe(102);
+});
+
+test("生产 AI Runtime 只允许 HTTP(S) 回环地址，其他服务仍禁止本机地址", async () => {
+	const developmentTemplate = await Bun.file(
+		new URL("../.env.example", import.meta.url),
+	).text();
+	const productionTemplate = await Bun.file(
+		new URL("../infra/systemd/api.env.example", import.meta.url),
+	).text();
+	for (const url of [
+		"http://127.0.0.1:8101",
+		"http://localhost:8101",
+		"http://[::1]:8101",
+	]) {
+		const result = auditEnvironmentTemplates({
+			developmentTemplate,
+			productionTemplate: productionTemplate.replace(
+				/^AI_RUNTIME_URL=.*$/mu,
+				`AI_RUNTIME_URL=${url}`,
+			),
+		});
+		expect(result.failures).toEqual([]);
+	}
+	for (const url of [
+		"https://ai.example.test:8101",
+		"http://127.0.0.1.evil.test:8101",
+		"file://localhost/model",
+	]) {
+		const result = auditEnvironmentTemplates({
+			developmentTemplate,
+			productionTemplate: productionTemplate.replace(
+				/^AI_RUNTIME_URL=.*$/mu,
+				`AI_RUNTIME_URL=${url}`,
+			),
+		});
+		expect(result.passed).toBe(false);
+		expect(result.failures).toContain(
+			`infra/systemd/api.env.example AI_RUNTIME_URL 必须使用 HTTP(S) 回环地址：${url}`,
+		);
+	}
 });
 
 test("医保正式模板拒绝测试默认、6201空值或误用1101目标", () => {
