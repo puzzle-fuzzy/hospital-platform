@@ -29,6 +29,7 @@ import {
 	createNoopLogger,
 	providerFailureMetadata,
 } from "@hospital/observability";
+import { assertMedicalInsurancePaymentRegion } from "./payment-region";
 import type { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
 export class MedicalInsuranceWechatPaymentInputError extends Error {
@@ -599,6 +600,21 @@ export class MedicalInsuranceWechatPaymentService {
 					orderId,
 				)
 			: undefined;
+		if (!order.wechatMixTradeNo && !order.wechatOutTradeNo) {
+			// .2 双 ID 只说明医院预下单，不代表已经扣款。没有微信原单时，
+			// 存量外地预结算也不能因新版本放开校验而新建医保混合扣款。
+			const authorization = order.authorizationId
+				? await this.dependencies.authorizations.get({
+						authorizationId: order.authorizationId,
+						ownerUserId,
+						medicalOrderId: orderId,
+						now: this.now().toISOString(),
+					})
+				: undefined;
+			assertMedicalInsurancePaymentRegion(
+				authorization?.insuplcAdmdvs ?? paymentSettlement?.insuredAreaCode,
+			);
+		}
 		let sequencedOfficialFlowPrepared =
 			paymentSettlement?.postPaymentPlanVersion === "sequenced-v1";
 		const historicalOrdinaryWechatOrder = Boolean(

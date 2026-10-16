@@ -1481,17 +1481,29 @@ export const WechatMedicalInsurancePayParamsSchema = Type.Union([
 ]);
 
 /** 授权跳转前仅返回官方格式的亲情付路由标识，不返回患者实名或证件号。 */
+const MedicalInsurancePaymentEligibility = Type.Optional(
+	Type.Union([
+		Type.Literal("unknown"),
+		Type.Literal("supported"),
+		Type.Literal("unsupported"),
+	]),
+);
+
 export const MedicalInsuranceAuthorizationContextResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Union([
 		Type.Object(
-			{ payForRelatives: Type.Literal(false) },
+			{
+				payForRelatives: Type.Literal(false),
+				medicalInsurancePaymentEligibility: MedicalInsurancePaymentEligibility,
+			},
 			{ additionalProperties: false },
 		),
 		Type.Object(
 			{
 				payForRelatives: Type.Literal(true),
 				familyId: Type.String({ pattern: "^[a-f0-9]{32}$" }),
+				medicalInsurancePaymentEligibility: MedicalInsurancePaymentEligibility,
 			},
 			{ additionalProperties: false },
 		),

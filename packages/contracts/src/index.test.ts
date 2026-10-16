@@ -44,6 +44,42 @@ const outpatientPaymentRecordSchema = TypeCompiler.Compile(
 	OutpatientPaymentRecordSchema,
 );
 
+test("医保授权上下文只附带当前患者的明确资格状态并兼容旧响应", () => {
+	for (const data of [
+		{ payForRelatives: false },
+		{ payForRelatives: true, familyId: "a".repeat(32) },
+	]) {
+		expect(
+			medicalInsuranceAuthorizationContextSchema.Check({ success: true, data }),
+		).toBeTrue();
+		for (const medicalInsurancePaymentEligibility of [
+			"unknown",
+			"supported",
+			"unsupported",
+		]) {
+			expect(
+				medicalInsuranceAuthorizationContextSchema.Check({
+					success: true,
+					data: { ...data, medicalInsurancePaymentEligibility },
+				}),
+			).toBeTrue();
+		}
+		for (const medicalInsurancePaymentEligibility of [
+			"140581",
+			true,
+			"out-of-town",
+			null,
+		]) {
+			expect(
+				medicalInsuranceAuthorizationContextSchema.Check({
+					success: true,
+					data: { ...data, medicalInsurancePaymentEligibility },
+				}),
+			).toBeFalse();
+		}
+	}
+});
+
 function profile(displayName: string) {
 	return {
 		displayName,

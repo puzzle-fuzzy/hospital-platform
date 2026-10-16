@@ -611,3 +611,16 @@ page {
 .sheet-pay-button::after {
 	border: 0;
 }
+
+.payment-eligibility-message {
+	padding: 20rpx 0;
+	color: #68717c;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.original-medical-payment {
+	margin-top: 20rpx;
+	color: #167a87;
+	font-size: 26rpx;
+}

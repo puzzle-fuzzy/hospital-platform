@@ -37,13 +37,14 @@
 			</view>
 			<view wx:if="{{!completed}}" class="payment-section">
 				<view class="section-title">选择支付方式</view>
+				<view wx:if="{{medicalEligibilityMessage}}" class="message-card"><text>{{medicalEligibilityMessage}}</text></view>
 				<view class="payment-actions">
 					<!-- UI 只提供两条入口：医保支付沿用内部 mixed 的医保授权/结算链路，微信支付沿用内部 self 的普通微信收款链路。 -->
-					<button class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy || !canPay}}">医保支付</button>
+					<button wx:if="{{medicalEligibility !== 'unsupported'}}" class="payment-button mixed-button" data-mode="mixed" bindtap="onPaymentTap" loading="{{(busy && selectedMode === 'mixed') || medicalEligibilityChecking}}" disabled="{{busy || !canPay || medicalEligibilityChecking}}">医保支付</button>
 					<button class="payment-button self-button" data-mode="self" bindtap="onPaymentTap" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy || !canPay}}">微信支付</button>
 				</view>
 				<button wx:if="{{!canPay}}" class="secondary-button" bindtap="onOpenDetail">查看挂号详情</button>
-				<button wx:if="{{canQueryOriginalPayment}}" class="secondary-button" bindtap="onQueryOriginalPayment" disabled="{{busy}}">查询原支付结果</button>
+				<button wx:if="{{canQueryOriginalPayment}}" class="secondary-button" bindtap="onQueryOriginalPayment" disabled="{{busy}}">{{medicalEligibility === 'unsupported' && hasOriginalMedicalPayment ? '查询原医保订单' : '查询原支付结果'}}</button>
 			</view>
 			<view wx:else class="completed-card">
 				<text>最终支付和医院结算已确认</text>

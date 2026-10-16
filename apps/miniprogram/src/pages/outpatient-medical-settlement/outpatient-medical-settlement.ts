@@ -3,6 +3,8 @@ import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	continueMedicalPayment,
 	createMedicalPaymentContext,
+	isMedicalInsuranceRegionUnsupported,
+	MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
 	type MedicalBusinessRecovery,
 	type MedicalPaymentAmounts,
 	navigateToOutpatientMedicalAuth,
@@ -281,6 +283,16 @@ Page<
 				canRetrySettlement: true,
 			});
 		} catch (error) {
+			if (isMedicalInsuranceRegionUnsupported(error)) {
+				this.setData({
+					loading: false,
+					hasPending: false,
+					error: MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+					paymentMessage: "",
+					canRetrySettlement: false,
+				});
+				return;
+			}
 			this.setData({
 				loading: false,
 				hasPending: false,
@@ -432,6 +444,16 @@ Page<
 				code: "payment-prepay-in-progress",
 			});
 		} catch (error) {
+			if (isMedicalInsuranceRegionUnsupported(error)) {
+				this.setData({
+					loading: false,
+					hasPending: false,
+					error: MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+					paymentMessage: "",
+					canRetrySettlement: false,
+				});
+				return;
+			}
 			this.setData({
 				error: "",
 				paymentMessage: errorMessageWithCode(

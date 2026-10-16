@@ -363,6 +363,7 @@ test("已有 sequenced-v1 计划但缺少 bridge 时 fail-closed 且不调用普
 			upDetailList: [],
 			tradeOrderIds: [],
 			postPaymentPlanVersion: "sequenced-v1",
+			insuredAreaCode: "140581",
 		},
 	);
 	let ordinaryCreateCalls = 0;
@@ -621,7 +622,7 @@ test("6202纯医保且关系为空时按本人创建官方INSURANCE_ONLY订单",
 		},
 		psnNo: "psn-pure-001",
 		insutype: "310",
-		insuplcAdmdvs: "140500",
+		insuplcAdmdvs: "140581",
 		insuCode: "insu-pure-001",
 		expiresAt: "2026-09-08T09:00:00.000Z",
 		createdAt: now,
@@ -1023,6 +1024,8 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 	await orders.insert(
 		order({
 			authorizationId: "authorization-relative-001",
+			businessType: "outpatient",
+			orderType: "DiagPay",
 			wechatMixTradeNo: null,
 			wechatOutTradeNo: null,
 			wechatPaymentState: "not_started",
@@ -1033,8 +1036,9 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		"wechat-query-001",
 		{
 			businessId: "appointment-wechat-query-001",
-			businessCode: "REGISTRATION-001",
+			businessCode: "OUTPATIENT-001",
 			hospitalId: "hospital-relative-001",
+			insuredAreaCode: "140581",
 			patientId: "provider-relative-001",
 			networkRegister: {},
 			outNetworkSettleMain: {},
@@ -1058,7 +1062,7 @@ test("亲属混合支付使用当前微信本人作为付款人并使用选中�
 		},
 		psnNo: "psn-relative-001",
 		insutype: "310",
-		insuplcAdmdvs: "140500",
+		insuplcAdmdvs: "140581",
 		insuCode: "insu-relative-001",
 		expiresAt: "2026-09-08T09:00:00.000Z",
 		createdAt: now,

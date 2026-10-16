@@ -149,7 +149,9 @@
 			<text class="payment-sheet-amount">{{paymentRecord.amountLabel}}</text>
 		</view>
 		<view class="payment-method-list">
-			<view class="payment-method {{paymentMethod === 'medical' ? 'payment-method-active' : ''}}" bindtap="onPaymentMethodTap" data-method="medical">
+			<view wx:if="{{medicalEligibilityMessage}}" class="payment-eligibility-message">{{medicalEligibilityMessage}}</view>
+			<view wx:elif="{{medicalEligibilityChecking}}" class="payment-eligibility-message">正在确认医保支付是否可用...</view>
+			<view wx:if="{{medicalEligibility !== 'unsupported' && !medicalEligibilityChecking}}" class="payment-method {{paymentMethod === 'medical' ? 'payment-method-active' : ''}}" bindtap="onPaymentMethodTap" data-method="medical">
 				<view class="payment-method-icon medical-payment-icon">医保</view>
 				<view class="payment-method-copy">
 					<text class="payment-method-title">医保支付</text>
@@ -164,6 +166,7 @@
 				<view class="payment-radio payment-radio-wechat {{paymentMethod === 'wechat' ? 'payment-radio-active' : ''}}"></view>
 			</view>
 		</view>
+		<button wx:if="{{medicalEligibility === 'unsupported' && hasOriginalMedicalPayment}}" class="original-medical-payment" bindtap="onOriginalMedicalPayment" disabled="{{paymentBusy}}">查询原医保订单</button>
 		<button class="sheet-pay-button" bindtap="onConfirmPayment" loading="{{paymentBusy !== ''}}" disabled="{{!paymentMethod || paymentBusy}}">支付</button>
 	</view>
 </view>

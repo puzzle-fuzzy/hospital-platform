@@ -42,7 +42,7 @@
 
 			<view wx:if="{{item.status === 'unpaid'}}" class="notice-card payment-list-handoff">
 				<view class="notice-title">请返回费用列表缴费</view>
-				<view class="notice-text">请在门诊缴费列表点击本笔记录的“缴费”按钮，再选择医保支付或微信支付。</view>
+				<view class="notice-text">请在门诊缴费列表点击本笔记录的“缴费”按钮，再选择可用的支付方式。</view>
 				<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
 			</view>
 			<view wx:elif="{{item.paymentStatus === 'refunding'}}" class="refunding-card">

@@ -113,6 +113,26 @@ function order(
 	};
 }
 
+async function supportedAuthorizationRepository(medicalOrderId: string) {
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	await authorizations.put({
+		authorizationId: "authorization-service-001",
+		ownerUserId: "user-service-001",
+		medicalOrderId,
+		providerSubject: "openid-fixture",
+		payAuthNo: "pay-auth-fixture",
+		patient: { idNo: "fixture-identity", userName: "测试", idType: "01" },
+		psnNo: "psn-fixture",
+		insutype: "310",
+		insuplcAdmdvs: "140581",
+		insuCode: "140581",
+		createdAt: now.toISOString(),
+		expiresAt: "2099-01-01T00:00:00.000Z",
+	});
+	return authorizations;
+}
+
 function settlementContext(
 	overrides: Partial<MedicalInsuranceSettlementContext> = {},
 ): MedicalInsuranceSettlementContext {
@@ -884,7 +904,9 @@ test("并发 6201 请求只有 CAS 胜者可以调用 Provider", async () => {
 	});
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
-		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		authorizations: await supportedAuthorizationRepository(
+			"medical-fee-concurrent-001",
+		),
 		appointments: {
 			findRegistration: async () => ({
 				appointmentId: "appointment-service-001",
@@ -977,7 +999,9 @@ test("6201 回包落库被并发恢复抢先推进时原请求返回同一订单
 	};
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
-		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		authorizations: await supportedAuthorizationRepository(
+			"medical-fee-persist-race-001",
+		),
 		appointments: {
 			findRegistration: async () => ({
 				appointmentId: "appointment-fee-persist-race-001",
@@ -1134,7 +1158,7 @@ test("medical authorization resolves the directory reference instead of the HIS 
 				},
 				psnNo: "psn-001",
 				insutype: "310",
-				insuplcAdmdvs: "140500",
+				insuplcAdmdvs: "140581",
 				insuCode: "140500",
 				expiresAt: "2026-09-03T00:15:00.000Z",
 				createdAt: now.toISOString(),
@@ -1225,7 +1249,10 @@ test("关系为空的就诊人按临时验收规则视为本人", async () => {
 				idempotencyKey: "authorization-context-unknown-relation-001",
 			},
 		}),
-	).resolves.toEqual({ payForRelatives: false });
+	).resolves.toEqual({
+		payForRelatives: false,
+		medicalInsurancePaymentEligibility: "unknown",
+	});
 });
 
 test("亲属授权上下文按预约选中就诊人生成 familyId 并先验证本人付款档案", async () => {
@@ -1313,6 +1340,7 @@ test("亲属授权上下文按预约选中就诊人生成 familyId 并先验证�
 			},
 		}),
 	).resolves.toEqual({
+		medicalInsurancePaymentEligibility: "unknown",
 		payForRelatives: true,
 		familyId: "62725109a76555072ba458cf4e122aa4",
 	});

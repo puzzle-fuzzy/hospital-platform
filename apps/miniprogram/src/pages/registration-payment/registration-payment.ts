@@ -15,9 +15,13 @@ import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import {
 	continueMedicalPayment,
 	createMedicalPaymentContext,
+	isMedicalInsuranceRegionUnsupported,
+	MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
 	MedicalAuthNavigationCancelledError,
 	MedicalCashRequiredError,
+	type MedicalInsurancePaymentEligibility,
 	MedicalInsurancePaymentFailureError,
+	medicalAuthorizationContext,
 	type PaymentMode,
 	type PaymentProgress,
 	queryMedicalBusinessRecovery,
@@ -32,6 +36,10 @@ import {
 	consumeMedicalInsuranceAuthReturn,
 	hasMedicalInsuranceAuthReturn,
 } from "../../services/medical-insurance-auth-handoff";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import { isCurrentSelectedPatient } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
@@ -60,6 +68,10 @@ type RegistrationPaymentPageData = {
 	ready: boolean;
 	canPay: boolean;
 	canQueryOriginalPayment: boolean;
+	hasOriginalMedicalPayment: boolean;
+	medicalEligibility: MedicalInsurancePaymentEligibility;
+	medicalEligibilityChecking: boolean;
+	medicalEligibilityMessage: string;
 	payDeadlineLabel: string;
 	busy: boolean;
 	hasPendingPayment: boolean;
@@ -183,6 +195,7 @@ Page<
 			detail: AppointmentDetail,
 		): Promise<void>;
 		onQueryOriginalPayment(): Promise<void>;
+		refreshMedicalPaymentEligibility(): Promise<void>;
 		handleReturn(): Promise<void>;
 		onPaymentTap(event: PaymentModeEvent): void;
 		startOrResumePayment(mode: PaymentMode): Promise<void>;
@@ -214,6 +227,10 @@ Page<
 		ready: false,
 		canPay: false,
 		canQueryOriginalPayment: false,
+		hasOriginalMedicalPayment: false,
+		medicalEligibility: "unknown",
+		medicalEligibilityChecking: true,
+		medicalEligibilityMessage: "",
 		payDeadlineLabel: "",
 		busy: false,
 		hasPendingPayment: false,
@@ -236,6 +253,10 @@ Page<
 				ready: false,
 				canPay: false,
 				canQueryOriginalPayment: false,
+				hasOriginalMedicalPayment: false,
+				medicalEligibility: "unknown",
+				medicalEligibilityChecking: false,
+				medicalEligibilityMessage: "",
 				payDeadlineLabel: "",
 				busy: false,
 				hasPendingPayment: false,
@@ -345,6 +366,7 @@ Page<
 				sessionGeneration: context.sessionGeneration,
 			});
 			await this.refreshOriginalPaymentAvailability(detail.data);
+			await this.refreshMedicalPaymentEligibility();
 			if (!canPay) {
 				this.setData({ autoStartMode: "" });
 				return;
@@ -422,19 +444,19 @@ Page<
 	): Promise<void> {
 		const { appointmentId, patientId, sessionGeneration } = this.data;
 		let canQueryOriginalPayment = hasKnownAppointmentPayment(detail);
-		// 已过期的医保单可能没有自费状态；按业务键确认存在原单后才显示查单入口。
-		if (!canQueryOriginalPayment && !canContinueAppointmentPayment(detail)) {
-			try {
-				canQueryOriginalPayment = Boolean(
-					await queryMedicalBusinessRecovery({
-						businessType: "registration",
-						businessId: appointmentId,
-						patientId,
-					}),
-				);
-			} catch {
-				// 查询可用性探测失败不改变预约/资金事实，也不能开启新付款。
-			}
+		let hasOriginalMedicalPayment = false;
+		try {
+			// 原单恢复独立于新医保入口资格，外地历史订单也必须保留查询入口。
+			hasOriginalMedicalPayment = Boolean(
+				await queryMedicalBusinessRecovery({
+					businessType: "registration",
+					businessId: appointmentId,
+					patientId,
+				}),
+			);
+			canQueryOriginalPayment ||= hasOriginalMedicalPayment;
+		} catch {
+			// 查询可用性探测失败不改变预约/资金事实，也不能开启新付款。
 		}
 		assertSessionGeneration(
 			sessionGeneration,
@@ -444,7 +466,38 @@ Page<
 			throw new ApiError("当前就诊人已变更，请重新选择", {
 				code: "patient-selection-required",
 			});
-		this.setData({ canQueryOriginalPayment });
+		this.setData({ canQueryOriginalPayment, hasOriginalMedicalPayment });
+	},
+
+	async refreshMedicalPaymentEligibility(): Promise<void> {
+		const { appointmentId, patientId, sessionGeneration } = this.data;
+		const guard = getPageLatestRequestGuard(
+			this,
+			"registration-medical-eligibility",
+		);
+		const token = guard.begin();
+		this.setData({ medicalEligibilityChecking: true });
+		let eligibility: MedicalInsurancePaymentEligibility = "unknown";
+		try {
+			eligibility = (await medicalAuthorizationContext(appointmentId))
+				.medicalInsurancePaymentEligibility;
+		} catch {
+			// 尚无有效参保信息或资格读取失败时仍允许重新授权，最终由服务端1101结果把关。
+		}
+		if (!guard.isCurrent(token)) return;
+		assertSessionGeneration(
+			sessionGeneration,
+			"Registration payment session changed during medical eligibility lookup",
+		);
+		if (!isCurrentSelectedPatient(patientId)) return;
+		this.setData({
+			medicalEligibility: eligibility,
+			medicalEligibilityChecking: false,
+			medicalEligibilityMessage:
+				eligibility === "unsupported"
+					? MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE
+					: "",
+		});
 	},
 
 	async onQueryOriginalPayment(): Promise<void> {
@@ -550,6 +603,12 @@ Page<
 		const value = String(event.currentTarget?.dataset?.mode || "");
 		if (value !== "mixed" && value !== "self") return;
 		if (this.data.busy || !this.data.ready) return;
+		if (
+			value === "mixed" &&
+			(this.data.medicalEligibilityChecking ||
+				this.data.medicalEligibility === "unsupported")
+		)
+			return;
 		try {
 			assertSessionGeneration(
 				this.data.sessionGeneration,
@@ -680,6 +739,24 @@ Page<
 	},
 
 	async handlePaymentError(error: unknown): Promise<void> {
+		if (isMedicalInsuranceRegionUnsupported(error)) {
+			getPageLatestRequestGuard(
+				this,
+				"registration-medical-eligibility",
+			).begin();
+			this.setData({
+				medicalEligibility: "unsupported",
+				medicalEligibilityChecking: false,
+				medicalEligibilityMessage: MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+				hasPendingPayment: false,
+				stage: "",
+				error: "",
+				message: MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+				completed: false,
+			});
+			// 仅更新提示；切换微信支付必须由用户主动选择并经过原单冲突检查。
+			return;
+		}
 		if (
 			error instanceof ApiError &&
 			error.code === "appointment-payment-unavailable"
@@ -810,6 +887,7 @@ Page<
 	},
 
 	onUnload() {
+		disposePageInstance(this);
 		clearMedicalInsuranceAuthHandoff({
 			businessType: "registration",
 			businessId: this.data.appointmentId,

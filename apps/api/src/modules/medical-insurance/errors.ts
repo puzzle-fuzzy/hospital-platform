@@ -13,3 +13,11 @@ export class MedicalInsuranceOrderNotFoundError extends Error {
 		this.name = "MedicalInsuranceOrderNotFoundError";
 	}
 }
+
+/** 医院当前只开通高平参保人的医保支付；不包含任何患者或授权资料。 */
+export class MedicalInsuranceRegionUnsupportedError extends Error {
+	constructor() {
+		super("当前参保地暂未开通医保支付，请选择微信支付");
+		this.name = "MedicalInsuranceRegionUnsupportedError";
+	}
+}

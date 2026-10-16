@@ -601,6 +601,7 @@ test("public API documentation lists every stable public error code", async () =
 		"medical-insurance-cancellation-context-missing",
 		"medical-insurance-insutype-unavailable",
 		"medical-insurance-timeout",
+		"medical-insurance-region-unsupported",
 		"outpatient-payment-query-invalid",
 		"report-query-invalid",
 		"report-patient-not-found",

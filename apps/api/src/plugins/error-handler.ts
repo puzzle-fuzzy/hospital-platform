@@ -87,6 +87,7 @@ import {
 	MedicalInsuranceAppointmentNotFoundError,
 	MedicalInsuranceAppointmentStaleError,
 	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegionUnsupportedError,
 	MedicalInsuranceRegistrationInputError,
 } from "../modules/medical-insurance/registration-service";
 import {
@@ -185,6 +186,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-cancellation-context-missing": 30550,
 	"medical-insurance-insutype-unavailable": 30560,
 	"medical-insurance-timeout": 30570,
+	"medical-insurance-region-unsupported": 30580,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -914,6 +916,14 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"appointment-payment-active",
 					"支付结果未确认完成，暂不能释放当前预约号源",
+				);
+			}
+
+			if (error instanceof MedicalInsuranceRegionUnsupportedError) {
+				set.status = 409;
+				return errorPayload(
+					"medical-insurance-region-unsupported",
+					"当前参保地暂未开通医保支付，请选择微信支付",
 				);
 			}
 

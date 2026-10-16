@@ -43,6 +43,7 @@ import {
 	SessionPrincipalReadModelValidationError,
 	WechatLoginInputError,
 } from "../modules/auth/service";
+import { MedicalInsuranceRegionUnsupportedError } from "../modules/medical-insurance/errors";
 import {
 	OutpatientElectronicInvoiceQueryError,
 	OutpatientElectronicInvoiceRecordNotFoundError,
@@ -55,6 +56,22 @@ import {
 } from "../modules/payments";
 import { ReportQueryError } from "../modules/reports/service";
 import { errorHandlerPlugin } from "./error-handler";
+
+test("参保地未开通返回稳定错误，不泄露授权或患者资料", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new MedicalInsuranceRegionUnsupportedError();
+	});
+	const response = await app.handle(new Request("http://localhost/probe"));
+	expect(response.status).toBe(409);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "medical-insurance-region-unsupported",
+			numericCode: 30580,
+			message: "当前参保地暂未开通医保支付，请选择微信支付",
+		},
+	});
+});
 
 test("预约不可支付返回稳定 409 错误供客户端刷新详情", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {

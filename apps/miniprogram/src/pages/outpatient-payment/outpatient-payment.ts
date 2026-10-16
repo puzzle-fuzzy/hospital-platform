@@ -6,6 +6,13 @@ import {
 	loadOutpatientPaymentRecords,
 } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
+import {
+	MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+	type MedicalInsurancePaymentEligibility,
+	outpatientMedicalAuthorizationContext,
+	queryMedicalBusinessRecovery,
+	queryMedicalOrder,
+} from "../../services/medical-insurance";
 import { startOutpatientSelfPay } from "../../services/outpatient-self-pay";
 import {
 	disposePageInstance,
@@ -91,6 +98,10 @@ type OutpatientPaymentPageState = OutpatientPaymentPageData & {
 	paymentRecord: OutpatientPaymentRecordView | null;
 	paymentMethod: PaymentMethod | "";
 	paymentBusy: PaymentBusyKind;
+	medicalEligibility: MedicalInsurancePaymentEligibility;
+	medicalEligibilityChecking: boolean;
+	medicalEligibilityMessage: string;
+	hasOriginalMedicalPayment: boolean;
 };
 
 type OutpatientPaymentPageMethods = {
@@ -109,6 +120,11 @@ type OutpatientPaymentPageMethods = {
 	onElectronicInvoiceTap(): void;
 	onPaymentTap(event: ViewKeyEvent): void;
 	onPaymentMethodTap(event: PaymentMethodEvent): void;
+	refreshMedicalPaymentEligibility(
+		recordId: string,
+		patientId: string,
+	): Promise<void>;
+	onOriginalMedicalPayment(): Promise<void>;
 	onClosePaymentSheet(): void;
 	onStopPaymentSheet(): void;
 	onConfirmPayment(): void;
@@ -165,6 +181,10 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 		paymentRecord: null,
 		paymentMethod: "",
 		paymentBusy: "",
+		medicalEligibility: "unknown",
+		medicalEligibilityChecking: false,
+		medicalEligibilityMessage: "",
+		hasOriginalMedicalPayment: false,
 	},
 
 	onLoad() {
@@ -190,6 +210,10 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 					paymentRecord: null,
 					paymentMethod: "",
 					paymentBusy: "",
+					medicalEligibility: "unknown",
+					medicalEligibilityChecking: false,
+					medicalEligibilityMessage: "",
+					hasOriginalMedicalPayment: false,
 				});
 			},
 			() => this.loadPage(),
@@ -209,6 +233,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 	loadPage(): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const requestToken = loadGuard.begin();
+		getPageLatestRequestGuard(this, "outpatient-medical-eligibility").begin();
 		// 费用页面的患者卡片、状态标签和金额必须来自同一会话代际；
 		// 另一个页面换号时，不能只靠当前页面 requestToken 继续拼接旧快照。
 		let expectedSessionGeneration = -1;
@@ -229,6 +254,13 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 			visibleItemCount: 0,
 			hasMoreItems: false,
 			canSelectPatient: false,
+			paymentSheetVisible: false,
+			paymentRecord: null,
+			paymentMethod: "",
+			medicalEligibility: "unknown",
+			medicalEligibilityChecking: false,
+			medicalEligibilityMessage: "",
+			hasOriginalMedicalPayment: false,
 		});
 		// 先完成服务端 `/me` 验证，再读取患者目录；否则页面入口会在本地
 		// token 已过期时仍被误认为可切换患者，随后才在费用请求中暴露 401。
@@ -508,18 +540,144 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 			paymentRecord: record,
 			paymentMethod: "",
 			paymentBusy: "",
+			medicalEligibility: "unknown",
+			medicalEligibilityChecking: true,
+			medicalEligibilityMessage: "",
+			hasOriginalMedicalPayment: false,
 		});
+		void this.refreshMedicalPaymentEligibility(record.recordId, patientId);
+	},
+
+	async refreshMedicalPaymentEligibility(
+		recordId: string,
+		patientId: string,
+	): Promise<void> {
+		const guard = getPageLatestRequestGuard(
+			this,
+			"outpatient-medical-eligibility",
+		);
+		const token = guard.begin();
+		const expectedSessionGeneration = this.data.patientSessionGeneration;
+		const [contextResult, recoveryResult] = await Promise.allSettled([
+			outpatientMedicalAuthorizationContext(recordId, patientId),
+			queryMedicalBusinessRecovery({
+				businessType: "outpatient",
+				businessId: recordId,
+				patientId,
+			}),
+		]);
+		if (
+			!guard.isCurrent(token) ||
+			!this.data.paymentSheetVisible ||
+			this.data.paymentRecord?.recordId !== recordId
+		)
+			return;
+		if (
+			!this.isPatientContextCurrent() ||
+			this.data.selectedPatient?.id !== patientId ||
+			this.data.patientSessionGeneration !== expectedSessionGeneration
+		)
+			return;
+		const eligibility =
+			contextResult.status === "fulfilled"
+				? contextResult.value.medicalInsurancePaymentEligibility
+				: "unknown";
+		this.setData({
+			medicalEligibility: eligibility,
+			medicalEligibilityChecking: false,
+			medicalEligibilityMessage:
+				eligibility === "unsupported"
+					? MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE
+					: "",
+			hasOriginalMedicalPayment:
+				recoveryResult.status === "fulfilled" && Boolean(recoveryResult.value),
+			...(eligibility === "unsupported" && this.data.paymentMethod === "medical"
+				? { paymentMethod: "" }
+				: {}),
+		});
+	},
+
+	async onOriginalMedicalPayment(): Promise<void> {
+		const record = this.data.paymentRecord;
+		const patientId = this.data.selectedPatient?.id;
+		if (
+			!this.data.hasOriginalMedicalPayment ||
+			!record ||
+			!patientId ||
+			this.data.paymentBusy
+		)
+			return;
+		if (!this.isPatientContextCurrent()) return;
+		const guard = getPageLatestRequestGuard(
+			this,
+			"outpatient-original-medical-query",
+		);
+		const token = guard.begin();
+		this.setData({ paymentBusy: "medical" });
+		try {
+			const recovery = await queryMedicalBusinessRecovery({
+				businessType: "outpatient",
+				businessId: record.recordId,
+				patientId,
+			});
+			if (
+				!guard.isCurrent(token) ||
+				!this.isPatientContextCurrent() ||
+				this.data.selectedPatient?.id !== patientId
+			)
+				return;
+			if (!recovery) {
+				this.setData({ hasOriginalMedicalPayment: false });
+				showPaymentToast("当前未查询到活动医保订单");
+				return;
+			}
+			// 查原单仅使用恢复查询与GET订单；不得顺便上传费用、结算或创建支付。
+			const order = await queryMedicalOrder(recovery.orderId);
+			if (
+				!guard.isCurrent(token) ||
+				!this.isPatientContextCurrent() ||
+				this.data.selectedPatient?.id !== patientId
+			)
+				return;
+			wx.showModal({
+				title: "原医保订单状态",
+				content:
+					order.status === "insurance_settled"
+						? "原医保结算已确认完成，请在已缴费记录核对。"
+						: order.status === "cancelled"
+							? "原医保订单已取消，可返回重新选择可用的支付方式。"
+							: "原医保订单尚未确认完成，请勿重复付款，联系医院核实后处理原订单。",
+				showCancel: false,
+			});
+		} catch (error) {
+			if (guard.isCurrent(token) && this.isPatientContextCurrent())
+				showPaymentToast(
+					errorMessageWithCode(
+						error,
+						"原医保订单状态暂时无法确认，请联系医院核实",
+					),
+				);
+		} finally {
+			if (guard.isCurrent(token)) this.setData({ paymentBusy: "" });
+		}
 	},
 
 	onPaymentMethodTap(event: PaymentMethodEvent): void {
 		if (this.data.paymentBusy) return;
 		const method = event.currentTarget?.dataset?.method;
 		if (method !== "medical" && method !== "wechat") return;
+		if (
+			method === "medical" &&
+			(this.data.medicalEligibilityChecking ||
+				this.data.medicalEligibility === "unsupported")
+		)
+			return;
 		this.setData({ paymentMethod: method });
 	},
 
 	onClosePaymentSheet(): void {
 		if (this.data.paymentBusy) return;
+		getPageLatestRequestGuard(this, "outpatient-medical-eligibility").begin();
 		this.setData({
 			paymentSheetVisible: false,
 			paymentRecord: null,
@@ -540,6 +698,12 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 			wx.showToast({ title: "请选择支付方式", icon: "none" });
 			return;
 		}
+		if (
+			method === "medical" &&
+			(this.data.medicalEligibilityChecking ||
+				this.data.medicalEligibility === "unsupported")
+		)
+			return;
 		if (!this.isPatientContextCurrent()) return;
 		void this.startPayment(method, record, patientId);
 	},

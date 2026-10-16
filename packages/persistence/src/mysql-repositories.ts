@@ -926,7 +926,8 @@ function deserializeMedicalInsuranceSettlementContext(
 					? !Array.isArray(payTypeParams) ||
 						payTypeParams.length === 0 ||
 						value.payModel !== "H5" ||
-						value.payTypeId !== "2" ||
+						(value.payTypeId !== "2" &&
+							(value.kind !== "medical" || value.payTypeId !== "5")) ||
 						payTypeParams.some((item) => {
 							if (!item || typeof item !== "object" || Array.isArray(item))
 								return true;
@@ -949,6 +950,22 @@ function deserializeMedicalInsuranceSettlementContext(
 								Number(parameter.amountFen) <= 0
 							);
 						}) ||
+						// 新个账组必须由正金额个账分项组成，不能冒充含统筹的组。
+						// 历史外层 2 的计划仍可读，以便查单、取消及人工核对；
+						// 是否允许续跑由支付编排按历史状态和原计划另行判断。
+						(value.kind === "medical" &&
+							value.payTypeId === "5" &&
+							(payTypeParams.some(
+								(item) =>
+									String((item as Record<string, unknown>).payTypeId) === "2",
+							) ||
+								!payTypeParams.some((item) => {
+									const parameter = item as Record<string, unknown>;
+									return (
+										parameter.kind === "personal_account" &&
+										String(parameter.payTypeId) === "5"
+									);
+								}))) ||
 						payTypeParams.reduce(
 							(sum, item) =>
 								sum + Number((item as Record<string, unknown>).amountFen),
