@@ -21,6 +21,7 @@ async function main() {
 		throw new Error("--apply requires --backup-dir=ABSOLUTE_PATH");
 	if (
 		!Bun.env.DATABASE_URL ||
+		!Bun.env.PAYMENT_DATA_ENCRYPTION_KEY ||
 		!Bun.env.MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY
 	)
 		throw new Error(
@@ -45,6 +46,7 @@ async function main() {
 			execute: connection.execute.bind(connection),
 		} as unknown as Pool;
 		const repositories = createMySqlRepositories(scopedPool, {
+			paymentDataEncryptionKey: Bun.env.PAYMENT_DATA_ENCRYPTION_KEY,
 			medicalInsuranceCredentialEncryptionKey:
 				Bun.env.MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY,
 		});
