@@ -28,7 +28,7 @@
 					<text class="amount-total">{{totalAmountLabel}}</text>
 				</view>
 				<view class="detail-row">
-					<text>医保基金支付</text>
+					<text>医保支付</text>
 					<text>{{insuranceAmountLabel}}</text>
 				</view>
 				<view wx:if="{{hasHospitalDiscount}}" class="detail-row">
@@ -40,7 +40,7 @@
 					<text>{{cashAmountLabel}}</text>
 				</view>
 				<view class="amount-divider"></view>
-				<text class="amount-source">金额来自医保 6202 结算结果</text>
+				<text class="amount-source">金额以医院结算结果为准</text>
 			</view>
 
 			<view wx:if="{{paymentMessage && !loading}}" class="payment-message">{{paymentMessage}}</view>
@@ -67,6 +67,12 @@
 				>去支付</button>
 			</view>
 		</block>
+
+		<view wx:elif="{{externalPaymentConfirmed}}" class="state-card">
+			<text class="state-title">费用已缴清</text>
+			<text class="state-message">费用已通过其他渠道缴清，无需重复支付</text>
+			<button class="back-button" bindtap="onBack">返回门诊缴费</button>
+		</view>
 
 		<view wx:elif="{{error}}" class="state-card error-state">
 			<text class="state-title">结算页面不可用</text>

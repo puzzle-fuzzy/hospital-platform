@@ -454,7 +454,10 @@ export type {
 	PaymentOperationsProjection,
 	PaymentOperationsRepository,
 } from "./payment-operations";
-export { assertPaymentOperationIdentifier } from "./payment-operations";
+export {
+	assertPaymentOperationIdentifier,
+	PAYMENT_LEG_TYPES,
+} from "./payment-operations";
 export {
 	type PaymentOperationsBackfillFailure,
 	type PaymentOperationsBackfillInput,
@@ -503,6 +506,7 @@ export {
 export {
 	buildMedicalInsuranceOrderOperationsProjection,
 	buildPaymentOrderOperationsProjection,
+	medicalInsuranceOperationsAmounts,
 } from "./payment-order-operations-projection";
 export type {
 	WechatPaymentNotification,

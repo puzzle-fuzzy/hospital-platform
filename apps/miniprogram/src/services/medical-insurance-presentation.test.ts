@@ -1,8 +1,47 @@
 import { afterEach, expect, test } from "bun:test";
 import {
 	medicalPaymentAmountView,
+	needsMedicalBusinessAuthorization,
 	readMedicalWechatPayment,
 } from "./medical-insurance";
+
+test("费用上传前的原主单授权过期可重新授权，已发送及冲突订单禁止重开", () => {
+	const recovery = {
+		orderId: "existing-original-his-order",
+		status: "fee_upload_pending" as const,
+		authorizationReady: false,
+		authorizationPending: false,
+		recoveryAllowed: true,
+	};
+	expect(needsMedicalBusinessAuthorization(recovery)).toBeTrue();
+	expect(needsMedicalBusinessAuthorization(null)).toBeTrue();
+	expect(
+		needsMedicalBusinessAuthorization({
+			...recovery,
+			authorizationReady: true,
+		}),
+	).toBeFalse();
+	expect(
+		needsMedicalBusinessAuthorization({
+			...recovery,
+			authorizationPending: true,
+		}),
+	).toBeFalse();
+	expect(
+		needsMedicalBusinessAuthorization({ ...recovery, recoveryAllowed: false }),
+	).toBeFalse();
+	for (const status of [
+		"fee_uploaded",
+		"order_placed",
+		"cash_pending",
+		"manual_review",
+		"insurance_settled",
+	] as const) {
+		expect(
+			needsMedicalBusinessAuthorization({ ...recovery, status }),
+		).toBeFalse();
+	}
+});
 
 const originalPage = Object.getOwnPropertyDescriptor(globalThis, "Page");
 afterEach(() => {
@@ -23,7 +62,7 @@ test("完整服务端拆分显示医院优惠及零现金，6202原金额保留"
 		insuranceAmountLabel: "8.00元",
 		cashAmountLabel: "0.00元",
 		cashAmountValue: "0.00",
-		cashAmountCaption: "实际支付",
+		cashAmountCaption: "微信实付",
 		hasActualCashAmount: true,
 		hasHospitalDiscount: true,
 		hospitalDiscountAmountLabel: "2.00元",
@@ -119,7 +158,9 @@ test("旧API或非法展示字段不会把6202原自费称为实际还需付款"
 });
 
 test("门诊结算页使用展示拆分；旧API降级隐藏最终需付数字", async () => {
-	let page: { renderRecovery(recovery: unknown): void } | undefined;
+	let page:
+		| { renderRecovery(recovery: unknown): void; renderExternalPayment(): void }
+		| undefined;
 	Object.defineProperty(globalThis, "Page", {
 		configurable: true,
 		value: (value: typeof page) => {
@@ -156,5 +197,14 @@ test("门诊结算页使用展示拆分；旧API降级隐藏最终需付数字",
 		cashAmountCaption: "医保结算后自费",
 		hasActualCashAmount: false,
 		cashAmountValue: "",
+	});
+	page?.renderExternalPayment.call(host);
+	expect(snapshots.at(-1)).toMatchObject({
+		loading: false,
+		hasPending: false,
+		externalPaymentConfirmed: true,
+		paymentBusy: false,
+		canRetrySettlement: false,
+		error: "",
 	});
 });

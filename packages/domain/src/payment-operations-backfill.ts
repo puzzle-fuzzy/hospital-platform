@@ -1,5 +1,10 @@
-import type { MedicalInsuranceOrder } from "./medical-insurance-order";
 import type {
+	MedicalInsuranceOrder,
+	MedicalInsuranceSettlementContext,
+} from "./medical-insurance-order";
+import type {
+	PaymentAggregate,
+	PaymentLeg,
 	PaymentOperationsBackfillQuery,
 	PaymentOperationsRepository,
 } from "./payment-operations";
@@ -52,6 +57,10 @@ export type PaymentOperationsBackfillInput = {
 	listMedicalInsuranceOrders: (
 		query: PaymentOperationsBackfillQuery,
 	) => Promise<readonly MedicalInsuranceOrder[]>;
+	/** Read-only encrypted settlement allocation evidence; never performs provider calls. */
+	loadMedicalInsuranceSettlementContext?: (
+		order: MedicalInsuranceOrder,
+	) => Promise<MedicalInsuranceSettlementContext | undefined>;
 	mode?: "dry_run" | "apply";
 	createdFrom?: string;
 	createdTo?: string;
@@ -110,84 +119,98 @@ function sourceId(order: PaymentOrder | MedicalInsuranceOrder): string {
 	return "orderId" in order ? order.orderId : order.medicalOrderId;
 }
 
+function sameAggregate(
+	left: PaymentAggregate,
+	right: PaymentAggregate,
+): boolean {
+	return (
+		left.totalFen === right.totalFen &&
+		left.insuranceFen === right.insuranceFen &&
+		left.cashFen === right.cashFen &&
+		left.status === right.status &&
+		left.hisSyncStatus === right.hisSyncStatus
+	);
+}
+
+function sameLeg(left: PaymentLeg | undefined, right: PaymentLeg): boolean {
+	return (
+		!!left &&
+		left.amountFen === right.amountFen &&
+		left.status === right.status &&
+		left.providerReferenceDigest === right.providerReferenceDigest &&
+		left.confirmedAt === right.confirmedAt
+	);
+}
+
 async function projectOrder(
-	operations: PaymentOperationsRepository,
+	input: PaymentOperationsBackfillInput,
 	source: PaymentOperationsBackfillSource,
 	order: PaymentOrder | MedicalInsuranceOrder,
 	mode: "dry_run" | "apply",
 ): Promise<"projected" | "unchanged" | "stale" | "missing_amounts"> {
+	const operations = input.operations;
 	const businessKey =
 		source === "payment_order"
 			? `payment_order:${(order as PaymentOrder).orderId}`
 			: `medical_insurance:${(order as MedicalInsuranceOrder).medicalOrderId}`;
 	const existing = await operations.findAggregateByBusinessKey(businessKey);
-	if (existing && existing.sourceVersion >= order.version) {
-		// 同版本重跑时先修复可能在上次进程中断时留下的缺腿/缺事件，
-		// 不能仅因为聚合单已存在就把不完整投影永久判为 unchanged。
-		if (existing.sourceVersion === order.version && mode === "apply") {
-			const projection =
-				source === "payment_order"
-					? buildPaymentOrderOperationsProjection(
-							order as PaymentOrder,
-							existing,
-						)
-					: buildMedicalInsuranceOrderOperationsProjection(
-							order as MedicalInsuranceOrder,
-							existing,
-						);
-			if (projection) {
-				const existingLegs = new Map(
-					(await operations.listLegs(existing.aggregateId)).map((leg) => [
-						leg.legType,
-						leg,
-					]),
-				);
-				for (const leg of projection.legs) {
-					const current = existingLegs.get(leg.legType);
-					if (!current || current.version < leg.version) {
-						await operations.upsertLeg(leg, current?.version);
-					}
-				}
-				const existingEvents = await operations.listEvents(existing.aggregateId);
-				if (
-					projection.event &&
-					!existingEvents.some(
-						(event) =>
-							event.idempotencyKey === projection.event?.idempotencyKey,
-					)
-				) {
-					await operations.appendEvent(projection.event);
-				}
-			}
-		}
-		return existing.sourceVersion === order.version ? "unchanged" : "stale";
-	}
-
+	if (existing && existing.sourceVersion > order.version) return "stale";
+	const settlement =
+		source === "medical_insurance" &&
+		input.loadMedicalInsuranceSettlementContext
+			? await input.loadMedicalInsuranceSettlementContext(
+					order as MedicalInsuranceOrder,
+				)
+			: undefined;
 	const projection =
 		source === "payment_order"
 			? buildPaymentOrderOperationsProjection(order as PaymentOrder, existing)
 			: buildMedicalInsuranceOrderOperationsProjection(
 					order as MedicalInsuranceOrder,
 					existing,
+					settlement,
 				);
 	if (!projection) return "missing_amounts";
-	if (mode === "dry_run") return "projected";
-
-	const storedAggregate = await operations.upsertAggregate(
-		projection.aggregate,
-		existing?.version,
-	);
-	const existingLegs = new Map(
-		(await operations.listLegs(storedAggregate.aggregateId)).map((leg) => [
-			leg.legType,
-			leg,
-		]),
-	);
-	for (const leg of projection.legs) {
-		await operations.upsertLeg(leg, existingLegs.get(leg.legType)?.version);
+	const currentLegs = existing
+		? await operations.listLegs(existing.aggregateId)
+		: [];
+	if (
+		existing?.status === "refund_pending" ||
+		existing?.status === "refunded" ||
+		currentLegs.some((leg) => leg.status === "refunded")
+	)
+		return "unchanged";
+	const existingLegs = new Map(currentLegs.map((leg) => [leg.legType, leg]));
+	const sameSource = existing?.sourceVersion === order.version;
+	const same =
+		!!existing &&
+		sameSource &&
+		sameAggregate(existing, projection.aggregate) &&
+		projection.legs.every((leg) => sameLeg(existingLegs.get(leg.legType), leg));
+	if (mode === "dry_run") return same ? "unchanged" : "projected";
+	if (!same) {
+		const stored = await operations.upsertAggregate(
+			projection.aggregate,
+			existing?.version,
+		);
+		if (
+			stored.version !== projection.aggregate.version ||
+			stored.sourceVersion !== order.version
+		)
+			throw new Error("Payment aggregate changed during backfill");
+		for (const leg of projection.legs) {
+			const current = existingLegs.get(leg.legType);
+			await operations.upsertLeg(
+				{ ...leg, version: Math.max(leg.version, (current?.version ?? 0) + 1) },
+				current?.version,
+			);
+		}
 	}
 	if (projection.event) await operations.appendEvent(projection.event);
-	return "projected";
+	// Preserve the prior reporting convention for repairing interrupted ordinary rows.
+	return same || (sameSource && source === "payment_order")
+		? "unchanged"
+		: "projected";
 }
 
 async function processSource(
@@ -232,7 +255,7 @@ async function processSource(
 			report.candidates += 1;
 			try {
 				const result = await projectOrder(
-					input.operations,
+					input,
 					source,
 					order,
 					input.mode ?? "dry_run",

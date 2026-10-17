@@ -155,13 +155,25 @@ test("2.6.65.1 挂号参数优先使用 hisRegisterId", () => {
 });
 
 function feeUploadDepartmentFixture(
-	children: readonly Record<string, unknown>[],
+	children:
+		| readonly Record<string, unknown>[]
+		| ((url: URL) => unknown | Promise<unknown>),
 	resume = false,
 	outpatientSnapshot?: OutpatientPaymentRecord,
 	detailOverrides: Readonly<Record<string, unknown>> = {},
 	applyOverrides: Readonly<Record<string, unknown>> = {},
+	hooks: {
+		detailData?: (detail: Record<string, unknown>) => unknown;
+		beforeContextSave?: (
+			next: MedicalInsuranceSettlementContext,
+			expectedVersion: number | undefined,
+		) => void;
+	} = {},
 ) {
 	const totalFen = outpatientSnapshot?.amountFen ?? 1000;
+	const tradeOrderIds = (applyOverrides.tradeOrderIdList as
+		| string[]
+		| undefined) ?? ["trade-current-001"];
 	const providerUrls: URL[] = [];
 	const feeUploads: Record<string, unknown>[] = [];
 	const contextWrites: MedicalInsuranceSettlementContext[] = [];
@@ -201,7 +213,7 @@ function feeUploadDepartmentFixture(
 					"detail-request-cached-001",
 					"registration",
 				),
-				tradeOrderIds: ["trade-current-001"],
+				tradeOrderIds,
 				feeUploadStage: "pre_6201",
 				settlementAmountFen: totalFen,
 				settlementDetailsFetchedAt: "2026-10-15T06:00:00.000Z",
@@ -243,13 +255,17 @@ function feeUploadDepartmentFixture(
 				medicalOrderId: "order-current-001",
 				ownerUserId: "owner-current-001",
 				businessType: outpatientSnapshot ? "outpatient" : "registration",
+				version: 1,
+				status: "fee_upload_pending",
 			}),
 			getSettlementContext: async () => settlementContext,
 			saveSettlementContext: async (
 				_owner: string,
 				_order: string,
 				next: MedicalInsuranceSettlementContext,
+				expectedVersion?: number,
 			) => {
+				hooks.beforeContextSave?.(next, expectedVersion);
 				settlementContext = next;
 				contextWrites.push(next);
 			},
@@ -283,9 +299,9 @@ function feeUploadDepartmentFixture(
 					...applyOverrides,
 				};
 			} else if (url.pathname.endsWith("/outpatient-child-payment-records")) {
-				data = children;
+				data = typeof children === "function" ? await children(url) : children;
 			} else if (url.pathname.endsWith("/out-insur-settle-infos")) {
-				data = { outSettleDetailList: [detail] };
+				data = hooks.detailData?.(detail) ?? { outSettleDetailList: [detail] };
 			} else if (url.pathname.endsWith("/depts")) {
 				data = [
 					{
@@ -318,20 +334,24 @@ function feeUploadDepartmentFixture(
 		feeUploads,
 		contextWrites,
 		readSettlementContext: () => settlementContext,
-		upload: () =>
+		replaceSettlementContext: (next: MedicalInsuranceSettlementContext) => {
+			settlementContext = next;
+		},
+		upload: (expectedVersion = 1) =>
 			gateway.uploadFees(
 				{
 					orderId: "order-current-001",
 					ownerUserId: "owner-current-001",
 					patientId: "patient-current-001",
 					authorizationId: "authorization-current-001",
+					expectedVersion,
 					appointment: outpatientSnapshot
 						? {
 								businessType: "outpatient",
 								recordId: outpatientSnapshot.recordId,
 								outpatientPaymentRecord: outpatientSnapshot,
 								providerPatientId: "patient-current-001",
-								outTradeOrderIds: ["trade-current-001"],
+								outTradeOrderIds: tradeOrderIds,
 								doctorId: "doctor-user-code-001",
 								doctorName: "测试医生",
 								departmentName: "开单科室",
@@ -359,9 +379,386 @@ function feeUploadDepartmentFixture(
 const currentDepartmentChild = {
 	outTradeOrderId: "trade-current-001",
 	chargeId: "charge-current-001",
+	tradeStatus: "1",
 	billDeptId: "6309619828601651001",
 	billDeptCode: "DEPT-CODE-001",
 };
+
+const splitTradeOrderIds = [
+	"8843868963491158916",
+	"8843868963491158917",
+	"8843868963579239302",
+	"8843868963579239303",
+];
+
+function splitChild(tradeOrderId: string): Record<string, unknown> {
+	return {
+		...currentDepartmentChild,
+		outTradeOrderId: tradeOrderId,
+		patId: "patient-current-001",
+		hospitalId: "10389001",
+	};
+}
+
+function splitFeeUploadFixture(
+	children: (url: URL) => unknown | Promise<unknown>,
+) {
+	return feeUploadDepartmentFixture(
+		children,
+		false,
+		{
+			recordId: "outpatient-split-10045",
+			status: "unpaid",
+			billDate: "2026-10-15 14:00:00",
+			amountFen: 10045,
+		},
+		{ outTradeOrderId: splitTradeOrderIds[0] },
+		{ tradeOrderIdList: splitTradeOrderIds, getAmount: "100.45" },
+		{
+			detailData: (detail) => ({
+				outSettleDetailList: splitTradeOrderIds.map((id, index) => ({
+					...detail,
+					outTradeOrderId: id,
+					outSettleDetailId: `split-detail-${index}`,
+					amount: index === 3 ? "25.45" : "25.00",
+					price: index === 3 ? "25.45" : "25.00",
+				})),
+			}),
+		},
+	);
+}
+
+test("多流水 .33 串行逐 ID 单值查询，长标识无损并在查询前保存主单", async () => {
+	let pending = false;
+	const queried: string[] = [];
+	const fixture = splitFeeUploadFixture(async (url) => {
+		expect(pending).toBe(false);
+		pending = true;
+		const ids = url.searchParams.getAll("outTradeOrderIdList");
+		expect(ids).toHaveLength(1);
+		const id = ids[0] as string;
+		expect(id).toBe(splitTradeOrderIds[queried.length] as string);
+		expect(fixture.readSettlementContext()).toMatchObject({
+			businessId: "business-current-001",
+			businessCode: "business-code-current-001",
+			tradeOrderIds: splitTradeOrderIds,
+			settlementAmountFen: 10045,
+			feeUploadStage: "pre_6201",
+		});
+		queried.push(id);
+		await Promise.resolve();
+		pending = false;
+		return [splitChild(id)];
+	});
+	await fixture.upload();
+	expect(queried).toEqual(splitTradeOrderIds);
+	expect(fixture.feeUploads).toHaveLength(1);
+	expect(fixture.feeUploads[0]).toMatchObject({ medfeeSumamt: "100.45" });
+});
+
+test("多流水部分查询失败不上传费用，重入复用原主单而不再 .65.1 制单", async () => {
+	let fail = true;
+	const fixture = splitFeeUploadFixture((url) => {
+		const id = url.searchParams.get("outTradeOrderIdList") as string;
+		if (fail && id === splitTradeOrderIds[1])
+			throw new Error("synthetic query outage");
+		return [splitChild(id)];
+	});
+	await expect(fixture.upload()).rejects.toThrow();
+	expect(fixture.feeUploads).toHaveLength(0);
+	expect(fixture.readSettlementContext()?.feeUploadStage).toBe("pre_6201");
+	expect(
+		fixture.providerUrls.some((url) =>
+			url.pathname.endsWith("/out-insur-settle-infos"),
+		),
+	).toBe(false);
+	fail = false;
+	await fixture.upload();
+	expect(
+		fixture.providerUrls.filter((url) =>
+			url.pathname.endsWith("/apply-pay-settle"),
+		),
+	).toHaveLength(1);
+	expect(fixture.feeUploads).toHaveLength(1);
+});
+
+test.each([
+	{ name: "缺少某流水明细", records: (_id: string) => [], error: /未返回/ },
+	{
+		name: "串到其他流水",
+		records: (_id: string) => [splitChild("8843868963579239399")],
+		error: /不属于/,
+	},
+	{
+		name: "重复明细",
+		records: (id: string) => [splitChild(id), splitChild(id)],
+		error: /重复明细/,
+	},
+	{
+		name: "患者不匹配",
+		records: (id: string) => [{ ...splitChild(id), patId: "other-patient" }],
+		error: /patId 不匹配/,
+	},
+	{
+		name: "医院不匹配",
+		records: (id: string) => [
+			{ ...splitChild(id), hospitalId: "other-hospital" },
+		],
+		error: /hospitalId 不匹配/,
+	},
+	{
+		name: "不安全数字流水",
+		records: (id: string) => [
+			{ ...splitChild(id), outTradeOrderId: Number(id) },
+		],
+		error: /invalid/,
+	},
+])("多流水 .33 $name 时保留主单并拒绝费用上传", async ({ records, error }) => {
+	const fixture = splitFeeUploadFixture((url) =>
+		records(url.searchParams.get("outTradeOrderIdList") as string),
+	);
+	await expect(fixture.upload()).rejects.toThrow(error);
+	expect(fixture.feeUploads).toHaveLength(0);
+	expect(fixture.readSettlementContext()?.feeUploadStage).toBe("pre_6201");
+});
+
+test(".33 同流水多个不同收费明细可合并，不能按流水号粗暴去重", async () => {
+	const fixture = splitFeeUploadFixture((url) => {
+		const id = url.searchParams.get("outTradeOrderIdList") as string;
+		return [splitChild(id), { ...splitChild(id), chargeId: "another-charge" }];
+	});
+	await fixture.upload();
+	expect(fixture.feeUploads).toHaveLength(1);
+});
+
+test(".65.1 重复流水在 .33 和 6201 前拒绝", async () => {
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		false,
+		undefined,
+		{},
+		{
+			tradeOrderIdList: ["trade-current-001", "trade-current-001"],
+		},
+	);
+	await expect(fixture.upload()).rejects.toThrow(/duplicates/);
+	expect(fixture.providerUrls).toHaveLength(1);
+	expect(fixture.feeUploads).toHaveLength(0);
+});
+
+test(".27 失败后主单和 .1 返回的 mdtrtId 已持久化，重入不重复制单", async () => {
+	let fail = true;
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		false,
+		undefined,
+		{},
+		{
+			mdtrtId: "visit-from-apply-001",
+		},
+		{
+			detailData: (detail) => {
+				if (fail) throw new Error("synthetic detail outage");
+				return { outSettleDetailList: [detail] };
+			},
+		},
+	);
+	await expect(fixture.upload()).rejects.toThrow();
+	expect(fixture.readSettlementContext()).toMatchObject({
+		feeUploadStage: "pre_6201",
+		businessId: "business-current-001",
+		mdtrtId: "visit-from-apply-001",
+	});
+	fail = false;
+	await fixture.upload();
+	expect(
+		fixture.providerUrls.filter((url) =>
+			url.pathname.endsWith("/apply-pay-settle"),
+		),
+	).toHaveLength(1);
+	expect(fixture.feeUploads[0]).toMatchObject({
+		mdtrtId: "visit-from-apply-001",
+	});
+});
+
+test(".27 规范化失败不保存空的 fetched 快照，重入重新只读查询 .27", async () => {
+	let fail = true;
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		false,
+		undefined,
+		{},
+		{},
+		{
+			detailData: (detail) => ({
+				outSettleDetailList: [
+					{ ...detail, ...(fail ? { networkItemCode: undefined } : {}) },
+				],
+			}),
+		},
+	);
+	await expect(fixture.upload()).rejects.toThrow(/networkItemCode/);
+	expect(
+		fixture.readSettlementContext()?.settlementDetailsFetchedAt,
+	).toBeUndefined();
+	fail = false;
+	await fixture.upload();
+	expect(
+		fixture.providerUrls.filter((url) =>
+			url.pathname.endsWith("/apply-pay-settle"),
+		),
+	).toHaveLength(1);
+	expect(
+		fixture.providerUrls.filter((url) =>
+			url.pathname.endsWith("/out-insur-settle-infos"),
+		),
+	).toHaveLength(2);
+	for (const saved of fixture.contextWrites) {
+		if (saved.settlementDetailsFetchedAt)
+			expect(saved.upDetailList.length).toBeGreaterThan(0);
+	}
+});
+
+test("历史 fetchedAt 有值但明细为空时只读补取 .27，仍复用原主单", async () => {
+	const fixture = feeUploadDepartmentFixture([currentDepartmentChild], true);
+	fixture.replaceSettlementContext({
+		...(fixture.readSettlementContext() as MedicalInsuranceSettlementContext),
+		upDetailList: [],
+	});
+	await fixture.upload();
+	expect(
+		fixture.providerUrls.some((url) =>
+			url.pathname.endsWith("/apply-pay-settle"),
+		),
+	).toBe(false);
+	expect(
+		fixture.providerUrls.filter((url) =>
+			url.pathname.endsWith("/out-insur-settle-infos"),
+		),
+	).toHaveLength(1);
+	expect(fixture.feeUploads).toHaveLength(1);
+});
+
+test.each(["3", "4", "5", "9", "unknown", undefined])(
+	"原主单重入 .33 tradeStatus=%s 时阻断，保留原锚点且不重制单或上传费用",
+	async (tradeStatus) => {
+		const fixture = feeUploadDepartmentFixture(
+			[{ ...currentDepartmentChild, tradeStatus }],
+			true,
+		);
+		await expect(fixture.upload()).rejects.toThrow();
+		expect(fixture.feeUploads).toHaveLength(0);
+		expect(fixture.providerUrls).toHaveLength(1);
+		expect(fixture.readSettlementContext()).toMatchObject({
+			businessId: "business-current-001",
+			feeUploadStage: "pre_6201",
+		});
+	},
+);
+
+test.each([
+	{ tradeStatus: "3" },
+	{ tradeStatus: "4" },
+	{ tradeStatus: "5" },
+	{ tradeStatus: "9" },
+	{ tradeStatus: "unknown" },
+	{ tradeStatus: undefined },
+	{ tradeStatus: "1", disableSettleFlag: "1" },
+])(
+	"首次 .65.1 后 .33 状态 $tradeStatus 不可缴时保留主单且0次6201",
+	async (childStatus) => {
+		const fixture = feeUploadDepartmentFixture([
+			{ ...currentDepartmentChild, ...childStatus },
+		]);
+		await expect(fixture.upload()).rejects.toThrow();
+		expect(fixture.feeUploads).toHaveLength(0);
+		expect(fixture.providerUrls.map((url) => url.pathname)).toEqual([
+			"/msun-middle-open-settlepay/api/v2/open/settle/apply-pay-settle",
+			"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records",
+		]);
+		expect(fixture.readSettlementContext()).toMatchObject({
+			businessId: "business-current-001",
+			businessCode: "business-code-current-001",
+			feeUploadStage: "pre_6201",
+		});
+	},
+);
+
+test("首次 .65.1 产生当前收款中状态2仍可继续费用上传", async () => {
+	const fixture = feeUploadDepartmentFixture([
+		{ ...currentDepartmentChild, tradeStatus: "2", disableSettleFlag: "1" },
+	]);
+	await fixture.upload();
+	expect(fixture.feeUploads).toHaveLength(1);
+});
+
+test("原主单重入仍在当前收款中状态2时复用主单，待缴1被禁缴时阻断", async () => {
+	const allowed = feeUploadDepartmentFixture(
+		[{ ...currentDepartmentChild, tradeStatus: "2", disableSettleFlag: "1" }],
+		true,
+	);
+	await allowed.upload();
+	expect(allowed.feeUploads).toHaveLength(1);
+	const denied = feeUploadDepartmentFixture(
+		[{ ...currentDepartmentChild, tradeStatus: "1", disableSettleFlag: "1" }],
+		true,
+	);
+	await expect(denied.upload()).rejects.toThrow(/不可缴/);
+	expect(denied.feeUploads).toHaveLength(0);
+});
+
+test("submitting6201 保存的订单版本 fence 失败时绝不调用费用上传", async () => {
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		false,
+		undefined,
+		{},
+		{},
+		{
+			beforeContextSave: (next, expectedVersion) => {
+				expect(expectedVersion).toBe(1);
+				if (next.feeUploadStage === "submitting_6201")
+					throw new Error("synthetic stale version");
+			},
+		},
+	);
+	await expect(fixture.upload()).rejects.toThrow(/stale version/);
+	expect(fixture.feeUploads).toHaveLength(0);
+	expect(fixture.readSettlementContext()?.feeUploadStage).toBe("pre_6201");
+});
+
+test.each([0, -1, Number.NaN, Number.MAX_SAFE_INTEGER + 1, 2])(
+	"费用上传claim版本%s无效或不属于本请求时在Provider前拒绝",
+	async (expectedVersion) => {
+		const fixture = feeUploadDepartmentFixture([currentDepartmentChild]);
+		await expect(fixture.upload(expectedVersion)).rejects.toThrow();
+		expect(fixture.providerUrls).toHaveLength(0);
+		expect(fixture.feeUploads).toHaveLength(0);
+		expect(fixture.contextWrites).toHaveLength(0);
+	},
+);
+
+test("真实多流水形态4流水11项收费完整保留，不把一个流水缩成一项", async () => {
+	let rowCount = 0;
+	const fixture = splitFeeUploadFixture((url) => {
+		const id = url.searchParams.get("outTradeOrderIdList") as string;
+		const items = Array.from(
+			{ length: id === splitTradeOrderIds[1] ? 8 : 1 },
+			(_, index) => ({
+				...splitChild(id),
+				chargeId: `split-charge-${index}`,
+			}),
+		);
+		// .27 首条用 charge-current-001，确保查科室依然按当前首条的真实收费匹配。
+		if (id === splitTradeOrderIds[0])
+			items[0] = splitChild(id) as (typeof items)[0];
+		rowCount += items.length;
+		return items;
+	});
+	await fixture.upload();
+	expect(rowCount).toBe(11);
+	expect(fixture.feeUploads).toHaveLength(1);
+});
 
 test.each([95.25, "95.25"])(
 	"门诊 .1 getAmount=%s 不经过标识整数解析，精确上传 9525 分",

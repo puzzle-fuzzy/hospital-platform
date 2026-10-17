@@ -1829,7 +1829,7 @@ test("MySQL 医保首次业务订单缺少 owner 锁行时失败关闭", async (
 	expect(state.statements[0]).toContain("FOR UPDATE");
 });
 
-test("MySQL medical insurance amount-bearing order projects both payment legs in the insert transaction", async () => {
+test("MySQL medical insurance amount-bearing order projects unproven cash as unknown in the insert transaction", async () => {
 	const medicalOrder: MedicalInsuranceOrder = {
 		medicalOrderId: "medical-order-atomic-001",
 		ownerUserId: "user-001",
@@ -1870,12 +1870,22 @@ test("MySQL medical insurance amount-bearing order projects both payment legs in
 	await repositories.medicalInsuranceOrders.insert(medicalOrder);
 
 	expect(state.committed).toBe(true);
-	expect(state.statements).toHaveLength(5);
+	expect(state.statements).toHaveLength(9);
 	expect(state.statements[0]).toContain("hp_medical_insurance_orders");
-	expect(state.statements[1]).toContain("hp_payment_aggregates");
-	expect(state.statements[2]).toContain("hp_payment_legs");
-	expect(state.statements[3]).toContain("hp_payment_legs");
-	expect(state.statements[4]).toContain("hp_payment_events");
+	expect(state.statements[1]).toContain("SELECT settlement_context_ciphertext");
+	expect(state.statements[2]).toContain("hp_payment_aggregates");
+	expect(state.values[2]?.[8]).toBe(0);
+	const legStatements = state.statements.flatMap((sql, index) =>
+		sql.startsWith("INSERT INTO hp_payment_legs") ? [state.values[index]] : [],
+	);
+	expect(legStatements).toHaveLength(5);
+	expect(
+		legStatements.find((values) => values?.[2] === "wechat_cash")?.slice(5, 7),
+	).toEqual([0, "not_started"]);
+	expect(
+		legStatements.find((values) => values?.[2] === "unallocated")?.slice(5, 7),
+	).toEqual([300, "manual_review"]);
+	expect(state.statements[8]).toContain("hp_payment_events");
 });
 
 test("MySQL 医保历史 MD5 调起参数隔离后仍可读取混合订单事实", async () => {

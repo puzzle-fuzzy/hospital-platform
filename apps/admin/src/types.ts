@@ -388,7 +388,12 @@ export type AdminPaymentOperationDetail = {
 	legs: readonly {
 		legId: string;
 		aggregateId: string;
-		legType: "medical_insurance" | "wechat_cash" | "hospital_reduce";
+		legType:
+			| "medical_insurance"
+			| "wechat_cash"
+			| "hospital_reduce"
+			| "hospital_part"
+			| "unallocated";
 		source: "payment_order" | "medical_insurance" | "wechat_pay" | "platform";
 		sourceOrderId: string;
 		amountFen: number;

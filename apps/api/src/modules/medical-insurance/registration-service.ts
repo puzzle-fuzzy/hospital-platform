@@ -18,6 +18,7 @@ import {
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceQueryTaskRepository,
+	type MedicalInsuranceSettlementContext,
 	medicalInsuranceOrderTypeForBusiness,
 	normalizeAdapterCallContext,
 	normalizeOutpatientPaymentRecords,
@@ -163,6 +164,86 @@ const AUTHORIZATION_SUBMISSION_GRACE_MS = 2 * 60 * 1000;
 /** 发送门禁刚写入时，先给同一进程中的 6201 回包和本地落库留出窗口。 */
 const FEE_UPLOAD_SUBMISSION_GRACE_MS = 2 * 60 * 1000;
 
+/** 只有明确尚未发送 6201 的完整原主单，才允许在同一订单安全续跑。 */
+function preparedFeeUploadContext(
+	order: MedicalInsuranceOrder,
+	settlement: MedicalInsuranceSettlementContext | undefined,
+): settlement is MedicalInsuranceSettlementContext & {
+	feeUploadStage: "pre_6201";
+	settlementAmountFen: number;
+} {
+	if (
+		order.status !== "fee_upload_pending" ||
+		order.feeUploadId ||
+		order.payOrdId ||
+		order.payTokenHash ||
+		order.amounts ||
+		order.ordStas ||
+		order.wechatMixTradeNo ||
+		order.wechatOutTradeNo ||
+		(order.wechatPaymentState && order.wechatPaymentState !== "not_started") ||
+		settlement?.feeUploadStage !== "pre_6201" ||
+		!settlement.businessId?.trim() ||
+		!settlement.businessCode?.trim() ||
+		!settlement.hospitalId?.trim() ||
+		!settlement.patientId?.trim() ||
+		!Number.isSafeInteger(settlement.settlementAmountFen) ||
+		(settlement.settlementAmountFen ?? 0) <= 0 ||
+		settlement.tradeOrderIds.length === 0 ||
+		settlement.tradeOrderIds.some(
+			(id) => typeof id !== "string" || !id.trim(),
+		) ||
+		new Set(settlement.tradeOrderIds).size !== settlement.tradeOrderIds.length
+	)
+		return false;
+	if (order.businessType === "outpatient") {
+		const snapshot = settlement.outpatientPaymentRecord;
+		return Boolean(
+			snapshot &&
+				snapshot.recordId === order.businessId &&
+				snapshot.amountFen === settlement.settlementAmountFen,
+		);
+	}
+	return true;
+}
+
+function confirmedExternalPayment(
+	order: MedicalInsuranceOrder,
+	settlement: MedicalInsuranceSettlementContext | undefined,
+): boolean {
+	const confirmation = settlement?.externalPaymentConfirmation;
+	return Boolean(
+		order.status === "manual_review" &&
+			!order.feeUploadId &&
+			!order.payOrdId &&
+			!order.payTokenHash &&
+			!order.amounts &&
+			!order.wechatMixTradeNo &&
+			!order.wechatOutTradeNo &&
+			confirmation?.source === "user-confirmed-and-his-child-paid" &&
+			confirmation.hisTradeStatus === "3" &&
+			confirmation.platformPaymentStarted === false &&
+			confirmation.actualChannel === "unknown" &&
+			settlement?.feeUploadStage === "pre_6201" &&
+			Number.isSafeInteger(confirmation.amountFen) &&
+			confirmation.amountFen > 0 &&
+			confirmation.amountFen === settlement.settlementAmountFen &&
+			confirmation.hisBusinessId === settlement.businessId &&
+			confirmation.hisBusinessCode === settlement.businessCode &&
+			confirmation.tradeOrderIds.length > 0 &&
+			new Set(confirmation.tradeOrderIds).size ===
+				confirmation.tradeOrderIds.length &&
+			confirmation.tradeOrderIds.length === settlement.tradeOrderIds.length &&
+			confirmation.tradeOrderIds.every((id) =>
+				settlement.tradeOrderIds.includes(id),
+			) &&
+			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(
+				confirmation.confirmedAt,
+			) &&
+			Number.isFinite(Date.parse(confirmation.confirmedAt)),
+	);
+}
+
 export class MedicalInsuranceRegistrationService {
 	private readonly logger: AppLogger;
 	private readonly now: () => Date;
@@ -210,7 +291,24 @@ export class MedicalInsuranceRegistrationService {
 	private async restorePersistedAuthorization(
 		order: MedicalInsuranceOrder,
 	): Promise<MedicalInsuranceOrder> {
-		if (order.status !== "created" || order.authorizationId) return order;
+		if (order.status === "fee_upload_pending") {
+			const settlement = await this.dependencies.orders.getSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+			);
+			if (!preparedFeeUploadContext(order, settlement)) return order;
+			if (
+				order.authorizationId &&
+				(await this.dependencies.authorizations.get({
+					authorizationId: order.authorizationId,
+					ownerUserId: order.ownerUserId,
+					medicalOrderId: order.medicalOrderId,
+					now: this.now().toISOString(),
+				}))
+			)
+				return order;
+		} else if (order.status !== "created" || order.authorizationId)
+			return order;
 		const authorization =
 			await this.dependencies.authorizations.getActiveForOrder({
 				ownerUserId: order.ownerUserId,
@@ -401,7 +499,11 @@ export class MedicalInsuranceRegistrationService {
 	private authorizationSubmissionPending(
 		order: MedicalInsuranceOrder,
 	): boolean {
-		if (order.status !== "created" || order.authorizationId) return false;
+		if (
+			order.status !== "fee_upload_pending" &&
+			(order.status !== "created" || order.authorizationId)
+		)
+			return false;
 		const updatedAt = Date.parse(order.updatedAt);
 		const ageMs = this.now().getTime() - updatedAt;
 		// 数据库时钟可能比 API 快几毫秒。未来时间必须按仍在确认中处理，
@@ -446,7 +548,16 @@ export class MedicalInsuranceRegistrationService {
 				"本次医保授权尝试已作废，请重新展码授权",
 			);
 		}
-		if (observed.status !== "created") {
+		const prepared =
+			observed.status === "fee_upload_pending" &&
+			preparedFeeUploadContext(
+				observed,
+				await this.dependencies.orders.getSettlementContext(
+					observed.ownerUserId,
+					observed.medicalOrderId,
+				),
+			);
+		if (observed.status !== "created" && !prepared) {
 			return { order: observed, claimed: false, authorizationReady: true };
 		}
 		const authorizationReady = Boolean(
@@ -564,6 +675,9 @@ export class MedicalInsuranceRegistrationService {
 			) {
 				return this.output(order, settlement?.cashierUrl);
 			}
+			// 读取恢复入口只告知当前状态；显式 fees 命令会重新 CAS 抢占，
+			// 复用主单并先只读核对 .33，绝不由查单自动上传或扣款。
+			if (preparedFeeUploadContext(order, settlement)) return undefined;
 			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
@@ -784,6 +898,40 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"当前就诊人缺少众阳门诊缴费映射，无法发起医保支付",
 			);
+		}
+		// .65.1 已产生主单后，待缴列表可能已经把该组隐藏。恢复只能复用
+		// owner-scoped 原快照；实际是否可缴仍由 adapter 按原流水逐个查询 .33。
+		const active = await this.activeBusinessOrders({
+			ownerUserId,
+			businessType: "outpatient",
+			businessId: recordId,
+			patientId,
+		});
+		if (active.length > 1) throw new PaymentNotificationConflictError();
+		const preparedOrder = active[0];
+		if (preparedOrder?.status === "fee_upload_pending") {
+			const settlement = await this.dependencies.orders.getSettlementContext(
+				ownerUserId,
+				preparedOrder.medicalOrderId,
+			);
+			if (preparedFeeUploadContext(preparedOrder, settlement)) {
+				if (settlement.patientId !== reference.providerPatientId) {
+					throw new MedicalInsuranceRegistrationInputError(
+						"原结算主单就诊人映射不一致",
+					);
+				}
+				const record = normalizeOutpatientPaymentRecords(
+					[settlement.outpatientPaymentRecord],
+					"unpaid",
+				)[0];
+				return {
+					recordId,
+					providerPatientId: reference.providerPatientId,
+					outTradeOrderIds: [...settlement.tradeOrderIds],
+					totalFen: settlement.settlementAmountFen as number,
+					record,
+				};
+			}
 		}
 		const now = this.now();
 		const providerDateTime = (value: Date): string => {
@@ -1137,7 +1285,9 @@ export class MedicalInsuranceRegistrationService {
 			ownerUserId,
 			order.medicalOrderId,
 		);
-		let authorizationReady = order.status !== "created";
+		let authorizationReady =
+			order.status !== "created" &&
+			!preparedFeeUploadContext(order, settlement);
 		if (!authorizationReady && order.authorizationId) {
 			authorizationReady = Boolean(
 				await this.dependencies.authorizations.get({
@@ -1172,6 +1322,9 @@ export class MedicalInsuranceRegistrationService {
 			authorizationReady,
 			authorizationPending,
 			recoveryAllowed,
+			...(confirmedExternalPayment(order, settlement)
+				? { externalPaymentConfirmed: true }
+				: {}),
 		};
 	}
 
@@ -1279,7 +1432,16 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order requires manual review",
 			);
 		}
-		if (order.status !== "created") {
+		const preparedAuthorization =
+			order.status === "fee_upload_pending" &&
+			preparedFeeUploadContext(
+				order,
+				await this.dependencies.orders.getSettlementContext(
+					ownerUserId,
+					order.medicalOrderId,
+				),
+			);
+		if (order.status !== "created" && !preparedAuthorization) {
 			return { orderId: order.medicalOrderId, status: "authorized" };
 		}
 		if (order.authorizationId) {
@@ -1500,7 +1662,16 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order requires manual review",
 			);
 		}
-		if (order.status !== "created") {
+		const preparedAuthorization =
+			order.status === "fee_upload_pending" &&
+			preparedFeeUploadContext(
+				order,
+				await this.dependencies.orders.getSettlementContext(
+					ownerUserId,
+					order.medicalOrderId,
+				),
+			);
+		if (order.status !== "created" && !preparedAuthorization) {
 			return { orderId: order.medicalOrderId, status: "authorized" };
 		}
 		if (order.authorizationId) {
@@ -1630,11 +1801,10 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order business type is not registration",
 			);
 		if (order.status === "fee_upload_pending") {
-			return (
-				(await this.recoverPersistedFeeUpload(order)) ?? this.output(order)
-			);
+			const recovered = await this.recoverPersistedFeeUpload(order);
+			if (recovered) return recovered;
 		}
-		if (order.status !== "created") {
+		if (order.status !== "created" && order.status !== "fee_upload_pending") {
 			// 终态或已推进订单必须先返回持久化事实。取消/人工复核时授权或
 			// 费用上下文可能已经按清理策略置空；若先校验这些过程字段，客户端
 			// 恢复原单会被误报成“缺少授权”，并失去 cancelled/manual_review
@@ -1645,8 +1815,10 @@ export class MedicalInsuranceRegistrationService {
 			);
 			return this.output(order, context?.cashierUrl);
 		}
-		const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
-		if (recoveredFeeUpload) return recoveredFeeUpload;
+		if (order.status === "created") {
+			const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
+			if (recoveredFeeUpload) return recoveredFeeUpload;
+		}
 		if (!order.authorizationId || !order.appointmentId)
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance authorization is required",
@@ -1687,6 +1859,7 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				patientId: appointment.providerPatientId,
 				authorizationId: claimedOrder.authorizationId ?? order.authorizationId,
+				expectedVersion: claimedOrder.version,
 				appointment: {
 					appointmentId: appointment.appointmentId,
 					providerAppointmentId: appointment.providerAppointmentId,
@@ -1767,11 +1940,10 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order business type is not outpatient",
 			);
 		if (order.status === "fee_upload_pending") {
-			return (
-				(await this.recoverPersistedFeeUpload(order)) ?? this.output(order)
-			);
+			const recovered = await this.recoverPersistedFeeUpload(order);
+			if (recovered) return recovered;
 		}
-		if (order.status !== "created") {
+		if (order.status !== "created" && order.status !== "fee_upload_pending") {
 			// 与挂号一致，恢复请求先读取订单状态；不能让已经取消或转人工的
 			// DiagPay 因过程凭证已清理而退化成可误解的授权校验错误。
 			const settlement = await this.dependencies.orders.getSettlementContext(
@@ -1780,8 +1952,10 @@ export class MedicalInsuranceRegistrationService {
 			);
 			return this.output(order, settlement?.cashierUrl);
 		}
-		const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
-		if (recoveredFeeUpload) return recoveredFeeUpload;
+		if (order.status === "created") {
+			const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
+			if (recoveredFeeUpload) return recoveredFeeUpload;
+		}
 		if (!order.authorizationId)
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance authorization is required",
@@ -1829,6 +2003,7 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				patientId: providerContext.providerPatientId,
 				authorizationId: claimedOrder.authorizationId ?? order.authorizationId,
+				expectedVersion: claimedOrder.version,
 				appointment: business,
 			},
 			context,

@@ -856,15 +856,107 @@ function collectTradeOrderIds(
 	if (!Array.isArray(value) || value.length === 0) {
 		throw responseError(operation, "tradeOrderIdList is required", requestId);
 	}
-	return value.map((item, index) =>
+	const ids = value.map((item, index) =>
 		safeText(item, operation, requestId, `tradeOrderIdList[${index}]`, 128),
 	);
+	if (new Set(ids).size !== ids.length) {
+		throw responseError(
+			operation,
+			"tradeOrderIdList contains duplicates",
+			requestId,
+		);
+	}
+	return ids;
 }
 
 type ChildPaymentInspection = {
 	nonPayableChildCount: number;
 	paymentInProgressCount: number;
 };
+
+/** 多流水拆分查询不能把缺失、串单或重复明细拼成完整的当前结算。 */
+function validateSplitChildPaymentRecords(
+	records: readonly ProviderRecord[],
+	tradeOrderId: string,
+	patientId: string,
+	hospitalId: string,
+	requestId: string | undefined,
+): void {
+	const operation = "medical-insurance.2.6.33";
+	if (records.length === 0) {
+		throw responseError(operation, "当前结算流水未返回 2.6.33 明细", requestId);
+	}
+	const seen = new Set<string>();
+	for (const record of records) {
+		if (
+			requiredText(
+				record,
+				["outTradeOrderId", "out_trade_order_id"],
+				operation,
+				requestId,
+			) !== tradeOrderId
+		) {
+			throw responseError(
+				operation,
+				"2.6.33 明细不属于当前查询流水",
+				requestId,
+			);
+		}
+		for (const [keys, expected] of [
+			[["patId", "patientId"], patientId],
+			[["hospitalId"], hospitalId],
+		] as const) {
+			for (const key of keys) {
+				const actual = optionalText(record, [key], operation, requestId);
+				if (actual !== undefined && actual !== expected) {
+					throw responseError(operation, `2.6.33 ${key} 不匹配`, requestId);
+				}
+			}
+		}
+		// 同一流水允许多条不同收费明细；只拒绝重复返回的同一整行，
+		// 不把合法的同药品不同医嘱误当成重复项。
+		const fingerprint = JSON.stringify(
+			Object.entries(record).sort(([left], [right]) =>
+				left.localeCompare(right),
+			),
+		);
+		if (seen.has(fingerprint)) {
+			throw responseError(operation, "2.6.33 返回重复明细", requestId);
+		}
+		seen.add(fingerprint);
+	}
+}
+
+/** 首次和续跑均核对支付事实；已付、未知或不可缴记录不能进入 6201。 */
+function assertCurrentSettlementChildPaymentRecords(
+	records: readonly ProviderRecord[],
+	requestId: string | undefined,
+): void {
+	const operation = "medical-insurance.2.6.33";
+	if (records.length === 0) {
+		throw responseError(
+			operation,
+			"当前结算主单没有可核对的收费明细",
+			requestId,
+		);
+	}
+	for (const record of records) {
+		const status = requiredText(record, ["tradeStatus"], operation, requestId);
+		const disabled = optionalText(
+			record,
+			["disableSettleFlag"],
+			operation,
+			requestId,
+		);
+		if (status !== "2" && !(status === "1" && disabled !== "1")) {
+			throw responseError(
+				operation,
+				"当前结算主单存在已支付或不可缴状态，请医院核实，禁止重复上传费用",
+				requestId,
+			);
+		}
+	}
+}
 
 function inspectChildPaymentRecords(
 	records: readonly ProviderRecord[],
@@ -3260,6 +3352,13 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		},
 
 		async uploadFees(input, context) {
+			const claimVersion = input.expectedVersion;
+			if (!Number.isSafeInteger(claimVersion) || claimVersion < 1) {
+				throw responseError(
+					"medical-insurance.6201",
+					"费用上传缺少有效的服务端发送权版本",
+				);
+			}
 			const currentDate = now();
 			const auth = await options.authorizations.get({
 				authorizationId: input.authorizationId,
@@ -3278,6 +3377,15 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.6201",
 					"order context is unavailable",
 				);
+			if (
+				order.version !== claimVersion ||
+				order.status !== "fee_upload_pending"
+			) {
+				throw responseError(
+					"medical-insurance.6201",
+					"费用上传发送权已失效，禁止借用其他请求的新版本",
+				);
+			}
 			const businessType =
 				order.businessType ??
 				(order.appointmentId ? "registration" : undefined);
@@ -3346,10 +3454,15 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			const saveFeeUploadContext = (
 				settlement: MedicalInsuranceSettlementContext,
 			) =>
-				options.orders.saveSettlementContext(input.ownerUserId, input.orderId, {
-					...settlement,
-					...(outpatientPaymentRecord ? { outpatientPaymentRecord } : {}),
-				});
+				options.orders.saveSettlementContext(
+					input.ownerUserId,
+					input.orderId,
+					{
+						...settlement,
+						...(outpatientPaymentRecord ? { outpatientPaymentRecord } : {}),
+					},
+					claimVersion,
+				);
 			if (
 				priorSettlementContext?.feeUploadStage === "submitting_6201" ||
 				priorSettlementContext?.feeUploadStage === "fee_uploaded"
@@ -3363,6 +3476,11 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			}
 			const resumePre6201 =
 				priorSettlementContext?.feeUploadStage === "pre_6201";
+			const resumeSettlementDetails = Boolean(
+				resumePre6201 &&
+					priorSettlementContext?.settlementDetailsFetchedAt &&
+					priorSettlementContext.upDetailList.length > 0,
+			);
 			let applyPayload: ProviderRecord = {};
 			let settleApplyRequestId: string | undefined;
 			let businessId: string;
@@ -3372,13 +3490,23 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			if (resumePre6201 && priorSettlementContext) {
 				businessId = priorSettlementContext.businessId;
 				businessCode = priorSettlementContext.businessCode ?? "";
-				tradeOrderIds = [...priorSettlementContext.tradeOrderIds];
+				tradeOrderIds = priorSettlementContext.tradeOrderIds.map((id, index) =>
+					safeText(
+						id,
+						"medical-insurance.6201",
+						undefined,
+						`tradeOrderIds[${index}]`,
+						128,
+					),
+				);
 				settlementAmountFen =
 					priorSettlementContext.settlementAmountFen ?? totalFenExpected;
 				if (
 					!businessId.trim() ||
 					!businessCode.trim() ||
-					tradeOrderIds.length === 0
+					tradeOrderIds.length === 0 ||
+					priorSettlementContext.patientId !== providerPatientId ||
+					priorSettlementContext.hospitalId !== hospitalId
 				) {
 					throw responseError(
 						"medical-insurance.6201",
@@ -3465,62 +3593,16 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				}
 				settlementAmountFen = appliedAmountFen;
 			}
-			if (settlementAmountFen !== totalFenExpected) {
-				throw responseError(
-					"medical-insurance.2.6.65.1",
-					"真实结算金额与预约服务端金额不一致",
-					settleApplyRequestId,
-				);
-			}
-			// 2.6.65.1 已经产生当前结算事实；这里的 2.6.33 只用于读取
-			// 当前结算的父子项目和个账标志。它带当前订单号，所以返回
-			// tradeStatus=2/disableSettleFlag=1 只能作为当前结算的观察结果，
-			// 不能再当作“旧支付预检查”拒绝，否则会把本次刚创建的结算记录
-			// 误判成重复支付，并让小程序错误进入关单流程。
-			const childPaymentResponse = await zhongyangGet(
-				"medical-insurance.2.6.33",
-				"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records",
-				context,
-				{
-					patId: providerPatientId,
-					startTime: dateTime(
-						new Date(currentDate.getTime() - 24 * 60 * 60 * 1000),
-					),
-					endTime: dateTime(currentDate),
-					tradeStatus: "1",
-					authSysCode: DEFAULT_AUTH_SYS_CODE,
-					outTradeOrderIdList: tradeOrderIds,
-				},
-			);
-			const childRecords = arrayPayload(
-				childPaymentResponse.data,
-				[],
-				"medical-insurance.2.6.33",
-				childPaymentResponse.requestId,
-			);
-			const childPaymentInspection = inspectChildPaymentRecords(
-				childRecords,
-				"medical-insurance.2.6.33",
-				childPaymentResponse.requestId,
-			);
-			options.logger?.info(
-				{
-					event: "medical-insurance.2.6.33.current-settlement.observed",
-					traceId: context.traceId,
-					orderId: input.orderId,
-					providerRequestId: childPaymentResponse.requestId,
-					resultCount: childRecords.length,
-					tradeOrderCount: tradeOrderIds.length,
-					nonPayableChildCount: childPaymentInspection.nonPayableChildCount,
-					paymentInProgressCount: childPaymentInspection.paymentInProgressCount,
-					expectedTradeStatus: "1",
-				},
-				"Medical insurance current settlement child records observed",
-			);
 			// 新流程不在 6201 前创建 2.6.65.2。先保存 .1 产生的结算事实，
 			// 后续失败时只取消结算；微信/医保最终成功后才按非零分项创建 .2。
 			// 续跑时保留已有 .27 快照，不能用空上下文覆盖它。
 			if (!resumePre6201) {
+				const appliedMdtrtId = optionalText(
+					applyPayload,
+					["mdtrtId", "mdtrt_id"],
+					"medical-insurance.2.6.65.1",
+					settleApplyRequestId,
+				);
 				await saveFeeUploadContext({
 					businessId,
 					businessCode,
@@ -3534,6 +3616,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					insuredAreaCode: auth.insuplcAdmdvs,
 					feeUploadStage: "pre_6201",
 					settlementAmountFen,
+					...(appliedMdtrtId ? { mdtrtId: appliedMdtrtId } : {}),
 				});
 				options.logger?.info(
 					{
@@ -3549,8 +3632,102 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"Medical insurance settlement context saved before 6201",
 				);
 			}
+			// 主单锚点必须先落库；后续金额核对或只读详情失败时不能再次制单。
+			if (settlementAmountFen !== totalFenExpected) {
+				throw responseError(
+					"medical-insurance.2.6.65.1",
+					"真实结算金额与预约服务端金额不一致",
+					settleApplyRequestId,
+				);
+			}
+			if (
+				businessType === "outpatient" &&
+				(tradeOrderIds.length !== outpatientOrderIds.length ||
+					tradeOrderIds.some((id) => !outpatientOrderIds.includes(id)))
+			) {
+				throw responseError(
+					"medical-insurance.2.6.65.1",
+					"当前结算流水与门诊费用快照不一致",
+					settleApplyRequestId,
+				);
+			}
+			// 2.6.65.1 已经产生当前结算事实；这里的 2.6.33 只用于读取
+			// 当前结算的父子项目和个账标志。它带当前订单号，所以返回
+			// tradeStatus=2/disableSettleFlag=1 只能作为当前结算的观察结果，
+			// 不能再当作“旧支付预检查”拒绝，否则会把本次刚创建的结算记录
+			// 误判成重复支付，并让小程序错误进入关单流程。
+			if (new Set(tradeOrderIds).size !== tradeOrderIds.length) {
+				throw responseError(
+					"medical-insurance.2.6.33",
+					"当前结算 tradeOrderIds 重复",
+				);
+			}
+			const childRecords: ProviderRecord[] = [];
+			const childPaymentRequestIds: string[] = [];
+			// 中转层会将重复 query key 合成带方括号字符串，HIS 无法绑定为 Long 列表。
+			// 只在 .33 逐流水执行已有的单值只读查询，不改公共 GET 序列化合同。
+			for (const tradeOrderId of tradeOrderIds) {
+				const childPaymentResponse = await zhongyangGet(
+					"medical-insurance.2.6.33",
+					"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records",
+					context,
+					{
+						patId: providerPatientId,
+						startTime: dateTime(
+							new Date(currentDate.getTime() - 24 * 60 * 60 * 1000),
+						),
+						endTime: dateTime(currentDate),
+						tradeStatus: "1",
+						authSysCode: DEFAULT_AUTH_SYS_CODE,
+						outTradeOrderIdList: [tradeOrderId],
+					},
+				);
+				const records = arrayPayload(
+					childPaymentResponse.data,
+					[],
+					"medical-insurance.2.6.33",
+					childPaymentResponse.requestId,
+				);
+				if (tradeOrderIds.length > 1) {
+					validateSplitChildPaymentRecords(
+						records,
+						tradeOrderId,
+						providerPatientId,
+						hospitalId,
+						childPaymentResponse.requestId,
+					);
+				}
+				childRecords.push(...records);
+				childPaymentRequestIds.push(childPaymentResponse.requestId);
+			}
+			const childPaymentRequestId = childPaymentRequestIds.at(-1);
+			// 新创建主单后也可能有其他渠道并发缴清；首次请求与恢复请求
+			// 共用状态门禁，只有待缴可用或本次收款中允许继续费用上传。
+			assertCurrentSettlementChildPaymentRecords(
+				childRecords,
+				childPaymentRequestId,
+			);
+			const childPaymentInspection = inspectChildPaymentRecords(
+				childRecords,
+				"medical-insurance.2.6.33",
+				childPaymentRequestId,
+			);
+			options.logger?.info(
+				{
+					event: "medical-insurance.2.6.33.current-settlement.observed",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					providerRequestId: childPaymentRequestId,
+					resultCount: childRecords.length,
+					tradeOrderCount: tradeOrderIds.length,
+					nonPayableChildCount: childPaymentInspection.nonPayableChildCount,
+					paymentInProgressCount: childPaymentInspection.paymentInProgressCount,
+					expectedTradeStatus: "1",
+				},
+				"Medical insurance current settlement child records observed",
+			);
 			const detailResponse =
-				resumePre6201 && priorSettlementContext?.settlementDetailsFetchedAt
+				resumeSettlementDetails && priorSettlementContext
 					? {
 							data: {
 								outNetworkSettleMain:
@@ -3599,34 +3776,17 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			// .32 的 outNetworkSettleMain 主体来自 6202；.27 这里只保留
 			// 文档明确要求的患者费别/就诊 ID，不读取 .27 的主单对象。
 			const preOutNetworkSettleMain =
-				priorSettlementContext?.settlementDetailsFetchedAt
+				resumeSettlementDetails && priorSettlementContext
 					? pickSettlementPatientIdentifiers(
 							priorSettlementContext.outNetworkSettleMain,
 						)
 					: settlementPatientIdentifiers(settleInfo);
 			const preSettlementDetailsFetchedAt =
-				priorSettlementContext?.settlementDetailsFetchedAt ??
-				now().toISOString();
-			// 立即保存 .27 的完整规范化事实，避免后续 2.1.9/2.1.13
-			// 或 6201 失败时重试再次请求 .27。
-			await saveFeeUploadContext({
-				businessId,
-				businessCode,
-				hospitalId,
-				patientId: providerPatientId,
-				networkRegister: {},
-				outNetworkSettleMain: preOutNetworkSettleMain,
-				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-					? (settleInfo.nationalUpDetailList as ProviderRecord[])
-					: [],
-				upDetailList: [],
-				tradeOrderIds,
-				insuredAreaCode: auth.insuplcAdmdvs,
-				feeUploadStage: "pre_6201",
-				settlementAmountFen,
-				settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
-				settlementDetailsProviderRequestId: detailResponse.requestId,
-			});
+				(resumeSettlementDetails
+					? priorSettlementContext?.settlementDetailsFetchedAt
+					: undefined) ?? now().toISOString();
+			// 映射完非空费用明细后再原子保存 fetchedAt 和 upDetailList。
+			// 不能留下 fetchedAt 已写入但明细为空的快照，导致重入误用空缓存。
 			const preUpDetailList = mapSettlementDetails(
 				details,
 				childRecords,
@@ -3634,26 +3794,9 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				detailResponse.requestId,
 				businessType,
 			);
-			await saveFeeUploadContext({
-				businessId,
-				businessCode,
-				hospitalId,
-				patientId: providerPatientId,
-				networkRegister: {},
-				outNetworkSettleMain: preOutNetworkSettleMain,
-				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-					? (settleInfo.nationalUpDetailList as ProviderRecord[])
-					: [],
-				upDetailList: preUpDetailList,
-				tradeOrderIds,
-				insuredAreaCode: auth.insuplcAdmdvs,
-				feeUploadStage: "pre_6201",
-				settlementAmountFen,
-				settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
-				settlementDetailsProviderRequestId: detailResponse.requestId,
-			});
 			const firstDetail = details[0] as ProviderRecord;
 			const preResolvedMdtrtId =
+				priorSettlementContext?.mdtrtId ??
 				optionalText(
 					applyPayload,
 					["mdtrtId", "mdtrt_id"],
@@ -3672,32 +3815,30 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.2.27.2.27",
 					detailResponse.requestId,
 				);
-			if (preResolvedMdtrtId) {
-				await saveFeeUploadContext({
-					businessId,
-					businessCode,
-					hospitalId,
-					patientId: providerPatientId,
-					networkRegister: {},
-					outNetworkSettleMain: preOutNetworkSettleMain,
-					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-						? (settleInfo.nationalUpDetailList as ProviderRecord[])
-						: [],
-					upDetailList: preUpDetailList,
-					tradeOrderIds,
-					insuredAreaCode: auth.insuplcAdmdvs,
-					feeUploadStage: "pre_6201",
-					settlementAmountFen,
-					mdtrtId: preResolvedMdtrtId,
-					settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
-					settlementDetailsProviderRequestId: detailResponse.requestId,
-				});
-			}
+			await saveFeeUploadContext({
+				businessId,
+				businessCode,
+				hospitalId,
+				patientId: providerPatientId,
+				networkRegister: {},
+				outNetworkSettleMain: preOutNetworkSettleMain,
+				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
+					? (settleInfo.nationalUpDetailList as ProviderRecord[])
+					: [],
+				upDetailList: preUpDetailList,
+				tradeOrderIds,
+				insuredAreaCode: auth.insuplcAdmdvs,
+				feeUploadStage: "pre_6201",
+				settlementAmountFen,
+				...(preResolvedMdtrtId ? { mdtrtId: preResolvedMdtrtId } : {}),
+				settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
+				settlementDetailsProviderRequestId: detailResponse.requestId,
+			});
 			const deptId = settlementBillingDepartmentId(
 				childRecords,
 				tradeOrderIds,
 				firstDetail,
-				childPaymentResponse.requestId,
+				childPaymentRequestId,
 			);
 			const deptResponse = await zhongyangGet(
 				"medical-insurance.2.1.9",
@@ -3862,7 +4003,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					traceId: context.traceId,
 					orderId: input.orderId,
 					detailProviderRequestId: detailResponse.requestId,
-					childProviderRequestId: childPaymentResponse.requestId,
+					childProviderRequestId: childPaymentRequestId,
 					...settlementDetailShape(details, childRecords),
 				},
 				"Medical insurance settlement detail mapping inputs inspected",
@@ -3877,7 +4018,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					traceId: context.traceId,
 					orderId: input.orderId,
 					detailProviderRequestId: detailResponse.requestId,
-					childProviderRequestId: childPaymentResponse.requestId,
+					childProviderRequestId: childPaymentRequestId,
 					detailCount: upDetailList.length,
 				},
 				"Medical insurance settlement details persisted for post-payment reuse",
@@ -4141,7 +4282,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						detailResponse.requestId,
 						deptResponse.requestId,
 						doctorResponse.requestId,
-						childPaymentResponse.requestId,
+						...childPaymentRequestIds,
 						feeResult.trace.requestId,
 					],
 					feeResult.credential.payOrdId,

@@ -24,10 +24,16 @@ export type PaymentAggregateHisSyncStatus =
 	| "failed"
 	| "manual_review";
 
-export type PaymentLegType =
-	| "medical_insurance"
-	| "wechat_cash"
-	| "hospital_reduce";
+/** Runtime readers and TypeScript use the same set, so new ledger legs cannot be write-only. */
+export const PAYMENT_LEG_TYPES = [
+	"medical_insurance",
+	"wechat_cash",
+	"hospital_reduce",
+	"hospital_part",
+	"unallocated",
+] as const;
+
+export type PaymentLegType = (typeof PAYMENT_LEG_TYPES)[number];
 
 export type PaymentLegStatus =
 	| "not_started"

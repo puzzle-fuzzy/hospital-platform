@@ -131,7 +131,7 @@ export function medicalPaymentAmountView(amounts: MedicalPaymentAmounts) {
 		insuranceAmountLabel: `${((amounts.insuranceFen - (presentation.hospitalPartFen ?? 0)) / 100).toFixed(2)}元`,
 		cashAmountLabel: `${(cashFen / 100).toFixed(2)}元`,
 		cashAmountValue: hasActualCashAmount ? (cashFen / 100).toFixed(2) : "",
-		cashAmountCaption: hasActualCashAmount ? "实际支付" : "医保结算后自费",
+		cashAmountCaption: hasActualCashAmount ? "微信实付" : "医保结算后自费",
 		hasActualCashAmount,
 		hasHospitalDiscount: hospitalDiscountFen > 0,
 		hospitalDiscountAmountLabel: `${(hospitalDiscountFen / 100).toFixed(2)}元`,
@@ -159,7 +159,22 @@ export type MedicalBusinessRecovery = MedicalOrder & {
 	authorizationReady: boolean;
 	authorizationPending: boolean;
 	recoveryAllowed: boolean;
+	externalPaymentConfirmed?: boolean;
 };
+
+/** 只在尚未发送医保费用、且服务端允许恢复原单时重新授权。 */
+export function needsMedicalBusinessAuthorization(
+	recovery: MedicalBusinessRecovery | null,
+): boolean {
+	return (
+		!recovery ||
+		(recovery.recoveryAllowed &&
+			!recovery.authorizationPending &&
+			!recovery.authorizationReady &&
+			(recovery.status === "created" ||
+				recovery.status === "fee_upload_pending"))
+	);
+}
 
 export type RegistrationSelfPaymentResult = {
 	orderId: string;
@@ -433,7 +448,11 @@ function readMedicalBusinessRecovery(value: unknown): MedicalBusinessRecovery {
 		!isRecord(data) ||
 		typeof data.authorizationReady !== "boolean" ||
 		typeof data.authorizationPending !== "boolean" ||
-		typeof data.recoveryAllowed !== "boolean"
+		typeof data.recoveryAllowed !== "boolean" ||
+		(data.externalPaymentConfirmed !== undefined &&
+			typeof data.externalPaymentConfirmed !== "boolean") ||
+		(data.externalPaymentConfirmed === true &&
+			(order.status !== "manual_review" || data.recoveryAllowed !== false))
 	) {
 		throw new ApiError("医保订单恢复响应不可用", {
 			code: "provider-response-invalid",
@@ -444,6 +463,9 @@ function readMedicalBusinessRecovery(value: unknown): MedicalBusinessRecovery {
 		authorizationReady: data.authorizationReady,
 		authorizationPending: data.authorizationPending,
 		recoveryAllowed: data.recoveryAllowed,
+		...(data.externalPaymentConfirmed === true
+			? { externalPaymentConfirmed: true }
+			: {}),
 	};
 }
 

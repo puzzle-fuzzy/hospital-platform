@@ -379,6 +379,8 @@ export interface MedicalInsuranceGateway {
 			ownerUserId: string;
 			patientId: string;
 			authorizationId: string;
+			/** 服务层 CAS 取得的发送权版本；适配器不得改用后来读取的新版本。 */
+			expectedVersion: number;
 			/** 挂号和门诊共用 6201 编排，业务入口只提供不同的事实上下文。 */
 			appointment: MedicalInsuranceBusinessContext;
 		},

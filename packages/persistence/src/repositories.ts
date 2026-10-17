@@ -150,7 +150,13 @@ export function createInMemoryPaymentOperationsRepository(seed?: {
 			) {
 				throw new Error("Payment aggregate version conflict");
 			}
-			if (current && current.sourceVersion >= aggregate.sourceVersion) {
+			if (
+				current &&
+				(current.sourceVersion > aggregate.sourceVersion ||
+					(current.sourceVersion === aggregate.sourceVersion &&
+						(expectedVersion === undefined ||
+							aggregate.version !== current.version + 1)))
+			) {
 				return clonePaymentAggregate(current);
 			}
 			aggregates.set(aggregate.aggregateId, clonePaymentAggregate(aggregate));
@@ -3033,9 +3039,18 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				) ?? undefined
 			);
 		},
-		async saveSettlementContext(ownerUserId, medicalOrderId, context) {
+		async saveSettlementContext(
+			ownerUserId,
+			medicalOrderId,
+			context,
+			expectedVersion,
+		) {
 			const order = orders.get(medicalOrderId);
-			if (!order || order.ownerUserId !== ownerUserId) {
+			if (
+				!order ||
+				order.ownerUserId !== ownerUserId ||
+				(expectedVersion !== undefined && order.version !== expectedVersion)
+			) {
 				throw new Error(
 					"Medical insurance settlement context order is unavailable",
 				);

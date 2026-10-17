@@ -113,7 +113,14 @@ async function main(): Promise<void> {
 				`payment operations schema is not ready: ${schema.missingMigrationIds.join(", ")}`,
 			);
 		}
-		const repositories = createMySqlRepositories(pool);
+		const repositories = createMySqlRepositories(pool, {
+			...(Bun.env.MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY
+				? {
+						medicalInsuranceCredentialEncryptionKey:
+							Bun.env.MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY,
+					}
+				: {}),
+		});
 		if (
 			!repositories.paymentOrders.listForPaymentOperationsBackfill ||
 			!repositories.medicalInsuranceOrders.listForPaymentOperationsBackfill
@@ -133,6 +140,11 @@ async function main(): Promise<void> {
 				) ??
 				Promise.reject(
 					new Error("medical order backfill source is unavailable"),
+				),
+			loadMedicalInsuranceSettlementContext: (order) =>
+				repositories.medicalInsuranceOrders.getSettlementContext(
+					order.ownerUserId,
+					order.medicalOrderId,
 				),
 			mode: options.apply ? "apply" : "dry_run",
 			...(options.createdFrom ? { createdFrom: options.createdFrom } : {}),

@@ -1100,6 +1100,8 @@ export const MedicalInsuranceBusinessRecoveryResponse = Type.Object({
 		/** true 表示授权写请求仍在短暂确认窗口，客户端只查询，不应再次展码。 */
 		authorizationPending: Type.Boolean(),
 		recoveryAllowed: Type.Boolean(),
+		/** 人工核实已从其他渠道缴清；原平台订单保持禁重付。 */
+		externalPaymentConfirmed: Type.Optional(Type.Boolean()),
 		amounts: Type.Optional(
 			Type.Object({
 				totalFen: Type.Integer({ minimum: 1 }),

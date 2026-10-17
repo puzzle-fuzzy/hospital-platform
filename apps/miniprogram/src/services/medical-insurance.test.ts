@@ -666,6 +666,56 @@ test("医保按钮按业务键查询服务端并接受 6201 在途状态", async
 	);
 });
 
+test("外部已缴清仅接受服务端隔离状态，不能把可支付订单伪装成已缴清", async () => {
+	let status = "manual_review";
+	let recoveryAllowed = false;
+	Object.assign(globalThis, {
+		getApp: () => ({
+			globalData: {
+				apiBaseUrl: "https://hospital.example.test",
+				apiPrefix: "/api/v2",
+				accessToken: "external-paid-fixture",
+				sessionStatus: "signed_in",
+			},
+		}),
+		wx: {
+			...storageWx(new Map<string, unknown>()),
+			request: (options: { success(response: unknown): void }) =>
+				options.success({
+					statusCode: 200,
+					header: {},
+					data: {
+						success: true,
+						data: {
+							orderId: "external-paid-order",
+							status,
+							authorizationReady: false,
+							authorizationPending: false,
+							recoveryAllowed,
+							externalPaymentConfirmed: true,
+						},
+					},
+				}),
+		},
+	});
+	const { queryMedicalBusinessRecovery } = await import("./medical-insurance");
+	const business = {
+		businessType: "outpatient" as const,
+		businessId: "paid-record",
+		patientId: "current-patient",
+	};
+	await expect(queryMedicalBusinessRecovery(business)).resolves.toMatchObject({
+		status: "manual_review",
+		externalPaymentConfirmed: true,
+		recoveryAllowed: false,
+	});
+	status = "cash_pending";
+	await expect(queryMedicalBusinessRecovery(business)).rejects.toThrow();
+	status = "manual_review";
+	recoveryAllowed = true;
+	await expect(queryMedicalBusinessRecovery(business)).rejects.toThrow();
+});
+
 test("服务端明确无活动医保订单时返回 null，不回退读取本地医保缓存", async () => {
 	type RequestOptions = {
 		url: string;

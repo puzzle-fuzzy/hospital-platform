@@ -1046,6 +1046,7 @@ export class AdminWechatRefundService {
 						candidate.source === "payment_order"
 							? candidate.order.orderId
 							: candidate.order.medicalOrderId;
+					const operations = this.dependencies.paymentOperations;
 					const [refunds, medicalRefunds, operationProjection, participants] =
 						await Promise.all([
 							findRefunds(candidate.source, orderId),
@@ -1053,16 +1054,21 @@ export class AdminWechatRefundService {
 							this.dependencies.medicalInsuranceRefunds
 								? this.medicalRefundHistory(orderId)
 								: Promise.resolve([] as readonly MedicalInsuranceRefund[]),
-							this.dependencies.paymentOperations
+							operations
 								? candidate.source === "payment_order"
-									? projectPaymentOrder(
-											this.dependencies.paymentOperations,
-											candidate.order,
-										)
-									: projectMedicalInsuranceOrder(
-											this.dependencies.paymentOperations,
-											candidate.order,
-										)
+									? projectPaymentOrder(operations, candidate.order)
+									: this.dependencies.medicalInsuranceOrders
+											.getSettlementContext(
+												candidate.order.ownerUserId,
+												candidate.order.medicalOrderId,
+											)
+											.then((settlement) =>
+												projectMedicalInsuranceOrder(
+													operations,
+													candidate.order as MedicalInsuranceOrder,
+													settlement,
+												),
+											)
 								: Promise.resolve(undefined),
 							participantNamesFor(candidate.order),
 						]);

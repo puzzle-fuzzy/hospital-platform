@@ -362,6 +362,24 @@ export type MedicalInsuranceOrder = {
  */
 export type MedicalInsuranceSettlementContext = {
 	businessId: string;
+	/** 人工核对院端已付且用户确认其他渠道支付；保留审计，不等同于本平台支付成功。 */
+	externalPaymentConfirmation?: {
+		source: "user-confirmed-and-his-child-paid";
+		amountFen: number;
+		confirmedAt: string;
+		hisBusinessId: string;
+		hisBusinessCode: string;
+		tradeOrderIds: readonly string[];
+		hisTradeStatus: "3";
+		platformPaymentStarted: false;
+		actualChannel: "unknown";
+		recordedAtUtc?: string;
+		hisObservedAtUtc?: string;
+		evidenceSha256?: string;
+		originalApplyResponseSha256?: string;
+		queryTraceIds?: readonly string[];
+		userStatement?: string;
+	};
 	/** 本次门诊合缴的安全展示快照，只保存在已有加密上下文中。 */
 	outpatientPaymentRecord?: OutpatientPaymentRecord;
 	businessCode?: string;
@@ -953,6 +971,8 @@ export interface MedicalInsuranceOrderRepository {
 		ownerUserId: string,
 		medicalOrderId: string,
 		context: MedicalInsuranceSettlementContext,
+		/** Optional source-order CAS fence for non-replayable send boundaries. */
+		expectedVersion?: number,
 	): Promise<void>;
 	/** 只在当前订单尚无上下文时写入；用于受控历史订单补录，必须原子防覆盖。 */
 	saveSettlementContextIfMissing(

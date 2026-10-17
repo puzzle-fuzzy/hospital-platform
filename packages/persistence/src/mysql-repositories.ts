@@ -83,6 +83,7 @@ import {
 	normalizeMyDoctorReadModel,
 	normalizeOutpatientPaymentRecords,
 	normalizeUserProfileReadModel,
+	PAYMENT_LEG_TYPES,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
@@ -1989,11 +1990,6 @@ const PAYMENT_AGGREGATE_HIS_SYNC_STATUSES = [
 	"failed",
 	"manual_review",
 ] as const;
-const PAYMENT_LEG_TYPES = [
-	"medical_insurance",
-	"wechat_cash",
-	"hospital_reduce",
-] as const;
 const PAYMENT_LEG_STATUSES = [
 	"not_started",
 	"pending",
@@ -3722,7 +3718,13 @@ export function createMySqlRepositories(
 				) {
 					throw new Error("Payment aggregate version conflict");
 				}
-				if (current.sourceVersion >= aggregate.sourceVersion) return current;
+				if (
+					current.sourceVersion > aggregate.sourceVersion ||
+					(current.sourceVersion === aggregate.sourceVersion &&
+						(expectedVersion === undefined ||
+							aggregate.version !== current.version + 1))
+				)
+					return current;
 				const result = await execute<ResultSetHeader>(
 					pool,
 					"UPDATE hp_payment_aggregates SET owner_user_id = ?, patient_id = ?, business = ?, business_key = ?, business_id = ?, total_fen = ?, insurance_fen = ?, cash_fen = ?, status = ?, his_sync_status = ?, source_version = ?, version = ?, updated_at = ? WHERE aggregate_id = ? AND version = ?",
@@ -6535,6 +6537,27 @@ export function createMySqlRepositories(
 		return values;
 	};
 
+	const medicalProjectionContext = async (
+		connection: PoolConnection,
+		order: MedicalInsuranceOrder,
+	): Promise<MedicalInsuranceSettlementContext | undefined> => {
+		if (!order.amounts) return undefined;
+		const rows = await execute<
+			(RowDataPacket & { settlement_context_ciphertext: string | null })[]
+		>(
+			connection,
+			`SELECT settlement_context_ciphertext FROM hp_medical_insurance_orders
+			 WHERE medical_order_id = ? AND owner_user_id = ? LIMIT 1`,
+			[order.medicalOrderId, order.ownerUserId],
+		);
+		const ciphertext = rows[0]?.settlement_context_ciphertext;
+		return ciphertext
+			? deserializeMedicalInsuranceSettlementContext(
+					requiredMedicalInsuranceCredentialCipher().open(ciphertext),
+				)
+			: undefined;
+	};
+
 	const insertMedicalInsuranceOrder = async (
 		connection: PoolConnection,
 		order: MedicalInsuranceOrder,
@@ -6545,7 +6568,11 @@ export function createMySqlRepositories(
 			`INSERT INTO hp_medical_insurance_orders (${MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.join(", ")}) VALUES (${sqlParameterPlaceholders(values.length)})`,
 			values,
 		);
-		const projection = buildMedicalInsuranceOrderOperationsProjection(order);
+		const projection = buildMedicalInsuranceOrderOperationsProjection(
+			order,
+			undefined,
+			await medicalProjectionContext(connection, order),
+		);
 		if (projection) {
 			await upsertPaymentOperationsProjection(connection, projection);
 		}
@@ -6778,17 +6805,30 @@ export function createMySqlRepositories(
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
-		async saveSettlementContext(ownerUserId, medicalOrderId, context) {
+		async saveSettlementContext(
+			ownerUserId,
+			medicalOrderId,
+			context,
+			expectedVersion,
+		) {
+			if (
+				expectedVersion !== undefined &&
+				(!Number.isSafeInteger(expectedVersion) || expectedVersion < 1)
+			)
+				throw new Error(
+					"Medical insurance context expected version is invalid",
+				);
 			const cipher = requiredMedicalInsuranceCredentialCipher();
 			const result = await execute<ResultSetHeader>(
 				pool,
 				`UPDATE hp_medical_insurance_orders
 				 SET settlement_context_ciphertext = ?, updated_at = UTC_TIMESTAMP(3)
-				 WHERE medical_order_id = ? AND owner_user_id = ?`,
+				 WHERE medical_order_id = ? AND owner_user_id = ?${expectedVersion === undefined ? "" : " AND version = ?"}`,
 				[
 					cipher.seal(serializeMedicalInsuranceSettlementContext(context)),
 					medicalOrderId,
 					ownerUserId,
+					...(expectedVersion === undefined ? [] : [expectedVersion]),
 				],
 			);
 			if (result.affectedRows !== 1) {
@@ -7032,6 +7072,7 @@ export function createMySqlRepositories(
 				const projection = buildMedicalInsuranceOrderOperationsProjection(
 					updated,
 					existingAggregate,
+					await medicalProjectionContext(connection, updated),
 				);
 				if (projection) {
 					await upsertPaymentOperationsProjection(connection, projection);

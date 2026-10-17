@@ -100,7 +100,7 @@ test("payment order projection keeps a replay-safe aggregate, leg and event", as
 	);
 });
 
-test("medical projection keeps医保 and微信 as two legs of one aggregate", async () => {
+test("medical projection preserves insurance but does not invent unproven WeChat cash", async () => {
 	const repository = createInMemoryPaymentOperationsRepository();
 	const projection = await projectMedicalInsuranceOrder(
 		repository,
@@ -109,7 +109,8 @@ test("medical projection keeps医保 and微信 as two legs of one aggregate", as
 
 	expect(projection?.aggregate.totalFen).toBe(17_600);
 	expect(projection?.aggregate.insuranceFen).toBe(6_039);
-	expect(projection?.aggregate.cashFen).toBe(11_561);
+	expect(projection?.aggregate.cashFen).toBe(0);
+	expect(projection?.aggregate.status).toBe("manual_review");
 	expect(projection?.aggregate.hisSyncStatus).toBe("pending");
 	expect(projection?.legs).toEqual(
 		expect.arrayContaining([
@@ -119,9 +120,9 @@ test("medical projection keeps医保 and微信 as two legs of one aggregate", as
 				status: "confirmed",
 			}),
 			expect.objectContaining({
-				legType: "wechat_cash",
+				legType: "unallocated",
 				amountFen: 11_561,
-				status: "confirmed",
+				status: "manual_review",
 			}),
 		]),
 	);

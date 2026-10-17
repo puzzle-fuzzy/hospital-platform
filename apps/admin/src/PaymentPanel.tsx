@@ -374,6 +374,8 @@ function operationLegLabel(
 		medical_insurance: "医保腿",
 		wechat_cash: "微信现金腿",
 		hospital_reduce: "医院减免腿",
+		hospital_part: "医院负担（其他支付）",
+		unallocated: "金额分项待核实",
 	}[legType];
 }
 

@@ -22,6 +22,7 @@ import {
 	type MedicalInsurancePaymentEligibility,
 	MedicalInsurancePaymentFailureError,
 	medicalAuthorizationContext,
+	needsMedicalBusinessAuthorization,
 	type PaymentMode,
 	type PaymentProgress,
 	queryMedicalBusinessRecovery,
@@ -654,10 +655,7 @@ Page<
 					"上一次医保授权正在确认；按钮已恢复，可稍后再次点击查询，请勿重复展码",
 			});
 			return;
-		} else if (
-			!recovery ||
-			(recovery.status === "created" && !recovery.authorizationReady)
-		) {
+		} else if (!recovery || needsMedicalBusinessAuthorization(recovery)) {
 			await startMedicalPayment(
 				{
 					appointmentId: this.data.appointmentId,

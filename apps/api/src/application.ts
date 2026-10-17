@@ -757,6 +757,10 @@ export function createDefaultApplicationServices(
 						await projectMedicalInsuranceOrder(
 							repositories.paymentOperations,
 							order,
+							await repositories.medicalInsuranceOrders.getSettlementContext(
+								order.ownerUserId,
+								order.medicalOrderId,
+							),
 						)
 					)?.aggregate,
 				...(wechatRefund ? { wechatRefund } : {}),
@@ -801,6 +805,10 @@ export function createDefaultApplicationServices(
 						const projection = await projectMedicalInsuranceOrder(
 							repositories.paymentOperations,
 							order,
+							await repositories.medicalInsuranceOrders.getSettlementContext(
+								order.ownerUserId,
+								order.medicalOrderId,
+							),
 						);
 						if (!projection)
 							throw new DependencyNotConfiguredError("payment-operations");
