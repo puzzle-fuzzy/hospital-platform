@@ -20,6 +20,8 @@ import type { DependencyState } from "@hospital/contracts";
 import {
 	buildPaymentOrderOperationsProjection,
 	type HospitalSettlementGateway,
+	normalizeHisPaymentReference,
+	MedicalInsuranceRefundNotificationCoordinator,
 	type PaymentOrder,
 	PaymentOrderService,
 	PaymentSyncCoordinator,
@@ -66,6 +68,10 @@ export type WorkerRuntime = {
 		reconciliation: PaymentReconciliationWorkerResult;
 		medicalInsuranceReconciliation?: MedicalInsuranceOrderReconciliationWorkerResult;
 		medicalInsuranceRefundReconciliation?: MedicalInsuranceRefundReconciliationWorkerResult;
+		medicalInsuranceRefundNotification?:
+			| "idle"
+			| "succeeded"
+			| "retry_scheduled";
 	}>;
 	close(): Promise<void>;
 };
@@ -82,7 +88,7 @@ const REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX =
 /**
  * worker 与 API 使用同一条 owner + appointment 关联规则读取医保结算上下文。
  * 三个 Provider 关联键只从加密仓储解封后的事实中投影，绝不从平台订单号补造；
- * 仅 .29 的 platformOrderId 会从已归属的根 medicalOrderId 显式投影。
+ * platformOrderId 仅保留为历史兼容的本地元数据，不再作为 .29 请求参数。
  */
 function resolveRegistrationSelfPayContext(
 	repositories: NonNullable<PersistenceRuntime["repositories"]>,
@@ -126,6 +132,9 @@ function resolveRegistrationSelfPayContext(
 				medicalOrder.medicalOrderId,
 			);
 		if (!settlement) return undefined;
+		if (settlement.plugin?.thirdPartPayAttempt?.status === "unknown") {
+			throw new Error("medical-insurance-plugin-third-party-result-unknown");
+		}
 		const providerContext = settlement.plugin ?? settlement;
 		const payingId = providerContext.payingId;
 		const tradingId = providerContext.tradingId;
@@ -162,6 +171,32 @@ function resolveRegistrationSelfPayContext(
 		if (!hospitalId || !patientId || !certNo || !psnName || !psnNo) {
 			return undefined;
 		}
+		let hisPaymentReferenceId: string | undefined;
+		if (settlement.plugin) {
+			const scope = {
+				ownerUserId: input.ownerUserId,
+				medicalOrderId: medicalOrder.medicalOrderId,
+				paymentScopeId: settlement.plugin.paymentOrderId,
+				source: "plugin" as const,
+			};
+			if (settlement.plugin.thirdPartPayRecordId) {
+				let receipt: string | undefined;
+				try {
+					receipt = normalizeHisPaymentReference(
+						settlement.plugin.thirdPartPayRecordId,
+					);
+				} catch {}
+				if (receipt)
+					await repositories.hisPaymentReferences.confirm({
+						...scope,
+						referenceId: receipt,
+					});
+			} else {
+				hisPaymentReferenceId = (
+					await repositories.hisPaymentReferences.allocate(scope)
+				).referenceId;
+			}
+		}
 		return {
 			businessId: settlement.businessId,
 			payingId,
@@ -182,6 +217,7 @@ function resolveRegistrationSelfPayContext(
 				contextText(networkRegister, ["patInHosId", "pat_in_hos_id"]) ?? "0",
 			...(settlement.plugin
 				? {
+						...(hisPaymentReferenceId ? { hisPaymentReferenceId } : {}),
 						platformOrderId: medicalOrder.medicalOrderId,
 						outTradeNo: settlement.plugin.outTradeNo,
 						recordCode: settlement.plugin.recordCode,
@@ -196,6 +232,44 @@ function resolveRegistrationSelfPayContext(
 					}
 				: {}),
 		};
+	};
+}
+
+function claimThirdPartPayAttempt(
+	repositories: NonNullable<PersistenceRuntime["repositories"]>,
+) {
+	return async (input: {
+		paymentOrder: PaymentOrder;
+		registrationContext?: RegistrationSelfPaySettlementContext;
+	}): Promise<void> => {
+		const paymentOrder = input.paymentOrder;
+		const medicalOrderId = paymentOrder.idempotencyKey.startsWith(
+			REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX,
+		)
+			? paymentOrder.idempotencyKey.slice(
+					REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX.length,
+				)
+			: undefined;
+		if (
+			!medicalOrderId ||
+			!repositories.medicalInsuranceOrders.claimPluginThirdPartPayAttempt
+		)
+			throw new Error(
+				"medical-insurance-plugin-writeback-claim-not-configured",
+			);
+		const originalOutTradeNo = input.registrationContext?.outTradeNo;
+		if (!originalOutTradeNo)
+			throw new Error("medical-insurance-plugin-writeback-scope-mismatch");
+		const claimed =
+			await repositories.medicalInsuranceOrders.claimPluginThirdPartPayAttempt({
+				ownerUserId: paymentOrder.ownerUserId,
+				medicalOrderId,
+				paymentOrderId: paymentOrder.orderId,
+				outTradeNo: originalOutTradeNo,
+				attemptedAt: new Date().toISOString(),
+			});
+		if (!claimed)
+			throw new Error("medical-insurance-plugin-third-party-result-unknown");
 	};
 }
 
@@ -243,7 +317,9 @@ function persistThirdPartPayResponse(
 		if (
 			!medicalOrder ||
 			!plugin ||
-			plugin.paymentOrderId !== input.paymentOrder.orderId
+			plugin.paymentOrderId !== input.paymentOrder.orderId ||
+			(input.registrationContext?.outTradeNo !== undefined &&
+				plugin.outTradeNo !== input.registrationContext.outTradeNo)
 		) {
 			logger.warn(
 				{
@@ -264,10 +340,23 @@ function persistThirdPartPayResponse(
 					...plugin,
 					thirdPartPayRecordId: input.thirdPartPayRecordId,
 					thirdPartPayRawResponse: input.rawResponse,
+					thirdPartPayAttempt: {
+						attemptedAt:
+							plugin.thirdPartPayAttempt?.attemptedAt ??
+							new Date().toISOString(),
+						status: "succeeded",
+					},
 					state: "29_succeeded",
 				},
 			},
 		);
+		await repositories.hisPaymentReferences.confirm({
+			ownerUserId: input.paymentOrder.ownerUserId,
+			medicalOrderId: medicalOrder.medicalOrderId,
+			paymentScopeId: plugin.paymentOrderId,
+			source: "plugin",
+			referenceId: normalizeHisPaymentReference(input.thirdPartPayRecordId),
+		});
 		logger.info(
 			{
 				event: "worker.payment.2.27.2.29.persisted",
@@ -603,6 +692,7 @@ export function createWorkerRuntime(
 				...(settlementGateway ? { hospitalSettlement: settlementGateway } : {}),
 				resolveRegistrationContext:
 					resolveRegistrationSelfPayContext(repositories),
+				onThirdPartPayAttempt: claimThirdPartPayAttempt(repositories),
 				onThirdPartPayResponse: persistThirdPartPayResponse(
 					repositories,
 					logger,
@@ -678,10 +768,29 @@ export function createWorkerRuntime(
 				logger,
 			})
 		: undefined;
+	const medicalInsuranceRefundNotification = wechatPayment
+		? new MedicalInsuranceRefundNotificationCoordinator({
+				tasks: repositories.paymentSync,
+				refunds: repositories.medicalInsuranceRefunds,
+				orders: repositories.medicalInsuranceOrders,
+				wechatRefunds: repositories.wechatRefunds,
+				gateway: wechatPayment,
+				resolveAggregateId: async (order) => {
+					const aggregate =
+						await repositories.paymentOperations.findAggregateByBusinessKey(
+							`medical_insurance:${order.medicalOrderId}`,
+						);
+					if (!aggregate)
+						throw new Error("medical-refund-notify-aggregate-missing");
+					return aggregate.aggregateId;
+				},
+			})
+		: undefined;
 	const medicalInsuranceReconciliation = medicalInsuranceGateway
 		? new MedicalInsuranceOrderReconciliationWorker({
 				tasks: repositories.medicalInsuranceQueryTasks,
 				orders: repositories.medicalInsuranceOrders,
+				hisPaymentReferences: repositories.hisPaymentReferences,
 				medicalInsurance: medicalInsuranceGateway,
 				identityUsers: repositories.identityUsers,
 				patients: repositories.patients,
@@ -759,6 +868,12 @@ export function createWorkerRuntime(
 				reconciliation: reconciliation
 					? await reconciliation.runOnce(now)
 					: ("idle" as const),
+				...(medicalInsuranceRefundNotification
+					? {
+							medicalInsuranceRefundNotification:
+								await medicalInsuranceRefundNotification.runOnce(),
+						}
+					: {}),
 				...(medicalInsuranceRefundReconciliation
 					? {
 							medicalInsuranceRefundReconciliation:

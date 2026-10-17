@@ -1,15 +1,16 @@
-import {
-	buildMedicalInsuranceOrderOperationsProjection,
-	buildPaymentOrderOperationsProjection,
-} from "@hospital/domain";
 import type {
 	MedicalInsuranceOrder,
+	MedicalInsuranceSettlementContext,
 	PaymentAggregate,
 	PaymentLeg,
 	PaymentOperationEvent,
 	PaymentOperationsProjection,
 	PaymentOperationsRepository,
 	PaymentOrder,
+} from "@hospital/domain";
+import {
+	buildMedicalInsuranceOrderOperationsProjection,
+	buildPaymentOrderOperationsProjection,
 } from "@hospital/domain";
 
 async function persistProjection(
@@ -73,6 +74,7 @@ export async function projectPaymentOrder(
 export async function projectMedicalInsuranceOrder(
 	repository: PaymentOperationsRepository,
 	order: MedicalInsuranceOrder,
+	settlement?: MedicalInsuranceSettlementContext,
 ): Promise<PaymentOperationsProjection | undefined> {
 	const existing = await repository.findAggregateByBusinessKey(
 		`medical_insurance:${order.medicalOrderId}`,
@@ -80,6 +82,7 @@ export async function projectMedicalInsuranceOrder(
 	const projection = buildMedicalInsuranceOrderOperationsProjection(
 		order,
 		existing,
+		settlement,
 	);
 	if (!projection) return undefined;
 	if (!projection.event) throw new Error("Payment operation event is missing");

@@ -56,6 +56,17 @@ type PaymentViewInput = AppointmentPaymentFields & {
 	selfPayStatus?: string;
 };
 
+/** 整单状态优先；仅旧 API 缺少整单状态时兼容现金已付，医院终态不算缴费完成。 */
+export function isAppointmentPaymentCompleted(
+	value: PaymentViewInput,
+): boolean {
+	if (value.status === "cancelled" || value.status === "expired") return false;
+	return (
+		value.paymentStatus === "paid" ||
+		(value.paymentStatus === undefined && value.selfPayStatus === "cash_paid")
+	);
+}
+
 /** 仅明确存在旧支付时提供查单；到期本身不表示已有资金订单。 */
 export function hasKnownAppointmentPayment(value: PaymentViewInput): boolean {
 	return (
@@ -94,6 +105,8 @@ export function appointmentPaymentStatusLabel(
 export function appointmentPaymentBlockedMessage(
 	value: PaymentViewInput,
 ): string {
+	if (isAppointmentPaymentCompleted(value))
+		return "本次挂号已缴费，请勿重复付款";
 	if (
 		value.status === "expired" ||
 		value.paymentStatus === "expired" ||
@@ -104,11 +117,10 @@ export function appointmentPaymentBlockedMessage(
 	if (value.status === "cancelled" || value.paymentStatus === "cancelled") {
 		return "预约已取消，不能继续付款；如已扣款，请联系医院核对原支付结果";
 	}
-	if (value.paymentStatus === "paid" || value.selfPayStatus === "cash_paid")
-		return "本次挂号已缴费，请勿重复付款";
 	if (
 		value.paymentStatus === "confirming" ||
-		value.selfPayStatus === "awaiting_confirmation"
+		(value.paymentStatus === undefined &&
+			value.selfPayStatus === "awaiting_confirmation")
 	)
 		return "原支付结果正在确认，请稍后查看挂号详情；如已扣款请勿重复付款";
 	return "当前预约不可继续付款，请查看挂号详情或联系医院核实";

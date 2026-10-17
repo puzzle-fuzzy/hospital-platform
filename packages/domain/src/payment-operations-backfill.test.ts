@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import type { MedicalInsuranceOrder } from "./medical-insurance-order";
+import type {
+	MedicalInsuranceOrder,
+	MedicalInsuranceSettlementContext,
+} from "./medical-insurance-order";
 import type {
 	PaymentAggregate,
 	PaymentLeg,
@@ -100,7 +103,7 @@ function createOperationsRepository(): PaymentOperationsRepository & {
 			) {
 				throw new Error("aggregate version conflict");
 			}
-			if (current && current.sourceVersion >= aggregate.sourceVersion)
+			if (current && current.sourceVersion > aggregate.sourceVersion)
 				return current;
 			aggregates.set(aggregate.aggregateId, aggregate);
 			return aggregate;
@@ -239,4 +242,103 @@ test("payment operations backfill repairs an interrupted same-version projection
 	expect(replay.sources.payment_order.unchanged).toBe(1);
 	expect(operations.legs.size).toBe(1);
 	expect(operations.events.size).toBe(1);
+});
+
+test("same-source-version backfill corrects false cash using successful saved allocations and remains idempotent", async () => {
+	const operations = createOperationsRepository();
+	const order: MedicalInsuranceOrder = {
+		...medicalOrder,
+		businessType: "registration",
+		orderType: "RegPay",
+		amounts: {
+			totalFen: 1000,
+			cashFen: 200,
+			personalAccountFen: 0,
+			fundFen: 800,
+		},
+	};
+	const context: MedicalInsuranceSettlementContext = {
+		businessId: "record-003",
+		hospitalId: "fixture-hospital",
+		patientId: "fixture-patient",
+		networkRegister: {},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: [],
+		postPaymentComponents: [
+			{
+				componentId: "fixture-medical",
+				kind: "medical",
+				totalFen: 1000,
+				amountFen: 1000,
+				payModel: "H5",
+				payTypeId: "2",
+				state: "succeeded",
+				recordCode: "fixture-record",
+				attempts: 1,
+				updatedAt: order.updatedAt,
+				payTypeParams: [
+					{ kind: "fund", payTypeId: "2", amountFen: 800 },
+					{ kind: "hospital_reduce", payTypeId: "50", amountFen: 200 },
+				],
+			},
+		],
+	};
+	const input = {
+		operations,
+		mode: "apply" as const,
+		listPaymentOrders: async () => [],
+		listMedicalInsuranceOrders: async () => [order],
+		loadMedicalInsuranceSettlementContext: async () => context,
+	};
+	await runPaymentOperationsBackfill(input);
+	const aggregate = [...operations.aggregates.values()][0];
+	if (!aggregate) throw new Error("Missing test aggregate");
+	operations.aggregates.set(aggregate.aggregateId, {
+		...aggregate,
+		cashFen: 200,
+	});
+	for (const [key, leg] of operations.legs)
+		if (leg.legType === "wechat_cash")
+			operations.legs.set(key, {
+				...leg,
+				amountFen: 200,
+				status: "confirmed",
+				confirmedAt: order.updatedAt,
+			});
+	const before = JSON.stringify({ order, context });
+	const dry = await runPaymentOperationsBackfill({ ...input, mode: "dry_run" });
+	expect(dry.sources.medical_insurance.projected).toBe(1);
+	expect(
+		(await operations.findAggregateById(aggregate.aggregateId))?.cashFen,
+	).toBe(200);
+	const applied = await runPaymentOperationsBackfill(input);
+	expect(applied.sources.medical_insurance.projected).toBe(1);
+	const corrected = await operations.findAggregateById(aggregate.aggregateId);
+	if (!corrected) throw new Error("Missing corrected aggregate");
+	expect(corrected).toMatchObject({
+		totalFen: 1000,
+		insuranceFen: 800,
+		cashFen: 0,
+		sourceVersion: order.version,
+	});
+	const legs = await operations.listLegs(corrected.aggregateId);
+	expect(legs.reduce((sum, leg) => sum + leg.amountFen, 0)).toBe(1000);
+	expect(legs.find((leg) => leg.legType === "wechat_cash")).toMatchObject({
+		amountFen: 0,
+		status: "not_started",
+	});
+	expect(
+		legs.find((leg) => leg.legType === "wechat_cash")?.confirmedAt,
+	).toBeUndefined();
+	expect(legs.find((leg) => leg.legType === "hospital_reduce")).toMatchObject({
+		amountFen: 200,
+		status: "confirmed",
+	});
+	expect(
+		(await runPaymentOperationsBackfill(input)).sources.medical_insurance
+			.unchanged,
+	).toBe(1);
+	expect(JSON.stringify({ order, context })).toBe(before);
 });

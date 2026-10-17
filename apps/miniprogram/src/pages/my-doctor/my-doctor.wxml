@@ -29,20 +29,10 @@
 				bindtap="onDoctorTap"
 				data-doctor-id="{{item.doctorId}}"
 			>
-				<image
-					wx:if="{{item.doctorAvatarUrl}}"
-					class="my-doctor-avatar my-doctor-avatar-photo"
-					src="{{item.doctorAvatarUrl}}"
-					mode="aspectFill"
-					lazy-load="{{true}}"
-					aria-label="医生照片"
-				/>
-				<image
-					wx:else
+				<doctor-avatar
 					class="my-doctor-avatar"
-					src="/assets/legacy-user/default-avatar.svg"
-					mode="aspectFit"
-					aria-label="默认医生头像"
+					src="{{item.doctorAvatarUrl}}"
+					label="{{item.doctorName}}的头像"
 				/>
 				<view class="my-doctor-card-copy">
 					<view class="my-doctor-name-line">

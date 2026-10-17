@@ -124,6 +124,10 @@ export class PaymentReconciliationWorker {
 				registrationContext?: RegistrationSelfPaySettlementContext;
 			}) => Promise<void>;
 			/** .29 成功后保存完整 raw 响应；不得用于业务判断。 */
+			onThirdPartPayAttempt?: (input: {
+				paymentOrder: PaymentOrder;
+				registrationContext?: RegistrationSelfPaySettlementContext;
+			}) => Promise<void>;
 			onThirdPartPayResponse?: (input: {
 				paymentOrder: PaymentOrder;
 				registrationContext?: RegistrationSelfPaySettlementContext;
@@ -251,6 +255,15 @@ export class PaymentReconciliationWorker {
 						trace: [],
 					},
 					...(registrationContext ? { registrationContext } : {}),
+					...(this.dependencies.onThirdPartPayAttempt
+						? {
+								onThirdPartPayAttempt: () =>
+									this.dependencies.onThirdPartPayAttempt?.({
+										paymentOrder: order,
+										...(registrationContext ? { registrationContext } : {}),
+									}),
+							}
+						: {}),
 					...(this.dependencies.onThirdPartPayResponse
 						? {
 								onThirdPartPayResponse: (response: {

@@ -839,6 +839,18 @@ test("native payment boundaries always end with a user-actionable result", async
 	expect(paymentPage).not.toContain("canSwitchMedicalAuthorizationToSelfPay");
 	expect(paymentTemplate).not.toContain('class="footnote"');
 	expect(paymentTemplate).toContain('class="payment-actions"');
+	expect(paymentTemplate).toContain(
+		'wx:if="{{!paymentCompleted && !completed}}"',
+	);
+	expect(paymentTemplate).toContain(
+		'wx:if="{{canPay}}" class="payment-button self-button"',
+	);
+	expect(paymentTemplate).toContain(
+		"canPay && medicalEligibility !== 'unsupported'",
+	);
+	expect(paymentTemplate).toContain(
+		'wx:elif="{{completed}}" class="completed-card"',
+	);
 	expect(paymentStyles).toContain("flex-direction: column");
 	expect(paymentStyles).toContain("border: 2rpx solid #3d6df6");
 	expect(paymentStyles).toContain(".mixed-button");
@@ -1778,7 +1790,18 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	const outpatientInitialLoadIndex = outpatientPageLoad.indexOf(
 		"return this.loadRecords(",
 	);
-	const outpatientRecordsLoad = outpatient.slice(outpatientRecordsStart);
+	const outpatientRecordsEnd = outpatient.indexOf(
+		"\n\tonStatusTap(",
+		outpatientRecordsStart,
+	);
+	expect(outpatientRecordsStart).toBeGreaterThan(outpatientPageStart);
+	expect(outpatientRecordsEnd).toBeGreaterThan(outpatientRecordsStart);
+	// 只检查 loadRecords 自己的响应提交，后续 tab/加载更多方法也有患者
+	// 守卫，不能把它们误认为本次费用查询提交之前的最后一道守卫。
+	const outpatientRecordsLoad = outpatient.slice(
+		outpatientRecordsStart,
+		outpatientRecordsEnd,
+	);
 	const outpatientProviderIndex = outpatientRecordsLoad.indexOf(
 		"loadOutpatientPaymentRecords(",
 	);
@@ -2379,8 +2402,8 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	// 当前原生运行包包含门诊缴费列表、详情和医保结算三个关联路由，共 54 个页面。
-	expect(app.pages).toHaveLength(54);
+	// 当前原生运行包也包含独立预约排班页，共 55 个已登记页面。
+	expect(app.pages).toHaveLength(55);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2871,7 +2894,8 @@ test("native mini program exposes appointment directory, scheduling, and records
 	expect(scheduleTemplate).toContain("registrationClassName");
 	expect(scheduleStyle).toContain("schedule-registration-class");
 	expect(home).toContain("navigateToAuthenticatedPage");
-	expect(home).toContain('"/pages/hospital-list/hospital-list"');
+	expect(home).toContain('"/pages/appointment-directory/appointment-directory"');
+	expect(home).not.toContain('"/pages/hospital-list/hospital-list"');
 	expect(home).toContain("navigateToPatientScopedPage");
 	expect(home).toContain('"/pages/appointment-records/appointment-records"');
 	expect(home).not.toContain("预约下单功能仍在迁移中");
@@ -3248,7 +3272,7 @@ test("outpatient payment preserves the legacy patient and hospital selector rows
 	expect(sharedContextStyle).toContain(".patient-hospital-context-card-number");
 });
 
-test("native mini program preserves the legacy static hospital entry boundary", async () => {
+test("native mini program skips fixed hospital selection and retains legacy page compatibility", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");
 	const page = await source("pages/hospital-list/hospital-list.ts");
@@ -3261,9 +3285,10 @@ test("native mini program preserves the legacy static hospital entry boundary", 
 
 	expect(app).toContain('"pages/hospital-list/hospital-list"');
 	expect(home).toContain("navigateToAuthenticatedPage");
-	expect(home).toContain('"/pages/hospital-list/hospital-list"');
-	// 旧首页顶部“互联网医院”实际指向 pagesB/hospital/hospitalList，
-	// 不能因为标签名称而误判为必须恢复外部 web-view。
+	expect(home).toContain('"/pages/appointment-directory/appointment-directory"');
+	expect(home).not.toContain('"/pages/hospital-list/hospital-list"');
+	// 首页顶部“互联网医院”与预约挂号共用单院区科室入口；
+	// 旧院区页仍保留注册，兼容历史链接。
 	expect(home).toContain('action: "hospital-list"');
 	expect(home).toContain('case "hospital-list"');
 	expect(page).toContain("STATIC_HOSPITAL");
@@ -3789,7 +3814,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(recordPayButtonIndex).toBeGreaterThan(visitTimeIndex);
 	expect(outpatientStyle).toContain("width: 82rpx;");
 	expect(outpatientTemplate).toContain(">支付</button>");
-	expect(settlementTemplate).toContain("金额来自医保 6202 结算结果");
+	expect(settlementTemplate).toContain("金额以医院结算结果为准");
 	expect(settlementTemplate).toContain('wx:if="{{loading || hasPending}}"');
 	expect(settlementTemplate).toContain("settlement-loading-mask");
 	expect(settlementTemplate).toContain("拼命加载中，请耐心等待 ...");
@@ -3848,6 +3873,30 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	// 小程序不能把 provider patId、provider 订单号或旧直连地址交给页面。
 	expect(outpatient).not.toContain("providerPatientId");
 	expect(outpatient).not.toContain("outTradeOrderId");
+});
+
+test("outpatient payment groups expose one full-width payment action without changing single fees", async () => {
+	const template = await source(
+		"pages/outpatient-payment/outpatient-payment.wxml",
+	);
+	const style = await source(
+		"pages/outpatient-payment/outpatient-payment.wxss",
+	);
+	expect(template).toContain("{{item.items ? 'record-card-group' : ''}}");
+	expect(template).toContain(
+		'<button wx:if="{{item.items}}" class="record-pay-button record-group-pay-button">合并缴费</button>',
+	);
+	// 单项保留原入口；扩大触摸目标只作用于含多项明细的组卡。
+	expect(template).toContain(
+		'<block wx:else><button class="record-pay-button">缴费</button></block>',
+	);
+	expect(template.match(/catchtap="onPaymentTap"/gu)).toHaveLength(1);
+	expect(style).toContain(
+		".record-card-group .record-payment-action {\n\twidth: 100%;\n}",
+	);
+	expect(style).toContain(
+		".record-card-group .record-pay-button {\n\twidth: 100%;\n\theight: 88rpx;\n\tmin-height: 44px;\n}",
+	);
 });
 
 test("outpatient payment detail keeps unpaid fees read-only", async () => {

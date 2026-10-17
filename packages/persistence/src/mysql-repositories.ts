@@ -77,9 +77,13 @@ import {
 	buildMedicalInsuranceOrderOperationsProjection,
 	isValidMedicalInsuranceProviderQueryIdentity,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+	MedicalInsuranceRefundAmountExceededError,
 	MyDoctorAlreadyExistsError,
+	medicalRefundReservesMedicalAmount,
 	normalizeMyDoctorReadModel,
+	normalizeOutpatientPaymentRecords,
 	normalizeUserProfileReadModel,
+	PAYMENT_LEG_TYPES,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
@@ -87,6 +91,7 @@ import {
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
 	parseStrictIsoInstant,
+	preserveMedicalInsuranceThirdPartyWriteback,
 	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateMyDoctorCreateInput,
@@ -101,11 +106,13 @@ import type {
 	ResultSetHeader,
 	RowDataPacket,
 } from "mysql2/promise";
+import { withMySqlAppointmentCancellationLock } from "./appointment-cancellation-lock";
 import {
 	isTransientPersistenceError,
 	PersistenceNotConfiguredError,
 	PersistenceUnavailableError,
 } from "./errors";
+import { createMySqlHisPaymentReferenceRepository } from "./his-payment-references";
 import { createMySqlHealthKnowledgeRepository } from "./mysql-health-knowledge-repository";
 import {
 	createAesGcmSecretValueCipher,
@@ -648,7 +655,17 @@ type MedicalInsuranceCredentialPayload = {
 function serializeMedicalInsuranceSettlementContext(
 	input: MedicalInsuranceSettlementContext,
 ): string {
-	return JSON.stringify(input);
+	return JSON.stringify({
+		...input,
+		...(input.outpatientPaymentRecord !== undefined
+			? {
+					outpatientPaymentRecord: normalizeOutpatientPaymentRecords(
+						[input.outpatientPaymentRecord],
+						"unpaid",
+					)[0],
+				}
+			: {}),
+	});
 }
 
 function deserializeMedicalInsuranceSettlementContext(
@@ -798,6 +815,10 @@ function deserializeMedicalInsuranceSettlementContext(
 				typeof value.providerStatus !== "string") ||
 			(value.thirdPartPayRecordId !== undefined &&
 				typeof value.thirdPartPayRecordId !== "string") ||
+			(value.outTradeNo !== undefined &&
+				(typeof value.outTradeNo !== "string" ||
+					!value.outTradeNo.trim() ||
+					value.outTradeNo.length > 128)) ||
 			(value.rawResponse !== undefined && typeof value.rawResponse !== "string")
 		);
 	})();
@@ -913,7 +934,8 @@ function deserializeMedicalInsuranceSettlementContext(
 					? !Array.isArray(payTypeParams) ||
 						payTypeParams.length === 0 ||
 						value.payModel !== "H5" ||
-						value.payTypeId !== "2" ||
+						(value.payTypeId !== "2" &&
+							(value.kind !== "medical" || value.payTypeId !== "5")) ||
 						payTypeParams.some((item) => {
 							if (!item || typeof item !== "object" || Array.isArray(item))
 								return true;
@@ -936,6 +958,22 @@ function deserializeMedicalInsuranceSettlementContext(
 								Number(parameter.amountFen) <= 0
 							);
 						}) ||
+						// 新个账组必须由正金额个账分项组成，不能冒充含统筹的组。
+						// 历史外层 2 的计划仍可读，以便查单、取消及人工核对；
+						// 是否允许续跑由支付编排按历史状态和原计划另行判断。
+						(value.kind === "medical" &&
+							value.payTypeId === "5" &&
+							(payTypeParams.some(
+								(item) =>
+									String((item as Record<string, unknown>).payTypeId) === "2",
+							) ||
+								!payTypeParams.some((item) => {
+									const parameter = item as Record<string, unknown>;
+									return (
+										parameter.kind === "personal_account" &&
+										String(parameter.payTypeId) === "5"
+									);
+								}))) ||
 						payTypeParams.reduce(
 							(sum, item) =>
 								sum + Number((item as Record<string, unknown>).amountFen),
@@ -1092,6 +1130,22 @@ function deserializeMedicalInsuranceSettlementContext(
 			plugin.thirdPartPayRawResponse !== undefined &&
 			typeof plugin.thirdPartPayRawResponse !== "string") ||
 		(plugin !== undefined &&
+			plugin.thirdPartPayAttempt !== undefined &&
+			(() => {
+				const attempt = plugin.thirdPartPayAttempt;
+				if (!attempt || typeof attempt !== "object" || Array.isArray(attempt))
+					return true;
+				const value = attempt as Record<string, unknown>;
+				return (
+					Object.keys(value).some(
+						(key) => key !== "attemptedAt" && key !== "status",
+					) ||
+					typeof value.attemptedAt !== "string" ||
+					parseStrictIsoInstant(value.attemptedAt) === undefined ||
+					(value.status !== "unknown" && value.status !== "succeeded")
+				);
+			})()) ||
+		(plugin !== undefined &&
 			!new Set([
 				"preorder_created",
 				"prepay_ready",
@@ -1103,11 +1157,22 @@ function deserializeMedicalInsuranceSettlementContext(
 	) {
 		throw new Error("Medical insurance settlement context is invalid");
 	}
-	return parsed as MedicalInsuranceSettlementContext;
+	const result = parsed as MedicalInsuranceSettlementContext;
+	if (result.outpatientPaymentRecord !== undefined) {
+		const snapshot = normalizeOutpatientPaymentRecords(
+			[result.outpatientPaymentRecord],
+			"unpaid",
+		)[0];
+		if (!snapshot)
+			throw new Error("Medical insurance outpatient snapshot is invalid");
+		result.outpatientPaymentRecord = snapshot;
+	}
+	return result;
 }
 
 const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"businessId",
+	"outpatientPaymentRecord",
 	"tradeTypeCode",
 	"businessCode",
 	"payingId",
@@ -1127,6 +1192,7 @@ const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"workStationId",
 	"payParams",
 	"platformOrderId",
+	"hisPaymentReferenceId",
 	"thirdPartPayRecordId",
 	"thirdPartPayRawResponse",
 	"refundWriteBack",
@@ -1247,6 +1313,10 @@ function deserializeRegistrationSelfPayContext(
 		(record.thirdPartPayRecordId !== undefined &&
 			(typeof record.thirdPartPayRecordId !== "string" ||
 				!record.thirdPartPayRecordId.trim())) ||
+		(record.hisPaymentReferenceId !== undefined &&
+			(typeof record.hisPaymentReferenceId !== "string" ||
+				!/^[1-9]\d{0,18}$/u.test(record.hisPaymentReferenceId) ||
+				BigInt(record.hisPaymentReferenceId) > 9223372036854775807n)) ||
 		(record.thirdPartPayRawResponse !== undefined &&
 			typeof record.thirdPartPayRawResponse !== "string") ||
 		(record.payParams !== undefined &&
@@ -1258,7 +1328,17 @@ function deserializeRegistrationSelfPayContext(
 	) {
 		throw new Error("Registration self-pay context is invalid");
 	}
-	return parsed as RegistrationSelfPaySettlementContext;
+	const result = parsed as RegistrationSelfPaySettlementContext;
+	if (result.outpatientPaymentRecord !== undefined) {
+		const snapshot = normalizeOutpatientPaymentRecords(
+			[result.outpatientPaymentRecord],
+			"unpaid",
+		)[0];
+		if (!snapshot)
+			throw new Error("Registration self-pay outpatient snapshot is invalid");
+		result.outpatientPaymentRecord = snapshot;
+	}
+	return result;
 }
 
 function serializeRegistrationSelfPayContext(
@@ -1600,6 +1680,7 @@ function miOrder(
 }
 
 export type MySqlRepositories = {
+	hisPaymentReferences: import("@hospital/domain").HisPaymentReferenceRepository;
 	identityUsers: UserIdentityRepository;
 	userProfiles: UserProfileRepository;
 	patients: PatientRepository;
@@ -1938,11 +2019,6 @@ const PAYMENT_AGGREGATE_HIS_SYNC_STATUSES = [
 	"failed",
 	"manual_review",
 ] as const;
-const PAYMENT_LEG_TYPES = [
-	"medical_insurance",
-	"wechat_cash",
-	"hospital_reduce",
-] as const;
 const PAYMENT_LEG_STATUSES = [
 	"not_started",
 	"pending",
@@ -1984,6 +2060,8 @@ const PAYMENT_RECONCILIATION_RESOLUTIONS = [
 ] as const;
 const PAYMENT_OPERATOR_AUDIT_ACTIONS = [
 	"payment_detail_read",
+	"registration_status_read",
+	"registration_cancel",
 	"refund_request",
 	"refund_query",
 	"sync_retry",
@@ -2864,8 +2942,8 @@ function paymentOrder(row: PaymentOrderRow): PaymentOrder {
 			1,
 			"Persistence returned an invalid payment order version",
 		),
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
 	};
 }
 
@@ -3671,7 +3749,13 @@ export function createMySqlRepositories(
 				) {
 					throw new Error("Payment aggregate version conflict");
 				}
-				if (current.sourceVersion >= aggregate.sourceVersion) return current;
+				if (
+					current.sourceVersion > aggregate.sourceVersion ||
+					(current.sourceVersion === aggregate.sourceVersion &&
+						(expectedVersion === undefined ||
+							aggregate.version !== current.version + 1))
+				)
+					return current;
 				const result = await execute<ResultSetHeader>(
 					pool,
 					"UPDATE hp_payment_aggregates SET owner_user_id = ?, patient_id = ?, business = ?, business_key = ?, business_id = ?, total_fen = ?, insurance_fen = ?, cash_fen = ?, status = ?, his_sync_status = ?, source_version = ?, version = ?, updated_at = ? WHERE aggregate_id = ? AND version = ?",
@@ -5073,7 +5157,7 @@ export function createMySqlRepositories(
 				`UPDATE hp_payment_orders
 				 SET registration_self_pay_context_ciphertext = ?,
 				     registration_self_pay_record_code_hash = ?,
-				     updated_at = NOW(3)
+				     updated_at = UTC_TIMESTAMP(3)
 				 WHERE owner_user_id = ? AND order_id = ?`,
 				[
 					requiredPrepayCipher().seal(
@@ -5149,7 +5233,31 @@ export function createMySqlRepositories(
 
 	const wechatRefunds: WechatRefundRepository = {
 		async reserve(record) {
+			if (
+				!Number.isSafeInteger(record.refundFen) ||
+				record.refundFen <= 0 ||
+				!Number.isSafeInteger(record.totalFen) ||
+				record.totalFen <= 0
+			)
+				throw new WechatRefundAmountExceededError();
 			return withTransaction(pool, async (connection) => {
+				// 两种退款仓储先锁同一来源订单，覆盖首笔记录尚不存在的并发窗口。
+				const sourceRows = await execute<RowDataPacket[]>(
+					connection,
+					record.source === "medical_insurance"
+						? "SELECT medical_order_id, cash_fen, wechat_out_trade_no FROM hp_medical_insurance_orders WHERE medical_order_id = ? FOR UPDATE"
+						: "SELECT order_id, cash_fen FROM hp_payment_orders WHERE order_id = ? FOR UPDATE",
+					[record.sourceOrderId],
+				);
+				const source = sourceRows[0];
+				if (
+					!source ||
+					safeFen(source.cash_fen) < record.totalFen ||
+					(record.source === "medical_insurance" &&
+						source.wechat_out_trade_no !== record.outTradeNo)
+				) {
+					throw new WechatRefundAmountExceededError();
+				}
 				const columns =
 					"refund_record_id, merchant_refund_no, idempotency_key, source, source_order_id, out_trade_no, total_fen, refund_fen, reason, status, provider_status, provider_refund_id, provider_transaction_id, provider_request_id, success_time, last_error_code, version, created_at, updated_at";
 				const existingRows = await execute<WechatRefundRow[]>(
@@ -5196,7 +5304,37 @@ export function createMySqlRepositories(
 					[record.source, record.sourceOrderId],
 				);
 				const reservedFen = safeFen(sumRows[0]?.reserved_fen ?? 0);
-				if (reservedFen + record.refundFen > record.totalFen) {
+				let medicalReservedFen = 0;
+				if (record.source === "medical_insurance") {
+					const medicalRows = await execute<
+						(RowDataPacket & {
+							cash_fen: number | string;
+							wechat_merchant_refund_no: string | null;
+						})[]
+					>(
+						connection,
+						"SELECT cash_fen, wechat_merchant_refund_no FROM hp_medical_insurance_refunds WHERE medical_order_id = ? AND cash_fen > 0 FOR UPDATE",
+						[record.sourceOrderId],
+					);
+					medicalReservedFen = medicalRows
+						.filter(
+							(row) =>
+								row.wechat_merchant_refund_no !== record.merchantRefundNo,
+						)
+						.reduce((sum, row) => sum + safeFen(row.cash_fen), 0);
+					if (
+						medicalRows.some(
+							(row) =>
+								row.wechat_merchant_refund_no === record.merchantRefundNo &&
+								safeFen(row.cash_fen) !== record.refundFen,
+						)
+					)
+						throw new WechatRefundIdempotencyConflictError();
+				}
+				if (
+					reservedFen + medicalReservedFen + record.refundFen >
+					record.totalFen
+				) {
 					throw new WechatRefundAmountExceededError();
 				}
 				await execute<ResultSetHeader>(
@@ -5288,10 +5426,34 @@ export function createMySqlRepositories(
 
 	const medicalInsuranceRefunds: MedicalInsuranceRefundRepository = {
 		async reserve(record) {
+			if (
+				![
+					record.cashFen,
+					record.personalAccountFen,
+					record.fundFen,
+					record.totalFen,
+				].every((value) => Number.isSafeInteger(value) && value >= 0) ||
+				record.totalFen <= 0 ||
+				record.totalFen !==
+					record.cashFen + record.personalAccountFen + record.fundFen
+			)
+				throw new MedicalInsuranceRefundAmountExceededError();
 			const columns =
 				"refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no, idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen, fund_fen, medical_status, medical_ref_status, medical_provider_request_id, wechat_status, wechat_merchant_refund_no, status, last_error_code, version, created_at, updated_at";
 			try {
 				return await withTransaction(pool, async (connection) => {
+					const sourceRows = await execute<RowDataPacket[]>(
+						connection,
+						"SELECT medical_order_id, owner_user_id, pay_ord_id, cash_fen, personal_account_fen, fund_fen FROM hp_medical_insurance_orders WHERE medical_order_id = ? FOR UPDATE",
+						[record.medicalOrderId],
+					);
+					const source = sourceRows[0];
+					if (
+						!source ||
+						source.owner_user_id !== record.ownerUserId ||
+						source.pay_ord_id !== record.payOrdId
+					)
+						throw new MedicalInsuranceRefundAmountExceededError();
 					const existingRows = await execute<MedicalInsuranceRefundRow[]>(
 						connection,
 						`SELECT ${columns} FROM hp_medical_insurance_refunds
@@ -5316,6 +5478,38 @@ export function createMySqlRepositories(
 							status: "existing" as const,
 							record: medicalInsuranceRefund(existingByRefundNo),
 						};
+					const priorRows = await execute<MedicalInsuranceRefundRow[]>(
+						connection,
+						`SELECT ${columns} FROM hp_medical_insurance_refunds WHERE medical_order_id = ? FOR UPDATE`,
+						[record.medicalOrderId],
+					);
+					const prior = priorRows.map(medicalInsuranceRefund);
+					const held = prior.filter(medicalRefundReservesMedicalAmount);
+					const cashRows = await execute<WechatRefundRow[]>(
+						connection,
+						"SELECT merchant_refund_no, refund_fen FROM hp_wechat_refunds WHERE source = 'medical_insurance' AND source_order_id = ? AND status IN ('requested', 'processing', 'success', 'unknown') FOR UPDATE",
+						[record.medicalOrderId],
+					);
+					const cash =
+						prior.reduce((sum, item) => sum + item.cashFen, 0) +
+						cashRows
+							.filter(
+								(row) =>
+									!prior.some(
+										(medical) =>
+											medical.wechatMerchantRefundNo === row.merchant_refund_no,
+									),
+							)
+							.reduce((sum, row) => sum + safeFen(row.refund_fen), 0);
+					if (
+						held.reduce((sum, item) => sum + item.personalAccountFen, 0) +
+							record.personalAccountFen >
+							safeFen(source.personal_account_fen) ||
+						held.reduce((sum, item) => sum + item.fundFen, 0) + record.fundFen >
+							safeFen(source.fund_fen) ||
+						cash + record.cashFen > safeFen(source.cash_fen)
+					)
+						throw new MedicalInsuranceRefundAmountExceededError();
 					await execute<ResultSetHeader>(
 						connection,
 						`INSERT INTO hp_medical_insurance_refunds
@@ -5369,6 +5563,31 @@ export function createMySqlRepositories(
 				[refundNo],
 			);
 			return rows[0] ? medicalInsuranceRefund(rows[0]) : undefined;
+		},
+		async listByMedicalOrderId(medicalOrderId) {
+			const rows = await execute<MedicalInsuranceRefundRow[]>(
+				pool,
+				`SELECT refund_id, medical_order_id, owner_user_id, pay_ord_id, refund_no, idempotency_key, refund_type, total_fen, cash_fen, personal_account_fen, fund_fen, medical_status, medical_ref_status, medical_provider_request_id, wechat_status, wechat_merchant_refund_no, status, last_error_code, version, created_at, updated_at FROM hp_medical_insurance_refunds WHERE medical_order_id = ? ORDER BY created_at, refund_id`,
+				[medicalOrderId],
+			);
+			return rows.map(medicalInsuranceRefund);
+		},
+		async listAwaitingMedicalNotification(limit) {
+			if (!Number.isSafeInteger(limit) || limit < 1)
+				throw new Error("Medical notification limit is invalid");
+			// mysql2/MySQL 8.4 rejects a prepared numeric LIMIT; interpolate only this bounded integer.
+			const boundedLimit = Math.min(limit, 100);
+			const rows = await execute<MedicalInsuranceRefundRow[]>(
+				pool,
+				`SELECT refunds.* FROM hp_medical_insurance_refunds AS refunds
+				 WHERE refunds.medical_status = 'success' AND refunds.medical_ref_status = 'SUCC'
+				   AND refunds.personal_account_fen + refunds.fund_fen > 0
+				   AND (refunds.last_error_code = 'medical-refund-notify-pending' OR NOT EXISTS
+				       (SELECT 1 FROM hp_payment_sync_tasks AS tasks
+				        WHERE tasks.business_key LIKE CONCAT('medical_refund_notify:', refunds.refund_no, ':%')))
+				 ORDER BY refunds.updated_at, refunds.refund_id LIMIT ${boundedLimit}`,
+			);
+			return rows.map(medicalInsuranceRefund);
 		},
 		async findLatestByMedicalOrderId(medicalOrderId) {
 			const columns =
@@ -6079,6 +6298,18 @@ export function createMySqlRepositories(
 	};
 
 	const appointmentWrites: AppointmentWriteRepository = {
+		async withCancellationLock<T>(
+			ownerUserId: string,
+			appointmentId: string,
+			operation: () => Promise<T>,
+		) {
+			return withMySqlAppointmentCancellationLock(
+				pool,
+				ownerUserId,
+				appointmentId,
+				operation,
+			);
+		},
 		async findHold(ownerUserId, holdId) {
 			const rows = await execute<AppointmentHoldRow[]>(
 				pool,
@@ -6349,6 +6580,27 @@ export function createMySqlRepositories(
 		return values;
 	};
 
+	const medicalProjectionContext = async (
+		connection: PoolConnection,
+		order: MedicalInsuranceOrder,
+	): Promise<MedicalInsuranceSettlementContext | undefined> => {
+		if (!order.amounts) return undefined;
+		const rows = await execute<
+			(RowDataPacket & { settlement_context_ciphertext: string | null })[]
+		>(
+			connection,
+			`SELECT settlement_context_ciphertext FROM hp_medical_insurance_orders
+			 WHERE medical_order_id = ? AND owner_user_id = ? LIMIT 1`,
+			[order.medicalOrderId, order.ownerUserId],
+		);
+		const ciphertext = rows[0]?.settlement_context_ciphertext;
+		return ciphertext
+			? deserializeMedicalInsuranceSettlementContext(
+					requiredMedicalInsuranceCredentialCipher().open(ciphertext),
+				)
+			: undefined;
+	};
+
 	const insertMedicalInsuranceOrder = async (
 		connection: PoolConnection,
 		order: MedicalInsuranceOrder,
@@ -6359,7 +6611,11 @@ export function createMySqlRepositories(
 			`INSERT INTO hp_medical_insurance_orders (${MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.join(", ")}) VALUES (${sqlParameterPlaceholders(values.length)})`,
 			values,
 		);
-		const projection = buildMedicalInsuranceOrderOperationsProjection(order);
+		const projection = buildMedicalInsuranceOrderOperationsProjection(
+			order,
+			undefined,
+			await medicalProjectionContext(connection, order),
+		);
 		if (projection) {
 			await upsertPaymentOperationsProjection(connection, projection);
 		}
@@ -6592,31 +6848,184 @@ export function createMySqlRepositories(
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
-		async saveSettlementContext(ownerUserId, medicalOrderId, context) {
+		async claimPluginThirdPartPayAttempt(input) {
+			if (parseStrictIsoInstant(input.attemptedAt) === undefined)
+				throw new Error("Invalid HIS attempt timestamp");
 			const cipher = requiredMedicalInsuranceCredentialCipher();
-			const result = await execute<ResultSetHeader>(
-				pool,
-				`UPDATE hp_medical_insurance_orders
-				 SET settlement_context_ciphertext = ?, updated_at = NOW(3)
-				 WHERE medical_order_id = ? AND owner_user_id = ?`,
-				[
-					cipher.seal(serializeMedicalInsuranceSettlementContext(context)),
-					medicalOrderId,
-					ownerUserId,
-				],
-			);
-			if (result.affectedRows !== 1) {
-				throw new Error(
-					"Medical insurance settlement context order is unavailable",
+			return withTransaction(pool, async (connection) => {
+				const rows = await execute<
+					(RowDataPacket & { settlement_context_ciphertext: string | null })[]
+				>(
+					connection,
+					"SELECT settlement_context_ciphertext FROM hp_medical_insurance_orders WHERE medical_order_id = ? AND owner_user_id = ? FOR UPDATE",
+					[input.medicalOrderId, input.ownerUserId],
 				);
-			}
+				const ciphertext = rows[0]?.settlement_context_ciphertext;
+				if (!ciphertext) return false;
+				const context = deserializeMedicalInsuranceSettlementContext(
+					cipher.open(ciphertext),
+				);
+				const plugin = context.plugin;
+				if (
+					!plugin ||
+					plugin.paymentOrderId !== input.paymentOrderId ||
+					plugin.outTradeNo !== input.outTradeNo ||
+					plugin.thirdPartPayRecordId ||
+					plugin.thirdPartPayAttempt
+				)
+					return false;
+				const result = await execute<ResultSetHeader>(
+					connection,
+					"UPDATE hp_medical_insurance_orders SET settlement_context_ciphertext = ?, updated_at = NOW(3) WHERE medical_order_id = ? AND owner_user_id = ?",
+					[
+						cipher.seal(
+							serializeMedicalInsuranceSettlementContext({
+								...context,
+								plugin: {
+									...plugin,
+									thirdPartPayAttempt: {
+										attemptedAt: input.attemptedAt,
+										status: "unknown",
+									},
+								},
+							}),
+						),
+						input.medicalOrderId,
+						input.ownerUserId,
+					],
+				);
+				return result.affectedRows === 1;
+			});
+		},
+		async claimSelfPayThirdPartPayAttempt(input) {
+			if (parseStrictIsoInstant(input.attemptedAt) === undefined)
+				throw new Error("Invalid HIS attempt timestamp");
+			const cipher = requiredMedicalInsuranceCredentialCipher();
+			return withTransaction(pool, async (connection) => {
+				const rows = await execute<
+					(RowDataPacket & {
+						settlement_context_ciphertext: string | null;
+						wechat_out_trade_no: string | null;
+						wechat_payment_state: string;
+					})[]
+				>(
+					connection,
+					"SELECT settlement_context_ciphertext, wechat_out_trade_no, wechat_payment_state FROM hp_medical_insurance_orders WHERE medical_order_id = ? AND owner_user_id = ? FOR UPDATE",
+					[input.medicalOrderId, input.ownerUserId],
+				);
+				const row = rows[0];
+				if (
+					!row?.settlement_context_ciphertext ||
+					row.wechat_out_trade_no !== input.outTradeNo ||
+					row.wechat_payment_state !== "cash_paid"
+				)
+					return false;
+				const context = deserializeMedicalInsuranceSettlementContext(
+					cipher.open(row.settlement_context_ciphertext),
+				);
+				const cashComponents =
+					context.postPaymentComponents?.filter(
+						(component) => component.kind === "wechat_cash",
+					) ?? [];
+				const component = cashComponents[0];
+				if (
+					cashComponents.length !== 1 ||
+					!component ||
+					component.componentId !== input.componentId ||
+					component.state !== "succeeded" ||
+					!component.payingId ||
+					!component.tradingId ||
+					context.selfPayThirdPartyWriteback ||
+					(component.wechatOutTradeNo !== undefined &&
+						component.wechatOutTradeNo !== input.outTradeNo)
+				)
+					return false;
+				const next: MedicalInsuranceSettlementContext = {
+					...context,
+					selfPayThirdPartyWriteback: {
+						attemptedAt: input.attemptedAt,
+						status: "unknown",
+						outTradeNo: input.outTradeNo,
+					},
+				};
+				const result = await execute<ResultSetHeader>(
+					connection,
+					"UPDATE hp_medical_insurance_orders SET settlement_context_ciphertext = ?, updated_at = NOW(3) WHERE medical_order_id = ? AND owner_user_id = ?",
+					[
+						cipher.seal(serializeMedicalInsuranceSettlementContext(next)),
+						input.medicalOrderId,
+						input.ownerUserId,
+					],
+				);
+				return result.affectedRows === 1;
+			});
+		},
+		async saveSettlementContext(
+			ownerUserId,
+			medicalOrderId,
+			context,
+			expectedVersion,
+		) {
+			if (
+				expectedVersion !== undefined &&
+				(!Number.isSafeInteger(expectedVersion) || expectedVersion < 1)
+			)
+				throw new Error(
+					"Medical insurance context expected version is invalid",
+				);
+			const cipher = requiredMedicalInsuranceCredentialCipher();
+			// Normalize the optional outpatient snapshot before opening a transaction.
+			serializeMedicalInsuranceSettlementContext(context);
+			await withTransaction(pool, async (connection) => {
+				const rows = await execute<
+					(RowDataPacket & { settlement_context_ciphertext: string | null })[]
+				>(
+					connection,
+					`SELECT settlement_context_ciphertext FROM hp_medical_insurance_orders WHERE medical_order_id = ? AND owner_user_id = ?${expectedVersion === undefined ? "" : " AND version = ?"} FOR UPDATE`,
+					[
+						medicalOrderId,
+						ownerUserId,
+						...(expectedVersion === undefined ? [] : [expectedVersion]),
+					],
+				);
+				if (!rows[0])
+					throw new Error(
+						"Medical insurance settlement context order is unavailable",
+					);
+				const current = rows[0].settlement_context_ciphertext
+					? deserializeMedicalInsuranceSettlementContext(
+							cipher.open(rows[0].settlement_context_ciphertext),
+						)
+					: undefined;
+				const preserved = preserveMedicalInsuranceThirdPartyWriteback(
+					current,
+					context,
+				);
+				const result = await execute<ResultSetHeader>(
+					connection,
+					`UPDATE hp_medical_insurance_orders
+				 SET settlement_context_ciphertext = ?, updated_at = UTC_TIMESTAMP(3)
+				 WHERE medical_order_id = ? AND owner_user_id = ?${expectedVersion === undefined ? "" : " AND version = ?"}`,
+					[
+						cipher.seal(serializeMedicalInsuranceSettlementContext(preserved)),
+						medicalOrderId,
+						ownerUserId,
+						...(expectedVersion === undefined ? [] : [expectedVersion]),
+					],
+				);
+				if (result.affectedRows !== 1) {
+					throw new Error(
+						"Medical insurance settlement context order is unavailable",
+					);
+				}
+			});
 		},
 		async saveSettlementContextIfMissing(ownerUserId, medicalOrderId, context) {
 			const cipher = requiredMedicalInsuranceCredentialCipher();
 			const result = await execute<ResultSetHeader>(
 				pool,
 				`UPDATE hp_medical_insurance_orders
-				 SET settlement_context_ciphertext = ?, updated_at = NOW(3)
+				 SET settlement_context_ciphertext = ?, updated_at = UTC_TIMESTAMP(3)
 				 WHERE medical_order_id = ? AND owner_user_id = ?
 				 AND settlement_context_ciphertext IS NULL`,
 				[
@@ -6780,7 +7189,7 @@ export function createMySqlRepositories(
 					wechat_payment_state = COALESCE(?, wechat_payment_state),
 					wechat_pay_params_ciphertext = COALESCE(?, wechat_pay_params_ciphertext),
 					wechat_prepay_expires_at = COALESCE(?, wechat_prepay_expires_at),
-					version = version + 1, updated_at = NOW(3)
+					version = version + 1, updated_at = UTC_TIMESTAMP(3)
 				WHERE medical_order_id = ? AND version = ?`,
 					[
 						patch.status,
@@ -6846,6 +7255,7 @@ export function createMySqlRepositories(
 				const projection = buildMedicalInsuranceOrderOperationsProjection(
 					updated,
 					existingAggregate,
+					await medicalProjectionContext(connection, updated),
 				);
 				if (projection) {
 					await upsertPaymentOperationsProjection(connection, projection);
@@ -7334,6 +7744,26 @@ export function createMySqlRepositories(
 				providerQueryIdentity: payload.providerQueryIdentity,
 			} satisfies MedicalInsuranceCredentialContext;
 		},
+		async getForRefund(input) {
+			if (input.purpose !== "query") return undefined;
+			const cipher = requiredMedicalInsuranceCredentialCipher();
+			const rows = await execute<MedicalInsuranceCredentialRow[]>(
+				pool,
+				`SELECT credential_id, owner_user_id, medical_order_id, pay_ord_id,
+				 purpose, payload_ciphertext, expires_at, created_at
+				 FROM hp_medical_insurance_credentials
+				 WHERE owner_user_id = ? AND medical_order_id = ? AND pay_ord_id = ? AND purpose = ?
+				   AND revoked_at IS NULL
+				 ORDER BY created_at DESC, credential_id DESC LIMIT 1`,
+				[input.ownerUserId, input.medicalOrderId, input.payOrdId, "query"],
+			);
+			const row = rows[0];
+			if (!row) return undefined;
+			const payload = deserializeMedicalInsuranceCredentialPayload(
+				cipher.open(row.payload_ciphertext),
+			);
+			return { ...medicalInsuranceCredentialHandle(row), ...payload };
+		},
 		async revoke(input) {
 			const result = await execute<ResultSetHeader>(
 				pool,
@@ -7355,6 +7785,7 @@ export function createMySqlRepositories(
 
 	return {
 		identityUsers,
+		hisPaymentReferences: createMySqlHisPaymentReferenceRepository(pool),
 		userProfiles,
 		patients,
 		paymentOrders,

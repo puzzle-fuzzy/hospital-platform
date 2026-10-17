@@ -1,6 +1,7 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import { normalizeAppointmentCancellationMessage } from "@hospital/contracts";
 import {
+	AppointmentCancellationBusyError,
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	DependencyNotConfiguredError,
@@ -87,6 +88,7 @@ import {
 	MedicalInsuranceAppointmentNotFoundError,
 	MedicalInsuranceAppointmentStaleError,
 	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegionUnsupportedError,
 	MedicalInsuranceRegistrationInputError,
 } from "../modules/medical-insurance/registration-service";
 import {
@@ -115,6 +117,7 @@ import {
 import { PatientServiceInputError } from "../modules/patients/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import {
+	RegistrationPaymentExitCancellationPendingError,
 	RegistrationPaymentExitInputError,
 	RegistrationPaymentExitRefundContextError,
 	RegistrationPaymentExitRefundFailedError,
@@ -184,6 +187,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-cancellation-context-missing": 30550,
 	"medical-insurance-insutype-unavailable": 30560,
 	"medical-insurance-timeout": 30570,
+	"medical-insurance-region-unsupported": 30580,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -341,6 +345,14 @@ export function errorHandlerPlugin() {
 			if (error instanceof HttpError) {
 				set.status = error.statusCode;
 				return errorPayload(error.code, error.message);
+			}
+
+			if (error instanceof AppointmentCancellationBusyError) {
+				set.status = 409;
+				return errorPayload(
+					"payment-prepay-in-progress",
+					"该挂号正在处理支付或取消，请稍后核对",
+				);
 			}
 
 			if (error instanceof DependencyNotConfiguredError) {
@@ -874,6 +886,16 @@ export function errorHandlerPlugin() {
 				);
 			}
 
+			if (error instanceof RegistrationPaymentExitCancellationPendingError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-refund-pending",
+					error.hospitalWritebackConfirmed
+						? "微信已退款、医院已回写，挂号取消待确认，请稍后查看"
+						: "微信已退款，挂号取消待确认，请稍后查看",
+				);
+			}
+
 			if (error instanceof RegistrationPaymentExitRefundFailedError) {
 				set.status = 409;
 				return errorPayload(
@@ -903,6 +925,14 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"appointment-payment-active",
 					"支付结果未确认完成，暂不能释放当前预约号源",
+				);
+			}
+
+			if (error instanceof MedicalInsuranceRegionUnsupportedError) {
+				set.status = 409;
+				return errorPayload(
+					"medical-insurance-region-unsupported",
+					"当前参保地暂未开通医保支付，请选择微信支付",
 				);
 			}
 

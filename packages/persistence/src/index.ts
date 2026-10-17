@@ -6,6 +6,17 @@ export {
 	PersistenceUnavailableError,
 } from "./errors";
 export { importHealthKnowledgeBundle } from "./health-knowledge-import";
+export {
+	type HisPaymentReferenceBackfillInput,
+	type HisPaymentReferenceBackfillReport,
+	resolveHisPaymentReferenceBackfillOptions,
+	runHisPaymentReferenceBackfill,
+} from "./his-payment-reference-backfill";
+export {
+	createInMemoryHisPaymentReferenceRepository,
+	createMySqlHisPaymentReferenceRepository,
+	createNotConfiguredHisPaymentReferenceRepository,
+} from "./his-payment-references";
 export { createRedisIntelligentCustomerConversationStateStore } from "./intelligent-customer-state";
 export { createRedisIntelligentGuideConversationStore } from "./intelligent-guide-conversation";
 export { createRedisIntelligentGuideConversationStateStore } from "./intelligent-guide-state";
@@ -28,15 +39,15 @@ export {
 	type SecretValueCipher,
 } from "./prepay-cipher";
 export {
-	createRedisSessionStore,
-	type RedisSessionClient,
-	type RedisSessionStore,
-} from "./redis-session";
-export {
 	createRedisHisRefundSecurityStore,
 	type HisRefundSecurityStore,
 	type RedisHisRefundSecurityClient,
 } from "./redis-his-refund-security";
+export {
+	createRedisSessionStore,
+	type RedisSessionClient,
+	type RedisSessionStore,
+} from "./redis-session";
 export {
 	auditRedisSessionTtl,
 	type RedisSessionTtlAuditClient,
@@ -51,21 +62,21 @@ export {
 	createInMemoryMedicalInsuranceAuthorizationRepository,
 	createInMemoryMedicalInsuranceCredentialRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
-	createInMemoryMedicalInsuranceRefundRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
+	createInMemoryMedicalInsuranceRefundRepository,
 	createInMemoryMyDoctorRepository,
 	createInMemoryPatientFeedbackRepository,
 	createInMemoryPatientRepository,
+	createInMemoryPaymentOperationsRepository,
+	createInMemoryPaymentOperatorAuditRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentQuoteRepository,
+	createInMemoryPaymentSyncRepository,
 	createInMemoryReportReferenceRepository,
 	createInMemoryUserProfileRepository,
 	createInMemoryWechatPaymentNotificationRepository,
 	createInMemoryWechatRefundRepository,
-	createInMemoryPaymentOperationsRepository,
-	createInMemoryPaymentSyncRepository,
-	createInMemoryPaymentOperatorAuditRepository,
 	createNotConfiguredRepositories,
 } from "./repositories";
 export {

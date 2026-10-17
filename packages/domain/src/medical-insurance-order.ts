@@ -3,6 +3,7 @@ import type {
 	MedicalInsuranceOrderType,
 } from "./medical-insurance-business";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import type { OutpatientPaymentRecord } from "./outpatient-payments";
 import type {
 	PaymentHistoryStatus,
 	PaymentOperationsBackfillQuery,
@@ -361,6 +362,26 @@ export type MedicalInsuranceOrder = {
  */
 export type MedicalInsuranceSettlementContext = {
 	businessId: string;
+	/** 人工核对院端已付且用户确认其他渠道支付；保留审计，不等同于本平台支付成功。 */
+	externalPaymentConfirmation?: {
+		source: "user-confirmed-and-his-child-paid";
+		amountFen: number;
+		confirmedAt: string;
+		hisBusinessId: string;
+		hisBusinessCode: string;
+		tradeOrderIds: readonly string[];
+		hisTradeStatus: "3";
+		platformPaymentStarted: false;
+		actualChannel: "unknown";
+		recordedAtUtc?: string;
+		hisObservedAtUtc?: string;
+		evidenceSha256?: string;
+		originalApplyResponseSha256?: string;
+		queryTraceIds?: readonly string[];
+		userStatement?: string;
+	};
+	/** 本次门诊合缴的安全展示快照，只保存在已有加密上下文中。 */
+	outpatientPaymentRecord?: OutpatientPaymentRecord;
 	businessCode?: string;
 	hospitalId: string;
 	patientId: string;
@@ -433,6 +454,8 @@ export type MedicalInsuranceSettlementContext = {
 	selfPayThirdPartyWriteback?: {
 		attemptedAt: string;
 		status: "succeeded" | "failed" | "unknown";
+		/** Original WeChat cash trade frozen when .29 is claimed; absent on historical facts. */
+		outTradeNo?: string;
 		providerRequestId?: string;
 		providerStatus?: string;
 		thirdPartPayRecordId?: string;
@@ -598,6 +621,11 @@ export type MedicalInsurancePluginPaymentContext = {
 	thirdPartPayRawResponse?: string;
 	prepayId?: string;
 	thirdPartPayRecordId?: string;
+	/** .29 请求发送权与不可自动重放的结果；旧成功回执允许没有此字段。 */
+	thirdPartPayAttempt?: {
+		attemptedAt: string;
+		status: "unknown" | "succeeded";
+	};
 	wechatTransactionId?: string;
 	state: MedicalInsurancePluginPaymentState;
 };
@@ -946,10 +974,28 @@ export interface MedicalInsuranceOrderRepository {
 		ownerUserId: string,
 		idempotencyKey: string,
 	): Promise<MedicalInsuranceOrder | undefined>;
+	/** 原子占用插件 .29；API/Worker 并发时只有一个调用方可登记。 */
+	claimPluginThirdPartPayAttempt(input: {
+		ownerUserId: string;
+		medicalOrderId: string;
+		paymentOrderId: string;
+		outTradeNo: string;
+		attemptedAt: string;
+	}): Promise<boolean>;
+	/** Atomically claim the irreversible .29 request for the original cash leg. */
+	claimSelfPayThirdPartPayAttempt(input: {
+		ownerUserId: string;
+		medicalOrderId: string;
+		componentId: string;
+		outTradeNo: string;
+		attemptedAt: string;
+	}): Promise<boolean>;
 	saveSettlementContext(
 		ownerUserId: string,
 		medicalOrderId: string,
 		context: MedicalInsuranceSettlementContext,
+		/** Optional source-order CAS fence for non-replayable send boundaries. */
+		expectedVersion?: number,
 	): Promise<void>;
 	/** 只在当前订单尚无上下文时写入；用于受控历史订单补录，必须原子防覆盖。 */
 	saveSettlementContextIfMissing(

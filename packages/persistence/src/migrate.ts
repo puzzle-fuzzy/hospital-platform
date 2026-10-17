@@ -275,6 +275,16 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0054_payment_operator_audits.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0055_my_doctor_avatar_resource_url",
+		file: "../migrations/0055_my_doctor_avatar_resource_url.sql",
+		executionMode: "non_transactional_ddl",
+	},
+	{
+		id: "0056_his_payment_references",
+		file: "../migrations/0056_his_payment_references.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -298,6 +308,9 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_medical_insurance_credentials",
 	"hp_medical_insurance_authorizations",
 	"hp_yunhealth_payment_query_references",
+	"hp_his_payment_reference_scopes",
+	"hp_his_payment_reference_allocator",
+	"hp_his_payment_references",
 	"hp_payment_prepay_attempts",
 	"hp_wechat_payment_notifications",
 	"hp_appointment_schedule_snapshots",
@@ -736,6 +749,33 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 		],
 	},
 	{
+		table: "hp_his_payment_reference_scopes",
+		columns: [
+			"allocation_id",
+			"request_reference_id",
+			"owner_user_id",
+			"medical_order_id",
+			"payment_scope_id",
+			"source",
+			"status",
+			"receipt_id",
+			"created_at",
+		],
+	},
+	{
+		table: "hp_his_payment_references",
+		columns: ["reference_id", "allocation_id", "conflicted"],
+	},
+	{
+		table: "hp_his_payment_reference_allocator",
+		columns: [
+			"singleton_id",
+			"initialized",
+			"next_reference_id",
+			"initialized_at",
+		],
+	},
+	{
 		table: "hp_patient_feedback",
 		columns: [
 			"feedback_id",
@@ -960,6 +1000,31 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		table: "hp_yunhealth_payment_query_references",
 		name: "uq_hp_yunhealth_query_order_component",
 		columns: ["medical_order_id", "component_id"],
+	},
+	{
+		table: "hp_his_payment_reference_scopes",
+		name: "uq_hp_his_reference_scope",
+		columns: ["medical_order_id", "source", "payment_scope_id"],
+	},
+	{
+		table: "hp_his_payment_reference_scopes",
+		name: "uq_hp_his_reference_request",
+		columns: ["request_reference_id"],
+	},
+	{
+		table: "hp_his_payment_reference_allocator",
+		name: "PRIMARY",
+		columns: ["singleton_id"],
+	},
+	{
+		table: "hp_his_payment_references",
+		name: "PRIMARY",
+		columns: ["reference_id"],
+	},
+	{
+		table: "hp_his_payment_references",
+		name: "ix_hp_his_reference_allocation",
+		columns: ["allocation_id"],
 	},
 	{
 		table: "hp_yunhealth_payment_query_references",
@@ -1239,6 +1304,27 @@ export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 		columns: ["medical_order_id"],
 		referencedTable: "hp_medical_insurance_orders",
 		referencedColumns: ["medical_order_id"],
+	},
+	{
+		table: "hp_his_payment_reference_scopes",
+		name: "fk_hp_his_reference_order",
+		columns: ["medical_order_id"],
+		referencedTable: "hp_medical_insurance_orders",
+		referencedColumns: ["medical_order_id"],
+	},
+	{
+		table: "hp_his_payment_reference_scopes",
+		name: "fk_hp_his_reference_owner",
+		columns: ["owner_user_id"],
+		referencedTable: "hp_identity_users",
+		referencedColumns: ["user_id"],
+	},
+	{
+		table: "hp_his_payment_references",
+		name: "fk_hp_his_reference_allocation",
+		columns: ["allocation_id"],
+		referencedTable: "hp_his_payment_reference_scopes",
+		referencedColumns: ["allocation_id"],
 	},
 	{
 		table: "hp_yunhealth_payment_query_references",

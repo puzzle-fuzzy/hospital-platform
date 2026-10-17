@@ -89,8 +89,8 @@ const TOP_TAB_LIST = Object.freeze([
 		text: "门诊缴费",
 	},
 	{
-		// 旧首页虽然把入口命名为“互联网医院”，实际 URL 是静态 hospitalList；
-		// 外部互联网医院 web-view 是另一个旧顶层页面，不能与此入口混为一谈。
+		// 与预约挂号共用唯一医院的预约目录；外部互联网医院 web-view
+		// 由独立主 Tab 承载。
 		action: "hospital-list",
 		icon: "/assets/legacy-home/top-internet.svg",
 		text: "互联网医院",
@@ -737,8 +737,7 @@ Page<IndexPageData, IndexPageMethods>({
 				this.onLoadOutpatientPayment();
 				break;
 			case "hospital-list":
-				// 保留旧首页实际跳转的 hospitalList；动态机构和外部互联网医院仍未开放。
-				// 预约目录虽不需要患者，但仍必须先通过平台会话门禁。
+				// 单院区直接进入科室目录，仍须先通过平台会话门禁。
 				this.onLoadAppointments();
 				break;
 			case "follow":
@@ -933,10 +932,9 @@ Page<IndexPageData, IndexPageMethods>({
 			});
 			return;
 		}
-		// 旧端预约流程先确认医院/院区，再进入科室与排班目录。医院列表目前是
-		// 单院区静态配置页，不把未确认的机构接口或路线字段混入新的预约 contract。
+		// 院方已确认固定使用高平市人民医院，直接进入科室目录，无需选择院区。
 		navigateToAuthenticatedPage(
-			"/pages/hospital-list/hospital-list",
+			"/pages/appointment-directory/appointment-directory",
 			sessionVerificationStateFromLabel(this.data.sessionStatus),
 		);
 	},

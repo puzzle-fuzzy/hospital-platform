@@ -73,6 +73,189 @@ function createFakePool(responses: unknown[] = []): {
 	return { pool, state };
 }
 
+function thirdPartyWritebackContext(): MedicalInsuranceSettlementContext {
+	return {
+		businessId: "business-atomic-1",
+		hospitalId: "hospital-atomic-1",
+		patientId: "patient-atomic-1",
+		networkRegister: {},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: [],
+		plugin: {
+			paymentOrderId: "payment-atomic-1",
+			outTradeNo: "out-atomic-1",
+			payingId: "123",
+			tradingId: "456",
+			recordCode: "a".repeat(32),
+			payTypeId: "5033",
+			payType: "CREDIT",
+			workStationId: "",
+			tradeCode: "trade-atomic-1",
+			tradeTypeCode: "2",
+			state: "cash_paid",
+		},
+		postPaymentComponents: [
+			{
+				componentId: "medical-atomic-1:wechat_cash",
+				kind: "wechat_cash",
+				totalFen: 100,
+				amountFen: 100,
+				payModel: "H5",
+				payTypeId: "5033",
+				recordCode: "b".repeat(32),
+				state: "succeeded",
+				attempts: 1,
+				payingId: "789",
+				tradingId: "1011",
+				updatedAt: "2026-10-15T00:00:00.000Z",
+			},
+		],
+	};
+}
+
+for (const source of ["plugin", "component"] as const)
+	for (const status of ["unknown", "succeeded"] as const) {
+		test(`MySQL locked context save preserves ${source} .29 ${status} against stale snapshots`, async () => {
+			const key = Buffer.alloc(32, 15).toString("base64");
+			const cipher = createAesGcmSecretValueCipher(key, {
+				keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+				valueName: "medical insurance credential",
+			});
+			const previous = thirdPartyWritebackContext(),
+				incoming = thirdPartyWritebackContext();
+			if (source === "plugin") {
+				if (!previous.plugin) throw Error("fixture");
+				previous.plugin.thirdPartPayAttempt = {
+					attemptedAt: "2026-10-15T00:00:00.000Z",
+					status,
+				};
+				if (status === "succeeded")
+					Object.assign(previous.plugin, {
+						thirdPartPayRecordId: "1952638941030000004",
+						thirdPartPayRawResponse: "original",
+						state: "29_succeeded",
+					});
+			} else
+				previous.selfPayThirdPartyWriteback = {
+					attemptedAt: "2026-10-15T00:00:00.000Z",
+					status,
+					...(status === "succeeded"
+						? {
+								thirdPartPayRecordId: "1952638941030000004",
+								rawResponse: "original",
+							}
+						: {}),
+				};
+			const { pool, state } = createFakePool([
+				[
+					{
+						settlement_context_ciphertext: cipher.seal(
+							JSON.stringify(previous),
+						),
+					},
+				],
+				{ affectedRows: 1 },
+			]);
+			const repository = createMySqlRepositories(pool, {
+				medicalInsuranceCredentialEncryptionKey: key,
+			}).medicalInsuranceOrders;
+			await repository.saveSettlementContext(
+				"owner-atomic-1",
+				"medical-atomic-1",
+				incoming,
+			);
+			expect(state.statements[0]).toContain("FOR UPDATE");
+			expect(state.values[0]).toEqual(["medical-atomic-1", "owner-atomic-1"]);
+			expect(state.committed).toBe(true);
+			const saved = JSON.parse(
+				cipher.open(String(state.values[1]?.[0])),
+			) as MedicalInsuranceSettlementContext;
+			if (source === "plugin") expect(saved.plugin).toEqual(previous.plugin);
+			else
+				expect(saved.selfPayThirdPartyWriteback).toEqual(
+					previous.selfPayThirdPartyWriteback,
+				);
+		});
+	}
+
+test("MySQL cash .29 claim binds the original paid cash leg, locks the row and persists unknown", async () => {
+	const key = Buffer.alloc(32, 16).toString("base64");
+	const cipher = createAesGcmSecretValueCipher(key, {
+		keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+		valueName: "medical insurance credential",
+	});
+	const current = thirdPartyWritebackContext();
+	const { pool, state } = createFakePool([
+		[
+			{
+				settlement_context_ciphertext: cipher.seal(JSON.stringify(current)),
+				wechat_out_trade_no: "out-atomic-1",
+				wechat_payment_state: "cash_paid",
+			},
+		],
+		{ affectedRows: 1 },
+	]);
+	const repository = createMySqlRepositories(pool, {
+		medicalInsuranceCredentialEncryptionKey: key,
+	}).medicalInsuranceOrders;
+	const input = {
+		ownerUserId: "owner-atomic-1",
+		medicalOrderId: "medical-atomic-1",
+		componentId: "medical-atomic-1:wechat_cash",
+		outTradeNo: "out-atomic-1",
+		attemptedAt: "2026-10-15T00:00:00.000Z",
+	};
+	expect(await repository.claimSelfPayThirdPartPayAttempt(input)).toBe(true);
+	expect(state.statements[0]).toContain("FOR UPDATE");
+	const ciphertext = String(state.values[1]?.[0]);
+	const saved = JSON.parse(
+		cipher.open(ciphertext),
+	) as MedicalInsuranceSettlementContext;
+	expect(saved.selfPayThirdPartyWriteback?.status).toBe("unknown");
+	expect(saved.selfPayThirdPartyWriteback?.outTradeNo).toBe("out-atomic-1");
+	state.responses.push([
+		{
+			settlement_context_ciphertext: ciphertext,
+			wechat_out_trade_no: "out-atomic-1",
+			wechat_payment_state: "cash_paid",
+		},
+	]);
+	expect(await repository.claimSelfPayThirdPartPayAttempt(input)).toBe(false);
+	expect(state.statements).toHaveLength(3);
+});
+
+test("MySQL stale context cannot replace a protected payment scope and rolls back before UPDATE", async () => {
+	const key = Buffer.alloc(32, 17).toString("base64");
+	const cipher = createAesGcmSecretValueCipher(key, {
+		keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+		valueName: "medical insurance credential",
+	});
+	const previous = thirdPartyWritebackContext(),
+		incoming = thirdPartyWritebackContext();
+	if (!previous.plugin || !incoming.plugin) throw Error("fixture");
+	previous.plugin.thirdPartPayAttempt = {
+		attemptedAt: "2026-10-15T00:00:00.000Z",
+		status: "unknown",
+	};
+	incoming.plugin.paymentOrderId = "replacement";
+	const { pool, state } = createFakePool([
+		[{ settlement_context_ciphertext: cipher.seal(JSON.stringify(previous)) }],
+	]);
+	await expect(
+		createMySqlRepositories(pool, {
+			medicalInsuranceCredentialEncryptionKey: key,
+		}).medicalInsuranceOrders.saveSettlementContext(
+			"owner-atomic-1",
+			"medical-atomic-1",
+			incoming,
+		),
+	).rejects.toThrow("original payment scope");
+	expect(state.rolledBack).toBe(true);
+	expect(state.statements).toHaveLength(1);
+});
+
 const order: PaymentOrder = {
 	orderId: "order-001",
 	ownerUserId: "user-001",
@@ -667,6 +850,26 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 		payType: "CREDIT" as const,
 		workStationId: "",
 		platformOrderId: "medical-order-new-001",
+		outpatientPaymentRecord: {
+			recordId: "outpatient-group-001",
+			status: "unpaid" as const,
+			billDate: "2026-09-18 10:00:00",
+			amountFen: 9700,
+			items: [
+				{
+					recordId: "outpatient-leaf-001",
+					status: "unpaid" as const,
+					billDate: "2026-09-18 10:00:00",
+					amountFen: 8000,
+				},
+				{
+					recordId: "outpatient-leaf-002",
+					status: "unpaid" as const,
+					billDate: "2026-09-18 10:00:00",
+					amountFen: 1700,
+				},
+			],
+		},
 		payParams: {
 			appId: "wx1234567890abcdef",
 			timeStamp: "1789000000",
@@ -689,6 +892,7 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 	await save("user-001", "payment-order-new-001", context);
 	const ciphertext = String(state.values[0]?.[0]);
 	expect(ciphertext).not.toContain(context.certNo);
+	expect(ciphertext).not.toContain(context.outpatientPaymentRecord.recordId);
 	expect(state.statements[0]).toContain(
 		"registration_self_pay_context_ciphertext",
 	);
@@ -699,6 +903,17 @@ test("MySQL 普通挂号自费上下文只以密文保存并可按 owner 读回"
 		context,
 	);
 	expect(state.values[1]).toEqual(["user-001", "payment-order-new-001"]);
+	const statementCount = state.statements.length;
+	await expect(
+		save("user-001", "payment-order-new-001", {
+			...context,
+			outpatientPaymentRecord: {
+				...context.outpatientPaymentRecord,
+				amountFen: 1,
+			},
+		}),
+	).rejects.toThrow();
+	expect(state.statements).toHaveLength(statementCount);
 });
 
 test("MySQL patient directory upsert stores provider mapping but returns internal id", async () => {
@@ -1797,7 +2012,7 @@ test("MySQL 医保首次业务订单缺少 owner 锁行时失败关闭", async (
 	expect(state.statements[0]).toContain("FOR UPDATE");
 });
 
-test("MySQL medical insurance amount-bearing order projects both payment legs in the insert transaction", async () => {
+test("MySQL medical insurance amount-bearing order projects unproven cash as unknown in the insert transaction", async () => {
 	const medicalOrder: MedicalInsuranceOrder = {
 		medicalOrderId: "medical-order-atomic-001",
 		ownerUserId: "user-001",
@@ -1838,12 +2053,22 @@ test("MySQL medical insurance amount-bearing order projects both payment legs in
 	await repositories.medicalInsuranceOrders.insert(medicalOrder);
 
 	expect(state.committed).toBe(true);
-	expect(state.statements).toHaveLength(5);
+	expect(state.statements).toHaveLength(9);
 	expect(state.statements[0]).toContain("hp_medical_insurance_orders");
-	expect(state.statements[1]).toContain("hp_payment_aggregates");
-	expect(state.statements[2]).toContain("hp_payment_legs");
-	expect(state.statements[3]).toContain("hp_payment_legs");
-	expect(state.statements[4]).toContain("hp_payment_events");
+	expect(state.statements[1]).toContain("SELECT settlement_context_ciphertext");
+	expect(state.statements[2]).toContain("hp_payment_aggregates");
+	expect(state.values[2]?.[8]).toBe(0);
+	const legStatements = state.statements.flatMap((sql, index) =>
+		sql.startsWith("INSERT INTO hp_payment_legs") ? [state.values[index]] : [],
+	);
+	expect(legStatements).toHaveLength(5);
+	expect(
+		legStatements.find((values) => values?.[2] === "wechat_cash")?.slice(5, 7),
+	).toEqual([0, "not_started"]);
+	expect(
+		legStatements.find((values) => values?.[2] === "unallocated")?.slice(5, 7),
+	).toEqual([300, "manual_review"]);
+	expect(state.statements[8]).toContain("hp_payment_events");
 });
 
 test("MySQL 医保历史 MD5 调起参数隔离后仍可读取混合订单事实", async () => {
@@ -2010,6 +2235,12 @@ test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 	});
 	const context: MedicalInsuranceSettlementContext = {
 		businessId: "provider-business-001",
+		outpatientPaymentRecord: {
+			recordId: "outpatient-medical-record-001",
+			status: "unpaid",
+			billDate: "2026-09-03 08:00:00",
+			amountFen: 100,
+		},
 		hospitalId: "provider-hospital-001",
 		patientId: "provider-patient-001",
 		networkRegister: {},
@@ -2054,6 +2285,30 @@ test("MySQL 医保上下文修复使用加密且条件写入", async () => {
 		"settlement_context_ciphertext IS NULL",
 	);
 	expect(state.values[0]?.[0]).not.toContain(context.businessId);
+	const ciphertext = String(state.values[0]?.[0]);
+	expect(ciphertext).not.toContain(context.outpatientPaymentRecord?.recordId);
+	state.responses.push([{ settlement_context_ciphertext: ciphertext }]);
+	await expect(
+		repositories.medicalInsuranceOrders.getSettlementContext(
+			"user-repair-001",
+			"medical-repair-001",
+		),
+	).resolves.toEqual(context);
+	const snapshot = context.outpatientPaymentRecord;
+	if (!snapshot) throw new Error("outpatient snapshot fixture missing");
+	await expect(
+		repositories.medicalInsuranceOrders.saveSettlementContext(
+			"user-repair-001",
+			"medical-repair-001",
+			{
+				...context,
+				outpatientPaymentRecord: {
+					...snapshot,
+					amountFen: -1,
+				},
+			},
+		),
+	).rejects.toThrow();
 });
 
 test("MySQL 医保上下文可加密读回历史 5031 自费回写事实", async () => {

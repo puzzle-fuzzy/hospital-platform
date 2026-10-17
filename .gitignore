@@ -5,6 +5,9 @@ dist/
 .env.*
 !.env.example
 coverage/
+# 本机诊断、发布备份及未脱敏对账交付不属于项目源码。
+/.local/
+/outputs/
 *.log
 .DS_Store
 .local/zhongyang-docs/

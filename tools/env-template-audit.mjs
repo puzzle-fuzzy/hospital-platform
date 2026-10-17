@@ -93,6 +93,12 @@ export const sharedTemplateKeys = [
 	"ZHONGYANG_BASE_URL",
 	"ZHONGYANG_AUTHORIZATION_TOKEN",
 	"LEGACY_PATIENT_AUTH_BASE_URL",
+	"AI_RUNTIME_READY",
+	"AI_RUNTIME_SPEECH_READY",
+	"AI_RUNTIME_URL",
+	"AI_RUNTIME_TOKEN",
+	"AI_RUNTIME_TIMEOUT_MS",
+	"INTELLIGENT_CUSTOMER_ENABLED",
 	"ADMIN_QUERY_TOKEN",
 	"ADMIN_LOGS_TOKEN",
 	"ADMIN_REFUND_TOKEN",
@@ -118,13 +124,6 @@ const developmentOnlyKeys = [
 	"API_BASE_URL",
 	"REDIS_SESSION_AUDIT_URL",
 	"ADMIN_LOGS_INGEST_URL",
-	// 当前 AI Runtime 是回环 Python sidecar；生产 API 模板在独立
-	// sidecar 部署 contract 确认前不提供这些变量，客服也保持默认关闭。
-	"AI_RUNTIME_READY",
-	"AI_RUNTIME_URL",
-	"AI_RUNTIME_TOKEN",
-	"AI_RUNTIME_TIMEOUT_MS",
-	"INTELLIGENT_CUSTOMER_ENABLED",
 ];
 
 const productionOnlyKeys = ["MBS_FORWARD_PATH"];
@@ -136,6 +135,9 @@ const productionExactValues = {
 	PROVIDER_RAW_LOGGING: "true",
 	PERSISTENCE_MIGRATION_ALLOW_REMOTE: "false",
 	PERSISTENCE_MIGRATION_ALLOW_PRODUCTION: "false",
+	AI_RUNTIME_READY: "false",
+	AI_RUNTIME_SPEECH_READY: "false",
+	INTELLIGENT_CUSTOMER_ENABLED: "false",
 	WECHAT_PAYMENT_READY: "false",
 	WECHAT_MEDICAL_INSURANCE_READY: "false",
 	WECHAT_MEDICAL_INSURANCE_TEST_ENVIRONMENT: "false",
@@ -164,6 +166,9 @@ const developmentExactValues = {
 	PERSISTENCE_SCHEMA_READY: "false",
 	PERSISTENCE_MIGRATION_ALLOW_REMOTE: "false",
 	PERSISTENCE_MIGRATION_ALLOW_PRODUCTION: "false",
+	AI_RUNTIME_READY: "false",
+	AI_RUNTIME_SPEECH_READY: "false",
+	INTELLIGENT_CUSTOMER_ENABLED: "false",
 	WECHAT_PAYMENT_READY: "false",
 	WECHAT_MEDICAL_INSURANCE_READY: "false",
 	WECHAT_MEDICAL_INSURANCE_TEST_ENVIRONMENT: "false",
@@ -232,6 +237,18 @@ function checkKeys(values, expected, label, failures) {
 	}
 }
 
+function isLoopbackAiRuntimeUrl(value) {
+	try {
+		const url = new URL(value);
+		return (
+			(url.protocol === "http:" || url.protocol === "https:") &&
+			["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname)
+		);
+	} catch {
+		return false;
+	}
+}
+
 /** 审计开发模板和生产 API 模板的配置职责、默认值和敏感占位符。 */
 export function auditEnvironmentTemplates({
 	developmentTemplate,
@@ -282,6 +299,14 @@ export function auditEnvironmentTemplates({
 		}
 	}
 	for (const [key, value] of Object.entries(production)) {
+		if (key === "AI_RUNTIME_URL") {
+			if (!isLoopbackAiRuntimeUrl(value)) {
+				failures.push(
+					`infra/systemd/api.env.example AI_RUNTIME_URL 必须使用 HTTP(S) 回环地址：${value}`,
+				);
+			}
+			continue;
+		}
 		if (/(localhost|127\.0\.0\.1)/iu.test(value)) {
 			failures.push(
 				`infra/systemd/api.env.example ${key} 不得使用本机地址：${value}`,

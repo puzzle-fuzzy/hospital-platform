@@ -213,6 +213,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"medical-insurance-insutype-unavailable":
 			"当前就诊人未查询到可用于本次支付的有效医保参保信息，可确认改用微信支付",
 		"medical-insurance-timeout": "医保连接超时，请稍后重新挂号重试",
+		"medical-insurance-region-unsupported":
+			"当前参保地暂未开通医保支付，请选择微信支付",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
 		"outpatient-electronic-invoice-query-invalid":
 			"暂时无法查询电子发票，请稍后再试",
@@ -625,7 +627,7 @@ function requireMyDoctorItem(
 		value.departmentLocation,
 		256,
 	);
-	const doctorAvatarUrl = optionalMyDoctorText(value.doctorAvatarUrl, 512);
+	const doctorAvatarUrl = optionalMyDoctorText(value.doctorAvatarUrl, 2048);
 	if (
 		doctorAvatarUrl !== undefined &&
 		!/^https?:\/\/[^\s]+$/u.test(doctorAvatarUrl)

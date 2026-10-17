@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
+import { MedicalInsuranceRefundAmountExceededError } from "@hospital/domain";
 import { Elysia } from "elysia";
 import { errorHandlerPlugin } from "../../plugins/error-handler";
 import {
 	adminMedicalInsuranceRefundModule,
+	adminPaymentRefundModule,
 	adminWechatRefundModule,
 } from "./refunds";
 import type {
@@ -14,11 +16,23 @@ const historyRecord: AdminWechatRefundPaymentRecord = {
 	source: "payment_order",
 	orderId: "payment-history-route-001",
 	business: "outpatient",
+	patientDisplayName: "测试就诊人",
+	orderUserDisplayName: "测试下单用户",
 	totalFen: 500,
 	insuranceFen: 0,
 	paymentState: "completed",
 	cashPaymentConfirmed: true,
 	cashFen: 500,
+	actualCashFen: 500,
+	hospitalDiscountFen: 0,
+	actualPaidFen: 500,
+	amountBreakdownStatus: "confirmed",
+	medicalRefundableFen: 0,
+	refundOptions: {
+		ALL: { enabled: true, amountFen: 400 },
+		HI: { enabled: false, amountFen: 0 },
+		CASH: { enabled: true, amountFen: 400 },
+	},
 	refundReservedFen: 100,
 	refundableFen: 400,
 	refundCount: 1,
@@ -32,6 +46,200 @@ const historyRecord: AdminWechatRefundPaymentRecord = {
 	createdAt: "2026-09-18T01:00:00.000Z",
 	updatedAt: "2026-09-18T01:01:00.000Z",
 };
+
+test("Admin 支付退费按所选腿请求，拒绝覆盖金额，并允许独立对账", async () => {
+	const calls: unknown[] = [];
+	const result = {
+		source: "medical_insurance" as const,
+		orderId: "medical-selected-leg-001",
+		refundType: "HI" as const,
+		status: "succeeded" as const,
+		amounts: { totalFen: 800, cashFen: 0, personalAccountFen: 0, fundFen: 800 },
+	};
+	const app = new Elysia().use(errorHandlerPlugin()).use(
+		adminPaymentRefundModule(
+			{
+				async request(input) {
+					calls.push(input);
+					return result;
+				},
+				async query(input) {
+					calls.push(input);
+					return result;
+				},
+			},
+			"admin-options-token",
+		),
+	);
+	const post = (body: unknown, token = "admin-options-token") =>
+		app.handle(
+			new Request("http://localhost/admin/payment-refunds", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					"x-admin-refund-token": token,
+					"x-request-id": "refund-mode-trace",
+					"idempotency-key": "refund-mode-key",
+				},
+				body: JSON.stringify(body),
+			}),
+		);
+	expect(
+		(
+			await post({
+				source: "medical_insurance",
+				orderId: result.orderId,
+				refundType: "HI",
+				reason: "原路退回",
+			})
+		).status,
+	).toBe(200);
+	expect(calls[0]).toEqual({
+		source: "medical_insurance",
+		orderId: result.orderId,
+		refundType: "HI",
+		reason: "原路退回",
+		context: {
+			traceId: "refund-mode-trace",
+			idempotencyKey: "refund-mode-key",
+		},
+	});
+	expect(
+		(
+			await post(
+				{
+					source: "medical_insurance",
+					orderId: result.orderId,
+					refundType: "ALL",
+				},
+				"wrong",
+			)
+		).status,
+	).toBe(401);
+	expect(
+		(
+			await post({
+				source: "medical_insurance",
+				orderId: result.orderId,
+				refundType: "ALL",
+				refundFen: 1,
+			})
+		).status,
+	).toBe(200);
+	expect(calls[1]).not.toHaveProperty("refundFen");
+	expect(
+		(
+			await post({
+				source: "medical_insurance",
+				orderId: result.orderId,
+				refundType: "OTHER",
+			})
+		).status,
+	).toBe(400);
+	expect(calls).toHaveLength(2);
+	const query = await app.handle(
+		new Request(
+			`http://localhost/admin/payment-refunds/medical_insurance/${result.orderId}`,
+			{
+				headers: {
+					"x-admin-refund-token": "admin-options-token",
+					"x-request-id": "refund-query-trace",
+				},
+			},
+		),
+	);
+	expect(query.status).toBe(200);
+	expect(calls[2]).toEqual({
+		source: "medical_insurance",
+		orderId: result.orderId,
+		context: {
+			traceId: "refund-query-trace",
+			idempotencyKey: "refund-query-trace",
+		},
+	});
+});
+
+test("旧 Admin 整笔医保退费入口在提供统一服务时只委托 ALL", async () => {
+	let legacyCalls = 0;
+	let delegated: unknown;
+	const result = {
+		source: "medical_insurance" as const,
+		orderId: "medical-compat-001",
+		refundType: "ALL" as const,
+		status: "succeeded" as const,
+		amounts: { totalFen: 800, cashFen: 0, personalAccountFen: 0, fundFen: 800 },
+	};
+	const app = new Elysia().use(errorHandlerPlugin()).use(
+		adminMedicalInsuranceRefundModule(
+			{
+				async requestFullRefundByOrder() {
+					legacyCalls += 1;
+					throw new Error("legacy orchestration must not execute");
+				},
+				async query() {
+					return undefined;
+				},
+			},
+			"admin-compat-token",
+			{
+				async request(input) {
+					delegated = input;
+					return result;
+				},
+			},
+		),
+	);
+	const response = await app.handle(
+		new Request("http://localhost/admin/medical-insurance-refunds", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-refund-token": "admin-compat-token",
+				"x-request-id": "compat-trace",
+			},
+			body: JSON.stringify({ orderId: result.orderId }),
+		}),
+	);
+	expect(response.status).toBe(200);
+	expect(legacyCalls).toBe(0);
+	expect(delegated).toEqual({
+		source: "medical_insurance",
+		orderId: result.orderId,
+		refundType: "ALL",
+		context: { traceId: "compat-trace", idempotencyKey: "compat-trace" },
+	});
+});
+
+test("Admin 医保分项已被其它入口占用时返回冲突，不能当成服务故障", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).use(
+		adminPaymentRefundModule(
+			{
+				async request() {
+					throw new MedicalInsuranceRefundAmountExceededError();
+				},
+				async query() {
+					throw new Error("not used");
+				},
+			},
+			"admin-budget-token",
+		),
+	);
+	const response = await app.handle(
+		new Request("http://localhost/admin/payment-refunds", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-admin-refund-token": "admin-budget-token",
+			},
+			body: JSON.stringify({
+				source: "medical_insurance",
+				orderId: "medical-budget-order",
+				refundType: "HI",
+			}),
+		}),
+	);
+	expect(response.status).toBe(409);
+});
 
 test("Admin 微信退款历史只接受退款令牌并返回最小支付读模型", async () => {
 	let query: AdminWechatRefundHistoryQuery | undefined;
@@ -229,6 +437,10 @@ test("Admin 支付运营账本详情只返回聚合单、支付腿和低敏事�
 			totalFen: 17_600,
 			insuranceFen: 6_039,
 			cashFen: 11_561,
+			actualCashFen: 11_561,
+			hospitalDiscountFen: 0,
+			actualPaidFen: 17_600,
+			amountBreakdownStatus: "confirmed",
 			status: "paid",
 			hisSyncStatus: "pending",
 			sourceVersion: 1,

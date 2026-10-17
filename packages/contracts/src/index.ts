@@ -1,6 +1,10 @@
 import { type Static, Type } from "@sinclair/typebox";
 
 export { normalizeAppointmentCancellationMessage } from "./appointment-cancellation-message";
+export {
+	parseJsonPreservingLargeIntegers,
+	stringifyJsonPreservingLargeIntegers,
+} from "./lossless-json";
 
 /** 存活检查只证明 API 进程能响应，不代表数据库或外部 provider 可用。 */
 export const HealthResponse = Type.Object({
@@ -282,7 +286,7 @@ export const AppointmentScheduleSchema = Type.Object({
 	doctorId: Type.String({ minLength: 1 }),
 	doctorName: Type.String({ minLength: 1 }),
 	doctorPhotoUrl: Type.Optional(
-		Type.String({ pattern: "^https?:\\/\\/[^\\s]+$", maxLength: 512 }),
+		Type.String({ pattern: "^https?:\\/\\/[^\\s]+$", maxLength: 2048 }),
 	),
 	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
 	shiftName: Type.String({ minLength: 1 }),
@@ -325,7 +329,7 @@ export const MyDoctorSchema = Type.Object({
 	),
 	departmentName: Type.String({ minLength: 1, maxLength: 128 }),
 	doctorAvatarUrl: Type.Optional(
-		Type.String({ pattern: "^https?:\\/\\/[^\\s]+$", maxLength: 512 }),
+		Type.String({ pattern: "^https?:\\/\\/[^\\s]+$", maxLength: 2048 }),
 	),
 	createdAt: Type.String({ minLength: 1, maxLength: 64 }),
 });
@@ -1096,11 +1100,16 @@ export const MedicalInsuranceBusinessRecoveryResponse = Type.Object({
 		/** true 表示授权写请求仍在短暂确认窗口，客户端只查询，不应再次展码。 */
 		authorizationPending: Type.Boolean(),
 		recoveryAllowed: Type.Boolean(),
+		/** 人工核实已从其他渠道缴清；原平台订单保持禁重付。 */
+		externalPaymentConfirmed: Type.Optional(Type.Boolean()),
 		amounts: Type.Optional(
 			Type.Object({
 				totalFen: Type.Integer({ minimum: 1 }),
 				insuranceFen: Type.Integer({ minimum: 0 }),
 				cashFen: Type.Integer({ minimum: 0 }),
+				hospitalPartFen: Type.Optional(Type.Integer({ minimum: 0 })),
+				hospitalReduceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+				wechatCashFen: Type.Optional(Type.Integer({ minimum: 0 })),
 			}),
 		),
 		cashierUrl: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
@@ -1137,6 +1146,9 @@ export const MedicalInsuranceOrderResponse = Type.Object({
 				totalFen: Type.Integer({ minimum: 1 }),
 				insuranceFen: Type.Integer({ minimum: 0 }),
 				cashFen: Type.Integer({ minimum: 0 }),
+				hospitalPartFen: Type.Optional(Type.Integer({ minimum: 0 })),
+				hospitalReduceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+				wechatCashFen: Type.Optional(Type.Integer({ minimum: 0 })),
 			}),
 		),
 		/** 独立医保收银台地址；仅在服务端确认存在自费金额时返回。 */
@@ -1236,35 +1248,57 @@ export const OutpatientPaymentStatusSchema = Type.Union([
  * 门诊费用返回 2.6.33 中可安全展示的费用字段；订单号、患者卡号、医保编码、
  * 诊断和原始响应仍留在服务端。金额统一使用人民币分，比例保留 0～1 小数。
  */
+export const OutpatientPaymentItemSchema = Type.Object(
+	{
+		recordId: Type.String({ minLength: 1, maxLength: 128 }),
+		status: OutpatientPaymentStatusSchema,
+		/** Provider tradeStatus=4；在已缴费列表中明确展示为退款中。 */
+		paymentStatus: Type.Optional(Type.Literal("refunding")),
+		itemName: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+		departmentName: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 128 }),
+		),
+		executionDepartmentName: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 128 }),
+		),
+		doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+		executionDoctorName: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 128 }),
+		),
+		spec: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+		quantity: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+		unitName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+		priceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		/** 精确元单价允许小于一分，费用合计仍使用整数 amountFen。 */
+		priceYuan: Type.Optional(
+			Type.String({
+				minLength: 1,
+				maxLength: 64,
+				pattern: "^\\d+(?:\\.\\d+)?$",
+			}),
+		),
+		chargeClassName: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 128 }),
+		),
+		tradePropName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+		networkPatClassName: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 128 }),
+		),
+		typeMemo: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+		preferentialAmountFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		ascendAmountFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		selfBurdenRatio: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
+		billDate: Type.String({ minLength: 1, maxLength: 64 }),
+		amountFen: Type.Integer({ minimum: 0 }),
+	},
+	{ additionalProperties: false },
+);
+
 export const OutpatientPaymentRecordSchema = Type.Object({
-	recordId: Type.String({ minLength: 1, maxLength: 128 }),
-	status: OutpatientPaymentStatusSchema,
-	/** Provider tradeStatus=4；在已缴费列表中明确展示为退款中。 */
-	paymentStatus: Type.Optional(Type.Literal("refunding")),
-	itemName: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
-	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-	executionDepartmentName: Type.Optional(
-		Type.String({ minLength: 1, maxLength: 128 }),
+	...OutpatientPaymentItemSchema.properties,
+	items: Type.Optional(
+		Type.Array(OutpatientPaymentItemSchema, { minItems: 2, maxItems: 512 }),
 	),
-	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-	executionDoctorName: Type.Optional(
-		Type.String({ minLength: 1, maxLength: 128 }),
-	),
-	spec: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-	quantity: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
-	unitName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
-	priceFen: Type.Optional(Type.Integer({ minimum: 0 })),
-	chargeClassName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-	tradePropName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-	networkPatClassName: Type.Optional(
-		Type.String({ minLength: 1, maxLength: 128 }),
-	),
-	typeMemo: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-	preferentialAmountFen: Type.Optional(Type.Integer({ minimum: 0 })),
-	ascendAmountFen: Type.Optional(Type.Integer({ minimum: 0 })),
-	selfBurdenRatio: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
-	billDate: Type.String({ minLength: 1, maxLength: 64 }),
-	amountFen: Type.Integer({ minimum: 0 }),
 });
 
 export const OutpatientPaymentListResponse = Type.Object({
@@ -1467,17 +1501,29 @@ export const WechatMedicalInsurancePayParamsSchema = Type.Union([
 ]);
 
 /** 授权跳转前仅返回官方格式的亲情付路由标识，不返回患者实名或证件号。 */
+const MedicalInsurancePaymentEligibility = Type.Optional(
+	Type.Union([
+		Type.Literal("unknown"),
+		Type.Literal("supported"),
+		Type.Literal("unsupported"),
+	]),
+);
+
 export const MedicalInsuranceAuthorizationContextResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Union([
 		Type.Object(
-			{ payForRelatives: Type.Literal(false) },
+			{
+				payForRelatives: Type.Literal(false),
+				medicalInsurancePaymentEligibility: MedicalInsurancePaymentEligibility,
+			},
 			{ additionalProperties: false },
 		),
 		Type.Object(
 			{
 				payForRelatives: Type.Literal(true),
 				familyId: Type.String({ pattern: "^[a-f0-9]{32}$" }),
+				medicalInsurancePaymentEligibility: MedicalInsurancePaymentEligibility,
 			},
 			{ additionalProperties: false },
 		),
@@ -1504,6 +1550,9 @@ export const MedicalInsuranceWechatPayResponse = Type.Object({
 			Type.Literal("unknown"),
 		]),
 		cashFen: Type.Integer({ minimum: 0 }),
+		hospitalPartFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		hospitalReduceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		wechatCashFen: Type.Optional(Type.Integer({ minimum: 0 })),
 		/** 仅医保部分明确为 MED_INS_PAY_FAIL 时返回医保局失败原因。 */
 		medInsFailReason: Type.Optional(
 			Type.String({ minLength: 1, maxLength: 2048 }),
@@ -1780,6 +1829,9 @@ export type MedicalInsurancePluginPayPayload = Static<
 >;
 export type OutpatientPaymentStatusPayload = Static<
 	typeof OutpatientPaymentStatusSchema
+>;
+export type OutpatientPaymentItemPayload = Static<
+	typeof OutpatientPaymentItemSchema
 >;
 export type OutpatientPaymentRecordPayload = Static<
 	typeof OutpatientPaymentRecordSchema

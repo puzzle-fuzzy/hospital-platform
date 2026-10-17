@@ -5,12 +5,14 @@ import type {
 } from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
+	type HisPaymentReferenceRepository,
 	isBoundedOpaqueIdentifier,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsurancePostPaymentComponent,
 	type MedicalInsuranceSettlementContext,
 	medicalInsurancePaymentBreakdown,
+	normalizeHisPaymentReference,
 	type PaymentOrder,
 	PaymentOrderInputError,
 	type PaymentOrderService,
@@ -440,6 +442,7 @@ function prepayIdFromPackage(packageValue: string): string | undefined {
 
 export type MedicalInsurancePluginPaymentServiceDependencies = {
 	orders: MedicalInsuranceOrderRepository;
+	hisPaymentReferences?: HisPaymentReferenceRepository;
 	authorizations: import("@hospital/domain").MedicalInsuranceAuthorizationRepository;
 	identityUsers: UserIdentityRepository;
 	paymentOrders: PaymentOrderService;
@@ -1079,6 +1082,7 @@ export class MedicalInsurancePluginPaymentService {
 	private registrationContext(
 		settlement: MedicalInsuranceSettlementContext,
 		platformOrderId: string,
+		hisPaymentReferenceId?: string,
 	): RegistrationSelfPaySettlementContext {
 		const plugin = settlement.plugin;
 		if (!plugin)
@@ -1113,10 +1117,33 @@ export class MedicalInsurancePluginPaymentService {
 			payType: plugin.payType,
 			workStationId: plugin.workStationId,
 			platformOrderId,
+			...(hisPaymentReferenceId ? { hisPaymentReferenceId } : {}),
 			...(plugin.thirdPartPayRecordId
 				? { thirdPartPayRecordId: plugin.thirdPartPayRecordId }
 				: {}),
 		};
+	}
+
+	private async confirmExistingPluginReference(
+		ownerUserId: string,
+		medicalOrderId: string,
+		plugin: NonNullable<MedicalInsuranceSettlementContext["plugin"]>,
+	): Promise<void> {
+		let referenceId: string;
+		try {
+			referenceId = normalizeHisPaymentReference(plugin.thirdPartPayRecordId);
+		} catch {
+			return;
+		}
+		if (!this.dependencies.hisPaymentReferences)
+			throw new DependencyNotConfiguredError("his-payment-references");
+		await this.dependencies.hisPaymentReferences.confirm({
+			ownerUserId,
+			medicalOrderId,
+			paymentScopeId: plugin.paymentOrderId,
+			source: "plugin",
+			referenceId,
+		});
 	}
 
 	private async complete(
@@ -1126,6 +1153,37 @@ export class MedicalInsurancePluginPaymentService {
 		settlement: MedicalInsuranceSettlementContext,
 		context: { traceId: string; idempotencyKey: string },
 	): Promise<PaymentOrder> {
+		const plugin = settlement.plugin;
+		if (!plugin || plugin.paymentOrderId !== paymentOrder.orderId) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance plugin payment context is mismatched",
+			);
+		}
+		const scope = {
+			ownerUserId,
+			medicalOrderId: medicalOrder.medicalOrderId,
+			paymentScopeId: plugin.paymentOrderId,
+			source: "plugin" as const,
+		};
+		let hisPaymentReferenceId: string | undefined;
+		if (plugin.thirdPartPayAttempt?.status === "unknown") {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance .29 result is unknown; manual verification is required",
+			);
+		}
+		if (plugin.thirdPartPayRecordId) {
+			await this.confirmExistingPluginReference(
+				ownerUserId,
+				medicalOrder.medicalOrderId,
+				plugin,
+			);
+		} else if (paymentOrder.state === "cash_paid") {
+			if (!this.dependencies.hisPaymentReferences)
+				throw new DependencyNotConfiguredError("his-payment-references");
+			hisPaymentReferenceId = (
+				await this.dependencies.hisPaymentReferences.allocate(scope)
+			).referenceId;
+		}
 		if (paymentOrder.state === "completed") return paymentOrder;
 		if (paymentOrder.state === "his_written_back") {
 			return this.dependencies.paymentOrders.transition(
@@ -1150,7 +1208,26 @@ export class MedicalInsurancePluginPaymentService {
 				registrationContext: this.registrationContext(
 					settlement,
 					medicalOrder.medicalOrderId,
+					hisPaymentReferenceId,
 				),
+				onThirdPartPayAttempt: async () => {
+					if (!this.dependencies.orders.claimPluginThirdPartPayAttempt)
+						throw new DependencyNotConfiguredError(
+							"medical-insurance-plugin-writeback-claim",
+						);
+					const claimed =
+						await this.dependencies.orders.claimPluginThirdPartPayAttempt({
+							ownerUserId,
+							medicalOrderId: medicalOrder.medicalOrderId,
+							paymentOrderId: plugin.paymentOrderId,
+							outTradeNo: plugin.outTradeNo,
+							attemptedAt: this.now().toISOString(),
+						});
+					if (!claimed)
+						throw new MedicalInsuranceRegistrationInputError(
+							"Medical insurance .29 was already attempted; manual verification is required",
+						);
+				},
 				onThirdPartPayResponse: async ({
 					rawResponse,
 					thirdPartPayRecordId,
@@ -1163,7 +1240,8 @@ export class MedicalInsurancePluginPaymentService {
 					const currentPlugin = currentSettlement.plugin;
 					if (
 						!currentPlugin ||
-						currentPlugin.paymentOrderId !== paymentOrder.orderId
+						currentPlugin.paymentOrderId !== paymentOrder.orderId ||
+						currentPlugin.outTradeNo !== plugin.outTradeNo
 					) {
 						throw new DependencyNotConfiguredError(
 							"medical-insurance-plugin-payment",
@@ -1178,10 +1256,22 @@ export class MedicalInsurancePluginPaymentService {
 								...currentPlugin,
 								thirdPartPayRecordId,
 								thirdPartPayRawResponse: rawResponse,
+								thirdPartPayAttempt: {
+									attemptedAt:
+										currentPlugin.thirdPartPayAttempt?.attemptedAt ??
+										this.now().toISOString(),
+									status: "succeeded",
+								},
 								state: "29_succeeded",
 							},
 						},
 					);
+					if (!this.dependencies.hisPaymentReferences)
+						throw new DependencyNotConfiguredError("his-payment-references");
+					await this.dependencies.hisPaymentReferences.confirm({
+						...scope,
+						referenceId: normalizeHisPaymentReference(thirdPartPayRecordId),
+					});
 					this.logger.info(
 						{
 							event: "medical-insurance.plugin.2.27.2.29.persisted",
@@ -1497,6 +1587,14 @@ export class MedicalInsurancePluginPaymentService {
 				input.context,
 			);
 		}
+		if (
+			paymentOrder.state !== "cash_paid" &&
+			plugin.thirdPartPayRecordId &&
+			plugin.thirdPartPayAttempt?.status !== "unknown"
+		) {
+			await this.confirmExistingPluginReference(ownerUserId, orderId, plugin);
+		}
+
 		const currentMedicalOrder = await this.order(ownerUserId, orderId);
 		return output(currentMedicalOrder, paymentOrder);
 	}

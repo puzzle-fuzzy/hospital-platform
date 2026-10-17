@@ -29,6 +29,8 @@ function order(
 		medicalOrderId: "medical-refund-001",
 		ownerUserId: "user-refund-001",
 		patientId: "patient-refund-001",
+		orderType: "DiagPay",
+		businessType: "outpatient",
 		authorizationId: "authorization-refund-001",
 		feeUploadId: "fee-refund-001",
 		idempotencyKey: "payment-idempotency-001",
@@ -149,6 +151,13 @@ test("医保全额退费先调用 6203，再调用微信 APIv3 现金退款并�
 	expect(second).toEqual(first);
 	expect(medicalCalls).toBe(1);
 	expect(wechatCalls).toBe(1);
+	expect(first.refundNo).toHaveLength(52);
+	expect(medicalPayload?.appRefdSn).toBe(first.refundNo.slice(0, 40));
+	expect(medicalPayload?.appRefdSn).toHaveLength(40);
+	expect(
+		(await wechatRefunds.findByMerchantRefundNo(first.refundNo))
+			?.merchantRefundNo,
+	).toBe(first.refundNo);
 	expect(medicalPayload?.payAuthNo).toBe("pay-auth-refund-001");
 	expect(medicalPayload?.totlRefdAmt).toBe("10.00");
 	expect(projection).toBeDefined();
@@ -414,4 +423,67 @@ test("HIS 可按 payOrdId 发起医保单腿退费，并复用平台订单退款
 			context,
 		}),
 	).rejects.toBeInstanceOf(MedicalInsuranceOrderNotFoundError);
+});
+
+test("退款预留返回不同支付号、幂等键或退款号时在渠道调用前拒绝", async () => {
+	for (const field of ["payOrdId", "idempotencyKey", "refundNo"] as const) {
+		const orders = createInMemoryMedicalInsuranceOrderRepository();
+		const medicalOrder = order();
+		const authorizationId = medicalOrder.authorizationId;
+		if (!authorizationId) {
+			throw new Error("Reserved identity fixture authorization is missing");
+		}
+		await orders.insert(medicalOrder);
+		const authorizations =
+			createInMemoryMedicalInsuranceAuthorizationRepository();
+		await authorizations.put({
+			authorizationId,
+			ownerUserId: medicalOrder.ownerUserId,
+			medicalOrderId: medicalOrder.medicalOrderId,
+			providerSubject: "identity-provider-subject",
+			payAuthNo: "identity-payment-authorization",
+			patient: {
+				idNo: "140000000000000001",
+				userName: "测试患者",
+				idType: "01",
+			},
+			psnNo: "identity-person-reference",
+			insutype: "310",
+			insuplcAdmdvs: "1401",
+			insuCode: "identity-insurance-code",
+			expiresAt: "2026-09-20T00:01:00.000Z",
+			createdAt: "2026-09-19T23:00:00.000Z",
+		});
+		const refunds = createInMemoryMedicalInsuranceRefundRepository();
+		let medicalCalls = 0;
+		const service = new MedicalInsuranceRefundService({
+			orders,
+			authorizations,
+			refunds: {
+				...refunds,
+				reserve: async (record) => ({
+					status: "inserted",
+					record: { ...record, [field]: "different-reserved-identity" },
+				}),
+			},
+			medicalInsuranceRefund: {
+				refund: async () => {
+					medicalCalls += 1;
+					throw new Error("Mismatched reserved identity must not be sent");
+				},
+			},
+		});
+		await expect(
+			service.request({
+				ownerUserId: medicalOrder.ownerUserId,
+				orderId: medicalOrder.medicalOrderId,
+				refund: { refundType: "HI", fundRefundFen: 500 },
+				context,
+			}),
+		).rejects.toThrow("相同幂等键");
+		expect(medicalCalls).toBe(0);
+		expect(
+			await refunds.listByMedicalOrderId(medicalOrder.medicalOrderId),
+		).toEqual([]);
+	}
 });

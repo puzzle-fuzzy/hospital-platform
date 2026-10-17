@@ -125,7 +125,8 @@ async function cancellationPage(
 			definition = page;
 		},
 		wx: {
-			getStorageSync: () => "",
+			getStorageSync: (key: string) =>
+				key === "selected_patient_id" ? "patient-001" : "",
 			getAccountInfoSync: () => ({ miniProgram: { envVersion: "release" } }),
 			request: (options: RequestOptions) => {
 				calls.push(`${options.method} ${new URL(options.url).pathname}`);
@@ -155,7 +156,12 @@ async function cancellationPage(
 	if (!definition) throw new Error(`${name} page was not registered`);
 	const page: TestPage = {
 		...definition,
-		data: { ...definition.data, sessionGeneration: getSessionGeneration() },
+		data: {
+			...definition.data,
+			patientId: "patient-001",
+			patientLoading: false,
+			sessionGeneration: getSessionGeneration(),
+		},
 		setData(patch) {
 			Object.assign(this.data, patch);
 		},
@@ -174,7 +180,11 @@ async function cancellationPage(
 
 test("取消原预约失败显示医院窗口原因，保留 duplicate 且不重新预约", async () => {
 	const fixture = await cancellationPage("confirm-registration");
-	const duplicate = { appointmentId: "appointment-001", status: "duplicate" };
+	const duplicate = {
+		appointmentId: "appointment-001",
+		patientId: "patient-001",
+		status: "duplicate",
+	};
 	Object.assign(fixture.page.data, { duplicate, submitting: false });
 	fixture.page.onCancelAndRetry();
 	await new Promise((resolve) => setTimeout(resolve, 0));

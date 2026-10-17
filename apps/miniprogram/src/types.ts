@@ -177,6 +177,9 @@ export type AppointmentRecord =
 export type AppointmentDetail = AppointmentDetailResponse["data"];
 export type OutpatientPaymentRecord =
 	OutpatientPaymentListResponse["data"]["items"][number];
+export type OutpatientPaymentItem = NonNullable<
+	OutpatientPaymentRecord["items"]
+>[number];
 export type OutpatientMedicalRecord =
 	OutpatientMedicalRecordListResponse["data"]["items"][number];
 export type InpatientEpisode =
@@ -210,14 +213,12 @@ export type OutpatientPaymentDetailPageData = {
 	error: string;
 	hospitalName: string;
 	selectedPatient: Patient | null;
-	item: OutpatientPaymentRecord | null;
+	item: Omit<OutpatientPaymentRecordView, "viewKey"> | null;
 	sourcePatientId: string;
 	sourceRecordId: string;
 	sourceStatus: "unpaid" | "paid" | "";
 };
-export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
-	/** 仅用于当前费用查询批次的 WXML 事件回查，不是账单号或支付业务引用。 */
-	viewKey: string;
+export type OutpatientPaymentItemView = OutpatientPaymentItem & {
 	amountLabel: string;
 	priceLabel?: string;
 	preferentialAmountLabel?: string;
@@ -227,6 +228,16 @@ export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
 	/** 页面展示完整的 2.6.33 账单时间；原始值仍保留用于业务校验。 */
 	billDateLabel: string;
 };
+export type OutpatientPaymentRecordView = Omit<
+	OutpatientPaymentRecord,
+	"items"
+> &
+	OutpatientPaymentItemView & {
+		/** 仅用于当前费用查询批次的 WXML 事件回查，不是账单号或支付业务引用。 */
+		viewKey: string;
+		itemCount: number;
+		items?: Array<OutpatientPaymentItemView>;
+	};
 export type Report = ReportListResponse["data"]["items"][number];
 /** 报告目录的页面显示模型；服务端英文枚举只在页面边界翻译为中文。 */
 export type ReportDirectoryView = Report & {
@@ -571,6 +582,16 @@ export type TimeslotSourcePageData = {
 export type ConfirmRegistrationPageData = {
 	hospitalName: string;
 	scheduleId: string;
+	departmentId: string;
+	doctorId: string;
+	/** 经号源接口验证的排班事实，用于短期引用过期后的精确恢复。 */
+	sourceSchedule: AppointmentSchedule | null;
+	sourceTimeGroup: "point" | "range" | "";
+	refreshingSources: boolean;
+	sourceChoices: Array<AppointmentScheduleSource>;
+	sourceSelectionRequired: boolean;
+	sourceNotice: string;
+	originalAppointmentCancelled: boolean;
 	departmentName: string;
 	/** 旧端确认页的真实挂号类型名称；缺失时不拼接虚假号别。 */
 	registrationClassName: string;

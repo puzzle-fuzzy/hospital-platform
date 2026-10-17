@@ -23,14 +23,26 @@
 
 			<view class="card fee-card">
 				<view wx:if="{{hospitalName}}" class="detail-line"><text class="detail-label">医院</text><text class="detail-value">{{hospitalName}}</text></view>
-				<view wx:if="{{item.itemName}}" class="detail-line"><text class="detail-label">费用项目</text><text class="detail-value">{{item.itemName}}</text></view>
-				<view wx:if="{{item.billDate}}" class="detail-line"><text class="detail-label">费用日期</text><text class="detail-value">{{formatDate(item.billDate)}}</text></view>
-				<view wx:if="{{item.amountFen >= 0}}" class="detail-line detail-line-last"><text class="detail-label">缴费金额</text><text class="amount">{{formatAmount(item.amountFen)}}</text></view>
+				<view wx:if="{{item.items && item.departmentName}}" class="detail-line"><text class="detail-label">就诊科室</text><text class="detail-value">{{item.departmentName}}</text></view>
+				<view wx:if="{{item.items && item.doctorName}}" class="detail-line"><text class="detail-label">就诊医生</text><text class="detail-value">{{item.doctorName}}</text></view>
+				<view wx:if="{{!item.items && item.itemName}}" class="detail-line"><text class="detail-label">费用项目</text><text class="detail-value">{{item.itemName}}</text></view>
+				<view wx:if="{{item.billDate}}" class="detail-line"><text class="detail-label">费用日期</text><text class="detail-value">{{item.billDateLabel}}</text></view>
+				<view wx:if="{{item.items}}" class="detail-fee-items">
+					<view class="detail-fee-heading"><text>费用明细</text><text>共 {{item.itemCount}} 项</text></view>
+					<view wx:for="{{item.items}}" wx:for-item="fee" wx:key="recordId" class="detail-fee-item">
+						<view class="detail-fee-title-line"><text class="detail-fee-name">{{fee.itemName || '门诊费用项目'}}</text><text class="detail-fee-amount">{{fee.amountLabel}}</text></view>
+						<view wx:if="{{fee.executionDepartmentName}}" class="detail-fee-meta">执行科室：{{fee.executionDepartmentName}}</view>
+						<view wx:if="{{fee.executionDoctorName}}" class="detail-fee-meta">执行医生：{{fee.executionDoctorName}}</view>
+						<view wx:if="{{fee.specQuantityLabel || fee.priceLabel}}" class="detail-fee-meta detail-fee-spec"><text wx:if="{{fee.specQuantityLabel}}">{{fee.specQuantityLabel}}</text><text wx:if="{{fee.priceLabel}}">单价 {{fee.priceLabel}}</text></view>
+						<view wx:if="{{fee.chargeClassName || fee.tradePropName || fee.typeMemo}}" class="detail-fee-meta">{{fee.chargeClassName || fee.tradePropName || fee.typeMemo}}</view>
+					</view>
+				</view>
+				<view wx:if="{{item.amountFen >= 0}}" class="detail-line detail-line-last"><text class="detail-label">{{item.items ? '合计金额' : '缴费金额'}}</text><text class="amount">{{item.amountLabel}}</text></view>
 			</view>
 
 			<view wx:if="{{item.status === 'unpaid'}}" class="notice-card payment-list-handoff">
 				<view class="notice-title">请返回费用列表缴费</view>
-				<view class="notice-text">请在门诊缴费列表点击本笔记录的“缴费”按钮，再选择医保支付或微信支付。</view>
+				<view class="notice-text">请在门诊缴费列表点击本笔记录的“缴费”按钮，再选择可用的支付方式。</view>
 				<view wx:if="{{paymentMessage}}" class="payment-message">{{paymentMessage}}</view>
 			</view>
 			<view wx:elif="{{item.paymentStatus === 'refunding'}}" class="refunding-card">

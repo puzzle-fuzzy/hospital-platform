@@ -3,9 +3,13 @@ import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	continueMedicalPayment,
 	createMedicalPaymentContext,
+	isMedicalInsuranceRegionUnsupported,
+	MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
 	type MedicalBusinessRecovery,
 	type MedicalPaymentAmounts,
+	medicalPaymentAmountView,
 	navigateToOutpatientMedicalAuth,
+	needsMedicalBusinessAuthorization,
 	type PaymentProgress,
 	queryMedicalBusinessRecovery,
 	resumeMedicalSettlementFromPending,
@@ -27,12 +31,17 @@ const HOSPITAL_NAME = "高平市人民医院";
 type OutpatientMedicalSettlementPageData = {
 	loading: boolean;
 	hasPending: boolean;
+	externalPaymentConfirmed: boolean;
 	error: string;
 	hospitalName: string;
 	totalAmountLabel: string;
 	insuranceAmountLabel: string;
 	cashAmountLabel: string;
 	cashAmountValue: string;
+	cashAmountCaption: string;
+	hasActualCashAmount: boolean;
+	hasHospitalDiscount: boolean;
+	hospitalDiscountAmountLabel: string;
 	paymentBusy: boolean;
 	paymentMessage: string;
 	canRetrySettlement: boolean;
@@ -53,6 +62,7 @@ type OutpatientMedicalSettlementPageMethods = {
 	onLoadingTouchMove(): void;
 	onUnload(): void;
 	renderRecovery(recovery: MedicalBusinessRecovery): void;
+	renderExternalPayment(): void;
 	redirectCompleted(recovery: MedicalBusinessRecovery): void;
 };
 
@@ -108,10 +118,15 @@ function emptyData(): OutpatientMedicalSettlementPageData {
 		hasPending: false,
 		error: "",
 		hospitalName: HOSPITAL_NAME,
+		externalPaymentConfirmed: false,
 		totalAmountLabel: "--",
 		insuranceAmountLabel: "--",
 		cashAmountLabel: "--",
 		cashAmountValue: "--",
+		cashAmountCaption: "医保结算后自费",
+		hasActualCashAmount: false,
+		hasHospitalDiscount: false,
+		hospitalDiscountAmountLabel: "",
 		paymentBusy: false,
 		paymentMessage: "",
 		canRetrySettlement: false,
@@ -135,6 +150,7 @@ Page<
 				hasPending: false,
 				error: "登录状态已更新，请返回后重新选择就诊人",
 				paymentBusy: false,
+				externalPaymentConfirmed: false,
 				paymentMessage: "",
 				canRetrySettlement: false,
 				patientId: "",
@@ -202,6 +218,10 @@ Page<
 			});
 		try {
 			let recovery = await queryMedicalBusinessRecovery(business);
+			if (recovery?.externalPaymentConfirmed) {
+				this.renderExternalPayment();
+				return;
+			}
 			if (recovery && !recovery.recoveryAllowed) {
 				throw new ApiError("医保订单存在冲突，需要医院人工核实", {
 					statusCode: 409,
@@ -228,10 +248,7 @@ Page<
 					canRetrySettlement: true,
 				});
 				return;
-			} else if (
-				!recovery ||
-				(recovery.status === "created" && !recovery.authorizationReady)
-			) {
+			} else if (!recovery || needsMedicalBusinessAuthorization(recovery)) {
 				if (!forceAuthorization) {
 					this.setData({
 						loading: false,
@@ -260,6 +277,10 @@ Page<
 			}
 
 			recovery = await queryMedicalBusinessRecovery(business);
+			if (recovery?.externalPaymentConfirmed) {
+				this.renderExternalPayment();
+				return;
+			}
 			if (!recovery) {
 				throw new ApiError("尚未查询到医保订单", {
 					code: "medical-insurance-order-not-found",
@@ -281,6 +302,16 @@ Page<
 				canRetrySettlement: true,
 			});
 		} catch (error) {
+			if (isMedicalInsuranceRegionUnsupported(error)) {
+				this.setData({
+					loading: false,
+					hasPending: false,
+					error: MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+					paymentMessage: "",
+					canRetrySettlement: false,
+				});
+				return;
+			}
 			this.setData({
 				loading: false,
 				hasPending: false,
@@ -300,6 +331,18 @@ Page<
 		void this.resumeAuthorizedPayment(true);
 	},
 
+	renderExternalPayment(): void {
+		this.setData({
+			loading: false,
+			hasPending: false,
+			externalPaymentConfirmed: true,
+			paymentBusy: false,
+			canRetrySettlement: false,
+			error: "",
+			paymentMessage: "费用已通过其他渠道缴清，无需重复支付",
+		});
+	},
+
 	renderRecovery(recovery): void {
 		if (!hasAmounts(recovery)) {
 			this.setData({
@@ -315,9 +358,7 @@ Page<
 			hasPending: true,
 			error: "",
 			totalAmountLabel: formatFen(recovery.amounts.totalFen),
-			insuranceAmountLabel: formatFen(recovery.amounts.insuranceFen),
-			cashAmountLabel: formatFen(recovery.amounts.cashFen),
-			cashAmountValue: formatFenValue(recovery.amounts.cashFen),
+			...medicalPaymentAmountView(recovery.amounts),
 			paymentMessage:
 				"点击去支付时会再次查询服务端状态，不使用上一次按钮或本地缓存",
 			canRetrySettlement: false,
@@ -432,6 +473,16 @@ Page<
 				code: "payment-prepay-in-progress",
 			});
 		} catch (error) {
+			if (isMedicalInsuranceRegionUnsupported(error)) {
+				this.setData({
+					loading: false,
+					hasPending: false,
+					error: MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+					paymentMessage: "",
+					canRetrySettlement: false,
+				});
+				return;
+			}
 			this.setData({
 				error: "",
 				paymentMessage: errorMessageWithCode(

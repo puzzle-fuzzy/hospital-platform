@@ -12,8 +12,11 @@ export { adminPaymentSyncModule } from "./payment-sync";
 export { PaymentSyncAdminService } from "./payment-sync-service";
 export {
 	adminMedicalInsuranceRefundModule,
+	adminPaymentRefundModule,
 	adminWechatRefundModule,
 } from "./refunds";
+export { AdminRegistrationService } from "./registration-service";
+export { adminRegistrationsModule } from "./registrations";
 export { AdminWechatRefundService } from "./wechat-refund-service";
 
 const AdminInsuranceQueryHeaders = t.Object({

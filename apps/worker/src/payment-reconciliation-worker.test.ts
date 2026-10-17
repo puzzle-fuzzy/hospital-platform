@@ -343,6 +343,71 @@ test("reconciliation worker retries when HIS writeback is unavailable", async ()
 	});
 });
 
+for (const claimAllowed of [true, false]) {
+	test(`mixed plugin Worker ${claimAllowed ? "persists claim before .29 response" : "stops .29 when claim was already taken"}`, async () => {
+		const orders = createOrderRepository({
+			...order,
+			idempotencyKey:
+				"registration-medical-plugin-self-pay:medical-order-worker-001",
+			amounts: { totalFen: 300, insuranceFen: 0, cashFen: 300 },
+			state: "cash_paid",
+		});
+		const calls: string[] = [];
+		const worker = new PaymentReconciliationWorker({
+			attempts: createAttemptRepository(attempt()).repository,
+			orders: new PaymentOrderService({ orders: orders.repository }),
+			wechatPayment: gatewayFor(async () => {
+				throw new Error("unused query");
+			}),
+			resolveRegistrationContext: async () => ({
+				businessId: "business-1",
+				payingId: "123",
+				tradingId: "456",
+				hisPaymentReferenceId: "1",
+			}),
+			canCompleteMedicalMixedPayment: async () => true,
+			onThirdPartPayAttempt: async ({ paymentOrder }) => {
+				expect(paymentOrder.orderId).toBe("order-worker-001");
+				calls.push("claim");
+				if (!claimAllowed) throw new Error("already claimed or unknown");
+			},
+			onThirdPartPayResponse: async ({ thirdPartPayRecordId }) => {
+				expect(thirdPartPayRecordId).toBe("1952638941030000004");
+				calls.push("success-persisted");
+			},
+			hospitalSettlement: {
+				writeBack: async (input) => {
+					await input.onThirdPartPayAttempt?.();
+					calls.push("submit");
+					await input.onThirdPartPayResponse?.({
+						rawResponse: "{}",
+						thirdPartPayRecordId: "1952638941030000004",
+					});
+					return {
+						provider: "yunhealth",
+						operation: "registration-self-pay.2.6.65.5",
+						requestId: "worker-claim-test",
+					};
+				},
+			},
+		});
+		expect(
+			await worker.completeMedicalMixedPayment(
+				{
+					ownerUserId: order.ownerUserId,
+					medicalOrderId: "medical-order-worker-001",
+					paymentOrderId: order.orderId,
+				},
+				{ traceId: "claim-test", idempotencyKey: "claim-test" },
+			),
+		).toBe(claimAllowed);
+		expect(calls).toEqual(
+			claimAllowed ? ["claim", "submit", "success-persisted"] : ["claim"],
+		);
+		expect(orders.read().state).toBe(claimAllowed ? "completed" : "cash_paid");
+	});
+}
+
 test("reconciliation worker finishes a persisted HIS writeback after a restart", async () => {
 	const orders = createOrderRepository({ ...order, state: "his_written_back" });
 	const attempts = createAttemptRepository(attempt());

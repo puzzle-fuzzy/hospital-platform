@@ -8,10 +8,13 @@ import {
 import type {
 	AdapterCallContext,
 	ExternalTrace,
+	MedicalInsuranceOrderRepository,
 	OutpatientPaymentGateway,
+	OutpatientPaymentItem,
 	OutpatientPaymentRecord,
 	OutpatientPaymentStatus,
 	PatientRepository,
+	PaymentOrderRepository,
 } from "@hospital/domain";
 import {
 	adapterContextTraceId,
@@ -79,11 +82,137 @@ function requireOutpatientContext(value: unknown): AdapterCallContext {
 export type OutpatientPaymentServiceDependencies = {
 	repository: PatientRepository;
 	gateway: OutpatientPaymentGateway;
+	/** 已成功订单中的密文快照只绑定成员，已缴状态仍以本次 HIS 查询为准。 */
+	resolvePaidRecordSnapshot?: (input: {
+		ownerUserId: string;
+		patientId: string;
+		recordId: string;
+	}) => Promise<unknown>;
 	/** 已由运行配置和 Provider 合同确认的渠道码，不属于单次患者查询输入。 */
 	authSysCode: string;
 	logger?: AppLogger;
 	now?: () => Date;
 };
+
+/** 密文上下文读取前再次核对 owner、就诊人、业务键与订单成功状态。 */
+export function createOutpatientPaidRecordSnapshotResolver(repositories: {
+	paymentOrders: Pick<
+		PaymentOrderRepository,
+		"findByOwnerAndIdempotencyKey" | "getRegistrationSelfPayContext"
+	>;
+	medicalInsuranceOrders: Pick<
+		MedicalInsuranceOrderRepository,
+		"findByOwnerAndBusinessKey" | "getSettlementContext"
+	>;
+}): NonNullable<
+	OutpatientPaymentServiceDependencies["resolvePaidRecordSnapshot"]
+> {
+	return async ({ ownerUserId, patientId, recordId }) => {
+		const key = `outpatient-self-pay:${recordId}`;
+		const cashOrder =
+			await repositories.paymentOrders.findByOwnerAndIdempotencyKey(
+				ownerUserId,
+				key,
+			);
+		if (
+			cashOrder?.ownerUserId === ownerUserId &&
+			cashOrder.patientId === patientId &&
+			cashOrder.idempotencyKey === key &&
+			["cash_paid", "his_written_back", "completed"].includes(cashOrder.state)
+		) {
+			const context =
+				await repositories.paymentOrders.getRegistrationSelfPayContext?.(
+					ownerUserId,
+					cashOrder.orderId,
+				);
+			if (context?.outpatientPaymentRecord)
+				return context.outpatientPaymentRecord;
+		}
+		const medicalOrder =
+			await repositories.medicalInsuranceOrders.findByOwnerAndBusinessKey?.(
+				ownerUserId,
+				"outpatient",
+				recordId,
+			);
+		if (
+			medicalOrder?.ownerUserId !== ownerUserId ||
+			medicalOrder.patientId !== patientId ||
+			medicalOrder.businessType !== "outpatient" ||
+			medicalOrder.orderType !== "DiagPay" ||
+			medicalOrder.businessId !== recordId ||
+			medicalOrder.status !== "insurance_settled"
+		)
+			return undefined;
+		const context =
+			await repositories.medicalInsuranceOrders.getSettlementContext(
+				ownerUserId,
+				medicalOrder.medicalOrderId,
+			);
+		return context?.outpatientPaymentRecord;
+	};
+}
+
+/** 用本次已缴清单的明细恢复本次支付，不能混入同次就诊更早的缴费。 */
+function paidRecordFromSnapshot(
+	snapshot: unknown,
+	recordId: string,
+	paidItems: ReadonlyMap<string, OutpatientPaymentItem>,
+): OutpatientPaymentRecord | undefined {
+	if (snapshot === undefined) return undefined;
+	const record = normalizeOutpatientPaymentRecords([snapshot], "unpaid")[0];
+	if (!record || record.recordId !== recordId) return undefined;
+	const ids = (record.items ?? [record]).map((item) => item.recordId);
+	const fresh = ids.map((id) => paidItems.get(id));
+	if (fresh.some((item) => item === undefined)) return undefined;
+	const items = fresh as OutpatientPaymentItem[];
+	const first = items[0];
+	if (!first) return undefined;
+	if (items.some((item) => item.paymentStatus !== first.paymentStatus)) {
+		throw new OutpatientPaymentResultValidationError("status-mismatch");
+	}
+	const amountFen = items.reduce((sum, item) => sum + item.amountFen, 0);
+	if (!Number.isSafeInteger(amountFen)) {
+		throw new OutpatientPaymentResultValidationError("amount-invalid");
+	}
+	const commonFields = [
+		"paymentStatus",
+		"departmentName",
+		"executionDepartmentName",
+		"doctorName",
+		"executionDoctorName",
+		"chargeClassName",
+		"tradePropName",
+		"networkPatClassName",
+		"typeMemo",
+		"selfBurdenRatio",
+	] as const;
+	const shared = Object.fromEntries(
+		commonFields.flatMap((field) => {
+			const value = first[field];
+			return value !== undefined && items.every((item) => item[field] === value)
+				? [[field, value]]
+				: [];
+		}),
+	);
+	return normalizeOutpatientPaymentRecords(
+		[
+			{
+				recordId,
+				status: "paid",
+				...shared,
+				itemName: `${items.length}项费用`,
+				billDate: items.reduce(
+					(earliest, item) =>
+						item.billDate < earliest ? item.billDate : earliest,
+					first.billDate,
+				),
+				amountFen,
+				...(items.length > 1 ? { items } : {}),
+			},
+		],
+		"paid",
+	)[0];
+}
 
 /**
  * 将门诊费用 gateway 的外部请求链投影为低敏日志字段。
@@ -209,7 +338,7 @@ function queryWindow(now: Date): { startTime: string; endTime: string } {
  * 查询窗口，因为 Provider 请求本身发送的是完整的 startTime/endTime。
  */
 function validateOutpatientPaymentRecordWindow(
-	records: readonly { billDate: string }[],
+	records: readonly OutpatientPaymentRecord[],
 	window: { startTime: string; endTime: string },
 ): void {
 	const start = parseOutpatientBillDateTime(window.startTime);
@@ -221,8 +350,10 @@ function validateOutpatientPaymentRecordWindow(
 	}
 	if (
 		records.some((record) => {
-			const billDate = parseOutpatientBillDateTime(record.billDate);
-			return billDate === undefined || billDate < start || billDate > end;
+			return [record, ...(record.items ?? [])].some((item) => {
+				const billDate = parseOutpatientBillDateTime(item.billDate);
+				return billDate === undefined || billDate < start || billDate > end;
+			});
 		})
 	) {
 		throw new OutpatientPaymentResultValidationError("bill-date-outside-query");
@@ -450,7 +581,29 @@ export class OutpatientPaymentService {
 				status,
 				normalizedContext,
 			);
-			const item = list.items.find((record) => record.recordId === recordId);
+			let item = list.items.find((record) => record.recordId === recordId);
+			if (!item && status === "paid") {
+				const paidItems = new Map<string, OutpatientPaymentItem>();
+				for (const record of list.items) {
+					for (const leaf of record.items ?? [record]) {
+						if (paidItems.has(leaf.recordId)) {
+							throw new OutpatientPaymentResultValidationError(
+								"record-id-duplicate",
+							);
+						}
+						paidItems.set(leaf.recordId, leaf);
+					}
+				}
+				item = paidItems.get(recordId);
+				if (!item && this.dependencies.resolvePaidRecordSnapshot) {
+					const snapshot = await this.dependencies.resolvePaidRecordSnapshot({
+						ownerUserId,
+						patientId,
+						recordId,
+					});
+					item = paidRecordFromSnapshot(snapshot, recordId, paidItems);
+				}
+			}
 			if (!item) {
 				this.logger.warn(
 					{
@@ -599,8 +752,12 @@ export function outpatientPaymentsModule(
 					authorization: t.Optional(t.String({ maxLength: 512 })),
 					"idempotency-key": t.String({ minLength: 1, maxLength: 128 }),
 				}),
-				params: t.Object({ recordId: t.String({ minLength: 1, maxLength: 128 }) }),
-				body: t.Object({ patientId: t.String({ minLength: 1, maxLength: 128 }) }),
+				params: t.Object({
+					recordId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
+				body: t.Object({
+					patientId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
 				response: { 200: OutpatientSelfPayResponse },
 				tags: ["payments"],
 			},
@@ -619,9 +776,15 @@ export function outpatientPaymentsModule(
 				);
 			},
 			{
-				headers: t.Object({ authorization: t.Optional(t.String({ maxLength: 512 })) }),
-				params: t.Object({ recordId: t.String({ minLength: 1, maxLength: 128 }) }),
-				query: t.Object({ patientId: t.String({ minLength: 1, maxLength: 128 }) }),
+				headers: t.Object({
+					authorization: t.Optional(t.String({ maxLength: 512 })),
+				}),
+				params: t.Object({
+					recordId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
+				query: t.Object({
+					patientId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
 				response: { 200: OutpatientSelfPayResponse },
 				tags: ["payments"],
 			},

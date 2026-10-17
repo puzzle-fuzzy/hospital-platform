@@ -159,6 +159,12 @@ export interface AppointmentWriteGateway {
 
 /** 预约写入结果的 owner-scoped 持久化边界。 */
 export interface AppointmentWriteRepository {
+	/** 取消命令按预约互斥；同一预约关联的不同支付单共用这把锁。 */
+	withCancellationLock?<T>(
+		ownerUserId: string,
+		appointmentId: string,
+		operation: () => Promise<T>,
+	): Promise<T>;
 	findHold(
 		ownerUserId: string,
 		holdId: string,
@@ -200,4 +206,12 @@ export interface AppointmentWriteRepository {
 		registration: AppointmentRegistration,
 		expectedStatus?: AppointmentRegistrationStatus,
 	): Promise<AppointmentRegistration | undefined>;
+}
+
+/** 预约取消已在处理中；仅携带固定错误信息，不暴露患者或预约标识。 */
+export class AppointmentCancellationBusyError extends Error {
+	constructor() {
+		super("Appointment cancellation is already in progress");
+		this.name = "AppointmentCancellationBusyError";
+	}
 }

@@ -16,7 +16,7 @@
 import { createHash } from "node:crypto";
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { platform, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { readRawLogTraceFromSerialized } from "../apps/admin/src/raw-logs.ts";
 
 const JOURNAL_UNITS = Object.freeze([
@@ -1164,10 +1164,20 @@ function selectedJournalLines(records, orders) {
 		.join("\n");
 }
 
+function markdownFileTarget(indexDirectory, filePath) {
+	return relative(indexDirectory, filePath)
+		.split(sep)
+		.map((part) =>
+			encodeURIComponent(part).replaceAll("(", "%28").replaceAll(")", "%29"),
+		)
+		.join("/");
+}
+
 function markdownIndex(
 	date,
 	orders,
 	{
+		indexDirectory,
 		latest = false,
 		requestedWindow,
 		captureWindow,
@@ -1236,7 +1246,7 @@ function markdownIndex(
 					? `（第 ${row.operationAttempt}/${row.operationTotal} 次）`
 					: "";
 			lines.push(
-				`| ${row.ordinal} | ${row.displayOperation}${occurrence} | [request.json](${row.requestPath}) | [response.json](${row.responsePath}) |`,
+				`| ${row.ordinal} | ${row.displayOperation}${occurrence} | [request.json](${markdownFileTarget(indexDirectory, row.requestPath)}) | [response.json](${markdownFileTarget(indexDirectory, row.responsePath)}) |`,
 			);
 		}
 		lines.push("");
@@ -1382,6 +1392,7 @@ async function main(args = process.argv.slice(2)) {
 	const captureWindowText = `${shanghaiIso(window.sinceIso)} to ${shanghaiIso(window.untilIso)}`;
 	const indexPath = join(outputDir, "daily-index.md");
 	const indexContent = markdownIndex(options.date, orderResults, {
+		indexDirectory: outputDir,
 		latest: options.latest,
 		requestedWindow: requestedWindowText,
 		captureWindow: captureWindowText,
@@ -1521,6 +1532,7 @@ export {
 	displayOperation,
 	expandNestedJson,
 	main,
+	markdownIndex,
 	pairRawEntries,
 	parseBody,
 	parseRecords,

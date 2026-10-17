@@ -7,6 +7,7 @@ import type {
 	MedicalInsuranceSettlementEvidence,
 } from "@hospital/domain";
 import {
+	createInMemoryHisPaymentReferenceRepository,
 	createInMemoryIdentityUserRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
@@ -170,6 +171,7 @@ test("new medical order worker retries non-terminal 6301 evidence", async () => 
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let receivedOwner: string | undefined;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: {
@@ -208,6 +210,7 @@ test("6202 调用前门禁尚无金额时先等待在途回包，不立即误判
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let queryCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: {
@@ -240,6 +243,7 @@ test("6202 门禁长期没有金额时停止自动动作并转人工复核", asy
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let queryCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: {
@@ -283,6 +287,7 @@ test("authoritative Yunhealth evidence still waits for the official WeChat medic
 		task({ version: 2, attempts: 1, nextAttemptAt: now.toISOString() }),
 	]);
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: {
@@ -313,6 +318,7 @@ test("new medical order worker does not query an order already in manual review"
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let queryCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: {
@@ -375,6 +381,7 @@ test("worker按本人恢复关系为空患者的未知微信医保建单结果",
 	let officialRecoverCalls = 0;
 	let ordinaryQueryCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		identityUsers: createInMemoryIdentityUserRepository([
@@ -514,6 +521,7 @@ test("mixed worker marks cash paid only after both WeChat payment parts are paid
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let legacyQueryCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: {
@@ -606,6 +614,7 @@ test("legacy plugin order uses completeWechatPayment when postPayment is globall
 	let newPreOrderCalls = 0;
 	let legacyCompletionCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: {
@@ -696,6 +705,7 @@ test("legacy top-level .2 IDs use medical finalize when postPayment is globally 
 	let newPreOrderCalls = 0;
 	let legacyPluginCompletionCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: {
@@ -780,6 +790,7 @@ test("mixed worker does not write HIS when only the cash part is paid", async ()
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let completionCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: { query: async () => evidence() },
@@ -876,6 +887,7 @@ test("医院负担不让 Worker 把过期微信现金预支付误判为可用", 
 		},
 	);
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: { query: async () => evidence() },
@@ -958,6 +970,7 @@ test("pure insurance reaches terminal only after both .32 and .5 succeed", async
 	const completionCalls: string[] = [];
 	let medicalCompletionWrites = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: {
@@ -1130,6 +1143,7 @@ test("mixed payment validates one combined .2 before finalizing HIS once", async
 	let finalizationCalls = 0;
 	let completeSettlementCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		identityUsers: createInMemoryIdentityUserRepository([
@@ -1255,7 +1269,9 @@ test("sequenced-v1 mixed payment completes medical .32 before cash .2/.29/.15/.5
 	);
 
 	const calls: string[] = [];
+	const references = createInMemoryHisPaymentReferenceRepository();
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: references,
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: {
@@ -1350,6 +1366,13 @@ test("sequenced-v1 mixed payment completes medical .32 before cash .2/.29/.15/.5
 		},
 		hospitalSettlement: {
 			writeBack: async (input) => {
+				expect(input.registrationContext?.hisPaymentReferenceId).toBe("1");
+				expect(input.registrationContext?.thirdPartPayRecordId).toBeUndefined();
+				expect(await references.findByReferenceId("1")).toMatchObject({
+					status: "allocated",
+					paymentScopeId: "medical-order-worker-001:wechat_cash",
+					source: "component",
+				});
 				expect(input.orderId).toBe("medical-order-worker-001:wechat_cash");
 				expect(input.skipCompleteSettlement).not.toBeTrue();
 				expect(input.registrationContext).toMatchObject({
@@ -1362,8 +1385,8 @@ test("sequenced-v1 mixed payment completes medical .32 before cash .2/.29/.15/.5
 				await input.onThirdPartPayAttempt?.();
 				await input.onThirdPartPayResponse?.({
 					rawResponse:
-						'{"success":true,"data":{"thirdPartPayRecordId":"third-part-cash-001"}}',
-					thirdPartPayRecordId: "third-part-cash-001",
+						'{"success":true,"data":{"thirdPartPayRecordId":"1952638941030000004"}}',
+					thirdPartPayRecordId: "1952638941030000004",
 					requestId: "cash-.29-sequenced-001",
 				});
 				calls.push("cash.15");
@@ -1425,6 +1448,16 @@ test("sequenced-v1 mixed payment completes medical .32 before cash .2/.29/.15/.5
 	});
 	expect(settlement?.settlementCompletion).toBeUndefined();
 	expect(settlement?.postPaymentCompletedAt).toBeDefined();
+	expect(await references.findByReferenceId("1")).toMatchObject({
+		status: "confirmed",
+		receiptId: "1952638941030000004",
+	});
+	expect(
+		await references.findByReferenceId("1952638941030000004"),
+	).toMatchObject({
+		referenceId: "1",
+		paymentScopeId: "medical-order-worker-001:wechat_cash",
+	});
 });
 
 test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5", async () => {
@@ -1482,8 +1515,10 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 	});
 
 	const calls: string[] = [];
+	const references = createInMemoryHisPaymentReferenceRepository();
 	let medicalFinalizeCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: references,
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: {
@@ -1554,6 +1589,13 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 		},
 		hospitalSettlement: {
 			writeBack: async (input) => {
+				expect(input.registrationContext?.hisPaymentReferenceId).toBe("1");
+				expect(input.registrationContext?.thirdPartPayRecordId).toBeUndefined();
+				expect(await references.findByReferenceId("1")).toMatchObject({
+					status: "allocated",
+					paymentScopeId: "medical-order-worker-001:wechat_cash",
+					source: "component",
+				});
 				expect(input.skipCompleteSettlement).not.toBeTrue();
 				expect(input.registrationContext).toMatchObject({
 					payingId: "paying-pure-cash-001",
@@ -1565,8 +1607,8 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 				await input.onThirdPartPayAttempt?.();
 				await input.onThirdPartPayResponse?.({
 					rawResponse:
-						'{"success":true,"data":{"thirdPartPayRecordId":"third-part-pure-cash-001"}}',
-					thirdPartPayRecordId: "third-part-pure-cash-001",
+						'{"success":true,"data":{"thirdPartPayRecordId":"1952638941030000005"}}',
+					thirdPartPayRecordId: "1952638941030000005",
 					requestId: "pure-cash-.29-sequenced-001",
 				});
 				calls.push("cash.15");
@@ -1618,6 +1660,16 @@ test("sequenced-v1 pure cash skips medical finalize and completes .2/.29/.15/.5"
 	});
 	expect(settlement?.settlementWriteback).toBeUndefined();
 	expect(settlement?.settlementCompletion).toBeUndefined();
+	expect(await references.findByReferenceId("1")).toMatchObject({
+		status: "confirmed",
+		receiptId: "1952638941030000005",
+	});
+	expect(
+		await references.findByReferenceId("1952638941030000005"),
+	).toMatchObject({
+		referenceId: "1",
+		paymentScopeId: "medical-order-worker-001:wechat_cash",
+	});
 });
 
 test("sequenced-v1 never creates cash .2 while medical .32 is not successful", async () => {
@@ -1651,6 +1703,7 @@ test("sequenced-v1 never creates cash .2 while medical .32 is not successful", a
 	let cashPreOrderCalls = 0;
 	let cashWriteBackCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: {
@@ -1781,7 +1834,9 @@ test("sequenced-v1 legacy mixed order with an early successful .5 skips the fina
 	);
 
 	const calls: string[] = [];
+	const references = createInMemoryHisPaymentReferenceRepository();
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: references,
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: {
@@ -1852,13 +1907,20 @@ test("sequenced-v1 legacy mixed order with an early successful .5 skips the fina
 		},
 		hospitalSettlement: {
 			writeBack: async (input) => {
+				expect(input.registrationContext?.hisPaymentReferenceId).toBe("1");
+				expect(input.registrationContext?.thirdPartPayRecordId).toBeUndefined();
+				expect(await references.findByReferenceId("1")).toMatchObject({
+					status: "allocated",
+					paymentScopeId: "medical-order-worker-001:wechat_cash",
+					source: "component",
+				});
 				expect(input.skipCompleteSettlement).toBeTrue();
 				calls.push("cash.29");
 				await input.onThirdPartPayAttempt?.();
 				await input.onThirdPartPayResponse?.({
 					rawResponse:
-						'{"success":true,"data":{"thirdPartPayRecordId":"third-part-legacy-cash-001"}}',
-					thirdPartPayRecordId: "third-part-legacy-cash-001",
+						'{"success":true,"data":{"thirdPartPayRecordId":"1952638941030000006"}}',
+					thirdPartPayRecordId: "1952638941030000006",
 					requestId: "legacy-cash-.29-worker-001",
 				});
 				calls.push("cash.15");
@@ -1903,6 +1965,16 @@ test("sequenced-v1 legacy mixed order with an early successful .5 skips the fina
 	expect(settlement?.postPaymentCompletedAt).toBeDefined();
 	// 存量单已经调用过一次医保 `.5`；本次自费补写不能再发第二次。
 	expect(1 + calls.filter((call) => call.endsWith(".5")).length).toBe(1);
+	expect(await references.findByReferenceId("1")).toMatchObject({
+		status: "confirmed",
+		receiptId: "1952638941030000006",
+	});
+	expect(
+		await references.findByReferenceId("1952638941030000006"),
+	).toMatchObject({
+		referenceId: "1",
+		paymentScopeId: "medical-order-worker-001:wechat_cash",
+	});
 });
 
 test("sequenced-v1 legacy mixed order blocks cash when an early .5 is failed or unknown", async () => {
@@ -1947,6 +2019,7 @@ test("sequenced-v1 legacy mixed order blocks cash when an early .5 is failed or 
 		let cashPreOrderCalls = 0;
 		let cashWriteBackCalls = 0;
 		const worker = new MedicalInsuranceOrderReconciliationWorker({
+			hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 			tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 			orders,
 			medicalInsurance: {
@@ -2057,6 +2130,7 @@ test(".32 success without the required .5 remains non-terminal", async () => {
 		context,
 	);
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: {
@@ -2182,6 +2256,7 @@ test(".32 failed writeback moves an otherwise paid mixed order to manual review 
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
 	let finalizationCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks,
 		orders,
 		medicalInsurance: {
@@ -2273,6 +2348,7 @@ test("nonzero med_ins_other_fee stays unmapped and blocks post-payment writeback
 	);
 	let postPaymentCalls = 0;
 	const worker = new MedicalInsuranceOrderReconciliationWorker({
+		hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
 		tasks: createInMemoryMedicalInsuranceQueryTaskRepository([task()]),
 		orders,
 		medicalInsurance: { query: async () => evidence() },
@@ -2321,4 +2397,140 @@ test("nonzero med_ins_other_fee stays unmapped and blocks post-payment writeback
 			)
 		)?.postPaymentComponents,
 	).toBeUndefined();
+});
+
+test("现金Worker租约过期后并发到达 .29，原子claim只允许一个发送者", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const medicalOrderId = "medical-order-worker-001";
+	await orders.insert(
+		order({
+			status: "cash_pending",
+			amounts: {
+				totalFen: 100,
+				cashFen: 100,
+				personalAccountFen: 0,
+				fundFen: 0,
+			},
+			wechatMixTradeNo: "mix-cash-lease",
+			wechatOutTradeNo: "out-cash-lease",
+			wechatPaymentState: "cash_paid",
+		}),
+	);
+	await orders.saveSettlementContext("user-worker-001", medicalOrderId, {
+		businessId: "business-cash-lease",
+		businessCode: "code-cash-lease",
+		hospitalId: "1001",
+		patientId: "2001",
+		insuredAreaCode: "140500",
+		networkRegister: {
+			idNo: "140500199001010022",
+			netPatName: "local fixture",
+			memberNo: "psn-cash-lease",
+		},
+		outNetworkSettleMain: {},
+		nationalUpDetailList: [],
+		upDetailList: [],
+		tradeOrderIds: [],
+		postPaymentPlanVersion: "sequenced-v1",
+		postPaymentComponents: [
+			prePaymentComponent("wechat_cash", 100, "H5", "5033"),
+		],
+	});
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+	const references = createInMemoryHisPaymentReferenceRepository();
+	let release = () => {},
+		enteredFirst = () => {},
+		enteredSecond = () => {};
+	const releasePromise = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const firstEntered = new Promise<void>((resolve) => {
+		enteredFirst = resolve;
+	});
+	const secondEntered = new Promise<void>((resolve) => {
+		enteredSecond = resolve;
+	});
+	let entrants = 0,
+		submissions = 0;
+	const createWorker = () =>
+		new MedicalInsuranceOrderReconciliationWorker({
+			tasks,
+			orders,
+			hisPaymentReferences: references,
+			medicalInsurance: {
+				query: async () => {
+					throw new Error("pure cash must not query medical settlement");
+				},
+			},
+			wechatPayment: {
+				createMixedOrder: async () => {
+					throw Error("unused");
+				},
+				recoverMixedOrder: async () => {
+					throw Error("unused");
+				},
+				queryMixedOrder: async () => ({
+					mixState: "paid",
+					cashState: "paid",
+					insuranceState: "paid",
+					medInsPayStatus: "MED_INS_PAY_SUCCESS",
+					cashFen: 100,
+					totalFen: 100,
+					fundFen: 0,
+					personalAccountFen: 0,
+					otherPaymentFen: 0,
+					medicalCashFen: 100,
+					cashReduceDetails: [],
+					providerStatus: "success",
+					trace: {
+						provider: "wechat-pay",
+						operation: "medical-mix-query",
+						requestId: "cash-lease-query",
+					},
+				}),
+			},
+			postPaymentPayType: "CREDIT",
+			postPaymentWorkStationId: "",
+			postPaymentTradeTypeCode: "1",
+			postPayment: {
+				createPreOrder: async () => {
+					throw Error("cash .2 already succeeded");
+				},
+			},
+			hospitalSettlement: {
+				writeBack: async (input) => {
+					entrants++;
+					if (entrants === 1) enteredFirst();
+					else enteredSecond();
+					await releasePromise;
+					await input.onThirdPartPayAttempt?.();
+					submissions++;
+					throw Error("local simulated transport interruption");
+				},
+			},
+		});
+	const first = createWorker()
+		.runOnce(now)
+		.catch((error) => error);
+	await firstEntered;
+	const second = createWorker()
+		.runOnce(new Date(now.getTime() + 6 * 60_000))
+		.catch((error) => error);
+	try {
+		await secondEntered;
+		release();
+		await Promise.all([first, second]);
+		expect(entrants).toBe(2);
+		expect(submissions).toBe(1);
+		expect(
+			(await orders.getSettlementContext("user-worker-001", medicalOrderId))
+				?.selfPayThirdPartyWriteback?.status,
+		).toBe("unknown");
+		expect(await references.findByReferenceId("1")).toMatchObject({
+			status: "allocated",
+		});
+	} finally {
+		release();
+		await Promise.all([first, second]);
+	}
 });

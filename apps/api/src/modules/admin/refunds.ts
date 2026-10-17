@@ -1,5 +1,6 @@
 import { success } from "@hospital/contracts";
 import {
+	MedicalInsuranceRefundAmountExceededError,
 	WechatRefundAmountExceededError,
 	WechatRefundIdempotencyConflictError,
 	WechatRefundNotFoundError,
@@ -12,11 +13,12 @@ import {
 	MedicalInsuranceRegistrationInputError,
 } from "../medical-insurance/errors";
 import type { MedicalInsuranceRefundService } from "../medical-insurance/refund-service";
+import type { AdminPaymentRefundService } from "./payment-refund-service";
 import {
-	AdminWechatRefundHistoryNotConfiguredError,
-	AdminWechatRefundInputError,
 	AdminPaymentOperationNotConfiguredError,
 	AdminPaymentOperationNotFoundError,
+	AdminWechatRefundHistoryNotConfiguredError,
+	AdminWechatRefundInputError,
 	type AdminWechatRefundService,
 } from "./wechat-refund-service";
 
@@ -94,6 +96,97 @@ const AdminMedicalInsuranceRefundParams = t.Object({
 	refundNo: t.String({ minLength: 1, maxLength: 64 }),
 });
 
+const AdminPaymentRefundBody = t.Object(
+	{
+		source: t.Union([
+			t.Literal("payment_order"),
+			t.Literal("medical_insurance"),
+		]),
+		orderId: t.String({ minLength: 1, maxLength: 64 }),
+		refundType: t.Union([t.Literal("ALL"), t.Literal("HI"), t.Literal("CASH")]),
+		reason: t.Optional(t.String({ maxLength: 80 })),
+	},
+	{ additionalProperties: false },
+);
+
+const AdminPaymentRefundParams = t.Object({
+	source: t.Union([t.Literal("payment_order"), t.Literal("medical_insurance")]),
+	orderId: t.String({ minLength: 1, maxLength: 64 }),
+});
+
+const AdminPaymentRefundQuery = t.Object(
+	{
+		refundType: t.Optional(
+			t.Union([t.Literal("ALL"), t.Literal("HI"), t.Literal("CASH")]),
+		),
+	},
+	{ additionalProperties: false },
+);
+
+function mapPaymentRefundError(error: unknown): never {
+	if (error instanceof MedicalInsuranceOrderNotFoundError) {
+		throw new HttpError(404, "not_found", "医保订单不存在或尚未落库");
+	}
+	if (error instanceof MedicalInsuranceRegistrationInputError) {
+		throw new HttpError(400, "validation", error.message);
+	}
+	return mapError(error);
+}
+
+export function adminPaymentRefundModule(
+	service: Pick<AdminPaymentRefundService, "request" | "query">,
+	adminRefundToken: string,
+) {
+	return new Elysia({ name: "admin-payment-refunds-module" })
+		.post(
+			"/admin/payment-refunds",
+			async ({ headers, body }) => {
+				authorize(adminRefundToken, headers);
+				try {
+					return success(
+						await service.request({
+							source: body.source,
+							orderId: body.orderId,
+							refundType: body.refundType,
+							...(body.reason !== undefined ? { reason: body.reason } : {}),
+							context: adapterContextFromHeaders(headers),
+						}),
+					);
+				} catch (error) {
+					return mapPaymentRefundError(error);
+				}
+			},
+			{
+				headers: AdminMedicalInsuranceRefundHeaders,
+				body: AdminPaymentRefundBody,
+				detail: { hide: true },
+			},
+		)
+		.get(
+			"/admin/payment-refunds/:source/:orderId",
+			async ({ headers, params, query }) => {
+				authorize(adminRefundToken, headers);
+				try {
+					return success(
+						await service.query({
+							...params,
+							...(query.refundType ? { refundType: query.refundType } : {}),
+							context: adapterContextFromHeaders(headers),
+						}),
+					);
+				} catch (error) {
+					return mapPaymentRefundError(error);
+				}
+			},
+			{
+				headers: AdminMedicalInsuranceRefundHeaders,
+				params: AdminPaymentRefundParams,
+				query: AdminPaymentRefundQuery,
+				detail: { hide: true },
+			},
+		);
+}
+
 function constantTimeEqual(left: string, right: string): boolean {
 	const encoder = new TextEncoder();
 	const leftBytes = encoder.encode(left);
@@ -121,6 +214,9 @@ function authorize(
 }
 
 function mapError(error: unknown): never {
+	if (error instanceof MedicalInsuranceRefundAmountExceededError) {
+		throw new HttpError(409, "refund_amount_exceeded", error.message);
+	}
 	if (error instanceof AdminWechatRefundInputError) {
 		throw new HttpError(400, "validation", error.message);
 	}
@@ -289,6 +385,7 @@ export function adminMedicalInsuranceRefundModule(
 		"requestFullRefundByOrder" | "query"
 	>,
 	adminRefundToken: string,
+	paymentRefundService?: Pick<AdminPaymentRefundService, "request">,
 ) {
 	return new Elysia({ name: "admin-medical-insurance-refunds-module" })
 		.post(
@@ -296,6 +393,17 @@ export function adminMedicalInsuranceRefundModule(
 			async ({ headers, body }) => {
 				authorize(adminRefundToken, headers);
 				try {
+					if (paymentRefundService) {
+						return success(
+							await paymentRefundService.request({
+								source: "medical_insurance",
+								orderId: body.orderId,
+								refundType: "ALL",
+								...(body.reason !== undefined ? { reason: body.reason } : {}),
+								context: adapterContextFromHeaders(headers),
+							}),
+						);
+					}
 					return success(
 						await service.requestFullRefundByOrder({
 							orderId: body.orderId,
@@ -304,13 +412,7 @@ export function adminMedicalInsuranceRefundModule(
 						}),
 					);
 				} catch (error) {
-					if (error instanceof MedicalInsuranceOrderNotFoundError) {
-						throw new HttpError(404, "not_found", "医保订单不存在或尚未落库");
-					}
-					if (error instanceof MedicalInsuranceRegistrationInputError) {
-						throw new HttpError(400, "validation", error.message);
-					}
-					throw error;
+					return mapPaymentRefundError(error);
 				}
 			},
 			{

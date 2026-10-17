@@ -72,6 +72,21 @@
 		</view>
 	</view>
 
+	<view wx:if="{{refreshingSources || sourceNotice}}" class="confirm-card confirm-source-card">
+		<view class="confirm-card-title">
+			<text>最新可用时段</text>
+			<text wx:if="{{!refreshingSources && !submitting && !holdId && !holdIdempotencyKey && !registrationIdempotencyKey}}" class="confirm-card-action" bindtap="onRefreshSources">刷新号源</text>
+		</view>
+		<view wx:if="{{originalAppointmentCancelled}}" class="confirm-source-hint">原预约已取消，新预约尚未完成。</view>
+		<view class="confirm-source-hint">{{sourceNotice}}</view>
+		<view wx:if="{{!refreshingSources && !holdId && !holdIdempotencyKey && !registrationIdempotencyKey && sourceChoices.length}}" class="confirm-source-choices">
+			<view wx:for="{{sourceChoices}}" wx:key="serialNumber" data-index="{{index}}" bindtap="onSourceChoiceTap" class="confirm-source-choice {{!sourceSelectionRequired && serialNumber === item.serialNumber && timeLabel === item.timeLabel ? 'confirm-source-choice-selected' : ''}}">
+				<text>{{item.serialNumber}}号</text>
+				<text>{{item.timeLabel}}</text>
+			</view>
+		</view>
+	</view>
+
 	<view class="confirm-agree" bindtap="onToggleAgree">
 		<view class="confirm-checkbox {{agreed ? 'confirm-checkbox-on' : ''}}">
 			<text wx:if="{{agreed}}" class="confirm-checkbox-mark">✓</text>
@@ -80,9 +95,11 @@
 		<text class="confirm-agree-link" catchtap="onOpenNotice">《预约挂号须知》</text>
 	</view>
 
-	<view class="confirm-submit {{agreed && !submitting ? '' : 'confirm-submit-off'}}" bindtap="onConfirmTap">
-		<text>{{submitting ? '正在提交预约…' : '确定预约'}}</text>
+	<view class="confirm-submit {{agreed && !submitting && !refreshingSources && !sourceSelectionRequired ? '' : 'confirm-submit-off'}}" bindtap="onConfirmTap">
+		<text>{{refreshingSources ? '正在更新号源…' : submitting ? '正在提交预约…' : sourceSelectionRequired ? '请先选择可用时段' : '确定预约'}}</text>
 	</view>
+
+	<view wx:if="{{!submitting && !refreshingSources && (holdId || holdIdempotencyKey || registrationIdempotencyKey)}}" class="confirm-note">上次预约结果尚未确认，请点“确定预约”继续确认。</view>
 
 	<view wx:if="{{error}}" class="confirm-note confirm-error">
 		<text>{{error}}</text>

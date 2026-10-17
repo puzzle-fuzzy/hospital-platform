@@ -11,6 +11,7 @@ import {
 	appointmentPaymentStatusLabel,
 	canContinueAppointmentPayment,
 	hasKnownAppointmentPayment,
+	isAppointmentPaymentCompleted,
 } from "../../services/appointment-payment-view";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
@@ -80,6 +81,7 @@ type AppointmentDetailPageState = AppointmentDetailPageData & {
 	canViewOriginalPayment: boolean;
 	payDeadlineLabel: string;
 	paymentMessage: string;
+	paymentCompleted: boolean;
 };
 
 function decode(value: string | undefined): string {
@@ -161,6 +163,7 @@ function detailDefaults(): AppointmentDetailPageState {
 		canViewOriginalPayment: false,
 		payDeadlineLabel: "",
 		paymentMessage: "",
+		paymentCompleted: false,
 	};
 }
 
@@ -202,6 +205,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				canViewOriginalPayment: false,
 				payDeadlineLabel: "",
 				paymentMessage: "",
+				paymentCompleted: false,
 			});
 		});
 
@@ -387,6 +391,20 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						: detail.status;
 				const paymentView = { ...detail, status };
 				const canPay = canContinueAppointmentPayment(paymentView);
+				// 已确认缴费是详情页的正常结果；旧截止时间不再作为待支付提醒。
+				// 仅在旧 API 缺少整单状态时兼容现金已缴费，不能覆盖显式确认中或终态。
+				const paymentCompleted = isAppointmentPaymentCompleted(paymentView);
+				// 整单状态明确时，提示也以整单为准，不让旧现金标识覆盖确认中等状态。
+				const paymentNoticeView =
+					detail.paymentStatus === undefined
+						? paymentView
+						: {
+								status,
+								paymentStatus: detail.paymentStatus,
+								...(detail.payExpiresAt
+									? { payExpiresAt: detail.payExpiresAt }
+									: {}),
+							};
 				this.setData({
 					loading: false,
 					error: "",
@@ -421,10 +439,15 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						status === "cancelled" ||
 						detail.paymentStatus === "expired" ||
 						detail.paymentStatus === "cancelled",
-					payDeadlineLabel: appointmentPayDeadlineLabel(detail.payExpiresAt),
-					paymentMessage: canPay
+					paymentCompleted,
+					payDeadlineLabel: paymentCompleted
 						? ""
-						: appointmentPaymentBlockedMessage(paymentView),
+						: appointmentPayDeadlineLabel(detail.payExpiresAt),
+					paymentMessage: paymentCompleted
+						? "挂号费用已支付，可查看本次支付详情。"
+						: canPay
+							? ""
+							: appointmentPaymentBlockedMessage(paymentNoticeView),
 					canceling: false,
 					canCancel: status === "scheduled",
 					sessionGeneration: expectedSessionGeneration,
@@ -550,6 +573,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 							canPay: false,
 							canViewOriginalPayment: true,
 							paymentMessage: "预约已取消，不能继续付款",
+							paymentCompleted: false,
+							payDeadlineLabel: "",
 						});
 						wx.showToast({ title: "取消预约成功", icon: "success" });
 					})
@@ -598,6 +623,9 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			canPay: false,
 			canViewOriginalPayment: false,
 			sourceRecordStatus: "",
+			paymentCompleted: false,
+			paymentMessage: "",
+			payDeadlineLabel: "",
 			sessionGeneration: -1,
 		});
 		wx.showToast({ title: message, icon: "none" });

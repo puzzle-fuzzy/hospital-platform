@@ -76,6 +76,13 @@ type ProviderPaymentItem = {
 	outTradeOrderId?: unknown;
 	registerId?: unknown;
 	visitRecordId?: unknown;
+	billDeptId?: unknown;
+	billDocCode?: unknown;
+	networkPatClassId?: unknown;
+	medicalCategoryId?: unknown;
+	registerChargeFlag?: unknown;
+	orgId?: unknown;
+	hospitalId?: unknown;
 };
 
 function objectValue(value: unknown, requestId: string): ProviderPaymentItem {
@@ -332,6 +339,38 @@ function optionalAmountFen(
 		}
 		throw error;
 	}
+}
+
+/** 单价可包含不足一分的精度；仅在能无损换算时提供兼容的整数分字段。 */
+function optionalUnitPrice(
+	value: unknown,
+	requestId: string,
+): { priceYuan?: string; priceFen?: number } {
+	if (value === undefined || value === null || value === "") return {};
+	if (
+		(typeof value !== "string" && typeof value !== "number") ||
+		(typeof value === "number" && !Number.isFinite(value))
+	) {
+		throw providerError("Zhongyang outpatient price is invalid", requestId);
+	}
+	const priceYuan = String(value).trim();
+	if (priceYuan.length > 64 || !/^\d+(?:\.\d+)?$/.test(priceYuan)) {
+		throw providerError("Zhongyang outpatient price is invalid", requestId);
+	}
+	const [whole = "0", fraction = ""] = priceYuan.split(".");
+	const scale = 10n ** BigInt(fraction.length);
+	if (
+		(BigInt(whole) * scale + BigInt(fraction || "0")) * 100n >
+		BigInt(Number.MAX_SAFE_INTEGER) * scale
+	) {
+		throw providerError("Zhongyang outpatient price is invalid", requestId);
+	}
+	const exactFraction = fraction.replace(/0+$/, "");
+	if (exactFraction.length > 2) return { priceYuan };
+	return {
+		priceYuan,
+		priceFen: amountFen(`${whole}.${exactFraction.padEnd(2, "0")}`, requestId),
+	};
 }
 
 /** 2.6.33 自付比例按 0～1 小数传递，页面只负责百分比格式化。 */
@@ -592,7 +631,7 @@ function mapRecord(
 	const spec = optionalTextField(item.spec, "spec", requestId, 128);
 	const quantity = optionalTextField(item.quantity, "quantity", requestId, 64);
 	const unitName = optionalTextField(item.unitName, "unitName", requestId, 64);
-	const priceFen = optionalAmountFen(item.price, "price", requestId);
+	const unitPrice = optionalUnitPrice(item.price, requestId);
 	const chargeClassName = optionalTextField(
 		item.chargeClassName,
 		"chargeClassName",
@@ -639,7 +678,7 @@ function mapRecord(
 		...(spec ? { spec } : {}),
 		...(quantity ? { quantity } : {}),
 		...(unitName ? { unitName } : {}),
-		...(priceFen !== undefined ? { priceFen } : {}),
+		...unitPrice,
 		...(chargeClassName ? { chargeClassName } : {}),
 		...(tradePropName ? { tradePropName } : {}),
 		...(networkPatClassName ? { networkPatClassName } : {}),
@@ -675,12 +714,141 @@ function ensureUniqueRecordIds(
  * 冲突状态，必须整批拒绝；只有身份明确不同的历史退款才可以从公共读模型
  * 中排除。待缴查询不允许状态 5，仍由 `mapRecord` 严格拒绝。
  */
-function mapVisiblePaymentRecords(
+type PaymentLeaf = {
+	item: ProviderPaymentItem;
+	record: OutpatientPaymentRecord;
+};
+
+type PaymentGroup = {
+	record: OutpatientPaymentRecord;
+	leaves: readonly PaymentLeaf[];
+};
+
+/** Provider 的 -1/0 等占位值不能被误当成真实就诊、机构或单据关联。 */
+function groupingIdentity(
+	value: unknown,
+	field: string,
+	requestId: string,
+): string | undefined {
+	const text = identityText(value, field, requestId);
+	return text && !/^(?:0+|-1|null|undefined)$/iu.test(text) ? text : undefined;
+}
+
+/**
+ * 只按真实就诊关联归组。执行科室、项目类型和开单秒数并非就诊边界，
+ * 同次就诊的检验、超声和心电图可以在一个结算中收取。
+ */
+function paymentGroupKey(
+	item: ProviderPaymentItem,
+	leafId: string,
+	requestId: string,
+): string {
+	const identity = (field: keyof ProviderPaymentItem) =>
+		groupingIdentity(item[field], field, requestId);
+	const registerId = identity("registerId");
+	const visitRecordId = identity("visitRecordId");
+	const billDeptId = identity("billDeptId");
+	const billDocCode = identity("billDocCode");
+	const compatibility = [
+		billDeptId ?? null,
+		billDocCode ?? null,
+		// 分类码需要逐值匹配；明确的 0/-1 与缺失均不能折叠成同一类别。
+		identityText(item.networkPatClassId, "networkPatClassId", requestId) ??
+			null,
+		identityText(item.medicalCategoryId, "medicalCategoryId", requestId) ??
+			null,
+		// 0 表示非挂号费，是有效的分类值，不能按身份占位值忽略。
+		identityText(item.registerChargeFlag, "registerChargeFlag", requestId) ??
+			null,
+		identity("orgId") ?? null,
+		identity("hospitalId") ?? null,
+	];
+	if (registerId && visitRecordId && billDeptId && billDocCode) {
+		return JSON.stringify(["visit", registerId, visitRecordId, compatibility]);
+	}
+	const outTradeOrderId = identity("outTradeOrderId");
+	return outTradeOrderId
+		? JSON.stringify(["bill", outTradeOrderId, compatibility])
+		: JSON.stringify(["leaf", leafId]);
+}
+
+function groupedRecord(
+	leaves: readonly PaymentLeaf[],
+	key: string,
+	providerPatientId: string,
+	requestId: string,
+): OutpatientPaymentRecord {
+	const first = leaves[0]?.record;
+	if (!first)
+		throw providerError(
+			"Zhongyang outpatient payment group is empty",
+			requestId,
+		);
+	if (leaves.length === 1) return first;
+	let totalFen = 0;
+	for (const { record } of leaves) {
+		totalFen += record.amountFen;
+		if (!Number.isSafeInteger(totalFen)) {
+			throw providerError(
+				"Zhongyang outpatient grouped amount exceeds safe range",
+				requestId,
+			);
+		}
+	}
+	const records = leaves.map(({ record }) => record);
+	const commonFields = [
+		"paymentStatus",
+		"departmentName",
+		"executionDepartmentName",
+		"doctorName",
+		"executionDoctorName",
+		"chargeClassName",
+		"tradePropName",
+		"networkPatClassName",
+		"typeMemo",
+		"selfBurdenRatio",
+	] as const;
+	const shared = Object.fromEntries(
+		commonFields.flatMap((field) => {
+			const value = first[field];
+			return value !== undefined &&
+				records.every((record) => record[field] === value)
+				? [[field, value]]
+				: [];
+		}),
+	);
+	const recordId = createHash("sha256")
+		.update(
+			JSON.stringify([
+				"outpatient-payment-group-v1",
+				providerPatientId,
+				key,
+				records.map((record) => record.recordId).sort(),
+			]),
+		)
+		.digest("hex")
+		.slice(0, 32);
+	return {
+		recordId,
+		status: first.status,
+		...shared,
+		itemName: `${records.length}项费用`,
+		billDate: records.reduce(
+			(earliest, record) =>
+				record.billDate < earliest ? record.billDate : earliest,
+			first.billDate,
+		),
+		amountFen: totalFen,
+		items: records,
+	};
+}
+
+function mapPaymentGroups(
 	items: readonly ProviderPaymentItem[],
 	providerPatientId: string,
 	status: OutpatientPaymentStatus,
 	requestId: string,
-): OutpatientPaymentRecord[] {
+): PaymentGroup[] {
 	const historicalRefundedRecordIds = new Set<string>();
 	const visibleItems: ProviderPaymentItem[] = [];
 
@@ -704,9 +872,11 @@ function mapVisiblePaymentRecords(
 		visibleItems.push(item);
 	}
 
-	const records = visibleItems.map((item) =>
-		mapRecord(item, providerPatientId, status, requestId),
-	);
+	const leaves = visibleItems.map((item) => ({
+		item,
+		record: mapRecord(item, providerPatientId, status, requestId),
+	}));
+	const records = leaves.map(({ record }) => record);
 	ensureUniqueRecordIds(records, requestId);
 	if (
 		records.some((record) => historicalRefundedRecordIds.has(record.recordId))
@@ -716,7 +886,39 @@ function mapVisiblePaymentRecords(
 			requestId,
 		);
 	}
-	return records;
+	const groups = new Map<string, { key: string; leaves: PaymentLeaf[] }>();
+	const billGroups = new Map<string, string>();
+	for (const leaf of leaves) {
+		const key = paymentGroupKey(leaf.item, leaf.record.recordId, requestId);
+		const billId = groupingIdentity(
+			leaf.item.outTradeOrderId,
+			"outTradeOrderId",
+			requestId,
+		);
+		if (billId) {
+			const previous = billGroups.get(billId);
+			if (previous !== undefined && previous !== key) {
+				throw providerError(
+					"Zhongyang outpatient bill has conflicting payment contexts",
+					requestId,
+				);
+			}
+			billGroups.set(billId, key);
+		}
+		// 已缴查询允许同时返回正常已缴和退款中。两者不能合成一个含糊状态，
+		// 但状态也不能进入业务 ID：同一组完整退款时仍保留稳定引用。
+		const partitionKey = JSON.stringify([
+			key,
+			leaf.record.paymentStatus ?? null,
+		]);
+		const group = groups.get(partitionKey) ?? { key, leaves: [] };
+		group.leaves.push(leaf);
+		groups.set(partitionKey, group);
+	}
+	return [...groups.values()].map(({ key, leaves: group }) => ({
+		record: groupedRecord(group, key, providerPatientId, requestId),
+		leaves: group,
+	}));
 }
 
 function trace(requestId: string): ExternalTrace {
@@ -778,12 +980,12 @@ export class ZhongyangOutpatientPaymentApiGateway
 			this.fetcher,
 		);
 		const items = responseItems(response.data, response.requestId);
-		const records = mapVisiblePaymentRecords(
+		const records = mapPaymentGroups(
 			items,
 			providerPatientId,
 			normalizedInput.status,
 			response.requestId,
-		);
+		).map(({ record }) => record);
 		return {
 			records,
 			trace: trace(response.requestId),
@@ -828,11 +1030,12 @@ export class ZhongyangOutpatientPaymentApiGateway
 			this.fetcher,
 		);
 		const items = responseItems(response.data, response.requestId);
-		const matched = items.find(
-			(item) =>
-				opaqueRecordId(item, providerPatientId, response.requestId) ===
-				recordId,
-		);
+		const matched = mapPaymentGroups(
+			items,
+			providerPatientId,
+			"unpaid",
+			response.requestId,
+		).find((group) => group.record.recordId === recordId);
 		if (!matched) {
 			throw providerError(
 				"Zhongyang outpatient payment record was not found",
@@ -840,22 +1043,31 @@ export class ZhongyangOutpatientPaymentApiGateway
 				false,
 			);
 		}
-		const outTradeOrderId = identityText(
-			matched.outTradeOrderId,
-			"outTradeOrderId",
-			response.requestId,
-		);
-		if (!outTradeOrderId) {
-			throw providerError(
-				"Zhongyang outpatient payment record has no outTradeOrderId",
-				response.requestId,
-			);
-		}
+		const outTradeOrderIds = [
+			...new Set(
+				matched.leaves.map(({ item }) => {
+					const billId = groupingIdentity(
+						item.outTradeOrderId,
+						"outTradeOrderId",
+						response.requestId,
+					);
+					if (!billId) {
+						throw providerError(
+							"Zhongyang outpatient payment record has no outTradeOrderId",
+							response.requestId,
+						);
+					}
+					return billId;
+				}),
+			),
+		].sort();
 		return {
 			recordId,
+			// 安全展示快照随支付上下文保存，支付后可精确恢复当次合缴成员。
+			record: matched.record,
 			providerPatientId,
-			outTradeOrderIds: [outTradeOrderId],
-			totalFen: amountFen(matched.amount, response.requestId),
+			outTradeOrderIds,
+			totalFen: matched.record.amountFen,
 			trace: {
 				...trace(response.requestId),
 				operation: "outpatient-payment-context",

@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import type { MedicalInsuranceRefundPayload } from "@hospital/contracts";
+import { createHash, createHmac } from "node:crypto";
+import {
+	type MedicalInsuranceRefundPayload,
+	stringifyJsonPreservingLargeIntegers,
+} from "@hospital/contracts";
 import type { WechatRefund } from "@hospital/domain";
 import type { AppLogger } from "@hospital/observability";
 import { Elysia } from "elysia";
@@ -55,7 +59,9 @@ function requestFor(
 			"x-his-signature": signature,
 			"x-request-id": requestId,
 		},
-		...(method === "POST" ? { body: JSON.stringify(body) } : {}),
+		...(method === "POST"
+			? { body: stringifyJsonPreservingLargeIntegers(body) }
+			: {}),
 	});
 }
 
@@ -116,6 +122,240 @@ test("HIS refund route verifies source, signature and reserves nonce", async () 
 		operatorRef: "his-refund",
 		context: { traceId: "his-test-request-001" },
 	});
+});
+
+const paymentReferencePath =
+	"/his/wechat-leg-refunds/by-third-part-pay-record-id";
+
+function rawReferenceRequest(
+	body: string,
+	nonce: string,
+	canonicalBody = body,
+): Request {
+	const timestamp = String(Math.floor(now / 1000));
+	const requestId = "his-reference-request-001";
+	// 独立按实际十进制文本签名，避免测试也先把 19 位关联号转成 number。
+	const bodyDigest = createHash("sha256").update(canonicalBody).digest("hex");
+	const signature = createHmac("sha256", hmacSecret)
+		.update(
+			[
+				"POST",
+				paymentReferencePath,
+				timestamp,
+				nonce,
+				requestId,
+				bodyDigest,
+			].join("\n"),
+		)
+		.digest("hex");
+	return new Request(`http://localhost/api/v1${paymentReferencePath}`, {
+		method: "POST",
+		headers: {
+			"content-type": "application/json",
+			"x-real-ip": "124.164.248.83",
+			"x-his-refund-token": token,
+			"x-his-timestamp": timestamp,
+			"x-his-nonce": nonce,
+			"x-his-signature": signature,
+			"x-request-id": requestId,
+		},
+		body,
+	});
+}
+
+function paymentReferenceFixture(
+	options: { found?: boolean; configured?: boolean } = {},
+) {
+	const resolved: string[] = [];
+	const refunds: Array<{ input: unknown; context: unknown }> = [];
+	const result: WechatRefund = {
+		refundRecordId: "refund-reference-1",
+		merchantRefundNo: "RFHIS-reference-1",
+		idempotencyKey: "his-medical-wechat-leg:order-reference-1",
+		source: "medical_insurance",
+		sourceOrderId: "order-reference-1",
+		outTradeNo: "original-wechat-cash-1",
+		totalFen: 40,
+		refundFen: 40,
+		reason: null,
+		status: "processing",
+		providerStatus: "PROCESSING",
+		providerRefundId: null,
+		providerTransactionId: null,
+		providerRequestId: null,
+		successTime: null,
+		lastErrorCode: null,
+		version: 1,
+		createdAt: new Date(now).toISOString(),
+		updatedAt: new Date(now).toISOString(),
+	};
+	const app = new Elysia({ normalize: false })
+		.use(requestContextPlugin())
+		.use(errorHandlerPlugin())
+		.group("/api/v1", (api) =>
+			api.use(
+				hisMedicalInsuranceRefundModule(
+					{
+						async requestFullRefundByOrder() {
+							throw new Error(
+								"cash reference must not request aggregate refund",
+							);
+						},
+						async query() {
+							return undefined;
+						},
+					},
+					{
+						token,
+						hmacSecret,
+						security: createSecurityStore(),
+						now: () => now,
+						...(options.configured === false
+							? {}
+							: {
+									async resolvePaymentReference(referenceId: string) {
+										resolved.push(referenceId);
+										return options.found === false
+											? undefined
+											: {
+													medicalOrderId: "order-reference-1",
+													paymentScopeId: "cash-component-1",
+													source: "component" as const,
+												};
+									},
+								}),
+					},
+					{
+						wechat: {
+							async requestMedicalInsuranceCashByOrder(input, context) {
+								refunds.push({ input, context });
+								return result;
+							},
+							async requestMedicalInsuranceCashByOutTradeNo() {
+								throw new Error("reference must resolve the original order");
+							},
+							async query() {
+								return result;
+							},
+						},
+					},
+				),
+			),
+		);
+	return { app, resolved, refunds };
+}
+
+test.each(["1952638941030000004", "9223372036854775807"])(
+	"HIS cash reference preserves raw 19 digit JSON integer %s and its HMAC",
+	async (referenceId) => {
+		const fixture = paymentReferenceFixture();
+		const response = await fixture.app.handle(
+			rawReferenceRequest(
+				`{"reason":"HIS现金退费","thirdPartPayRecordId":${referenceId}}`,
+				"nonce-reference-raw-0001",
+			),
+		);
+		expect(response.status).toBe(200);
+		expect(fixture.resolved).toEqual([referenceId]);
+		expect(fixture.refunds).toEqual([
+			{
+				input: { orderId: "order-reference-1", reason: "HIS现金退费" },
+				context: expect.objectContaining({
+					traceId: "his-reference-request-001",
+				}),
+			},
+		]);
+	},
+);
+
+test("HIS cash reference accepts numeric strings without conflating their signature with numbers", async () => {
+	const fixture = paymentReferenceFixture();
+	const referenceId = "1952638941030000004";
+	const body = `{"thirdPartPayRecordId":"${referenceId}"}`;
+	const invalid = await fixture.app.handle(
+		rawReferenceRequest(
+			body,
+			"nonce-reference-string-1",
+			`{"thirdPartPayRecordId":${referenceId}}`,
+		),
+	);
+	expect(invalid.status).toBe(401);
+	expect(fixture.resolved).toEqual([]);
+	const valid = await fixture.app.handle(
+		rawReferenceRequest(body, "nonce-reference-string-2"),
+	);
+	expect(valid.status).toBe(200);
+	expect(fixture.resolved).toEqual([referenceId]);
+});
+
+test.each([
+	"9223372036854775808",
+	"12345678901234567890",
+	"0",
+	"-1",
+	"1.0",
+	"1e3",
+	"1.952638941030000004e18",
+	'"01"',
+	'"1e3"',
+	'"19526389410300000040"',
+])(
+	"HIS cash reference rejects noncanonical or out of range value %s",
+	async (value) => {
+		const fixture = paymentReferenceFixture();
+		const response = await fixture.app.handle(
+			rawReferenceRequest(
+				`{"thirdPartPayRecordId":${value}}`,
+				"nonce-reference-invalid-1",
+			),
+		);
+		expect([400, 422]).toContain(response.status);
+		expect(fixture.resolved).toEqual([]);
+		expect(fixture.refunds).toEqual([]);
+	},
+);
+
+test("HIS cash reference authenticates before resolving and returns 404 for unknown or unconfirmed mapping", async () => {
+	const fixture = paymentReferenceFixture({ found: false });
+	const unauthorized = rawReferenceRequest(
+		'{"thirdPartPayRecordId":1952638941030000004}',
+		"nonce-reference-unknown-1",
+	);
+	unauthorized.headers.set("x-his-refund-token", "wrong-token");
+	expect((await fixture.app.handle(unauthorized)).status).toBe(401);
+	expect(fixture.resolved).toEqual([]);
+	const unknown = await fixture.app.handle(
+		rawReferenceRequest(
+			'{"thirdPartPayRecordId":1952638941030000004}',
+			"nonce-reference-unknown-2",
+		),
+	);
+	expect(unknown.status).toBe(404);
+	expect(fixture.refunds).toEqual([]);
+});
+
+test("HIS cash reference fails closed without a resolver and rejects caller supplied refund amounts", async () => {
+	const fixture = paymentReferenceFixture({ configured: false });
+	const response = await fixture.app.handle(
+		requestFor(
+			"POST",
+			paymentReferencePath,
+			{ thirdPartPayRecordId: 123n },
+			"nonce-reference-no-dep-1",
+		),
+	);
+	expect(response.status).toBe(503);
+	const configured = paymentReferenceFixture();
+	const amount = await configured.app.handle(
+		requestFor(
+			"POST",
+			paymentReferencePath,
+			{ thirdPartPayRecordId: 123n, refundFen: 1 },
+			"nonce-reference-amount-1",
+		),
+	);
+	expect([400, 422]).toContain(amount.status);
+	expect(configured.refunds).toEqual([]);
 });
 
 test("HIS refund route rejects a replayed nonce before calling refund service", async () => {

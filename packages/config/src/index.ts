@@ -1,4 +1,5 @@
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
+export type YunhealthRegistrationRefundAuthMode = "bearer" | "signed-relay";
 
 export type RuntimeConfig = {
 	/** 生产环境默认关闭 OpenAPI，避免无意暴露内部接口描述。 */
@@ -122,6 +123,8 @@ export type RuntimeConfig = {
 	legacyPatientAuthBaseUrl: string | undefined;
 	/** 本项目管理的本地 AI Runtime 闸门；可由受控 Python 进程承担模型推理。 */
 	aiRuntimeReady: boolean;
+	/** 语音识别独立验收闸门；开启文字模型不会自动开启语音。 */
+	aiRuntimeSpeechReady: boolean;
 	aiRuntimeUrl: string | undefined;
 	aiRuntimeToken: string | undefined;
 	aiRuntimeTimeoutMs: number;
@@ -147,6 +150,10 @@ export type RuntimeConfig = {
 	yunhealthBaseUrl: string | undefined;
 	/** 云健康服务端授权；只留在 API/worker 内存中。 */
 	yunhealthAuthorizationToken: string | undefined;
+	/** 只控制挂号退费 .15 的鉴权；非法显式模式保持不可用，不降级。 */
+	yunhealthRegistrationRefundAuthMode:
+		| YunhealthRegistrationRefundAuthMode
+		| undefined;
 	yunhealthPaymentOrgId: string | undefined;
 	yunhealthRegistrationPluginPayTypeId: string | undefined;
 	yunhealthRegistrationPluginPayType: string | undefined;
@@ -561,6 +568,38 @@ export function yunhealthRegistrationSettlementConfigurationStatus(
 	).length === 0
 		? "configured"
 		: "incomplete";
+}
+
+/** 仅允许已经核实的签名中转根地址；不接受端口、路径、用户信息或重定向别名。 */
+export function isYunhealthRegistrationRefundSignedRelayBaseUrl(
+	value: string | undefined,
+): boolean {
+	return (
+		typeof value === "string" &&
+		/^https:\/\/gpsrmyy\.meiyi\.pro\/?$/.test(value)
+	);
+}
+
+export function yunhealthRegistrationRefundAuthorizationStatus(
+	runtimeConfig: Pick<
+		RuntimeConfig,
+		| "yunhealthRegistrationRefundAuthMode"
+		| "yunhealthBaseUrl"
+		| "yunhealthAuthorizationToken"
+	>,
+): "configured" | "missing_authorization" | "unsupported" {
+	if (runtimeConfig.yunhealthRegistrationRefundAuthMode === "signed-relay") {
+		return isYunhealthRegistrationRefundSignedRelayBaseUrl(
+			runtimeConfig.yunhealthBaseUrl,
+		)
+			? "configured"
+			: "unsupported";
+	}
+	if (runtimeConfig.yunhealthRegistrationRefundAuthMode !== "bearer")
+		return "unsupported";
+	return runtimeConfig.yunhealthAuthorizationToken?.trim()
+		? "configured"
+		: "missing_authorization";
 }
 
 /**
@@ -1332,6 +1371,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		legacyPatientAuthBaseUrl: optional(env.LEGACY_PATIENT_AUTH_BASE_URL),
 		aiRuntimeReady: boolean(env.AI_RUNTIME_READY, false),
+		aiRuntimeSpeechReady: boolean(env.AI_RUNTIME_SPEECH_READY, false),
 		aiRuntimeUrl: optional(env.AI_RUNTIME_URL),
 		aiRuntimeToken: optional(env.AI_RUNTIME_TOKEN),
 		aiRuntimeTimeoutMs: positiveAiRuntimeTimeout(env.AI_RUNTIME_TIMEOUT_MS),
@@ -1361,6 +1401,14 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 				env.ZHONGYANG_AUTHORIZATION_TOKEN ??
 					env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,
 			),
+		yunhealthRegistrationRefundAuthMode: (() => {
+			const mode = optional(env.YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE);
+			return mode === undefined || mode === "bearer"
+				? "bearer"
+				: mode === "signed-relay"
+					? "signed-relay"
+					: undefined;
+		})(),
 		yunhealthPaymentOrgId: optional(env.YUNHEALTH_PAYMENT_ORG_ID),
 		yunhealthRegistrationPluginPayTypeId: optional(
 			env.YUNHEALTH_PLUGIN_PAY_TYPE_ID,

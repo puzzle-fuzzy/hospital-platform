@@ -1,4 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
+import {
+	parseJsonPreservingLargeIntegers,
+	stringifyJsonPreservingLargeIntegers,
+} from "@hospital/contracts";
 import type {
 	AdapterCallContext,
 	ExternalTrace,
@@ -10,6 +14,8 @@ import type {
 	YunhealthMiniProgramPayParams,
 	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
+import { normalizeHisPaymentReference } from "@hospital/domain";
+import { medicalInsuranceGroupPayTypeId } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import {
 	type ProviderFetcher,
@@ -45,7 +51,7 @@ const WECHAT_SELF_PAY_TYPE_IDS = new Set([
 ]);
 /** 6202 返回有个人账户实际支付金额时使用的支付方式。 */
 const PERSONAL_ACCOUNT_PAY_TYPE_ID = 5;
-/** 医保合单 2.6.65.2 的内部支付腿；外层固定 H5/payTypeId=2。 */
+/** 医保合单 2.6.65.2 的内部支付腿；外层按正金额医保腿选择 H5/2 或 H5/5。 */
 const COMBINED_MEDICAL_PAY_TYPE_IDS = new Set([
 	2,
 	PERSONAL_ACCOUNT_PAY_TYPE_ID,
@@ -66,6 +72,8 @@ export type YunhealthRegistrationSettlementGatewayOptions = {
 	baseUrl: string;
 	/** 不得从小程序请求传入；支持原始 token 或完整 Bearer 值。旧服务允许为空。 */
 	authorizationToken?: string;
+	/** 仅退款 .15：默认要求 Bearer；受信中转显式选择既有签名鉴权。 */
+	refundAuthorizationMode?: "bearer" | "signed-relay";
 	/** 仅兼容旧配置；非 HIS 收款 .2/.5/.9 不使用 2.6.65.15 的 orgId。 */
 	paymentOrgId?: string;
 	/** 2.6.65.1 / 2.27.2.27 使用的医院 ID。 */
@@ -242,9 +250,17 @@ function positiveIntegerText(value: unknown, label: string): string {
 
 /**
  * 2.27.2.29 的记录关联号既兼容历史 HIS 数字流水，也兼容 HIS 回显的平台
- * medicalOrderId。大整数仍要求以字符串返回，避免 JSON number 精度丢失。
+ * medicalOrderId。新响应的 JSON 大整数由原文解析为 bigint，历史成功标记
+ * 仍可使用 UUID；此标记与待发送的 hisPaymentReferenceId 分开保存。
  */
 function thirdPartPayRecordReference(value: unknown, label: string): string {
+	if (typeof value === "bigint") {
+		if (value > 0n && value <= 9_223_372_036_854_775_807n) return String(value);
+		throw providerError(THIRD_PART_OPERATION, `${label} is invalid`, {
+			failureStage: "validation",
+			requestOutcome: "not_sent",
+		});
+	}
 	if (typeof value === "number") {
 		if (!Number.isSafeInteger(value) || value <= 0) {
 			throw providerError(THIRD_PART_OPERATION, `${label} is invalid`, {
@@ -255,6 +271,43 @@ function thirdPartPayRecordReference(value: unknown, label: string): string {
 		return String(value);
 	}
 	return requiredText(value, label, 128);
+}
+
+/** 数据库已分配的 HIS 关联号，以十进制文本保存，以 signed Long 数字发送。 */
+function hisPaymentReference(value: unknown): bigint {
+	try {
+		return BigInt(normalizeHisPaymentReference(value));
+	} catch {
+		throw providerError(
+			THIRD_PART_PAY_OPERATION,
+			"hisPaymentReferenceId is invalid",
+			{
+				failureStage: "validation",
+				requestOutcome: "not_sent",
+			},
+		);
+	}
+}
+
+/** 新回执若为 JSON number，必须在转换为 JS number 前校验原始整数字面量。 */
+function requireCanonicalReceiptNumber(raw: string): void {
+	const parseWithSource = JSON.parse as (
+		text: string,
+		reviver: (
+			key: string,
+			value: unknown,
+			context?: { source?: string },
+		) => unknown,
+	) => unknown;
+	parseWithSource(raw, (key, value, context) => {
+		if (
+			(key === "thirdPartPayRecordId" || key === "third_part_pay_record_id") &&
+			typeof value === "number" &&
+			!/^[1-9]\d{0,18}$/u.test(context?.source ?? "")
+		)
+			throw new Error("Noncanonical HIS payment record number");
+		return value;
+	});
 }
 
 function normalizedAuthorization(
@@ -524,6 +577,76 @@ function providerScalarText(
 	return normalized && normalized.length <= maxLength ? normalized : undefined;
 }
 
+/**
+ * 普通微信 5032 的 payRecord.tradeNo 才是微信商户单号；同一记录的
+ * outTradeNo/tradeCode 是 HIS 业务单号。只检查支付记录，避免根字段或
+ * 其他支付腿覆盖真实商户单号；重复记录必须一致。
+ */
+function manualSelfPayWechatOutTradeNo(
+	value: unknown,
+	hisTradeCode: string,
+): string | undefined {
+	const data = responseData(value);
+	const records = [
+		data.payRecord,
+		...(Array.isArray(data.payRecords) ? data.payRecords : []),
+	].filter(
+		(record): record is Record<string, unknown> =>
+			typeof record === "object" && record !== null && !Array.isArray(record),
+	);
+	const matchingRecords = records.filter(
+		(record) =>
+			record.payTypeId === undefined ||
+			String(record.payTypeId) === String(MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID),
+	);
+	if (records.length > 0 && matchingRecords.length === 0) return undefined;
+	const validMerchantNo = (candidate: unknown): string | undefined => {
+		if (typeof candidate !== "string") return undefined;
+		const normalized = providerScalarText(candidate, 32);
+		return normalized &&
+			normalized !== hisTradeCode &&
+			/^[A-Za-z0-9_\-*]+$/u.test(normalized)
+			? normalized
+			: undefined;
+	};
+	const hasStructuredPayment = matchingRecords.some((record) =>
+		["payTypeId", "payModel", "payTypeCode", "tradeNo", "trade_no"].some(
+			(key) => record[key] !== undefined,
+		),
+	);
+	const candidates: string[] = [];
+	if (hasStructuredPayment) {
+		for (const record of matchingRecords) {
+			if (record.payModel !== undefined && record.payModel !== "MINI_PROGRAM")
+				return undefined;
+			if (record.payTypeCode !== undefined && record.payTypeCode !== "WECHAT")
+				return undefined;
+			const rawValues = [record.tradeNo, record.trade_no].filter(
+				(item) => item !== undefined,
+			);
+			if (rawValues.length === 0) return undefined;
+			for (const raw of rawValues) {
+				const candidate = validMerchantNo(raw);
+				if (!candidate) return undefined;
+				candidates.push(candidate);
+			}
+		}
+	} else {
+		// 历史简化响应只有 outTradeNo，没有带渠道信息的 payRecord。
+		for (const record of [data, ...matchingRecords]) {
+			for (const key of ["outTradeNo", "out_trade_no"]) {
+				if (record[key] === undefined) continue;
+				const candidate = validMerchantNo(record[key]);
+				if (!candidate) return undefined;
+				candidates.push(candidate);
+			}
+		}
+	}
+	return candidates.length > 0 && new Set(candidates).size === 1
+		? candidates[0]
+		: undefined;
+}
+
 function requireYunhealthSuccess(
 	response: {
 		data: unknown;
@@ -543,6 +666,60 @@ function requireYunhealthSuccess(
 			? { rawBodyText: response.rawBodyText }
 			: {}),
 	});
+}
+
+/**
+ * .15 的外层 success/code 只确认请求已受理。接口合同明确要求业务 data 为
+ * 字符串 "success"；上游也可能把 HIS XML 异常放在这个字段，不能把 HTTP
+ * 200 或外层 success:true 当成医院已经完成回写。
+ */
+function requireYunhealthPaymentNotifySuccess(
+	response: Parameters<typeof requireYunhealthSuccess>[0],
+	operation: string,
+	context: AdapterCallContext,
+	logger?: ProviderRequestLogger,
+): void {
+	requireYunhealthSuccess(response, operation, context, logger);
+	const envelope = providerRecord(response.data);
+	const code = envelope?.code;
+	const hasSuccessCode = ["0", "200", "0000"].includes(String(code ?? ""));
+	if (
+		envelope &&
+		(envelope.success === undefined || envelope.success === true) &&
+		(code === undefined || code === "" || hasSuccessCode) &&
+		(envelope.success === true || hasSuccessCode) &&
+		typeof envelope.data === "string" &&
+		envelope.data.trim() === "success"
+	) {
+		return;
+	}
+	const diagnostic =
+		typeof envelope?.data === "string"
+			? providerScalarText(envelope.data, 256)
+			: undefined;
+	logger?.warn(
+		{
+			event: "provider.response.business_unconfirmed",
+			provider: "yunhealth",
+			operation,
+			traceId: context.traceId,
+			providerRequestId: response.requestId,
+			providerStatusCode: response.statusCode,
+			providerResponseBusinessSuccess: false,
+		},
+		"Yunhealth payment notification was not confirmed",
+	);
+	throw providerError(
+		operation,
+		"Yunhealth payment notification was not confirmed",
+		{
+			requestId: response.requestId,
+			failureStage: "response",
+			responseInvalid: true,
+			requestOutcome: "unknown",
+			...(diagnostic ? { providerErrorMessage: diagnostic } : {}),
+		},
+	);
 }
 
 function normalizeContext(
@@ -718,18 +895,31 @@ export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
 ): RegistrationSelfPayRefundNotificationGateway {
 	const baseUrl = requiredText(options.baseUrl, "baseUrl");
 	const providerBaseUrl = providerUrl(baseUrl, "");
-	// 旧服务 `_notify_plugin_payment` 对 .15 明确要求服务端授权。退款前必须
-	// 确认它存在，不能在微信已经退款后才发现 HIS 回写没有凭证。
-	const authorization = normalizedAuthorization(
-		requiredText(options.authorizationToken ?? "", "authorizationToken"),
-	);
-	if (!authorization) {
+	const authorizationMode = options.refundAuthorizationMode ?? "bearer";
+	if (authorizationMode !== "bearer" && authorizationMode !== "signed-relay") {
 		throw providerError(
 			"registration-self-pay.2.6.65.15.refund",
-			"authorizationToken is invalid",
+			"refundAuthorizationMode is invalid",
 			{ failureStage: "validation", requestOutcome: "not_sent" },
 		);
 	}
+	// 仅此受控 Java 中转已经使用既有签名/license 鉴权，不能将任意上游免授权。
+	if (
+		authorizationMode === "signed-relay" &&
+		!/^https:\/\/gpsrmyy\.meiyi\.pro\/?$/u.test(baseUrl)
+	) {
+		throw providerError(
+			"registration-self-pay.2.6.65.15.refund",
+			"signed-relay baseUrl is invalid",
+			{ failureStage: "validation", requestOutcome: "not_sent" },
+		);
+	}
+	const authorization =
+		authorizationMode === "bearer"
+			? normalizedAuthorization(
+					requiredText(options.authorizationToken ?? "", "authorizationToken"),
+				)
+			: undefined;
 	const paymentOrgId = positiveInteger(options.paymentOrgId, "paymentOrgId");
 	const paymentSource = requiredText(
 		options.paymentSource ?? "",
@@ -744,67 +934,92 @@ export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
 		"tradeTypeCode",
 	);
 	const workStationId = textAllowEmpty(options.workStationId, "workStationId");
-	const fetcher = options.fetcher ?? fetch;
+	const configuredFetcher = options.fetcher ?? fetch;
+	const fetcher: ProviderFetcher =
+		authorizationMode === "signed-relay"
+			? (input, init) =>
+					configuredFetcher(input, { ...init, redirect: "error" })
+			: configuredFetcher;
+
+	const prepareRefundContext = (
+		input: Parameters<
+			NonNullable<
+				RegistrationSelfPayRefundNotificationGateway["validateRefundContext"]
+			>
+		>[0],
+	) => {
+		const orderId = requiredText(input.orderId, "orderId", 128);
+		const refundFen = positiveInteger(input.refundFen, "refundFen");
+		const registrationContext = input.registrationContext;
+		const normalizedContext = normalizeContext(registrationContext);
+		const payTypeId = positiveIntegerText(
+			registrationContext.payTypeId,
+			"payTypeId",
+		);
+		const recordCode = requiredText(
+			registrationContext.recordCode,
+			"recordCode",
+			32,
+		);
+		if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
+			throw providerError(
+				"registration-self-pay.2.6.65.15.refund",
+				"recordCode is invalid",
+				{ failureStage: "validation", requestOutcome: "not_sent" },
+			);
+		}
+		const storedTradeTypeCode = requiredText(
+			registrationContext.tradeTypeCode,
+			"tradeTypeCode",
+		);
+		if (storedTradeTypeCode !== tradeTypeCode) {
+			throw providerError(
+				"registration-self-pay.2.6.65.15.refund",
+				"stored tradeTypeCode does not match server configuration",
+				{ failureStage: "validation", requestOutcome: "not_sent" },
+			);
+		}
+		const storedWorkStationId = textAllowEmpty(
+			registrationContext.workStationId,
+			"workStationId",
+		);
+		if (storedWorkStationId !== workStationId) {
+			throw providerError(
+				"registration-self-pay.2.6.65.15.refund",
+				"stored plugin workStationId does not match server configuration",
+				{ failureStage: "validation", requestOutcome: "not_sent" },
+			);
+		}
+		return {
+			orderId,
+			refundFen,
+			normalizedContext,
+			payTypeId,
+			recordCode,
+			storedTradeTypeCode,
+			storedWorkStationId,
+		};
+	};
 
 	return {
+		validateRefundContext(input) {
+			prepareRefundContext(input);
+		},
 		async notifyRefund(input, context) {
-			const orderId = requiredText(input.orderId, "orderId", 128);
 			const merchantRefundNo = requiredText(
 				input.merchantRefundNo,
 				"merchantRefundNo",
 				64,
 			);
-			const refundFen = positiveInteger(input.refundFen, "refundFen");
-			const registrationContext = input.registrationContext;
-			const normalizedContext = normalizeContext(registrationContext);
-			const payTypeId = positiveIntegerText(
-				registrationContext.payTypeId,
-				"payTypeId",
-			);
-			const recordCode = requiredText(
-				registrationContext.recordCode,
-				"recordCode",
-				32,
-			);
-			if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
-				throw providerError(
-					"registration-self-pay.2.6.65.15.refund",
-					"recordCode is invalid",
-					{
-						failureStage: "validation",
-						requestOutcome: "not_sent",
-					},
-				);
-			}
-			const storedTradeTypeCode = requiredText(
-				registrationContext.tradeTypeCode,
-				"tradeTypeCode",
-			);
-			if (storedTradeTypeCode !== tradeTypeCode) {
-				throw providerError(
-					"registration-self-pay.2.6.65.15.refund",
-					"stored tradeTypeCode does not match server configuration",
-					{
-						failureStage: "validation",
-						requestOutcome: "not_sent",
-					},
-				);
-			}
-			const storedWorkStationId = textAllowEmpty(
-				registrationContext.workStationId,
-				"workStationId",
-			);
-			if (storedWorkStationId !== workStationId) {
-				throw providerError(
-					"registration-self-pay.2.6.65.15.refund",
-					"stored plugin workStationId does not match server configuration",
-					{
-						failureStage: "validation",
-						requestOutcome: "not_sent",
-					},
-				);
-			}
-
+			const {
+				orderId,
+				refundFen,
+				normalizedContext,
+				payTypeId,
+				recordCode,
+				storedTradeTypeCode,
+				storedWorkStationId,
+			} = prepareRefundContext(input);
 			const operation = "registration-self-pay.2.6.65.15.refund";
 			const bodyText = yunhealthRefundNotifyBody({
 				authSysCode,
@@ -832,14 +1047,21 @@ export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
 							`${orderId}:${merchantRefundNo}`,
 						),
 					},
-					headers: { Authorization: authorization },
+					...(authorization
+						? { headers: { Authorization: authorization } }
+						: {}),
 					bodyText,
 					...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
 					...(options.logger ? { logger: options.logger } : {}),
 				},
 				fetcher,
 			);
-			requireYunhealthSuccess(response, operation, context, options.logger);
+			requireYunhealthPaymentNotifySuccess(
+				response,
+				operation,
+				context,
+				options.logger,
+			);
 			return {
 				provider: "yunhealth",
 				operation,
@@ -983,6 +1205,7 @@ export function createYunhealthRegistrationSettlementGateway(
 				operation: string,
 				path: string,
 				bodyText: string,
+				captureRawBody = false,
 			) => {
 				const response = await requestJson<T>(
 					{
@@ -998,7 +1221,9 @@ export function createYunhealthRegistrationSettlementGateway(
 							? { headers: { Authorization: authorization } }
 							: {}),
 						bodyText,
-						...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
+						...(captureRawBody || providerRawLoggingEnabled()
+							? { captureRawBody: true }
+							: {}),
 						...(options.logger ? { logger: options.logger } : {}),
 					},
 					fetcher,
@@ -1015,17 +1240,15 @@ export function createYunhealthRegistrationSettlementGateway(
 						)
 					: undefined;
 				if (!thirdPartPayRecordId) {
-					const platformOrderId = requiredText(
-						registrationContext?.platformOrderId,
-						"platformOrderId",
-						128,
+					const hisPaymentReferenceId = hisPaymentReference(
+						registrationContext?.hisPaymentReferenceId,
 					);
 					await input.onThirdPartPayAttempt?.();
-					const thirdPart = await request<unknown>(
+					const thirdPart = await requestBodyText<unknown>(
 						"2.27.2.29",
 						THIRD_PART_PAY_OPERATION,
 						THIRD_PART_PAY_START_PATH,
-						{
+						stringifyJsonPreservingLargeIntegers({
 							agreementNo: outTradeNo,
 							bankCode: "-",
 							certNo: normalizedContext.certNo,
@@ -1042,10 +1265,10 @@ export function createYunhealthRegistrationSettlementGateway(
 							psnNo: normalizedContext.psnNo,
 							sceneCode: "OUT",
 							settleId: normalizedContext.businessId,
-							thirdPartPayRecordId: platformOrderId,
+							thirdPartPayRecordId: hisPaymentReferenceId,
 							tradingId: normalizedContext.tradingId,
 							transStatus: "0",
-						},
+						}),
 						true,
 					);
 					requireYunhealthSuccess(
@@ -1054,13 +1277,6 @@ export function createYunhealthRegistrationSettlementGateway(
 						context,
 						options.logger,
 					);
-					const resolvedThirdPartPayRecordId = thirdPartPayRecordReference(
-						nestedValue(thirdPart.data, [
-							"thirdPartPayRecordId",
-							"third_part_pay_record_id",
-						]),
-						"thirdPartPayRecordId",
-					);
 					if (typeof thirdPart.rawBodyText !== "string") {
 						throw providerError(
 							THIRD_PART_PAY_OPERATION,
@@ -1068,6 +1284,27 @@ export function createYunhealthRegistrationSettlementGateway(
 							{
 								requestId: thirdPart.requestId,
 								failureStage: "response",
+								requestOutcome: "unknown",
+							},
+						);
+					}
+					let resolvedThirdPartPayRecordId: string;
+					try {
+						requireCanonicalReceiptNumber(thirdPart.rawBodyText);
+						resolvedThirdPartPayRecordId = normalizeHisPaymentReference(
+							nestedValue(
+								parseJsonPreservingLargeIntegers(thirdPart.rawBodyText),
+								["thirdPartPayRecordId", "third_part_pay_record_id"],
+							),
+						);
+					} catch {
+						throw providerError(
+							THIRD_PART_PAY_OPERATION,
+							"2.27.2.29 record reference is invalid",
+							{
+								requestId: thirdPart.requestId,
+								failureStage: "response",
+								responseInvalid: true,
 								requestOutcome: "unknown",
 							},
 						);
@@ -1099,7 +1336,7 @@ export function createYunhealthRegistrationSettlementGateway(
 							workStationId: requestWorkStationId,
 						}),
 					);
-					requireYunhealthSuccess(
+					requireYunhealthPaymentNotifySuccess(
 						paymentNotify,
 						PAYMENT_NOTIFY_OPERATION,
 						context,
@@ -1521,7 +1758,8 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 
 /**
  * 医保支付的第一笔 2.6.65.2 只聚合医保基金、医院优惠和个人账户；微信
- * 自费金额在医保 `.32` 完成后另建一笔 5033。外层仍固定 H5/payTypeId=2，
+ * 自费金额在医保 `.32` 完成后另建一笔 5033。外层 H5 优先使用正金额基金 2，
+ * 无基金金额时使用实际存在的个人账户 5；
  * 组内实际支付腿放到 payTypeParams。历史整单合并请求继续兼容。
  *
  * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的
@@ -1609,6 +1847,20 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);
 			}
+			let groupedPayTypeId: "2" | "5" | undefined;
+			if (combinedPayTypeParams) {
+				try {
+					groupedPayTypeId = medicalInsuranceGroupPayTypeId(
+						combinedPayTypeParams,
+					);
+				} catch {
+					throw providerError(
+						"registration-self-pay.2.6.65.2.plugin",
+						"grouped payment requires a positive medical fund or personal account amount",
+						{ failureStage: "validation", requestOutcome: "not_sent" },
+					);
+				}
+			}
 			const groupedAmountFen = combinedPayTypeParams?.reduce(
 				(sum, item) => sum + item.amountFen,
 				0,
@@ -1644,12 +1896,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			if (
 				isCombinedMedicalPayment &&
 				(payModel !== "H5" ||
-					requestPayTypeId !== 2 ||
+					String(requestPayTypeId) !== groupedPayTypeId ||
 					Boolean(input.paymentSystemUserId?.trim()))
 			) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
-					"combined payment outer fields must be H5/payTypeId=2 without openid",
+					"combined payment outer fields must be H5 with the matching medical payTypeId and without openid",
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);
 			}
@@ -1764,10 +2016,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						})
 					: undefined;
 			const outTradeNo = payParams
-				? providerScalarText(
-						nestedValue(response.data, ["outTradeNo", "out_trade_no"]),
-						32,
-					)
+				? requestPayTypeId === MANUAL_SELF_PAY_WECHAT_PAY_TYPE_ID
+					? manualSelfPayWechatOutTradeNo(response.data, tradeCode)
+					: providerScalarText(
+							nestedValue(response.data, ["outTradeNo", "out_trade_no"]),
+							32,
+						)
 				: undefined;
 			if (
 				payParams &&

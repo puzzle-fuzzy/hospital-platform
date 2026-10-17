@@ -11,7 +11,10 @@ import type {
 	OutpatientMedicalRecord,
 	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentDetail,
+	OutpatientPaymentItem,
+	OutpatientPaymentItemView,
 	OutpatientPaymentRecord,
+	OutpatientPaymentRecordView,
 	Patient,
 	PatientBindingRequest,
 	PatientListResponse,
@@ -370,7 +373,7 @@ function optionalAppointmentText(
 
 function optionalAppointmentPhotoUrl(value: unknown): string | undefined {
 	if (value === undefined) return undefined;
-	const photoUrl = requiredAppointmentText(value, 512);
+	const photoUrl = requiredAppointmentText(value, 2048);
 	if (!/^https?:\/\/[^\s]+$/u.test(photoUrl)) {
 		return invalidAppointmentResponse(
 			"Appointment schedule response item is invalid",
@@ -705,6 +708,7 @@ export function requireOutpatientPaymentListData(
 
 	const list = requireExactListData<unknown>(value);
 	const seenRecordIds = new Set<string>();
+	const seenItemIds = new Set<string>();
 	const items: OutpatientPaymentRecord[] = [];
 	for (const item of list.items) {
 		if (!isRecord(item)) {
@@ -777,6 +781,7 @@ export function requireOutpatientPaymentListData(
 			item.priceFen,
 			"Outpatient payment response item is invalid",
 		);
+		const priceYuan = optionalOutpatientPriceYuan(item.priceYuan);
 		const preferentialAmountFen = optionalOutpatientAmountFen(
 			item.preferentialAmountFen,
 			"Outpatient payment response item is invalid",
@@ -808,6 +813,53 @@ export function requireOutpatientPaymentListData(
 		}
 		const normalizedPaymentStatus =
 			paymentStatus === "refunding" ? paymentStatus : undefined;
+		let feeItems: OutpatientPaymentItem[] | undefined;
+		if (item.items !== undefined) {
+			if (
+				!Array.isArray(item.items) ||
+				item.items.length < 2 ||
+				item.items.length > 512 ||
+				item.items.some(
+					(feeItem: unknown) =>
+						!isRecord(feeItem) || Object.hasOwn(feeItem, "items"),
+				)
+			) {
+				throw new ApiError("Outpatient payment response items are invalid", {
+					code: "provider-response-invalid",
+				});
+			}
+			// 明细复用同一份字段白名单；前面已拒绝嵌套，最多解析两层。
+			feeItems = requireOutpatientPaymentListData(
+				{ status: expectedStatus, items: item.items, total: item.items.length },
+				expectedStatus,
+			).items;
+			let totalAmountFen = 0;
+			for (const feeItem of feeItems) {
+				totalAmountFen += feeItem.amountFen;
+				if (
+					feeItem.paymentStatus !== normalizedPaymentStatus ||
+					!Number.isSafeInteger(totalAmountFen)
+				) {
+					throw new ApiError("Outpatient payment response items are invalid", {
+						code: "provider-response-invalid",
+					});
+				}
+			}
+			if (totalAmountFen !== amountFen) {
+				throw new ApiError("Outpatient payment response amount is invalid", {
+					code: "provider-response-invalid",
+				});
+			}
+		}
+		// 同一条费用不能同时出现在两张卡片内，避免重复展示为可缴费项目。
+		for (const feeItem of feeItems ?? [{ recordId }]) {
+			if (seenItemIds.has(feeItem.recordId)) {
+				throw new ApiError("Outpatient payment response item is duplicated", {
+					code: "provider-response-invalid",
+				});
+			}
+			seenItemIds.add(feeItem.recordId);
+		}
 		seenRecordIds.add(recordId);
 		items.push({
 			recordId,
@@ -817,6 +869,7 @@ export function requireOutpatientPaymentListData(
 				: { paymentStatus: normalizedPaymentStatus }),
 			billDate: item.billDate,
 			amountFen,
+			...(feeItems === undefined ? {} : { items: feeItems }),
 			...(itemName === undefined ? {} : { itemName }),
 			...(departmentName === undefined ? {} : { departmentName }),
 			...(executionDepartmentName === undefined
@@ -828,6 +881,7 @@ export function requireOutpatientPaymentListData(
 			...(quantity === undefined ? {} : { quantity }),
 			...(unitName === undefined ? {} : { unitName }),
 			...(priceFen === undefined ? {} : { priceFen }),
+			...(priceYuan === undefined ? {} : { priceYuan }),
 			...(chargeClassName === undefined ? {} : { chargeClassName }),
 			...(tradePropName === undefined ? {} : { tradePropName }),
 			...(networkPatClassName === undefined ? {} : { networkPatClassName }),
@@ -841,6 +895,20 @@ export function requireOutpatientPaymentListData(
 		items,
 		total: list.total,
 	};
+}
+
+function optionalOutpatientPriceYuan(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	if (
+		typeof value !== "string" ||
+		value.length > 64 ||
+		!/^\d+(?:\.\d+)?$/.test(value)
+	) {
+		throw new ApiError("Outpatient payment response price is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	return value;
 }
 
 function optionalOutpatientAmountFen(
@@ -2119,6 +2187,73 @@ export function formatOutpatientRatioLabel(ratio: number): string {
 	}
 	const percent = ratio * 100;
 	return `${Number.isInteger(percent) ? percent : percent.toFixed(2)}%`;
+}
+
+/** 精确单价按十进制文本展示，禁止先转浮点或舍入成整数分。 */
+function formatOutpatientPriceLabel(priceYuan: string): string {
+	const value = optionalOutpatientPriceYuan(priceYuan);
+	if (value === undefined) {
+		throw new ApiError("门诊单价不合法", { code: "provider-response-invalid" });
+	}
+	const [whole, fraction = ""] = value.split(".");
+	return `¥${whole}.${fraction.padEnd(2, "0")}`;
+}
+
+function outpatientPaymentItemView(
+	item: OutpatientPaymentItem,
+): OutpatientPaymentItemView {
+	return {
+		...item,
+		amountLabel: formatOutpatientAmountLabel(item.amountFen),
+		billDateLabel: formatOutpatientBillDateLabel(item.billDate),
+		...(item.spec || item.quantity || item.unitName
+			? {
+					specQuantityLabel: [
+						item.spec,
+						item.quantity ? `× ${item.quantity}` : undefined,
+						item.unitName,
+					]
+						.filter(Boolean)
+						.join(" "),
+				}
+			: {}),
+		...(item.priceYuan !== undefined
+			? { priceLabel: formatOutpatientPriceLabel(item.priceYuan) }
+			: item.priceFen === undefined
+				? {}
+				: { priceLabel: formatOutpatientAmountLabel(item.priceFen) }),
+		...(item.preferentialAmountFen === undefined
+			? {}
+			: {
+					preferentialAmountLabel: formatOutpatientAmountLabel(
+						item.preferentialAmountFen,
+					),
+				}),
+		...(item.ascendAmountFen === undefined
+			? {}
+			: {
+					ascendAmountLabel: formatOutpatientAmountLabel(item.ascendAmountFen),
+				}),
+		...(item.selfBurdenRatio === undefined
+			? {}
+			: {
+					selfBurdenRatioLabel: formatOutpatientRatioLabel(
+						item.selfBurdenRatio,
+					),
+				}),
+	};
+}
+
+/** 只格式化服务端确认的整笔金额与项目，支付始终使用父 recordId。 */
+export function formatOutpatientPaymentRecordView(
+	record: OutpatientPaymentRecord,
+): Omit<OutpatientPaymentRecordView, "viewKey"> {
+	const { items, ...paymentItem } = record;
+	return {
+		...outpatientPaymentItemView(paymentItem),
+		itemCount: items?.length ?? 1,
+		...(items ? { items: items.map(outpatientPaymentItemView) } : {}),
+	};
 }
 
 /** 读取当前内部患者的脱敏预约历史摘要。 */

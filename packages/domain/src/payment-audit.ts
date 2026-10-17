@@ -2,6 +2,8 @@ import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 
 export type PaymentOperatorAuditAction =
 	| "payment_detail_read"
+	| "registration_status_read"
+	| "registration_cancel"
 	| "refund_request"
 	| "refund_query"
 	| "sync_retry"

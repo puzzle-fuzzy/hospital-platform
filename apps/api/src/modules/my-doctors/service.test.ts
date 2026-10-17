@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { createZhongyangAppointmentGateway } from "@hospital/adapters";
 import { MyDoctorInputError, MyDoctorNotFoundError } from "@hospital/domain";
-import type { AppointmentService } from "../appointments/service";
 import { createInMemoryMyDoctorRepository } from "@hospital/persistence";
+import type { AppointmentService } from "../appointments/service";
 import { MyDoctorService } from "./service";
 
 const context = {
@@ -10,6 +11,48 @@ const context = {
 } as const;
 
 describe("MyDoctorService", () => {
+	test("projects old followed doctor photos through the fixed proxy without rewriting relations", async () => {
+		const doctorAvatarUrl =
+			"http://img.example.test/doctor.jpg?size=200&crop=a%2Bb";
+		const stored = {
+			ownerUserId: "user-001",
+			doctorId: "doctor-001",
+			doctorName: "李医生",
+			departmentName: "心内科",
+			doctorAvatarUrl,
+			createdAt: "2026-09-03T00:00:00.000Z",
+		};
+		const repository = createInMemoryMyDoctorRepository([stored]);
+		const gateway = createZhongyangAppointmentGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () => {
+				throw new Error("photo projection must not fetch");
+			},
+		});
+		const service = new MyDoctorService({
+			repository,
+			appointments: {} as AppointmentService,
+			resolveDoctorPhotoUrl: gateway.resolveDoctorPhotoUrl.bind(gateway),
+		});
+		const list = await service.list("user-001", context);
+		const detail = await service.get("user-001", "doctor-001", context);
+		const follow = await service.follow(
+			"user-001",
+			{ doctorId: "doctor-001" },
+			context,
+		);
+		for (const item of [list.items[0], detail, follow]) {
+			const served = new URL(item?.doctorAvatarUrl ?? "");
+			expect(served.origin).toBe("https://zhongyang.example.test");
+			expect(served.pathname).toBe("/proxy/forward");
+			expect(served.searchParams.getAll("url")).toEqual([doctorAvatarUrl]);
+		}
+		expect(
+			await repository.findByOwnerAndDoctor("user-001", "doctor-001"),
+		).toEqual(stored);
+		expect((await service.list("user-002", context)).items).toEqual([]);
+	});
+
 	test("follows from a verified appointment schedule and is idempotent", async () => {
 		const repository = createInMemoryMyDoctorRepository();
 		let scheduleCalls = 0;

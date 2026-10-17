@@ -240,17 +240,55 @@ export type AdminMedicalInsuranceRefund = {
 	};
 };
 
-/** 管理端退款页使用的最小历史支付读模型；不含患者、凭证或支付调起参数。 */
-export type AdminWechatRefundPaymentRecord = {
+export type AdminPaymentRefundType = "ALL" | "HI" | "CASH";
+
+export type AdminPaymentRefundOption = {
+	enabled: boolean;
+	amountFen: number;
+	reason?: string;
+};
+
+export type RegistrationRefundStage =
+	| "wechat_refund_pending"
+	| "hospital_writeback_pending"
+	| "appointment_cancellation_pending"
+	| "completed";
+
+export type AdminPaymentRefundResult = {
+	source: WechatRefundSource;
+	orderId: string;
+	refundType: AdminPaymentRefundType;
+	status: AdminMedicalInsuranceRefund["status"];
+	amounts: AdminMedicalInsuranceRefund["amounts"];
+	medicalRefund?: AdminMedicalInsuranceRefund;
+	wechatRefund?: WechatRefund;
+	registrationRefundStage?: RegistrationRefundStage;
+};
+
+export type AdminPaymentDisplayAmounts = {
+	actualCashFen: number | null;
+	hospitalDiscountFen: number | null;
+	actualPaidFen: number | null;
+	amountBreakdownStatus: "confirmed" | "unverified";
+};
+
+/** 管理端退款页使用的最小历史支付读模型；仅含就诊人和下单用户展示名，不含身份标识、凭证或支付调起参数。 */
+export type AdminWechatRefundPaymentRecord = AdminPaymentDisplayAmounts & {
 	source: WechatRefundSource;
 	orderId: string;
 	operationAggregateId?: string;
 	business: "registration" | "outpatient" | "other";
+	registration?: AdminRegistrationStatus;
+	patientDisplayName?: string;
+	orderUserDisplayName?: string;
 	totalFen: number;
 	insuranceFen?: number;
 	paymentState: string;
 	cashPaymentConfirmed: boolean;
 	cashFen: number;
+	medicalRefundableFen?: number;
+	/** 兼容旧版读模型；缺少退款能力时界面禁止发起新退款。 */
+	refundOptions?: Record<AdminPaymentRefundType, AdminPaymentRefundOption>;
 	personalAccountFen?: number;
 	fundFen?: number;
 	otherPaymentFen?: number;
@@ -287,6 +325,45 @@ export type AdminWechatRefundPaymentRecord = {
 	refundRoute: "admin" | "appointment_cancel" | "unavailable";
 	createdAt: string;
 	updatedAt: string;
+};
+
+export type AdminRegistrationStatus = {
+	appointmentId: string | null;
+	localStatus: "booked" | "cancelled" | "expired" | "unknown" | "not_found";
+	hospitalStatus:
+		| "scheduled"
+		| "cancelled"
+		| "expired"
+		| "completed"
+		| "missed"
+		| "stopped"
+		| "substituted"
+		| "registered"
+		| "unknown"
+		| "not_checked"
+		| "unavailable";
+	hospitalPaymentStatus: "pending" | "paid" | "unavailable";
+	checkedAt: string | null;
+	departmentName?: string;
+	doctorName?: string;
+	workDate?: string;
+	shiftName?: string;
+	sourceSerialNumber?: string;
+	cancellation: {
+		allowed: boolean;
+		mode: "cancel_only" | "unavailable";
+		reason: string;
+	};
+};
+
+export type AdminRegistrationResult = {
+	source: WechatRefundSource;
+	orderId: string;
+	registration: AdminRegistrationStatus;
+};
+
+export type AdminRegistrationCancelResult = AdminRegistrationResult & {
+	outcome: "cancelled" | "already_cancelled";
 };
 
 export type AdminWechatRefundPaymentHistoryQuery = {
@@ -333,7 +410,7 @@ export type AdminPaymentSyncTask = {
 };
 
 export type AdminPaymentOperationDetail = {
-	aggregate: {
+	aggregate: AdminPaymentDisplayAmounts & {
 		aggregateId: string;
 		business: "registration" | "outpatient" | "other";
 		businessKey: string;
@@ -351,7 +428,12 @@ export type AdminPaymentOperationDetail = {
 	legs: readonly {
 		legId: string;
 		aggregateId: string;
-		legType: "medical_insurance" | "wechat_cash" | "hospital_reduce";
+		legType:
+			| "medical_insurance"
+			| "wechat_cash"
+			| "hospital_reduce"
+			| "hospital_part"
+			| "unallocated";
 		source: "payment_order" | "medical_insurance" | "wechat_pay" | "platform";
 		sourceOrderId: string;
 		amountFen: number;

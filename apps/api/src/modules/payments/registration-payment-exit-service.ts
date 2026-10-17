@@ -85,6 +85,14 @@ export class RegistrationPaymentExitRefundSyncPendingError extends Error {
 	}
 }
 
+/** 微信退款和医院回写均已确认，仍须恢复原预约的取消流程。 */
+export class RegistrationPaymentExitCancellationPendingError extends Error {
+	constructor(readonly hospitalWritebackConfirmed = false) {
+		super("Registration appointment cancellation after refund is pending");
+		this.name = "RegistrationPaymentExitCancellationPendingError";
+	}
+}
+
 function contextOf(value: unknown): AdapterCallContext {
 	const context = normalizeAdapterCallContext(value);
 	if (!context)
@@ -184,6 +192,10 @@ export class RegistrationPaymentExitService {
 			) {
 				throw new RegistrationPaymentExitRefundContextError();
 			}
+			// 历史适配器曾只检查外层 success。不能据旧 marker 宣布完成，
+			// 也不能把所有旧 marker 自动重复通知；待按原退款号核实后恢复。
+			if (existing.validationVersion !== 1)
+				throw new RegistrationPaymentExitRefundSyncPendingError();
 			return;
 		}
 		try {
@@ -205,6 +217,7 @@ export class RegistrationPaymentExitService {
 						merchantRefundNo: input.refund.merchantRefundNo,
 						refundFen: input.order.amounts.cashFen,
 						syncedAt: this.now().toISOString(),
+						validationVersion: 1,
 					},
 				},
 			});
@@ -239,7 +252,7 @@ export class RegistrationPaymentExitService {
 		appointmentId: string;
 		order: PaymentOrder;
 		context: AdapterCallContext;
-	}): Promise<void> {
+	}): Promise<{ hospitalWritebackConfirmed: boolean }> {
 		const refundService = this.dependencies.selfPayRefund;
 		if (!refundService)
 			throw new RegistrationPaymentExitRefundNotConfiguredError();
@@ -252,7 +265,11 @@ export class RegistrationPaymentExitService {
 		if (registrationContext?.payParams) {
 			if (
 				registrationContext.outTradeNoSource !== "yunhealth_2_6_65_2" ||
-				!registrationContext.outTradeNo
+				!registrationContext.outTradeNo ||
+				// 历史 5032 .2 映射曾把医院业务号保存为微信商户单号；须核实
+				// 修复原上下文和退款台账后再恢复，不能继续向错误目标退款。
+				(registrationContext.payTypeId === "5032" &&
+					registrationContext.outTradeNo === registrationContext.businessCode)
 			) {
 				throw new RegistrationPaymentExitRefundContextError();
 			}
@@ -263,9 +280,15 @@ export class RegistrationPaymentExitService {
 				throw new RegistrationPaymentExitRefundNotConfiguredError();
 			}
 			outTradeNo = registrationContext.outTradeNo;
+			// 必须在微信退款预留和发送前发现缺失的医院回写上下文。
+			this.dependencies.selfPayRefundNotification.validateRefundContext?.({
+				orderId: input.order.orderId,
+				refundFen: input.order.amounts.cashFen,
+				registrationContext,
+			});
 		}
 
-		let refund: WechatRefund;
+		let refund: WechatRefund | undefined;
 		try {
 			refund = await refundService.requestTrustedPaymentOrder(
 				{
@@ -287,6 +310,13 @@ export class RegistrationPaymentExitService {
 				);
 			}
 		} catch (error) {
+			// 查单失败不能推翻已预留的退款，也不能把不确定结果解释为退款失败。
+			if (
+				refund &&
+				["requested", "processing", "unknown"].includes(refund.status)
+			) {
+				throw new RegistrationPaymentExitRefundPendingError();
+			}
 			this.logger.warn(
 				{
 					event: "appointment.self-payment.refund.failed",
@@ -315,7 +345,7 @@ export class RegistrationPaymentExitService {
 				},
 				"Registration self-pay refund confirmed before appointment cancellation",
 			);
-			return;
+			return { hospitalWritebackConfirmed: !!registrationContext?.payParams };
 		}
 
 		if (
@@ -353,8 +383,14 @@ export class RegistrationPaymentExitService {
 		ownerUserId: string;
 		appointmentId: string;
 		mode: RegistrationPaymentExitMode;
+		/** 管理端取消不能因支付竞态而自动转为一笔新退款。 */
+		allowAutomaticRefund?: boolean;
 		context: unknown;
-	}): Promise<{ appointmentId: string; status: "cancelled" }> {
+	}): Promise<{
+		appointmentId: string;
+		status: "cancelled";
+		hospitalWritebackConfirmed?: boolean;
+	}> {
 		const context = contextOf(input.context);
 		const ownerUserId = id(input.ownerUserId, "ownerUserId");
 		const appointmentId = id(input.appointmentId, "appointmentId");
@@ -366,6 +402,7 @@ export class RegistrationPaymentExitService {
 		)
 			throw new RegistrationPaymentExitInputError("payment mode is invalid");
 		let selfPayRefundConfirmed = false;
+		let hospitalWritebackConfirmed = false;
 
 		// 先处理自费单，再处理医保单。异常数据同时存在两类订单时，
 		// 不能先作废医保单，之后才发现自费单已经确认收款。
@@ -385,19 +422,24 @@ export class RegistrationPaymentExitService {
 				context,
 			});
 			if (cancellation.status === "paid") {
+				if (input.allowAutomaticRefund === false)
+					throw new RegistrationPaymentExitInputError(
+						"医院已确认收款，请先通过原订单退费后再取消挂号",
+					);
 				// 只有医院结算和平台订单均已完成时才允许走退款取消。现金已扣、
 				// HIS 回写尚未完成的中间状态仍保持原来的 fail-closed 行为。
 				if (selfPayOrder.state !== "completed")
 					throw new RegistrationPaymentExitInputError(
 						"已确认支付成功，不能作废当前预约",
 					);
-				await this.refundCompletedSelfPay({
+				const refundResult = await this.refundCompletedSelfPay({
 					ownerUserId,
 					appointmentId,
 					order: selfPayOrder,
 					context,
 				});
 				selfPayRefundConfirmed = true;
+				hospitalWritebackConfirmed = refundResult.hospitalWritebackConfirmed;
 			}
 		}
 
@@ -443,17 +485,37 @@ export class RegistrationPaymentExitService {
 				throw new RegistrationPaymentExitInputError("医保订单未能安全失效");
 		}
 
-		const result = selfPayRefundConfirmed
-			? await this.dependencies.appointments.cancelAfterConfirmedSelfPayRefund({
+		let result: { appointmentId: string; status: "cancelled" };
+		try {
+			result = selfPayRefundConfirmed
+				? await this.dependencies.appointments.cancelAfterConfirmedSelfPayRefund(
+						{
+							ownerUserId,
+							appointmentId,
+							context,
+						},
+					)
+				: await this.dependencies.appointments.cancel({
+						ownerUserId,
+						appointmentId,
+						context,
+					});
+		} catch (error) {
+			if (!selfPayRefundConfirmed) throw error;
+			this.logger.warn(
+				{
+					event: "appointment.self-payment.refund.cancellation-pending",
+					traceId: context.traceId,
 					ownerUserId,
 					appointmentId,
-					context,
-				})
-			: await this.dependencies.appointments.cancel({
-					ownerUserId,
-					appointmentId,
-					context,
-				});
+					errorName: error instanceof Error ? error.name : "UNKNOWN",
+				},
+				"Registration refund confirmed; appointment cancellation is pending",
+			);
+			throw new RegistrationPaymentExitCancellationPendingError(
+				hospitalWritebackConfirmed,
+			);
+		}
 		this.logger.info(
 			{
 				event: "appointment.payment-exit.completed",
@@ -464,6 +526,11 @@ export class RegistrationPaymentExitService {
 			},
 			"Registration payment exit cancelled the appointment",
 		);
-		return result;
+		return {
+			...result,
+			...(hospitalWritebackConfirmed
+				? { hospitalWritebackConfirmed: true }
+				: {}),
+		};
 	}
 }

@@ -6,6 +6,7 @@ import type {
 	MedicalInsuranceSettlementContext,
 } from "./medical-insurance-order";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import type { OutpatientPaymentRecord } from "./outpatient-payments";
 import type { PaymentAmounts } from "./payment-order";
 
 /** 每次 provider 调用都必须携带的链路和幂等上下文。 */
@@ -218,6 +219,8 @@ export type PaymentOrderSnapshot = {
  */
 export type RegistrationSelfPaySettlementContext = {
 	businessId: string;
+	/** 本次门诊合缴的安全展示快照，只绑定成员，不作为支付成功证据。 */
+	outpatientPaymentRecord?: OutpatientPaymentRecord;
 	/** 本次 Provider 业务类型对应的交易类型；门诊自费固定为 2。 */
 	tradeTypeCode?: string;
 	/** 2.6.65.1 返回的结算单编码；只在服务端创建 .2 时使用。 */
@@ -248,11 +251,12 @@ export type RegistrationSelfPaySettlementContext = {
 	/** 2.6.65.2 返回并由服务端校验后的 APIv2 小程序收银台参数。 */
 	payParams?: YunhealthMiniProgramPayParams;
 	/**
-	 * 医保混合现金链路在 2.27.2.29 请求中提交给 HIS 的平台根订单号。
-	 * 必须是 medicalOrderId，不能使用支付子单或 6202 分项 componentId；它也
-	 * 不是 2.27.2.29 的 HIS 成功回执，不能用于判断该步骤是否已完成。
+	 * 兼容历史结算上下文的根平台订单号；2.27.2.29 不再上送此值。
+	 * 该值不是 HIS 成功回执，不能用于判断第三方支付登记是否已完成。
 	 */
 	platformOrderId?: string;
+	/** .29 待发送的整型关联号；与成功回执严格分离。 */
+	hisPaymentReferenceId?: string;
 	/** HIS 在 2.27.2.29 成功响应中给出的记录号；存在时表明该步骤不可重放。 */
 	thirdPartPayRecordId?: string;
 	/** 仅允许保存在服务端 AES-GCM 密文中，不得写入日志或 API 响应。 */
@@ -261,7 +265,8 @@ export type RegistrationSelfPaySettlementContext = {
 	paymentNotifyCompleted?: boolean;
 	/**
 	 * 微信退款 SUCCESS 后，众阳 .15 退款回写已经确认成功的事实。该字段同样
-	 * 只存入服务端密文；没有它时重试会复用同一退款单并再次安全回写。
+	 * 只存入服务端密文。旧凭据没有 validationVersion，不能视作内层业务成功，
+	 * 也不能自动重放医院通知；须按原退款号核查后恢复。
 	 */
 	refundWriteBack?: RegistrationSelfPayRefundWriteBack;
 };
@@ -270,6 +275,8 @@ export type RegistrationSelfPayRefundWriteBack = {
 	merchantRefundNo: string;
 	refundFen: number;
 	syncedAt: string;
+	/** 1 表示 .15 的内部业务回执已经过严格成功校验，外层 success 不够。 */
+	validationVersion?: 1;
 };
 
 /** 旧插件链路兼容回调；非 HIS .5/.9 流程不会调用。 */
@@ -374,6 +381,8 @@ export interface MedicalInsuranceGateway {
 			ownerUserId: string;
 			patientId: string;
 			authorizationId: string;
+			/** 服务层 CAS 取得的发送权版本；适配器不得改用后来读取的新版本。 */
+			expectedVersion: number;
 			/** 挂号和门诊共用 6201 编排，业务入口只提供不同的事实上下文。 */
 			appointment: MedicalInsuranceBusinessContext;
 		},
@@ -641,6 +650,12 @@ export interface RegistrationSelfPayPreparationGateway {
  * 查到微信退款 SUCCESS，才能通知 HIS。
  */
 export interface RegistrationSelfPayRefundNotificationGateway {
+	/** 微信退款前纯校验 .15 必需上下文和服务端配置，不发送 Provider 请求。 */
+	validateRefundContext?(input: {
+		orderId: string;
+		refundFen: number;
+		registrationContext: RegistrationSelfPaySettlementContext;
+	}): void;
 	notifyRefund(
 		input: {
 			orderId: string;
@@ -688,6 +703,8 @@ export type AppointmentMedicalInsuranceContext = {
 export type OutpatientMedicalInsuranceContext = {
 	businessType: "outpatient";
 	recordId: string;
+	/** 门诊合缴成员快照与每个费用上传阶段一起加密落库。 */
+	outpatientPaymentRecord?: OutpatientPaymentRecord;
 	providerPatientId: string;
 	outTradeOrderIds: readonly string[];
 	totalFen: number;

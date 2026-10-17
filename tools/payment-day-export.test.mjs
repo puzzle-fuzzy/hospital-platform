@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { join, resolve } from "node:path";
 import { readRawLogTraceFromSerialized } from "../apps/admin/src/raw-logs.ts";
 import {
 	assignRawEntriesToOrder,
 	collectOrders,
 	displayOperation,
+	markdownIndex,
 	pairRawEntries,
 	parseBody,
 	parseRecords,
@@ -46,6 +48,56 @@ function rawLine({
 }
 
 describe("payment-day-export helpers", () => {
+	test("rendered index links resolve to request and response files across special path characters", () => {
+		const indexDirectory = resolve("synthetic export (CST) #100%");
+		const requestPath = join(
+			indexDirectory,
+			"orders",
+			"order (one) #100%",
+			"request.json",
+		);
+		const responsePath = join(
+			indexDirectory,
+			"orders",
+			"order (one) #100%",
+			"response.json",
+		);
+		const markdown = markdownIndex(
+			"2026-10-14",
+			[
+				{
+					orderId: "synthetic-order",
+					actualInterfaceCount: 1,
+					completeness: {
+						status: "COMPLETE_FOR_ALL_CORRELATED_TRANSPORT_INVOCATIONS",
+					},
+					interfaceRows: [
+						{
+							ordinal: 1,
+							displayOperation: "1101",
+							operationTotal: 1,
+							requestPath,
+							responsePath,
+						},
+					],
+				},
+			],
+			{ indexDirectory },
+		);
+		const html = Bun.markdown.html(markdown);
+		const links = [...html.matchAll(/href="([^"]+)"/gu)].map(
+			(match) => match[1],
+		);
+		expect(links).toHaveLength(2);
+		expect(
+			links.every((link) => !link.includes("\\") && !link.includes(":")),
+		).toBe(true);
+		expect(links[0]).toContain("order%20%28one%29%20%23100%25");
+		expect(
+			links.map((link) => resolve(indexDirectory, decodeURIComponent(link))),
+		).toEqual([requestPath, responsePath]);
+	});
+
 	test("expands nested JSON strings without changing ordinary plaintext", () => {
 		const result = parseBody(
 			JSON.stringify({

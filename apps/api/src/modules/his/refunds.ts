@@ -1,7 +1,12 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { success } from "@hospital/contracts";
+import {
+	parseJsonPreservingLargeIntegers,
+	stringifyJsonPreservingLargeIntegers,
+	success,
+} from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
+	normalizeHisPaymentReference,
 	type WechatRefund,
 	WechatRefundAmountExceededError,
 	WechatRefundIdempotencyConflictError,
@@ -69,6 +74,17 @@ const HisRefundByOutTradeNoBody = t.Object(
 	{ additionalProperties: false },
 );
 
+/** HIS 原样回传 .29 的整数关联号；保持原 JSON 类型参与签名。 */
+const HisRefundByPaymentReferenceBody = t.Object(
+	{
+		// 精确类型和范围在专属 parse 中校验。Elysia 的数值 Union 会隐式
+		// 转换数字字符串，改变 HMAC 原文甚至损失 19 位整数精度。
+		thirdPartPayRecordId: t.Unknown(),
+		reason: t.Optional(t.String({ maxLength: 80 })),
+	},
+	{ additionalProperties: false },
+);
+
 const HisRefundParams = t.Object({
 	refundNo: t.String({ minLength: 1, maxLength: 64 }),
 });
@@ -81,6 +97,15 @@ type HisRefundModuleOptions = {
 	security: HisRefundSecurityStore;
 	now?: () => number;
 	logger?: AppLogger;
+	/** 只返回已确认且仍与当前原现金支付腿绑定的映射。 */
+	resolvePaymentReference?: (referenceId: string) => Promise<
+		| {
+				medicalOrderId: string;
+				paymentScopeId: string;
+				source: "plugin" | "component";
+		  }
+		| undefined
+	>;
 };
 
 type HisRefundSplitServices = {
@@ -103,6 +128,8 @@ const HIS_MEDICAL_LEG_BY_PAY_ORD_ID_REFUND_PATH =
 	"/his/medical-insurance-leg-refunds/by-pay-ord-id";
 const HIS_WECHAT_LEG_BY_OUT_TRADE_NO_REFUND_PATH =
 	"/his/wechat-leg-refunds/by-out-trade-no";
+const HIS_WECHAT_LEG_BY_PAYMENT_REFERENCE_REFUND_PATH =
+	"/his/wechat-leg-refunds/by-third-part-pay-record-id";
 const HIS_MEDICAL_LEG_OPERATOR_REF = "his-medical-leg";
 
 function constantTimeEqual(left: string, right: string): boolean {
@@ -114,13 +141,55 @@ function constantTimeEqual(left: string, right: string): boolean {
 
 function canonicalJson(value: unknown): string {
 	if (value === undefined) return "";
-	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (value === null || typeof value !== "object")
+		return stringifyJsonPreservingLargeIntegers(value);
 	if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
 	const entries = Object.entries(value as Record<string, unknown>)
 		.filter(([, item]) => item !== undefined)
 		.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
 		.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`);
 	return `{${entries.join(",")}}`;
+}
+
+async function parsePaymentReferenceBody(request: Request): Promise<unknown> {
+	try {
+		const raw = await request.text();
+		if (raw.length > 2048) throw new Error("body too large");
+		const body = parseJsonPreservingLargeIntegers(raw);
+		if (
+			typeof body !== "object" ||
+			body === null ||
+			Array.isArray(body) ||
+			Object.keys(body).some(
+				(key) => key !== "thirdPartPayRecordId" && key !== "reason",
+			)
+		) {
+			throw new Error("invalid reference body");
+		}
+		const record = body as Record<string, unknown>;
+		normalizeHisPaymentReference(record.thirdPartPayRecordId);
+		if (
+			record.reason !== undefined &&
+			(typeof record.reason !== "string" || record.reason.length > 80)
+		) {
+			throw new Error("invalid reason");
+		}
+		// 本请求只有关联号可以是数字。忽略 JSON 字符串后检查原始数值词法，
+		// 避免 1.0/1e3 在解析成安全整数后绕过正整数十进制契约。
+		const numericTokens = raw
+			.replace(/"(?:\\.|[^"\\])*"/gu, "")
+			.match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/gu);
+		if (numericTokens?.some((token) => !/^[1-9][0-9]*$/u.test(token))) {
+			throw new Error("noncanonical reference");
+		}
+		return body;
+	} catch {
+		throw new HttpError(
+			400,
+			"validation",
+			"支付关联号须为 19 位以内的正整数 Long，且仅支持可选退费原因",
+		);
+	}
 }
 
 function bodyHash(body: unknown): string {
@@ -681,6 +750,64 @@ export function hisMedicalInsuranceRefundModule(
 			{
 				headers: HisRefundHeaders,
 				body: HisRefundBody,
+				detail: { hide: true },
+			},
+		)
+		.post(
+			HIS_WECHAT_LEG_BY_PAYMENT_REFERENCE_REFUND_PATH,
+			async ({ headers, body, request }) =>
+				executeHisRequest({
+					request,
+					headers,
+					method: "POST",
+					path: HIS_WECHAT_LEG_BY_PAYMENT_REFERENCE_REFUND_PATH,
+					body,
+					operation: "wechat_leg_by_third_part_pay_record_id",
+					orderId: String(body.thirdPartPayRecordId),
+					options,
+					now,
+					invoke: async (auth) => {
+						if (!splitServices.wechat || !options.resolvePaymentReference) {
+							throw new DependencyNotConfiguredError(
+								"his.wechatPaymentReferenceRefund",
+							);
+						}
+						let referenceId: string;
+						try {
+							referenceId = normalizeHisPaymentReference(
+								body.thirdPartPayRecordId,
+							);
+						} catch {
+							throw new HttpError(
+								400,
+								"validation",
+								"支付关联号超出正整数 Long 范围",
+							);
+						}
+						const reference =
+							await options.resolvePaymentReference(referenceId);
+						if (!reference) {
+							throw new HttpError(
+								404,
+								"not_found",
+								"支付关联号不存在或尚未确认",
+							);
+						}
+						const result =
+							await splitServices.wechat.requestMedicalInsuranceCashByOrder(
+								{
+									orderId: reference.medicalOrderId,
+									...(body.reason !== undefined ? { reason: body.reason } : {}),
+								},
+								adapterContextFromHeaders({ "x-request-id": auth.requestId }),
+							);
+						return success(safeWechatRefundResponse(result));
+					},
+				}),
+			{
+				headers: HisRefundHeaders,
+				body: HisRefundByPaymentReferenceBody,
+				parse: ({ request }) => parsePaymentReferenceBody(request),
 				detail: { hide: true },
 			},
 		)

@@ -91,6 +91,8 @@ Page<TimeslotSourcePageData, TimeslotSourcePageMethods>({
 		if (!slot || !schedule) return;
 		const query = [
 			`scheduleId=${encodeURIComponent(this.data.scheduleId)}`,
+			`departmentId=${encodeURIComponent(schedule.departmentId)}`,
+			`doctorId=${encodeURIComponent(schedule.doctorId)}`,
 			`departmentName=${encodeURIComponent(schedule.departmentName)}`,
 			...(schedule.registrationClassName
 				? [
@@ -105,6 +107,7 @@ Page<TimeslotSourcePageData, TimeslotSourcePageMethods>({
 			`shiftName=${encodeURIComponent(schedule.shiftName)}`,
 			`timeLabel=${encodeURIComponent(slot.timeLabel)}`,
 			`serialNumber=${encodeURIComponent(slot.serialNumber)}`,
+			`sourceTimeGroup=${encodeURIComponent(slot.timeGroup)}`,
 		].join("&");
 		wx.navigateTo({
 			url: `/pages/confirm-registration/confirm-registration?${query}`,

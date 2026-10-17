@@ -18,7 +18,7 @@
 		<block wx:elif="{{status}}">
 			<view class="detail-status-card">
 				<view class="detail-status-main">
-					<view class="detail-status-dot detail-status-{{status}}"></view>
+					<view class="detail-status-dot detail-status-{{paymentCompleted ? 'paid' : status}}"></view>
 					<text class="detail-status-label">{{statusLabel}}</text>
 				</view>
 				<text class="detail-total">{{totalLabel}}</text>
@@ -68,7 +68,7 @@
 					<text class="detail-row-label">就诊地址</text>
 					<text class="detail-row-value">{{location || "以医院现场指引为准"}}</text>
 				</view>
-				<text class="detail-notice">请携带有效证件按就诊日期到院取号候诊，具体取号时间以医院现场公示为准。</text>
+				<text class="detail-notice">请携带有效证件，按预约日期到院取号候诊。具体取号时间以医院现场公示为准。</text>
 			</view>
 
 			<view class="detail-card">
@@ -87,31 +87,32 @@
 				<text>这条记录来自历史挂号摘要，当前未建立平台详情引用，仅展示已核实信息。</text>
 			</view>
 
-			<view wx:if="{{localDetail}}" class="detail-card">
-				<view wx:if="{{payDeadlineLabel}}" class="detail-row">
+			<view wx:if="{{localDetail && (payDeadlineLabel || paymentMessage)}}" class="detail-card detail-payment-card {{paymentCompleted ? 'detail-payment-card-paid' : ''}}">
+				<view class="detail-payment-heading">
+					<view wx:if="{{paymentCompleted}}" class="detail-payment-check">✓</view>
+					<text class="detail-payment-title">{{paymentCompleted ? "缴费成功" : canPay ? "待完成缴费" : "支付信息"}}</text>
+				</view>
+				<view wx:if="{{payDeadlineLabel}}" class="detail-row detail-row-last">
 					<text class="detail-row-label">支付截止时间</text>
 					<text class="detail-row-value">{{payDeadlineLabel}}</text>
 				</view>
-				<text wx:if="{{paymentMessage}}" class="detail-notice">{{paymentMessage}}</text>
-				<button wx:if="{{canPay}}" class="detail-pay-button" bindtap="onContinuePayment" disabled="{{loading || canceling || !canPay}}">继续支付</button>
-				<button wx:if="{{canViewOriginalPayment}}" class="detail-cancel-button" bindtap="onViewOriginalPayment" disabled="{{loading || canceling}}">查看原支付状态</button>
+				<text wx:if="{{paymentMessage}}" class="detail-payment-copy">{{paymentMessage}}</text>
 			</view>
 
-			<view
-				wx:if="{{canCancel}}"
-				class="detail-actions"
-			>
+			<view class="detail-actions">
+				<button wx:if="{{canPay}}" class="detail-action-button detail-pay-button" bindtap="onContinuePayment" disabled="{{loading || canceling || !canPay}}">继续支付</button>
+				<button wx:if="{{canViewOriginalPayment}}" class="detail-action-button detail-payment-button" bindtap="onViewOriginalPayment" disabled="{{loading || canceling}}">{{paymentCompleted ? "查看支付详情" : "查看原支付状态"}}</button>
 				<button
-					class="detail-cancel-button"
+					wx:if="{{canCancel}}"
+					class="detail-action-button detail-cancel-button"
 					bindtap="onCancel"
 					disabled="{{canceling}}"
 				>{{canceling ? "取消中..." : "取消预约"}}</button>
+				<button class="detail-action-button detail-home-button" bindtap="onBackHome">返回首页</button>
 			</view>
 
-			<button class="detail-home-button" bindtap="onBackHome">返回首页</button>
-
 			<view class="detail-footnote">
-				<text>预约状态和金额以服务端及医院最终记录为准。</text>
+				<text>就诊安排及收费信息以医院记录为准。</text>
 			</view>
 		</block>
 	</view>

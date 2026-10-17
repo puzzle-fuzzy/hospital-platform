@@ -7,6 +7,318 @@ const originalGetAppDescriptor = Object.getOwnPropertyDescriptor(
 	"getApp",
 );
 
+test("参保地公共错误码不依赖 Error 原型，数字回退必须是 ApiError 形态", async () => {
+	const { isMedicalInsuranceRegionUnsupported } = await import(
+		"./medical-insurance"
+	);
+	const prototypeLost = Object.assign(Object.create(null), {
+		code: "medical-insurance-region-unsupported",
+	});
+	for (const error of [
+		prototypeLost,
+		{ code: "medical-insurance-region-unsupported" },
+		{ name: "ApiError", numericCode: 30580 },
+	]) {
+		expect(isMedicalInsuranceRegionUnsupported(error)).toBeTrue();
+	}
+	for (const error of [
+		null,
+		30580,
+		{ numericCode: 30580 },
+		{ name: "Error", numericCode: 30580 },
+		{ name: "ApiError", numericCode: "30580" },
+		{ name: "ApiError", numericCode: 30581 },
+		{ message: "当前参保地暂未开通医保支付，请选择微信支付" },
+	]) {
+		expect(isMedicalInsuranceRegionUnsupported(error)).toBeFalse();
+	}
+});
+
+test("医保入口资格读取当前业务的服务端判断，未知不会从客户端区划猜测", async () => {
+	const requests: string[] = [];
+	let eligibility: string | undefined = "unsupported";
+	Object.assign(globalThis, {
+		getApp: () => ({
+			globalData: {
+				apiBaseUrl: "https://test-hp.meiyi.pro",
+				apiPrefix: "/api/v2",
+				accessToken: "eligibility-test-session",
+				sessionStatus: "signed_in",
+			},
+		}),
+		wx: {
+			request: (options: {
+				url: string;
+				success: (value: unknown) => void;
+			}) => {
+				requests.push(options.url);
+				options.success({
+					statusCode: 200,
+					header: {},
+					data: {
+						success: true,
+						data: {
+							payForRelatives: false,
+							...(eligibility
+								? { medicalInsurancePaymentEligibility: eligibility }
+								: {}),
+						},
+					},
+				});
+			},
+			getStorageSync: (key: string) => {
+				expect(key).not.toMatch(/patient|region|city|pending-medical/u);
+				return undefined;
+			},
+		},
+	});
+	const { medicalAuthorizationContext, outpatientMedicalAuthorizationContext } =
+		await import("./medical-insurance");
+	expect(
+		(await medicalAuthorizationContext("appointment-eligibility-a"))
+			.medicalInsurancePaymentEligibility,
+	).toBe("unsupported");
+	eligibility = "supported";
+	expect(
+		(
+			await outpatientMedicalAuthorizationContext(
+				"record-eligibility-b",
+				"patient-eligibility-b",
+			)
+		).medicalInsurancePaymentEligibility,
+	).toBe("supported");
+	eligibility = undefined;
+	expect(
+		(await medicalAuthorizationContext("appointment-eligibility-c"))
+			.medicalInsurancePaymentEligibility,
+	).toBe("unknown");
+	eligibility = "140581";
+	await expect(
+		medicalAuthorizationContext("appointment-eligibility-d"),
+	).rejects.toMatchObject({ code: "provider-response-invalid" });
+	expect(requests[0]).toEndWith(
+		"/payments/medical-insurance/appointments/appointment-eligibility-a/authorization-context",
+	);
+	expect(requests[1]).toEndWith(
+		"/payments/medical-insurance/outpatient-records/record-eligibility-b/authorization-context?patientId=patient-eligibility-b",
+	);
+});
+
+test("参保地暂未开通的授权拒绝不会继续上传费用或自动转微信付款", async () => {
+	const requests: string[] = [];
+	Object.assign(globalThis, {
+		getApp: () => ({
+			globalData: {
+				apiBaseUrl: "https://test-hp.meiyi.pro",
+				apiPrefix: "/api/v2",
+				accessToken: "unsupported-region-test-session",
+				sessionStatus: "signed_in",
+			},
+		}),
+		wx: {
+			getStorageSync: () => undefined,
+			request: (options: {
+				url: string;
+				success: (value: unknown) => void;
+			}) => {
+				requests.push(options.url);
+				options.success({
+					statusCode: 422,
+					header: {},
+					data: {
+						success: false,
+						error: {
+							code: "medical-insurance-region-unsupported",
+							message: "当前参保地暂未开通医保支付，请选择微信支付",
+						},
+					},
+				});
+			},
+			requestPayment: () => {
+				throw new Error("Must not launch payment");
+			},
+		},
+	});
+	const {
+		continueMedicalPayment,
+		createMedicalPaymentContext,
+		isMedicalInsuranceRegionUnsupported,
+	} = await import("./medical-insurance");
+	for (const businessType of ["registration", "outpatient"] as const) {
+		const pending = createMedicalPaymentContext({
+			businessType,
+			businessId: `business-unsupported-${businessType}`,
+			patientId: "patient-unsupported",
+			phase: "authorization",
+		});
+		try {
+			await continueMedicalPayment(
+				"current-authorization-code",
+				pending,
+				() => undefined,
+			);
+			throw new Error("Authorization must reject");
+		} catch (error) {
+			expect(isMedicalInsuranceRegionUnsupported(error)).toBeTrue();
+		}
+	}
+	expect(requests).toHaveLength(2);
+	expect(requests[0]).toEndWith("/payments/medical-insurance/authorize");
+	expect(requests[1]).toEndWith(
+		"/payments/medical-insurance/outpatient/authorize",
+	);
+});
+
+test("新门诊授权复核精确匹配当次业务和患者，未知资格或读取失败原样保留错误", async () => {
+	const { continueMedicalPayment, createMedicalPaymentContext } = await import(
+		"./medical-insurance"
+	);
+	for (const eligibility of [
+		"unsupported",
+		"unknown",
+		"read-failure",
+	] as const) {
+		const requests: string[] = [];
+		const originalError = new Error("authorization transport fixture");
+		Object.assign(globalThis, {
+			getApp: () => ({
+				globalData: {
+					apiBaseUrl: "https://hospital.example.test",
+					apiPrefix: "/api/v2",
+					accessToken: "outpatient-authorization-return-session",
+					sessionStatus: "signed_in",
+				},
+			}),
+			wx: {
+				getStorageSync: () => undefined,
+				request: (options: {
+					url: string;
+					success(response: unknown): void;
+				}) => {
+					requests.push(options.url);
+					if (options.url.endsWith("/outpatient/authorize")) {
+						throw originalError;
+					}
+					expect(options.url).toEndWith(
+						"/outpatient-records/current-record/authorization-context?patientId=current-patient",
+					);
+					options.success({
+						statusCode: eligibility === "read-failure" ? 503 : 200,
+						header: {},
+						data:
+							eligibility === "read-failure"
+								? {
+										success: false,
+										error: { code: "provider-temporarily-unavailable" },
+									}
+								: {
+										success: true,
+										data: {
+											payForRelatives: false,
+											medicalInsurancePaymentEligibility: eligibility,
+										},
+									},
+					});
+				},
+			},
+		});
+		const continuation = continueMedicalPayment(
+			"current-outpatient-auth-code",
+			createMedicalPaymentContext({
+				businessType: "outpatient",
+				businessId: "current-record",
+				patientId: "current-patient",
+				phase: "authorization",
+			}),
+			() => undefined,
+		);
+		if (eligibility === "unsupported") {
+			await expect(continuation).rejects.toMatchObject({
+				code: "medical-insurance-region-unsupported",
+			});
+		} else {
+			await expect(continuation).rejects.toBe(originalError);
+		}
+		expect(requests).toHaveLength(2);
+	}
+});
+
+test("已知外地参保不跳转医保，未知仍可授权且亲情付路由保持完整", async () => {
+	const { MEDICAL_INSURANCE_CONFIG } = await import("../config");
+	const originalOrgAppId = MEDICAL_INSURANCE_CONFIG.medicalOrgAppId;
+	const originalOrgCredential =
+		MEDICAL_INSURANCE_CONFIG.medicalOrgChannelCredential;
+	const app = {
+		globalData: {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "medical-entry-gate-session",
+			sessionStatus: "signed_in",
+		},
+	};
+	let eligibility = "unsupported";
+	const navigated: string[] = [];
+	Object.assign(globalThis, {
+		getApp: () => app,
+		wx: {
+			getStorageSync: () => undefined,
+			request: (options: { success: (value: unknown) => void }) =>
+				options.success({
+					statusCode: 200,
+					header: {},
+					data: {
+						success: true,
+						data: {
+							payForRelatives: true,
+							familyId: "a".repeat(32),
+							medicalInsurancePaymentEligibility: eligibility,
+						},
+					},
+				}),
+			navigateToMiniProgram: (options: {
+				path: string;
+				success: () => void;
+			}) => {
+				navigated.push(options.path);
+				options.success();
+			},
+		},
+	});
+	Object.assign(MEDICAL_INSURANCE_CONFIG, {
+		medicalOrgAppId: "local-test-org-app",
+		medicalOrgChannelCredential: "local-test-org-credential",
+	});
+	try {
+		const { navigateToMedicalAuth, navigateToOutpatientMedicalAuth } =
+			await import("./medical-insurance");
+		await expect(
+			navigateToMedicalAuth("appointment-entry-gate", "patient-entry-gate"),
+		).rejects.toMatchObject({ code: "medical-insurance-region-unsupported" });
+		await expect(
+			navigateToOutpatientMedicalAuth(
+				"record-entry-gate",
+				"patient-entry-gate",
+			),
+		).rejects.toMatchObject({ code: "medical-insurance-region-unsupported" });
+		expect(navigated).toHaveLength(0);
+		eligibility = "unknown";
+		await navigateToMedicalAuth("appointment-entry-gate", "patient-entry-gate");
+		eligibility = "supported";
+		await navigateToOutpatientMedicalAuth(
+			"record-entry-gate",
+			"patient-entry-gate",
+		);
+		expect(navigated).toHaveLength(2);
+		for (const path of navigated)
+			expect(path).toContain(`&familyid=${"a".repeat(32)}`);
+	} finally {
+		Object.assign(MEDICAL_INSURANCE_CONFIG, {
+			medicalOrgAppId: originalOrgAppId,
+			medicalOrgChannelCredential: originalOrgCredential,
+		});
+	}
+});
+
 function restoreGlobal(
 	key: "wx" | "getApp",
 	descriptor: PropertyDescriptor | undefined,
@@ -354,6 +666,56 @@ test("医保按钮按业务键查询服务端并接受 6201 在途状态", async
 	);
 });
 
+test("外部已缴清仅接受服务端隔离状态，不能把可支付订单伪装成已缴清", async () => {
+	let status = "manual_review";
+	let recoveryAllowed = false;
+	Object.assign(globalThis, {
+		getApp: () => ({
+			globalData: {
+				apiBaseUrl: "https://hospital.example.test",
+				apiPrefix: "/api/v2",
+				accessToken: "external-paid-fixture",
+				sessionStatus: "signed_in",
+			},
+		}),
+		wx: {
+			...storageWx(new Map<string, unknown>()),
+			request: (options: { success(response: unknown): void }) =>
+				options.success({
+					statusCode: 200,
+					header: {},
+					data: {
+						success: true,
+						data: {
+							orderId: "external-paid-order",
+							status,
+							authorizationReady: false,
+							authorizationPending: false,
+							recoveryAllowed,
+							externalPaymentConfirmed: true,
+						},
+					},
+				}),
+		},
+	});
+	const { queryMedicalBusinessRecovery } = await import("./medical-insurance");
+	const business = {
+		businessType: "outpatient" as const,
+		businessId: "paid-record",
+		patientId: "current-patient",
+	};
+	await expect(queryMedicalBusinessRecovery(business)).resolves.toMatchObject({
+		status: "manual_review",
+		externalPaymentConfirmed: true,
+		recoveryAllowed: false,
+	});
+	status = "cash_pending";
+	await expect(queryMedicalBusinessRecovery(business)).rejects.toThrow();
+	status = "manual_review";
+	recoveryAllowed = true;
+	await expect(queryMedicalBusinessRecovery(business)).rejects.toThrow();
+});
+
 test("服务端明确无活动医保订单时返回 null，不回退读取本地医保缓存", async () => {
 	type RequestOptions = {
 		url: string;
@@ -397,4 +759,107 @@ test("服务端明确无活动医保订单时返回 null，不回退读取本地
 		}),
 	).resolves.toBeNull();
 	expect(storage.get(PENDING_KEY)).toEqual({ stale: true });
+});
+
+test("外地患者的门诊原单查询只查原订单，不续传费用、不调用结算或支付", async () => {
+	const originalPage = Object.getOwnPropertyDescriptor(globalThis, "Page");
+	let captured: Record<string, unknown> | undefined;
+	const requestPaths: string[] = [];
+	const notices: string[] = [];
+	const app = {
+		globalData: {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "readonly-old-medical-order-session",
+			sessionStatus: "signed_in",
+		},
+	};
+	Object.assign(globalThis, {
+		getApp: () => app,
+		Page: (definition: Record<string, unknown>) => {
+			captured = definition;
+		},
+		wx: {
+			getStorageSync: () => undefined,
+			request: (options: {
+				url: string;
+				method?: string;
+				success: (value: unknown) => void;
+			}) => {
+				requestPaths.push(`${options.method ?? "GET"} ${options.url}`);
+				options.success({
+					statusCode: 200,
+					header: {},
+					data: {
+						success: true,
+						data: {
+							orderId: "old-outpatient-region-order",
+							status: "cash_pending",
+							authorizationReady: true,
+							authorizationPending: false,
+							recoveryAllowed: true,
+						},
+					},
+				});
+			},
+			showModal: (options: { content: string }) =>
+				notices.push(options.content),
+			requestPayment: () => {
+				throw new Error("Readonly lookup must not launch payment");
+			},
+			navigateTo: () => {
+				throw new Error(
+					"Readonly lookup must not open settlement continuation",
+				);
+			},
+		},
+	});
+	try {
+		await import("../pages/outpatient-payment/outpatient-payment");
+		if (!captured) throw new Error("Page definition was not captured");
+		const page = {
+			data: {
+				...(captured.data as Record<string, unknown>),
+				selectedPatient: { id: "patient-readonly-region" },
+				paymentRecord: { recordId: "record-readonly-region" },
+				hasOriginalMedicalPayment: true,
+				medicalEligibility: "unsupported",
+				paymentMethod: "",
+			},
+			setData(patch: Record<string, unknown>) {
+				Object.assign(this.data, patch);
+			},
+			isPatientContextCurrent: () => true,
+			queryOriginalMedicalPayment: captured.queryOriginalMedicalPayment,
+		};
+		await (
+			captured.onOriginalMedicalPayment as (this: typeof page) => Promise<void>
+		).call(page);
+		expect(requestPaths).toHaveLength(2);
+		expect(requestPaths[0]).toEndWith(
+			"/payments/medical-insurance/business-recovery",
+		);
+		expect(requestPaths[1]).toContain("GET ");
+		expect(requestPaths[1]).toEndWith(
+			"/payments/medical-insurance/orders/old-outpatient-region-order",
+		);
+		expect(notices).toHaveLength(1);
+		expect(notices[0]).toContain("请勿重复付款");
+		const selectMethod = captured.onPaymentMethodTap as (
+			this: typeof page,
+			event: { currentTarget: { dataset: { method: string } } },
+		) => void;
+		selectMethod.call(page, {
+			currentTarget: { dataset: { method: "medical" } },
+		});
+		expect(page.data.paymentMethod).toBe("");
+		selectMethod.call(page, {
+			currentTarget: { dataset: { method: "wechat" } },
+		});
+		expect(page.data.paymentMethod).toBe("wechat");
+		expect(requestPaths).toHaveLength(2);
+	} finally {
+		if (originalPage) Object.defineProperty(globalThis, "Page", originalPage);
+		else Reflect.deleteProperty(globalThis, "Page");
+	}
 });

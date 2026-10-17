@@ -13,20 +13,10 @@
 
 		<block wx:else>
 			<view class="doctor-profile-card">
-				<image
-					wx:if="{{doctor.doctorAvatarUrl}}"
-					class="doctor-profile-avatar doctor-profile-avatar-photo"
-					src="{{doctor.doctorAvatarUrl}}"
-					mode="aspectFill"
-					lazy-load="{{true}}"
-					aria-label="医生照片"
-				/>
-				<image
-					wx:else
+				<doctor-avatar
 					class="doctor-profile-avatar"
-					src="/assets/legacy-user/default-avatar.svg"
-					mode="aspectFit"
-					aria-label="默认医生头像"
+					src="{{doctor.doctorAvatarUrl}}"
+					label="{{doctor.doctorName}}的头像"
 				/>
 				<view class="doctor-profile-copy">
 					<view class="doctor-profile-name-row">

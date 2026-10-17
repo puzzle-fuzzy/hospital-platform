@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
 	AdapterCallContext,
+	HisPaymentReferenceRepository,
 	HospitalSettlementGateway,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
@@ -22,8 +23,10 @@ import {
 	isMedicalInsuranceOrderType,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	medicalInsuranceCashPrepay,
+	medicalInsuranceGroupPayTypeId,
 	medicalInsuranceOrderTypeForBusiness,
 	medicalInsurancePaymentBreakdown,
+	normalizeHisPaymentReference,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -130,6 +133,7 @@ function expectedPrePaymentComponents(input: {
 	insuredAreaCode: string;
 	now: Date;
 	mode: "sequenced" | "combined" | "legacy";
+	savedMedicalComponent?: MedicalInsurancePostPaymentComponent;
 }): readonly MedicalInsurancePostPaymentComponent[] {
 	const amounts = input.order.amounts;
 	if (!amounts) throw new Error("medical payment amounts are unavailable");
@@ -154,13 +158,30 @@ function expectedPrePaymentComponents(input: {
 		);
 		const components: MedicalInsurancePostPaymentComponent[] = [];
 		if (medicalFen > 0) {
+			// 旧成功流水只参与原计划比对；没有真实医保支付腿时不能据此新建 .2。
+			const savedMedicalComponent = input.savedMedicalComponent;
+			const preserveSucceededLegacyGroup =
+				!medicalLegs.some(
+					(component) =>
+						(component.payTypeId === "2" || component.payTypeId === "5") &&
+						component.amountFen > 0,
+				) &&
+				savedMedicalComponent?.kind === "medical" &&
+				savedMedicalComponent.payTypeId === "2" &&
+				savedMedicalComponent.state === "succeeded" &&
+				Boolean(
+					savedMedicalComponent.payingId?.trim() &&
+						savedMedicalComponent.tradingId?.trim(),
+				);
 			components.push({
 				componentId: `${input.order.medicalOrderId}:medical`,
 				kind: "medical",
 				totalFen: amounts.totalFen,
 				amountFen: medicalFen,
 				payModel: "H5",
-				payTypeId: "2",
+				payTypeId: preserveSucceededLegacyGroup
+					? "2"
+					: medicalInsuranceGroupPayTypeId(medicalLegs),
 				payTypeParams: medicalLegs,
 				recordCode: stableComponentCode(
 					`medical-post-payment:${input.order.medicalOrderId}:medical`,
@@ -294,6 +315,36 @@ function samePrePaymentPlan(
 		planned.every((plannedComponent) =>
 			saved.some((savedComponent) =>
 				samePrePaymentComponent(savedComponent, plannedComponent),
+			),
+		)
+	);
+}
+
+/** 旧成功医保流水保留原返回类型与真实双流水，不重新创建或改写。 */
+function samePrePaymentPlanWithSucceededLegacyMedicalGroup(
+	saved: readonly MedicalInsurancePostPaymentComponent[],
+	planned: readonly MedicalInsurancePostPaymentComponent[],
+): boolean {
+	return (
+		saved.length === planned.length &&
+		planned.every((plannedComponent) =>
+			saved.some(
+				(savedComponent) =>
+					samePrePaymentComponent(savedComponent, plannedComponent, true) ||
+					(savedComponent.kind === "medical" &&
+						plannedComponent.kind === "medical" &&
+						savedComponent.payTypeId === "2" &&
+						plannedComponent.payTypeId === "5" &&
+						savedComponent.state === "succeeded" &&
+						Boolean(
+							savedComponent.payingId?.trim() &&
+								savedComponent.tradingId?.trim(),
+						) &&
+						samePrePaymentComponent(
+							{ ...savedComponent, payTypeId: "5" },
+							plannedComponent,
+							true,
+						)),
 			),
 		)
 	);
@@ -575,6 +626,7 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		private readonly dependencies: {
 			tasks: MedicalInsuranceQueryTaskRepository;
 			orders: MedicalInsuranceOrderRepository;
+			hisPaymentReferences?: HisPaymentReferenceRepository;
 			medicalInsurance: MedicalInsuranceOrderQueryGateway;
 			wechatPayment?: MedicalInsuranceWechatPaymentGateway;
 			/** 新订单普通微信 APIv3/RSA 自费查单；旧混合单仍走 wechatPayment。 */
@@ -1127,6 +1179,28 @@ export class MedicalInsuranceOrderReconciliationWorker {
 				order.ownerUserId,
 				order.medicalOrderId,
 			)) ?? currentSettlement;
+		const paymentReferenceScope = {
+			ownerUserId: order.ownerUserId,
+			medicalOrderId: order.medicalOrderId,
+			paymentScopeId: currentComponent.componentId,
+			source: "component" as const,
+		};
+		if (currentSettlement.selfPayThirdPartyWriteback?.status === "succeeded") {
+			let numericReceipt: string | undefined;
+			try {
+				numericReceipt = normalizeHisPaymentReference(
+					currentSettlement.selfPayThirdPartyWriteback.thirdPartPayRecordId,
+				);
+			} catch {}
+			if (numericReceipt) {
+				if (!this.dependencies.hisPaymentReferences)
+					throw new Error("his-payment-references-not-configured");
+				await this.dependencies.hisPaymentReferences.confirm({
+					...paymentReferenceScope,
+					referenceId: numericReceipt,
+				});
+			}
+		}
 		if (currentSettlement.selfPaySettlementCompletion?.status === "succeeded") {
 			if (!currentSettlement.postPaymentCompletedAt) {
 				await this.updateSettlementContext(order, (current) => ({
@@ -1164,6 +1238,17 @@ export class MedicalInsuranceOrderReconciliationWorker {
 			currentSettlement,
 			currentComponent,
 		);
+		if (currentSettlement.selfPayThirdPartyWriteback?.status !== "succeeded") {
+			if (!this.dependencies.hisPaymentReferences)
+				throw new Error("his-payment-references-not-configured");
+			registrationContext.hisPaymentReferenceId = (
+				await this.dependencies.hisPaymentReferences.allocate(
+					paymentReferenceScope,
+				)
+			).referenceId;
+		} else if (!registrationContext.thirdPartPayRecordId) {
+			throw new Error("medical-insurance-third-party-success-receipt-missing");
+		}
 		const attemptedAt = () => new Date().toISOString();
 		const trace = await writeBackGateway.writeBack(
 			{
@@ -1182,13 +1267,25 @@ export class MedicalInsuranceOrderReconciliationWorker {
 					? { skipCompleteSettlement: true }
 					: {}),
 				onThirdPartPayAttempt: async () => {
-					await this.updateSettlementContext(order, (current) => ({
-						...current,
-						selfPayThirdPartyWriteback: {
+					if (
+						!this.dependencies.orders.claimSelfPayThirdPartPayAttempt ||
+						!registrationContext.outTradeNo
+					)
+						throw new Error(
+							"medical-insurance-self-pay-writeback-claim-not-configured",
+						);
+					const claimed =
+						await this.dependencies.orders.claimSelfPayThirdPartPayAttempt({
+							ownerUserId: order.ownerUserId,
+							medicalOrderId: order.medicalOrderId,
+							componentId: currentComponent.componentId,
+							outTradeNo: registrationContext.outTradeNo,
 							attemptedAt: attemptedAt(),
-							status: "unknown",
-						},
-					}));
+						});
+					if (!claimed)
+						throw new Error(
+							"medical-insurance-self-pay-third-party-result-unknown",
+						);
 				},
 				onThirdPartPayResponse: async (response) => {
 					await this.updateSettlementContext(order, (current) => ({
@@ -1206,6 +1303,14 @@ export class MedicalInsuranceOrderReconciliationWorker {
 							rawResponse: response.rawResponse,
 						},
 					}));
+					if (!this.dependencies.hisPaymentReferences)
+						throw new Error("his-payment-references-not-configured");
+					await this.dependencies.hisPaymentReferences.confirm({
+						...paymentReferenceScope,
+						referenceId: normalizeHisPaymentReference(
+							response.thirdPartPayRecordId,
+						),
+					});
 				},
 				onPaymentNotifyAttempt: async () => {
 					await this.updateSettlementContext(order, (current) => ({
@@ -1344,26 +1449,33 @@ export class MedicalInsuranceOrderReconciliationWorker {
 		}
 		const sequenced = settlement.postPaymentPlanVersion === "sequenced-v1";
 		const combined = saved.some((component) => component.kind === "combined");
+		const medicalComponent = saved.find(
+			(component) => component.kind === "medical",
+		);
 		const planned = expectedPrePaymentComponents({
 			order,
 			insuredAreaCode: settlement.insuredAreaCode,
 			now,
 			mode: sequenced ? "sequenced" : combined ? "combined" : "legacy",
+			...(sequenced && medicalComponent
+				? { savedMedicalComponent: medicalComponent }
+				: {}),
 		});
 		// 新两段计划、旧合单必须精确匹配；历史拆分只按既有事实续跑。
 		if (
 			((sequenced || combined) &&
 				!samePrePaymentPlan(saved, planned) &&
-				!samePrePaymentPlanWithLegacyWechatCash(saved, planned)) ||
+				!samePrePaymentPlanWithLegacyWechatCash(saved, planned) &&
+				!(
+					sequenced &&
+					samePrePaymentPlanWithSucceededLegacyMedicalGroup(saved, planned)
+				)) ||
 			(!sequenced &&
 				!combined &&
 				!sameOrCompletedLegacyMiniProgramPrePaymentPlan(saved, planned))
 		) {
 			throw new Error("medical-insurance-pre-payment-plan-changed");
 		}
-		const medicalComponent = saved.find(
-			(component) => component.kind === "medical",
-		);
 		if (
 			sequenced
 				? Boolean(medicalComponent && medicalComponent.state !== "succeeded")

@@ -5,6 +5,7 @@ import {
 import {
 	type MedicalBusinessRecovery,
 	type MedicalOrder,
+	medicalPaymentAmountView,
 	queryMedicalBusinessRecovery,
 	queryMedicalOrder,
 } from "../../services/medical-insurance";
@@ -34,6 +35,9 @@ type PaymentResultPageData = {
 	totalAmountLabel: string;
 	insuranceAmountLabel: string;
 	cashAmountLabel: string;
+	cashAmountCaption: string;
+	hasHospitalDiscount: boolean;
+	hospitalDiscountAmountLabel: string;
 	amountBreakdownHint: string;
 };
 
@@ -134,6 +138,9 @@ function emptyData(): PaymentResultPageData {
 		totalAmountLabel: "",
 		insuranceAmountLabel: "",
 		cashAmountLabel: "",
+		cashAmountCaption: "医保结算后自费",
+		hasHospitalDiscount: false,
+		hospitalDiscountAmountLabel: "",
 		amountBreakdownHint: "",
 	};
 }
@@ -181,6 +188,9 @@ Page<PaymentResultPageData, PaymentResultPageMethods>({
 			totalAmountLabel: "",
 			insuranceAmountLabel: "",
 			cashAmountLabel: "",
+			cashAmountCaption: "医保结算后自费",
+			hasHospitalDiscount: false,
+			hospitalDiscountAmountLabel: "",
 			amountBreakdownHint: "",
 		});
 		wx.setNavigationBarTitle({ title: "支付结果" });
@@ -286,8 +296,7 @@ Page<PaymentResultPageData, PaymentResultPageMethods>({
 					...(order.amounts
 						? {
 								totalAmountLabel: formatFen(order.amounts.totalFen),
-								insuranceAmountLabel: formatFen(order.amounts.insuranceFen),
-								cashAmountLabel: formatFen(order.amounts.cashFen),
+								...medicalPaymentAmountView(order.amounts),
 								amountBreakdownHint: "当前仅为已保存金额，支付最终状态仍在确认",
 							}
 						: {
@@ -306,8 +315,7 @@ Page<PaymentResultPageData, PaymentResultPageMethods>({
 					amountBreakdownVisible: true,
 					amountBreakdownLoading: false,
 					totalAmountLabel: formatFen(order.amounts.totalFen),
-					insuranceAmountLabel: formatFen(order.amounts.insuranceFen),
-					cashAmountLabel: formatFen(order.amounts.cashFen),
+					...medicalPaymentAmountView(order.amounts),
 					amountBreakdownHint: "",
 				});
 				return;

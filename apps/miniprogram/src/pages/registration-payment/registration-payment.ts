@@ -10,14 +10,20 @@ import {
 	appointmentPaymentBlockedMessage,
 	canContinueAppointmentPayment,
 	hasKnownAppointmentPayment,
+	isAppointmentPaymentCompleted,
 } from "../../services/appointment-payment-view";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import {
 	continueMedicalPayment,
 	createMedicalPaymentContext,
+	isMedicalInsuranceRegionUnsupported,
+	MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
 	MedicalAuthNavigationCancelledError,
 	MedicalCashRequiredError,
+	type MedicalInsurancePaymentEligibility,
 	MedicalInsurancePaymentFailureError,
+	medicalAuthorizationContext,
+	needsMedicalBusinessAuthorization,
 	type PaymentMode,
 	type PaymentProgress,
 	queryMedicalBusinessRecovery,
@@ -32,6 +38,10 @@ import {
 	consumeMedicalInsuranceAuthReturn,
 	hasMedicalInsuranceAuthReturn,
 } from "../../services/medical-insurance-auth-handoff";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import { isCurrentSelectedPatient } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
@@ -59,7 +69,12 @@ type RegistrationPaymentPageData = {
 	totalLabel: string;
 	ready: boolean;
 	canPay: boolean;
+	paymentCompleted: boolean;
 	canQueryOriginalPayment: boolean;
+	hasOriginalMedicalPayment: boolean;
+	medicalEligibility: MedicalInsurancePaymentEligibility;
+	medicalEligibilityChecking: boolean;
+	medicalEligibilityMessage: string;
 	payDeadlineLabel: string;
 	busy: boolean;
 	hasPendingPayment: boolean;
@@ -183,6 +198,7 @@ Page<
 			detail: AppointmentDetail,
 		): Promise<void>;
 		onQueryOriginalPayment(): Promise<void>;
+		refreshMedicalPaymentEligibility(): Promise<void>;
 		handleReturn(): Promise<void>;
 		onPaymentTap(event: PaymentModeEvent): void;
 		startOrResumePayment(mode: PaymentMode): Promise<void>;
@@ -213,7 +229,12 @@ Page<
 		totalLabel: "以医院实际收费为准",
 		ready: false,
 		canPay: false,
+		paymentCompleted: false,
 		canQueryOriginalPayment: false,
+		hasOriginalMedicalPayment: false,
+		medicalEligibility: "unknown",
+		medicalEligibilityChecking: true,
+		medicalEligibilityMessage: "",
 		payDeadlineLabel: "",
 		busy: false,
 		hasPendingPayment: false,
@@ -235,7 +256,12 @@ Page<
 				loading: false,
 				ready: false,
 				canPay: false,
+				paymentCompleted: false,
 				canQueryOriginalPayment: false,
+				hasOriginalMedicalPayment: false,
+				medicalEligibility: "unknown",
+				medicalEligibilityChecking: false,
+				medicalEligibilityMessage: "",
 				payDeadlineLabel: "",
 				busy: false,
 				hasPendingPayment: false,
@@ -320,12 +346,21 @@ Page<
 				});
 			}
 			const canPay = canContinueAppointmentPayment(detail.data);
+			const paymentCompleted = isAppointmentPaymentCompleted(detail.data);
 			this.setData({
 				loading: false,
 				ready: true,
 				canPay,
-				payDeadlineLabel: appointmentPayDeadlineLabel(detail.data.payExpiresAt),
-				message: canPay ? "" : appointmentPaymentBlockedMessage(detail.data),
+				paymentCompleted,
+				payDeadlineLabel: paymentCompleted
+					? ""
+					: appointmentPayDeadlineLabel(detail.data.payExpiresAt),
+				stage: paymentCompleted ? "success" : "",
+				message: paymentCompleted
+					? "挂号费用已支付。"
+					: canPay
+						? ""
+						: appointmentPaymentBlockedMessage(detail.data),
 				patientName: detail.data.patient.displayName,
 				patientRelationship: context.patient.relationship,
 				patientCardLabel:
@@ -344,11 +379,15 @@ Page<
 				totalLabel: `${(detail.data.totalFen / 100).toFixed(2)} 元`,
 				sessionGeneration: context.sessionGeneration,
 			});
+			wx.setNavigationBarTitle({
+				title: paymentCompleted ? "支付详情" : canPay ? "挂号支付" : "支付状态",
+			});
 			await this.refreshOriginalPaymentAvailability(detail.data);
 			if (!canPay) {
-				this.setData({ autoStartMode: "" });
+				this.setData({ autoStartMode: "", medicalEligibilityChecking: false });
 				return;
 			}
+			await this.refreshMedicalPaymentEligibility();
 			if (
 				hasMedicalInsuranceAuthReturn({
 					businessType: "registration",
@@ -403,15 +442,24 @@ Page<
 				code: "patient-selection-required",
 			});
 		const canPay = canContinueAppointmentPayment(detail.data);
+		const paymentCompleted = isAppointmentPaymentCompleted(detail.data);
 		this.setData({
 			canPay,
-			payDeadlineLabel: appointmentPayDeadlineLabel(detail.data.payExpiresAt),
+			paymentCompleted,
+			payDeadlineLabel: paymentCompleted
+				? ""
+				: appointmentPayDeadlineLabel(detail.data.payExpiresAt),
 			...(canPay
 				? {}
 				: {
-						stage: "",
-						message: appointmentPaymentBlockedMessage(detail.data),
+						stage: paymentCompleted ? "success" : "",
+						message: paymentCompleted
+							? "挂号费用已支付。"
+							: appointmentPaymentBlockedMessage(detail.data),
 					}),
+		});
+		wx.setNavigationBarTitle({
+			title: paymentCompleted ? "支付详情" : canPay ? "挂号支付" : "支付状态",
 		});
 		await this.refreshOriginalPaymentAvailability(detail.data);
 		return canPay;
@@ -420,21 +468,29 @@ Page<
 	async refreshOriginalPaymentAvailability(
 		detail: AppointmentDetail,
 	): Promise<void> {
+		// 已确认缴费只读展示，不再探测未决订单或提供重复查单入口。
+		if (isAppointmentPaymentCompleted(detail)) {
+			this.setData({
+				canQueryOriginalPayment: false,
+				hasOriginalMedicalPayment: false,
+			});
+			return;
+		}
 		const { appointmentId, patientId, sessionGeneration } = this.data;
 		let canQueryOriginalPayment = hasKnownAppointmentPayment(detail);
-		// 已过期的医保单可能没有自费状态；按业务键确认存在原单后才显示查单入口。
-		if (!canQueryOriginalPayment && !canContinueAppointmentPayment(detail)) {
-			try {
-				canQueryOriginalPayment = Boolean(
-					await queryMedicalBusinessRecovery({
-						businessType: "registration",
-						businessId: appointmentId,
-						patientId,
-					}),
-				);
-			} catch {
-				// 查询可用性探测失败不改变预约/资金事实，也不能开启新付款。
-			}
+		let hasOriginalMedicalPayment = false;
+		try {
+			// 原单恢复独立于新医保入口资格，外地历史订单也必须保留查询入口。
+			hasOriginalMedicalPayment = Boolean(
+				await queryMedicalBusinessRecovery({
+					businessType: "registration",
+					businessId: appointmentId,
+					patientId,
+				}),
+			);
+			canQueryOriginalPayment ||= hasOriginalMedicalPayment;
+		} catch {
+			// 查询可用性探测失败不改变预约/资金事实，也不能开启新付款。
 		}
 		assertSessionGeneration(
 			sessionGeneration,
@@ -444,13 +500,45 @@ Page<
 			throw new ApiError("当前就诊人已变更，请重新选择", {
 				code: "patient-selection-required",
 			});
-		this.setData({ canQueryOriginalPayment });
+		this.setData({ canQueryOriginalPayment, hasOriginalMedicalPayment });
+	},
+
+	async refreshMedicalPaymentEligibility(): Promise<void> {
+		const { appointmentId, patientId, sessionGeneration } = this.data;
+		const guard = getPageLatestRequestGuard(
+			this,
+			"registration-medical-eligibility",
+		);
+		const token = guard.begin();
+		this.setData({ medicalEligibilityChecking: true });
+		let eligibility: MedicalInsurancePaymentEligibility = "unknown";
+		try {
+			eligibility = (await medicalAuthorizationContext(appointmentId))
+				.medicalInsurancePaymentEligibility;
+		} catch {
+			// 尚无有效参保信息或资格读取失败时仍允许重新授权，最终由服务端1101结果把关。
+		}
+		if (!guard.isCurrent(token)) return;
+		assertSessionGeneration(
+			sessionGeneration,
+			"Registration payment session changed during medical eligibility lookup",
+		);
+		if (!isCurrentSelectedPatient(patientId)) return;
+		this.setData({
+			medicalEligibility: eligibility,
+			medicalEligibilityChecking: false,
+			medicalEligibilityMessage:
+				eligibility === "unsupported"
+					? MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE
+					: "",
+		});
 	},
 
 	async onQueryOriginalPayment(): Promise<void> {
 		if (
 			this.data.busy ||
 			!this.data.ready ||
+			this.data.paymentCompleted ||
 			!this.data.canQueryOriginalPayment
 		)
 			return;
@@ -508,7 +596,9 @@ Page<
 					"Registration payment session changed after original payment query",
 				);
 				this.setData({
-					message: `${resultMessage}${this.data.canPay ? "" : `；${this.data.message}`}`,
+					message: this.data.paymentCompleted
+						? "挂号费用已支付。"
+						: `${resultMessage}${this.data.canPay ? "" : `；${this.data.message}`}`,
 				});
 			} catch {
 				// 会话/患者变化或详情读取失败时保持旧预约的付款入口关闭。
@@ -550,6 +640,12 @@ Page<
 		const value = String(event.currentTarget?.dataset?.mode || "");
 		if (value !== "mixed" && value !== "self") return;
 		if (this.data.busy || !this.data.ready) return;
+		if (
+			value === "mixed" &&
+			(this.data.medicalEligibilityChecking ||
+				this.data.medicalEligibility === "unsupported")
+		)
+			return;
 		try {
 			assertSessionGeneration(
 				this.data.sessionGeneration,
@@ -595,10 +691,7 @@ Page<
 					"上一次医保授权正在确认；按钮已恢复，可稍后再次点击查询，请勿重复展码",
 			});
 			return;
-		} else if (
-			!recovery ||
-			(recovery.status === "created" && !recovery.authorizationReady)
-		) {
+		} else if (!recovery || needsMedicalBusinessAuthorization(recovery)) {
 			await startMedicalPayment(
 				{
 					appointmentId: this.data.appointmentId,
@@ -680,6 +773,24 @@ Page<
 	},
 
 	async handlePaymentError(error: unknown): Promise<void> {
+		if (isMedicalInsuranceRegionUnsupported(error)) {
+			getPageLatestRequestGuard(
+				this,
+				"registration-medical-eligibility",
+			).begin();
+			this.setData({
+				medicalEligibility: "unsupported",
+				medicalEligibilityChecking: false,
+				medicalEligibilityMessage: MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+				hasPendingPayment: false,
+				stage: "",
+				error: "",
+				message: MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
+				completed: false,
+			});
+			// 仅更新提示；切换微信支付必须由用户主动选择并经过原单冲突检查。
+			return;
+		}
 		if (
 			error instanceof ApiError &&
 			error.code === "appointment-payment-unavailable"
@@ -810,6 +921,7 @@ Page<
 	},
 
 	onUnload() {
+		disposePageInstance(this);
 		clearMedicalInsuranceAuthHandoff({
 			businessType: "registration",
 			businessId: this.data.appointmentId,

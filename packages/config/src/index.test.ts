@@ -51,6 +51,7 @@ test("runtime config defaults to safe development gates", () => {
 		yunhealthRegistrationTradeTypeCode: "10",
 		workerPollIntervalMs: 1000,
 		aiRuntimeReady: false,
+		aiRuntimeSpeechReady: false,
 		aiRuntimeTimeoutMs: 120_000,
 		intelligentCustomerEnabled: false,
 		adminLogsIngestUrl: undefined,
@@ -185,6 +186,29 @@ test("Python AI runtime requires a loopback URL and a sufficiently long token", 
 
 	expect(aiRuntimeConfigurationStatus(configured)).toBe("configured");
 	expect(configured.aiRuntimeTimeoutMs).toBe(60_000);
+});
+
+test("Python AI speech requires its independent opt-in gate", () => {
+	const textOnly = loadRuntimeConfig({
+		AI_RUNTIME_READY: "true",
+		AI_RUNTIME_URL: "http://127.0.0.1:8101",
+		AI_RUNTIME_TOKEN: "local-ai-runtime-token-000001",
+	});
+
+	expect(aiRuntimeConfigurationStatus(textOnly)).toBe("configured");
+	expect(textOnly.aiRuntimeSpeechReady).toBeFalse();
+	expect(
+		loadRuntimeConfig({
+			AI_RUNTIME_READY: "true",
+			AI_RUNTIME_SPEECH_READY: "true",
+		}).aiRuntimeSpeechReady,
+	).toBeTrue();
+	expect(
+		loadRuntimeConfig({
+			AI_RUNTIME_READY: "true",
+			AI_RUNTIME_SPEECH_READY: "false",
+		}).aiRuntimeSpeechReady,
+	).toBeFalse();
 });
 
 test("Worker 日志上送地址和令牌使用独立配置并去除空白", () => {

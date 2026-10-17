@@ -1230,6 +1230,28 @@ export class WechatPaymentApiGateway
 		successTime?: string;
 		trace: ExternalTrace;
 	}> {
+		return this.queryPayment(input, context, false);
+	}
+
+	/** A prior partial refund does not erase the original successful payment. */
+	async queryPaidOrderForRefund(
+		input: { orderId: string },
+		context: AdapterCallContext,
+	) {
+		return this.queryPayment(input, context, true);
+	}
+
+	private async queryPayment(
+		input: { orderId: string },
+		context: AdapterCallContext,
+		forRefund: boolean,
+	): Promise<{
+		state: WechatPaymentQueryState;
+		providerState?: WechatPaymentProviderState;
+		totalFen: number;
+		successTime?: string;
+		trace: ExternalTrace;
+	}> {
 		const orderId = requiredInput(input.orderId, "orderId", 32);
 		const path = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(orderId)}?mchid=${encodeURIComponent(this.mchId)}`;
 		const nonce = this.nonce();
@@ -1300,7 +1322,23 @@ export class WechatPaymentApiGateway
 			}
 			throw error;
 		}
-		const state = mapTradeState(response.data.trade_state);
+		if (forRefund) {
+			const identity = response.data as unknown as Record<string, unknown>;
+			if (
+				identity.out_trade_no !== orderId ||
+				identity.appid !== this.appId ||
+				identity.mchid !== this.mchId
+			) {
+				throw providerError({
+					operation: "order-query",
+					message: "Refund payment query identity did not match",
+				});
+			}
+		}
+		const state =
+			forRefund && response.data.trade_state === "REFUND"
+				? "cash_paid"
+				: mapTradeState(response.data.trade_state);
 		const providerState = response.data
 			.trade_state as WechatPaymentProviderState;
 		const amount = response.data.amount;
@@ -1561,6 +1599,117 @@ export class WechatPaymentApiGateway
 			requestId: response.requestId,
 			operation: "refund-query",
 		});
+	}
+
+	/** Synchronize a confirmed medical-side refund; this never initiates a refund. */
+	async notifyMedicalRefund(
+		input: {
+			mixTradeNo: string;
+			totalFen: number;
+			fundFen: number;
+			personalAccountFen: number;
+			otherFen: number;
+			merchantRefundNo: string;
+			successTime: string;
+		},
+		context: AdapterCallContext,
+	): Promise<{ requestId: string }> {
+		const mixTradeNo = requiredInput(input.mixTradeNo, "mixTradeNo", 32);
+		const merchantRefundNo = requiredInput(
+			input.merchantRefundNo,
+			"merchantRefundNo",
+			64,
+		);
+		for (const value of [
+			input.totalFen,
+			input.fundFen,
+			input.personalAccountFen,
+			input.otherFen,
+		]) {
+			if (!Number.isSafeInteger(value) || value < 0) {
+				throw providerError({
+					operation: "medical-refund-notify",
+					message: "Invalid medical refund amount",
+					failureStage: "validation",
+					requestOutcome: "not_sent",
+				});
+			}
+		}
+		if (
+			input.totalFen <= 0 ||
+			input.totalFen !==
+				input.fundFen + input.personalAccountFen + input.otherFen ||
+			!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+				input.successTime,
+			) ||
+			!Number.isFinite(Date.parse(input.successTime))
+		) {
+			throw providerError({
+				operation: "medical-refund-notify",
+				message: "Invalid medical refund result",
+				failureStage: "validation",
+				requestOutcome: "not_sent",
+			});
+		}
+		const path = `/v3/med-ins/refunds/notify?mix_trade_no=${encodeURIComponent(mixTradeNo)}`;
+		const body = JSON.stringify({
+			med_refund_total_fee: input.totalFen,
+			med_refund_gov_fee: input.fundFen,
+			med_refund_self_fee: input.personalAccountFen,
+			med_refund_other_fee: input.otherFen,
+			out_refund_no: merchantRefundNo,
+			refund_time: input.successTime,
+		});
+		const checkedFetcher: ProviderFetcher = async (url, init) => {
+			const response = await this.fetcher(url, { ...init, redirect: "error" });
+			const rawBody = new Uint8Array(await response.clone().arrayBuffer());
+			verifyPlatformSignature({
+				rawBody,
+				headers: response.headers,
+				statusCode: response.status,
+				requestId: context.traceId,
+				platformCertificateSerial: this.platformCertificateSerial,
+				platformPublicKey: this.platformPublicKey,
+				now: this.now,
+				operation: "medical-refund-notify",
+			});
+			if (
+				response.ok &&
+				(response.status !== 204 || rawBody.byteLength !== 0)
+			) {
+				throw providerError({
+					operation: "medical-refund-notify",
+					message:
+						"Medical refund notification did not return an empty 204 response",
+				});
+			}
+			return response;
+		};
+		const response = await requestJson<undefined>(
+			{
+				provider: "wechat-pay",
+				operation: "medical-refund-notify",
+				url: new URL(path, this.baseUrl).toString(),
+				method: "POST",
+				context,
+				bodyText: body,
+				rawLogging: false,
+				headers: {
+					Authorization: apiV3Authorization({
+						method: "POST",
+						path,
+						timestamp: unixSeconds(this.now),
+						nonce: this.nonce(),
+						body,
+						mchId: this.mchId,
+						merchantCertificateSerial: this.merchantCertificateSerial,
+						merchantPrivateKey: this.merchantPrivateKey,
+					}),
+				},
+			},
+			checkedFetcher,
+		);
+		return { requestId: response.requestId };
 	}
 
 	/**

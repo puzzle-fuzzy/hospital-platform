@@ -29,6 +29,11 @@ import {
 	createNoopLogger,
 	providerFailureMetadata,
 } from "@hospital/observability";
+import {
+	loadMedicalInsurancePaymentPresentation,
+	type MedicalInsurancePaymentPresentation,
+} from "./payment-presentation";
+import { assertMedicalInsurancePaymentRegion } from "./payment-region";
 import type { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
 export class MedicalInsuranceWechatPaymentInputError extends Error {
@@ -84,6 +89,7 @@ function opaque(value: unknown, label: string): string {
 function output(
 	order: MedicalInsuranceOrder,
 	includePayParams = true,
+	presentation: MedicalInsurancePaymentPresentation = {},
 ): MedicalInsuranceWechatPayPayload["data"] {
 	const paymentState = order.wechatPaymentState ?? "not_started";
 	return {
@@ -91,6 +97,7 @@ function output(
 		status: order.status as MedicalInsuranceWechatPayPayload["data"]["status"],
 		paymentState,
 		cashFen: order.amounts?.cashFen ?? 0,
+		...presentation,
 		...(order.medInsFailReason
 			? { medInsFailReason: order.medInsFailReason }
 			: {}),
@@ -203,6 +210,20 @@ export class MedicalInsuranceWechatPaymentService {
 	) {
 		this.logger = dependencies.logger ?? createNoopLogger();
 		this.now = dependencies.now ?? (() => new Date());
+	}
+
+	private async output(
+		order: MedicalInsuranceOrder,
+		includePayParams = true,
+	): Promise<MedicalInsuranceWechatPayPayload["data"]> {
+		return output(
+			order,
+			includePayParams,
+			await loadMedicalInsurancePaymentPresentation(
+				order,
+				this.dependencies.orders,
+			),
+		);
 	}
 
 	private async order(ownerUserId: string, orderId: string) {
@@ -414,7 +435,7 @@ export class MedicalInsuranceWechatPaymentService {
 			});
 			const latest = await this.order(input.ownerUserId, input.orderId);
 			return {
-				...output(latest, false),
+				...(await this.output(latest, false)),
 				status:
 					confirmed.status as MedicalInsuranceWechatPayPayload["data"]["status"],
 				paymentState: "cash_paid",
@@ -433,7 +454,7 @@ export class MedicalInsuranceWechatPaymentService {
 			Date.parse(expiresAt) > this.now().getTime()
 		) {
 			await this.requeue(input.orderId);
-			return output(input.order);
+			return this.output(input.order);
 		}
 
 		let order = input.order;
@@ -455,7 +476,7 @@ export class MedicalInsuranceWechatPaymentService {
 				order.wechatPaymentState === "prepay_ready" &&
 				order.wechatPayParams
 			) {
-				return output(order);
+				return this.output(order);
 			}
 		}
 		const result = await gateway.createJsapiOrder(
@@ -485,7 +506,7 @@ export class MedicalInsuranceWechatPaymentService {
 				latest.wechatOutTradeNo === paymentOutTradeNo
 			) {
 				await this.requeue(input.orderId);
-				return output(latest);
+				return this.output(latest);
 			}
 			throw new DependencyNotConfiguredError("medical-insurance-orders");
 		}
@@ -500,7 +521,7 @@ export class MedicalInsuranceWechatPaymentService {
 			},
 			"Medical insurance own WeChat RSA self-pay is ready",
 		);
-		return output(updated);
+		return this.output(updated);
 	}
 
 	private async queryOwnCashPayment(input: {
@@ -512,7 +533,7 @@ export class MedicalInsuranceWechatPaymentService {
 		const gateway = this.dependencies.wechatCashPayment;
 		const outTradeNo = input.order.wechatOutTradeNo;
 		if (!gateway || !outTradeNo || !input.order.amounts) {
-			return output(input.order, false);
+			return this.output(input.order, false);
 		}
 		const result = await gateway.query({ orderId: outTradeNo }, input.context);
 		if (result.totalFen !== input.order.amounts.cashFen) {
@@ -522,7 +543,7 @@ export class MedicalInsuranceWechatPaymentService {
 		}
 		if (result.state === "cash_pending") {
 			await this.requeue(input.orderId);
-			return output(input.order, false);
+			return this.output(input.order, false);
 		}
 		if (result.state === "failed") {
 			const updated = await this.dependencies.orders.applySettlement(
@@ -534,7 +555,7 @@ export class MedicalInsuranceWechatPaymentService {
 					status: "manual_review",
 				},
 			);
-			return output(
+			return this.output(
 				updated ?? (await this.order(input.ownerUserId, input.orderId)),
 				false,
 			);
@@ -554,7 +575,7 @@ export class MedicalInsuranceWechatPaymentService {
 		});
 		const latest = await this.order(input.ownerUserId, input.orderId);
 		return {
-			...output(latest, false),
+			...(await this.output(latest, false)),
 			status:
 				confirmed.status as MedicalInsuranceWechatPayPayload["data"]["status"],
 			paymentState: "cash_paid",
@@ -570,9 +591,9 @@ export class MedicalInsuranceWechatPaymentService {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		let order = await this.order(ownerUserId, orderId);
-		if (order.status === "cancelled") return output(order, false);
+		if (order.status === "cancelled") return this.output(order, false);
 		// 已完成医院回写的终态不能再被后续查单结果降级或改成待人工处理。
-		if (order.status === "insurance_settled") return output(order, false);
+		if (order.status === "insurance_settled") return this.output(order, false);
 		// 504、医保失败或 Worker 已判定待确认/人工审核的订单不能再次预下单。
 		// 直接返回服务端终态，避免客户端把旧订单和旧幂等键带回 Provider，
 		// 也避免把同一个失败响应误认为新的支付超时。
@@ -581,7 +602,7 @@ export class MedicalInsuranceWechatPaymentService {
 			order.status === "manual_review" ||
 			order.status === "failed"
 		) {
-			return output(order, false);
+			return this.output(order, false);
 		}
 		if (order.wechatPayParamsFormat === "legacy_md5") {
 			// 历史众阳 MD5 只能作为订单读取兼容事实，不能再次返回给小程序，
@@ -590,7 +611,7 @@ export class MedicalInsuranceWechatPaymentService {
 			if (order.wechatMixTradeNo && order.wechatOutTradeNo) {
 				return this.query(input);
 			}
-			return output(order, false);
+			return this.output(order, false);
 		}
 		const { businessType, orderType } = orderBusiness(order);
 		let paymentSettlement = !order.wechatMixTradeNo
@@ -599,6 +620,21 @@ export class MedicalInsuranceWechatPaymentService {
 					orderId,
 				)
 			: undefined;
+		if (!order.wechatMixTradeNo && !order.wechatOutTradeNo) {
+			// .2 双 ID 只说明医院预下单，不代表已经扣款。没有微信原单时，
+			// 存量外地预结算也不能因新版本放开校验而新建医保混合扣款。
+			const authorization = order.authorizationId
+				? await this.dependencies.authorizations.get({
+						authorizationId: order.authorizationId,
+						ownerUserId,
+						medicalOrderId: orderId,
+						now: this.now().toISOString(),
+					})
+				: undefined;
+			assertMedicalInsurancePaymentRegion(
+				authorization?.insuplcAdmdvs ?? paymentSettlement?.insuredAreaCode,
+			);
+		}
 		let sequencedOfficialFlowPrepared =
 			paymentSettlement?.postPaymentPlanVersion === "sequenced-v1";
 		const historicalOrdinaryWechatOrder = Boolean(
@@ -734,7 +770,7 @@ export class MedicalInsuranceWechatPaymentService {
 				},
 				"Existing medical insurance WeChat mixed payment reused",
 			);
-			return output(order);
+			return this.output(order);
 		}
 		if (order.wechatPaymentState === "cash_paid") {
 			// 历史版本可能只凭普通 JSAPI 查单写入 cash_paid；任何续跑都先重新
@@ -837,7 +873,7 @@ export class MedicalInsuranceWechatPaymentService {
 					order.wechatMixTradeNo
 				) {
 					await this.requeue(orderId);
-					return output(order);
+					return this.output(order);
 				}
 				recoverFirst =
 					order.wechatPaymentState === "unknown" &&
@@ -911,7 +947,7 @@ export class MedicalInsuranceWechatPaymentService {
 					prepayExpiresAt(order) > this.now().getTime())
 			) {
 				await this.requeue(orderId);
-				return output(order);
+				return this.output(order);
 			}
 			throw new DependencyNotConfiguredError("medical-insurance-orders");
 		}
@@ -933,7 +969,7 @@ export class MedicalInsuranceWechatPaymentService {
 			},
 			"Medical insurance WeChat mixed payment is ready",
 		);
-		return output(updated);
+		return this.output(updated);
 	}
 
 	async query(input: {
@@ -944,13 +980,13 @@ export class MedicalInsuranceWechatPaymentService {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		let order = await this.order(ownerUserId, orderId);
-		if (order.status === "cancelled") return output(order, false);
+		if (order.status === "cancelled") return this.output(order, false);
 		// 已完成医院回写的终态不能再被后续查单结果降级或改成待人工处理。
-		if (order.status === "insurance_settled") return output(order, false);
+		if (order.status === "insurance_settled") return this.output(order, false);
 		// 人工审核/失败是服务端终态；查单只读本地权威状态，不再触发
 		// 6301、.32 或 .5，防止回到页面后重复重放同一条 504 链路。
 		if (order.status === "manual_review" || order.status === "failed") {
-			return output(order, false);
+			return this.output(order, false);
 		}
 		const { businessType, orderType } = orderBusiness(order);
 		const pendingSettlement =
@@ -965,7 +1001,7 @@ export class MedicalInsuranceWechatPaymentService {
 			// Worker 按 out_trade_no 走官方恢复，绝不能把同一单号误送普通
 			// JSAPI 查单，更不能由页面线程并发创建或回写。
 			await this.requeue(orderId);
-			return output(order, false);
+			return this.output(order, false);
 		}
 		if (
 			!order.wechatMixTradeNo &&
@@ -985,14 +1021,14 @@ export class MedicalInsuranceWechatPaymentService {
 			!order.payOrdId ||
 			!order.amounts
 		) {
-			return output(order, false);
+			return this.output(order, false);
 		}
 		if (this.dependencies.pluginPaymentBridge) {
 			// 云健康回写链路启用时，官方混合查单只能由持久化 Worker 串行
 			// 执行。页面轮询只读取本地状态并唤醒任务，不能与 Worker 同时
 			// 更新订单版本或抢占 in_progress 查询租约。
 			await this.requeue(orderId);
-			return output(order, false);
+			return this.output(order, false);
 		}
 		const settlement = await this.dependencies.orders.getSettlementContext(
 			ownerUserId,
@@ -1114,7 +1150,7 @@ export class MedicalInsuranceWechatPaymentService {
 				// 云健康 .29/.15/.5 由持久化 Worker 串行执行，避免 API 查单与
 				// 后台补偿同时写同一 Provider 流水。页面继续轮询本订单即可。
 				await this.requeue(orderId);
-				return output(order, false);
+				return this.output(order, false);
 			}
 			const confirmed = await this.completeOfficialPayment(order, {
 				ownerUserId,
@@ -1123,14 +1159,14 @@ export class MedicalInsuranceWechatPaymentService {
 			});
 			order = await this.order(ownerUserId, orderId);
 			return {
-				...output(order, false),
+				...(await this.output(order, false)),
 				status:
 					confirmed.status as MedicalInsuranceWechatPayPayload["data"]["status"],
 				paymentState: "cash_paid",
 				cashFen: confirmed.amounts?.cashFen ?? order.amounts?.cashFen ?? 0,
 			};
 		}
-		return output(order, false);
+		return this.output(order, false);
 	}
 
 	/**

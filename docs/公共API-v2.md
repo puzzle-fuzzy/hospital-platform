@@ -527,6 +527,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 30550 | `medical-insurance-cancellation-context-missing` | 服务端缺少安全关单所需的 Provider 上下文；不会盲目调用关单接口，需人工补录或处理 |
 | 409 | 30560 | `medical-insurance-insutype-unavailable` | 1101 没有返回可用于本次支付的有效医保险种；预约保留，可由用户确认改用普通自费支付 |
 | 503 | 30570 | `medical-insurance-timeout` | 6201/6202 返回体包含医保核心 `code=504, message=Gateway Time-out`；医保连接超时，请稍后重新挂号重试 |
+| 409 | 30580 | `medical-insurance-region-unsupported` | 当前参保地暂未开通医保支付，请选择微信支付；仅 1101 当前有效险种的参保地为 140581 可新发起医保支付 |
 | 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | 50320 | `outpatient-payment-record-not-found` | 当前用户/就诊人范围内未找到对应门诊缴费记录 |
 | 404 | 50340 | `outpatient-electronic-invoice-record-not-found` | 当前用户/就诊人范围内未找到可开具的门诊电子发票记录 |

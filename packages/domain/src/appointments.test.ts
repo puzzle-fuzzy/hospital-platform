@@ -317,7 +317,7 @@ test("预约排班医生照片只接受完整 http(s) URL", () => {
 		"/doctors/001.jpg",
 		"ftp://oss.example.test/001.jpg",
 		"https://oss.example.test/ 001.jpg",
-		`https://oss.example.test/${"a".repeat(512)}`,
+		`https://oss.example.test/${"a".repeat(2048)}`,
 	]) {
 		expect(() =>
 			normalizeAppointmentScheduleResults([
@@ -327,4 +327,29 @@ test("预约排班医生照片只接受完整 http(s) URL", () => {
 			new AppointmentDirectoryResultValidationError("schedule-field-invalid"),
 		);
 	}
+});
+
+test("预约排班和快照保留2048字符以内的已编码医生资源URL", () => {
+	const photo = `https://provider.example.test/proxy/forward?url=${encodeURIComponent(`https://img.example.test/${"医".repeat(150)}.jpg`)}`;
+	const schedule = { ...providerSchedule(1), doctorPhotoUrl: photo };
+	expect(photo.length).toBeGreaterThan(512);
+	expect(normalizeAppointmentScheduleResults([schedule])[0]).toMatchObject({
+		doctorPhotoUrl: photo,
+	});
+	const snapshotInput = {
+		...appointmentSnapshotInput(),
+		schedule: { ...appointmentSnapshotInput().schedule, doctorPhotoUrl: photo },
+	};
+	expect(() =>
+		validateAppointmentScheduleSnapshot(snapshotInput),
+	).not.toThrow();
+	expect(() =>
+		validateAppointmentScheduleSnapshot({
+			...snapshotInput,
+			schedule: {
+				...snapshotInput.schedule,
+				doctorPhotoUrl: `https://img.example.test/${"a".repeat(2048)}`,
+			},
+		}),
+	).toThrow(AppointmentScheduleSnapshotValidationError);
 });

@@ -7,7 +7,7 @@
 .appointment-detail-page {
 	box-sizing: border-box;
 	min-height: 100vh;
-	padding: 24rpx 24rpx 56rpx;
+	padding: 24rpx 24rpx calc(40rpx + env(safe-area-inset-bottom));
 	background: #f5f6f8;
 }
 
@@ -83,6 +83,7 @@
 	background: #3d6df6;
 }
 
+.detail-status-paid,
 .detail-status-completed,
 .detail-status-registered {
 	background: #20b26b;
@@ -169,7 +170,7 @@
 
 .detail-fee {
 	flex: 1;
-	color: #f04438;
+	color: var(--hospital-text);
 	font-size: 30rpx;
 	font-weight: 600;
 	text-align: right;
@@ -181,9 +182,54 @@
 
 .detail-notice {
 	display: block;
-	color: #f04438;
-	font-size: 24rpx;
+	color: var(--hospital-subtle);
+	font-size: 26rpx;
 	line-height: 1.7;
+}
+
+.detail-payment-card {
+	padding: 26rpx 28rpx;
+}
+
+.detail-payment-heading {
+	display: flex;
+	align-items: center;
+	gap: 12rpx;
+}
+
+.detail-payment-title {
+	color: var(--hospital-text);
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.detail-payment-check {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 36rpx;
+	height: 36rpx;
+	border-radius: 50%;
+	background: #166534;
+	color: #ffffff;
+	font-size: 24rpx;
+	font-weight: 600;
+}
+
+.detail-payment-copy {
+	display: block;
+	margin-top: 14rpx;
+	color: var(--hospital-subtle);
+	font-size: 26rpx;
+	line-height: 1.7;
+}
+
+.detail-payment-card-paid {
+	background: #f0f9f4;
+}
+
+.detail-payment-card-paid .detail-payment-title {
+	color: #166534;
 }
 
 .detail-legacy-note {
@@ -212,26 +258,27 @@
 	color: #ffffff;
 }
 
-.detail-home-button {
+.detail-actions .detail-action-button {
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	width: 100% !important;
 	height: 88rpx;
+	min-height: 44px;
 	max-width: none;
-	margin: 12rpx 0 20rpx;
+	margin: 0;
 	padding: 0;
-	border: 2rpx solid #16a34a;
+	border: 2rpx solid #d8dee8;
 	border-radius: 44rpx;
-	background: transparent;
-	color: #16a34a;
+	background: var(--hospital-surface);
+	color: var(--hospital-text);
 	font-size: 30rpx;
+	font-weight: 600;
 	line-height: 1;
 }
 
-.detail-home-button::after,
-.detail-cancel-button::after {
+.detail-action-button::after {
 	border: 0;
 }
 
@@ -239,31 +286,30 @@
 	display: flex;
 	box-sizing: border-box;
 	width: 100%;
-	margin: 12rpx 0 0;
+	margin: 24rpx 0;
+	background: transparent;
 	align-items: stretch;
 	flex-direction: column;
 	gap: 16rpx;
 }
 
-.detail-cancel-button {
-	box-sizing: border-box;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 100% !important;
-	height: 88rpx;
-	max-width: none;
-	margin: 0;
-	padding: 0;
+.detail-actions .detail-payment-button,
+.detail-actions .detail-pay-button {
 	border: 2rpx solid #3d6df6;
-	border-radius: 44rpx;
-	background: transparent;
-	color: #3d6df6;
-	font-size: 30rpx;
-	line-height: 1;
+	background: var(--hospital-primary);
+	color: var(--hospital-surface);
 }
 
-.detail-cancel-button[disabled] {
+.detail-actions .detail-home-button {
+	border: 2rpx solid #16a34a;
+	color: #15803d;
+}
+
+.detail-actions .detail-cancel-button {
+	color: var(--hospital-subtle);
+}
+
+.detail-actions .detail-action-button[disabled] {
 	opacity: 0.6;
 }
 
@@ -273,16 +319,4 @@
 	font-size: 23rpx;
 	line-height: 1.6;
 	text-align: center;
-}
-
-.detail-pay-button {
-	margin-top: 20rpx;
-	border-radius: 44rpx;
-	background: #3d6df6;
-	color: #fff;
-	font-size: 30rpx;
-}
-
-.detail-pay-button::after {
-	border: 0;
 }

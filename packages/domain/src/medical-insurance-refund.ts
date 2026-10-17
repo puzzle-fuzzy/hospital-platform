@@ -50,11 +50,25 @@ export type MedicalInsuranceRefund = {
 };
 
 export type MedicalInsuranceRefundRepository = {
-	reserve(record: MedicalInsuranceRefund): Promise<{
+	/** 源订单行锁下按原始医保分项累计预留；360221 等未消解失败不得另起身份重退。 */
+	reserve(
+		record: MedicalInsuranceRefund,
+		originalAmounts?: {
+			cashFen: number;
+			personalAccountFen: number;
+			fundFen: number;
+		},
+	): Promise<{
 		status: "inserted" | "existing";
 		record: MedicalInsuranceRefund;
 	}>;
 	findByRefundNo(refundNo: string): Promise<MedicalInsuranceRefund | undefined>;
+	listByMedicalOrderId(
+		medicalOrderId: string,
+	): Promise<readonly MedicalInsuranceRefund[]>;
+	listAwaitingMedicalNotification?(
+		limit: number,
+	): Promise<readonly MedicalInsuranceRefund[]>;
 	findLatestByMedicalOrderId(
 		medicalOrderId: string,
 	): Promise<MedicalInsuranceRefund | undefined>;
@@ -63,6 +77,23 @@ export type MedicalInsuranceRefundRepository = {
 		expectedVersion: number,
 	): Promise<MedicalInsuranceRefund | undefined>;
 };
+
+export class MedicalInsuranceRefundAmountExceededError extends Error {
+	constructor() {
+		super("医保退款分项已被其他退费占用或超过原支付金额");
+		this.name = "MedicalInsuranceRefundAmountExceededError";
+	}
+}
+
+/** 只有渠道明确 FAIL 才释放医保额度；成功、在途、未知及本地失败均继续占用。 */
+export function medicalRefundReservesMedicalAmount(
+	refund: MedicalInsuranceRefund,
+): boolean {
+	return (
+		refund.medicalRefStatus !== "FAIL" &&
+		(refund.personalAccountFen > 0 || refund.fundFen > 0)
+	);
+}
 
 export type MedicalInsuranceRefundWechatProjection = Pick<
 	MedicalInsuranceRefund,

@@ -63,6 +63,7 @@ import {
 	wechatMedicalInsuranceConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
+	yunhealthRegistrationRefundAuthorizationStatus,
 	yunhealthRegistrationSettlementConfigurationMissingFields,
 	yunhealthRegistrationSettlementConfigurationStatus,
 } from "@hospital/config";
@@ -79,6 +80,9 @@ import {
 } from "./application";
 import { config } from "./config";
 import { createReadinessService } from "./infrastructure/readiness";
+import { resolveRegistrationRefundUnavailableReason } from "./modules/admin/wechat-refund-service";
+import { MedicalInsuranceRegistrationInputError } from "./modules/medical-insurance/errors";
+import { MedicalInsuranceRefundPaymentVerifier } from "./modules/medical-insurance/refund-payment-verifier";
 import { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import { withShutdownDeadline } from "./shutdown";
 
@@ -151,6 +155,7 @@ const intelligentGuideModel =
 			})
 		: undefined;
 const intelligentGuideSpeech =
+	config.aiRuntimeSpeechReady &&
 	aiRuntimeStatus === "configured" &&
 	config.aiRuntimeUrl &&
 	config.aiRuntimeToken
@@ -440,12 +445,16 @@ const registrationSelfPayPreparationGateway =
 				logger,
 			})
 		: undefined;
+const registrationSelfPayRefundAuthorization =
+	yunhealthRegistrationRefundAuthorizationStatus(config);
 const registrationSelfPayRefundNotificationGateway =
 	yunhealthRegistrationSettlementStatus === "configured" &&
-	config.yunhealthAuthorizationToken
+	registrationSelfPayRefundAuthorization === "configured" &&
+	config.yunhealthRegistrationRefundAuthMode
 		? createYunhealthRegistrationSelfPayRefundNotificationGateway({
 				baseUrl: config.yunhealthBaseUrl ?? "",
 				authorizationToken: config.yunhealthAuthorizationToken ?? "",
+				refundAuthorizationMode: config.yunhealthRegistrationRefundAuthMode,
 				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
 				pluginPayTypeId: config.yunhealthRegistrationPluginPayTypeId ?? "",
 				pluginPayType: (config.yunhealthRegistrationPluginPayType ?? "") as
@@ -461,9 +470,18 @@ const registrationSelfPayRefundNotificationGateway =
 		: undefined;
 const registrationSelfPayRefundMissing =
 	yunhealthRegistrationSettlementStatus === "configured" &&
-	!config.yunhealthAuthorizationToken
+	registrationSelfPayRefundAuthorization === "missing_authorization"
 		? ["YUNHEALTH_AUTH_TOKEN"]
 		: [];
+const registrationRefundUnavailableReason =
+	resolveRegistrationRefundUnavailableReason({
+		cancellationConfigured: Boolean(appointmentWriteGateway),
+		writeBackConfigured: yunhealthRegistrationSettlementStatus === "configured",
+		writeBackAuthorized:
+			registrationSelfPayRefundAuthorization === "configured",
+		writeBackAuthenticationSupported:
+			registrationSelfPayRefundAuthorization !== "unsupported",
+	});
 const yunhealthRegistrationPluginPaymentGateway =
 	yunhealthRegistrationSettlementStatus === "configured"
 		? createYunhealthRegistrationPluginPaymentGateway({
@@ -627,7 +645,50 @@ const services = createDefaultApplicationServices({
 	...(identityGateway ? { identityGateway } : {}),
 	...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
 	...(wechatPaymentGateway
-		? { wechatRefundGateway: wechatPaymentGateway }
+		? {
+				wechatRefundGateway: wechatPaymentGateway,
+				medicalInsuranceRefundNotificationGateway: wechatPaymentGateway,
+				verifyWechatRefundPayment: async (order, context) => {
+					let outTradeNo = order.orderId;
+					if (order.idempotencyKey.startsWith("registration-self-pay:")) {
+						const paymentContext =
+							await readyRepositories?.paymentOrders.getRegistrationSelfPayContext?.(
+								order.ownerUserId,
+								order.orderId,
+							);
+						if (
+							paymentContext?.outTradeNoSource !== "yunhealth_2_6_65_2" ||
+							!paymentContext.outTradeNo
+						)
+							throw new MedicalInsuranceRegistrationInputError(
+								"挂号原微信支付关联信息不完整",
+							);
+						outTradeNo = paymentContext.outTradeNo;
+					}
+					const cash = await wechatPaymentGateway.queryPaidOrderForRefund(
+						{ orderId: outTradeNo },
+						context,
+					);
+					if (
+						cash.state !== "cash_paid" ||
+						cash.totalFen !== order.amounts.cashFen
+					)
+						throw new MedicalInsuranceRegistrationInputError(
+							"微信原订单未确认支付或金额不一致",
+						);
+				},
+			}
+		: {}),
+	...(readyRepositories && wechatPaymentGateway && legacyFsiGateway
+		? {
+				medicalInsuranceRefundPaymentVerifier:
+					new MedicalInsuranceRefundPaymentVerifier({
+						orders: readyRepositories.medicalInsuranceOrders,
+						credentials: readyRepositories.medicalInsuranceCredentials,
+						wechat: wechatPaymentGateway,
+						medical: legacyFsiGateway,
+					}),
+			}
 		: {}),
 	...(medicalInsuranceWechatPaymentGateway
 		? { medicalInsuranceWechatPaymentGateway }
@@ -657,6 +718,12 @@ const services = createDefaultApplicationServices({
 		? { intelligentCustomerSpeech: intelligentGuideSpeech }
 		: {}),
 	...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
+	...(appointmentGateway
+		? {
+				resolveDoctorPhotoUrl:
+					appointmentGateway.resolveDoctorPhotoUrl.bind(appointmentGateway),
+			}
+		: {}),
 	...(appointmentDepartmentTreeGateway
 		? { appointmentDepartmentTreeGateway }
 		: {}),
@@ -714,6 +781,9 @@ const services = createDefaultApplicationServices({
 		: {}),
 	...(registrationSelfPayRefundNotificationGateway
 		? { registrationSelfPayRefundNotificationGateway }
+		: {}),
+	...(registrationRefundUnavailableReason
+		? { registrationRefundUnavailableReason }
 		: {}),
 	...(yunhealthRegistrationPluginPaymentGateway
 		? {
@@ -940,6 +1010,9 @@ logger.info(
 			wechatPaymentGateway && registrationSelfPayRefundNotificationGateway
 				? "enabled"
 				: "fail_closed",
+		registrationSelfPayRefundAuthMode:
+			config.yunhealthRegistrationRefundAuthMode ?? "unsupported",
+		registrationSelfPayRefundAuthorization,
 		yunhealthRegistrationPluginPaymentRuntime:
 			yunhealthRegistrationPluginPaymentGateway ? "enabled" : "fail_closed",
 		medicalInsuranceResponseVerification: config.medicalInsuranceVerifyStrict

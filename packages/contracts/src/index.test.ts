@@ -6,6 +6,8 @@ import {
 	HealthKnowledgeDiseaseDetailSchema,
 	HealthKnowledgeDrugDetailSchema,
 	MedicalInsuranceAuthorizationContextResponse,
+	OutpatientPaymentItemSchema,
+	OutpatientPaymentRecordSchema,
 	PatientCardNumberMaskedSchema,
 	PatientListResponse,
 	PatientSchema,
@@ -38,6 +40,45 @@ const medicalInsurancePayParamsSchema = TypeCompiler.Compile(
 const medicalInsuranceAuthorizationContextSchema = TypeCompiler.Compile(
 	MedicalInsuranceAuthorizationContextResponse,
 );
+const outpatientPaymentRecordSchema = TypeCompiler.Compile(
+	OutpatientPaymentRecordSchema,
+);
+
+test("医保授权上下文只附带当前患者的明确资格状态并兼容旧响应", () => {
+	for (const data of [
+		{ payForRelatives: false },
+		{ payForRelatives: true, familyId: "a".repeat(32) },
+	]) {
+		expect(
+			medicalInsuranceAuthorizationContextSchema.Check({ success: true, data }),
+		).toBeTrue();
+		for (const medicalInsurancePaymentEligibility of [
+			"unknown",
+			"supported",
+			"unsupported",
+		]) {
+			expect(
+				medicalInsuranceAuthorizationContextSchema.Check({
+					success: true,
+					data: { ...data, medicalInsurancePaymentEligibility },
+				}),
+			).toBeTrue();
+		}
+		for (const medicalInsurancePaymentEligibility of [
+			"140581",
+			true,
+			"out-of-town",
+			null,
+		]) {
+			expect(
+				medicalInsuranceAuthorizationContextSchema.Check({
+					success: true,
+					data: { ...data, medicalInsurancePaymentEligibility },
+				}),
+			).toBeFalse();
+		}
+	}
+});
 
 function profile(displayName: string) {
 	return {
@@ -48,6 +89,74 @@ function profile(displayName: string) {
 		version: 1,
 	};
 }
+
+test("门诊费用 contract 兼容单条与含扁平明细的合并记录", () => {
+	const first = {
+		recordId: "item-ultrasound",
+		status: "unpaid",
+		itemName: "彩超检查",
+		billDate: "2026-10-15 15:34:12",
+		amountFen: 8000,
+	};
+	const second = {
+		...first,
+		recordId: "item-ecg",
+		itemName: "心电图检查",
+		amountFen: 1700,
+	};
+	const grouped = {
+		...first,
+		recordId: "group-001",
+		amountFen: 9700,
+		items: [first, second],
+	};
+	expect(outpatientPaymentRecordSchema.Check(first)).toBe(true);
+	expect(outpatientPaymentRecordSchema.Check(grouped)).toBe(true);
+	expect(Value.Check(OutpatientPaymentRecordSchema, grouped)).toBe(true);
+	expect(Value.Check(OutpatientPaymentItemSchema, first)).toBe(true);
+	for (const items of [
+		[],
+		[first],
+		[first, { ...second, items: [first, second] }],
+		[first, { ...second, outTradeOrderId: "private-provider-order" }],
+	]) {
+		expect(outpatientPaymentRecordSchema.Check({ ...grouped, items })).toBe(
+			false,
+		);
+	}
+	expect(
+		outpatientPaymentRecordSchema.Check({
+			...grouped,
+			items: Array.from({ length: 513 }, (_, i) => ({
+				...first,
+				recordId: `item-${i}`,
+			})),
+		}),
+	).toBe(false);
+});
+
+test("门诊精确单价允许十进制元字符串，金额和兼容单价仍要求整数分", () => {
+	const record = {
+		recordId: "exact-price-contract",
+		status: "paid",
+		billDate: "2026-10-17 09:00:00",
+		amountFen: 388,
+		priceYuan: "0.5536",
+	};
+	expect(Value.Check(OutpatientPaymentItemSchema, record)).toBeTrue();
+	expect(outpatientPaymentRecordSchema.Check(record)).toBeTrue();
+	for (const priceYuan of [0.5536, "-0.1", "NaN", "1e-4", "", "1".repeat(65)]) {
+		expect(
+			outpatientPaymentRecordSchema.Check({ ...record, priceYuan }),
+		).toBeFalse();
+	}
+	expect(
+		outpatientPaymentRecordSchema.Check({ ...record, priceFen: 55.36 }),
+	).toBeFalse();
+	expect(
+		outpatientPaymentRecordSchema.Check({ ...record, amountFen: 388.1 }),
+	).toBeFalse();
+});
 
 test("个人资料展示名按 Unicode code point 计数，而不是 UTF-16 code unit", () => {
 	const emoji64 = String.fromCodePoint(0x1f600).repeat(64);

@@ -152,3 +152,35 @@
 	align-items: center;
 	justify-content: center;
 }
+
+.confirm-source-hint {
+	padding: 20rpx 24rpx;
+	color: #5c6370;
+	font-size: 26rpx;
+	line-height: 40rpx;
+}
+
+.confirm-source-choices {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16rpx;
+	padding: 0 24rpx 24rpx;
+}
+
+.confirm-source-choice {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8rpx;
+	padding: 18rpx 24rpx;
+	border: 2rpx solid #dce2eb;
+	border-radius: 12rpx;
+	color: #5c6370;
+	font-size: 26rpx;
+}
+
+.confirm-source-choice-selected {
+	border-color: #2f6bd8;
+	background: #eef4ff;
+	color: #2f6bd8;
+}

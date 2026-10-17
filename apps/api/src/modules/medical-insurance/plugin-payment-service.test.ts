@@ -5,6 +5,10 @@ import type {
 	MedicalInsuranceSettlementContext,
 	PaymentOrder,
 } from "@hospital/domain";
+import {
+	createInMemoryHisPaymentReferenceRepository,
+	createInMemoryMedicalInsuranceOrderRepository,
+} from "@hospital/persistence";
 import { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
 const context = { traceId: "trace-001", idempotencyKey: "idempotency-001" };
@@ -567,7 +571,21 @@ test("发布前已存在的plugin上下文仍可恢复且不会再次提交2.6.6
 	expect(result.payParams?.package).toBe("prepay_id=prepay-001");
 });
 
-test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段", async () => {
+function completionFixture(
+	options: {
+		receipt?: string;
+		completed?: boolean;
+		failAfterAttempt?: boolean;
+		withoutReferences?: boolean;
+	} = {},
+) {
+	const references = createInMemoryHisPaymentReferenceRepository();
+	let allocations = 0;
+	const allocate = references.allocate.bind(references);
+	references.allocate = async (scope) => {
+		allocations++;
+		return allocate(scope);
+	};
 	let currentMedicalOrder = { ...medicalOrder(), version: 1 };
 	let currentSettlement: MedicalInsuranceSettlementContext = {
 		...settlement(),
@@ -576,13 +594,14 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 			payingId: "500001",
 			tradingId: "500002",
 			payTypeId: "5033",
-			payType: "CREDIT" as const,
+			payType: "CREDIT",
 			workStationId: "",
 			tradeCode: "REGISTRATION-001",
 			tradeTypeCode: "10",
 			outTradeNo: "payment-order-001",
 			recordCode: "12345678901234567890123456789012",
-			state: "cash_paid" as const,
+			state: options.receipt ? "settled" : "cash_paid",
+			...(options.receipt ? { thirdPartPayRecordId: options.receipt } : {}),
 		},
 	};
 	let currentPaymentOrder: PaymentOrder = {
@@ -591,23 +610,35 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 		patientId: "patient-001",
 		idempotencyKey: "registration-medical-plugin-self-pay:medical-order-001",
 		amounts: { totalFen: 1000, insuranceFen: 800, cashFen: 200 },
-		state: "cash_paid" as const,
+		state: options.completed ? "completed" : "cash_paid",
 		version: 1,
 		createdAt: "2026-09-29T00:00:00.000Z",
 		updatedAt: "2026-09-29T00:00:00.000Z",
 	};
+	let submissions = 0;
 	const hospitalSettlement: HospitalSettlementGateway = {
 		writeBack: async (input) => {
 			expect(input.orderId).toBe("payment-order-001");
-			expect(input.registrationContext).toMatchObject({
-				platformOrderId: "medical-order-001",
-			});
-			await input.onThirdPartPayResponse?.({
-				rawResponse:
-					'{"success":true,"data":{"thirdPartPayRecordId":"medical-order-001"}}',
-				thirdPartPayRecordId: "medical-order-001",
-				requestId: "yunhealth-.29-api-001",
-			});
+			if (!input.registrationContext?.thirdPartPayRecordId) {
+				expect(input.registrationContext?.hisPaymentReferenceId).toBe("1");
+				expect(await references.findByReferenceId("1")).toMatchObject({
+					status: "allocated",
+					paymentScopeId: "payment-order-001",
+				});
+				await input.onThirdPartPayAttempt?.();
+				expect(currentSettlement.plugin?.thirdPartPayAttempt?.status).toBe(
+					"unknown",
+				);
+				submissions++;
+				if (options.failAfterAttempt)
+					throw new Error("simulated .29 connection lost");
+				await input.onThirdPartPayResponse?.({
+					rawResponse:
+						'{"success":true,"data":{"thirdPartPayRecordId":"1952638941030000004"}}',
+					thirdPartPayRecordId: "1952638941030000004",
+					requestId: "yunhealth-.29-api-001",
+				});
+			}
 			return {
 				provider: "yunhealth",
 				operation: "registration-self-pay.2.6.65.5",
@@ -616,12 +647,39 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 		},
 	};
 	const service = new MedicalInsurancePluginPaymentService({
+		...(options.withoutReferences ? {} : { hisPaymentReferences: references }),
 		orders: {
 			findByMedicalOrderId: async () => currentMedicalOrder,
 			getSettlementContext: async () => currentSettlement,
+			claimPluginThirdPartPayAttempt: async (input: {
+				paymentOrderId: string;
+				outTradeNo: string;
+				attemptedAt: string;
+			}) => {
+				const plugin = currentSettlement.plugin;
+				if (
+					!plugin ||
+					plugin.paymentOrderId !== input.paymentOrderId ||
+					plugin.outTradeNo !== input.outTradeNo ||
+					plugin.thirdPartPayRecordId ||
+					plugin.thirdPartPayAttempt
+				)
+					return false;
+				currentSettlement = {
+					...currentSettlement,
+					plugin: {
+						...plugin,
+						thirdPartPayAttempt: {
+							attemptedAt: input.attemptedAt,
+							status: "unknown",
+						},
+					},
+				};
+				return true;
+			},
 			saveSettlementContext: async (
 				_owner: string,
-				_orderId: string,
+				_order: string,
 				next: MedicalInsuranceSettlementContext,
 			) => {
 				currentSettlement = next;
@@ -641,7 +699,7 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 			get: async () => currentPaymentOrder,
 			transition: async (
 				_owner: string,
-				_orderId: string,
+				_order: string,
 				state: PaymentOrder["state"],
 			) => {
 				currentPaymentOrder = {
@@ -660,19 +718,240 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 		pluginWorkStationId: "",
 		pluginTradeTypeCode: "10",
 	});
+	return {
+		service,
+		references,
+		complete: () =>
+			service.completeOfficialWechatPayment({
+				ownerUserId: "user-001",
+				orderId: "medical-order-001",
+				context,
+			}),
+		settlement: () => currentSettlement,
+		submissions: () => submissions,
+		allocations: () => allocations,
+	};
+}
 
-	await expect(
-		service.completeOfficialWechatPayment({
-			ownerUserId: "user-001",
-			orderId: "medical-order-001",
-			context,
-		}),
-	).resolves.toMatchObject({
+test("医保混合现金在 .29 前分配数字编号，成功后登记19位回执双别名", async () => {
+	const fixture = completionFixture();
+	await expect(fixture.complete()).resolves.toMatchObject({
 		orderId: "medical-order-001",
 		status: "insurance_settled",
 	});
-	expect(currentSettlement.plugin).toMatchObject({
-		thirdPartPayRecordId: "medical-order-001",
+	expect(fixture.settlement().plugin).toMatchObject({
+		thirdPartPayRecordId: "1952638941030000004",
 		state: "settled",
+		thirdPartPayAttempt: { status: "succeeded" },
+	});
+	expect(
+		await fixture.references.findByReferenceId("1952638941030000004"),
+	).toMatchObject({
+		status: "confirmed",
+		referenceId: "1",
+		receiptId: "1952638941030000004",
+		medicalOrderId: "medical-order-001",
+		paymentScopeId: "payment-order-001",
+		source: "plugin",
+	});
+	expect(fixture.submissions()).toBe(1);
+});
+
+test("历史已成功数字回执恢复时只导入映射，不重新分配或提交 .29", async () => {
+	const fixture = completionFixture({
+		receipt: "1952638941030000004",
+		completed: true,
+	});
+	await fixture.complete();
+	expect(fixture.allocations()).toBe(0);
+	expect(fixture.submissions()).toBe(0);
+	expect(
+		await fixture.references.findByReferenceId("1952638941030000004"),
+	).toMatchObject({ status: "confirmed", source: "plugin" });
+});
+
+test("历史UUID回执保持原完成语义，不强转整数或生成新编号", async () => {
+	const fixture = completionFixture({
+		receipt: "historical-opaque-receipt",
+		completed: true,
+	});
+	await fixture.complete();
+	expect(fixture.allocations()).toBe(0);
+	expect(fixture.submissions()).toBe(0);
+	expect(await fixture.references.findByReferenceId("1")).toBeUndefined();
+});
+
+test(".29 断线后保留unknown并拒绝第二次发送，allocated不升级成功", async () => {
+	const fixture = completionFixture({ failAfterAttempt: true });
+	await expect(fixture.complete()).rejects.toThrow(
+		"simulated .29 connection lost",
+	);
+	await expect(fixture.complete()).rejects.toThrow("result is unknown");
+	expect(fixture.submissions()).toBe(1);
+	expect(fixture.allocations()).toBe(1);
+	expect(await fixture.references.findByReferenceId("1")).toMatchObject({
+		status: "allocated",
 	});
 });
+
+test("API并发完成同一plugin时原子claim只允许一次 .29 发送", async () => {
+	const fixture = completionFixture();
+	const results = await Promise.allSettled([
+		fixture.complete(),
+		fixture.complete(),
+	]);
+	expect(
+		results.filter((result) => result.status === "fulfilled"),
+	).toHaveLength(1);
+	expect(fixture.submissions()).toBe(1);
+});
+
+test("没有数字映射仓储时停止 .29，不用UUID兜底", async () => {
+	const fixture = completionFixture({ withoutReferences: true });
+	await expect(fixture.complete()).rejects.toThrow("his-payment-references");
+	expect(fixture.submissions()).toBe(0);
+});
+
+function deferred() {
+	let resolve = () => {};
+	const promise = new Promise<void>((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
+}
+
+for (const successBeforeLatePrepay of [false, true]) {
+	test(`过期prepay快照不能抹除真实仓储中的 .29 ${successBeforeLatePrepay ? "成功回执" : "unknown发送权"}`, async () => {
+		const storage = createInMemoryMedicalInsuranceOrderRepository();
+		const stamp = "2026-10-15T00:00:00.000Z";
+		await storage.insert({
+			...medicalOrder(),
+			status: "cash_pending",
+			businessType: "outpatient",
+			ordStas: null,
+			businessId: "business-1",
+			idempotencyKey: "medical-1",
+			medOrgOrd: "medical-1",
+			chrgBchno: "charge-1",
+			payTokenHash: null,
+			setlType: "CASH",
+			revsTokenHash: null,
+			revsTokenExpiresAt: null,
+			lastError: null,
+			version: 1,
+			createdAt: stamp,
+			updatedAt: stamp,
+		});
+		await storage.saveSettlementContext("user-001", "medical-order-001", {
+			...settlement(),
+			plugin: {
+				paymentOrderId: "payment-order-001",
+				payingId: "500001",
+				tradingId: "500002",
+				payTypeId: "5033",
+				payType: "CREDIT",
+				workStationId: "",
+				tradeCode: "trade-1",
+				tradeTypeCode: "2",
+				outTradeNo: "payment-order-001",
+				recordCode: "12345678901234567890123456789012",
+				state: "cash_paid",
+			},
+		});
+		const staleSave = deferred(),
+			releaseStale = deferred(),
+			writebackStage = deferred(),
+			abort = deferred();
+		let submissions = 0;
+		const service = new MedicalInsurancePluginPaymentService({
+			orders: {
+				...storage,
+				saveSettlementContext: async (owner, id, next) => {
+					if (
+						next.plugin?.prepayId === "late-prepay" &&
+						!next.plugin.thirdPartPayAttempt
+					) {
+						staleSave.resolve();
+						await releaseStale.promise;
+					}
+					return storage.saveSettlementContext(owner, id, next);
+				},
+			},
+			hisPaymentReferences: createInMemoryHisPaymentReferenceRepository(),
+			authorizations: {} as never,
+			identityUsers: {} as never,
+			paymentOrders: {
+				get: async () => ({
+					orderId: "payment-order-001",
+					ownerUserId: "user-001",
+					state: "cash_paid",
+					amounts: { totalFen: 1000, insuranceFen: 800, cashFen: 200 },
+				}),
+			} as never,
+			wechatPrepay: {} as never,
+			pluginPayment: {} as never,
+			hospitalSettlement: {
+				writeBack: async (input) => {
+					await input.onThirdPartPayAttempt?.();
+					submissions++;
+					if (successBeforeLatePrepay)
+						await input.onThirdPartPayResponse?.({
+							rawResponse: "{}",
+							thirdPartPayRecordId: "1952638941030000004",
+						});
+					writebackStage.resolve();
+					await abort.promise;
+					throw new Error("local simulated later transport interruption");
+				},
+			},
+			pluginPayTypeId: "5033",
+			pluginPayType: "CREDIT",
+			pluginWorkStationId: "",
+			pluginTradeTypeCode: "2",
+		});
+		const latePrepay = service.markOfficialWechatPrepayReady({
+			ownerUserId: "user-001",
+			orderId: "medical-order-001",
+			outTradeNo: "payment-order-001",
+			prepayId: "late-prepay",
+			context,
+		});
+		await staleSave.promise;
+		const complete = () =>
+			service.completeOfficialWechatPayment({
+				ownerUserId: "user-001",
+				orderId: "medical-order-001",
+				context,
+			});
+		const first = complete().catch((error) => error);
+		try {
+			await writebackStage.promise;
+			releaseStale.resolve();
+			await latePrepay;
+			const saved = await storage.getSettlementContext(
+				"user-001",
+				"medical-order-001",
+			);
+			expect(saved?.plugin?.thirdPartPayAttempt?.status).toBe(
+				successBeforeLatePrepay ? "succeeded" : "unknown",
+			);
+			expect(saved?.plugin?.prepayId).toBe("late-prepay");
+			if (successBeforeLatePrepay) {
+				expect(saved?.plugin?.thirdPartPayRecordId).toBe("1952638941030000004");
+				expect(
+					await storage.claimPluginThirdPartPayAttempt({
+						ownerUserId: "user-001",
+						medicalOrderId: "medical-order-001",
+						paymentOrderId: "payment-order-001",
+						outTradeNo: "payment-order-001",
+						attemptedAt: stamp,
+					}),
+				).toBe(false);
+			} else await expect(complete()).rejects.toThrow("result is unknown");
+			expect(submissions).toBe(1);
+		} finally {
+			abort.resolve();
+			await first;
+		}
+	});
+}

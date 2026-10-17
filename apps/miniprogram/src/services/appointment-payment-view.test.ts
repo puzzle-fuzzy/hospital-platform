@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { ApiError, requireAppointmentDetailResponse } from "./api-client";
 import {
+	appointmentPaymentBlockedMessage,
 	appointmentPaymentStatusLabel,
 	canContinueAppointmentPayment,
 	readAppointmentPaymentFields,
@@ -141,6 +142,7 @@ type PageUnderTest = {
 	startOrResumePayment(mode: "self" | "mixed"): Promise<void>;
 	handlePaymentError(error: unknown): Promise<void>;
 	refreshPaymentAvailability(): Promise<boolean>;
+	loadDetail(): Promise<void>;
 	onQueryOriginalPayment(): Promise<void>;
 };
 let pageDefinition: PageUnderTest | undefined;
@@ -168,6 +170,7 @@ async function paymentPage(
 ) {
 	const calls: string[] = [];
 	const methods: string[] = [];
+	const titles: string[] = [];
 	let nativeCalls = 0;
 	let selectedPatient = detail.patientId;
 	const app = {
@@ -185,6 +188,8 @@ async function paymentPage(
 			pageDefinition = value;
 		},
 		wx: {
+			setNavigationBarTitle: (options: { title: string }) =>
+				titles.push(options.title),
 			getStorageSync: (key: string) =>
 				key === "selected_patient_id" ? selectedPatient : undefined,
 			requestPayment: () => {
@@ -198,7 +203,41 @@ async function paymentPage(
 			}) => {
 				calls.push(new URL(requestOptions.url).pathname);
 				methods.push(requestOptions.method ?? "GET");
-				if (requestOptions.url.includes("/appointments/registrations/")) {
+				if (requestOptions.url.endsWith("/me")) {
+					requestOptions.success({
+						statusCode: 200,
+						header: {},
+						data: {
+							success: true,
+							data: { user: { id: "payment-view-fixture-owner" } },
+						},
+					});
+				} else if (
+					new URL(requestOptions.url).pathname === "/api/v2/patients"
+				) {
+					requestOptions.success({
+						statusCode: 200,
+						header: {},
+						data: {
+							success: true,
+							data: {
+								items: [
+									{
+										id: detail.patientId,
+										displayName: "测试就诊人",
+										relationship: "self",
+										cardNumberMasked: "123***45",
+										source: "hospital-his",
+										clinicalAccess: "ready",
+									},
+								],
+								total: 1,
+							},
+						},
+					});
+				} else if (
+					requestOptions.url.includes("/appointments/registrations/")
+				) {
 					if (switchPatient) selectedPatient = "other-patient";
 					requestOptions.success({
 						statusCode: 200,
@@ -302,8 +341,101 @@ async function paymentPage(
 			Object.assign(this.data, patch);
 		},
 	};
-	return { page, calls, methods, nativeCalls: () => nativeCalls };
+	return { page, calls, methods, titles, nativeCalls: () => nativeCalls };
 }
+
+test("已缴费订单重新进入支付详情只读展示，不探测新医保资格或显示原单查询", async () => {
+	for (const patch of [
+		{ paymentStatus: "paid", selfPayStatus: "cash_paid" },
+		{ paymentStatus: "paid", payExpiresAt: "2000-01-01T00:15:00.000Z" },
+		{ paymentStatus: undefined, selfPayStatus: "cash_paid" },
+	]) {
+		const fixture = await paymentPage({ ...detail, ...patch });
+		await fixture.page.loadDetail();
+		expect(fixture.page.data.ready).toBeTrue();
+		expect(fixture.page.data.paymentCompleted).toBeTrue();
+		expect(fixture.page.data.canPay).toBeFalse();
+		expect(fixture.page.data.canQueryOriginalPayment).toBeFalse();
+		expect(fixture.page.data.payDeadlineLabel).toBe("");
+		expect(fixture.page.data.message).toBe("挂号费用已支付。");
+		expect(fixture.page.data.completed).toBeFalse();
+		expect(fixture.titles.at(-1)).toBe("支付详情");
+		expect(fixture.calls).toEqual([
+			"/api/v2/me",
+			"/api/v2/patients",
+			"/api/v2/me",
+			`/api/v2/appointments/registrations/${detail.appointmentId}`,
+		]);
+		expect(fixture.methods.every((method) => method === "GET")).toBeTrue();
+		await fixture.page.onQueryOriginalPayment();
+		expect(fixture.calls).toHaveLength(4);
+		expect(fixture.nativeCalls()).toBe(0);
+	}
+});
+
+test("明确整单确认中或医院终态不会被现金已付误判为已完成详情", async () => {
+	for (const patch of [
+		{ paymentStatus: "confirming" },
+		{ paymentStatus: "cancelled", status: "cancelled" },
+		{ paymentStatus: "paid", status: "expired" },
+	]) {
+		const fixture = await paymentPage({
+			...detail,
+			selfPayStatus: "cash_paid",
+			...patch,
+		});
+		await fixture.page.refreshPaymentAvailability();
+		expect(fixture.page.data.paymentCompleted).toBeFalse();
+		expect(fixture.page.data.canPay).toBeFalse();
+		expect(fixture.page.data.canQueryOriginalPayment).toBeTrue();
+		expect(fixture.page.data.message).not.toContain("已缴费");
+		if (patch.paymentStatus === "confirming") {
+			expect(fixture.page.data.message).toContain("原支付结果正在确认");
+		}
+		expect(fixture.titles.at(-1)).toBe("支付状态");
+		expect(fixture.nativeCalls()).toBe(0);
+	}
+});
+
+test("支付提示以整单状态为准，已缴费不受旧截止时间影响", () => {
+	for (const paymentStatus of ["paid", undefined] as const) {
+		expect(
+			appointmentPaymentBlockedMessage({
+				status: "scheduled",
+				...(paymentStatus === undefined ? {} : { paymentStatus }),
+				selfPayStatus: "cash_paid",
+				payExpiresAt: "2000-01-01T00:15:00.000Z",
+			}),
+		).toBe("本次挂号已缴费，请勿重复付款");
+	}
+	expect(
+		appointmentPaymentBlockedMessage({
+			status: "scheduled",
+			paymentStatus: "unavailable",
+			selfPayStatus: "awaiting_confirmation",
+		}),
+	).not.toContain("正在确认");
+});
+
+test("原单查单后服务端确认已缴费时收起恢复操作且不再展示未知支付提示", async () => {
+	const response = {
+		...detail,
+		paymentStatus: "confirming",
+		selfPayStatus: "awaiting_confirmation",
+		canPay: false,
+	};
+	const fixture = await paymentPage(response);
+	await fixture.page.refreshPaymentAvailability();
+	expect(fixture.page.data.canQueryOriginalPayment).toBeTrue();
+	response.paymentStatus = "paid";
+	response.selfPayStatus = "cash_paid";
+	await fixture.page.onQueryOriginalPayment();
+	expect(fixture.page.data.paymentCompleted).toBeTrue();
+	expect(fixture.page.data.canQueryOriginalPayment).toBeFalse();
+	expect(fixture.page.data.message).toBe("挂号费用已支付。");
+	expect(fixture.titles.at(-1)).toBe("支付详情");
+	expect(fixture.nativeCalls()).toBe(0);
+});
 
 test("支付页点击时重新读详情，已过期或不可付款不创建订单也不调用微信", async () => {
 	for (const patch of [
@@ -340,6 +472,7 @@ test("有效预约仍按同一个预约引用恢复原支付，详情读后换�
 	await eligible.page.startOrResumePayment("self");
 	expect(eligible.calls).toEqual([
 		`/api/v2/appointments/registrations/${detail.appointmentId}`,
+		"/api/v2/payments/medical-insurance/business-recovery",
 		"/api/v2/payments/medical-insurance/business-recovery",
 		`/api/v2/payments/appointments/${detail.appointmentId}/self-pay`,
 	]);
@@ -392,7 +525,10 @@ test("确认中和已过期的原自费单只查单并刷新详情，不创建�
 		);
 		expect(selfQueryIndex).toBeGreaterThan(-1);
 		expect(fixture.methods[selfQueryIndex]).toBe("GET");
-		expect(fixture.calls.at(-1)).toContain("/appointments/registrations/");
+		expect(fixture.calls.slice(-2)).toEqual([
+			`/api/v2/appointments/registrations/${detail.appointmentId}`,
+			"/api/v2/payments/medical-insurance/business-recovery",
+		]);
 		expect(fixture.page.data.canPay).toBeFalse();
 		expect(fixture.nativeCalls()).toBe(0);
 	}

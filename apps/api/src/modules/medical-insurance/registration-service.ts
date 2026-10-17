@@ -18,8 +18,10 @@ import {
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceQueryTaskRepository,
+	type MedicalInsuranceSettlementContext,
 	medicalInsuranceOrderTypeForBusiness,
 	normalizeAdapterCallContext,
+	normalizeOutpatientPaymentRecords,
 	type OutpatientMedicalInsuranceContext,
 	type OutpatientPaymentGateway,
 	type PatientRepository,
@@ -31,12 +33,22 @@ import {
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import {
 	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegionUnsupportedError,
 	MedicalInsuranceRegistrationInputError,
 } from "./errors";
 import { MedicalInsurancePaymentCore } from "./payment-core";
+import {
+	loadMedicalInsurancePaymentPresentation,
+	type MedicalInsurancePaymentPresentation,
+} from "./payment-presentation";
+import {
+	type MedicalInsurancePaymentEligibility,
+	medicalInsurancePaymentEligibility,
+} from "./payment-region";
 
 export {
 	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegionUnsupportedError,
 	MedicalInsuranceRegistrationInputError,
 } from "./errors";
 
@@ -99,6 +111,7 @@ function opaque(value: unknown, label: string): string {
 function output(
 	order: MedicalInsuranceOrder,
 	cashierUrl?: unknown,
+	presentation: MedicalInsurancePaymentPresentation = {},
 ): MedicalInsuranceOrderPayload["data"] {
 	const safeCashierUrl =
 		typeof cashierUrl === "string" && cashierUrl.length <= 2048
@@ -123,6 +136,7 @@ function output(
 							order.amounts.fundFen +
 							(order.amounts.otherPaymentFen ?? 0),
 						cashFen: order.amounts.cashFen,
+						...presentation,
 					},
 				}
 			: {}),
@@ -150,6 +164,86 @@ const AUTHORIZATION_SUBMISSION_GRACE_MS = 2 * 60 * 1000;
 /** 发送门禁刚写入时，先给同一进程中的 6201 回包和本地落库留出窗口。 */
 const FEE_UPLOAD_SUBMISSION_GRACE_MS = 2 * 60 * 1000;
 
+/** 只有明确尚未发送 6201 的完整原主单，才允许在同一订单安全续跑。 */
+function preparedFeeUploadContext(
+	order: MedicalInsuranceOrder,
+	settlement: MedicalInsuranceSettlementContext | undefined,
+): settlement is MedicalInsuranceSettlementContext & {
+	feeUploadStage: "pre_6201";
+	settlementAmountFen: number;
+} {
+	if (
+		order.status !== "fee_upload_pending" ||
+		order.feeUploadId ||
+		order.payOrdId ||
+		order.payTokenHash ||
+		order.amounts ||
+		order.ordStas ||
+		order.wechatMixTradeNo ||
+		order.wechatOutTradeNo ||
+		(order.wechatPaymentState && order.wechatPaymentState !== "not_started") ||
+		settlement?.feeUploadStage !== "pre_6201" ||
+		!settlement.businessId?.trim() ||
+		!settlement.businessCode?.trim() ||
+		!settlement.hospitalId?.trim() ||
+		!settlement.patientId?.trim() ||
+		!Number.isSafeInteger(settlement.settlementAmountFen) ||
+		(settlement.settlementAmountFen ?? 0) <= 0 ||
+		settlement.tradeOrderIds.length === 0 ||
+		settlement.tradeOrderIds.some(
+			(id) => typeof id !== "string" || !id.trim(),
+		) ||
+		new Set(settlement.tradeOrderIds).size !== settlement.tradeOrderIds.length
+	)
+		return false;
+	if (order.businessType === "outpatient") {
+		const snapshot = settlement.outpatientPaymentRecord;
+		return Boolean(
+			snapshot &&
+				snapshot.recordId === order.businessId &&
+				snapshot.amountFen === settlement.settlementAmountFen,
+		);
+	}
+	return true;
+}
+
+function confirmedExternalPayment(
+	order: MedicalInsuranceOrder,
+	settlement: MedicalInsuranceSettlementContext | undefined,
+): boolean {
+	const confirmation = settlement?.externalPaymentConfirmation;
+	return Boolean(
+		order.status === "manual_review" &&
+			!order.feeUploadId &&
+			!order.payOrdId &&
+			!order.payTokenHash &&
+			!order.amounts &&
+			!order.wechatMixTradeNo &&
+			!order.wechatOutTradeNo &&
+			confirmation?.source === "user-confirmed-and-his-child-paid" &&
+			confirmation.hisTradeStatus === "3" &&
+			confirmation.platformPaymentStarted === false &&
+			confirmation.actualChannel === "unknown" &&
+			settlement?.feeUploadStage === "pre_6201" &&
+			Number.isSafeInteger(confirmation.amountFen) &&
+			confirmation.amountFen > 0 &&
+			confirmation.amountFen === settlement.settlementAmountFen &&
+			confirmation.hisBusinessId === settlement.businessId &&
+			confirmation.hisBusinessCode === settlement.businessCode &&
+			confirmation.tradeOrderIds.length > 0 &&
+			new Set(confirmation.tradeOrderIds).size ===
+				confirmation.tradeOrderIds.length &&
+			confirmation.tradeOrderIds.length === settlement.tradeOrderIds.length &&
+			confirmation.tradeOrderIds.every((id) =>
+				settlement.tradeOrderIds.includes(id),
+			) &&
+			/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(
+				confirmation.confirmedAt,
+			) &&
+			Number.isFinite(Date.parse(confirmation.confirmedAt)),
+	);
+}
+
 export class MedicalInsuranceRegistrationService {
 	private readonly logger: AppLogger;
 	private readonly now: () => Date;
@@ -175,6 +269,20 @@ export class MedicalInsuranceRegistrationService {
 			});
 	}
 
+	private async output(
+		order: MedicalInsuranceOrder,
+		cashierUrl?: unknown,
+	): Promise<MedicalInsuranceOrderPayload["data"]> {
+		return output(
+			order,
+			cashierUrl,
+			await loadMedicalInsurancePaymentPresentation(
+				order,
+				this.dependencies.orders,
+			),
+		);
+	}
+
 	/**
 	 * Provider 授权适配器会先把加密授权上下文落库，再把 authorizationId
 	 * 回写订单。若进程在两步之间退出，同一幂等请求必须修复本地引用，不能
@@ -183,7 +291,24 @@ export class MedicalInsuranceRegistrationService {
 	private async restorePersistedAuthorization(
 		order: MedicalInsuranceOrder,
 	): Promise<MedicalInsuranceOrder> {
-		if (order.status !== "created" || order.authorizationId) return order;
+		if (order.status === "fee_upload_pending") {
+			const settlement = await this.dependencies.orders.getSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+			);
+			if (!preparedFeeUploadContext(order, settlement)) return order;
+			if (
+				order.authorizationId &&
+				(await this.dependencies.authorizations.get({
+					authorizationId: order.authorizationId,
+					ownerUserId: order.ownerUserId,
+					medicalOrderId: order.medicalOrderId,
+					now: this.now().toISOString(),
+				}))
+			)
+				return order;
+		} else if (order.status !== "created" || order.authorizationId)
+			return order;
 		const authorization =
 			await this.dependencies.authorizations.getActiveForOrder({
 				ownerUserId: order.ownerUserId,
@@ -253,6 +378,99 @@ export class MedicalInsuranceRegistrationService {
 		return orders;
 	}
 
+	private async paymentEligibilityForBusiness(input: {
+		ownerUserId: string;
+		businessType: "registration" | "outpatient";
+		businessId: string;
+		patientId: string;
+	}): Promise<MedicalInsurancePaymentEligibility> {
+		const orders = (await this.businessOrders(input))
+			.filter(
+				(order) =>
+					order.ownerUserId === input.ownerUserId &&
+					order.patientId === input.patientId &&
+					(order.businessType ?? "registration") === input.businessType &&
+					(order.businessId ?? order.appointmentId) === input.businessId,
+			)
+			.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+		const order = orders[0];
+		if (order) {
+			// 已取消的地区拒绝授权仍保留审计；仅在原授权有效期内复用资格。
+			const authorization = order.authorizationId
+				? await this.dependencies.authorizations.get({
+						authorizationId: order.authorizationId,
+						ownerUserId: input.ownerUserId,
+						medicalOrderId: order.medicalOrderId,
+						now: this.now().toISOString(),
+					})
+				: await this.dependencies.authorizations.getActiveForOrder({
+						ownerUserId: input.ownerUserId,
+						medicalOrderId: order.medicalOrderId,
+						now: this.now().toISOString(),
+					});
+			if (authorization) {
+				return medicalInsurancePaymentEligibility(authorization.insuplcAdmdvs);
+			}
+		}
+		return "unknown";
+	}
+
+	/** 仅撤销从未进入医院写入的空订单，保留授权引用供审计和当前资格查询。 */
+	private async assertSupportedAuthorization(
+		order: MedicalInsuranceOrder,
+		insuredAreaCode: unknown,
+	): Promise<void> {
+		const eligibility = medicalInsurancePaymentEligibility(insuredAreaCode);
+		if (eligibility === "unknown") {
+			throw new DependencyNotConfiguredError(
+				"medical-insurance-authorization-region",
+			);
+		}
+		if (eligibility === "supported") return;
+		if (
+			order.status === "created" &&
+			!order.feeUploadId &&
+			!order.payOrdId &&
+			!order.payTokenHash &&
+			!order.mdtrtId &&
+			!order.amounts &&
+			!order.wechatMixTradeNo &&
+			!order.wechatOutTradeNo &&
+			(!order.wechatPaymentState ||
+				order.wechatPaymentState === "not_started") &&
+			!(await this.dependencies.orders.getSettlementContext(
+				order.ownerUserId,
+				order.medicalOrderId,
+			))
+		) {
+			await this.dependencies.orders.applySettlement(
+				order.medicalOrderId,
+				order.version,
+				{ ...emptySettlementPatch(order), status: "cancelled" },
+			);
+		}
+		throw new MedicalInsuranceRegionUnsupportedError();
+	}
+
+	private async assertOrderAuthorizationSupported(
+		order: MedicalInsuranceOrder,
+	): Promise<void> {
+		const authorization = order.authorizationId
+			? await this.dependencies.authorizations.get({
+					authorizationId: order.authorizationId,
+					ownerUserId: order.ownerUserId,
+					medicalOrderId: order.medicalOrderId,
+					now: this.now().toISOString(),
+				})
+			: undefined;
+		if (!authorization) {
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance authorization is required",
+			);
+		}
+		await this.assertSupportedAuthorization(order, authorization.insuplcAdmdvs);
+	}
+
 	private async insertOrReuseBusinessOrder(
 		candidate: MedicalInsuranceOrder,
 	): Promise<{ order: MedicalInsuranceOrder; createdForRequest: boolean }> {
@@ -281,7 +499,11 @@ export class MedicalInsuranceRegistrationService {
 	private authorizationSubmissionPending(
 		order: MedicalInsuranceOrder,
 	): boolean {
-		if (order.status !== "created" || order.authorizationId) return false;
+		if (
+			order.status !== "fee_upload_pending" &&
+			(order.status !== "created" || order.authorizationId)
+		)
+			return false;
 		const updatedAt = Date.parse(order.updatedAt);
 		const ageMs = this.now().getTime() - updatedAt;
 		// 数据库时钟可能比 API 快几毫秒。未来时间必须按仍在确认中处理，
@@ -326,7 +548,16 @@ export class MedicalInsuranceRegistrationService {
 				"本次医保授权尝试已作废，请重新展码授权",
 			);
 		}
-		if (observed.status !== "created") {
+		const prepared =
+			observed.status === "fee_upload_pending" &&
+			preparedFeeUploadContext(
+				observed,
+				await this.dependencies.orders.getSettlementContext(
+					observed.ownerUserId,
+					observed.medicalOrderId,
+				),
+			);
+		if (observed.status !== "created" && !prepared) {
 			return { order: observed, claimed: false, authorizationReady: true };
 		}
 		const authorizationReady = Boolean(
@@ -408,9 +639,9 @@ export class MedicalInsuranceRegistrationService {
 				},
 				"Medical insurance fee upload reused the concurrently persisted result",
 			);
-			return output(latest, result.cashierUrl);
+			return this.output(latest, result.cashierUrl);
 		}
-		return output(
+		return this.output(
 			await this.markFeeUploadForManualReview(
 				latest,
 				"6201-persisted-result-conflict",
@@ -442,9 +673,12 @@ export class MedicalInsuranceRegistrationService {
 				Number.isFinite(claimedAt) &&
 				ageMs < FEE_UPLOAD_SUBMISSION_GRACE_MS
 			) {
-				return output(order, settlement?.cashierUrl);
+				return this.output(order, settlement?.cashierUrl);
 			}
-			return output(
+			// 读取恢复入口只告知当前状态；显式 fees 命令会重新 CAS 抢占，
+			// 复用主单并先只读核对 .33，绝不由查单自动上传或扣款。
+			if (preparedFeeUploadContext(order, settlement)) return undefined;
+			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
 					settlement?.feeUploadStage === "pre_6201"
@@ -469,9 +703,9 @@ export class MedicalInsuranceRegistrationService {
 			) {
 				// 同一时刻的第二个请求只观察 created/确认中，不改变版本，给第一
 				// 个请求保存回包留出时间；客户端会保留原订单后再次查询。
-				return output(order, settlement.cashierUrl);
+				return this.output(order, settlement.cashierUrl);
 			}
-			return output(
+			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
 					"6201-submission-result-missing",
@@ -486,7 +720,7 @@ export class MedicalInsuranceRegistrationService {
 			!settlement.mdtrtId ||
 			(settlement.acctUsedFlag !== "0" && settlement.acctUsedFlag !== "1")
 		) {
-			return output(
+			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
 					"6201-persisted-context-incomplete",
@@ -515,7 +749,7 @@ export class MedicalInsuranceRegistrationService {
 			settlementCredential.payOrdId !== queryCredential.payOrdId ||
 			settlementCredential.payToken !== queryCredential.payToken
 		) {
-			return output(
+			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
 					"6201-persisted-credentials-incomplete",
@@ -554,7 +788,7 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance fee upload restored from persisted local context",
 		);
-		return output(latest, settlement.cashierUrl);
+		return this.output(latest, settlement.cashierUrl);
 	}
 
 	/**
@@ -665,6 +899,40 @@ export class MedicalInsuranceRegistrationService {
 				"当前就诊人缺少众阳门诊缴费映射，无法发起医保支付",
 			);
 		}
+		// .65.1 已产生主单后，待缴列表可能已经把该组隐藏。恢复只能复用
+		// owner-scoped 原快照；实际是否可缴仍由 adapter 按原流水逐个查询 .33。
+		const active = await this.activeBusinessOrders({
+			ownerUserId,
+			businessType: "outpatient",
+			businessId: recordId,
+			patientId,
+		});
+		if (active.length > 1) throw new PaymentNotificationConflictError();
+		const preparedOrder = active[0];
+		if (preparedOrder?.status === "fee_upload_pending") {
+			const settlement = await this.dependencies.orders.getSettlementContext(
+				ownerUserId,
+				preparedOrder.medicalOrderId,
+			);
+			if (preparedFeeUploadContext(preparedOrder, settlement)) {
+				if (settlement.patientId !== reference.providerPatientId) {
+					throw new MedicalInsuranceRegistrationInputError(
+						"原结算主单就诊人映射不一致",
+					);
+				}
+				const record = normalizeOutpatientPaymentRecords(
+					[settlement.outpatientPaymentRecord],
+					"unpaid",
+				)[0];
+				return {
+					recordId,
+					providerPatientId: reference.providerPatientId,
+					outTradeOrderIds: [...settlement.tradeOrderIds],
+					totalFen: settlement.settlementAmountFen as number,
+					record,
+				};
+			}
+		}
 		const now = this.now();
 		const providerDateTime = (value: Date): string => {
 			const parts = new Intl.DateTimeFormat("en-CA", {
@@ -708,6 +976,22 @@ export class MedicalInsuranceRegistrationService {
 				"门诊缴费事实不可用，无法发起医保支付",
 			);
 		}
+		if (resolved.record !== undefined) {
+			const snapshot = normalizeOutpatientPaymentRecords(
+				[resolved.record],
+				"unpaid",
+			)[0];
+			if (
+				!snapshot ||
+				snapshot.recordId !== recordId ||
+				snapshot.amountFen !== resolved.totalFen
+			) {
+				throw new MedicalInsuranceRegistrationInputError(
+					"门诊费用快照与本次缴费事实不一致",
+				);
+			}
+			return { ...resolved, record: snapshot };
+		}
 		return resolved;
 	}
 
@@ -728,6 +1012,13 @@ export class MedicalInsuranceRegistrationService {
 				"当前就诊人未关联有效患者档案，无法发起医保授权",
 			);
 		}
+		const medicalInsurancePaymentEligibility =
+			await this.paymentEligibilityForBusiness({
+				ownerUserId: input.ownerUserId,
+				businessType: "outpatient",
+				businessId: input.businessId,
+				patientId: input.patientId,
+			});
 		if (selected.relationship === "unknown") {
 			this.logger.warn(
 				{
@@ -739,9 +1030,10 @@ export class MedicalInsuranceRegistrationService {
 				},
 				"Unknown patient relationship temporarily treated as self",
 			);
-			return { payForRelatives: false };
+			return { payForRelatives: false, medicalInsurancePaymentEligibility };
 		}
-		if (selected.relationship === "self") return { payForRelatives: false };
+		if (selected.relationship === "self")
+			return { payForRelatives: false, medicalInsurancePaymentEligibility };
 		const selfPatients = patients.filter(
 			(candidate) => candidate.relationship === "self",
 		);
@@ -790,6 +1082,7 @@ export class MedicalInsuranceRegistrationService {
 			);
 		}
 		return {
+			medicalInsurancePaymentEligibility,
 			payForRelatives: true,
 			familyId: createHash("md5")
 				.update(`${patientName}${patientIdNo.slice(-4)}`, "utf8")
@@ -825,6 +1118,13 @@ export class MedicalInsuranceRegistrationService {
 				"当前预约未关联有效就诊人，无法发起医保授权",
 			);
 		}
+		const medicalInsurancePaymentEligibility =
+			await this.paymentEligibilityForBusiness({
+				ownerUserId,
+				businessType: "registration",
+				businessId: appointmentId,
+				patientId: appointment.patientId,
+			});
 		// 临时验收兼容：当前众阳 patient-list 可能把 relation 返回为空，
 		// 目录层会将其规范化为 unknown。为避免医保主链路在展码前被阻断，
 		// 本轮测试按院方确认将 unknown 暂时视为本人；保留独立告警事件，
@@ -840,9 +1140,10 @@ export class MedicalInsuranceRegistrationService {
 				},
 				"Unknown patient relationship temporarily treated as self",
 			);
-			return { payForRelatives: false };
+			return { payForRelatives: false, medicalInsurancePaymentEligibility };
 		}
-		if (selected.relationship === "self") return { payForRelatives: false };
+		if (selected.relationship === "self")
+			return { payForRelatives: false, medicalInsurancePaymentEligibility };
 
 		const selfPatients = patients.filter(
 			(candidate) => candidate.relationship === "self",
@@ -894,6 +1195,7 @@ export class MedicalInsuranceRegistrationService {
 			);
 		}
 		return {
+			medicalInsurancePaymentEligibility,
 			payForRelatives: true,
 			familyId: createHash("md5")
 				.update(`${patientName}${patientIdNo.slice(-4)}`, "utf8")
@@ -983,7 +1285,9 @@ export class MedicalInsuranceRegistrationService {
 			ownerUserId,
 			order.medicalOrderId,
 		);
-		let authorizationReady = order.status !== "created";
+		let authorizationReady =
+			order.status !== "created" &&
+			!preparedFeeUploadContext(order, settlement);
 		if (!authorizationReady && order.authorizationId) {
 			authorizationReady = Boolean(
 				await this.dependencies.authorizations.get({
@@ -1014,10 +1318,13 @@ export class MedicalInsuranceRegistrationService {
 			"Medical insurance business order recovered without client cache",
 		);
 		return {
-			...output(order, settlement?.cashierUrl),
+			...(await this.output(order, settlement?.cashierUrl)),
 			authorizationReady,
 			authorizationPending,
 			recoveryAllowed,
+			...(confirmedExternalPayment(order, settlement)
+				? { externalPaymentConfirmed: true }
+				: {}),
 		};
 	}
 
@@ -1125,7 +1432,16 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order requires manual review",
 			);
 		}
-		if (order.status !== "created") {
+		const preparedAuthorization =
+			order.status === "fee_upload_pending" &&
+			preparedFeeUploadContext(
+				order,
+				await this.dependencies.orders.getSettlementContext(
+					ownerUserId,
+					order.medicalOrderId,
+				),
+			);
+		if (order.status !== "created" && !preparedAuthorization) {
 			return { orderId: order.medicalOrderId, status: "authorized" };
 		}
 		if (order.authorizationId) {
@@ -1135,8 +1451,13 @@ export class MedicalInsuranceRegistrationService {
 				medicalOrderId: order.medicalOrderId,
 				now: this.now().toISOString(),
 			});
-			if (authorization)
+			if (authorization) {
+				await this.assertSupportedAuthorization(
+					order,
+					authorization.insuplcAdmdvs,
+				);
 				return { orderId: order.medicalOrderId, status: "authorized" };
+			}
 			// created 且短期授权已过期时可以在同一未支付订单上接受新的授权码；
 			// 不创建第二笔业务订单，也不把旧客户端缓存当成恢复依据。
 		}
@@ -1147,6 +1468,9 @@ export class MedicalInsuranceRegistrationService {
 			const claim = await this.claimAuthorizationSubmission(order);
 			if (!claim.claimed) {
 				if (claim.authorizationReady) {
+					if (claim.order.status === "created") {
+						await this.assertOrderAuthorizationSupported(claim.order);
+					}
 					return { orderId: claim.order.medicalOrderId, status: "authorized" };
 				}
 				throw new PaymentPrepayAttemptInProgressError();
@@ -1192,6 +1516,10 @@ export class MedicalInsuranceRegistrationService {
 		);
 		if (!updated)
 			throw new DependencyNotConfiguredError("medical-insurance-orders");
+		await this.assertSupportedAuthorization(
+			updated,
+			authorization.insuplcAdmdvs,
+		);
 		return { orderId: updated.medicalOrderId, status: "authorized" };
 	}
 
@@ -1334,7 +1662,16 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order requires manual review",
 			);
 		}
-		if (order.status !== "created") {
+		const preparedAuthorization =
+			order.status === "fee_upload_pending" &&
+			preparedFeeUploadContext(
+				order,
+				await this.dependencies.orders.getSettlementContext(
+					ownerUserId,
+					order.medicalOrderId,
+				),
+			);
+		if (order.status !== "created" && !preparedAuthorization) {
 			return { orderId: order.medicalOrderId, status: "authorized" };
 		}
 		if (order.authorizationId) {
@@ -1344,8 +1681,13 @@ export class MedicalInsuranceRegistrationService {
 				medicalOrderId: order.medicalOrderId,
 				now: this.now().toISOString(),
 			});
-			if (authorization)
+			if (authorization) {
+				await this.assertSupportedAuthorization(
+					order,
+					authorization.insuplcAdmdvs,
+				);
 				return { orderId: order.medicalOrderId, status: "authorized" };
+			}
 			// 与门诊一致：授权过期只允许在同一 created 订单上换新授权码。
 		}
 		if (!createdForRequest && this.authorizationSubmissionPending(order)) {
@@ -1355,6 +1697,9 @@ export class MedicalInsuranceRegistrationService {
 			const claim = await this.claimAuthorizationSubmission(order);
 			if (!claim.claimed) {
 				if (claim.authorizationReady) {
+					if (claim.order.status === "created") {
+						await this.assertOrderAuthorizationSupported(claim.order);
+					}
 					return { orderId: claim.order.medicalOrderId, status: "authorized" };
 				}
 				throw new PaymentPrepayAttemptInProgressError();
@@ -1427,6 +1772,10 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance authorization completed",
 		);
+		await this.assertSupportedAuthorization(
+			updated,
+			authorization.insuplcAdmdvs,
+		);
 		return { orderId: updated.medicalOrderId, status: "authorized" };
 	}
 
@@ -1452,9 +1801,10 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order business type is not registration",
 			);
 		if (order.status === "fee_upload_pending") {
-			return (await this.recoverPersistedFeeUpload(order)) ?? output(order);
+			const recovered = await this.recoverPersistedFeeUpload(order);
+			if (recovered) return recovered;
 		}
-		if (order.status !== "created") {
+		if (order.status !== "created" && order.status !== "fee_upload_pending") {
 			// 终态或已推进订单必须先返回持久化事实。取消/人工复核时授权或
 			// 费用上下文可能已经按清理策略置空；若先校验这些过程字段，客户端
 			// 恢复原单会被误报成“缺少授权”，并失去 cancelled/manual_review
@@ -1463,10 +1813,12 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				orderId,
 			);
-			return output(order, context?.cashierUrl);
+			return this.output(order, context?.cashierUrl);
 		}
-		const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
-		if (recoveredFeeUpload) return recoveredFeeUpload;
+		if (order.status === "created") {
+			const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
+			if (recoveredFeeUpload) return recoveredFeeUpload;
+		}
 		if (!order.authorizationId || !order.appointmentId)
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance authorization is required",
@@ -1480,11 +1832,12 @@ export class MedicalInsuranceRegistrationService {
 			ownerUserId,
 			order.appointmentId,
 		);
+		await this.assertOrderAuthorizationSupported(order);
 		const claim = await this.claimFeeUploadSubmission(order);
 		if (!claim.claimed) {
 			return (
 				(await this.recoverPersistedFeeUpload(claim.order)) ??
-				output(claim.order)
+				this.output(claim.order)
 			);
 		}
 		const claimedOrder = claim.order;
@@ -1506,6 +1859,7 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				patientId: appointment.providerPatientId,
 				authorizationId: claimedOrder.authorizationId ?? order.authorizationId,
+				expectedVersion: claimedOrder.version,
 				appointment: {
 					appointmentId: appointment.appointmentId,
 					providerAppointmentId: appointment.providerAppointmentId,
@@ -1562,7 +1916,7 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance fee upload completed",
 		);
-		return output(updated, result.cashierUrl);
+		return this.output(updated, result.cashierUrl);
 	}
 
 	/** 门诊 6201：重新解析同一 2.6.33 待缴事实，再进入统一医保 adapter。 */
@@ -1586,19 +1940,22 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order business type is not outpatient",
 			);
 		if (order.status === "fee_upload_pending") {
-			return (await this.recoverPersistedFeeUpload(order)) ?? output(order);
+			const recovered = await this.recoverPersistedFeeUpload(order);
+			if (recovered) return recovered;
 		}
-		if (order.status !== "created") {
+		if (order.status !== "created" && order.status !== "fee_upload_pending") {
 			// 与挂号一致，恢复请求先读取订单状态；不能让已经取消或转人工的
 			// DiagPay 因过程凭证已清理而退化成可误解的授权校验错误。
 			const settlement = await this.dependencies.orders.getSettlementContext(
 				ownerUserId,
 				orderId,
 			);
-			return output(order, settlement?.cashierUrl);
+			return this.output(order, settlement?.cashierUrl);
 		}
-		const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
-		if (recoveredFeeUpload) return recoveredFeeUpload;
+		if (order.status === "created") {
+			const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
+			if (recoveredFeeUpload) return recoveredFeeUpload;
+		}
 		if (!order.authorizationId)
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance authorization is required",
@@ -1609,11 +1966,12 @@ export class MedicalInsuranceRegistrationService {
 			order.businessId,
 			context,
 		);
+		await this.assertOrderAuthorizationSupported(order);
 		const claim = await this.claimFeeUploadSubmission(order);
 		if (!claim.claimed) {
 			return (
 				(await this.recoverPersistedFeeUpload(claim.order)) ??
-				output(claim.order)
+				this.output(claim.order)
 			);
 		}
 		const claimedOrder = claim.order;
@@ -1632,6 +1990,9 @@ export class MedicalInsuranceRegistrationService {
 		const business: OutpatientMedicalInsuranceContext = {
 			businessType: "outpatient",
 			recordId: order.businessId,
+			...(providerContext.record
+				? { outpatientPaymentRecord: providerContext.record }
+				: {}),
 			providerPatientId: providerContext.providerPatientId,
 			outTradeOrderIds: providerContext.outTradeOrderIds,
 			totalFen: providerContext.totalFen,
@@ -1642,6 +2003,7 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				patientId: providerContext.providerPatientId,
 				authorizationId: claimedOrder.authorizationId ?? order.authorizationId,
+				expectedVersion: claimedOrder.version,
 				appointment: business,
 			},
 			context,
@@ -1678,7 +2040,7 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance outpatient fee upload completed",
 		);
-		return output(updated, result.cashierUrl);
+		return this.output(updated, result.cashierUrl);
 	}
 
 	async cashier(input: {
@@ -1704,7 +2066,7 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance cashier context requested",
 		);
-		return output(order, settlementContext?.cashierUrl);
+		return this.output(order, settlementContext?.cashierUrl);
 	}
 
 	async settle(input: {

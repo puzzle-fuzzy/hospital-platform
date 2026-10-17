@@ -230,6 +230,21 @@ test("我的医生响应拒绝重复关系、坏字段和非确认的取消结�
 	}
 });
 
+test("医生头像代理地址允许编码后的2048字符并拒绝超长值", () => {
+	const prefix = "https://image.example.test/proxy/forward?url=";
+	const doctorAvatarUrl = prefix + "a".repeat(2048 - prefix.length);
+	const doctor = { ...validMyDoctor(), doctorAvatarUrl };
+	expect(requireMyDoctorResponse({ success: true, data: doctor }).data).toEqual(
+		doctor,
+	);
+	expect(() =>
+		requireMyDoctorResponse({
+			success: true,
+			data: { ...doctor, doctorAvatarUrl: `${doctorAvatarUrl}a` },
+		}),
+	).toThrow("My doctor response");
+});
+
 test("电子发票响应只保留平台公开字段，并阻断异常票据引用", () => {
 	const list = requireOutpatientElectronicInvoiceListResponse({
 		success: true,

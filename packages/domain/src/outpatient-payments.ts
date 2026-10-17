@@ -30,7 +30,7 @@ export function isOutpatientPaymentStatus(
  * 不进入该模型。字段均来自 2.6.33 的费用条目，展示字段保持可选以兼容不同
  * 费用类型（药品、检查、材料和挂号费）返回的空字段。
  */
-export type OutpatientPaymentRecord = {
+export type OutpatientPaymentItem = {
 	recordId: string;
 	status: OutpatientPaymentStatus;
 	/** Provider tradeStatus=4；仍属于已缴费查询结果，但资金正在退款。 */
@@ -44,6 +44,8 @@ export type OutpatientPaymentRecord = {
 	quantity?: string;
 	unitName?: string;
 	priceFen?: number;
+	/** 精确人民币元单价，允许小于一分；不能用于费用合计或收款。 */
+	priceYuan?: string;
 	chargeClassName?: string;
 	tradePropName?: string;
 	networkPatClassName?: string;
@@ -55,6 +57,11 @@ export type OutpatientPaymentRecord = {
 	amountFen: number;
 };
 
+/** 同笔费用合并为一个支付入口；明细保持扁平，不携带 Provider 标识。 */
+export type OutpatientPaymentRecord = OutpatientPaymentItem & {
+	items?: OutpatientPaymentItem[];
+};
+
 /**
  * 门诊支付前由服务端解析出的 Provider 事实。
  * `recordId` 只是平台给小程序的 opaque 引用；真正提交 2.6.65.1 的
@@ -62,6 +69,8 @@ export type OutpatientPaymentRecord = {
  */
 export type OutpatientPaymentProviderContext = {
 	recordId: string;
+	/** 用于绑定本次支付成员；只存服务端密文，不作为已缴费证据。 */
+	record?: OutpatientPaymentRecord;
 	providerPatientId: string;
 	outTradeOrderIds: readonly string[];
 	totalFen: number;
@@ -91,6 +100,7 @@ export type OutpatientPaymentResultViolation =
 	| "status-mismatch"
 	| "record-id-invalid"
 	| "record-id-duplicate"
+	| "items-invalid"
 	| "bill-date-invalid"
 	| "bill-date-outside-query"
 	| "amount-invalid"
@@ -208,98 +218,153 @@ export function normalizeOutpatientPaymentRecords(
 	}
 
 	const recordIds = new Set<string>();
+	const childIds = new Set<string>();
+	let itemCount = 0;
 	return value.map((item) => {
-		if (typeof item !== "object" || item === null || Array.isArray(item)) {
-			invalidResult("record-not-object");
+		const record = normalizePaymentItem(item, expectedStatus, recordIds);
+		const children = (item as Record<string, unknown>).items;
+		if (children === undefined) {
+			itemCount += 1;
+			if (itemCount > MAX_OUTPATIENT_PAYMENT_RECORDS) {
+				invalidResult("records-too-many");
+			}
+			return record;
 		}
-		const record = item as Record<string, unknown>;
-		const status = record.status;
-		const normalizedStatus: OutpatientPaymentStatus =
-			status === "unpaid" || status === "paid"
-				? status
-				: invalidResult("status-mismatch");
-		if (normalizedStatus !== expectedStatus) {
-			invalidResult("status-mismatch");
-		}
-		const paymentStatus = record.paymentStatus;
 		if (
-			paymentStatus !== undefined &&
-			(paymentStatus !== "refunding" || normalizedStatus !== "paid")
+			!Array.isArray(children) ||
+			children.length < 2 ||
+			children.length > MAX_OUTPATIENT_PAYMENT_RECORDS
 		) {
-			invalidResult("status-mismatch");
+			invalidResult("items-invalid");
 		}
-		const recordId = record.recordId;
-		if (!isBoundedOpaqueIdentifier(recordId)) {
-			invalidResult("record-id-invalid");
+		itemCount += children.length;
+		if (itemCount > MAX_OUTPATIENT_PAYMENT_RECORDS) {
+			invalidResult("records-too-many");
 		}
-		if (recordIds.has(recordId)) {
-			invalidResult("record-id-duplicate");
-		}
-		recordIds.add(recordId);
-		const billDate = hasSafeDisplayText(record.billDate, 64)
-			? record.billDate
-			: invalidResult("bill-date-invalid");
-		if (parseOutpatientBillDateTime(billDate) === undefined) {
-			invalidResult("bill-date-invalid");
-		}
-		const amountFen = record.amountFen;
-		if (
-			typeof amountFen !== "number" ||
-			!Number.isSafeInteger(amountFen) ||
-			amountFen < 0
-		) {
+		const items = children.map((child) => {
+			if (typeof child === "object" && child !== null && "items" in child) {
+				invalidResult("items-invalid");
+			}
+			const normalized = normalizePaymentItem(child, expectedStatus, childIds);
+			if (normalized.paymentStatus !== record.paymentStatus) {
+				invalidResult("status-mismatch");
+			}
+			return normalized;
+		});
+		const totalFen = items.reduce((sum, child) => sum + child.amountFen, 0);
+		if (!Number.isSafeInteger(totalFen) || totalFen !== record.amountFen) {
 			invalidResult("amount-invalid");
 		}
-		const itemName = optionalPaymentDisplayText(record.itemName, 256);
-		const departmentName = optionalPaymentDisplayText(record.departmentName);
-		const executionDepartmentName = optionalPaymentDisplayText(
-			record.executionDepartmentName,
-		);
-		const doctorName = optionalPaymentDisplayText(record.doctorName);
-		const executionDoctorName = optionalPaymentDisplayText(
-			record.executionDoctorName,
-		);
-		const spec = optionalPaymentDisplayText(record.spec);
-		const quantity = optionalPaymentDisplayText(record.quantity, 64);
-		const unitName = optionalPaymentDisplayText(record.unitName, 64);
-		const priceFen = optionalPaymentAmountFen(record.priceFen);
-		const chargeClassName = optionalPaymentDisplayText(record.chargeClassName);
-		const tradePropName = optionalPaymentDisplayText(record.tradePropName);
-		const networkPatClassName = optionalPaymentDisplayText(
-			record.networkPatClassName,
-		);
-		const typeMemo = optionalPaymentDisplayText(record.typeMemo);
-		const preferentialAmountFen = optionalPaymentAmountFen(
-			record.preferentialAmountFen,
-		);
-		const ascendAmountFen = optionalPaymentAmountFen(record.ascendAmountFen);
-		const selfBurdenRatio = optionalPaymentRatio(record.selfBurdenRatio);
-		return {
-			recordId,
-			status: normalizedStatus,
-			...(paymentStatus !== undefined ? { paymentStatus } : {}),
-			...(itemName !== undefined ? { itemName } : {}),
-			...(departmentName !== undefined ? { departmentName } : {}),
-			...(executionDepartmentName !== undefined
-				? { executionDepartmentName }
-				: {}),
-			...(doctorName !== undefined ? { doctorName } : {}),
-			...(executionDoctorName !== undefined ? { executionDoctorName } : {}),
-			...(spec !== undefined ? { spec } : {}),
-			...(quantity !== undefined ? { quantity } : {}),
-			...(unitName !== undefined ? { unitName } : {}),
-			...(priceFen !== undefined ? { priceFen } : {}),
-			...(chargeClassName !== undefined ? { chargeClassName } : {}),
-			...(tradePropName !== undefined ? { tradePropName } : {}),
-			...(networkPatClassName !== undefined ? { networkPatClassName } : {}),
-			...(typeMemo !== undefined ? { typeMemo } : {}),
-			...(preferentialAmountFen !== undefined ? { preferentialAmountFen } : {}),
-			...(ascendAmountFen !== undefined ? { ascendAmountFen } : {}),
-			...(selfBurdenRatio !== undefined ? { selfBurdenRatio } : {}),
-			billDate,
-			amountFen,
-		};
+		return { ...record, items };
 	});
+}
+
+/** 父记录与扁平明细共享同一展示白名单，原始业务字段不会穿透到患者端。 */
+function normalizePaymentItem(
+	item: unknown,
+	expectedStatus: OutpatientPaymentStatus,
+	recordIds: Set<string>,
+): OutpatientPaymentItem {
+	if (typeof item !== "object" || item === null || Array.isArray(item)) {
+		invalidResult("record-not-object");
+	}
+	const record = item as Record<string, unknown>;
+	const status = record.status;
+	const normalizedStatus: OutpatientPaymentStatus =
+		status === "unpaid" || status === "paid"
+			? status
+			: invalidResult("status-mismatch");
+	if (normalizedStatus !== expectedStatus) {
+		invalidResult("status-mismatch");
+	}
+	const paymentStatus = record.paymentStatus;
+	if (
+		paymentStatus !== undefined &&
+		(paymentStatus !== "refunding" || normalizedStatus !== "paid")
+	) {
+		invalidResult("status-mismatch");
+	}
+	const recordId = record.recordId;
+	if (!isBoundedOpaqueIdentifier(recordId)) {
+		invalidResult("record-id-invalid");
+	}
+	if (recordIds.has(recordId)) {
+		invalidResult("record-id-duplicate");
+	}
+	recordIds.add(recordId);
+	const billDate = hasSafeDisplayText(record.billDate, 64)
+		? record.billDate
+		: invalidResult("bill-date-invalid");
+	if (parseOutpatientBillDateTime(billDate) === undefined) {
+		invalidResult("bill-date-invalid");
+	}
+	const amountFen = record.amountFen;
+	if (
+		typeof amountFen !== "number" ||
+		!Number.isSafeInteger(amountFen) ||
+		amountFen < 0
+	) {
+		invalidResult("amount-invalid");
+	}
+	const itemName = optionalPaymentDisplayText(record.itemName, 256);
+	const departmentName = optionalPaymentDisplayText(record.departmentName);
+	const executionDepartmentName = optionalPaymentDisplayText(
+		record.executionDepartmentName,
+	);
+	const doctorName = optionalPaymentDisplayText(record.doctorName);
+	const executionDoctorName = optionalPaymentDisplayText(
+		record.executionDoctorName,
+	);
+	const spec = optionalPaymentDisplayText(record.spec);
+	const quantity = optionalPaymentDisplayText(record.quantity, 64);
+	const unitName = optionalPaymentDisplayText(record.unitName, 64);
+	const priceFen = optionalPaymentAmountFen(record.priceFen);
+	const priceYuan = record.priceYuan;
+	if (
+		priceYuan !== undefined &&
+		(typeof priceYuan !== "string" ||
+			priceYuan.length > 64 ||
+			!/^\d+(?:\.\d+)?$/.test(priceYuan))
+	) {
+		invalidResult("display-text-invalid");
+	}
+	const chargeClassName = optionalPaymentDisplayText(record.chargeClassName);
+	const tradePropName = optionalPaymentDisplayText(record.tradePropName);
+	const networkPatClassName = optionalPaymentDisplayText(
+		record.networkPatClassName,
+	);
+	const typeMemo = optionalPaymentDisplayText(record.typeMemo);
+	const preferentialAmountFen = optionalPaymentAmountFen(
+		record.preferentialAmountFen,
+	);
+	const ascendAmountFen = optionalPaymentAmountFen(record.ascendAmountFen);
+	const selfBurdenRatio = optionalPaymentRatio(record.selfBurdenRatio);
+	return {
+		recordId,
+		status: normalizedStatus,
+		...(paymentStatus !== undefined ? { paymentStatus } : {}),
+		...(itemName !== undefined ? { itemName } : {}),
+		...(departmentName !== undefined ? { departmentName } : {}),
+		...(executionDepartmentName !== undefined
+			? { executionDepartmentName }
+			: {}),
+		...(doctorName !== undefined ? { doctorName } : {}),
+		...(executionDoctorName !== undefined ? { executionDoctorName } : {}),
+		...(spec !== undefined ? { spec } : {}),
+		...(quantity !== undefined ? { quantity } : {}),
+		...(unitName !== undefined ? { unitName } : {}),
+		...(priceFen !== undefined ? { priceFen } : {}),
+		...(priceYuan !== undefined ? { priceYuan } : {}),
+		...(chargeClassName !== undefined ? { chargeClassName } : {}),
+		...(tradePropName !== undefined ? { tradePropName } : {}),
+		...(networkPatClassName !== undefined ? { networkPatClassName } : {}),
+		...(typeMemo !== undefined ? { typeMemo } : {}),
+		...(preferentialAmountFen !== undefined ? { preferentialAmountFen } : {}),
+		...(ascendAmountFen !== undefined ? { ascendAmountFen } : {}),
+		...(selfBurdenRatio !== undefined ? { selfBurdenRatio } : {}),
+		billDate,
+		amountFen,
+	};
 }
 
 function optionalPaymentDisplayText(

@@ -56,7 +56,7 @@
 		<view
 			wx:for="{{visibleItems}}"
 			wx:key="recordId"
-			class="record-card record-card-{{item.paymentStatus || item.status}}"
+			class="record-card record-card-{{item.paymentStatus || item.status}} {{item.items ? 'record-card-group' : ''}}"
 		>
 			<view class="record-line">
 				<text class="record-label">患者姓名</text>
@@ -66,11 +66,11 @@
 				<text class="record-label">就诊科室</text>
 				<text class="record-value">{{item.departmentName || '门诊费用'}}</text>
 			</view>
-			<view wx:if="{{item.itemName}}" class="record-line">
+			<view wx:if="{{!item.items && item.itemName}}" class="record-line">
 				<text class="record-label">费用项目</text>
 				<text class="record-value">{{item.itemName}}</text>
 			</view>
-			<view wx:if="{{item.executionDepartmentName}}" class="record-line">
+			<view wx:if="{{!item.items && item.executionDepartmentName}}" class="record-line">
 				<text class="record-label">执行科室</text>
 				<text class="record-value">{{item.executionDepartmentName}}</text>
 			</view>
@@ -78,15 +78,34 @@
 				<text class="record-label">就诊医生</text>
 				<text class="record-value">{{item.doctorName}}</text>
 			</view>
-			<view wx:if="{{item.executionDoctorName}}" class="record-line">
+			<view wx:if="{{!item.items && item.executionDoctorName}}" class="record-line">
 				<text class="record-label">执行医生</text>
 				<text class="record-value">{{item.executionDoctorName}}</text>
 			</view>
-			<view wx:if="{{item.specQuantityLabel}}" class="record-line">
+			<view wx:if="{{item.items}}" class="record-fee-items">
+				<view class="record-fee-heading">
+					<text>费用明细</text>
+					<text class="record-fee-count">共 {{item.itemCount}} 项</text>
+				</view>
+				<view wx:for="{{item.items}}" wx:for-item="fee" wx:key="recordId" class="record-fee-item">
+					<view class="record-fee-title-line">
+						<text class="record-fee-name">{{fee.itemName || '门诊费用项目'}}</text>
+						<text class="record-fee-amount">{{fee.amountLabel}}</text>
+					</view>
+					<view wx:if="{{fee.executionDepartmentName}}" class="record-fee-meta">执行科室：{{fee.executionDepartmentName}}</view>
+					<view wx:if="{{fee.executionDoctorName}}" class="record-fee-meta">执行医生：{{fee.executionDoctorName}}</view>
+					<view wx:if="{{fee.specQuantityLabel || fee.priceLabel}}" class="record-fee-meta record-fee-spec">
+						<text wx:if="{{fee.specQuantityLabel}}">{{fee.specQuantityLabel}}</text>
+						<text wx:if="{{fee.priceLabel}}">单价 {{fee.priceLabel}}</text>
+					</view>
+					<view wx:if="{{fee.chargeClassName || fee.tradePropName || fee.typeMemo}}" class="record-fee-meta">{{fee.chargeClassName || fee.tradePropName || fee.typeMemo}}</view>
+				</view>
+			</view>
+			<view wx:if="{{!item.items && item.specQuantityLabel}}" class="record-line">
 				<text class="record-label">规格数量</text>
 				<text class="record-value">{{item.specQuantityLabel}}</text>
 			</view>
-			<view wx:if="{{item.priceLabel}}" class="record-line">
+			<view wx:if="{{!item.items && item.priceLabel}}" class="record-line">
 				<text class="record-label">单价</text>
 				<text class="record-value">{{item.priceLabel}}</text>
 			</view>
@@ -95,7 +114,7 @@
 				<text class="record-value">{{item.chargeClassName || item.tradePropName || item.typeMemo}}</text>
 			</view>
 			<view class="record-line record-amount-line">
-				<text class="record-label">缴费金额</text>
+				<text class="record-label">{{item.items ? '合计金额' : '缴费金额'}}</text>
 				<text class="record-amount">{{item.amountLabel}}</text>
 			</view>
 			<view class="record-line record-line-last">
@@ -104,7 +123,8 @@
 			</view>
 			<view class="record-footer">
 				<view wx:if="{{item.status === 'unpaid'}}" class="record-payment-action" catchtap="onPaymentTap" data-view-key="{{item.viewKey}}">
-					<button class="record-pay-button">缴费</button>
+					<button wx:if="{{item.items}}" class="record-pay-button record-group-pay-button">合并缴费</button>
+					<block wx:else><button class="record-pay-button">缴费</button></block>
 				</view>
 				<view wx:if="{{item.status !== 'unpaid'}}" class="record-status-wrap">
 					<text class="record-status record-status-{{item.paymentStatus || item.status}}">{{item.paymentStatus === 'refunding' ? '退款中' : item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
@@ -121,8 +141,17 @@
 		<view class="payment-sheet-header">
 			<text class="payment-sheet-close" bindtap="onClosePaymentSheet">×</text>
 		</view>
+		<view wx:if="{{paymentRecord}}" class="payment-sheet-summary">
+			<view>
+				<text class="payment-sheet-title">本次缴费</text>
+				<text class="payment-sheet-count">共 {{paymentRecord.itemCount}} 项费用</text>
+			</view>
+			<text class="payment-sheet-amount">{{paymentRecord.amountLabel}}</text>
+		</view>
 		<view class="payment-method-list">
-			<view class="payment-method {{paymentMethod === 'medical' ? 'payment-method-active' : ''}}" bindtap="onPaymentMethodTap" data-method="medical">
+			<view wx:if="{{medicalEligibilityMessage}}" class="payment-eligibility-message">{{medicalEligibilityMessage}}</view>
+			<view wx:elif="{{medicalEligibilityChecking}}" class="payment-eligibility-message">正在确认医保支付是否可用...</view>
+			<view wx:if="{{medicalEligibility !== 'unsupported' && !medicalEligibilityChecking}}" class="payment-method {{paymentMethod === 'medical' ? 'payment-method-active' : ''}}" bindtap="onPaymentMethodTap" data-method="medical">
 				<view class="payment-method-icon medical-payment-icon">医保</view>
 				<view class="payment-method-copy">
 					<text class="payment-method-title">医保支付</text>
@@ -137,6 +166,7 @@
 				<view class="payment-radio payment-radio-wechat {{paymentMethod === 'wechat' ? 'payment-radio-active' : ''}}"></view>
 			</view>
 		</view>
+		<button wx:if="{{medicalEligibility === 'unsupported' && hasOriginalMedicalPayment}}" class="original-medical-payment" bindtap="onOriginalMedicalPayment" disabled="{{paymentBusy}}">查询原医保订单</button>
 		<button class="sheet-pay-button" bindtap="onConfirmPayment" loading="{{paymentBusy !== ''}}" disabled="{{!paymentMethod || paymentBusy}}">支付</button>
 	</view>
 </view>
