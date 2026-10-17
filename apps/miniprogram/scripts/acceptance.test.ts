@@ -3802,7 +3802,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(recordPayButtonIndex).toBeGreaterThan(visitTimeIndex);
 	expect(outpatientStyle).toContain("width: 82rpx;");
 	expect(outpatientTemplate).toContain(">支付</button>");
-	expect(settlementTemplate).toContain("金额来自医保 6202 结算结果");
+	expect(settlementTemplate).toContain("金额以医院结算结果为准");
 	expect(settlementTemplate).toContain('wx:if="{{loading || hasPending}}"');
 	expect(settlementTemplate).toContain("settlement-loading-mask");
 	expect(settlementTemplate).toContain("拼命加载中，请耐心等待 ...");
