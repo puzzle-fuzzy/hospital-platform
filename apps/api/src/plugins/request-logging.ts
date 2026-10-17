@@ -27,6 +27,7 @@ import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
 import { HttpError } from "../errors";
 import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
+import { MedicalInsuranceRegionUnsupportedError } from "../modules/medical-insurance/errors";
 import { requestOwner } from "./request-context";
 
 const requestStartTimes = new WeakMap<Request, number>();
@@ -111,7 +112,17 @@ function errorMetadataFor(request: Request): ErrorMetadata | undefined {
  */
 function publicErrorCode(error: unknown): string | undefined {
 	if (error instanceof HttpError) return error.code;
+	if (error instanceof MedicalInsuranceRegionUnsupportedError)
+		return "medical-insurance-region-unsupported";
 	if (error instanceof ProviderRequestError) {
+		if (
+			error.reason === "appointment-cancellation-rejected" &&
+			error.provider === "zhongyang" &&
+			error.operation === "appointment-cancellation" &&
+			!error.retryable &&
+			!error.responseInvalid
+		)
+			return "appointment-cancellation-rejected";
 		if (error.reason === "appointment-source-unavailable")
 			return "appointment-source-unavailable";
 		if (error.reason === "medical-insurance-payment-in-progress")

@@ -1,7 +1,6 @@
 import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
 import { configureProviderRequestLogger } from "@hospital/adapters";
-import type { HisRefundSecurityStore } from "@hospital/persistence";
 import { DependencyNotConfiguredError } from "@hospital/domain";
 import {
 	type AdminLogStore,
@@ -9,6 +8,7 @@ import {
 	createAdminLogStore,
 	createNoopLogger,
 } from "@hospital/observability";
+import type { HisRefundSecurityStore } from "@hospital/persistence";
 import { Elysia } from "elysia";
 import {
 	type ApplicationServices,
@@ -23,6 +23,7 @@ import {
 	adminInsuranceQueryModule,
 	adminLogsModule,
 	adminMedicalInsuranceRefundModule,
+	adminPaymentRefundModule,
 	adminPaymentSyncModule,
 	adminWechatRefundModule,
 } from "./modules/admin";
@@ -46,8 +47,8 @@ import type { MedicalInsuranceNotificationService } from "./modules/medical-insu
 import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { medicalRecordsModule } from "./modules/medical-records";
 import { myDoctorsModule } from "./modules/my-doctors";
-import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { outpatientElectronicInvoicesModule } from "./modules/outpatient-invoices";
+import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { patientFeedbackModule } from "./modules/patient-feedback";
 import { PatientBindingService, patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
@@ -316,10 +317,19 @@ export function createApp(options: AppOptions = {}) {
 						: new Elysia({ name: "admin-wechat-refund-not-configured" }),
 				)
 				.use(
+					services.adminPaymentRefund && options.adminRefundToken?.trim()
+						? adminPaymentRefundModule(
+								services.adminPaymentRefund,
+								options.adminRefundToken,
+							)
+						: new Elysia({ name: "admin-payment-refund-not-configured" }),
+				)
+				.use(
 					services.medicalInsuranceRefund && options.adminRefundToken?.trim()
 						? adminMedicalInsuranceRefundModule(
 								services.medicalInsuranceRefund,
 								options.adminRefundToken,
+								services.adminPaymentRefund,
 							)
 						: new Elysia({
 								name: "admin-medical-insurance-refund-not-configured",
@@ -461,4 +471,6 @@ export function createApp(options: AppOptions = {}) {
 	return app;
 }
 
-export type HospitalApp = ReturnType<typeof createApp>;
+// Runtime consumers only require the Elysia app surface; expanding every admin
+// route here exceeds TypeScript's comparison limit as the route set grows.
+export type HospitalApp = import("elysia").AnyElysia;

@@ -132,3 +132,136 @@ test("门诊费用公共读模型保留退款中状态且不允许出现在待�
 		),
 	).toThrow("Outpatient payment provider result is invalid");
 });
+
+function groupedRecord() {
+	return {
+		recordId: "payment-group-001",
+		status: "unpaid" as const,
+		billDate: "2026-10-15 15:34:12",
+		amountFen: 9700,
+		items: [
+			{
+				recordId: "payment-item-ultrasound",
+				status: "unpaid" as const,
+				billDate: "2026-10-15 15:34:12",
+				itemName: "彩超检查",
+				executionDepartmentName: "超声科",
+				amountFen: 8000,
+			},
+			{
+				recordId: "payment-item-ecg",
+				status: "unpaid" as const,
+				billDate: "2026-10-15 15:34:12",
+				itemName: "心电图检查",
+				executionDepartmentName: "心电图室",
+				amountFen: 1700,
+			},
+		],
+	};
+}
+
+test("同笔门诊费用保留独立明细与总额且父子均只投影安全字段", () => {
+	const group = groupedRecord();
+	const input = {
+		...group,
+		providerPatientId: "private-patient",
+		items: group.items.map((item) => ({
+			...item,
+			outTradeOrderId: "private-provider-order",
+		})),
+	};
+	const [normalized] = normalizeOutpatientPaymentRecords([input], "unpaid");
+	expect(normalized).toEqual(group);
+	expect(normalized?.items).toHaveLength(2);
+	expect(JSON.stringify(normalized)).not.toContain("private-");
+	expect(normalized?.items?.[0]).not.toBe(input.items[0]);
+});
+
+test.each([
+	{ ...groupedRecord(), items: null },
+	{ ...groupedRecord(), items: {} },
+	{ ...groupedRecord(), items: [] },
+	{ ...groupedRecord(), items: [groupedRecord().items[0]] },
+	{ ...groupedRecord(), items: [null, groupedRecord().items[1]] },
+	{
+		...groupedRecord(),
+		items: groupedRecord().items.map((item) => ({ ...item, items: [] })),
+	},
+])("门诊合并费用拒绝缺项、非对象和嵌套明细 %#", (group) => {
+	expect(() => normalizeOutpatientPaymentRecords([group], "unpaid")).toThrow(
+		"Outpatient payment provider result is invalid",
+	);
+});
+
+test("门诊合并费用拒绝重复子项、子项状态冲突和错误合计", () => {
+	const group = groupedRecord();
+	for (const invalid of [
+		{ ...group, items: [group.items[0], group.items[0]] },
+		{
+			...group,
+			items: group.items.map((item) => ({ ...item, status: "paid" })),
+		},
+		{ ...group, amountFen: 8000 },
+		{
+			...group,
+			items: group.items.map((item) => ({ ...item, amountFen: 0.5 })),
+		},
+		{
+			...group,
+			amountFen: Number.MAX_SAFE_INTEGER,
+			items: group.items.map((item) => ({
+				...item,
+				amountFen: Number.MAX_SAFE_INTEGER,
+			})),
+		},
+	]) {
+		expect(() =>
+			normalizeOutpatientPaymentRecords([invalid], "unpaid"),
+		).toThrow("Outpatient payment provider result is invalid");
+	}
+});
+
+test("已缴合并费用要求每条明细退款标记与父记录一致", () => {
+	const group = groupedRecord();
+	const paid = {
+		...group,
+		status: "paid" as const,
+		paymentStatus: "refunding" as const,
+		items: group.items.map((item) => ({
+			...item,
+			status: "paid" as const,
+			paymentStatus: "refunding" as const,
+		})),
+	};
+	expect(normalizeOutpatientPaymentRecords([paid], "paid")).toEqual([paid]);
+	expect(() =>
+		normalizeOutpatientPaymentRecords(
+			[
+				{
+					...paid,
+					items: paid.items.map(({ paymentStatus: _, ...item }) => item),
+				},
+			],
+			"paid",
+		),
+	).toThrow("Outpatient payment provider result is invalid");
+});
+
+test("合并不能绕过门诊费用明细总数上限", () => {
+	const group = groupedRecord();
+	const items = Array.from(
+		{ length: MAX_OUTPATIENT_PAYMENT_RECORDS },
+		(_, i) => ({
+			...group.items[0],
+			recordId: `item-${i}`,
+			amountFen: 1,
+		}),
+	);
+	const maximum = { ...group, amountFen: items.length, items };
+	expect(
+		normalizeOutpatientPaymentRecords([maximum], "unpaid")[0]?.items,
+	).toHaveLength(MAX_OUTPATIENT_PAYMENT_RECORDS);
+	expect(() =>
+		normalizeOutpatientPaymentRecords([maximum, group.items[1]], "unpaid"),
+	).toThrow("Outpatient payment provider result is invalid");
+});

@@ -3,6 +3,7 @@ import type {
 	MedicalInsuranceOrderType,
 } from "./medical-insurance-business";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import type { OutpatientPaymentRecord } from "./outpatient-payments";
 import type {
 	PaymentHistoryStatus,
 	PaymentOperationsBackfillQuery,
@@ -361,6 +362,8 @@ export type MedicalInsuranceOrder = {
  */
 export type MedicalInsuranceSettlementContext = {
 	businessId: string;
+	/** 本次门诊合缴的安全展示快照，只保存在已有加密上下文中。 */
+	outpatientPaymentRecord?: OutpatientPaymentRecord;
 	businessCode?: string;
 	hospitalId: string;
 	patientId: string;

@@ -8,6 +8,7 @@ import {
 	appointmentRecordsConfigurationStatus,
 	inpatientEpisodesConfigurationMissingFields,
 	inpatientEpisodesConfigurationStatus,
+	isYunhealthRegistrationRefundSignedRelayBaseUrl,
 	loadRuntimeConfig,
 	medicalInsuranceConfigurationMissingFields,
 	medicalInsuranceConfigurationStatus,
@@ -27,6 +28,7 @@ import {
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
+	yunhealthRegistrationRefundAuthorizationStatus,
 	yunhealthRegistrationSettlementConfigurationMissingFields,
 	yunhealthRegistrationSettlementConfigurationStatus,
 } from "./index";
@@ -44,6 +46,7 @@ test("runtime config defaults to safe development gates", () => {
 		medicalInsuranceReady: false,
 		medicalInsuranceFoundationPath: "/mbs-fsi/web/api/fsi/callService",
 		yunhealthRegistrationSettlementReady: false,
+		yunhealthRegistrationRefundAuthMode: "bearer",
 		outpatientElectronicInvoiceReady: false,
 		outpatientElectronicInvoiceWorkStationId: "",
 		yunhealthRegistrationPaymentSource: "1",
@@ -51,11 +54,68 @@ test("runtime config defaults to safe development gates", () => {
 		yunhealthRegistrationTradeTypeCode: "10",
 		workerPollIntervalMs: 1000,
 		aiRuntimeReady: false,
+		aiRuntimeSpeechReady: false,
 		aiRuntimeTimeoutMs: 120_000,
 		intelligentCustomerEnabled: false,
 		adminLogsIngestUrl: undefined,
 		adminLogsIngestToken: undefined,
 	});
+});
+
+test("医保 userQuery 缺省使用正式地址，测试渠道必须显式覆盖", () => {
+	for (const value of [undefined, "", "   "]) {
+		const config = loadRuntimeConfig({ MBS_USER_QUERY_BASE_URL: value });
+		expect(config.medicalInsuranceUserQueryBaseUrl).toBe(
+			"https://receiver.wecity.qq.com",
+		);
+		expect(config.medicalInsuranceReady).toBeFalse();
+		expect(config.wechatMedicalInsuranceTestEnvironment).toBeFalse();
+		expect(config.medicalInsuranceDirectBaseUrl).toBeUndefined();
+	}
+	expect(
+		loadRuntimeConfig({
+			MBS_USER_QUERY_BASE_URL: "https://test-receiver.wecity.qq.com",
+		}).medicalInsuranceUserQueryBaseUrl,
+	).toBe("https://test-receiver.wecity.qq.com");
+});
+
+test("医保 userQuery partnerSecret 必须独立配置且不能回退省医保渠道密钥", () => {
+	for (const value of [undefined, "", "   "]) {
+		const config = loadRuntimeConfig({
+			MEDICAL_INSURANCE_READY: "true",
+			MBS_APP_SECRET: "fixture-fsi-channel-secret",
+			MBS_USER_QUERY_PARTNER_SECRET: value,
+		});
+		expect(config.medicalInsuranceUserQueryPartnerSecret).toBeUndefined();
+		expect(medicalInsuranceConfigurationMissingFields(config)).toContain(
+			"MBS_USER_QUERY_PARTNER_SECRET",
+		);
+		expect(medicalInsuranceConfigurationStatus(config)).toBe("incomplete");
+	}
+	const configured = loadRuntimeConfig({
+		MEDICAL_INSURANCE_READY: "true",
+		MBS_FORWARD_RELAY_URL: "https://relay.example.test/forward",
+		MBS_FORWARD_BASE_URL_6201: "http://fsi.internal",
+		MBS_FORWARD_BASE_URL: "http://foundation.internal",
+		MBS_FORWARD_AUTHORIZATION_TOKEN: "fixture-relay-token",
+		MBS_APP_ID: "fixture-medical-app",
+		MBS_APP_SECRET: "fixture-fsi-channel-secret",
+		MBS_SM2_PRIVATE_KEY_B64: "fixture-private-key",
+		MBS_SM2_OWN_PUBLIC_B64: "fixture-own-public-key",
+		MBS_SM2_PLATFORM_PUBLIC_B64: "fixture-platform-public-key",
+		MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY: "fixture-encryption-key",
+		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+		MBS_USER_QUERY_PARTNER_SECRET: " fixture-tencent-partner-secret ",
+	});
+	expect(configured.medicalInsuranceUserQueryPartnerSecret).toBe(
+		"fixture-tencent-partner-secret",
+	);
+	expect(configured.medicalInsuranceAppSecret).toBe(
+		"fixture-fsi-channel-secret",
+	);
+	expect(configured.medicalInsuranceVerifyStrict).toBeFalse();
+	expect(medicalInsuranceConfigurationMissingFields(configured)).toEqual([]);
+	expect(medicalInsuranceConfigurationStatus(configured)).toBe("configured");
 });
 
 test("2.6.29 电子发票配置保留空 workStationId 并校验服务端固定参数", () => {
@@ -131,6 +191,29 @@ test("Python AI runtime requires a loopback URL and a sufficiently long token", 
 	expect(configured.aiRuntimeTimeoutMs).toBe(60_000);
 });
 
+test("Python AI speech requires its independent opt-in gate", () => {
+	const textOnly = loadRuntimeConfig({
+		AI_RUNTIME_READY: "true",
+		AI_RUNTIME_URL: "http://127.0.0.1:8101",
+		AI_RUNTIME_TOKEN: "local-ai-runtime-token-000001",
+	});
+
+	expect(aiRuntimeConfigurationStatus(textOnly)).toBe("configured");
+	expect(textOnly.aiRuntimeSpeechReady).toBeFalse();
+	expect(
+		loadRuntimeConfig({
+			AI_RUNTIME_READY: "true",
+			AI_RUNTIME_SPEECH_READY: "true",
+		}).aiRuntimeSpeechReady,
+	).toBeTrue();
+	expect(
+		loadRuntimeConfig({
+			AI_RUNTIME_READY: "true",
+			AI_RUNTIME_SPEECH_READY: "false",
+		}).aiRuntimeSpeechReady,
+	).toBeFalse();
+});
+
 test("Worker 日志上送地址和令牌使用独立配置并去除空白", () => {
 	const config = loadRuntimeConfig({
 		ADMIN_LOGS_INGEST_URL: "  http://127.0.0.1:3000/api/v1/admin/logs/ingest  ",
@@ -200,6 +283,92 @@ test("云健康挂号自费回写必须显式配置完整的 .29/.15/.5 gate", (
 			obsoleteWechatSelfPayType,
 		),
 	).toContain("YUNHEALTH_PLUGIN_PAY_TYPE_ID(5033)");
+});
+
+test("挂号退费默认 Bearer；签名中转必须显式开启且不要求额外 Token", () => {
+	for (const mode of [undefined, "", "   ", "bearer"]) {
+		const runtime = loadRuntimeConfig({
+			YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: mode,
+			YUNHEALTH_BASE_URL: "https://gpsrmyy.meiyi.pro",
+		});
+		expect(runtime.yunhealthRegistrationRefundAuthMode).toBe("bearer");
+		expect(yunhealthRegistrationRefundAuthorizationStatus(runtime)).toBe(
+			"missing_authorization",
+		);
+	}
+	const signed = loadRuntimeConfig({
+		YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: "signed-relay",
+		ZHONGYANG_BASE_URL: "  https://gpsrmyy.meiyi.pro/  ",
+	});
+	expect(signed.yunhealthRegistrationRefundAuthMode).toBe("signed-relay");
+	expect(signed.yunhealthAuthorizationToken).toBeUndefined();
+	expect(yunhealthRegistrationRefundAuthorizationStatus(signed)).toBe(
+		"configured",
+	);
+	expect(
+		yunhealthRegistrationRefundAuthorizationStatus(
+			loadRuntimeConfig({
+				YUNHEALTH_AUTH_TOKEN: "synthetic-server-authorization",
+				YUNHEALTH_BASE_URL: "https://another-provider.example.test",
+			}),
+		),
+	).toBe("configured");
+});
+
+test.each([
+	"http://gpsrmyy.meiyi.pro",
+	"https://gpsrmyy.meiyi.pro:443",
+	"https://gpsrmyy.meiyi.pro:8443",
+	"https://gpsrmyy.meiyi.pro/pay-notify",
+	"https://gpsrmyy.meiyi.pro/forward",
+	"https://gpsrmyy.meiyi.pro?target=other",
+	"https://gpsrmyy.meiyi.pro/#fragment",
+	"https://user@gpsrmyy.meiyi.pro",
+	"https://gpsrmyy.meiyi.pro@other.example.test",
+	"https://gpsrmyy.meiyi.pro.other.example.test",
+	"https://GPSRMYY.MEIYI.PRO",
+	"https://gpsrmyy.meiyi.pro.",
+	"https://gpsrmyy.meiyi.pro//",
+	"https://other.example.test",
+	"https://gpsrmyy.meiyi.pro/../",
+	undefined,
+])("签名中转拒绝不支持的准确地址 %s，即使有 Token 也不能降级", (baseUrl) => {
+	expect(isYunhealthRegistrationRefundSignedRelayBaseUrl(baseUrl)).toBe(false);
+	const runtime = loadRuntimeConfig({
+		YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: "signed-relay",
+		YUNHEALTH_BASE_URL: baseUrl,
+		YUNHEALTH_AUTH_TOKEN: "synthetic-server-authorization",
+	});
+	expect(yunhealthRegistrationRefundAuthorizationStatus(runtime)).toBe(
+		"unsupported",
+	);
+});
+
+test("错误显式鉴权模式不会退回 Bearer，明确的错误云健康地址不回退其他上游", () => {
+	for (const mode of ["none", "SIGNED-RELAY", "unsupported"]) {
+		const runtime = loadRuntimeConfig({
+			YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: mode,
+			YUNHEALTH_BASE_URL: "https://gpsrmyy.meiyi.pro",
+			YUNHEALTH_AUTH_TOKEN: "synthetic-server-authorization",
+		});
+		expect(runtime.yunhealthRegistrationRefundAuthMode).toBeUndefined();
+		expect(yunhealthRegistrationRefundAuthorizationStatus(runtime)).toBe(
+			"unsupported",
+		);
+	}
+	const runtime = loadRuntimeConfig({
+		YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: "signed-relay",
+		YUNHEALTH_BASE_URL: "https://other.example.test",
+		ZHONGYANG_BASE_URL: "https://gpsrmyy.meiyi.pro",
+	});
+	expect(yunhealthRegistrationRefundAuthorizationStatus(runtime)).toBe(
+		"unsupported",
+	);
+	for (const baseUrl of [
+		"https://gpsrmyy.meiyi.pro",
+		"https://gpsrmyy.meiyi.pro/",
+	])
+		expect(isYunhealthRegistrationRefundSignedRelayBaseUrl(baseUrl)).toBe(true);
 });
 
 test("production runtime listens on container interfaces by default", () => {

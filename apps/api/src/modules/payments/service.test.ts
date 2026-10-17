@@ -15,6 +15,7 @@ import {
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 } from "@hospital/persistence";
+import { AppointmentPaymentUnavailableError } from "../appointments/write-service";
 import {
 	RegistrationPaymentExitInputError,
 	RegistrationPaymentExitRefundContextError,
@@ -36,6 +37,46 @@ const order = {
 	createdAt: "2026-08-15T00:00:00.000Z",
 	updatedAt: "2026-08-15T00:00:00.000Z",
 };
+
+test("通用微信预支付不能绕过预约新支付门禁", async () => {
+	let checked = 0;
+	const registrationOrder = {
+		...order,
+		idempotencyKey: registrationSelfPayOrderKey("appointment-expired"),
+	};
+	const orders = createInMemoryPaymentOrderRepository([registrationOrder]);
+	const service = new WechatPrepayService({
+		orders: new PaymentOrderService({ orders }),
+		identityUsers: {} as never,
+		attempts: {} as never,
+		wechatPayment: {} as never,
+		assertAppointmentPaymentAllowed: async (owner, appointmentId) => {
+			expect(owner).toBe(order.ownerUserId);
+			expect(appointmentId).toBe("appointment-expired");
+			checked += 1;
+			throw new AppointmentPaymentUnavailableError();
+		},
+	});
+	await expect(
+		service.create({
+			ownerUserId: order.ownerUserId,
+			orderId: order.orderId,
+			context: {
+				traceId: "expired-generic",
+				idempotencyKey: "expired-generic",
+			},
+		}),
+	).rejects.toBeInstanceOf(AppointmentPaymentUnavailableError);
+	expect(checked).toBe(1);
+	expect(
+		(
+			await orders.findByOwnerAndIdempotencyKey(
+				order.ownerUserId,
+				registrationOrder.idempotencyKey,
+			)
+		)?.state,
+	).toBe("cash_pending");
+});
 
 test("wechat prepay reads server identity and returns only server pay params", async () => {
 	const identityUsers = createInMemoryIdentityUserRepository([
@@ -612,7 +653,11 @@ test("MD5 挂号自费使用 .2 返回的商户单号退款并在 .15 回写后�
 				idempotencyKey: "exit-refund-md5-001",
 			},
 		}),
-	).resolves.toEqual({ appointmentId, status: "cancelled" });
+	).resolves.toEqual({
+		appointmentId,
+		status: "cancelled",
+		hospitalWritebackConfirmed: true,
+	});
 
 	expect(refundInput).toMatchObject({
 		orderId: completedOrder.orderId,

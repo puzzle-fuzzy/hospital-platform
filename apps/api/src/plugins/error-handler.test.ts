@@ -38,15 +38,17 @@ import {
 	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
+import { AppointmentPaymentUnavailableError } from "../modules/appointments/write-service";
 import {
 	SessionPrincipalReadModelValidationError,
 	WechatLoginInputError,
 } from "../modules/auth/service";
-import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
+import { MedicalInsuranceRegionUnsupportedError } from "../modules/medical-insurance/errors";
 import {
 	OutpatientElectronicInvoiceQueryError,
 	OutpatientElectronicInvoiceRecordNotFoundError,
 } from "../modules/outpatient-invoices";
+import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
 import { PatientServiceInputError } from "../modules/patients/service";
 import {
 	PaymentIdentityNotFoundError,
@@ -54,6 +56,37 @@ import {
 } from "../modules/payments";
 import { ReportQueryError } from "../modules/reports/service";
 import { errorHandlerPlugin } from "./error-handler";
+
+test("参保地未开通返回稳定错误，不泄露授权或患者资料", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new MedicalInsuranceRegionUnsupportedError();
+	});
+	const response = await app.handle(new Request("http://localhost/probe"));
+	expect(response.status).toBe(409);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "medical-insurance-region-unsupported",
+			numericCode: 30580,
+			message: "当前参保地暂未开通医保支付，请选择微信支付",
+		},
+	});
+});
+
+test("预约不可支付返回稳定 409 错误供客户端刷新详情", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new AppointmentPaymentUnavailableError();
+	});
+	const response = await app.handle(new Request("http://localhost/probe"));
+	expect(response.status).toBe(409);
+	expect(await response.json()).toMatchObject({
+		error: {
+			code: "appointment-payment-unavailable",
+			numericCode: 30458,
+			message: "预约已取消、过期或暂不可支付，请刷新挂号详情",
+		},
+	});
+});
 
 test("persistence connection failures return a safe 503 contract", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {

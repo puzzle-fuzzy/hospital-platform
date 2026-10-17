@@ -2,6 +2,7 @@ import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
+	formatOutpatientPaymentRecordView,
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentDetail,
 } from "../../services/dashboard-service";
@@ -228,7 +229,7 @@ Page<OutpatientPaymentDetailPageState, OutpatientPaymentDetailPageMethods>({
 				}
 				this.setData({
 					selectedPatient: this.data.selectedPatient,
-					item: detail.item,
+					item: formatOutpatientPaymentRecordView(detail.item),
 					error: "",
 					paymentMessage: "",
 					paidDetailConfirming: false,

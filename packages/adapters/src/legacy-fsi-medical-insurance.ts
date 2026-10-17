@@ -6,7 +6,6 @@ import type {
 	MedicalInsuranceAmounts,
 	MedicalInsuranceAuthorizationContext,
 	MedicalInsuranceAuthorizationRepository,
-	MedicalInsuranceBusinessContext,
 	MedicalInsuranceBusinessType,
 	MedicalInsuranceCancellationEvidence,
 	MedicalInsuranceCredentialRepository,
@@ -19,6 +18,7 @@ import type {
 import {
 	assertValidMedicalInsuranceAmounts,
 	assertValidPaymentAmounts,
+	normalizeOutpatientPaymentRecords,
 } from "@hospital/domain";
 import {
 	AdapterNotConfiguredError,
@@ -37,8 +37,9 @@ import type {
 	LegacyFsiGateway,
 	ProviderDiagnosticLogger,
 } from "./legacy-fsi-gateway";
+import { createWechatMedicalUserQueryHeaders } from "./wechat-medical-user-query-signature";
 
-const DEFAULT_USER_QUERY_BASE_URL = "https://test-receiver.wecity.qq.com";
+const DEFAULT_USER_QUERY_BASE_URL = "https://receiver.wecity.qq.com";
 const DEFAULT_USER_QUERY_PATH = "/api/mipuserquery/userQuery/50010828";
 const DEFAULT_FOUNDATION_PATH = "/mbs-fsi/web/api/fsi/callService";
 const DEFAULT_AUTH_SYS_CODE = "thirdSelfMachine";
@@ -100,6 +101,8 @@ export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	zhongyangAuthorizationToken?: string;
 	userQueryBaseUrl?: string;
 	userQueryPath?: string;
+	/** 腾讯医保合作方密钥，只用于服务端 userQuery 请求签名。 */
+	userQueryPartnerSecret?: string | undefined;
 	orgCode?: string;
 	hospitalId?: string;
 	/** 1101 可接受险种，按优先级排列。 */
@@ -716,7 +719,6 @@ function detailAmountFen(
 
 function mapFeeDetails(
 	details: readonly ProviderRecord[],
-	business: MedicalInsuranceBusinessContext,
 	auth: MedicalInsuranceAuthorizationContext,
 	medType: "12" | "11" | "110104",
 	deptCode: string,
@@ -768,16 +770,6 @@ function mapFeeDetails(
 			"feeOcurTime",
 			currentDate,
 		);
-		const rxno =
-			optionalText(
-				detail,
-				["orderId", "orderMainId", "rxno"],
-				operation,
-				requestId,
-			) ??
-			("providerAppointmentId" in business
-				? business.providerAppointmentId
-				: business.recordId);
 		return {
 			feedetlSn:
 				optionalText(
@@ -834,7 +826,7 @@ function mapFeeDetails(
 			medListSpc:
 				optionalText(detail, ["spec", "medListSpc"], operation, requestId) ??
 				"",
-			rxno,
+			rxno: "",
 			acordDeptCodg:
 				optionalText(
 					detail,
@@ -919,6 +911,65 @@ function inspectChildPaymentRecords(
 		);
 	}).length;
 	return { nonPayableChildCount, paymentInProgressCount };
+}
+
+/** 2.1.9 接收科室 ID；只能从当前结算对应的 2.6.33 开单科室事实获取。 */
+function settlementBillingDepartmentId(
+	records: readonly ProviderRecord[],
+	tradeOrderIds: readonly string[],
+	detail: ProviderRecord,
+	requestId: string | undefined,
+): string {
+	const operation = "medical-insurance.2.6.33";
+	const currentOrderIds = new Set(tradeOrderIds);
+	const detailOrderId = optionalText(
+		detail,
+		["outTradeOrderId", "out_trade_order_id"],
+		operation,
+		requestId,
+	);
+	const detailChargeId = optionalText(
+		detail,
+		["chargeId"],
+		operation,
+		requestId,
+	);
+	const matches = records.filter((record) => {
+		const orderId = optionalText(
+			record,
+			["outTradeOrderId", "out_trade_order_id"],
+			operation,
+			requestId,
+		);
+		if (!orderId || !currentOrderIds.has(orderId)) return false;
+		if (detailOrderId && orderId !== detailOrderId) return false;
+		const chargeId = optionalText(record, ["chargeId"], operation, requestId);
+		if (detailChargeId && chargeId && chargeId !== detailChargeId) return false;
+		return (
+			Boolean(detailOrderId) ||
+			(detailChargeId ? chargeId === detailChargeId : true)
+		);
+	});
+	if (matches.length === 0) {
+		throw responseError(
+			operation,
+			"当前结算费用未匹配到 2.6.33 开单科室记录",
+			requestId,
+		);
+	}
+	const departmentIds = new Set(
+		matches.map((record) =>
+			requiredText(record, ["billDeptId"], operation, requestId),
+		),
+	);
+	if (departmentIds.size !== 1) {
+		throw responseError(
+			operation,
+			"当前结算费用匹配到多个不同的 billDeptId",
+			requestId,
+		);
+	}
+	return [...departmentIds][0] as string;
 }
 
 function findTextDeep(
@@ -2251,16 +2302,37 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"真实费用明细不存在",
 				);
 			}
-			const primaryMedicalComponent =
-				settlementContext.postPaymentComponents?.find(
+			const completedMedicalComponents =
+				settlementContext.postPaymentComponents?.filter(
 					(component) =>
 						(component.kind === "medical" ||
 							component.kind === "combined" ||
-							component.kind === "fund") &&
-						component.payTypeId === "2" &&
+							(component.kind === "fund" && component.payTypeId === "2") ||
+							(component.kind === "personal_account" &&
+								component.payTypeId === "5")) &&
+						(component.payTypeId === "2" || component.payTypeId === "5") &&
+						component.amountFen > 0 &&
 						component.state === "succeeded" &&
 						Boolean(component.payingId && component.tradingId),
 				);
+			// .32 使用已成功的主医保组流水，统筹优先、个账次之。已有分项时
+			// 不再沿用可能被后续现金或医院减免覆盖的顶层关联键。
+			const primaryMedicalComponent =
+				completedMedicalComponents?.find(
+					(component) => component.payTypeId === "2",
+				) ??
+				completedMedicalComponents?.find(
+					(component) => component.payTypeId === "5",
+				);
+			if (
+				settlementContext.postPaymentComponents !== undefined &&
+				!primaryMedicalComponent
+			) {
+				throw responseError(
+					"medical-insurance.2.27.2.32",
+					"支付后置分项缺少已成功的医保统筹或个人账户流水",
+				);
+			}
 			const finalPayingId =
 				primaryMedicalComponent?.payingId ?? settlementContext.payingId;
 			const finalTradingId =
@@ -2286,7 +2358,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 						existingTransId: existingTransIdText,
 						finalPayingId,
 					},
-					"Medical insurance .32 transId corrected to combined payTypeId=2 payingId",
+					"Medical insurance .32 transId corrected to primary medical payment payingId",
 				);
 			}
 
@@ -2763,6 +2835,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		baseUrl: string,
 		path: string,
 		body: unknown,
+		forwardHeaders?: Readonly<Record<string, string>>,
 	) =>
 		requestJson<unknown>(
 			{
@@ -2776,7 +2849,10 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					method: "POST",
 					base_url: baseUrl,
 					path,
-					headers: { "Content-Type": "application/json" },
+					headers: {
+						"Content-Type": "application/json",
+						...forwardHeaders,
+					},
 					body,
 				},
 			},
@@ -2810,12 +2886,18 @@ export function createLegacyFsiMedicalInsuranceGateway(
 		context: AdapterCallContext,
 	) => {
 		const currentDate = now();
+		const userQueryHeaders = createWechatMedicalUserQueryHeaders({
+			path: userQueryPath,
+			partnerSecret: options.userQueryPartnerSecret,
+			now: () => currentDate,
+		});
 		const queryResponse = await relayPost(
 			"medical-insurance.authorization.user-query",
 			context,
 			userQueryBaseUrl,
 			userQueryPath,
 			{ qrcode: input.authCode, openid: input.providerSubject },
+			userQueryHeaders,
 		);
 		const queryPayload = objectPayload(
 			queryResponse.data,
@@ -2896,6 +2978,19 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			payer = { idNo: payerIdNo, userName: payerName, idType: "01" };
 		}
 
+		const authorizedInsuredArea =
+			findTextAnywhere(
+				queryResponse.data,
+				["city_id"],
+				authorizationOperation,
+				queryResponse.requestId,
+			) ??
+			findTextAnywhere(
+				queryPayload,
+				["city_id"],
+				authorizationOperation,
+				queryResponse.requestId,
+			);
 		const infoResponse = await relayPost(
 			"medical-insurance.1101",
 			context,
@@ -2908,7 +3003,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				)
 					.toString()
 					.padStart(4, "0")}`,
-				insuplc_admdvs: "",
+				insuplc_admdvs: authorizedInsuredArea ?? "",
 				mdtrtarea_admvs: "140581",
 				dev_no: "",
 				dev_safe_info: "",
@@ -3195,8 +3290,6 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					? resolveRegistrationProviderRegisterId(business)
 					: undefined;
 			const totalFenExpected = business.totalFen;
-			const fallbackDepartmentId =
-				"departmentId" in business ? business.departmentId : undefined;
 			const fallbackDepartmentName =
 				"departmentName" in business ? business.departmentName : undefined;
 			const fallbackDoctorId =
@@ -3216,6 +3309,34 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				input.ownerUserId,
 				input.orderId,
 			);
+			const snapshotInput =
+				businessType === "outpatient"
+					? (("outpatientPaymentRecord" in business
+							? business.outpatientPaymentRecord
+							: undefined) ?? priorSettlementContext?.outpatientPaymentRecord)
+					: undefined;
+			const outpatientPaymentRecord =
+				snapshotInput === undefined
+					? undefined
+					: normalizeOutpatientPaymentRecords([snapshotInput], "unpaid")[0];
+			if (
+				outpatientPaymentRecord &&
+				(outpatientPaymentRecord.recordId !== businessRecordId ||
+					outpatientPaymentRecord.amountFen !== totalFenExpected)
+			) {
+				throw responseError(
+					"medical-insurance.6201",
+					"门诊费用快照与本次费用上传不一致",
+				);
+			}
+			// 与每次上传阶段原子保存；不能在6201完成后另写一次而留下崩溃窗口。
+			const saveFeeUploadContext = (
+				settlement: MedicalInsuranceSettlementContext,
+			) =>
+				options.orders.saveSettlementContext(input.ownerUserId, input.orderId, {
+					...settlement,
+					...(outpatientPaymentRecord ? { outpatientPaymentRecord } : {}),
+				});
 			if (
 				priorSettlementContext?.feeUploadStage === "submitting_6201" ||
 				priorSettlementContext?.feeUploadStage === "fee_uploaded"
@@ -3391,24 +3512,20 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			// 后续失败时只取消结算；微信/医保最终成功后才按非零分项创建 .2。
 			// 续跑时保留已有 .27 快照，不能用空上下文覆盖它。
 			if (!resumePre6201) {
-				await options.orders.saveSettlementContext(
-					input.ownerUserId,
-					input.orderId,
-					{
-						businessId,
-						businessCode,
-						hospitalId,
-						patientId: providerPatientId,
-						networkRegister: {},
-						outNetworkSettleMain: {},
-						nationalUpDetailList: [],
-						upDetailList: [],
-						tradeOrderIds,
-						insuredAreaCode: auth.insuplcAdmdvs,
-						feeUploadStage: "pre_6201",
-						settlementAmountFen,
-					},
-				);
+				await saveFeeUploadContext({
+					businessId,
+					businessCode,
+					hospitalId,
+					patientId: providerPatientId,
+					networkRegister: {},
+					outNetworkSettleMain: {},
+					nationalUpDetailList: [],
+					upDetailList: [],
+					tradeOrderIds,
+					insuredAreaCode: auth.insuplcAdmdvs,
+					feeUploadStage: "pre_6201",
+					settlementAmountFen,
+				});
 				options.logger?.info(
 					{
 						event: "medical-insurance.settlement-context.pre-6201-saved",
@@ -3483,28 +3600,24 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				now().toISOString();
 			// 立即保存 .27 的完整规范化事实，避免后续 2.1.9/2.1.13
 			// 或 6201 失败时重试再次请求 .27。
-			await options.orders.saveSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-				{
-					businessId,
-					businessCode,
-					hospitalId,
-					patientId: providerPatientId,
-					networkRegister: {},
-					outNetworkSettleMain: preOutNetworkSettleMain,
-					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-						? (settleInfo.nationalUpDetailList as ProviderRecord[])
-						: [],
-					upDetailList: [],
-					tradeOrderIds,
-					insuredAreaCode: auth.insuplcAdmdvs,
-					feeUploadStage: "pre_6201",
-					settlementAmountFen,
-					settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
-					settlementDetailsProviderRequestId: detailResponse.requestId,
-				},
-			);
+			await saveFeeUploadContext({
+				businessId,
+				businessCode,
+				hospitalId,
+				patientId: providerPatientId,
+				networkRegister: {},
+				outNetworkSettleMain: preOutNetworkSettleMain,
+				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
+					? (settleInfo.nationalUpDetailList as ProviderRecord[])
+					: [],
+				upDetailList: [],
+				tradeOrderIds,
+				insuredAreaCode: auth.insuplcAdmdvs,
+				feeUploadStage: "pre_6201",
+				settlementAmountFen,
+				settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
+				settlementDetailsProviderRequestId: detailResponse.requestId,
+			});
 			const preUpDetailList = mapSettlementDetails(
 				details,
 				childRecords,
@@ -3512,28 +3625,24 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				detailResponse.requestId,
 				businessType,
 			);
-			await options.orders.saveSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-				{
-					businessId,
-					businessCode,
-					hospitalId,
-					patientId: providerPatientId,
-					networkRegister: {},
-					outNetworkSettleMain: preOutNetworkSettleMain,
-					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-						? (settleInfo.nationalUpDetailList as ProviderRecord[])
-						: [],
-					upDetailList: preUpDetailList,
-					tradeOrderIds,
-					insuredAreaCode: auth.insuplcAdmdvs,
-					feeUploadStage: "pre_6201",
-					settlementAmountFen,
-					settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
-					settlementDetailsProviderRequestId: detailResponse.requestId,
-				},
-			);
+			await saveFeeUploadContext({
+				businessId,
+				businessCode,
+				hospitalId,
+				patientId: providerPatientId,
+				networkRegister: {},
+				outNetworkSettleMain: preOutNetworkSettleMain,
+				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
+					? (settleInfo.nationalUpDetailList as ProviderRecord[])
+					: [],
+				upDetailList: preUpDetailList,
+				tradeOrderIds,
+				insuredAreaCode: auth.insuplcAdmdvs,
+				feeUploadStage: "pre_6201",
+				settlementAmountFen,
+				settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
+				settlementDetailsProviderRequestId: detailResponse.requestId,
+			});
 			const firstDetail = details[0] as ProviderRecord;
 			const preResolvedMdtrtId =
 				optionalText(
@@ -3555,43 +3664,32 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					detailResponse.requestId,
 				);
 			if (preResolvedMdtrtId) {
-				await options.orders.saveSettlementContext(
-					input.ownerUserId,
-					input.orderId,
-					{
-						businessId,
-						businessCode,
-						hospitalId,
-						patientId: providerPatientId,
-						networkRegister: {},
-						outNetworkSettleMain: preOutNetworkSettleMain,
-						nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-							? (settleInfo.nationalUpDetailList as ProviderRecord[])
-							: [],
-						upDetailList: preUpDetailList,
-						tradeOrderIds,
-						insuredAreaCode: auth.insuplcAdmdvs,
-						feeUploadStage: "pre_6201",
-						settlementAmountFen,
-						mdtrtId: preResolvedMdtrtId,
-						settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
-						settlementDetailsProviderRequestId: detailResponse.requestId,
-					},
-				);
+				await saveFeeUploadContext({
+					businessId,
+					businessCode,
+					hospitalId,
+					patientId: providerPatientId,
+					networkRegister: {},
+					outNetworkSettleMain: preOutNetworkSettleMain,
+					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
+						? (settleInfo.nationalUpDetailList as ProviderRecord[])
+						: [],
+					upDetailList: preUpDetailList,
+					tradeOrderIds,
+					insuredAreaCode: auth.insuplcAdmdvs,
+					feeUploadStage: "pre_6201",
+					settlementAmountFen,
+					mdtrtId: preResolvedMdtrtId,
+					settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
+					settlementDetailsProviderRequestId: detailResponse.requestId,
+				});
 			}
-			const deptId =
-				optionalText(
-					firstDetail,
-					["billDeptCode", "billDeptId", "exeDeptCode", "exeDeptId"],
-					"medical-insurance.2.27.2.27",
-					detailResponse.requestId,
-				) ?? fallbackDepartmentId;
-			if (!deptId)
-				throw responseError(
-					"medical-insurance.2.1.9",
-					"无法从真实费用明细或预约事实解析 deptId",
-					detailResponse.requestId,
-				);
+			const deptId = settlementBillingDepartmentId(
+				childRecords,
+				tradeOrderIds,
+				firstDetail,
+				childPaymentResponse.requestId,
+			);
 			const deptResponse = await zhongyangGet(
 				"medical-insurance.2.1.9",
 				"/msun-middle-base-common/v1/depts",
@@ -3723,7 +3821,6 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				);
 			const feedetailList = mapFeeDetails(
 				details,
-				business,
 				auth,
 				medType,
 				deptCode,
@@ -3867,32 +3964,28 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			// 6201 的结果不能假设可安全重放。先保存发送门禁和完整请求前置事实，
 			// 再越过 Provider 边界；回包丢失时服务端只能从已保存凭证恢复，
 			// 或在宽限期后转人工核实，不能再次调用 6201。
-			await options.orders.saveSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-				{
-					businessId,
-					businessCode,
-					hospitalId,
-					patientId: providerPatientId,
-					chrgBchno: chargeBatch,
-					networkRegister,
-					outNetworkSettleMain,
-					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-						? (settleInfo.nationalUpDetailList as ProviderRecord[])
-						: [],
-					upDetailList,
-					tradeOrderIds,
-					insuredAreaCode: auth.insuplcAdmdvs,
-					feeUploadStage: "submitting_6201",
-					feeUploadSubmittedAt,
-					acctUsedFlag,
-					settlementAmountFen,
-					...(preResolvedMdtrtId ? { mdtrtId: preResolvedMdtrtId } : {}),
-					settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
-					settlementDetailsProviderRequestId: detailResponse.requestId,
-				},
-			);
+			await saveFeeUploadContext({
+				businessId,
+				businessCode,
+				hospitalId,
+				patientId: providerPatientId,
+				chrgBchno: chargeBatch,
+				networkRegister,
+				outNetworkSettleMain,
+				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
+					? (settleInfo.nationalUpDetailList as ProviderRecord[])
+					: [],
+				upDetailList,
+				tradeOrderIds,
+				insuredAreaCode: auth.insuplcAdmdvs,
+				feeUploadStage: "submitting_6201",
+				feeUploadSubmittedAt,
+				acctUsedFlag,
+				settlementAmountFen,
+				...(preResolvedMdtrtId ? { mdtrtId: preResolvedMdtrtId } : {}),
+				settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
+				settlementDetailsProviderRequestId: detailResponse.requestId,
+			});
 			const feeResult = await options.legacyFsi.uploadFees(
 				{
 					...(preResolvedMdtrtId ? { mdtrtId: preResolvedMdtrtId } : {}),
@@ -4001,33 +4094,29 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				expiresAt,
 				createdAt,
 			});
-			await options.orders.saveSettlementContext(
-				input.ownerUserId,
-				input.orderId,
-				{
-					businessId,
-					businessCode,
-					hospitalId,
-					patientId: providerPatientId,
-					chrgBchno: chargeBatch,
-					networkRegister,
-					outNetworkSettleMain,
-					nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
-						? (settleInfo.nationalUpDetailList as ProviderRecord[])
-						: [],
-					upDetailList,
-					tradeOrderIds,
-					insuredAreaCode: auth.insuplcAdmdvs,
-					feeUploadStage: "fee_uploaded",
-					feeUploadSubmittedAt,
-					acctUsedFlag,
-					settlementAmountFen,
-					...(mdtrtId ? { mdtrtId } : {}),
-					settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
-					settlementDetailsProviderRequestId: detailResponse.requestId,
-					...(feeResult.cashierUrl ? { cashierUrl: feeResult.cashierUrl } : {}),
-				},
-			);
+			await saveFeeUploadContext({
+				businessId,
+				businessCode,
+				hospitalId,
+				patientId: providerPatientId,
+				chrgBchno: chargeBatch,
+				networkRegister,
+				outNetworkSettleMain,
+				nationalUpDetailList: Array.isArray(settleInfo.nationalUpDetailList)
+					? (settleInfo.nationalUpDetailList as ProviderRecord[])
+					: [],
+				upDetailList,
+				tradeOrderIds,
+				insuredAreaCode: auth.insuplcAdmdvs,
+				feeUploadStage: "fee_uploaded",
+				feeUploadSubmittedAt,
+				acctUsedFlag,
+				settlementAmountFen,
+				...(mdtrtId ? { mdtrtId } : {}),
+				settlementDetailsFetchedAt: preSettlementDetailsFetchedAt,
+				settlementDetailsProviderRequestId: detailResponse.requestId,
+				...(feeResult.cashierUrl ? { cashierUrl: feeResult.cashierUrl } : {}),
+			});
 			return {
 				feeUploadId: settlementCredentialId,
 				payOrdId: feeResult.credential.payOrdId,

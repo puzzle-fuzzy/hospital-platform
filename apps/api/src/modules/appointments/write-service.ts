@@ -6,12 +6,16 @@ import type {
 } from "@hospital/contracts";
 import {
 	type AppointmentPatientProfileGateway,
+	type AppointmentRecordDirectoryGateway,
+	type AppointmentRegistration,
 	type AppointmentWriteGateway,
 	type AppointmentWriteRepository,
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
 	type MedicalInsuranceOrderRepository,
 	normalizeAdapterCallContext,
+	normalizeAppointmentRecordProviderReferences,
+	normalizeAppointmentRecordResults,
 	normalizeExternalTrace,
 	normalizePatientReadModel,
 	type PatientRepository,
@@ -20,7 +24,19 @@ import {
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import { registrationSelfPayOrderKey } from "../payments/registration-self-pay-service";
+import {
+	appointmentPaymentFacts,
+	projectAppointmentPayment,
+	synchronizeAppointmentCancellation,
+} from "./payment-state";
 import { AppointmentScheduleReferenceExpiredError } from "./service";
+
+export class AppointmentPaymentUnavailableError extends Error {
+	constructor() {
+		super("Appointment is not available for a new payment");
+		this.name = "AppointmentPaymentUnavailableError";
+	}
+}
 
 export class AppointmentWriteInputError extends Error {
 	constructor(message = "Appointment write input is invalid") {
@@ -81,6 +97,9 @@ export type AppointmentWriteServiceDependencies = {
 	identityUsers: UserIdentityRepository;
 	patientProfile: AppointmentPatientProfileGateway;
 	gateway: AppointmentWriteGateway;
+	/** 生产组合根必须提供；缺省仅兼容旧的隔离测试替身。 */
+	records?: AppointmentRecordDirectoryGateway;
+	requireHospitalPaymentState?: boolean;
 	medicalInsuranceOrders?: MedicalInsuranceOrderRepository;
 	/** 挂号自费订单也必须参与取消前检查，避免页面刷新后绕过支付边界。 */
 	paymentOrders?: PaymentOrderRepository;
@@ -197,7 +216,12 @@ function appointmentSelfPayStatus(
 	state: PaymentState | undefined,
 ): AppointmentSelfPayStatus {
 	if (!state || state === "cancelled") return "not_started";
-	if (state === "cash_paid") return "cash_paid";
+	if (
+		state === "cash_paid" ||
+		state === "his_written_back" ||
+		state === "completed"
+	)
+		return "cash_paid";
 	if (state === "failed") return "failed";
 	return "awaiting_confirmation";
 }
@@ -276,8 +300,7 @@ export class AppointmentWriteService {
 			owner,
 			appointment,
 		);
-		if (!registration || registration.status === "cancelled")
-			throw new AppointmentRegistrationNotFoundError();
+		if (!registration) throw new AppointmentRegistrationNotFoundError();
 		if (
 			!Number.isSafeInteger(registration.totalFen) ||
 			registration.totalFen <= 0
@@ -297,6 +320,83 @@ export class AppointmentWriteService {
 				? { providerHisRegisterId: registration.providerHisRegisterId }
 				: {}),
 		};
+	}
+
+	private async refreshPaymentState(
+		registration: AppointmentRegistration,
+		context: Context,
+	) {
+		if (!this.dependencies.records)
+			throw new DependencyNotConfiguredError("appointment-records");
+		const result = await this.dependencies.records.listRecords(
+			{
+				providerPatientId: registration.providerPatientId,
+				query: { scope: "all" },
+			},
+			context,
+		);
+		const records = normalizeAppointmentRecordResults(result.records);
+		const references = normalizeAppointmentRecordProviderReferences(
+			result.providerRecordReferences,
+			records.length,
+		);
+		const reference = references.find(
+			(item) =>
+				item.providerAppointmentId === registration.providerAppointmentId,
+		);
+		const record = reference ? records[reference.recordIndex] : undefined;
+		const now = this.now();
+		const projection = projectAppointmentPayment({
+			...(record ? { record } : {}),
+			...(reference ? { reference } : {}),
+			registration,
+			...(await appointmentPaymentFacts(registration, this.dependencies)),
+			now,
+		});
+		await synchronizeAppointmentCancellation(
+			registration,
+			projection,
+			this.dependencies.repository,
+			now,
+		);
+		this.logger.info(
+			{
+				event: "appointment.payment_state.refreshed",
+				traceId: context.traceId,
+				appointmentId: registration.appointmentId,
+				matched: Boolean(record),
+				status: projection.status,
+				paymentStatus: projection.paymentStatus,
+				canPay: projection.canPay,
+				...traceLogFields(result.trace),
+			},
+			"Appointment payment permission refreshed from hospital records",
+		);
+		return projection;
+	}
+
+	/** 新支付必须读医院当前事实；查询旧资金订单不经过此门禁。 */
+	async assertPaymentAllowed(
+		ownerUserId: string,
+		appointmentId: string,
+		contextValue: unknown,
+	): Promise<void> {
+		const context = contextOf(contextValue);
+		const registration = await this.dependencies.repository.findRegistration(
+			id(ownerUserId, "ownerUserId"),
+			id(appointmentId, "appointmentId"),
+		);
+		if (!registration) throw new AppointmentRegistrationNotFoundError();
+		// 旧的隔离测试没有 record gateway，生产始终由组合根注入 gateway。
+		if (!this.dependencies.records) {
+			if (this.dependencies.requireHospitalPaymentState)
+				throw new DependencyNotConfiguredError("appointment-records");
+			if (registration.status !== "booked")
+				throw new AppointmentPaymentUnavailableError();
+			return;
+		}
+		const projection = await this.refreshPaymentState(registration, context);
+		if (!projection.canPay) throw new AppointmentPaymentUnavailableError();
 	}
 
 	/**
@@ -411,12 +511,22 @@ export class AppointmentWriteService {
 				registrationSelfPayOrderKey(appointmentId),
 			);
 		const selfPayStatus = appointmentSelfPayStatus(selfPayOrder?.state);
+		if (
+			!this.dependencies.records &&
+			this.dependencies.requireHospitalPaymentState
+		)
+			throw new DependencyNotConfiguredError("appointment-records");
+		const payment = this.dependencies.records
+			? await this.refreshPaymentState(registration, context)
+			: undefined;
 		const status: AppointmentDetailPayload["data"]["status"] =
-			registration.status === "booked"
+			payment?.status ??
+			(registration.status === "booked"
 				? "scheduled"
-				: registration.status === "cancelled"
-					? "cancelled"
-					: "unknown";
+				: registration.status === "cancelled" ||
+						registration.status === "expired"
+					? registration.status
+					: "unknown");
 		const detail: AppointmentDetailPayload["data"] = {
 			appointmentId: registration.appointmentId,
 			patientId: registration.patientId,
@@ -439,6 +549,15 @@ export class AppointmentWriteService {
 			totalFen: registration.totalFen,
 			selfPayStatus,
 			status,
+			...(payment
+				? {
+						paymentStatus: payment.paymentStatus,
+						canPay: payment.canPay,
+						...(payment.payExpiresAt
+							? { payExpiresAt: payment.payExpiresAt }
+							: {}),
+					}
+				: {}),
 		};
 		this.logger.info(
 			{
@@ -823,7 +942,10 @@ export class AppointmentWriteService {
 			appointmentId,
 		);
 		if (!registration) throw new AppointmentRegistrationNotFoundError();
-		if (registration.status === "cancelled")
+		if (
+			registration.status === "cancelled" ||
+			registration.status === "expired"
+		)
 			return { appointmentId, status: "cancelled" };
 		// 医保结算状态以 HIS/Provider 的取消结果为准，不再使用本地医保订单
 		// 状态拦截预约取消。旧订单可能已经完成医保结算，但本地状态仍停留在

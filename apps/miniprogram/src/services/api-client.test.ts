@@ -11,6 +11,7 @@ import {
 	localizedApiErrorMessage,
 	normalizeApiPrefix,
 	request,
+	requestAppointmentCancellation,
 	requestHealthDiseaseDetail,
 	requestHealthDiseasesByRelation,
 	requestHealthDiseasesBySymptoms,
@@ -37,6 +38,7 @@ import {
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
+	safeApiErrorMessage,
 	toWechatPaymentLaunch,
 } from "./api-client";
 import {
@@ -228,6 +230,21 @@ test("我的医生响应拒绝重复关系、坏字段和非确认的取消结�
 	}
 });
 
+test("医生头像代理地址允许编码后的2048字符并拒绝超长值", () => {
+	const prefix = "https://image.example.test/proxy/forward?url=";
+	const doctorAvatarUrl = prefix + "a".repeat(2048 - prefix.length);
+	const doctor = { ...validMyDoctor(), doctorAvatarUrl };
+	expect(requireMyDoctorResponse({ success: true, data: doctor }).data).toEqual(
+		doctor,
+	);
+	expect(() =>
+		requireMyDoctorResponse({
+			success: true,
+			data: { ...doctor, doctorAvatarUrl: `${doctorAvatarUrl}a` },
+		}),
+	).toThrow("My doctor response");
+});
+
 test("电子发票响应只保留平台公开字段，并阻断异常票据引用", () => {
 	const list = requireOutpatientElectronicInvoiceListResponse({
 		success: true,
@@ -284,10 +301,7 @@ test("电子发票响应只保留平台公开字段，并阻断异常票据引�
 		requireOutpatientElectronicInvoiceListResponse({
 			success: true,
 			data: {
-				items: [
-					{ recordId: "inv_001" },
-					{ recordId: "inv_001" },
-				],
+				items: [{ recordId: "inv_001" }, { recordId: "inv_001" }],
 				total: 2,
 			},
 		}),
@@ -556,6 +570,117 @@ test("患者范围读取失败使用页面领域兜底，但保留明确业务�
 			"检查报告暂时无法获取，请稍后再试",
 		),
 	).toBe("登录已过期，请重新登录");
+});
+
+test("取消预约拒绝保留安全 HIS 原因，其他 Provider 错误仍使用静态文案", () => {
+	const message = "临近就诊时间，不能取消预约，请去门诊窗口处理";
+	const error = new ApiError(message, {
+		code: "appointment-cancellation-rejected",
+		statusCode: 409,
+	});
+	expect(error.numericCode).toBe(30485);
+	expect(safeApiErrorMessage(error, "取消失败")).toBe(message);
+	expect(contextualApiErrorMessage(error, "原预约取消失败")).toBe(message);
+	for (const unsafe of [
+		"取消预约失败 SQLSTATE 42S02",
+		"取消预约失败，手机号13800000000",
+		"取消预约失败<script>alert(1)</script>",
+		"取消预约失败：Connection refused 10.0.0.1:5432",
+		"取消预约失败：数据库连接错误",
+		"取消预约失败，ECONNREFUSED",
+	]) {
+		expect(
+			safeApiErrorMessage(
+				new ApiError(unsafe, { code: "appointment-cancellation-rejected" }),
+				"取消失败",
+			),
+		).toBe("预约取消失败，请联系医院核实原因");
+	}
+	expect(
+		safeApiErrorMessage(
+			new ApiError(message, { code: "provider-request-rejected" }),
+			"取消失败",
+		),
+	).toBe("当前信息暂时无法获取，请稍后重试");
+	expect(
+		contextualApiErrorMessage(
+			new ApiError(message, { code: "provider-request-rejected" }),
+			"取消失败",
+		),
+	).toBe("取消失败");
+});
+
+test("真实取消请求从 409 response.error.message 读取医院原因，坏提示回退且不重试", async () => {
+	type RequestOptions = {
+		url: string;
+		method?: string;
+		success(response: unknown): void;
+	};
+	const testGlobal = globalThis as typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const globalData = {
+		apiBaseUrl: "https://hospital.example.test",
+		apiPrefix: "/api/v2",
+		accessToken: "cancellation-test-session",
+		sessionStatus: "signed_in",
+	};
+	const calls: string[] = [];
+	let responseMessage: unknown = "临近就诊时间，不能取消预约，请去门诊窗口处理";
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: () => "",
+		request: (options: RequestOptions) => {
+			calls.push(`${options.method} ${new URL(options.url).pathname}`);
+			options.success({
+				statusCode: 409,
+				data: {
+					success: false,
+					error: {
+						code: "appointment-cancellation-rejected",
+						numericCode: 30485,
+						message: responseMessage,
+					},
+				},
+			});
+		},
+	};
+	try {
+		await expect(
+			requestAppointmentCancellation("appointment-001"),
+		).rejects.toMatchObject({
+			code: "appointment-cancellation-rejected",
+			numericCode: 30485,
+			statusCode: 409,
+			message: responseMessage,
+		});
+		for (const value of [
+			undefined,
+			"",
+			"取消预约失败 token=private-value",
+			"取消预约失败：Connection refused 10.0.0.1:5432",
+			"取消预约失败：数据库连接错误",
+			"取消预约失败，ECONNREFUSED",
+		]) {
+			responseMessage = value;
+			await expect(
+				requestAppointmentCancellation("appointment-001"),
+			).rejects.toMatchObject({
+				message: "预约取消失败，请联系医院核实原因",
+			});
+		}
+		expect(calls).toEqual(
+			Array(7).fill(
+				"POST /api/v2/appointments/registrations/appointment-001/cancel",
+			),
+		);
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
 });
 
 test("本地缓存 token 必须通过与登录响应相同的安全边界", () => {

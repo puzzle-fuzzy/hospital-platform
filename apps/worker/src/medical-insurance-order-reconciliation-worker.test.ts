@@ -909,157 +909,241 @@ test("医院负担不让 Worker 把过期微信现金预支付误判为可用", 
 	).toMatchObject({ wechatPaymentState: "unknown" });
 });
 
-test("pure insurance reaches terminal only after both .32 and .5 succeed", async () => {
-	const orders = createInMemoryMedicalInsuranceOrderRepository();
-	await orders.insert(
-		order({
-			status: "cash_pending",
-			amounts: {
-				totalFen: 100,
-				cashFen: 0,
-				personalAccountFen: 30,
-				fundFen: 70,
-			},
-			setlType: "ALL",
-			wechatMixTradeNo: "mix-pure-worker-001",
-			wechatOutTradeNo: "out-pure-worker-001",
-			wechatPaymentState: "prepay_ready",
-		}),
-	);
-	await orders.saveSettlementContext(
-		"user-worker-001",
-		"medical-order-worker-001",
-		{
-			businessId: "business-pure-worker-001",
-			businessCode: "trade-code-pure-worker-001",
-			hospitalId: "1001",
-			patientId: "2001",
-			insuredAreaCode: "140581",
-			networkRegister: {},
-			outNetworkSettleMain: {},
-			nationalUpDetailList: [],
-			upDetailList: [],
-			tradeOrderIds: ["trade-pure-worker-001"],
-			postPaymentPlanVersion: "sequenced-v1",
-			postPaymentComponents: [
-				{
-					...prePaymentComponent("medical", 100, "H5", "2"),
-					payTypeParams: [
-						{ kind: "fund", payTypeId: "2", amountFen: 70 },
-						{ kind: "personal_account", payTypeId: "5", amountFen: 30 },
-					],
+test.each([
+	[70, 30, "2", "succeeded", ""],
+	[0, 100, "5", "succeeded", ""],
+	[0, 100, "2", "succeeded", ""],
+	[0, 100, "2", "failed", ""],
+	[0, 100, "2", "pending", ""],
+	[0, 100, "5", "failed", ""],
+	[0, 100, "5", "pending", ""],
+	[0, 0, "2", "succeeded", "hospital_only"],
+	[0, 0, "2", "failed", "hospital_only"],
+	[0, 0, "2", "pending", "hospital_only"],
+	[0, 0, "5", "succeeded", "hospital_only"],
+	[0, 0, "2", "succeeded", "missing_paying_id"],
+	[0, 0, "2", "succeeded", "blank_trading_id"],
+	[0, 0, "2", "succeeded", "amount_changed"],
+	[0, 0, "2", "succeeded", "total_changed"],
+	[0, 0, "2", "succeeded", "params_changed"],
+	[0, 0, "2", "succeeded", "record_code_changed"],
+] as const)(
+	"pure insurance fund=%i/account=%i/type=%s/state=%s/history=%s validates the plan before .32/.5",
+	async (fundFen, personalAccountFen, payTypeId, componentState, legacyHospitalOnlyCase) => {
+		const hospitalOnly = Boolean(legacyHospitalOnlyCase);
+		const orders = createInMemoryMedicalInsuranceOrderRepository();
+		await orders.insert(
+			order({
+				status: "cash_pending",
+				amounts: {
+					totalFen: 100,
+					cashFen: 0,
+					personalAccountFen,
+					fundFen,
+					...(hospitalOnly
+						? { otherPaymentFen: 100, hospitalPartFen: 100 }
+						: {}),
 				},
-			],
-		},
-	);
-	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
-	let cashPaymentConfirmed: boolean | undefined;
-	const componentInputs: unknown[] = [];
-	const completionCalls: string[] = [];
-	let medicalCompletionWrites = 0;
-	const worker = new MedicalInsuranceOrderReconciliationWorker({
-		tasks,
-		orders,
-		medicalInsurance: {
-			query: async (input) => {
-				cashPaymentConfirmed = input.cashPaymentConfirmed;
-				completionCalls.push("medical.32");
-				const current = await orders.getSettlementContext(
-					"user-worker-001",
-					"medical-order-worker-001",
-				);
-				if (!current) throw new Error("settlement context missing");
-				medicalCompletionWrites += 1;
-				completionCalls.push("medical.5");
-				await orders.saveSettlementContext(
-					"user-worker-001",
-					"medical-order-worker-001",
-					{
-						...current,
-						settlementWriteback: {
-							attemptedAt: now.toISOString(),
-							status: "succeeded",
-							providerRequestId: "pure-medical-.32-001",
-							providerStatus: "insur=SUCCESS,settle=SUCCESS",
-						},
-						settlementCompletion: {
-							attemptedAt: now.toISOString(),
-							status: "succeeded",
-							providerRequestId: "pure-medical-.5-001",
-							providerStatus: "completion=1",
-						},
-					},
-				);
-				return evidence({
-					amounts: { totalFen: 100, insuranceFen: 100, cashFen: 0 },
-					state: "insurance_settled",
-					source: "yunhealth",
-					providerStatus: "isSettle=1",
-					finality: "paid",
-					authoritative: true,
-				});
-			},
-		},
-		wechatPayment: {
-			createMixedOrder: async () => {
-				throw new Error("create is not used");
-			},
-			recoverMixedOrder: async () => {
-				throw new Error("recover is not used");
-			},
-			queryMixedOrder: async () => ({
-				mixState: "paid",
-				cashState: "paid",
-				insuranceState: "paid",
-				medInsPayStatus: "MED_INS_PAY_SUCCESS",
-				cashFen: 0,
-				totalFen: 100,
-				fundFen: 70,
-				personalAccountFen: 30,
-				otherPaymentFen: 0,
-				medicalCashFen: 0,
-				cashReduceDetails: [],
-				providerStatus: "MIX_PAY_SUCCESS/NO_SELF_PAY/MED_INS_PAY_SUCCESS",
-				trace: {
-					provider: "wechat-pay",
-					operation: "medical-mix-query",
-					requestId: "medical-pure-worker-001",
-				},
+				setlType: "ALL",
+				wechatMixTradeNo: "mix-pure-worker-001",
+				wechatOutTradeNo: "out-pure-worker-001",
+				wechatPaymentState: "prepay_ready",
 			}),
-		},
-		postPayment: {
-			createPreOrder: async (input) => {
-				componentInputs.push(input);
-				throw new Error(".2 must not run after payment");
-			},
-		},
-	});
-
-	expect(await worker.runOnce(now)).toBe("reconciled");
-	expect(cashPaymentConfirmed).toBeTrue();
-	expect(componentInputs).toEqual([]);
-	expect(medicalCompletionWrites).toBe(1);
-	expect(completionCalls).toEqual(["medical.32", "medical.5"]);
-	expect(completionCalls.filter((call) => call.endsWith(".5"))).toHaveLength(1);
-	expect(
-		await orders.getSettlementContext(
+		);
+		const originalComponent: MedicalInsurancePostPaymentComponent = {
+			...prePaymentComponent("medical", 100, "H5", payTypeId),
+			state: componentState,
+			payTypeParams: hospitalOnly
+				? [{ kind: "hospital_reduce", payTypeId: "50", amountFen: 100 }]
+				: [
+						...(fundFen > 0
+							? [
+									{
+										kind: "fund" as const,
+										payTypeId: "2" as const,
+										amountFen: fundFen,
+									},
+								]
+							: []),
+						{
+							kind: "personal_account",
+							payTypeId: "5",
+							amountFen: personalAccountFen,
+						},
+					],
+		};
+		if (legacyHospitalOnlyCase === "missing_paying_id") {
+			delete originalComponent.payingId;
+		}
+		if (legacyHospitalOnlyCase === "blank_trading_id") {
+			originalComponent.tradingId = " ";
+		}
+		if (legacyHospitalOnlyCase === "amount_changed") {
+			originalComponent.amountFen = 99;
+		}
+		if (legacyHospitalOnlyCase === "total_changed") {
+			originalComponent.totalFen = 99;
+		}
+		if (legacyHospitalOnlyCase === "params_changed") {
+			originalComponent.payTypeParams = [
+				{ kind: "hospital_reduce", payTypeId: "50", amountFen: 99 },
+			];
+		}
+		if (legacyHospitalOnlyCase === "record_code_changed") {
+			originalComponent.recordCode = "changed-record-code";
+		}
+		await orders.saveSettlementContext(
 			"user-worker-001",
 			"medical-order-worker-001",
-		),
-	).toMatchObject({
-		settlementWriteback: { status: "succeeded" },
-		settlementCompletion: { status: "succeeded" },
-	});
-	expect(
-		await orders.findByMedicalOrderId("medical-order-worker-001"),
-	).toMatchObject({
-		status: "insurance_settled",
-		wechatPaymentState: "cash_paid",
-		// ord_stas 仅保留 6202/6301 的短状态，后置诊断值不写入 VARCHAR(8)。
-		ordStas: "1",
-		version: 3,
-	});
-});
+			{
+				businessId: "business-pure-worker-001",
+				businessCode: "trade-code-pure-worker-001",
+				hospitalId: "1001",
+				patientId: "2001",
+				insuredAreaCode: "140581",
+				networkRegister: {},
+				outNetworkSettleMain: {},
+				nationalUpDetailList: [],
+				upDetailList: [],
+				tradeOrderIds: ["trade-pure-worker-001"],
+				postPaymentPlanVersion: "sequenced-v1",
+				postPaymentComponents: [originalComponent],
+			},
+		);
+		const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task()]);
+		let cashPaymentConfirmed: boolean | undefined;
+		const componentInputs: unknown[] = [];
+		const completionCalls: string[] = [];
+		let medicalCompletionWrites = 0;
+		const worker = new MedicalInsuranceOrderReconciliationWorker({
+			tasks,
+			orders,
+			medicalInsurance: {
+				query: async (input) => {
+					cashPaymentConfirmed = input.cashPaymentConfirmed;
+					completionCalls.push("medical.32");
+					const current = await orders.getSettlementContext(
+						"user-worker-001",
+						"medical-order-worker-001",
+					);
+					if (!current) throw new Error("settlement context missing");
+					medicalCompletionWrites += 1;
+					completionCalls.push("medical.5");
+					await orders.saveSettlementContext(
+						"user-worker-001",
+						"medical-order-worker-001",
+						{
+							...current,
+							settlementWriteback: {
+								attemptedAt: now.toISOString(),
+								status: "succeeded",
+								providerRequestId: "pure-medical-.32-001",
+								providerStatus: "insur=SUCCESS,settle=SUCCESS",
+							},
+							settlementCompletion: {
+								attemptedAt: now.toISOString(),
+								status: "succeeded",
+								providerRequestId: "pure-medical-.5-001",
+								providerStatus: "completion=1",
+							},
+						},
+					);
+					return evidence({
+						amounts: { totalFen: 100, insuranceFen: 100, cashFen: 0 },
+						state: "insurance_settled",
+						source: "yunhealth",
+						providerStatus: "isSettle=1",
+						finality: "paid",
+						authoritative: true,
+					});
+				},
+			},
+			wechatPayment: {
+				createMixedOrder: async () => {
+					throw new Error("create is not used");
+				},
+				recoverMixedOrder: async () => {
+					throw new Error("recover is not used");
+				},
+				queryMixedOrder: async () => ({
+					mixState: "paid",
+					cashState: "paid",
+					insuranceState: "paid",
+					medInsPayStatus: "MED_INS_PAY_SUCCESS",
+					cashFen: 0,
+					totalFen: 100,
+					fundFen,
+					personalAccountFen,
+					otherPaymentFen: hospitalOnly ? 100 : 0,
+					medicalCashFen: 0,
+					cashReduceDetails: [],
+					providerStatus: "MIX_PAY_SUCCESS/NO_SELF_PAY/MED_INS_PAY_SUCCESS",
+					trace: {
+						provider: "wechat-pay",
+						operation: "medical-mix-query",
+						requestId: "medical-pure-worker-001",
+					},
+				}),
+			},
+			postPayment: {
+				createPreOrder: async (input) => {
+					componentInputs.push(input);
+					throw new Error(".2 must not run after payment");
+				},
+			},
+		});
+
+		const result = await worker.runOnce(now);
+		expect(
+			(
+				await orders.getSettlementContext(
+					"user-worker-001",
+					"medical-order-worker-001",
+				)
+			)?.postPaymentComponents,
+		).toEqual([originalComponent]);
+		if (
+			componentState !== "succeeded" ||
+			(hospitalOnly &&
+				(legacyHospitalOnlyCase !== "hospital_only" || payTypeId !== "2"))
+		) {
+			expect(result).toBe("retry_scheduled");
+			expect(cashPaymentConfirmed).toBeUndefined();
+			expect(componentInputs).toEqual([]);
+			expect(completionCalls).toEqual([]);
+			expect(
+				await orders.findByMedicalOrderId("medical-order-worker-001"),
+			).toMatchObject({ status: "cash_pending" });
+			return;
+		}
+		expect(result).toBe("reconciled");
+		expect(cashPaymentConfirmed).toBeTrue();
+		expect(componentInputs).toEqual([]);
+		expect(medicalCompletionWrites).toBe(1);
+		expect(completionCalls).toEqual(["medical.32", "medical.5"]);
+		expect(completionCalls.filter((call) => call.endsWith(".5"))).toHaveLength(
+			1,
+		);
+		expect(
+			await orders.getSettlementContext(
+				"user-worker-001",
+				"medical-order-worker-001",
+			),
+		).toMatchObject({
+			settlementWriteback: { status: "succeeded" },
+			settlementCompletion: { status: "succeeded" },
+		});
+		expect(
+			await orders.findByMedicalOrderId("medical-order-worker-001"),
+		).toMatchObject({
+			status: "insurance_settled",
+			wechatPaymentState: "cash_paid",
+			// ord_stas 仅保留 6202/6301 的短状态，后置诊断值不写入 VARCHAR(8)。
+			ordStas: "1",
+			version: 3,
+		});
+	},
+);
 
 test("mixed payment validates one combined .2 before finalizing HIS once", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();

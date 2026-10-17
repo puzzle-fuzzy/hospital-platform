@@ -72,7 +72,7 @@ const MAX_DISPLAY_TEXT = 128;
 const MAX_DEPARTMENT_LOCATION = 256;
 const MAX_EXPERTISE = 255;
 const MAX_INTRODUCTION = 512;
-const MAX_AVATAR_URL = 512;
+const MAX_AVATAR_URL = 2048;
 
 function validText(value: unknown, maxLength: number): value is string {
 	return (

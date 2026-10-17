@@ -1,4 +1,5 @@
 import { ProviderRequestError } from "@hospital/adapters";
+import { normalizeAppointmentCancellationMessage } from "@hospital/contracts";
 import {
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
@@ -59,6 +60,7 @@ import {
 	AppointmentCancellationPaymentActiveError,
 	AppointmentHoldExpiredError,
 	AppointmentHoldNotFoundError,
+	AppointmentPaymentUnavailableError,
 	AppointmentRegistrationNotFoundError,
 	AppointmentWriteInputError,
 	AppointmentWritePatientNotFoundError,
@@ -85,6 +87,7 @@ import {
 	MedicalInsuranceAppointmentNotFoundError,
 	MedicalInsuranceAppointmentStaleError,
 	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegionUnsupportedError,
 	MedicalInsuranceRegistrationInputError,
 } from "../modules/medical-insurance/registration-service";
 import {
@@ -97,14 +100,14 @@ import {
 	MedicalRecordQueryError,
 } from "../modules/medical-records/service";
 import {
+	OutpatientElectronicInvoiceQueryError,
+	OutpatientElectronicInvoiceRecordNotFoundError,
+} from "../modules/outpatient-invoices";
+import {
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
 	OutpatientPaymentRecordNotFoundError,
 } from "../modules/outpatient-payments";
-import {
-	OutpatientElectronicInvoiceQueryError,
-	OutpatientElectronicInvoiceRecordNotFoundError,
-} from "../modules/outpatient-invoices";
 import { PatientFeedbackAppointmentNotFoundError } from "../modules/patient-feedback/service";
 import {
 	PatientBindingDirectoryConfirmationError,
@@ -113,6 +116,7 @@ import {
 import { PatientServiceInputError } from "../modules/patients/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import {
+	RegistrationPaymentExitCancellationPendingError,
 	RegistrationPaymentExitInputError,
 	RegistrationPaymentExitRefundContextError,
 	RegistrationPaymentExitRefundFailedError,
@@ -167,10 +171,12 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-registration-not-found": 30440,
 	"appointment-medical-payment-active": 30450,
 	"appointment-payment-active": 30455,
+	"appointment-payment-unavailable": 30458,
 	"appointment-source-unavailable": 30460,
 	"appointment-refund-context-unavailable": 30465,
 	"appointment-refund-pending": 30470,
 	"appointment-refund-failed": 30480,
+	"appointment-cancellation-rejected": 30485,
 	"appointment-refund-not-configured": 30490,
 	"medical-insurance-invalid": 30500,
 	"medical-insurance-appointment-not-found": 30510,
@@ -180,6 +186,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-cancellation-context-missing": 30550,
 	"medical-insurance-insutype-unavailable": 30560,
 	"medical-insurance-timeout": 30570,
+	"medical-insurance-region-unsupported": 30580,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -492,6 +499,21 @@ export function errorHandlerPlugin() {
 			}
 
 			if (error instanceof ProviderRequestError) {
+				if (
+					error.reason === "appointment-cancellation-rejected" &&
+					error.provider === "zhongyang" &&
+					error.operation === "appointment-cancellation" &&
+					!error.retryable &&
+					!error.responseInvalid
+				) {
+					set.status = 409;
+					return errorPayload(
+						"appointment-cancellation-rejected",
+						normalizeAppointmentCancellationMessage(
+							error.providerErrorMessage,
+						) ?? "预约取消失败，请联系医院核实原因",
+					);
+				}
 				if (isMedicalInsuranceGatewayTimeout(error)) {
 					set.status = 503;
 					return errorPayload(
@@ -783,6 +805,14 @@ export function errorHandlerPlugin() {
 				return errorPayload("appointment-write-invalid", "预约请求参数不合法");
 			}
 
+			if (error instanceof AppointmentPaymentUnavailableError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-payment-unavailable",
+					"预约已取消、过期或暂不可支付，请刷新挂号详情",
+				);
+			}
+
 			if (error instanceof AppointmentWritePatientNotFoundError) {
 				set.status = 404;
 				return errorPayload(
@@ -847,6 +877,16 @@ export function errorHandlerPlugin() {
 				);
 			}
 
+			if (error instanceof RegistrationPaymentExitCancellationPendingError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-refund-pending",
+					error.hospitalWritebackConfirmed
+						? "微信已退款、医院已回写，挂号取消待确认，请稍后查看"
+						: "微信已退款，挂号取消待确认，请稍后查看",
+				);
+			}
+
 			if (error instanceof RegistrationPaymentExitRefundFailedError) {
 				set.status = 409;
 				return errorPayload(
@@ -876,6 +916,14 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"appointment-payment-active",
 					"支付结果未确认完成，暂不能释放当前预约号源",
+				);
+			}
+
+			if (error instanceof MedicalInsuranceRegionUnsupportedError) {
+				set.status = 409;
+				return errorPayload(
+					"medical-insurance-region-unsupported",
+					"当前参保地暂未开通医保支付，请选择微信支付",
 				);
 			}
 

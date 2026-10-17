@@ -15,6 +15,7 @@ import {
 	resolveReadinessStability,
 	runReadinessStabilityProbe,
 } from "./readiness-stability";
+import { isWorkerCliEntry } from "./worker-cli-entry";
 
 export type RuntimeSmokeFetcher = (
 	input: RequestInfo | URL,
@@ -620,7 +621,7 @@ export async function runApiRuntimeSmoke(
 	return { passed, checks };
 }
 
-if (import.meta.main) {
+if (isWorkerCliEntry(import.meta.main, "api-runtime-smoke")) {
 	const logger = createLogger({
 		service: "hospital-api-runtime-smoke",
 		environment: Bun.env.NODE_ENV ?? "development",

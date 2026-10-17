@@ -93,7 +93,7 @@
 				</view>
 			</view>
 			<image
-				wx:if="{{item.status === 'scheduled'}}"
+				wx:if="{{item.status === 'scheduled' && !item.paymentStatus}}"
 				class="record-status-stamp"
 				src="/assets/legacy-user/appointment-status.svg"
 				mode="aspectFit"
@@ -131,10 +131,17 @@
 
 			<!-- 旧端预约卡片保留预问诊和院内导航操作，详情仍由卡片点击进入。 -->
 			<view
-				wx:if="{{item.status !== 'cancelled'}}"
+				wx:if="{{item.status !== 'cancelled' && item.status !== 'expired'}}"
 				class="record-actions"
 				catchtap="stopRecordActionPropagation"
 			>
+				<button
+					wx:if="{{item.canContinuePayment}}"
+					class="record-action-button"
+					bindtap="onContinuePayment"
+					data-view-key="{{item.viewKey}}"
+					plain="true"
+				>继续支付</button>
 				<button
 					class="record-action-button"
 					bindtap="onPreVisit"

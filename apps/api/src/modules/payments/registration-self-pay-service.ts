@@ -259,6 +259,23 @@ export class RegistrationSelfPayService {
 			ownerUserId,
 			input.appointmentId,
 		);
+		const existingOrder =
+			await this.dependencies.paymentOrders.findByOwnerAndIdempotencyKey(
+				ownerUserId,
+				registrationSelfPayOrderKey(appointment.appointmentId),
+			);
+		if (
+			!existingOrder ||
+			!["cash_paid", "his_written_back", "completed", "failed"].includes(
+				existingOrder.state,
+			)
+		) {
+			await this.dependencies.appointments.assertPaymentAllowed?.(
+				ownerUserId,
+				appointment.appointmentId,
+				context,
+			);
+		}
 		const order = await this.dependencies.paymentOrders.createCashPending({
 			ownerUserId,
 			patientId: appointment.patientId,

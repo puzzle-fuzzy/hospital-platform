@@ -12,6 +12,7 @@ export { adminPaymentSyncModule } from "./payment-sync";
 export { PaymentSyncAdminService } from "./payment-sync-service";
 export {
 	adminMedicalInsuranceRefundModule,
+	adminPaymentRefundModule,
 	adminWechatRefundModule,
 } from "./refunds";
 export { AdminWechatRefundService } from "./wechat-refund-service";

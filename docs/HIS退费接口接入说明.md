@@ -31,9 +31,9 @@ HIS 已确认：平台在 `2.27.2.32` 结算写回时，将平台 `medicalOrderI
 
 `settleBackNo` 仅是平台订单关联号，不替代本手册两条新接口所需的医保 `payOrdId` 或微信 `outTradeNo`，也不替代 `refundNo`、`out_refund_no`、`transaction_id` 或 HIS 负结算关联字段 `relationId`。
 
-### 1.2 2.27.2.29 自费支付登记关联号
+### 1.2 2.27.2.29 自费支付登记回执
 
-HIS 已确认：平台调用 `2.27.2.29` 自费支付登记接口时，请求字段 `thirdPartPayRecordId` 必须传入根平台订单 `medicalOrderId`（即平台 `orderId`）。HIS 应按该值记录平台订单关联，供支付、结算后的关联和对账使用。
+平台调用 `2.27.2.29` 自费支付登记接口时，沿用旧项目行为，不发送请求字段 `thirdPartPayRecordId`，由 HIS 生成数值类型的三方支付记录 ID。平台不再将根平台订单 `medicalOrderId`（即平台 `orderId`）传入该字段；平台订单关联仍按上一节的 `2.27.2.32.settleBackNo` 约定保存。
 
 `thirdPartPayRecordId` 不是 HIS 调用本手册医保或微信单腿退费入口的请求参数，不替代医保 `payOrdId`、微信 `outTradeNo`、平台 `refundNo`、微信 `out_refund_no` 或其他退款单号。HIS 在 `2.27.2.29` 返回的 `thirdPartPayRecordId` 回执仅用于平台确认该支付登记已成功、持久化成功断点并避免重放 `2.27.2.29`；不得把该回执当作退费查找键或退款身份。
 

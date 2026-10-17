@@ -382,7 +382,8 @@ test("众阳旧端医生目录使用 scheduling-doctors 并展开嵌套排班", 
 			titleName: "主任医师",
 			introduction: "心血管疾病诊疗",
 			expertise: "冠心病",
-			doctorPhotoUrl: "https://img.example.test/doctor.jpg",
+			doctorPhotoUrl:
+				"https://zhongyang.example.test/proxy/forward?url=https%3A%2F%2Fimg.example.test%2Fdoctor.jpg",
 			workDate: "2026-08-20",
 			shiftName: "上午",
 			totalSlots: 10,
@@ -910,6 +911,96 @@ test("众阳预约记录只固定微信查询参数并移除患者和支付字�
 	expect(JSON.stringify(result)).not.toContain("registFree");
 });
 
+test("院方付款截止按北京时间归一化，取消来源只留在服务端关联中", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							appointmentInfoId: "expiry-record-001",
+							workDate: "2026-10-13",
+							status: 1,
+							needPayFlag: "1",
+							latestPayTime: "2026-10-13 14:05:35",
+							cancelChannel: "smc_sys",
+							isPay: "1",
+						},
+					],
+				}),
+				{ status: 200 },
+			),
+	});
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-expiry-patient",
+			query: { scope: "all" },
+		},
+		context,
+	);
+	expect(result.providerRecordReferences).toEqual([
+		{
+			recordIndex: 0,
+			providerAppointmentId: "expiry-record-001",
+			needPay: true,
+			payExpiresAt: "2026-10-13T06:05:35.000Z",
+			cancelledBySystem: true,
+		},
+	]);
+	expect(result.records).toEqual([
+		{ workDate: "2026-10-13", status: "cancelled" },
+	]);
+	expect(JSON.stringify(result.records)).not.toContain("latestPayTime");
+	expect(JSON.stringify(result.records)).not.toContain("isPay");
+});
+
+test("缺失或非法院方付款截止不猜默认期限，isPay 不能替代 needPayFlag", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							appointmentInfoId: "expiry-invalid-date",
+							workDate: "2026-10-13",
+							status: 0,
+							needPayFlag: "1",
+							latestPayTime: "2026-02-30 14:05:35",
+						},
+						{
+							appointmentInfoId: "expiry-invalid-flag",
+							workDate: "2026-10-13",
+							status: 0,
+							isPay: "1",
+							latestPayTime: "2026-10-13T14:05:35+08:00",
+						},
+					],
+				}),
+				{ status: 200 },
+			),
+	});
+	const result = await gateway.listRecords(
+		{ providerPatientId: "expiry-patient", query: { scope: "all" } },
+		context,
+	);
+	expect(result.providerRecordReferences).toEqual([
+		{
+			recordIndex: 0,
+			providerAppointmentId: "expiry-invalid-date",
+			needPay: true,
+		},
+		{
+			recordIndex: 1,
+			providerAppointmentId: "expiry-invalid-flag",
+			payExpiresAt: "2026-10-13T06:05:35.000Z",
+		},
+	]);
+});
+
 test("众阳全部预约记录使用渠道 4 且不附带日期窗口", async () => {
 	let requestUrl = "";
 	const gateway = createZhongyangAppointmentGateway({
@@ -1291,7 +1382,7 @@ test("众阳排班映射医生照片并拒绝不可用 URL", async () => {
 	);
 	expect(result.schedules[0]).toMatchObject({
 		doctorPhotoUrl:
-			"https://web-wlx-oss.oss-cn-beijing.aliyuncs.com/doctors/001.jpg",
+			"https://zhongyang.example.test/proxy/forward?url=https%3A%2F%2Fweb-wlx-oss.oss-cn-beijing.aliyuncs.com%2Fdoctors%2F001.jpg",
 	});
 
 	const badGateway = createZhongyangAppointmentGateway({
@@ -1329,4 +1420,125 @@ test("众阳排班映射医生照片并拒绝不可用 URL", async () => {
 		requestId: "photo-bad-001",
 		retryable: false,
 	});
+});
+
+test("众阳医生照片通过配置同源代理保留完整资源参数且不重复代理", async () => {
+	const baseUrl = "https://zhongyang.example.test/upstream/";
+	const photo = "http://img.example.test/doctor%20one.jpg?width=200&crop=a%2Bb";
+	const existingProxy = `https://zhongyang.example.test/proxy/forward?url=${encodeURIComponent(photo)}`;
+	for (const doctorPic of [photo, existingProxy, "", null, undefined]) {
+		const gateway = createZhongyangAppointmentGateway({
+			baseUrl,
+			fetcher: async () =>
+				new Response(
+					JSON.stringify([
+						{
+							hisScheduleId: "schedule-photo-proxy",
+							deptId: "dept-001",
+							deptName: "心内科",
+							docId: "doctor-001",
+							docName: "李医生",
+							doctorPic,
+							workDate: "2026-08-20",
+							shiftName: "上午",
+							totalNum: 10,
+							usableSourceNum: 4,
+						},
+					]),
+				),
+		});
+		const result = await gateway.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			context,
+		);
+		const servedPhoto = result.schedules[0]?.doctorPhotoUrl;
+		if (!doctorPic) {
+			expect(servedPhoto).toBeUndefined();
+			continue;
+		}
+		const proxy = new URL(servedPhoto ?? "");
+		expect(proxy.origin).toBe("https://zhongyang.example.test");
+		expect(proxy.pathname).toBe("/proxy/forward");
+		expect(proxy.searchParams.getAll("url")).toEqual([photo]);
+	}
+});
+
+test("众阳医生照片拒绝凭据、片段、坏代理和超长编码资源", async () => {
+	const baseUrl = "https://zhongyang.example.test";
+	const source = "https://img.example.test/doctor.jpg";
+	const proxy = `${baseUrl}/proxy/forward?url=${encodeURIComponent(source)}`;
+	const invalidPhotos = [
+		"https://user:password@img.example.test/doctor.jpg",
+		`${source}#preview`,
+		"https://img.example.test\\doctor.jpg",
+		`${baseUrl}/proxy/forward?url=${encodeURIComponent(source)}&url=${encodeURIComponent(source)}`,
+		`${proxy}&token=invalid`,
+		`${baseUrl}/proxy/forward?url=${encodeURIComponent(proxy)}`,
+		`https://img.example.test/${"a".repeat(512)}`,
+		`https://img.example.test/${"医".repeat(450)}.jpg`,
+	];
+	for (const doctorPic of invalidPhotos) {
+		const gateway = createZhongyangAppointmentGateway({
+			baseUrl,
+			fetcher: async () =>
+				new Response(
+					JSON.stringify([
+						{
+							hisScheduleId: "schedule-photo-invalid",
+							deptId: "dept-001",
+							deptName: "心内科",
+							docId: "doctor-001",
+							docName: "李医生",
+							doctorPic,
+							workDate: "2026-08-20",
+							shiftName: "上午",
+							totalNum: 10,
+							usableSourceNum: 4,
+						},
+					]),
+				),
+		});
+		await expect(
+			gateway.listSchedules(
+				{ startDate: "2026-08-20", endDate: "2026-08-21" },
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "appointment-schedules",
+			retryable: false,
+		});
+	}
+});
+
+test("众阳医生照片允许代理编码后超过旧512字符上限的资源", async () => {
+	const photo = `https://img.example.test/${"医".repeat(150)}.jpg`;
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-photo-long",
+						deptId: "dept-001",
+						deptName: "心内科",
+						docId: "doctor-001",
+						docName: "李医生",
+						doctorPic: photo,
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalNum: 10,
+						usableSourceNum: 4,
+					},
+				]),
+			),
+	});
+	const result = await gateway.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		context,
+	);
+	const servedPhoto = result.schedules[0]?.doctorPhotoUrl ?? "";
+	expect(servedPhoto.length).toBeGreaterThan(512);
+	expect(servedPhoto.length).toBeLessThanOrEqual(2048);
+	expect(new URL(servedPhoto).searchParams.get("url")).toBe(photo);
 });

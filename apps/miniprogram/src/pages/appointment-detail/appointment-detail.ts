@@ -5,6 +5,13 @@ import {
 	requestAppointmentDetail,
 	safeApiErrorMessage,
 } from "../../services/api-client";
+import {
+	appointmentPayDeadlineLabel,
+	appointmentPaymentBlockedMessage,
+	appointmentPaymentStatusLabel,
+	canContinueAppointmentPayment,
+	hasKnownAppointmentPayment,
+} from "../../services/appointment-payment-view";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
@@ -28,6 +35,7 @@ const STATUS_LABELS: Record<AppointmentDetailPageData["status"], string> = {
 	"": "",
 	scheduled: "已预约",
 	cancelled: "已取消",
+	expired: "已过期",
 	completed: "已完成",
 	missed: "已爽约",
 	stopped: "停诊",
@@ -41,6 +49,8 @@ type AppointmentDetailPageMethods = {
 	loadPatientContext(patientId: string): Promise<void>;
 	onRetry(): void;
 	onCancel(): void;
+	onContinuePayment(): void;
+	onViewOriginalPayment(): void;
 	onBackHome(): void;
 	onUnload(): void;
 	showError(error: unknown): void;
@@ -66,6 +76,10 @@ type AppointmentDetailPageState = AppointmentDetailPageData & {
 	 */
 	sourceRecordStatus: AppointmentDetailPageData["status"];
 	canCancel: boolean;
+	canPay: boolean;
+	canViewOriginalPayment: boolean;
+	payDeadlineLabel: string;
+	paymentMessage: string;
 };
 
 function decode(value: string | undefined): string {
@@ -143,6 +157,10 @@ function detailDefaults(): AppointmentDetailPageState {
 		location: "",
 		sourceRecordStatus: "",
 		canCancel: false,
+		canPay: false,
+		canViewOriginalPayment: false,
+		payDeadlineLabel: "",
+		paymentMessage: "",
 	};
 }
 
@@ -180,6 +198,10 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				location: "",
 				sourceRecordStatus: "",
 				canCancel: false,
+				canPay: false,
+				canViewOriginalPayment: false,
+				payDeadlineLabel: "",
+				paymentMessage: "",
 			});
 		});
 
@@ -255,6 +277,18 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 
 	onShow(): void {
 		if (
+			this.data.localDetail &&
+			!this.data.loading &&
+			this.data.sourceAppointmentId &&
+			this.data.sourcePatientId
+		) {
+			void this.loadDetail(
+				this.data.sourcePatientId,
+				this.data.sourceAppointmentId,
+			);
+			return;
+		}
+		if (
 			this.data.legacySummary &&
 			!this.data.loading &&
 			this.data.sourcePatientId
@@ -294,7 +328,12 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 	loadDetail(patientId: string, appointmentId: string): Promise<void> {
 		const guard = getPageLatestRequestGuard(this, "appointment-detail");
 		const token = guard.begin();
-		this.setData({ loading: true, error: "" });
+		this.setData({
+			loading: true,
+			error: "",
+			canPay: false,
+			canViewOriginalPayment: false,
+		});
 		let expectedSessionGeneration = -1;
 		return getCurrentUser()
 			.then((currentUser) => {
@@ -346,6 +385,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					detail.status === "scheduled"
 						? this.data.sourceRecordStatus
 						: detail.status;
+				const paymentView = { ...detail, status };
+				const canPay = canContinueAppointmentPayment(paymentView);
 				this.setData({
 					loading: false,
 					error: "",
@@ -369,7 +410,21 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					totalFen: detail.totalFen,
 					totalLabel: moneyLabel(detail.totalFen),
 					status,
-					statusLabel: STATUS_LABELS[status],
+					statusLabel: appointmentPaymentStatusLabel(
+						paymentView,
+						STATUS_LABELS[status],
+					),
+					canPay,
+					canViewOriginalPayment:
+						hasKnownAppointmentPayment(detail) ||
+						status === "expired" ||
+						status === "cancelled" ||
+						detail.paymentStatus === "expired" ||
+						detail.paymentStatus === "cancelled",
+					payDeadlineLabel: appointmentPayDeadlineLabel(detail.payExpiresAt),
+					paymentMessage: canPay
+						? ""
+						: appointmentPaymentBlockedMessage(paymentView),
 					canceling: false,
 					canCancel: status === "scheduled",
 					sessionGeneration: expectedSessionGeneration,
@@ -392,6 +447,61 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				this.data.sourcePatientId,
 				this.data.sourceAppointmentId,
 			);
+		}
+	},
+
+	onContinuePayment(): void {
+		if (
+			this.data.loading ||
+			this.data.canceling ||
+			!this.data.localDetail ||
+			!this.data.canPay ||
+			!this.data.appointmentId
+		)
+			return;
+		try {
+			assertSessionGeneration(
+				this.data.sessionGeneration,
+				"Appointment detail session changed before payment",
+			);
+			if (!isCurrentSelectedPatient(this.data.patientId)) {
+				throw new ApiError("当前就诊人已变更，请重新选择", {
+					code: "patient-selection-required",
+				});
+			}
+			wx.navigateTo({
+				url: `/pages/registration-payment/registration-payment?patientId=${encodeURIComponent(this.data.patientId)}&appointmentId=${encodeURIComponent(this.data.appointmentId)}`,
+			});
+		} catch (error) {
+			this.showError(error);
+		}
+	},
+
+	onViewOriginalPayment(): void {
+		if (
+			this.data.loading ||
+			this.data.canceling ||
+			!this.data.localDetail ||
+			!this.data.canViewOriginalPayment ||
+			!this.data.appointmentId ||
+			!this.data.patientId
+		)
+			return;
+		try {
+			assertSessionGeneration(
+				this.data.sessionGeneration,
+				"Appointment detail session changed before original payment lookup",
+			);
+			if (!isCurrentSelectedPatient(this.data.patientId))
+				throw new ApiError("当前就诊人已变更，请重新选择", {
+					code: "patient-selection-required",
+				});
+			// 仅打开原预约的状态页，不带自动付款参数；页面读取 owner-scoped 详情后再确认是否有旧单。
+			wx.navigateTo({
+				url: `/pages/registration-payment/registration-payment?patientId=${encodeURIComponent(this.data.patientId)}&appointmentId=${encodeURIComponent(this.data.appointmentId)}`,
+			});
+		} catch (error) {
+			this.showError(error);
 		}
 	},
 
@@ -437,10 +547,25 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 							status: "cancelled",
 							statusLabel: STATUS_LABELS.cancelled,
 							canCancel: false,
+							canPay: false,
+							canViewOriginalPayment: true,
+							paymentMessage: "预约已取消，不能继续付款",
 						});
 						wx.showToast({ title: "取消预约成功", icon: "success" });
 					})
 					.catch((error: unknown) => {
+						if (
+							error instanceof ApiError &&
+							error.code === "appointment-cancellation-rejected"
+						) {
+							// 医院取消规则较长，用完整弹窗保留窗口处理等关键指引。
+							wx.showModal({
+								title: "取消预约失败",
+								content: safeApiErrorMessage(error, "取消预约失败，请稍后再试"),
+								showCancel: false,
+							});
+							return;
+						}
 						wx.showToast({
 							title: safeApiErrorMessage(error, "取消预约失败，请稍后再试"),
 							icon: "none",
@@ -470,6 +595,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			patientCardLabel: "",
 			canceling: false,
 			canCancel: false,
+			canPay: false,
+			canViewOriginalPayment: false,
 			sourceRecordStatus: "",
 			sessionGeneration: -1,
 		});

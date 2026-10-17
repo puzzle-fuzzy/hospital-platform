@@ -14,12 +14,73 @@ import {
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
 } from "@hospital/persistence";
+import { AppointmentPaymentUnavailableError } from "../appointments/write-service";
 import {
 	MedicalInsuranceOrderNotFoundError,
 	MedicalInsuranceRegistrationService,
 } from "./registration-service";
 
 const now = new Date("2026-09-03T00:00:00.000Z");
+
+test("医保新展码、新授权及初次 6201 在预约不可支付时都不发出 Provider 写请求", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const created = order({
+		status: "created",
+		feeUploadId: null,
+		payOrdId: null,
+		payTokenHash: null,
+	});
+	await orders.insert(created);
+	let guards = 0;
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		appointments: {
+			findRegistration: async () => ({
+				appointmentId: created.appointmentId,
+				ownerUserId: created.ownerUserId,
+				patientId: created.patientId,
+				status: "booked",
+				createdAt: now.toISOString(),
+			}),
+		} as never,
+		patients: {} as never,
+		identityUsers: {} as never,
+		patientProfile: {} as never,
+		medicalInsurance: {} as never,
+		assertAppointmentPaymentAllowed: async () => {
+			guards += 1;
+			throw new AppointmentPaymentUnavailableError();
+		},
+		now: () => now,
+	});
+	const context = {
+		traceId: "medical-expired",
+		idempotencyKey: created.idempotencyKey,
+	};
+	const input = {
+		ownerUserId: created.ownerUserId,
+		appointmentId: "appointment-service-001",
+		context,
+	};
+	await expect(service.authorizationContext(input)).rejects.toBeInstanceOf(
+		AppointmentPaymentUnavailableError,
+	);
+	await expect(
+		service.authorize({ ...input, authCode: "auth-expired" }),
+	).rejects.toBeInstanceOf(AppointmentPaymentUnavailableError);
+	await expect(
+		service.uploadFees({
+			ownerUserId: created.ownerUserId,
+			orderId: created.medicalOrderId,
+			context,
+		}),
+	).rejects.toBeInstanceOf(AppointmentPaymentUnavailableError);
+	expect(guards).toBe(3);
+	expect(await orders.findByMedicalOrderId(created.medicalOrderId)).toEqual(
+		created,
+	);
+});
 
 function order(
 	overrides: Partial<MedicalInsuranceOrder> = {},
@@ -50,6 +111,26 @@ function order(
 		updatedAt: now.toISOString(),
 		...overrides,
 	};
+}
+
+async function supportedAuthorizationRepository(medicalOrderId: string) {
+	const authorizations =
+		createInMemoryMedicalInsuranceAuthorizationRepository();
+	await authorizations.put({
+		authorizationId: "authorization-service-001",
+		ownerUserId: "user-service-001",
+		medicalOrderId,
+		providerSubject: "openid-fixture",
+		payAuthNo: "pay-auth-fixture",
+		patient: { idNo: "fixture-identity", userName: "测试", idType: "01" },
+		psnNo: "psn-fixture",
+		insutype: "310",
+		insuplcAdmdvs: "140581",
+		insuCode: "140581",
+		createdAt: now.toISOString(),
+		expiresAt: "2099-01-01T00:00:00.000Z",
+	});
+	return authorizations;
 }
 
 function settlementContext(
@@ -823,7 +904,9 @@ test("并发 6201 请求只有 CAS 胜者可以调用 Provider", async () => {
 	});
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
-		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		authorizations: await supportedAuthorizationRepository(
+			"medical-fee-concurrent-001",
+		),
 		appointments: {
 			findRegistration: async () => ({
 				appointmentId: "appointment-service-001",
@@ -916,7 +999,9 @@ test("6201 回包落库被并发恢复抢先推进时原请求返回同一订单
 	};
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
-		authorizations: createInMemoryMedicalInsuranceAuthorizationRepository(),
+		authorizations: await supportedAuthorizationRepository(
+			"medical-fee-persist-race-001",
+		),
 		appointments: {
 			findRegistration: async () => ({
 				appointmentId: "appointment-fee-persist-race-001",
@@ -989,6 +1074,7 @@ test("6201 回包落库被并发恢复抢先推进时原请求返回同一订单
 
 test("medical authorization resolves the directory reference instead of the HIS patient id", async () => {
 	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	let freshnessChecks = 0;
 	const authorizations =
 		createInMemoryMedicalInsuranceAuthorizationRepository();
 	const appointments = {
@@ -1008,7 +1094,7 @@ test("medical authorization resolves the directory reference instead of the HIS 
 			sourceSerialNumber: "1",
 			totalFen: 1000,
 			status: "booked" as const,
-			createdAt: now.toISOString(),
+			createdAt: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
 			updatedAt: now.toISOString(),
 		}),
 	} as never;
@@ -1072,7 +1158,7 @@ test("medical authorization resolves the directory reference instead of the HIS 
 				},
 				psnNo: "psn-001",
 				insutype: "310",
-				insuplcAdmdvs: "140500",
+				insuplcAdmdvs: "140581",
 				insuCode: "140500",
 				expiresAt: "2026-09-03T00:15:00.000Z",
 				createdAt: now.toISOString(),
@@ -1095,6 +1181,9 @@ test("medical authorization resolves the directory reference instead of the HIS 
 		identityUsers,
 		patientProfile,
 		medicalInsurance,
+		assertAppointmentPaymentAllowed: async () => {
+			freshnessChecks += 1;
+		},
 		now: () => now,
 	});
 
@@ -1116,6 +1205,7 @@ test("medical authorization resolves the directory reference instead of the HIS 
 		unionId: "union-auth-001",
 		providerPatientId: "directory-patient-001",
 	});
+	expect(freshnessChecks).toBe(1);
 });
 
 test("关系为空的就诊人按临时验收规则视为本人", async () => {
@@ -1159,7 +1249,10 @@ test("关系为空的就诊人按临时验收规则视为本人", async () => {
 				idempotencyKey: "authorization-context-unknown-relation-001",
 			},
 		}),
-	).resolves.toEqual({ payForRelatives: false });
+	).resolves.toEqual({
+		payForRelatives: false,
+		medicalInsurancePaymentEligibility: "unknown",
+	});
 });
 
 test("亲属授权上下文按预约选中就诊人生成 familyId 并先验证本人付款档案", async () => {
@@ -1247,6 +1340,7 @@ test("亲属授权上下文按预约选中就诊人生成 familyId 并先验证�
 			},
 		}),
 	).resolves.toEqual({
+		medicalInsurancePaymentEligibility: "unknown",
 		payForRelatives: true,
 		familyId: "62725109a76555072ba458cf4e122aa4",
 	});
@@ -1791,6 +1885,12 @@ test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
 		}),
 	);
 	let uploaded: unknown;
+	const snapshot = {
+		recordId: "outpatient-record-fees-001",
+		status: "unpaid" as const,
+		billDate: "2026-09-03 08:00:00",
+		amountFen: 2000,
+	};
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
 		authorizations,
@@ -1807,6 +1907,7 @@ test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
 		outpatientPayments: {
 			resolvePaymentContext: async () => ({
 				recordId: "outpatient-record-fees-001",
+				record: snapshot,
 				providerPatientId: "his-fees-outpatient-001",
 				outTradeOrderIds: ["out-trade-fees-001", "out-trade-fees-002"],
 				totalFen: 2000,
@@ -1852,6 +1953,7 @@ test("门诊医保 6201 上送 2.6.33 的 outTradeOrderIds", async () => {
 	expect(uploaded).toEqual({
 		businessType: "outpatient",
 		recordId: "outpatient-record-fees-001",
+		outpatientPaymentRecord: snapshot,
 		providerPatientId: "his-fees-outpatient-001",
 		outTradeOrderIds: ["out-trade-fees-001", "out-trade-fees-002"],
 		totalFen: 2000,

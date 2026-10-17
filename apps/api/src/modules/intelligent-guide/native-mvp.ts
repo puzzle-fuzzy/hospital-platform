@@ -16,6 +16,7 @@ import {
 	INTELLIGENT_GUIDE_AUDIO_MAX_BYTES,
 	INTELLIGENT_GUIDE_AUDIO_MIN_BYTES,
 	INTELLIGENT_GUIDE_CONVERSATION_TTL_SECONDS,
+	INTELLIGENT_GUIDE_HISTORY_MAX_MESSAGES,
 	INTELLIGENT_GUIDE_MESSAGE_MAX_CODE_POINTS,
 	isBoundedOpaqueIdentifier,
 	normalizeAdapterCallContext,
@@ -27,9 +28,8 @@ import {
 	IntelligentGuideInputError,
 } from "./service";
 
-const MAX_GUIDE_TURNS = 5;
 const MAX_MODEL_DEPARTMENT_CANDIDATES = 20;
-const MAX_MODEL_MESSAGE_CODE_POINTS = 4_000;
+const MAX_MODEL_MESSAGE_LENGTH = 4_000;
 const GUIDE_DIRECTORY_RANGE_DAYS = 30;
 const CONVERSATION_REFERENCE_PATTERN = /^[A-Za-z0-9._:-]+$/u;
 const GUIDE_DISCLAIMER =
@@ -68,37 +68,63 @@ function shanghaiDate(now: Date, offsetDays: number): string {
 }
 
 function normalizeSearchText(value: string): string {
-	return value.replaceAll(/\s+/gu, "").toLocaleLowerCase("zh-CN");
+	return value
+		.normalize("NFKC")
+		.replaceAll(/\s+/gu, "")
+		.toLocaleLowerCase("zh-CN")
+		.replace(/门诊$/u, "");
 }
 
-function departmentMatches(departmentName: string, candidate: string): boolean {
-	const actual = normalizeSearchText(departmentName);
-	const expected = normalizeSearchText(candidate);
-	return (
-		actual === expected ||
-		actual.includes(expected) ||
-		expected.includes(actual)
-	);
+function isClinicalGuideDepartment(displayName: string): boolean {
+	const name = normalizeSearchText(displayName);
+	return !name.includes("测试") && name !== "门诊治疗室";
 }
+
+// 只允许医疗范围等价的常见名称，不把“内科”等大类扩展到任意专科。
+const DEPARTMENT_ALIAS_GROUPS: readonly (readonly string[])[] = [
+	["心内科", "心血管内科"],
+	["呼吸内科", "呼吸科", "呼吸与危重症医学科", "呼吸与危重症医学"],
+	["消化内科", "消化科"],
+	["普外科", "普通外科"],
+	["耳鼻喉科", "耳鼻咽喉科"],
+	["口腔科", "牙科"],
+	["全科", "全科医学科"],
+];
 
 function resolveDepartments(
 	departments: readonly { departmentId: string; displayName: string }[],
 	candidates: readonly string[],
 ) {
 	const resolved = [] as { departmentId: string; displayName: string }[];
+	let hasUnresolvedCandidates = false;
 	for (const candidate of candidates) {
-		const match = departments.find((department) =>
-			departmentMatches(department.displayName, candidate),
+		const expected = normalizeSearchText(candidate);
+		const exactMatches = departments.filter(
+			(department) => normalizeSearchText(department.displayName) === expected,
 		);
+		const aliases = DEPARTMENT_ALIAS_GROUPS.find((group) =>
+			group.includes(expected),
+		);
+		const matches =
+			exactMatches.length > 0
+				? exactMatches
+				: aliases
+					? departments.filter((department) =>
+							aliases.includes(normalizeSearchText(department.displayName)),
+						)
+					: [];
+		// 模型只返回名称，无法在同名或别名多义的多个挂号入口中安全选 ID。
+		const match = matches.length === 1 ? matches[0] : undefined;
+		if (!match) hasUnresolvedCandidates = true;
 		if (
 			match &&
+			resolved.length < 3 &&
 			!resolved.some((item) => item.departmentId === match.departmentId)
 		) {
 			resolved.push(match);
 		}
-		if (resolved.length >= 3) break;
 	}
-	return resolved;
+	return { departments: resolved, hasUnresolvedCandidates };
 }
 
 export type NativeIntelligentGuideServiceDependencies = {
@@ -144,9 +170,10 @@ function requireMessage(value: unknown): string {
 	return message;
 }
 
-function hasControlCharacter(value: string): boolean {
+function hasControlCharacter(value: string, allowLineBreaks = false): boolean {
 	return Array.from(value).some((character) => {
 		const code = character.charCodeAt(0);
+		if (allowLineBreaks && (code === 0x0a || code === 0x0d)) return false;
 		return code <= 0x1f || code === 0x7f;
 	});
 }
@@ -154,6 +181,7 @@ function hasControlCharacter(value: string): boolean {
 function normalizeModelReply(value: unknown): {
 	message: string;
 	departmentNames: readonly string[];
+	urgent: boolean;
 } {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		throw new DependencyNotConfiguredError("intelligent-guide-model");
@@ -161,11 +189,13 @@ function normalizeModelReply(value: unknown): {
 	const reply = value as Record<string, unknown>;
 	const message = reply.message;
 	const departmentNames = reply.departmentNames;
+	const urgent = reply.urgent;
 	if (
 		typeof message !== "string" ||
 		!message.trim() ||
-		Array.from(message).length > MAX_MODEL_MESSAGE_CODE_POINTS ||
-		hasControlCharacter(message) ||
+		message.length > MAX_MODEL_MESSAGE_LENGTH ||
+		hasControlCharacter(message, true) ||
+		(urgent !== undefined && typeof urgent !== "boolean") ||
 		!Array.isArray(departmentNames) ||
 		departmentNames.length > MAX_MODEL_DEPARTMENT_CANDIDATES
 	) {
@@ -187,6 +217,7 @@ function normalizeModelReply(value: unknown): {
 	return {
 		message: message.trim(),
 		departmentNames: normalizedNames,
+		urgent: urgent === true,
 	};
 }
 
@@ -236,33 +267,39 @@ export class NativeIntelligentGuideService
 		const traceContext = safeContext(context);
 		const message = requireMessage(input.message);
 		const reference = requireReference(input.conversationReference);
-		const history = await this.loadHistory(owner, reference);
+		const history = (await this.loadHistory(owner, reference)).slice(
+			-(INTELLIGENT_GUIDE_HISTORY_MAX_MESSAGES - 2),
+		);
 		const turns = history.filter((item) => item.role === "user").length + 1;
-		if (turns > MAX_GUIDE_TURNS) throw new IntelligentGuideInputError();
+		const directory = await this.dependencies.directory.listDepartments(
+			{
+				startDate: shanghaiDate(this.now(), 0),
+				endDate: shanghaiDate(this.now(), GUIDE_DIRECTORY_RANGE_DAYS),
+			},
+			traceContext,
+		);
+		const availableDepartments = normalizeAppointmentDepartmentResults(
+			directory.departments,
+		)
+			.filter(({ displayName }) => isClinicalGuideDepartment(displayName))
+			.map(({ departmentId, displayName }) => ({ departmentId, displayName }));
 
 		const modelReply = normalizeModelReply(
-			await this.model.complete({ message, history }, traceContext),
-		);
-		let departments: { departmentId: string; displayName: string }[] = [];
-		if (modelReply.departmentNames.length > 0) {
-			const directory = await this.dependencies.directory.listDepartments(
-				{
-					startDate: shanghaiDate(this.now(), 0),
-					endDate: shanghaiDate(this.now(), GUIDE_DIRECTORY_RANGE_DAYS),
-				},
+			await this.model.complete(
+				{ message, history, availableDepartments },
 				traceContext,
-			);
-			departments = resolveDepartments(
-				normalizeAppointmentDepartmentResults(directory.departments),
-				modelReply.departmentNames,
-			);
-		}
+			),
+		);
+		const { departments, hasUnresolvedCandidates } = modelReply.urgent
+			? { departments: [], hasUnresolvedCandidates: false }
+			: resolveDepartments(availableDepartments, modelReply.departmentNames);
 
-		const messageText =
-			departments.length > 0
-				? modelReply.message
-				: modelReply.departmentNames.length > 0
-					? "暂未在当前门诊目录中找到匹配科室，请补充更具体的就诊部位或需求。"
+		const messageText = modelReply.urgent
+			? "根据您描述的情况，请立即前往急诊或拨打120，不要等待普通门诊挂号。"
+			: modelReply.departmentNames.length > 0 && departments.length === 0
+				? "当前本院可预约目录中未找到能够确认的匹配科室，建议联系门诊导诊台或人工挂号窗口协助选择。若症状明显加重或出现急危重症，请立即就医或拨打 120。"
+				: hasUnresolvedCandidates
+					? "根据您的描述，可优先考虑以下本院可预约科室；其他科室暂未在当前目录中确认，可联系门诊导诊台进一步核实。"
 					: modelReply.message;
 		const nextHistory: IntelligentGuideConversationMessage[] = [
 			...history,
@@ -283,7 +320,7 @@ export class NativeIntelligentGuideService
 				traceId: adapterContextTraceId(traceContext),
 				userId: owner,
 				turns,
-				progress: departments.length > 0 ? 100 : Math.min(99, turns * 20),
+				progress: departments.length > 0 ? 100 : 0,
 				departmentCount: departments.length,
 			},
 			"Native TS intelligent guide MVP completed",
@@ -291,7 +328,7 @@ export class NativeIntelligentGuideService
 
 		return {
 			conversationReference,
-			progress: departments.length > 0 ? 100 : Math.min(99, turns * 20),
+			progress: departments.length > 0 ? 100 : 0,
 			message: messageText,
 			departments,
 			disclaimer: GUIDE_DISCLAIMER,

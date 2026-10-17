@@ -10,6 +10,7 @@ import type {
 	YunhealthMiniProgramPayParams,
 	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
+import { medicalInsuranceGroupPayTypeId } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import {
 	type ProviderFetcher,
@@ -45,7 +46,7 @@ const WECHAT_SELF_PAY_TYPE_IDS = new Set([
 ]);
 /** 6202 返回有个人账户实际支付金额时使用的支付方式。 */
 const PERSONAL_ACCOUNT_PAY_TYPE_ID = 5;
-/** 医保合单 2.6.65.2 的内部支付腿；外层固定 H5/payTypeId=2。 */
+/** 医保合单 2.6.65.2 的内部支付腿；外层按正金额医保腿选择 H5/2 或 H5/5。 */
 const COMBINED_MEDICAL_PAY_TYPE_IDS = new Set([
 	2,
 	PERSONAL_ACCOUNT_PAY_TYPE_ID,
@@ -66,6 +67,8 @@ export type YunhealthRegistrationSettlementGatewayOptions = {
 	baseUrl: string;
 	/** 不得从小程序请求传入；支持原始 token 或完整 Bearer 值。旧服务允许为空。 */
 	authorizationToken?: string;
+	/** 仅退款 .15：默认要求 Bearer；受信中转显式选择既有签名鉴权。 */
+	refundAuthorizationMode?: "bearer" | "signed-relay";
 	/** 仅兼容旧配置；非 HIS 收款 .2/.5/.9 不使用 2.6.65.15 的 orgId。 */
 	paymentOrgId?: string;
 	/** 2.6.65.1 / 2.27.2.27 使用的医院 ID。 */
@@ -718,18 +721,31 @@ export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
 ): RegistrationSelfPayRefundNotificationGateway {
 	const baseUrl = requiredText(options.baseUrl, "baseUrl");
 	const providerBaseUrl = providerUrl(baseUrl, "");
-	// 旧服务 `_notify_plugin_payment` 对 .15 明确要求服务端授权。退款前必须
-	// 确认它存在，不能在微信已经退款后才发现 HIS 回写没有凭证。
-	const authorization = normalizedAuthorization(
-		requiredText(options.authorizationToken ?? "", "authorizationToken"),
-	);
-	if (!authorization) {
+	const authorizationMode = options.refundAuthorizationMode ?? "bearer";
+	if (authorizationMode !== "bearer" && authorizationMode !== "signed-relay") {
 		throw providerError(
 			"registration-self-pay.2.6.65.15.refund",
-			"authorizationToken is invalid",
+			"refundAuthorizationMode is invalid",
 			{ failureStage: "validation", requestOutcome: "not_sent" },
 		);
 	}
+	// 仅此受控 Java 中转已经使用既有签名/license 鉴权，不能将任意上游免授权。
+	if (
+		authorizationMode === "signed-relay" &&
+		!/^https:\/\/gpsrmyy\.meiyi\.pro\/?$/u.test(baseUrl)
+	) {
+		throw providerError(
+			"registration-self-pay.2.6.65.15.refund",
+			"signed-relay baseUrl is invalid",
+			{ failureStage: "validation", requestOutcome: "not_sent" },
+		);
+	}
+	const authorization =
+		authorizationMode === "bearer"
+			? normalizedAuthorization(
+					requiredText(options.authorizationToken ?? "", "authorizationToken"),
+				)
+			: undefined;
 	const paymentOrgId = positiveInteger(options.paymentOrgId, "paymentOrgId");
 	const paymentSource = requiredText(
 		options.paymentSource ?? "",
@@ -744,67 +760,92 @@ export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
 		"tradeTypeCode",
 	);
 	const workStationId = textAllowEmpty(options.workStationId, "workStationId");
-	const fetcher = options.fetcher ?? fetch;
+	const configuredFetcher = options.fetcher ?? fetch;
+	const fetcher: ProviderFetcher =
+		authorizationMode === "signed-relay"
+			? (input, init) =>
+					configuredFetcher(input, { ...init, redirect: "error" })
+			: configuredFetcher;
+
+	const prepareRefundContext = (
+		input: Parameters<
+			NonNullable<
+				RegistrationSelfPayRefundNotificationGateway["validateRefundContext"]
+			>
+		>[0],
+	) => {
+		const orderId = requiredText(input.orderId, "orderId", 128);
+		const refundFen = positiveInteger(input.refundFen, "refundFen");
+		const registrationContext = input.registrationContext;
+		const normalizedContext = normalizeContext(registrationContext);
+		const payTypeId = positiveIntegerText(
+			registrationContext.payTypeId,
+			"payTypeId",
+		);
+		const recordCode = requiredText(
+			registrationContext.recordCode,
+			"recordCode",
+			32,
+		);
+		if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
+			throw providerError(
+				"registration-self-pay.2.6.65.15.refund",
+				"recordCode is invalid",
+				{ failureStage: "validation", requestOutcome: "not_sent" },
+			);
+		}
+		const storedTradeTypeCode = requiredText(
+			registrationContext.tradeTypeCode,
+			"tradeTypeCode",
+		);
+		if (storedTradeTypeCode !== tradeTypeCode) {
+			throw providerError(
+				"registration-self-pay.2.6.65.15.refund",
+				"stored tradeTypeCode does not match server configuration",
+				{ failureStage: "validation", requestOutcome: "not_sent" },
+			);
+		}
+		const storedWorkStationId = textAllowEmpty(
+			registrationContext.workStationId,
+			"workStationId",
+		);
+		if (storedWorkStationId !== workStationId) {
+			throw providerError(
+				"registration-self-pay.2.6.65.15.refund",
+				"stored plugin workStationId does not match server configuration",
+				{ failureStage: "validation", requestOutcome: "not_sent" },
+			);
+		}
+		return {
+			orderId,
+			refundFen,
+			normalizedContext,
+			payTypeId,
+			recordCode,
+			storedTradeTypeCode,
+			storedWorkStationId,
+		};
+	};
 
 	return {
+		validateRefundContext(input) {
+			prepareRefundContext(input);
+		},
 		async notifyRefund(input, context) {
-			const orderId = requiredText(input.orderId, "orderId", 128);
 			const merchantRefundNo = requiredText(
 				input.merchantRefundNo,
 				"merchantRefundNo",
 				64,
 			);
-			const refundFen = positiveInteger(input.refundFen, "refundFen");
-			const registrationContext = input.registrationContext;
-			const normalizedContext = normalizeContext(registrationContext);
-			const payTypeId = positiveIntegerText(
-				registrationContext.payTypeId,
-				"payTypeId",
-			);
-			const recordCode = requiredText(
-				registrationContext.recordCode,
-				"recordCode",
-				32,
-			);
-			if (!/^[A-Za-z0-9]{32}$/u.test(recordCode)) {
-				throw providerError(
-					"registration-self-pay.2.6.65.15.refund",
-					"recordCode is invalid",
-					{
-						failureStage: "validation",
-						requestOutcome: "not_sent",
-					},
-				);
-			}
-			const storedTradeTypeCode = requiredText(
-				registrationContext.tradeTypeCode,
-				"tradeTypeCode",
-			);
-			if (storedTradeTypeCode !== tradeTypeCode) {
-				throw providerError(
-					"registration-self-pay.2.6.65.15.refund",
-					"stored tradeTypeCode does not match server configuration",
-					{
-						failureStage: "validation",
-						requestOutcome: "not_sent",
-					},
-				);
-			}
-			const storedWorkStationId = textAllowEmpty(
-				registrationContext.workStationId,
-				"workStationId",
-			);
-			if (storedWorkStationId !== workStationId) {
-				throw providerError(
-					"registration-self-pay.2.6.65.15.refund",
-					"stored plugin workStationId does not match server configuration",
-					{
-						failureStage: "validation",
-						requestOutcome: "not_sent",
-					},
-				);
-			}
-
+			const {
+				orderId,
+				refundFen,
+				normalizedContext,
+				payTypeId,
+				recordCode,
+				storedTradeTypeCode,
+				storedWorkStationId,
+			} = prepareRefundContext(input);
 			const operation = "registration-self-pay.2.6.65.15.refund";
 			const bodyText = yunhealthRefundNotifyBody({
 				authSysCode,
@@ -832,7 +873,9 @@ export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
 							`${orderId}:${merchantRefundNo}`,
 						),
 					},
-					headers: { Authorization: authorization },
+					...(authorization
+						? { headers: { Authorization: authorization } }
+						: {}),
 					bodyText,
 					...(providerRawLoggingEnabled() ? { captureRawBody: true } : {}),
 					...(options.logger ? { logger: options.logger } : {}),
@@ -1015,11 +1058,7 @@ export function createYunhealthRegistrationSettlementGateway(
 						)
 					: undefined;
 				if (!thirdPartPayRecordId) {
-					const platformOrderId = requiredText(
-						registrationContext?.platformOrderId,
-						"platformOrderId",
-						128,
-					);
+					// 沿用旧端：请求不传三方记录 ID，由 HIS 生成并在成功响应中返回。
 					await input.onThirdPartPayAttempt?.();
 					const thirdPart = await request<unknown>(
 						"2.27.2.29",
@@ -1042,7 +1081,6 @@ export function createYunhealthRegistrationSettlementGateway(
 							psnNo: normalizedContext.psnNo,
 							sceneCode: "OUT",
 							settleId: normalizedContext.businessId,
-							thirdPartPayRecordId: platformOrderId,
 							tradingId: normalizedContext.tradingId,
 							transStatus: "0",
 						},
@@ -1521,7 +1559,8 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 
 /**
  * 医保支付的第一笔 2.6.65.2 只聚合医保基金、医院优惠和个人账户；微信
- * 自费金额在医保 `.32` 完成后另建一笔 5033。外层仍固定 H5/payTypeId=2，
+ * 自费金额在医保 `.32` 完成后另建一笔 5033。外层 H5 优先使用正金额基金 2，
+ * 无基金金额时使用实际存在的个人账户 5；
  * 组内实际支付腿放到 payTypeParams。历史整单合并请求继续兼容。
  *
  * 这一步只创建云健康插件流水，不创建微信订单；调用方必须先把返回的
@@ -1609,6 +1648,20 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);
 			}
+			let groupedPayTypeId: "2" | "5" | undefined;
+			if (combinedPayTypeParams) {
+				try {
+					groupedPayTypeId = medicalInsuranceGroupPayTypeId(
+						combinedPayTypeParams,
+					);
+				} catch {
+					throw providerError(
+						"registration-self-pay.2.6.65.2.plugin",
+						"grouped payment requires a positive medical fund or personal account amount",
+						{ failureStage: "validation", requestOutcome: "not_sent" },
+					);
+				}
+			}
 			const groupedAmountFen = combinedPayTypeParams?.reduce(
 				(sum, item) => sum + item.amountFen,
 				0,
@@ -1644,12 +1697,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 			if (
 				isCombinedMedicalPayment &&
 				(payModel !== "H5" ||
-					requestPayTypeId !== 2 ||
+					String(requestPayTypeId) !== groupedPayTypeId ||
 					Boolean(input.paymentSystemUserId?.trim()))
 			) {
 				throw providerError(
 					"registration-self-pay.2.6.65.2.plugin",
-					"combined payment outer fields must be H5/payTypeId=2 without openid",
+					"combined payment outer fields must be H5 with the matching medical payTypeId and without openid",
 					{ failureStage: "validation", requestOutcome: "not_sent" },
 				);
 			}

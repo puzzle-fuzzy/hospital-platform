@@ -2,8 +2,11 @@ import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import type {
 	HospitalSettlementGateway,
+	MedicalInsuranceAmounts,
+	MedicalInsurancePostPaymentComponent,
 	MedicalInsuranceSettlementContext,
 	PaymentOrder,
+	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
 import { MedicalInsurancePluginPaymentService } from "./plugin-payment-service";
 
@@ -43,6 +46,261 @@ function settlement() {
 		tradeOrderIds: [],
 	};
 }
+
+function medicalGroupScenario(
+	saved?: readonly MedicalInsurancePostPaymentComponent[],
+	options: {
+		amounts?: MedicalInsuranceAmounts;
+		insuredAreaCode?: string;
+	} = {},
+) {
+	let currentSettlement: MedicalInsuranceSettlementContext = {
+		...settlement(),
+		insuredAreaCode: options.insuredAreaCode ?? "140500",
+		...(saved
+			? { postPaymentComponents: saved, postPaymentPlanVersion: "sequenced-v1" }
+			: {}),
+	};
+	const calls: Parameters<
+		YunhealthRegistrationPluginPaymentGateway["createPreOrder"]
+	>[0][] = [];
+	let writes = 0;
+	const service = new MedicalInsurancePluginPaymentService({
+		orders: {
+			findByMedicalOrderId: async () => ({
+				...medicalOrder(),
+				amounts: options.amounts ?? {
+					totalFen: 1000,
+					fundFen: 0,
+					personalAccountFen: 1000,
+					cashFen: 0,
+				},
+			}),
+			getSettlementContext: async () => currentSettlement,
+			saveSettlementContext: async (
+				_owner: string,
+				_order: string,
+				value: MedicalInsuranceSettlementContext,
+			) => {
+				writes += 1;
+				currentSettlement = value;
+			},
+			saveYunhealthPaymentQueryReference: async () => undefined,
+		} as never,
+		authorizations: { get: async () => ({}) } as never,
+		identityUsers: {
+			findByUserId: async () => ({ providerSubject: "openid-001" }),
+		} as never,
+		paymentOrders: {} as never,
+		wechatPrepay: {} as never,
+		pluginPayment: {
+			createPreOrder: async (input) => {
+				calls.push(input);
+				return {
+					payingId: "account-paying-001",
+					tradingId: "account-trading-001",
+					payTypeId: input.payTypeId,
+					payType: "CREDIT",
+					workStationId: "",
+					tradeTypeCode: "10",
+					trace: {
+						provider: "yunhealth",
+						operation: "registration-self-pay.2.6.65.2.plugin",
+						requestId: "provider-account-001",
+					},
+				};
+			},
+		},
+		hospitalSettlement: {} as never,
+		pluginPayTypeId: "5033",
+		pluginPayType: "CREDIT",
+		pluginWorkStationId: "",
+		pluginTradeTypeCode: "10",
+	});
+	return {
+		calls,
+		getSettlement: () => currentSettlement,
+		getWrites: () => writes,
+		prepare: () =>
+			service.prepareSplitPaymentsBeforeOfficialWechatPayment({
+				ownerUserId: "user-001",
+				orderId: "medical-order-001",
+				context,
+			}),
+	};
+}
+
+function legacyAccountMedicalGroup(
+	state: MedicalInsurancePostPaymentComponent["state"],
+): MedicalInsurancePostPaymentComponent {
+	return {
+		componentId: "medical-order-001:medical",
+		kind: "medical",
+		totalFen: 1000,
+		amountFen: 1000,
+		payModel: "H5",
+		payTypeId: "2",
+		payTypeParams: [
+			{ kind: "personal_account", payTypeId: "5", amountFen: 1000 },
+		],
+		recordCode: createHash("sha256")
+			.update("medical-post-payment:medical-order-001:medical")
+			.digest("hex")
+			.slice(0, 32),
+		state,
+		attempts: 1,
+		updatedAt: "2026-10-16T03:08:27.000Z",
+		...(state === "succeeded"
+			? { payingId: "legacy-paying-001", tradingId: "legacy-trading-001" }
+			: { lastErrorCode: "trade-payment@0008" }),
+	};
+}
+
+test("纯个账医保组使用真实分项 5，重复调用复用流水且不创建微信自费", async () => {
+	const scenario = medicalGroupScenario();
+	await scenario.prepare();
+	await scenario.prepare();
+	expect(scenario.calls).toHaveLength(1);
+	expect(scenario.calls[0]).toMatchObject({
+		orderId: "medical-order-001:medical",
+		amountFen: 1000,
+		totalFen: 1000,
+		payModel: "H5",
+		payTypeId: "5",
+		payTypeParams: [{ payTypeId: "5", amountFen: 1000 }],
+	});
+	expect(scenario.calls[0]?.paymentSystemUserId).toBeUndefined();
+	expect(scenario.getSettlement()).toMatchObject({
+		payingId: "account-paying-001",
+		tradingId: "account-trading-001",
+		postPaymentPlanVersion: "sequenced-v1",
+		postPaymentComponents: [
+			{ kind: "medical", payTypeId: "5", state: "succeeded", attempts: 1 },
+		],
+	});
+	expect(scenario.getSettlement().postPaymentComponents).toHaveLength(1);
+});
+
+test("历史已成功纯个账医保组保留原计划和双流水，不重新下单", async () => {
+	const saved = [legacyAccountMedicalGroup("succeeded")];
+	const scenario = medicalGroupScenario(saved);
+	await scenario.prepare();
+	expect(scenario.calls).toHaveLength(0);
+	expect(scenario.getWrites()).toBe(0);
+	expect(scenario.getSettlement().postPaymentComponents).toEqual(saved);
+});
+
+const hospitalReductionOnlyAmounts: MedicalInsuranceAmounts = {
+	totalFen: 1000,
+	fundFen: 0,
+	personalAccountFen: 0,
+	cashFen: 1000,
+};
+
+function legacyHospitalReductionMedicalGroup(): MedicalInsurancePostPaymentComponent {
+	return {
+		...legacyAccountMedicalGroup("succeeded"),
+		payTypeParams: [
+			{ kind: "hospital_reduce", payTypeId: "50", amountFen: 1000 },
+		],
+	};
+}
+
+test("历史已成功的纯减免医保组复用原流水，新纯减免请求仍拒绝", async () => {
+	const saved = [legacyHospitalReductionMedicalGroup()];
+	const options = {
+		amounts: hospitalReductionOnlyAmounts,
+		insuredAreaCode: "140581",
+	};
+	const historical = medicalGroupScenario(saved, options);
+	await historical.prepare();
+	expect(historical.calls).toHaveLength(0);
+	expect(historical.getWrites()).toBe(0);
+	expect(historical.getSettlement().postPaymentComponents).toEqual(saved);
+
+	const fresh = medicalGroupScenario(undefined, options);
+	await expect(fresh.prepare()).rejects.toThrow(
+		"medical-insurance-group-pay-type-unavailable",
+	);
+	expect(fresh.calls).toHaveLength(0);
+	expect(fresh.getWrites()).toBe(0);
+});
+
+test("历史纯减免组未成功、缺流水或原资金事实变化时不得兼容或重放", async () => {
+	const original = legacyHospitalReductionMedicalGroup();
+	const missingPayingId = { ...original };
+	delete missingPayingId.payingId;
+	for (const saved of [
+		{ ...original, state: "failed" as const },
+		{ ...original, state: "pending" as const },
+		missingPayingId,
+		{ ...original, tradingId: " " },
+		{ ...original, amountFen: 999 },
+		{ ...original, totalFen: 999 },
+		{ ...original, recordCode: "different-record-code" },
+		{
+			...original,
+			payTypeParams: [
+				{
+					kind: "hospital_reduce" as const,
+					payTypeId: "50" as const,
+					amountFen: 999,
+				},
+			],
+		},
+	]) {
+		const scenario = medicalGroupScenario([saved], {
+			amounts: hospitalReductionOnlyAmounts,
+			insuredAreaCode: "140581",
+		});
+		await expect(scenario.prepare()).rejects.toThrow();
+		expect(scenario.calls).toHaveLength(0);
+		expect(scenario.getWrites()).toBe(0);
+		expect(scenario.getSettlement().postPaymentComponents).toEqual([saved]);
+	}
+});
+
+test("历史失败或结果未明的纯个账计划不得按错误码自动改为 5 重放", async () => {
+	for (const state of ["failed", "pending"] as const) {
+		const saved = [legacyAccountMedicalGroup(state)];
+		const scenario = medicalGroupScenario(saved);
+		await expect(scenario.prepare()).rejects.toThrow(
+			"medical-insurance-pre-payment-plan-changed",
+		);
+		expect(scenario.calls).toHaveLength(0);
+		expect(scenario.getWrites()).toBe(0);
+		expect(scenario.getSettlement().postPaymentComponents).toEqual(saved);
+	}
+});
+
+test("历史成功兼容不能掩盖缺失流水或已变更的金额、分项及幂等号", async () => {
+	const original = legacyAccountMedicalGroup("succeeded");
+	const missingPayingId = { ...original };
+	delete missingPayingId.payingId;
+	for (const saved of [
+		missingPayingId,
+		{ ...original, tradingId: " " },
+		{ ...original, amountFen: 999 },
+		{ ...original, recordCode: "different-record-code" },
+		{
+			...original,
+			payTypeParams: [
+				{
+					kind: "personal_account" as const,
+					payTypeId: "5" as const,
+					amountFen: 999,
+				},
+			],
+		},
+	]) {
+		const scenario = medicalGroupScenario([saved]);
+		await expect(scenario.prepare()).rejects.toThrow(
+			"medical-insurance-pre-payment-plan-changed",
+		);
+		expect(scenario.calls).toHaveLength(0);
+		expect(scenario.getWrites()).toBe(0);
+	}
+});
 
 function serviceWith(input: {
 	getSettlement: () => Record<string, unknown>;
@@ -567,7 +825,7 @@ test("发布前已存在的plugin上下文仍可恢复且不会再次提交2.6.6
 	expect(result.payParams?.package).toBe("prepay_id=prepay-001");
 });
 
-test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段", async () => {
+test("医保混合现金完成时保留 HIS 生成的 .29 数值回执", async () => {
 	let currentMedicalOrder = { ...medicalOrder(), version: 1 };
 	let currentSettlement: MedicalInsuranceSettlementContext = {
 		...settlement(),
@@ -599,13 +857,10 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 	const hospitalSettlement: HospitalSettlementGateway = {
 		writeBack: async (input) => {
 			expect(input.orderId).toBe("payment-order-001");
-			expect(input.registrationContext).toMatchObject({
-				platformOrderId: "medical-order-001",
-			});
 			await input.onThirdPartPayResponse?.({
 				rawResponse:
-					'{"success":true,"data":{"thirdPartPayRecordId":"medical-order-001"}}',
-				thirdPartPayRecordId: "medical-order-001",
+					'{"success":true,"data":{"thirdPartPayRecordId":"1952638941030000004"}}',
+				thirdPartPayRecordId: "1952638941030000004",
 				requestId: "yunhealth-.29-api-001",
 			});
 			return {
@@ -672,7 +927,7 @@ test("医保混合现金完成时将根 medicalOrderId 交给 .29 关联字段",
 		status: "insurance_settled",
 	});
 	expect(currentSettlement.plugin).toMatchObject({
-		thirdPartPayRecordId: "medical-order-001",
+		thirdPartPayRecordId: "1952638941030000004",
 		state: "settled",
 	});
 });

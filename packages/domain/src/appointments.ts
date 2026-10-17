@@ -39,7 +39,7 @@ export type AppointmentScheduleDetails = {
 	doctorId: string;
 	doctorName: string;
 	/**
-	 * 旧端 `doctorPic` 的受控照片展示字段：只允许完整 http(s) URL。
+	 * 旧端 `doctorPic` 的受控照片展示字段：只允许完整 http(s) 资源 URL。
 	 * 域名可用性由小程序平台的图片域名白名单约束，不接受相对路径、
 	 * 任意协议或携带空白的值；空值合法（无图医生用占位展示）。
 	 */
@@ -509,7 +509,7 @@ function optionalAppointmentDoctorPhotoUrl(
 	if (value === undefined || value === null || value === "") return undefined;
 	if (
 		typeof value !== "string" ||
-		value.length > 512 ||
+		value.length > 2048 ||
 		!/^https?:\/\/[^\s]+$/u.test(value)
 	) {
 		invalidAppointmentDirectoryResult("schedule-field-invalid");
@@ -703,7 +703,7 @@ export function validateAppointmentScheduleSnapshot(
 		(schedule.doctorPhotoUrl !== undefined &&
 			schedule.doctorPhotoUrl !== null &&
 			(typeof schedule.doctorPhotoUrl !== "string" ||
-				schedule.doctorPhotoUrl.length > 512 ||
+				schedule.doctorPhotoUrl.length > 2048 ||
 				!/^https?:\/\/[^\s]+$/u.test(schedule.doctorPhotoUrl))) ||
 		(schedule.startTime !== undefined &&
 			!hasSafeAppointmentText(schedule.startTime, 32)) ||
@@ -799,6 +799,7 @@ export interface AppointmentScheduleSnapshotRepository {
 export type AppointmentRecordStatus =
 	| "scheduled"
 	| "cancelled"
+	| "expired"
 	| "completed"
 	| "missed"
 	| "stopped"
@@ -823,6 +824,15 @@ export type AppointmentRecord = {
 	location?: string;
 	serialNumber?: string;
 	status: AppointmentRecordStatus;
+	paymentStatus?:
+		| "pending"
+		| "confirming"
+		| "paid"
+		| "expired"
+		| "cancelled"
+		| "unavailable";
+	canPay?: boolean;
+	payExpiresAt?: string;
 };
 
 /**
@@ -835,6 +845,12 @@ export type AppointmentRecord = {
 export type AppointmentRecordProviderReference = {
 	recordIndex: number;
 	providerAppointmentId: string;
+	/** HIS needPayFlag；仅用于服务端决定是否允许继续原预约缴费。 */
+	needPay?: boolean;
+	/** HIS latestPayTime，归一化为显式时区的 ISO 时间点。 */
+	payExpiresAt?: string;
+	/** 只有取消渠道明确为 smc_sys 时为 true，不根据取消状态猜来源。 */
+	cancelledBySystem?: boolean;
 };
 
 /**
@@ -874,6 +890,7 @@ export function isAppointmentRecordStatus(
 	return (
 		value === "scheduled" ||
 		value === "cancelled" ||
+		value === "expired" ||
 		value === "completed" ||
 		value === "missed" ||
 		value === "stopped" ||
@@ -982,6 +999,32 @@ export function normalizeAppointmentRecordResults(
 		const workTime = optionalRecordWorkTime(record);
 		const location = optionalRecordText(record, "location", 256);
 		const serialNumber = optionalRecordText(record, "serialNumber", 64);
+		const paymentStatus = record.paymentStatus;
+		if (
+			paymentStatus !== undefined &&
+			paymentStatus !== "pending" &&
+			paymentStatus !== "confirming" &&
+			paymentStatus !== "paid" &&
+			paymentStatus !== "expired" &&
+			paymentStatus !== "cancelled" &&
+			paymentStatus !== "unavailable"
+		) {
+			invalidRecordResult("status-invalid");
+		}
+		const canPay = record.canPay;
+		const payExpiresAt = record.payExpiresAt;
+		if (
+			(canPay !== undefined && typeof canPay !== "boolean") ||
+			(payExpiresAt !== undefined &&
+				(typeof payExpiresAt !== "string" ||
+					parseStrictIsoInstant(payExpiresAt) === undefined)) ||
+			(canPay === true &&
+				(!appointmentId ||
+					record.status !== "scheduled" ||
+					paymentStatus !== "pending"))
+		) {
+			invalidRecordResult("status-invalid");
+		}
 
 		return {
 			...(appointmentId ? { appointmentId } : {}),
@@ -993,6 +1036,9 @@ export function normalizeAppointmentRecordResults(
 			...(location ? { location } : {}),
 			...(serialNumber ? { serialNumber } : {}),
 			status: record.status,
+			...(paymentStatus !== undefined ? { paymentStatus } : {}),
+			...(canPay !== undefined ? { canPay } : {}),
+			...(payExpiresAt !== undefined ? { payExpiresAt } : {}),
 		};
 	});
 }
@@ -1027,13 +1073,22 @@ export function normalizeAppointmentRecordProviderReferences(
 		const reference = item as Record<string, unknown>;
 		const recordIndex = reference.recordIndex;
 		const providerAppointmentId = reference.providerAppointmentId;
+		const needPay = reference.needPay;
+		const payExpiresAt = reference.payExpiresAt;
+		const cancelledBySystem = reference.cancelledBySystem;
 		if (
 			!Number.isSafeInteger(recordIndex) ||
 			(recordIndex as number) < 0 ||
 			(recordIndex as number) >= recordCount ||
 			!isBoundedOpaqueIdentifier(providerAppointmentId) ||
 			seenIndexes.has(recordIndex as number) ||
-			seenProviderIds.has(providerAppointmentId)
+			seenProviderIds.has(providerAppointmentId) ||
+			(needPay !== undefined && typeof needPay !== "boolean") ||
+			(cancelledBySystem !== undefined &&
+				typeof cancelledBySystem !== "boolean") ||
+			(payExpiresAt !== undefined &&
+				(typeof payExpiresAt !== "string" ||
+					parseStrictIsoInstant(payExpiresAt) === undefined))
 		) {
 			invalidRecordResult("provider-reference-invalid");
 		}
@@ -1042,6 +1097,9 @@ export function normalizeAppointmentRecordProviderReferences(
 		return {
 			recordIndex: recordIndex as number,
 			providerAppointmentId,
+			...(needPay !== undefined ? { needPay } : {}),
+			...(payExpiresAt !== undefined ? { payExpiresAt } : {}),
+			...(cancelledBySystem !== undefined ? { cancelledBySystem } : {}),
 		};
 	});
 }

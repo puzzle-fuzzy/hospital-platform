@@ -19,6 +19,11 @@
 
 页面只能通过 `src/services/api-client.ts` 调用 Hospital API，不允许把众阳、医保或微信商户配置放到小程序环境变量中。
 
+本分支使用医保正式环境：`src/config.ts` 的 `medicalEnvVersion` 固定为 `release`，构建时只从本机忽略文件
+`.local/medical-insurance/production-environment-key-material.json` 读取机构渠道凭证，不回退到测试材料。
+材料文件或凭证字段缺失时，沿用现有构建行为注入空值；医保授权入口会先检查配置完整性并阻止继续跳转。
+`development/release` 构建模式只区分运行包来源，不切换医保环境；正式材料不得提交到仓库。
+
 互联网医院主 Tab 是经旧端源码确认的固定 H5 例外之一：它只加载
 `https://cx.o2o.bailingjk.net/wechat/#/bluser/userCard/index?publicNoCode=gzh-048400_0001`，
 不接受路由传入 URL，不拼接平台 token，也不复用通用 ticket 交换链路。上线前必须在微信公众平台的“小程序业务域名”中配置

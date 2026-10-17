@@ -53,8 +53,8 @@ test("worker requires complete Yunhealth .29/.15/.5 configuration when the gate 
 	expect(workerConfigurationStatus(runtimeConfig)).toBe("not_configured");
 });
 
-test("medical insurance worker can be configured without the WeChat payment gate", () => {
-	const runtimeConfig = loadRuntimeConfig({
+function completeMedicalInsuranceWorkerConfig() {
+	return loadRuntimeConfig({
 		PERSISTENCE_SCHEMA_READY: "true",
 		DATABASE_URL: "mysql://hospital:test@127.0.0.1:3307/hospital_platform",
 		MEDICAL_INSURANCE_READY: "true",
@@ -65,14 +65,42 @@ test("medical insurance worker can be configured without the WeChat payment gate
 		MBS_FORWARD_AUTHORIZATION_TOKEN: "relay-token",
 		MBS_APP_ID: "medical-app",
 		MBS_APP_SECRET: "medical-secret",
+		MBS_USER_QUERY_PARTNER_SECRET: "fixture-tencent-partner-secret",
 		MBS_SM2_PRIVATE_KEY_B64: "private-key",
 		MBS_SM2_OWN_PUBLIC_B64: "own-public-key",
 		MBS_SM2_PLATFORM_PUBLIC_B64: "platform-public-key",
 		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
 	});
+}
+
+test("medical insurance worker can be configured without the WeChat payment gate", () => {
+	const runtimeConfig = completeMedicalInsuranceWorkerConfig();
 
 	expect(workerConfigurationMissingFields(runtimeConfig)).toEqual([]);
 	expect(workerConfigurationStatus(runtimeConfig)).toBe("ready");
+});
+
+test("medical insurance worker refuses startup without a dedicated userQuery partnerSecret", async () => {
+	const runtimeConfig = {
+		...completeMedicalInsuranceWorkerConfig(),
+		medicalInsuranceUserQueryPartnerSecret: undefined,
+	};
+	const missingConfiguration = ["MBS_USER_QUERY_PARTNER_SECRET"];
+	expect(workerConfigurationMissingFields(runtimeConfig)).toEqual(
+		missingConfiguration,
+	);
+	expect(workerConfigurationStatus(runtimeConfig)).toBe("not_configured");
+	const runtime = createWorkerRuntime({ runtimeConfig });
+	expect(runtime.status).toBe("not_configured");
+	expect(await runtime.initialize()).toEqual({
+		status: "not_configured",
+		missingConfiguration,
+	});
+	expect(await runtime.runOnce()).toEqual({
+		outbox: "idle",
+		reconciliation: "idle",
+	});
+	await runtime.close();
 });
 
 test("medical mixed reconciliation requires the ordinary WeChat APIv3 gate", () => {

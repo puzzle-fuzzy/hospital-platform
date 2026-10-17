@@ -67,6 +67,7 @@ export const sharedTemplateKeys = [
 	"MBS_SM2_VERIFY_STRICT",
 	"MBS_USER_QUERY_BASE_URL",
 	"MBS_USER_QUERY_PATH",
+	"MBS_USER_QUERY_PARTNER_SECRET",
 	"MBS_INSURANCE_ORG_CODE",
 	"MBS_HOSPITAL_ID",
 	"MBS_INSUTYPE",
@@ -80,6 +81,11 @@ export const sharedTemplateKeys = [
 	"ZHONGYANG_INPATIENT_EPISODES_READY",
 	"ZHONGYANG_OUTPATIENT_PAYMENT_READY",
 	"OUTPATIENT_PAYMENT_AUTH_SYS_CODE",
+	"ZHONGYANG_OUTPATIENT_ELECTRONIC_INVOICE_READY",
+	"OUTPATIENT_ELECTRONIC_INVOICE_AUTH_SYS_CODE",
+	"OUTPATIENT_ELECTRONIC_INVOICE_WORK_STATION_ID",
+	"OUTPATIENT_ELECTRONIC_INVOICE_HOSPITAL_ID",
+	"OUTPATIENT_ELECTRONIC_INVOICE_OPERATOR_TYPE",
 	"ZHONGYANG_REPORT_DIRECTORY_READY",
 	"ZHONGYANG_REPORT_DETAIL_READY",
 	"ZHONGYANG_PEIS_HOSPITAL_ID",
@@ -87,6 +93,12 @@ export const sharedTemplateKeys = [
 	"ZHONGYANG_BASE_URL",
 	"ZHONGYANG_AUTHORIZATION_TOKEN",
 	"LEGACY_PATIENT_AUTH_BASE_URL",
+	"AI_RUNTIME_READY",
+	"AI_RUNTIME_SPEECH_READY",
+	"AI_RUNTIME_URL",
+	"AI_RUNTIME_TOKEN",
+	"AI_RUNTIME_TIMEOUT_MS",
+	"INTELLIGENT_CUSTOMER_ENABLED",
 	"ADMIN_QUERY_TOKEN",
 	"ADMIN_LOGS_TOKEN",
 	"ADMIN_REFUND_TOKEN",
@@ -96,6 +108,7 @@ export const sharedTemplateKeys = [
 	"YUNHEALTH_REGISTRATION_SETTLEMENT_READY",
 	"YUNHEALTH_BASE_URL",
 	"YUNHEALTH_AUTH_TOKEN",
+	"YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE",
 	"YUNHEALTH_PAYMENT_ORG_ID",
 	"YUNHEALTH_PLUGIN_PAY_TYPE_ID",
 	"YUNHEALTH_PLUGIN_PAY_TYPE",
@@ -112,13 +125,6 @@ const developmentOnlyKeys = [
 	"API_BASE_URL",
 	"REDIS_SESSION_AUDIT_URL",
 	"ADMIN_LOGS_INGEST_URL",
-	// 当前 AI Runtime 是回环 Python sidecar；生产 API 模板在独立
-	// sidecar 部署 contract 确认前不提供这些变量，客服也保持默认关闭。
-	"AI_RUNTIME_READY",
-	"AI_RUNTIME_URL",
-	"AI_RUNTIME_TOKEN",
-	"AI_RUNTIME_TIMEOUT_MS",
-	"INTELLIGENT_CUSTOMER_ENABLED",
 ];
 
 const productionOnlyKeys = ["MBS_FORWARD_PATH"];
@@ -130,10 +136,16 @@ const productionExactValues = {
 	PROVIDER_RAW_LOGGING: "true",
 	PERSISTENCE_MIGRATION_ALLOW_REMOTE: "false",
 	PERSISTENCE_MIGRATION_ALLOW_PRODUCTION: "false",
+	AI_RUNTIME_READY: "false",
+	AI_RUNTIME_SPEECH_READY: "false",
+	INTELLIGENT_CUSTOMER_ENABLED: "false",
 	WECHAT_PAYMENT_READY: "false",
 	WECHAT_MEDICAL_INSURANCE_READY: "false",
 	WECHAT_MEDICAL_INSURANCE_TEST_ENVIRONMENT: "false",
 	MEDICAL_INSURANCE_READY: "false",
+	MBS_FORWARD_BASE_URL: "http://124.164.248.83:50080",
+	MBS_FORWARD_BASE_URL_6201: "http://124.164.248.83:56380",
+	MBS_USER_QUERY_BASE_URL: "https://receiver.wecity.qq.com",
 	ZHONGYANG_PATIENT_DIRECTORY_READY: "false",
 	ZHONGYANG_PATIENT_BINDING_READY: "false",
 	ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "false",
@@ -145,6 +157,7 @@ const productionExactValues = {
 	ZHONGYANG_REPORT_DIRECTORY_READY: "false",
 	ZHONGYANG_REPORT_DETAIL_READY: "false",
 	YUNHEALTH_REGISTRATION_SETTLEMENT_READY: "false",
+	YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE: "bearer",
 };
 
 const developmentExactValues = {
@@ -155,10 +168,16 @@ const developmentExactValues = {
 	PERSISTENCE_SCHEMA_READY: "false",
 	PERSISTENCE_MIGRATION_ALLOW_REMOTE: "false",
 	PERSISTENCE_MIGRATION_ALLOW_PRODUCTION: "false",
+	AI_RUNTIME_READY: "false",
+	AI_RUNTIME_SPEECH_READY: "false",
+	INTELLIGENT_CUSTOMER_ENABLED: "false",
 	WECHAT_PAYMENT_READY: "false",
 	WECHAT_MEDICAL_INSURANCE_READY: "false",
 	WECHAT_MEDICAL_INSURANCE_TEST_ENVIRONMENT: "false",
 	MEDICAL_INSURANCE_READY: "false",
+	MBS_FORWARD_BASE_URL: "http://124.164.248.83:50080",
+	MBS_FORWARD_BASE_URL_6201: "http://124.164.248.83:56380",
+	MBS_USER_QUERY_BASE_URL: "https://receiver.wecity.qq.com",
 	ZHONGYANG_PATIENT_BINDING_READY: "false",
 	ZHONGYANG_INPATIENT_EPISODES_READY: "false",
 };
@@ -170,6 +189,7 @@ const productionPlaceholderKeys = [
 	"WECHAT_APP_SECRET",
 	"MBS_FORWARD_AUTHORIZATION_TOKEN",
 	"MBS_APP_SECRET",
+	"MBS_USER_QUERY_PARTNER_SECRET",
 	"MBS_SM2_PRIVATE_KEY_B64",
 	"MBS_SM2_OWN_PUBLIC_B64",
 	"MBS_SM2_PLATFORM_PUBLIC_B64",
@@ -216,6 +236,18 @@ function checkKeys(values, expected, label, failures) {
 	}
 	for (const key of Object.keys(values)) {
 		if (!expectedSet.has(key)) failures.push(`${label} 不应包含 ${key}`);
+	}
+}
+
+function isLoopbackAiRuntimeUrl(value) {
+	try {
+		const url = new URL(value);
+		return (
+			(url.protocol === "http:" || url.protocol === "https:") &&
+			["127.0.0.1", "localhost", "::1", "[::1]"].includes(url.hostname)
+		);
+	} catch {
+		return false;
 	}
 }
 
@@ -269,6 +301,14 @@ export function auditEnvironmentTemplates({
 		}
 	}
 	for (const [key, value] of Object.entries(production)) {
+		if (key === "AI_RUNTIME_URL") {
+			if (!isLoopbackAiRuntimeUrl(value)) {
+				failures.push(
+					`infra/systemd/api.env.example AI_RUNTIME_URL 必须使用 HTTP(S) 回环地址：${value}`,
+				);
+			}
+			continue;
+		}
 		if (/(localhost|127\.0\.0\.1)/iu.test(value)) {
 			failures.push(
 				`infra/systemd/api.env.example ${key} 不得使用本机地址：${value}`,

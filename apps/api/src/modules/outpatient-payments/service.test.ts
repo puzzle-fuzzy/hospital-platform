@@ -12,10 +12,246 @@ import {
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import {
+	createOutpatientPaidRecordSnapshotResolver,
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
 	OutpatientPaymentService,
 } from "./index";
+
+function paidFee(recordId: string, amountFen: number): OutpatientPaymentRecord {
+	return {
+		recordId,
+		amountFen,
+		status: "paid",
+		billDate: "2026-10-15 15:34:12",
+		itemName: recordId,
+	};
+}
+
+function paidDetailService(
+	records: OutpatientPaymentRecord[],
+	snapshot?: unknown,
+) {
+	return new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("unused");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-paid",
+				provider: "zhongyang",
+				providerPatientId: "his-patient-paid",
+			}),
+		},
+		gateway: {
+			listRecords: async () => ({
+				records,
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "paid-detail-request",
+				},
+			}),
+		},
+		resolvePaidRecordSnapshot: async (input) => {
+			expect(input).toEqual({
+				ownerUserId: "owner-paid",
+				patientId: "patient-paid",
+				recordId: "original-group",
+			});
+			return snapshot;
+		},
+		authSysCode: "thirdSelfMachine",
+		now: () => new Date("2026-10-15T08:00:00.000Z"),
+	});
+}
+
+const paidDetailContext = {
+	traceId: "paid-detail-trace",
+	idempotencyKey: "paid-detail-key",
+};
+
+function originalPaidGroup() {
+	return {
+		recordId: "original-group",
+		status: "unpaid",
+		billDate: "2026-10-15 15:34:12",
+		amountFen: 9700,
+		items: [
+			{ ...paidFee("current-b", 8000), status: "unpaid" },
+			{ ...paidFee("current-d", 1700), status: "unpaid" },
+		],
+	};
+}
+
+test("门诊成功详情从同次就诊汇总中定位本次单项，不带入历史已缴", async () => {
+	const a = paidFee("previous-a", 1000),
+		b = paidFee("current-b", 8000);
+	const service = paidDetailService([
+		{ ...paidFee("combined-paid", 9000), items: [a, b] },
+	]);
+	const detail = await service.detail(
+		"owner-paid",
+		"patient-paid",
+		"current-b",
+		"paid",
+		paidDetailContext,
+	);
+	expect(detail.item).toEqual(b);
+});
+
+test("门诊成功详情按密文成员绑定恢复本次多项，金额与内容取fresh已缴明细", async () => {
+	const a = paidFee("previous-a", 1000),
+		b = paidFee("current-b", 7000),
+		d = paidFee("current-d", 1500);
+	const service = paidDetailService(
+		[{ ...paidFee("combined-paid", 9500), items: [a, b, d] }],
+		originalPaidGroup(),
+	);
+	const detail = await service.detail(
+		"owner-paid",
+		"patient-paid",
+		"original-group",
+		"paid",
+		paidDetailContext,
+	);
+	expect(detail.item).toMatchObject({
+		recordId: "original-group",
+		status: "paid",
+		amountFen: 8500,
+		items: [b, d],
+	});
+	expect(JSON.stringify(detail.item)).not.toContain("previous-a");
+});
+
+test("门诊成功详情不能用旧快照补齐HIS尚未返回的成员", async () => {
+	const service = paidDetailService(
+		[paidFee("previous-a", 1000), paidFee("current-b", 8000)],
+		originalPaidGroup(),
+	);
+	await expect(
+		service.detail(
+			"owner-paid",
+			"patient-paid",
+			"original-group",
+			"paid",
+			paidDetailContext,
+		),
+	).rejects.toMatchObject({ name: "OutpatientPaymentRecordNotFoundError" });
+});
+
+test("门诊成功详情拒绝快照嵌套、重复成员和当前退款状态冲突", async () => {
+	const snapshot = originalPaidGroup();
+	for (const invalid of [
+		{
+			...snapshot,
+			items: snapshot.items.map((item) => ({ ...item, items: [] })),
+		},
+		{
+			...snapshot,
+			amountFen: 16000,
+			items: [snapshot.items[0], snapshot.items[0]],
+		},
+	]) {
+		await expect(
+			paidDetailService(
+				[paidFee("current-b", 8000), paidFee("current-d", 1700)],
+				invalid,
+			).detail(
+				"owner-paid",
+				"patient-paid",
+				"original-group",
+				"paid",
+				paidDetailContext,
+			),
+		).rejects.toMatchObject({ name: "OutpatientPaymentResultValidationError" });
+	}
+	await expect(
+		paidDetailService(
+			[
+				paidFee("current-b", 8000),
+				{ ...paidFee("current-d", 1700), paymentStatus: "refunding" },
+			],
+			snapshot,
+		).detail(
+			"owner-paid",
+			"patient-paid",
+			"original-group",
+			"paid",
+			paidDetailContext,
+		),
+	).rejects.toMatchObject({
+		name: "OutpatientPaymentResultValidationError",
+		violation: "status-mismatch",
+	});
+});
+
+test.each(["cash", "medical"])(
+	"门诊快照解析仅允许同owner/患者/业务的成功%s订单",
+	async (kind) => {
+		const snapshot = originalPaidGroup();
+		let cashContextReads = 0,
+			medicalContextReads = 0;
+		const matchingCash = {
+			ownerUserId: "owner-paid",
+			patientId: "patient-paid",
+			idempotencyKey: "outpatient-self-pay:original-group",
+			state: "completed",
+			orderId: "cash-order",
+		};
+		const matchingMedical = {
+			ownerUserId: "owner-paid",
+			patientId: "patient-paid",
+			businessId: "original-group",
+			businessType: "outpatient",
+			orderType: "DiagPay",
+			status: "insurance_settled",
+			medicalOrderId: "medical-order",
+		};
+		let cash: Record<string, unknown> | undefined =
+			kind === "cash" ? matchingCash : undefined;
+		let medical: Record<string, unknown> | undefined =
+			kind === "medical" ? matchingMedical : undefined;
+		const resolver = createOutpatientPaidRecordSnapshotResolver({
+			paymentOrders: {
+				findByOwnerAndIdempotencyKey: async () => cash,
+				getRegistrationSelfPayContext: async () => {
+					cashContextReads++;
+					return { outpatientPaymentRecord: snapshot };
+				},
+			},
+			medicalInsuranceOrders: {
+				findByOwnerAndBusinessKey: async () => medical,
+				getSettlementContext: async () => {
+					medicalContextReads++;
+					return { outpatientPaymentRecord: snapshot };
+				},
+			},
+		} as never);
+		const input = {
+			ownerUserId: "owner-paid",
+			patientId: "patient-paid",
+			recordId: "original-group",
+		};
+		expect(await resolver(input)).toEqual(snapshot);
+		for (const mismatch of [
+			{ ownerUserId: "another-owner" },
+			{ patientId: "another-patient" },
+			kind === "cash"
+				? { idempotencyKey: "another-key" }
+				: { businessId: "another-record" },
+			kind === "cash" ? { state: "cash_pending" } : { status: "cash_pending" },
+		]) {
+			cash = kind === "cash" ? { ...matchingCash, ...mismatch } : undefined;
+			medical =
+				kind === "medical" ? { ...matchingMedical, ...mismatch } : undefined;
+			expect(await resolver(input)).toBeUndefined();
+		}
+		expect(cashContextReads).toBe(kind === "cash" ? 1 : 0);
+		expect(medicalContextReads).toBe(kind === "medical" ? 1 : 0);
+	},
+);
 
 test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务端窗口", async () => {
 	// 只有 provider 被真实调用后才会赋值，先显式标记未赋值状态以通过严格类型检查。
@@ -639,81 +875,107 @@ test("门诊费用 service 拒绝网关返回的重复费用引用", async () =>
 	});
 });
 
-test("门诊费用 service 拒绝查询窗口外账单且不筛掉坏行伪装成功", async () => {
-	const lines: string[] = [];
-	const service = new OutpatientPaymentService({
-		repository: {
-			listByOwner: async () => [],
-			upsertFromDirectory: async () => {
-				throw new Error("not used");
-			},
-			resolveProviderReference: async () => ({
-				patientId: "patient-001",
-				provider: "zhongyang" as const,
-				providerPatientId: "provider-patient-001",
-			}),
-		},
-		gateway: {
-			listRecords: async () => ({
-				// 混入一条窗口内、一条窗口外的记录；必须整批拒绝，
-				// 不能只留下窗口内记录后伪装为完整账单列表。
-				records: [
-					{
-						recordId: "record-in-window",
-						status: "unpaid" as const,
-						billDate: "2026-08-16 08:00:00",
-						amountFen: 100,
-					},
-					{
-						recordId: "record-outside-window",
-						status: "unpaid" as const,
-						billDate: "2026-07-17 07:59:59",
-						amountFen: 200,
-					},
-				],
-				trace: {
-					provider: "zhongyang",
-					operation: "outpatient-payment-records",
-					requestId: "provider-request-outside-window",
+test.each([false, true])(
+	"门诊费用 service 拒绝窗口外账单及合并明细（合并=%s）",
+	async (grouped) => {
+		const lines: string[] = [];
+		const service = new OutpatientPaymentService({
+			repository: {
+				listByOwner: async () => [],
+				upsertFromDirectory: async () => {
+					throw new Error("not used");
 				},
+				resolveProviderReference: async () => ({
+					patientId: "patient-001",
+					provider: "zhongyang" as const,
+					providerPatientId: "provider-patient-001",
+				}),
+			},
+			gateway: {
+				listRecords: async () => ({
+					// 混入一条窗口内、一条窗口外的记录；必须整批拒绝，
+					// 不能只留下窗口内记录后伪装为完整账单列表。
+					records: grouped
+						? [
+								{
+									recordId: "record-group-in-window",
+									status: "unpaid" as const,
+									billDate: "2026-08-16 08:00:00",
+									amountFen: 300,
+									items: [
+										{
+											recordId: "child-in-window",
+											status: "unpaid" as const,
+											billDate: "2026-08-16 08:00:00",
+											amountFen: 100,
+										},
+										{
+											recordId: "child-outside-window",
+											status: "unpaid" as const,
+											billDate: "2026-07-17 07:59:59",
+											amountFen: 200,
+										},
+									],
+								},
+							]
+						: [
+								{
+									recordId: "record-in-window",
+									status: "unpaid" as const,
+									billDate: "2026-08-16 08:00:00",
+									amountFen: 100,
+								},
+								{
+									recordId: "record-outside-window",
+									status: "unpaid" as const,
+									billDate: "2026-07-17 07:59:59",
+									amountFen: 200,
+								},
+							],
+					trace: {
+						provider: "zhongyang",
+						operation: "outpatient-payment-records",
+						requestId: "provider-request-outside-window",
+					},
+				}),
+			},
+			authSysCode: "thirdSelfMachine",
+			now: () => new Date("2026-08-16T00:00:00.000Z"),
+			logger: createLogger({
+				service: "hospital-api-test",
+				environment: "test",
+				level: "info",
+				destination: { write: (chunk) => lines.push(chunk) },
 			}),
-		},
-		authSysCode: "thirdSelfMachine",
-		now: () => new Date("2026-08-16T00:00:00.000Z"),
-		logger: createLogger({
-			service: "hospital-api-test",
-			environment: "test",
-			level: "info",
-			destination: { write: (chunk) => lines.push(chunk) },
-		}),
-	});
+		});
 
-	await expect(
-		service.list("user-001", "patient-001", "unpaid", {
-			traceId: "trace-payment-outside-window",
-			idempotencyKey: "key-payment-outside-window",
-		}),
-	).rejects.toMatchObject({
-		name: "OutpatientPaymentResultValidationError",
-		violation: "bill-date-outside-query",
-	});
+		await expect(
+			service.list("user-001", "patient-001", "unpaid", {
+				traceId: "trace-payment-outside-window",
+				idempotencyKey: "key-payment-outside-window",
+			}),
+		).rejects.toMatchObject({
+			name: "OutpatientPaymentResultValidationError",
+			violation: "bill-date-outside-query",
+		});
 
-	const events = lines.map(
-		(line) => JSON.parse(line) as Record<string, unknown>,
-	);
-	expect(events).toContainEqual(
-		expect.objectContaining({
-			event: "outpatient.payment.records.failed",
-			traceId: "trace-payment-outside-window",
-			resultViolation: "bill-date-outside-query",
-		}),
-	);
-	expect(events).not.toContainEqual(
-		expect.objectContaining({
-			event: "outpatient.payment.records.loaded",
-		}),
-	);
-});
+		const events = lines.map(
+			(line) => JSON.parse(line) as Record<string, unknown>,
+		);
+		expect(events).toContainEqual(
+			expect.objectContaining({
+				event: "outpatient.payment.records.failed",
+				traceId: "trace-payment-outside-window",
+				resultViolation: "bill-date-outside-query",
+			}),
+		);
+		expect(events).not.toContainEqual(
+			expect.objectContaining({
+				event: "outpatient.payment.records.loaded",
+			}),
+		);
+	},
+);
 
 test("门诊费用 service 二次校验后只返回白名单字段", async () => {
 	const providerRecord = {

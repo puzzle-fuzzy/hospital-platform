@@ -37,6 +37,11 @@ export type WechatPrepayServiceDependencies = {
 	identityUsers: UserIdentityRepository;
 	attempts: PaymentPrepayAttemptRepository;
 	wechatPayment: WechatPaymentGateway;
+	assertAppointmentPaymentAllowed?: (
+		ownerUserId: string,
+		appointmentId: string,
+		context: unknown,
+	) => Promise<void>;
 	logger?: AppLogger;
 	now?: () => Date;
 	createAttemptId?: () => string;
@@ -247,6 +252,14 @@ export class WechatPrepayService {
 		);
 		if (order.state !== "cash_pending" || order.amounts.cashFen <= 0) {
 			throw new PaymentCashPrepayNotAllowedError();
+		}
+		const registrationPrefix = "registration-self-pay:";
+		if (order.idempotencyKey.startsWith(registrationPrefix)) {
+			await this.dependencies.assertAppointmentPaymentAllowed?.(
+				input.ownerUserId,
+				order.idempotencyKey.slice(registrationPrefix.length),
+				input.context,
+			);
 		}
 
 		const existing =

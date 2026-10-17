@@ -21,6 +21,9 @@ export const INTELLIGENT_GUIDE_AUDIO_CONTENT_TYPES = [
 /** 一次导诊会话在旧服务 Redis 中保存七天；平台引用不得超过旧事实有效期。 */
 export const INTELLIGENT_GUIDE_CONVERSATION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
+/** 导诊上下文保留最近十轮问答，避免长会话无限增长。 */
+export const INTELLIGENT_GUIDE_HISTORY_MAX_MESSAGES = 20;
+
 export type IntelligentGuideDepartment = {
 	/** 旧服务返回的排班科室引用；只允许服务端 adapter 产生。 */
 	departmentId: string;
@@ -77,11 +80,15 @@ export interface IntelligentGuideModelGateway {
 		input: {
 			message: string;
 			history: readonly IntelligentGuideConversationMessage[];
+			/** 本轮实时 HIS 可就诊目录，模型只能从中选择科室原名。 */
+			availableDepartments?: readonly IntelligentGuideDepartment[];
 		},
 		context: AdapterCallContext,
 	): Promise<{
 		message: string;
 		departmentNames: readonly string[];
+		/** 模型明确要求立即急诊或拨打 120；优先于普通科室推荐。 */
+		urgent?: boolean;
 	}>;
 }
 

@@ -432,10 +432,6 @@ body {
 	font-size: 12px;
 }
 
-.payment-page {
-	max-width: 1440px;
-}
-
 .payment-metrics {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));

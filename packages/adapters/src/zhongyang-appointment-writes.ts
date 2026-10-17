@@ -1,3 +1,4 @@
+import { normalizeAppointmentCancellationMessage } from "@hospital/contracts";
 import type {
 	AdapterCallContext,
 	AppointmentPatientProfileGateway,
@@ -106,6 +107,29 @@ function successfulEnvelope(
 		);
 	}
 	if (!ok) {
+		const cancellationMessage =
+			operation === "appointment-cancellation"
+				? normalizeAppointmentCancellationMessage(value.message)
+				: undefined;
+		if (cancellationMessage) {
+			const providerErrorCode =
+				typeof code === "string" && /^[A-Za-z0-9_.@:-]{1,64}$/.test(code)
+					? code
+					: undefined;
+			throw new ProviderRequestError({
+				provider: "zhongyang",
+				operation,
+				message: "Zhongyang appointment provider rejected the request",
+				requestId,
+				reason: "appointment-cancellation-rejected",
+				providerErrorMessage: cancellationMessage,
+				...(providerErrorCode ? { providerErrorCode } : {}),
+				requestOutcome: "rejected",
+				responseInvalid: false,
+				retryable: false,
+				failureStage: "response",
+			});
+		}
 		throw providerError(
 			operation,
 			"Zhongyang appointment provider rejected the request",

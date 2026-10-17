@@ -52,9 +52,20 @@ API 启动日志必须包含 `runtimeMode`、`authRuntimeStatus`、`authIdentity
 `persistenceSchemaProbe`；业务登录日志使用 `auth.wechat.login.*` 事件，禁止通过原始请求体排障。
 
 生产 API 的 `REDIS_URL` 必须使用新服务专用 Redis 用户和独立 DB，不得复用旧 Python 服务的全权限账号。
-当前生产已验证 `hospital_v2`/DB3，只允许 `PING`、`SELECT`、`GET`、`SET`，并由 ACL 强制限制到
-`hospital:session:*`；新 API 代码中的 key 前缀只是第二道保护，不能替代 Redis ACL。`worker.env` 不得
-因为 API 会话隔离完成而自动切换，worker 仍需单独通过支付、schema、lease、日志和回滚 gate。
+常驻 API 的最小命令权限为 `PING`、`SELECT`、`GET`、`SET`、`INCR`、`EXPIRE`，并由 ACL 强制限制到
+`hospital:session:*`、`hospital:his-refund:nonce:*`、`hospital:his-refund:rate:*` 和
+`hospital:intelligent-guide:native-state:*`。原生导诊通过 `GET` 与 `SET ... EX` 保存和续接 owner 隔离的短会话；
+仅有 `PING` 成功不能证明该前缀可读写。修复遗漏前缀时须保留已有权限并持久化 ACL，不得放开旧服务前缀、
+`SCAN`、`FLUSHDB` 或 `FLUSHALL`。新 API 代码中的 key 前缀只是第二道保护，不能替代 Redis ACL。
+`worker.env` 不得因为 API 会话隔离完成而自动切换，worker 仍需单独通过支付、schema、lease、日志和回滚 gate。
+
+文字导诊使用本机已验收的模型时，在 `shared/api.env` 设置 `AI_RUNTIME_READY=true`、
+回环地址 `AI_RUNTIME_URL` 和服务端专用 `AI_RUNTIME_TOKEN`；token 至少 24 字符，不得下发客户端。
+启用前须分别验证本地模型健康、真实 JSON 推理、多轮上下文和本院科室匹配，不能只检查端口监听。
+语音识别由 `AI_RUNTIME_SPEECH_READY` 独立控制，默认 `false`；文字模型启用不会自动开放语音。
+客服仍需独立验收和 `INTELLIGENT_CUSTOMER_ENABLED`，本次文字导诊接入保持该开关关闭。
+导诊每轮向模型提供当前可预约科室名称，服务端再次解析真实科室 ID；保留最近十轮问答，
+测试条目和门诊治疗室不参与推荐，紧急就医指引优先于普通挂号目录匹配。
 
 2026-08-16 的生产只读快照见 ``docs/发布/production-coexistence-readonly-audit-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 该快照先确认新旧服务共用 Redis DB1，随后记录了新 API 会话隔离和只重启新 API 的结果；新 worker 仍为

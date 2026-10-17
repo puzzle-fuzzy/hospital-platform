@@ -23,9 +23,9 @@ import type {
 	MyDoctorDeleteResponse,
 	MyDoctorListResponse,
 	MyDoctorResponse,
-	OutpatientMedicalRecordListResponse,
 	OutpatientElectronicInvoiceIssueResponse,
 	OutpatientElectronicInvoiceListResponse,
+	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentDetailResponse,
 	OutpatientPaymentListResponse,
 	OutpatientSelfPayResponse,
@@ -53,6 +53,8 @@ import {
 	sanitizeApiRequestPath,
 } from "./api-request-observability";
 import { getRegisteredApp } from "./app-runtime-context";
+import { normalizeAppointmentCancellationMessage } from "./appointment-cancellation-message";
+import { readAppointmentPaymentFields } from "./appointment-payment-view";
 import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import { resolveErrorNumericCode } from "./error-registry";
 import { isBoundedPatientId } from "./patient-identifiers";
@@ -141,8 +143,8 @@ export type WechatPaymentLaunch = {
  */
 export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 	Object.freeze({
-		// 这张表是唯一允许进入小程序页面的错误文案表。技术错误码、Provider
-		// 名称和内部服务拓扑只写日志，不让普通用户承担实现细节。
+		// 默认文案来自此表；取消预约拒绝另允许经过白名单校验的医院业务原因。
+		// 技术错误码、Provider 名称和内部服务拓扑只写日志。
 		"api-request-failed": "当前信息暂时无法获取，请稍后重试",
 		validation: "暂时无法完成操作，请稍后重试",
 		parse: "暂时无法完成操作，请稍后重试",
@@ -194,11 +196,14 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"appointment-refund-pending":
 			"退款或医院收费同步处理中，预约暂未取消，请稍后查看",
 		"appointment-refund-failed": "退款未成功，预约暂未取消，请联系收费端处理",
+		"appointment-cancellation-rejected": "预约取消失败，请联系医院核实原因",
 		"appointment-refund-not-configured": "自费退款通道尚未配置，预约未取消",
 		"appointment-source-unavailable": "指定号源刚刚发生变化，请刷新后重试",
 		"medical-insurance-invalid": "医保请求参数或流程状态不合法，请稍后再试",
 		"medical-insurance-appointment-not-found": "未找到可进行医保支付的预约",
 		"medical-insurance-order-not-found": "未找到对应的医保订单",
+		"appointment-payment-unavailable":
+			"预约已取消、过期或暂不可支付，请刷新挂号详情",
 		"medical-insurance-appointment-stale":
 			"当前预约已失效，请重新获取号源并预约",
 		"medical-insurance-payment-in-progress":
@@ -208,6 +213,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"medical-insurance-insutype-unavailable":
 			"当前就诊人未查询到可用于本次支付的有效医保参保信息，可确认改用微信支付",
 		"medical-insurance-timeout": "医保连接超时，请稍后重新挂号重试",
+		"medical-insurance-region-unsupported":
+			"当前参保地暂未开通医保支付，请选择微信支付",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
 		"outpatient-electronic-invoice-query-invalid":
 			"暂时无法查询电子发票，请稍后再试",
@@ -620,7 +627,7 @@ function requireMyDoctorItem(
 		value.departmentLocation,
 		256,
 	);
-	const doctorAvatarUrl = optionalMyDoctorText(value.doctorAvatarUrl, 512);
+	const doctorAvatarUrl = optionalMyDoctorText(value.doctorAvatarUrl, 2048);
 	if (
 		doctorAvatarUrl !== undefined &&
 		!/^https?:\/\/[^\s]+$/u.test(doctorAvatarUrl)
@@ -2148,7 +2155,7 @@ export function localizedApiErrorMessage(
 }
 
 /**
- * 页面只能展示稳定错误码对应的文案，不能直接读取 Error.message。
+ * 页面通过稳定错误码取文案；仅取消预约拒绝允许经过白名单校验的医院业务原因。
  *
  * API 响应中的 message 可能来自 provider 或内部异常；即使当前 request 层
  * 已经做过一次映射，页面仍统一经过这里，避免未来新增错误构造点时绕过
@@ -2156,6 +2163,12 @@ export function localizedApiErrorMessage(
  */
 export function safeApiErrorMessage(error: unknown, fallback: string): string {
 	if (!(error instanceof ApiError)) return fallback;
+	if (error.code === "appointment-cancellation-rejected") {
+		return (
+			normalizeAppointmentCancellationMessage(error.message) ??
+			localizedApiErrorMessage(error.code, fallback)
+		);
+	}
 	return localizedApiErrorMessage(error.code, fallback);
 }
 
@@ -2182,6 +2195,16 @@ export function contextualApiErrorMessage(
 
 function parseErrorMessage(data: unknown): string {
 	const code = parseErrorCode(data);
+	if (
+		code === "appointment-cancellation-rejected" &&
+		isRecord(data) &&
+		isRecord(data.error)
+	) {
+		return (
+			normalizeAppointmentCancellationMessage(data.error.message) ??
+			localizedApiErrorMessage(code, SAFE_UNKNOWN_ERROR_MESSAGE)
+		);
+	}
 	return localizedApiErrorMessage(code, SAFE_UNKNOWN_ERROR_MESSAGE);
 }
 
@@ -3252,6 +3275,7 @@ export function requestAppointmentRecords(
 }
 
 const APPOINTMENT_DETAIL_STATUSES = new Set([
+	"expired",
 	"scheduled",
 	"cancelled",
 	"completed",
@@ -3299,7 +3323,9 @@ export function requireAppointmentDetailResponse(
 		return invalidAppointmentDetailResponse();
 	}
 	const data = value.data;
+	const paymentFields = readAppointmentPaymentFields(data);
 	if (
+		paymentFields === null ||
 		typeof data.appointmentId !== "string" ||
 		data.appointmentId !== expectedAppointmentId ||
 		typeof data.patientId !== "string" ||
@@ -3330,6 +3356,7 @@ export function requireAppointmentDetailResponse(
 	return {
 		success: true,
 		data: {
+			...paymentFields,
 			appointmentId: data.appointmentId,
 			patientId: data.patientId,
 			patient: {
@@ -3747,9 +3774,9 @@ export function requireOutpatientElectronicInvoiceIssueResponse(
 	expectedRecordId: string,
 ): OutpatientElectronicInvoiceIssueResponse {
 	const payload =
-		requireSuccessDataResponse<OutpatientElectronicInvoiceIssueResponse["data"]>(
-			value,
-		);
+		requireSuccessDataResponse<
+			OutpatientElectronicInvoiceIssueResponse["data"]
+		>(value);
 	const data = payload.data;
 	if (
 		data.recordId !== expectedRecordId ||

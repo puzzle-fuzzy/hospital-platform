@@ -608,6 +608,7 @@ async function adminRefundRequest(
 
 async function adminMedicalInsuranceRefundRequest(
 	request: Request,
+	path = "/admin/medical-insurance-refunds",
 ): Promise<Response> {
 	const authorization = bearer(request);
 	if (!adminRefundsUpstream || !adminRefundsToken) {
@@ -620,7 +621,7 @@ async function adminMedicalInsuranceRefundRequest(
 	}
 	return upstreamRequest(
 		adminRefundsUpstream,
-		"/admin/medical-insurance-refunds",
+		path,
 		{
 			method: "POST",
 			headers: {
@@ -633,6 +634,37 @@ async function adminMedicalInsuranceRefundRequest(
 			body: JSON.stringify(input),
 		},
 		"新服务医保退费接口暂时不可用，请稍后重试",
+	);
+}
+
+async function adminPaymentRefundQuery(
+	request: Request,
+	source: string,
+	orderId: string,
+): Promise<Response> {
+	const authorization = bearer(request);
+	if (!adminRefundsUpstream || !adminRefundsToken) {
+		return errorResponse("新服务退费接口尚未配置", 503);
+	}
+	const refundType = new URL(request.url).searchParams.get("refundType");
+	if (refundType && !["ALL", "HI", "CASH"].includes(refundType)) {
+		return errorResponse("退费查询类型不合法", 400);
+	}
+	const query = refundType
+		? `?refundType=${encodeURIComponent(refundType)}`
+		: "";
+	return upstreamRequest(
+		adminRefundsUpstream,
+		`/admin/payment-refunds/${encodeURIComponent(source)}/${encodeURIComponent(orderId)}${query}`,
+		{
+			method: "GET",
+			headers: {
+				Authorization: authorization,
+				"X-Admin-Refund-Token": adminRefundsToken,
+				"X-Request-Id": crypto.randomUUID(),
+			},
+		},
+		"新服务退费查询暂时不可用，请稍后重试",
 	);
 }
 
@@ -1127,6 +1159,25 @@ const server = Bun.serve({
 			}
 			if (url.pathname === "/api/refunds/wechat" && request.method === "POST") {
 				return await adminRefundRequest(request, "/admin/wechat-refunds");
+			}
+			if (
+				url.pathname === "/api/refunds/payment" &&
+				request.method === "POST"
+			) {
+				return await adminMedicalInsuranceRefundRequest(
+					request,
+					"/admin/payment-refunds",
+				);
+			}
+			const paymentRefundQueryMatch = url.pathname.match(
+				/^\/api\/refunds\/payment\/(payment_order|medical_insurance)\/([A-Za-z0-9._:-]{1,64})$/u,
+			);
+			if (paymentRefundQueryMatch && request.method === "GET") {
+				return await adminPaymentRefundQuery(
+					request,
+					paymentRefundQueryMatch[1] ?? "",
+					paymentRefundQueryMatch[2] ?? "",
+				);
 			}
 			if (
 				url.pathname === "/api/refunds/medical-insurance" &&

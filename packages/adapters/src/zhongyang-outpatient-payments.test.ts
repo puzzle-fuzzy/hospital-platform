@@ -2,10 +2,341 @@ import { expect, test } from "bun:test";
 import { MAX_OUTPATIENT_PAYMENT_RECORDS } from "@hospital/domain";
 import { createZhongyangOutpatientPaymentGateway } from "./zhongyang-outpatient-payments";
 
+const groupedQuery = {
+	providerPatientId: "grouped-provider-patient",
+	startTime: "2026-10-15 00:00:00",
+	endTime: "2026-10-15 23:59:59",
+	status: "unpaid" as const,
+};
+
+function groupedFee(overrides: Record<string, unknown> = {}) {
+	return {
+		outTradeOrderId: "bill-ultrasound",
+		registerId: "visit-registration",
+		visitRecordId: "clinical-visit",
+		mainId: "application-ultrasound",
+		chargeId: "item-ultrasound",
+		billDeptId: "billing-department",
+		billDocCode: "billing-doctor",
+		networkPatClassId: "resident-insurance",
+		medicalCategoryId: "general-outpatient",
+		registerChargeFlag: "0",
+		presCode: "-1",
+		amount: "80.00",
+		tradeStatus: "1",
+		itemName: "彩超",
+		billDeptName: "门诊",
+		billDocName: "开单医生",
+		exeDeptName: "超声科",
+		price: "80.00",
+		quantity: "1",
+		unitName: "项",
+		billDate: "2026-10-15 15:34:12",
+		...overrides,
+	};
+}
+
+function cardiacFee(overrides: Record<string, unknown> = {}) {
+	return groupedFee({
+		outTradeOrderId: "bill-cardiogram",
+		mainId: "application-cardiogram",
+		chargeId: "item-cardiogram",
+		amount: "17.00",
+		price: "17.00",
+		itemName: "心电图",
+		exeDeptName: "心电图室",
+		...overrides,
+	});
+}
+
+function groupedGateway(read: () => readonly Record<string, unknown>[]) {
+	return createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(JSON.stringify({ success: true, data: read() }), {
+				status: 200,
+				headers: { "x-request-id": "grouped-payment-request" },
+			}),
+	});
+}
+
 const context = {
 	traceId: "outpatient-payment-trace-001",
 	idempotencyKey: "outpatient-payment-key-001",
 };
+
+test("众阳待缴费用按同次就诊合并不同单据并保留各项明细", async () => {
+	const gateway = groupedGateway(() => [
+		groupedFee(),
+		cardiacFee({ billDate: "2026-10-15 15:34:13" }),
+	]);
+	const result = await gateway.listRecords(groupedQuery, context);
+	expect(result.records).toHaveLength(1);
+	expect(result.records[0]).toMatchObject({
+		itemName: "2项费用",
+		status: "unpaid",
+		departmentName: "门诊",
+		doctorName: "开单医生",
+		billDate: "2026-10-15 15:34:12",
+		amountFen: 9700,
+		items: [
+			expect.objectContaining({
+				itemName: "彩超",
+				amountFen: 8000,
+				executionDepartmentName: "超声科",
+				priceFen: 8000,
+			}),
+			expect.objectContaining({
+				itemName: "心电图",
+				amountFen: 1700,
+				executionDepartmentName: "心电图室",
+				priceFen: 1700,
+			}),
+		],
+	});
+	expect(result.records[0]).not.toHaveProperty("priceFen");
+	expect(result.records[0]).not.toHaveProperty("quantity");
+	expect(result.records[0]).not.toHaveProperty("executionDepartmentName");
+	expect(JSON.stringify(result.records)).not.toContain("bill-ultrasound");
+	expect(JSON.stringify(result.records)).not.toContain("clinical-visit");
+});
+
+test("众阳待缴费用不同就诊或支付上下文不能混为一笔", async () => {
+	for (const differences of [
+		{ registerId: "another-registration" },
+		{ visitRecordId: "another-visit" },
+		{ billDeptId: "another-billing-department" },
+		{ billDocCode: "another-billing-doctor" },
+		{ networkPatClassId: "another-insurance-class" },
+		{ medicalCategoryId: "another-medical-category" },
+		{ registerChargeFlag: "1" },
+		{ orgId: "another-org" },
+		{ hospitalId: "another-hospital" },
+	]) {
+		const gateway = groupedGateway(() => [
+			groupedFee(),
+			cardiacFee(differences),
+		]);
+		expect(
+			(await gateway.listRecords(groupedQuery, context)).records,
+		).toHaveLength(2);
+	}
+});
+
+test("众阳缺少有效就诊关联时只合并同一有效单据", async () => {
+	for (const absentVisit of [undefined, "", "0", "-1"]) {
+		const first = groupedFee({
+			registerId: absentVisit,
+			visitRecordId: absentVisit,
+		});
+		const second = cardiacFee({
+			registerId: absentVisit,
+			visitRecordId: absentVisit,
+		});
+		expect(
+			(
+				await groupedGateway(() => [first, second]).listRecords(
+					groupedQuery,
+					context,
+				)
+			).records,
+		).toHaveLength(2);
+		const sameBill = { ...second, outTradeOrderId: first.outTradeOrderId };
+		const grouped = await groupedGateway(() => [first, sameBill]).listRecords(
+			groupedQuery,
+			context,
+		);
+		expect(grouped.records).toHaveLength(1);
+		expect(grouped.records[0]?.amountFen).toBe(9700);
+	}
+});
+
+test("众阳支付分类码零值和占位值不与缺失类别合并", async () => {
+	for (const field of ["networkPatClassId", "medicalCategoryId"]) {
+		for (const category of ["0", "-1"]) {
+			const gateway = groupedGateway(() => [
+				groupedFee({ [field]: category }),
+				cardiacFee({ [field]: undefined }),
+			]);
+			expect(
+				(await gateway.listRecords(groupedQuery, context)).records,
+			).toHaveLength(2);
+		}
+	}
+});
+
+test("众阳合并记录ID与排序和状态无关但绑定成员及患者", async () => {
+	let items = [groupedFee(), cardiacFee()];
+	const gateway = groupedGateway(() => items);
+	const first = (await gateway.listRecords(groupedQuery, context)).records[0];
+	items = [...items].reverse();
+	expect(
+		(await gateway.listRecords(groupedQuery, context)).records[0]?.recordId,
+	).toBe(first?.recordId);
+	items = items.map((item) => ({ ...item, tradeStatus: "3", amount: "2.00" }));
+	expect(
+		(await gateway.listRecords({ ...groupedQuery, status: "paid" }, context))
+			.records[0]?.recordId,
+	).toBe(first?.recordId);
+	const otherPatient = await gateway.listRecords(
+		{ ...groupedQuery, status: "paid", providerPatientId: "another-patient" },
+		context,
+	);
+	expect(otherPatient.records[0]?.recordId).not.toBe(first?.recordId);
+	items = [groupedFee()];
+	const singleton = (await gateway.listRecords(groupedQuery, context))
+		.records[0];
+	expect(singleton?.recordId).not.toBe(first?.recordId);
+	expect(singleton).not.toHaveProperty("items");
+	items = [
+		groupedFee(),
+		cardiacFee(),
+		cardiacFee({
+			outTradeOrderId: "third-bill",
+			mainId: "third-application",
+			chargeId: "third-item",
+		}),
+	];
+	expect(
+		(await gateway.listRecords(groupedQuery, context)).records[0]?.recordId,
+	).not.toBe(first?.recordId);
+});
+
+test("众阳合组前继续拒绝重复子项与合计金额溢出", async () => {
+	const duplicate = groupedGateway(() => [groupedFee(), groupedFee()]);
+	await expect(
+		duplicate.listRecords(groupedQuery, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+	const overflow = groupedGateway(() => [
+		groupedFee({ amount: "90071992547409.91" }),
+		cardiacFee(),
+	]);
+	await expect(
+		overflow.listRecords(groupedQuery, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+});
+
+test("众阳同次就诊已缴与退款中分别展示且完整状态切换不改变组ID", async () => {
+	let items = [
+		groupedFee({ tradeStatus: "3" }),
+		cardiacFee({ tradeStatus: "3" }),
+	];
+	const gateway = groupedGateway(() => items);
+	const paidQuery = { ...groupedQuery, status: "paid" as const };
+	const paid = (await gateway.listRecords(paidQuery, context)).records[0];
+	items = [groupedFee({ tradeStatus: "3" }), cardiacFee({ tradeStatus: "4" })];
+	const mixed = await gateway.listRecords(paidQuery, context);
+	expect(mixed.records).toHaveLength(2);
+	expect(mixed.records[0]?.paymentStatus).toBeUndefined();
+	expect(mixed.records[1]?.paymentStatus).toBe("refunding");
+	items = items.map((item) => ({ ...item, tradeStatus: "4" }));
+	const refunding = (await gateway.listRecords(paidQuery, context)).records[0];
+	expect(refunding?.recordId).toBe(paid?.recordId);
+	expect(refunding?.paymentStatus).toBe("refunding");
+});
+
+test("众阳支付上下文重读全组金额并去重真实单据", async () => {
+	let items = [groupedFee(), cardiacFee()];
+	const gateway = groupedGateway(() => items);
+	const record = (await gateway.listRecords(groupedQuery, context)).records[0];
+	if (!record || !gateway.resolvePaymentContext)
+		throw new Error("grouped payment fixture missing");
+	items.reverse();
+	const result = await gateway.resolvePaymentContext(
+		{ ...groupedQuery, recordId: record.recordId },
+		context,
+	);
+	expect(result.record).toEqual({
+		...record,
+		items: [...(record.items ?? [])].reverse(),
+	});
+	expect(JSON.stringify(result.record)).not.toContain("bill-ultrasound");
+	expect(JSON.stringify(result.record)).not.toContain("clinical-visit");
+	expect(JSON.stringify(result.record)).not.toContain("visit-registration");
+	expect(result.record?.items?.map((item) => item.recordId).sort()).toEqual(
+		record.items?.map((item) => item.recordId).sort(),
+	);
+	expect(result).toMatchObject({
+		recordId: record.recordId,
+		providerPatientId: groupedQuery.providerPatientId,
+		totalFen: 9700,
+		outTradeOrderIds: ["bill-cardiogram", "bill-ultrasound"],
+	});
+	items = [groupedFee()];
+	await expect(
+		gateway.resolvePaymentContext(
+			{ ...groupedQuery, recordId: record.recordId },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: false,
+	});
+	items = [groupedFee(), cardiacFee({ outTradeOrderId: "bill-ultrasound" })];
+	const sameBillRecord = (await gateway.listRecords(groupedQuery, context))
+		.records[0];
+	if (!sameBillRecord) throw new Error("same bill fixture missing");
+	expect(
+		await gateway.resolvePaymentContext(
+			{ ...groupedQuery, recordId: sameBillRecord.recordId },
+			context,
+		),
+	).toMatchObject({ totalFen: 9700, outTradeOrderIds: ["bill-ultrasound"] });
+});
+
+test("众阳支付上下文拒绝非待缴状态和缺少真实单据的组", async () => {
+	let items = [groupedFee(), cardiacFee()];
+	const gateway = groupedGateway(() => items);
+	const record = (await gateway.listRecords(groupedQuery, context)).records[0];
+	if (!record || !gateway.resolvePaymentContext)
+		throw new Error("grouped payment fixture missing");
+	items = items.map((item) => ({ ...item, tradeStatus: "3" }));
+	await expect(
+		gateway.resolvePaymentContext(
+			{ ...groupedQuery, recordId: record.recordId },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+	items = [groupedFee(), cardiacFee({ outTradeOrderId: undefined })];
+	const missingBillRecord = (await gateway.listRecords(groupedQuery, context))
+		.records[0];
+	if (!missingBillRecord) throw new Error("missing bill fixture missing");
+	await expect(
+		gateway.resolvePaymentContext(
+			{ ...groupedQuery, recordId: missingBillRecord.recordId },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+});
+
+test("众阳同一单据出现不兼容支付上下文时拒绝拆成可支付卡片", async () => {
+	const gateway = groupedGateway(() => [
+		groupedFee(),
+		cardiacFee({
+			outTradeOrderId: "bill-ultrasound",
+			networkPatClassId: "different-class",
+		}),
+	]);
+	await expect(
+		gateway.listRecords(groupedQuery, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+});
 
 test("众阳门诊费用 adapter 缺少已确认渠道码时拒绝构造", () => {
 	expect(() =>

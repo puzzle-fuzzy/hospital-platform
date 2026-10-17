@@ -17,9 +17,10 @@ import type {
 	IntelligentGuideModelGateway,
 	IntelligentGuideSpeechGateway,
 	KnowledgeSearchGateway,
-	OutpatientMedicalRecordGateway,
+	MedicalInsuranceRefundNotificationGateway,
 	OutpatientElectronicInvoiceGateway,
 	OutpatientElectronicInvoiceQueryGateway,
+	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
@@ -38,6 +39,7 @@ import type {
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
+	MedicalInsuranceRefundNotificationCoordinator,
 	PaymentOrderService,
 	PaymentSyncCoordinator,
 } from "@hospital/domain";
@@ -57,6 +59,14 @@ import {
 	buildPaymentOrderProjection,
 	projectMedicalInsuranceOrder,
 } from "./modules/admin/payment-operations-projector";
+import {
+	AdminPaymentRefundService,
+	type AdminPaymentRefundServiceDependencies,
+} from "./modules/admin/payment-refund-service";
+import {
+	type RegistrationRefundUnavailableReason,
+	resolveRegistrationRefundUnavailableReason,
+} from "./modules/admin/wechat-refund-service";
 import { AppointmentService } from "./modules/appointments";
 import { AppointmentWriteService } from "./modules/appointments/write-service";
 import {
@@ -76,9 +86,12 @@ import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance
 import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { OutpatientMedicalRecordService } from "./modules/medical-records";
 import { MyDoctorService } from "./modules/my-doctors";
-import { OutpatientPaymentService } from "./modules/outpatient-payments";
-import { OutpatientSelfPayService } from "./modules/outpatient-payments/self-pay-service";
 import { OutpatientElectronicInvoiceService } from "./modules/outpatient-invoices";
+import {
+	createOutpatientPaidRecordSnapshotResolver,
+	OutpatientPaymentService,
+} from "./modules/outpatient-payments";
+import { OutpatientSelfPayService } from "./modules/outpatient-payments/self-pay-service";
 import { PatientFeedbackService } from "./modules/patient-feedback";
 import { PatientService } from "./modules/patients";
 import { PatientBindingService } from "./modules/patients/binding-service";
@@ -138,6 +151,7 @@ export type ApplicationServices = {
 	adminInsuranceQuery?: AdminInsuranceQueryService;
 	/** Admin 发起/查询微信自费退款；未配置微信退款 adapter 时保持不可用。 */
 	wechatRefund?: AdminWechatRefundService;
+	adminPaymentRefund?: AdminPaymentRefundService;
 	/** Admin 只操作同步任务状态；不直接修改支付聚合单终态。 */
 	paymentSyncAdmin?: PaymentSyncAdminService;
 	sessions: SessionTokenService;
@@ -162,6 +176,8 @@ export type ApplicationServiceOptions = {
 	registrationSelfPayPreparationGateway?: RegistrationSelfPayPreparationGateway;
 	/** 仅在微信退款 SUCCESS 后回写众阳 .15；未配置时新 MD5 自费退款 fail-closed。 */
 	registrationSelfPayRefundNotificationGateway?: RegistrationSelfPayRefundNotificationGateway;
+	/** 仅传可公开的能力分类；配置值和服务端授权内容不得进入管理端读模型。 */
+	registrationRefundUnavailableReason?: RegistrationRefundUnavailableReason;
 	/** 只有完成众阳/HIS 合同和真实环境验收后才打开。 */
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 新增或绑定就诊人必须使用独立的查档/建档/绑卡 adapter。 */
@@ -184,6 +200,8 @@ export type ApplicationServiceOptions = {
 	intelligentCustomerSpeech?: IntelligentGuideSpeechGateway;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
+	/** 只投影服务端已确认的医生照片字段，沿用固定的 Provider 资源代理。 */
+	resolveDoctorPhotoUrl?: (value: string) => string;
 	/** 挂号页一级/二级树及受控三级科室读取，独立于既有扁平目录契约。 */
 	appointmentDepartmentTreeGateway?: AppointmentDepartmentTreeGateway;
 	/** 预约历史使用独立 endpoint，必须独立完成合同和真实环境验收。 */
@@ -222,6 +240,11 @@ export type ApplicationServiceOptions = {
 	medicalInsuranceWechatPaymentGateway?: import("@hospital/domain").MedicalInsuranceWechatPaymentGateway;
 	/** 6203 退费 adapter；使用现有 legacy FSI gateway 的固定 refund_Order 路由。 */
 	medicalInsuranceRefundGateway?: import("@hospital/domain").MedicalInsuranceRefundGateway;
+	medicalInsuranceRefundPaymentVerifier?: {
+		verify: AdminPaymentRefundServiceDependencies["verifyPaymentForRefund"];
+	};
+	medicalInsuranceRefundNotificationGateway?: MedicalInsuranceRefundNotificationGateway;
+	verifyWechatRefundPayment?: AdminPaymentRefundServiceDependencies["verifyPaymentOrder"];
 	/** 旧服务第二次云健康 .2 插件预下单；未配置时保持 fail-closed。 */
 	yunhealthRegistrationPluginPaymentGateway?: YunhealthRegistrationPluginPaymentGateway;
 	yunhealthRegistrationPluginPayTypeId?: string;
@@ -244,7 +267,7 @@ export function selectReadyRepositories(
 /**
  * 优先从普通自费支付订单密文读取 Provider 关联事实；历史订单才回退到同预约
  * 医保结算密文。Provider 关联键不接受客户端字段，也不从平台订单号推导；
- * 仅 .29 的 platformOrderId 会从已归属的根 medicalOrderId 显式投影。
+ * platformOrderId 仅保留为历史兼容的本地元数据，不再作为 .29 请求参数。
  */
 function resolveRegistrationSelfPayContext(
 	repositories: Pick<
@@ -518,6 +541,8 @@ export function createDefaultApplicationServices(
 		records:
 			options.appointmentRecordDirectoryGateway ?? gateways.appointmentRecords,
 		appointmentWrites: repositories.appointmentWrites,
+		paymentOrders: repositories.paymentOrders,
+		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
 		snapshots: repositories.appointmentScheduleSnapshots,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
@@ -529,6 +554,9 @@ export function createDefaultApplicationServices(
 			options.appointmentPatientProfileGateway ??
 			gateways.appointmentPatientProfile,
 		gateway: options.appointmentWriteGateway ?? gateways.appointmentWrites,
+		records:
+			options.appointmentRecordDirectoryGateway ?? gateways.appointmentRecords,
+		requireHospitalPaymentState: true,
 		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
 		paymentOrders: repositories.paymentOrders,
 		snapshots: repositories.appointmentScheduleSnapshots,
@@ -545,6 +573,12 @@ export function createDefaultApplicationServices(
 		orders: repositories.medicalInsuranceOrders,
 		authorizations: repositories.medicalInsuranceAuthorizations,
 		appointments: repositories.appointmentWrites,
+		assertAppointmentPaymentAllowed: (ownerUserId, appointmentId, context) =>
+			appointmentWrites.assertPaymentAllowed(
+				ownerUserId,
+				appointmentId,
+				context,
+			),
 		patients: repositories.patients,
 		identityUsers: repositories.identityUsers,
 		patientProfile:
@@ -563,6 +597,12 @@ export function createDefaultApplicationServices(
 		identityUsers: repositories.identityUsers,
 		attempts: repositories.paymentPrepayAttempts,
 		wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
+		assertAppointmentPaymentAllowed: (ownerUserId, appointmentId, context) =>
+			appointmentWrites.assertPaymentAllowed(
+				ownerUserId,
+				appointmentId,
+				context,
+			),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	// 挂号自费和历史插件版医保支付共用官方 APIv3 WechatPrepayService；
@@ -663,6 +703,16 @@ export function createDefaultApplicationServices(
 			),
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const refundPaymentVerifier = options.medicalInsuranceRefundPaymentVerifier;
+	const registrationRefundUnavailableReason =
+		options.registrationRefundUnavailableReason ??
+		resolveRegistrationRefundUnavailableReason({
+			cancellationConfigured: Boolean(options.appointmentWriteGateway),
+			writeBackConfigured: Boolean(
+				options.registrationSelfPayRefundNotificationGateway,
+			),
+			writeBackAuthorized: true,
+		});
 	const wechatRefund = options.wechatRefundGateway
 		? new AdminWechatRefundService({
 				refunds: repositories.wechatRefunds,
@@ -671,7 +721,17 @@ export function createDefaultApplicationServices(
 				medicalInsuranceRefunds: repositories.medicalInsuranceRefunds,
 				paymentOperations: repositories.paymentOperations,
 				operatorAudits: repositories.operatorAudits,
+				patients: repositories.patients,
+				userProfiles: repositories.userProfiles,
 				gateway: options.wechatRefundGateway,
+				registrationRefundEnabled: Boolean(
+					options.appointmentWriteGateway &&
+						options.registrationSelfPayRefundNotificationGateway &&
+						!registrationRefundUnavailableReason,
+				),
+				...(registrationRefundUnavailableReason
+					? { registrationRefundUnavailableReason }
+					: {}),
 			})
 		: undefined;
 	const paymentSync = new PaymentSyncCoordinator({
@@ -686,6 +746,12 @@ export function createDefaultApplicationServices(
 				paymentOperations: repositories.paymentOperations,
 				operatorAudits: repositories.operatorAudits,
 				paymentSync,
+				...(refundPaymentVerifier
+					? {
+							verifyPaymentForRefund: (order, scope) =>
+								refundPaymentVerifier.verify(order, scope ?? "HI"),
+						}
+					: {}),
 				ensurePaymentAggregate: async (order) =>
 					(
 						await projectMedicalInsuranceOrder(
@@ -723,6 +789,73 @@ export function createDefaultApplicationServices(
 		},
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const medicalRefundNotification =
+		options.medicalInsuranceRefundNotificationGateway
+			? new MedicalInsuranceRefundNotificationCoordinator({
+					tasks: repositories.paymentSync,
+					refunds: repositories.medicalInsuranceRefunds,
+					orders: repositories.medicalInsuranceOrders,
+					wechatRefunds: repositories.wechatRefunds,
+					gateway: options.medicalInsuranceRefundNotificationGateway,
+					resolveAggregateId: async (order) => {
+						const projection = await projectMedicalInsuranceOrder(
+							repositories.paymentOperations,
+							order,
+						);
+						if (!projection)
+							throw new DependencyNotConfiguredError("payment-operations");
+						return projection.aggregate.aggregateId;
+					},
+				})
+			: undefined;
+	const adminPaymentRefund =
+		wechatRefund && medicalInsuranceRefund && refundPaymentVerifier
+			? new AdminPaymentRefundService({
+					orders: repositories.medicalInsuranceOrders,
+					paymentOrders: repositories.paymentOrders,
+					medicalRefunds: repositories.medicalInsuranceRefunds,
+					wechatRefunds: repositories.wechatRefunds,
+					medicalService: medicalInsuranceRefund,
+					wechatService: wechatRefund,
+					verifyPaymentForRefund: (order, scope) =>
+						refundPaymentVerifier.verify(order, scope),
+					...(options.verifyWechatRefundPayment
+						? { verifyPaymentOrder: options.verifyWechatRefundPayment }
+						: {}),
+					...(medicalRefundNotification
+						? {
+								notifyMedicalRefund: (order, refund) =>
+									medicalRefundNotification.notify(order, refund),
+							}
+						: {}),
+					...(options.appointmentWriteGateway &&
+					options.registrationSelfPayRefundNotificationGateway &&
+					!registrationRefundUnavailableReason
+						? {
+								refundRegistrationPayment: async (order, context) => {
+									const prefix = "registration-self-pay:";
+									if (!order.idempotencyKey.startsWith(prefix))
+										throw new DependencyNotConfiguredError(
+											"registration-refund-context",
+										);
+									const appointmentId = order.idempotencyKey.slice(
+										prefix.length,
+									);
+									if (!appointmentId)
+										throw new DependencyNotConfiguredError(
+											"registration-refund-context",
+										);
+									return registrationPaymentExit.abandon({
+										ownerUserId: order.ownerUserId,
+										appointmentId,
+										mode: "self",
+										context,
+									});
+								},
+							}
+						: {}),
+				})
+			: undefined;
 	const yunhealthPaymentQuery = new YunhealthPaymentQueryService({
 		orders: repositories.paymentOrders,
 		medicalOrders: repositories.medicalInsuranceOrders,
@@ -821,6 +954,9 @@ export function createDefaultApplicationServices(
 		myDoctors: new MyDoctorService({
 			repository: repositories.myDoctors,
 			appointments,
+			...(options.resolveDoctorPhotoUrl
+				? { resolveDoctorPhotoUrl: options.resolveDoctorPhotoUrl }
+				: {}),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		patientFeedback: new PatientFeedbackService({
@@ -863,6 +999,8 @@ export function createDefaultApplicationServices(
 		outpatientPayments: new OutpatientPaymentService({
 			repository: repositories.patients,
 			gateway: options.outpatientPaymentGateway ?? gateways.outpatientPayments,
+			resolvePaidRecordSnapshot:
+				createOutpatientPaidRecordSnapshotResolver(repositories),
 			// 渠道码必须来自已确认的运行配置；缺失时由服务层 fail-closed，
 			// 不能在组合根再次猜测 Provider 渠道。
 			authSysCode: options.outpatientPaymentAuthSysCode ?? "",
@@ -907,6 +1045,7 @@ export function createDefaultApplicationServices(
 		}),
 		...(adminInsuranceQuery ? { adminInsuranceQuery } : {}),
 		...(wechatRefund ? { wechatRefund } : {}),
+		...(adminPaymentRefund ? { adminPaymentRefund } : {}),
 		paymentSyncAdmin,
 		sessions,
 	};

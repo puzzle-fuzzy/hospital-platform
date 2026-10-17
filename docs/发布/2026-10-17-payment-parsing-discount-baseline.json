@@ -1,0 +1,26 @@
+{
+  "purpose": "Isolated recovery baseline for payment parsing and hospital discount presentation fixes",
+  "sourceArchive": {
+    "serverPath": "/home/ps/code/hospital-platform/ops/medical-region-return-20261016/api-source.tar.gz",
+    "sha256": "499561b4d461fa9a2b8a629c4aaa1dc3e1fd2d7fcc5bcaab334de122db5b2245",
+    "release": "medical-region-return-20261016-035243d79eb7",
+    "miniProgramVersionRecorded": "2026.10.16.1532"
+  },
+  "authoritativeRuntime": {
+    "release": "his-refund-writeback-20261016-90d096bf5bc6",
+    "apiSha256": "90d096bf5bc6aedfa42b823be509511e1e465ba09ad2fb2b62241e6faf358377",
+    "workerSha256": "088b1c289ca3f0e3e8fad55aeefe1aab175296f0b979f9365015061a22e246be",
+    "preserveReleasesAfterSourceArchive": [
+      "wechat-refund-tradeno-20261016-1c0c93b7e98f",
+      "his-refund-writeback-20261016-90d096bf5bc6"
+    ]
+  },
+  "constraints": [
+    "This source recovery is not proof that a full rebuild includes the two subsequent runtime patches.",
+    "Deploy only verified minimal changes on a byte-verified copy of the authoritative current runtime.",
+    "Preserve all unrelated runtime files, Worker, Admin, Java SDK and live environment configuration.",
+    "Use compare-and-swap baseline validation, isolated candidate checks, atomic activation and rollback.",
+    "No payment, refund or HIS settlement operation may be replayed as a deployment check.",
+    "A mini-program build or upload does not prove formal publication or device acceptance."
+  ]
+}

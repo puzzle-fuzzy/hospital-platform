@@ -125,6 +125,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/patients/sync` | Bearer + 必填幂等键 | 从 provider 刷新当前用户的患者目录；不接受 body |
 | `POST` | `/api/v2/patients/bind` | Bearer + 必填幂等键 | body 为 `{displayName,mobile,identityNumber,consent:true,legacyLoginCode?}`；当前小程序实名表单会调用该平台 API，服务端保留 fail-closed 行为，只有患者绑定 contract、旧服务身份校验和 Provider gateway 就绪后才按旧服务顺序查档、建档（必要时）、绑卡并同步脱敏目录 |
 | `GET` | `/api/v2/patients` | Bearer | 返回当前用户 owner-scoped 的脱敏患者目录 |
+| `GET` | `/api/v2/patients/{patientId}/qr` | Bearer | 服务端复核当前用户对就诊人的归属并实时查询就诊卡号，返回 `{imageDataUrl}` 的 GIF 二维码图片；响应设置 `Cache-Control: no-store` |
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
 | `GET` | `/api/v2/appointments/department-tree` | Bearer；幂等键可选 | 返回挂号页的一级/二级真实科室树 |
 | `GET` | `/api/v2/appointments/clinic-departments` | Bearer；幂等键可选 | 必填 `parentDepartmentId`；返回该受控二级科室下的三级可预约门诊 |
@@ -290,6 +291,13 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 原生“我的挂号”调用该接口时使用当前中国标准时间日前后各三个月，月底遵循旧服务日历月溢出语义，保证未来已预约记录
 不会因为只查询过去而静默消失；原生“爽约记录”调用同一接口时只使用过去 90 天，并且只筛选
 服务端明确返回的 `status=missed`。
+
+挂号列表与平台预约详情增加 `paymentStatus`、`canPay` 和 `payExpiresAt` 展示字段。
+`pending` 表示待缴费，`confirming` 表示原支付结果待确认，`expired/cancelled` 表示预约失效，
+`paid` 仅表示服务端已确认的付款事实，`unavailable` 表示当前缺少允许付款的依据。
+只有带有当前用户平台预约引用且 `canPay=true` 的待缴费记录允许继续原预约支付。
+HIS 系统取消且付款截止已过时，平台预约同步为 `expired`；该状态不会将原资金订单判成未扣款。
+`payExpiresAt` 是带显式时区的 ISO 时间点，院方无时区时间按北京时间归一化。
 
 ### 3.3.1 预约写入与医保支付命令
 
@@ -504,19 +512,22 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | 30440 | `appointment-registration-not-found` | 预约记录不存在或不属于当前用户 |
 | 409 | 30450 | `appointment-medical-payment-active` | 医保支付结果已支付或未知，不能释放预约号源，请由支付/收费流程处理 |
 | 409 | 30455 | `appointment-payment-active` | 挂号自费支付结果已支付或未知，不能释放预约号源，请由支付/收费流程处理 |
+| 409 | 30458 | `appointment-payment-unavailable` | HIS 预约已取消、付款期限已过或缺少允许缴费的事实；不能新发起付款，原资金记录和核对入口保留 |
 | 409 | 30460 | `appointment-source-unavailable` | 服务端重新读取号源时，提交的号源序号已不可用；可刷新号源后重试 |
 | 409 | 30465 | `appointment-refund-context-unavailable` | 已完成的插件自费订单缺少经核验的 `.2 out_trade_no` 或退款关联上下文；不会猜测退款目标，预约保留 |
 | 409 | 30470 | `appointment-refund-pending` | 微信退款或退款后的医院收费系统 `.15` 回写尚未确认；预约保留，稍后可重试同一取消动作 |
 | 409 | 30480 | `appointment-refund-failed` | 微信退款已明确失败；预约保留，由收费端处理 |
+| 409 | 30485 | `appointment-cancellation-rejected` | HIS 明确拒绝取消，返回经校验的真实业务原因；预约保留，取消失败不继续重复预约 |
 | 503 | 30490 | `appointment-refund-not-configured` | 自费退款或医院收费系统回写通道未配置；预约保留 |
 | 400 | 30500 | `medical-insurance-invalid` | 医保授权、费用上传或结算请求状态不合法 |
 | 404 | 30510 | `medical-insurance-appointment-not-found` | 关联预约不存在、已取消或不属于当前用户 |
 | 404 | 30520 | `medical-insurance-order-not-found` | 医保订单不存在或不属于当前用户 |
-| 409 | 30530 | `medical-insurance-appointment-stale` | 关联预约超过 15 分钟支付窗口，必须重新获取号源并预约 |
+| 409 | 30530 | `medical-insurance-appointment-stale` | 关联预约的 HIS 付款期限已过，必须重新获取号源并预约；无 HIS 截止事实的旧测试兼容固定窗口 |
 | 409 | 30540 | `medical-insurance-payment-in-progress` | 当前已有支付在进行中；新小程序只提示，支付小程序可调用专用关单重开分支 |
 | 409 | 30550 | `medical-insurance-cancellation-context-missing` | 服务端缺少安全关单所需的 Provider 上下文；不会盲目调用关单接口，需人工补录或处理 |
 | 409 | 30560 | `medical-insurance-insutype-unavailable` | 1101 没有返回可用于本次支付的有效医保险种；预约保留，可由用户确认改用普通自费支付 |
 | 503 | 30570 | `medical-insurance-timeout` | 6201/6202 返回体包含医保核心 `code=504, message=Gateway Time-out`；医保连接超时，请稍后重新挂号重试 |
+| 409 | 30580 | `medical-insurance-region-unsupported` | 当前参保地暂未开通医保支付，请选择微信支付；仅 1101 当前有效险种的参保地为 140581 可新发起医保支付 |
 | 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | 50320 | `outpatient-payment-record-not-found` | 当前用户/就诊人范围内未找到对应门诊缴费记录 |
 | 404 | 50340 | `outpatient-electronic-invoice-record-not-found` | 当前用户/就诊人范围内未找到可开具的门诊电子发票记录 |

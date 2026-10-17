@@ -13,6 +13,68 @@ import {
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
 
+test("付款权限读模型保留期限并拒绝过期预约重新启用支付", () => {
+	const pending = {
+		appointmentId: "appointment-payable-001",
+		workDate: "2026-10-13",
+		status: "scheduled",
+		paymentStatus: "pending",
+		canPay: true,
+		payExpiresAt: "2026-10-13T06:05:35.000Z",
+	} as const;
+	expect(normalizeAppointmentRecordResults([pending])).toEqual([pending]);
+	expect(() =>
+		normalizeAppointmentRecordResults([
+			{ ...pending, status: "expired", paymentStatus: "expired" },
+		]),
+	).toThrow(AppointmentRecordResultValidationError);
+	expect(
+		normalizeAppointmentRecordResults([
+			{
+				...pending,
+				status: "expired",
+				paymentStatus: "expired",
+				canPay: false,
+			},
+		])[0],
+	).toMatchObject({ status: "expired", canPay: false });
+	expect(() =>
+		normalizeAppointmentRecordResults([
+			{ ...pending, appointmentId: undefined },
+		]),
+	).toThrow(AppointmentRecordResultValidationError);
+});
+
+test("服务端院方付款关联只接受合法时间与布尔事实", () => {
+	const reference = {
+		recordIndex: 0,
+		providerAppointmentId: "provider-expiry-001",
+		needPay: true,
+		cancelledBySystem: true,
+		payExpiresAt: "2026-10-13T06:05:35.000Z",
+		providerPatientId: "must-not-leak",
+	};
+	const normalized = normalizeAppointmentRecordProviderReferences(
+		[reference],
+		1,
+	)[0];
+	expect(normalized).toMatchObject({
+		needPay: true,
+		cancelledBySystem: true,
+		payExpiresAt: reference.payExpiresAt,
+	});
+	expect(normalized).not.toHaveProperty("providerPatientId");
+	for (const invalid of [
+		{ ...reference, needPay: "1" },
+		{ ...reference, payExpiresAt: "2026-02-30T06:05:35Z" },
+		{ ...reference, cancelledBySystem: "system" },
+	]) {
+		expect(() =>
+			normalizeAppointmentRecordProviderReferences([invalid], 1),
+		).toThrow(AppointmentRecordResultValidationError);
+	}
+});
+
 test("预约目录树只投影一级、二级白名单字段并拒绝跨分组重复二级 ID", () => {
 	const groups = normalizeAppointmentDepartmentGroupResults([
 		{
@@ -255,7 +317,7 @@ test("预约排班医生照片只接受完整 http(s) URL", () => {
 		"/doctors/001.jpg",
 		"ftp://oss.example.test/001.jpg",
 		"https://oss.example.test/ 001.jpg",
-		`https://oss.example.test/${"a".repeat(512)}`,
+		`https://oss.example.test/${"a".repeat(2048)}`,
 	]) {
 		expect(() =>
 			normalizeAppointmentScheduleResults([
@@ -265,4 +327,29 @@ test("预约排班医生照片只接受完整 http(s) URL", () => {
 			new AppointmentDirectoryResultValidationError("schedule-field-invalid"),
 		);
 	}
+});
+
+test("预约排班和快照保留2048字符以内的已编码医生资源URL", () => {
+	const photo = `https://provider.example.test/proxy/forward?url=${encodeURIComponent(`https://img.example.test/${"医".repeat(150)}.jpg`)}`;
+	const schedule = { ...providerSchedule(1), doctorPhotoUrl: photo };
+	expect(photo.length).toBeGreaterThan(512);
+	expect(normalizeAppointmentScheduleResults([schedule])[0]).toMatchObject({
+		doctorPhotoUrl: photo,
+	});
+	const snapshotInput = {
+		...appointmentSnapshotInput(),
+		schedule: { ...appointmentSnapshotInput().schedule, doctorPhotoUrl: photo },
+	};
+	expect(() =>
+		validateAppointmentScheduleSnapshot(snapshotInput),
+	).not.toThrow();
+	expect(() =>
+		validateAppointmentScheduleSnapshot({
+			...snapshotInput,
+			schedule: {
+				...snapshotInput.schedule,
+				doctorPhotoUrl: `https://img.example.test/${"a".repeat(2048)}`,
+			},
+		}),
+	).toThrow(AppointmentScheduleSnapshotValidationError);
 });

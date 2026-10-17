@@ -11,7 +11,17 @@ import {
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { HttpError } from "../errors";
 import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
+import { MedicalInsuranceRegionUnsupportedError } from "../modules/medical-insurance/errors";
 import { safeErrorMetadata } from "./request-logging";
+
+test("参保地未开通的请求日志保留公共错误码且不记录异常消息", () => {
+	const error = new MedicalInsuranceRegionUnsupportedError();
+	error.message = "授权和患者资料不得进入日志";
+	expect(safeErrorMetadata(error, "UNKNOWN")).toEqual({
+		errorName: "MedicalInsuranceRegionUnsupportedError",
+		errorCode: "medical-insurance-region-unsupported",
+	});
+});
 
 test("请求日志把可重试 Provider 失败映射为稳定业务错误码", () => {
 	const error = new ProviderRequestError({

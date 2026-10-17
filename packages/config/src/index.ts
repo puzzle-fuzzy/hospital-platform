@@ -1,4 +1,5 @@
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
+export type YunhealthRegistrationRefundAuthMode = "bearer" | "signed-relay";
 
 export type RuntimeConfig = {
 	/** 生产环境默认关闭 OpenAPI，避免无意暴露内部接口描述。 */
@@ -59,12 +60,14 @@ export type RuntimeConfig = {
 	/** 官方医保 Java SDK 的构建产物目录；未配置时使用当前 release 的默认目录。 */
 	medicalInsuranceJavaSdkDirectory: string | undefined;
 	medicalInsuranceEncryptionEnabled: boolean;
-	/** 当前医保测试环境暂按兼容模式运行；拿到严格回包验签证据后再显式打开。 */
+	/** 当前按所有者要求保持非严格兼容模式；正式回包验签结果另行验证。 */
 	medicalInsuranceVerifyStrict: boolean;
 	/** 仅用于医保 payToken 短期上下文密文，必须与微信支付密钥分离。 */
 	medicalInsuranceCredentialEncryptionKey: string | undefined;
 	medicalInsuranceUserQueryBaseUrl: string;
 	medicalInsuranceUserQueryPath: string;
+	/** 腾讯 userQuery 签名密钥；独立于省医保 FSI 渠道密钥，不得回退或下发客户端。 */
+	medicalInsuranceUserQueryPartnerSecret: string | undefined;
 	medicalInsuranceOrgCode: string;
 	medicalInsuranceHospitalId: string;
 	/** 允许用于医保支付的险种，按优先级排列；MBS_INSUTYPE 支持逗号分隔。 */
@@ -120,6 +123,8 @@ export type RuntimeConfig = {
 	legacyPatientAuthBaseUrl: string | undefined;
 	/** 本项目管理的本地 AI Runtime 闸门；可由受控 Python 进程承担模型推理。 */
 	aiRuntimeReady: boolean;
+	/** 语音识别独立验收闸门；开启文字模型不会自动开启语音。 */
+	aiRuntimeSpeechReady: boolean;
 	aiRuntimeUrl: string | undefined;
 	aiRuntimeToken: string | undefined;
 	aiRuntimeTimeoutMs: number;
@@ -145,6 +150,10 @@ export type RuntimeConfig = {
 	yunhealthBaseUrl: string | undefined;
 	/** 云健康服务端授权；只留在 API/worker 内存中。 */
 	yunhealthAuthorizationToken: string | undefined;
+	/** 只控制挂号退费 .15 的鉴权；非法显式模式保持不可用，不降级。 */
+	yunhealthRegistrationRefundAuthMode:
+		| YunhealthRegistrationRefundAuthMode
+		| undefined;
 	yunhealthPaymentOrgId: string | undefined;
 	yunhealthRegistrationPluginPayTypeId: string | undefined;
 	yunhealthRegistrationPluginPayType: string | undefined;
@@ -413,6 +422,10 @@ export function medicalInsuranceConfigurationMissingFields(
 		{ name: "MBS_APP_ID", value: runtimeConfig.medicalInsuranceAppId },
 		{ name: "MBS_APP_SECRET", value: runtimeConfig.medicalInsuranceAppSecret },
 		{
+			name: "MBS_USER_QUERY_PARTNER_SECRET",
+			value: runtimeConfig.medicalInsuranceUserQueryPartnerSecret,
+		},
+		{
 			name: "MBS_SM2_PRIVATE_KEY_B64",
 			value: runtimeConfig.medicalInsuranceSm2PrivateKeyB64,
 		},
@@ -555,6 +568,38 @@ export function yunhealthRegistrationSettlementConfigurationStatus(
 	).length === 0
 		? "configured"
 		: "incomplete";
+}
+
+/** 仅允许已经核实的签名中转根地址；不接受端口、路径、用户信息或重定向别名。 */
+export function isYunhealthRegistrationRefundSignedRelayBaseUrl(
+	value: string | undefined,
+): boolean {
+	return (
+		typeof value === "string" &&
+		/^https:\/\/gpsrmyy\.meiyi\.pro\/?$/.test(value)
+	);
+}
+
+export function yunhealthRegistrationRefundAuthorizationStatus(
+	runtimeConfig: Pick<
+		RuntimeConfig,
+		| "yunhealthRegistrationRefundAuthMode"
+		| "yunhealthBaseUrl"
+		| "yunhealthAuthorizationToken"
+	>,
+): "configured" | "missing_authorization" | "unsupported" {
+	if (runtimeConfig.yunhealthRegistrationRefundAuthMode === "signed-relay") {
+		return isYunhealthRegistrationRefundSignedRelayBaseUrl(
+			runtimeConfig.yunhealthBaseUrl,
+		)
+			? "configured"
+			: "unsupported";
+	}
+	if (runtimeConfig.yunhealthRegistrationRefundAuthMode !== "bearer")
+		return "unsupported";
+	return runtimeConfig.yunhealthAuthorizationToken?.trim()
+		? "configured"
+		: "missing_authorization";
 }
 
 /**
@@ -1230,19 +1275,21 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			optional(env.MBS_SM2_USER_ID) ?? "1234567812345678",
 		medicalInsuranceJavaSdkDirectory: optional(env.MBS_JAVA_SDK_DIR),
 		medicalInsuranceEncryptionEnabled: boolean(env.MBS_ENCRYPT_ENABLE, true),
-		// 当前测试环境回包业务成功但签名不通过，先按非严格模式兼容；
-		// 取得平台回包验签证据后，由部署环境显式设为 true。
+		// 当前按所有者要求保持非严格兼容模式；正式回包验签结果另行验证。
 		medicalInsuranceVerifyStrict: boolean(env.MBS_SM2_VERIFY_STRICT, false),
 		medicalInsuranceCredentialEncryptionKey: optional(
 			env.MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY,
 		),
 		medicalInsuranceUserQueryBaseUrl: providerBaseUrl(
 			env.MBS_USER_QUERY_BASE_URL,
-			"https://test-receiver.wecity.qq.com",
+			"https://receiver.wecity.qq.com",
 		),
 		medicalInsuranceUserQueryPath:
 			optional(env.MBS_USER_QUERY_PATH) ??
 			"/api/mipuserquery/userQuery/50010828",
+		medicalInsuranceUserQueryPartnerSecret: optional(
+			env.MBS_USER_QUERY_PARTNER_SECRET,
+		),
 		medicalInsuranceOrgCode:
 			optional(env.MBS_INSURANCE_ORG_CODE) ?? "H14058101270",
 		medicalInsuranceHospitalId: optional(env.MBS_HOSPITAL_ID) ?? "10389001",
@@ -1324,6 +1371,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		legacyPatientAuthBaseUrl: optional(env.LEGACY_PATIENT_AUTH_BASE_URL),
 		aiRuntimeReady: boolean(env.AI_RUNTIME_READY, false),
+		aiRuntimeSpeechReady: boolean(env.AI_RUNTIME_SPEECH_READY, false),
 		aiRuntimeUrl: optional(env.AI_RUNTIME_URL),
 		aiRuntimeToken: optional(env.AI_RUNTIME_TOKEN),
 		aiRuntimeTimeoutMs: positiveAiRuntimeTimeout(env.AI_RUNTIME_TIMEOUT_MS),
@@ -1353,6 +1401,14 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 				env.ZHONGYANG_AUTHORIZATION_TOKEN ??
 					env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,
 			),
+		yunhealthRegistrationRefundAuthMode: (() => {
+			const mode = optional(env.YUNHEALTH_REGISTRATION_REFUND_AUTH_MODE);
+			return mode === undefined || mode === "bearer"
+				? "bearer"
+				: mode === "signed-relay"
+					? "signed-relay"
+					: undefined;
+		})(),
 		yunhealthPaymentOrgId: optional(env.YUNHEALTH_PAYMENT_ORG_ID),
 		yunhealthRegistrationPluginPayTypeId: optional(
 			env.YUNHEALTH_PLUGIN_PAY_TYPE_ID,

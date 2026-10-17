@@ -91,3 +91,35 @@ test("medical insurance credential context rejects idempotency drift", async () 
 		repository.put({ ...context, payToken: "different-token" }),
 	).rejects.toThrow("idempotency payload changed");
 });
+
+test("退费查证仅恢复精确绑定且未撤销的 query 凭证，不放宽普通有效期", async () => {
+	const repository = createInMemoryMedicalInsuranceCredentialRepository(key);
+	if (!repository.getForRefund)
+		throw new Error("Refund-bound query lookup missing");
+	await repository.put(context);
+	const bound = {
+		ownerUserId: context.ownerUserId,
+		medicalOrderId: context.medicalOrderId,
+		payOrdId: context.payOrdId,
+		purpose: "query" as const,
+	};
+	await expect(repository.getForRefund(bound)).resolves.toMatchObject(context);
+	await expect(
+		repository.getActiveForOrder({ ...bound, now: "2026-10-15T00:00:00.000Z" }),
+	).resolves.toBeUndefined();
+	for (const changed of [
+		{ ownerUserId: "other-owner" },
+		{ medicalOrderId: "other-order" },
+		{ payOrdId: "other-pay" },
+		{ purpose: "settlement" as never },
+	])
+		await expect(
+			repository.getForRefund({ ...bound, ...changed }),
+		).resolves.toBeUndefined();
+	await repository.revoke({
+		...bound,
+		credentialId: context.credentialId,
+		now: "2026-10-15T00:00:00.000Z",
+	});
+	await expect(repository.getForRefund(bound)).resolves.toBeUndefined();
+});

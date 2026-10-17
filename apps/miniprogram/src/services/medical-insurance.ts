@@ -129,9 +129,81 @@ type WechatSelfPayParams = NonNullable<
 	RegistrationSelfPayResponse["data"]["payParams"]
 >;
 
-type MedicalAuthorizationContext =
+export type MedicalInsurancePaymentEligibility =
+	| "unknown"
+	| "supported"
+	| "unsupported";
+
+export const MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE =
+	"当前参保地暂未开通医保支付，请选择微信支付";
+
+type MedicalAuthorizationContext = (
 	| { payForRelatives: false }
-	| { payForRelatives: true; familyId: string };
+	| { payForRelatives: true; familyId: string }
+) & { medicalInsurancePaymentEligibility: MedicalInsurancePaymentEligibility };
+
+export function isMedicalInsuranceRegionUnsupported(error: unknown): boolean {
+	if (!isRecord(error)) return false;
+	// 小程序编译及跨 bundle 传递可能丢失 Error 原型；只识别稳定公共码，
+	// 数字码回退仍要求 ApiError 形态，不能从提示文本或任意对象猜测资格。
+	return (
+		error.code === "medical-insurance-region-unsupported" ||
+		(error.name === "ApiError" && error.numericCode === 30580)
+	);
+}
+
+/** 入口资格只接受服务端针对当前就诊人的判断，不使用定位或客户端区划缓存。 */
+function readMedicalAuthorizationContext(
+	value: unknown,
+): MedicalAuthorizationContext {
+	if (!isRecord(value) || typeof value.payForRelatives !== "boolean") {
+		throw new ApiError("医保亲情付授权上下文不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	const eligibility =
+		value.medicalInsurancePaymentEligibility === undefined
+			? "unknown"
+			: value.medicalInsurancePaymentEligibility;
+	if (
+		eligibility !== "unknown" &&
+		eligibility !== "supported" &&
+		eligibility !== "unsupported"
+	) {
+		throw new ApiError("医保支付资格响应不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	if (!value.payForRelatives) {
+		return {
+			payForRelatives: false,
+			medicalInsurancePaymentEligibility: eligibility,
+		};
+	}
+	if (
+		typeof value.familyId !== "string" ||
+		!/^[a-f0-9]{32}$/u.test(value.familyId)
+	) {
+		throw new ApiError("医保亲情付授权标识不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	return {
+		payForRelatives: true,
+		familyId: value.familyId,
+		medicalInsurancePaymentEligibility: eligibility,
+	};
+}
+
+function assertMedicalInsuranceRegionSupported(
+	context: MedicalAuthorizationContext,
+): void {
+	if (context.medicalInsurancePaymentEligibility === "unsupported") {
+		throw new ApiError(MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE, {
+			code: "medical-insurance-region-unsupported",
+		});
+	}
+}
 
 type MedicalWechatPayment = {
 	orderId: string;
@@ -529,7 +601,7 @@ export function assertMedicalConfig(): void {
 	}
 }
 
-async function medicalAuthorizationContext(
+export async function medicalAuthorizationContext(
 	appointmentId: string,
 ): Promise<MedicalAuthorizationContext> {
 	const response = requireSuccessDataResponse<unknown>(
@@ -538,24 +610,10 @@ async function medicalAuthorizationContext(
 			idempotencyKey: createIdempotencyKey("medical-authorization-context"),
 		}),
 	).data;
-	if (!isRecord(response) || typeof response.payForRelatives !== "boolean") {
-		throw new ApiError("医保亲情付授权上下文不可用", {
-			code: "provider-response-invalid",
-		});
-	}
-	if (!response.payForRelatives) return { payForRelatives: false };
-	if (
-		typeof response.familyId !== "string" ||
-		!/^[a-f0-9]{32}$/u.test(response.familyId)
-	) {
-		throw new ApiError("医保亲情付授权标识不可用", {
-			code: "provider-response-invalid",
-		});
-	}
-	return { payForRelatives: true, familyId: response.familyId };
+	return readMedicalAuthorizationContext(response);
 }
 
-async function outpatientMedicalAuthorizationContext(
+export async function outpatientMedicalAuthorizationContext(
 	recordId: string,
 	patientId: string,
 ): Promise<MedicalAuthorizationContext> {
@@ -567,21 +625,7 @@ async function outpatientMedicalAuthorizationContext(
 			),
 		}),
 	).data;
-	if (!isRecord(response) || typeof response.payForRelatives !== "boolean") {
-		throw new ApiError("医保亲情付授权上下文不可用", {
-			code: "provider-response-invalid",
-		});
-	}
-	if (!response.payForRelatives) return { payForRelatives: false };
-	if (
-		typeof response.familyId !== "string" ||
-		!/^[a-f0-9]{32}$/u.test(response.familyId)
-	) {
-		throw new ApiError("医保亲情付授权标识不可用", {
-			code: "provider-response-invalid",
-		});
-	}
-	return { payForRelatives: true, familyId: response.familyId };
+	return readMedicalAuthorizationContext(response);
 }
 
 export async function navigateToMedicalAuth(
@@ -595,6 +639,7 @@ export async function navigateToMedicalAuth(
 		patientId,
 	};
 	const authorizationContext = await medicalAuthorizationContext(appointmentId);
+	assertMedicalInsuranceRegionSupported(authorizationContext);
 	const path =
 		`auth/pages/bindcard/auth/index?openType=getAuthCode` +
 		`&cityCode=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalCityCode)}` +
@@ -644,6 +689,7 @@ export async function navigateToOutpatientMedicalAuth(
 		recordId,
 		patientId,
 	);
+	assertMedicalInsuranceRegionSupported(authorizationContext);
 	const path =
 		`auth/pages/bindcard/auth/index?openType=getAuthCode` +
 		`&cityCode=${encodeURIComponent(MEDICAL_INSURANCE_CONFIG.medicalCityCode)}` +
@@ -1246,8 +1292,9 @@ export async function continueMedicalPayment(
 			code: "medical-insurance-invalid",
 		});
 	const outpatient = pending.businessType === "outpatient";
-	const authorize = requireSuccessDataResponse<unknown>(
-		await requestWithSession<unknown>({
+	let authorize: unknown;
+	try {
+		const authorizationResponse = await requestWithSession<unknown>({
 			url: outpatient
 				? "/payments/medical-insurance/outpatient/authorize"
 				: "/payments/medical-insurance/authorize",
@@ -1260,8 +1307,38 @@ export async function continueMedicalPayment(
 					}
 				: { appointmentId: pending.appointmentId, authCode },
 			idempotencyKey: pending.authorizeIdempotencyKey,
-		}),
-	).data;
+		});
+		authorize = requireSuccessDataResponse<unknown>(authorizationResponse).data;
+	} catch (error) {
+		if (
+			isMedicalInsuranceRegionUnsupported(error) ||
+			pending.phase !== "authorization" ||
+			pending.orderId
+		) {
+			throw error;
+		}
+		// 仅新授权、费用上传前复核当次业务的服务端资格。已有订单和后续
+		// 支付异常不能因参保地提示而引导改付，避免尚未确认的订单重复扣款。
+		let authorizationContext: MedicalAuthorizationContext;
+		try {
+			authorizationContext = outpatient
+				? await outpatientMedicalAuthorizationContext(
+						pending.recordId ?? pending.appointmentId,
+						pending.patientId,
+					)
+				: await medicalAuthorizationContext(pending.appointmentId);
+		} catch {
+			throw error;
+		}
+		if (
+			authorizationContext.medicalInsurancePaymentEligibility === "unsupported"
+		) {
+			throw new ApiError(MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE, {
+				code: "medical-insurance-region-unsupported",
+			});
+		}
+		throw error;
+	}
 	if (
 		!isRecord(authorize) ||
 		!isOpaque(authorize.orderId) ||

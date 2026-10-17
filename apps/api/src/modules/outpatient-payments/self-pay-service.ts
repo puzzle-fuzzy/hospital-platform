@@ -6,6 +6,7 @@ import {
 	type HospitalSettlementGateway,
 	isBoundedOpaqueIdentifier,
 	normalizeAdapterCallContext,
+	normalizeOutpatientPaymentRecords,
 	type OutpatientPaymentGateway,
 	type PatientRepository,
 	type PaymentOrder,
@@ -249,6 +250,22 @@ export class OutpatientSelfPayService {
 			},
 			context,
 		);
+		if (resolvedContext.record !== undefined) {
+			const snapshot = normalizeOutpatientPaymentRecords(
+				[resolvedContext.record],
+				"unpaid",
+			)[0];
+			if (
+				!snapshot ||
+				snapshot.recordId !== recordId ||
+				snapshot.amountFen !== resolvedContext.totalFen
+			) {
+				throw new PaymentOrderInputError(
+					"Outpatient payment snapshot does not match provider context",
+				);
+			}
+			resolvedContext.record = snapshot;
+		}
 		return { reference, directoryReference, providerContext: resolvedContext };
 	}
 
@@ -290,12 +307,18 @@ export class OutpatientSelfPayService {
 				idempotencyKey: `outpatient-self-pay-provider-prepare:${order.orderId}`,
 			},
 		);
+		const registrationContext = {
+			...prepared.registrationContext,
+			...(provider.providerContext.record
+				? { outpatientPaymentRecord: provider.providerContext.record }
+				: {}),
+		};
 		await this.dependencies.saveContext(
 			ownerUserId,
 			order.orderId,
-			prepared.registrationContext,
+			registrationContext,
 		);
-		return prepared.registrationContext;
+		return registrationContext;
 	}
 
 	async create(input: {

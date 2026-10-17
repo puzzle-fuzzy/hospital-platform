@@ -35,6 +35,7 @@ test("runtime preflight fails closed without configuration and does not need inf
 			"zhongyang-appointment-records:disabled",
 			"zhongyang-appointment-writes:disabled",
 			"zhongyang-outpatient-payments:disabled",
+			"zhongyang-outpatient-electronic-invoices:disabled",
 			"zhongyang-medical-records:disabled",
 			"zhongyang-inpatient-episodes:disabled",
 			"zhongyang-report-directory:disabled",
@@ -54,6 +55,42 @@ test("preflight allows the payment gate to remain disabled", () => {
 	});
 
 	expect(preflightConfigurationMissingFields(runtimeConfig)).toEqual([]);
+});
+
+test("preflight reports missing userQuery partnerSecret without contacting infrastructure or providers", async () => {
+	const result = await runWorkerPreflight({
+		runtimeConfig: loadRuntimeConfig({
+			MEDICAL_INSURANCE_READY: "true",
+			MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY: "fixture-encryption-key",
+			MBS_FORWARD_RELAY_URL: "https://relay.example.test/forward",
+			MBS_FORWARD_BASE_URL_6201: "http://fsi.internal",
+			MBS_FORWARD_BASE_URL: "http://foundation.internal",
+			MBS_FORWARD_AUTHORIZATION_TOKEN: "fixture-relay-token",
+			MBS_APP_ID: "fixture-medical-app",
+			MBS_APP_SECRET: "fixture-fsi-channel-secret",
+			MBS_SM2_PRIVATE_KEY_B64: "fixture-private-key",
+			MBS_SM2_OWN_PUBLIC_B64: "fixture-own-public-key",
+			MBS_SM2_PLATFORM_PUBLIC_B64: "fixture-platform-public-key",
+			ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+		}),
+	});
+	const providerCheck = result.checks.find(
+		(check) => check.name === "provider-configuration",
+	);
+	expect(result.passed).toBeFalse();
+	expect(providerCheck?.status).toBe("failed");
+	expect(providerCheck?.details).toContain("medical-insurance:incomplete");
+	expect(
+		providerCheck?.details?.filter((detail) =>
+			detail.startsWith("medical-insurance:missing="),
+		),
+	).toEqual(["medical-insurance:missing=MBS_USER_QUERY_PARTNER_SECRET"]);
+	expect(JSON.stringify(result)).not.toContain("fixture-fsi-channel-secret");
+	expect(result.checks).toContainEqual({
+		name: "persistence-schema",
+		status: "skipped",
+		details: ["mysql-not-ready"],
+	});
 });
 
 test("preflight requires payment storage only after the payment gate opens", () => {
@@ -92,6 +129,7 @@ test("runtime preflight fails an explicitly opened but incomplete provider gate"
 			"zhongyang-appointment-records:disabled",
 			"zhongyang-appointment-writes:disabled",
 			"zhongyang-outpatient-payments:disabled",
+			"zhongyang-outpatient-electronic-invoices:disabled",
 			"zhongyang-medical-records:disabled",
 			"zhongyang-inpatient-episodes:disabled",
 			"zhongyang-report-directory:incomplete",

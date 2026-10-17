@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ProviderRequestError } from "./errors";
 import {
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
@@ -203,6 +204,135 @@ test("预约取消只向 Provider 发送服务端映射后的标识并返回关�
 			requestId: "cancel-request-001",
 		},
 	});
+});
+
+test("HIS 临近就诊的 HTTP 200 业务拒绝保留真实原因且不视为取消成功", async () => {
+	let calls = 0;
+	const message = "临近就诊时间，不能取消预约，请去门诊窗口处理";
+	const gateway = createZhongyangAppointmentWriteGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			calls += 1;
+			return jsonResponse(
+				{
+					success: false,
+					code: "smcAppointment@2001",
+					message,
+					businessException: true,
+				},
+				"cancel-rejected-001",
+			);
+		},
+	});
+
+	await expect(
+		gateway.cancel(
+			{ providerPatientId: "101", providerAppointmentId: "202" },
+			context,
+		),
+	).rejects.toMatchObject({
+		provider: "zhongyang",
+		operation: "appointment-cancellation",
+		requestId: "cancel-rejected-001",
+		reason: "appointment-cancellation-rejected",
+		providerErrorCode: "smcAppointment@2001",
+		providerErrorMessage: message,
+		requestOutcome: "rejected",
+		responseInvalid: false,
+		retryable: false,
+		failureStage: "response",
+	});
+	expect(calls).toBe(1);
+});
+
+test("其它安全取消业务原因也可展示，内部错误码不越过诊断边界", async () => {
+	const gateway = createZhongyangAppointmentWriteGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			jsonResponse(
+				{
+					success: false,
+					code: "<unsafe-provider-code>",
+					message: "  预约已取号，请到门诊窗口办理取消  ",
+				},
+				"cancel-rejected-002",
+			),
+	});
+	await expect(
+		gateway.cancel(
+			{ providerPatientId: "101", providerAppointmentId: "202" },
+			context,
+		),
+	).rejects.toMatchObject({
+		reason: "appointment-cancellation-rejected",
+		providerErrorCode: undefined,
+		providerErrorMessage: "预约已取号，请到门诊窗口办理取消",
+		responseInvalid: false,
+	});
+});
+
+test("取消拒绝含患者信息、HTML 或内部字段时保持通用 Provider 错误", async () => {
+	for (const message of [
+		"不能取消预约，手机号13800000000",
+		"取消预约失败<script>alert(1)</script>",
+		"取消预约失败 SQLSTATE 42S02",
+		"取消预约失败 patId=123",
+		"取消预约失败：Connection refused 10.0.0.1:5432",
+		"取消预约失败：数据库连接错误",
+		"取消预约失败，ECONNREFUSED",
+	]) {
+		const gateway = createZhongyangAppointmentWriteGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				jsonResponse(
+					{ success: false, code: "smcAppointment@2001", message },
+					"cancel-unsafe-001",
+				),
+		});
+		await expect(
+			gateway.cancel(
+				{ providerPatientId: "101", providerAppointmentId: "202" },
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			reason: undefined,
+			providerErrorMessage: undefined,
+			providerErrorCode: undefined,
+			responseInvalid: false,
+			retryable: false,
+		});
+	}
+});
+
+test("取消专用业务原因不用于实际费用读取等其它 Provider 操作", async () => {
+	const gateway = createZhongyangAppointmentWriteGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			jsonResponse(
+				{
+					success: false,
+					code: "smcAppointment@2001",
+					message: "临近就诊时间，不能取消预约，请去门诊窗口处理",
+				},
+				"fee-rejected-001",
+			),
+	});
+	try {
+		await gateway.getFactRegisterFee(
+			{ providerScheduleId: "101", providerPatientId: "202" },
+			context,
+		);
+		throw new Error("A rejected response must not return a fee");
+	} catch (error) {
+		expect(error).toBeInstanceOf(ProviderRequestError);
+		expect(error).toMatchObject({
+			operation: "appointment-fact-register-fee",
+			reason: undefined,
+			providerErrorMessage: undefined,
+			responseInvalid: false,
+		});
+	}
 });
 
 test("预约实际费用读取沿用旧确认页的渠道 4", async () => {

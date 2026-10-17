@@ -20,6 +20,7 @@ import type { DependencyState } from "@hospital/contracts";
 import {
 	buildPaymentOrderOperationsProjection,
 	type HospitalSettlementGateway,
+	MedicalInsuranceRefundNotificationCoordinator,
 	type PaymentOrder,
 	PaymentOrderService,
 	PaymentSyncCoordinator,
@@ -66,6 +67,10 @@ export type WorkerRuntime = {
 		reconciliation: PaymentReconciliationWorkerResult;
 		medicalInsuranceReconciliation?: MedicalInsuranceOrderReconciliationWorkerResult;
 		medicalInsuranceRefundReconciliation?: MedicalInsuranceRefundReconciliationWorkerResult;
+		medicalInsuranceRefundNotification?:
+			| "idle"
+			| "succeeded"
+			| "retry_scheduled";
 	}>;
 	close(): Promise<void>;
 };
@@ -82,7 +87,7 @@ const REGISTRATION_MEDICAL_PLUGIN_ORDER_PREFIX =
 /**
  * worker 与 API 使用同一条 owner + appointment 关联规则读取医保结算上下文。
  * 三个 Provider 关联键只从加密仓储解封后的事实中投影，绝不从平台订单号补造；
- * 仅 .29 的 platformOrderId 会从已归属的根 medicalOrderId 显式投影。
+ * platformOrderId 仅保留为历史兼容的本地元数据，不再作为 .29 请求参数。
  */
 function resolveRegistrationSelfPayContext(
 	repositories: NonNullable<PersistenceRuntime["repositories"]>,
@@ -658,6 +663,8 @@ export function createWorkerRuntime(
 						: {}),
 					userQueryBaseUrl: runtimeConfig.medicalInsuranceUserQueryBaseUrl,
 					userQueryPath: runtimeConfig.medicalInsuranceUserQueryPath,
+					userQueryPartnerSecret:
+						runtimeConfig.medicalInsuranceUserQueryPartnerSecret ?? "",
 					orgCode: runtimeConfig.medicalInsuranceOrgCode,
 					hospitalId: runtimeConfig.medicalInsuranceHospitalId,
 					insutypes: runtimeConfig.medicalInsuranceInsutypes,
@@ -674,6 +681,24 @@ export function createWorkerRuntime(
 				wechatRefunds: repositories.wechatRefunds,
 				wechatRefund: wechatPayment,
 				logger,
+			})
+		: undefined;
+	const medicalInsuranceRefundNotification = wechatPayment
+		? new MedicalInsuranceRefundNotificationCoordinator({
+				tasks: repositories.paymentSync,
+				refunds: repositories.medicalInsuranceRefunds,
+				orders: repositories.medicalInsuranceOrders,
+				wechatRefunds: repositories.wechatRefunds,
+				gateway: wechatPayment,
+				resolveAggregateId: async (order) => {
+					const aggregate =
+						await repositories.paymentOperations.findAggregateByBusinessKey(
+							`medical_insurance:${order.medicalOrderId}`,
+						);
+					if (!aggregate)
+						throw new Error("medical-refund-notify-aggregate-missing");
+					return aggregate.aggregateId;
+				},
 			})
 		: undefined;
 	const medicalInsuranceReconciliation = medicalInsuranceGateway
@@ -757,6 +782,12 @@ export function createWorkerRuntime(
 				reconciliation: reconciliation
 					? await reconciliation.runOnce(now)
 					: ("idle" as const),
+				...(medicalInsuranceRefundNotification
+					? {
+							medicalInsuranceRefundNotification:
+								await medicalInsuranceRefundNotification.runOnce(),
+						}
+					: {}),
 				...(medicalInsuranceRefundReconciliation
 					? {
 							medicalInsuranceRefundReconciliation:

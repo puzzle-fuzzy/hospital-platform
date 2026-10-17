@@ -47,32 +47,32 @@
 					data-doctor-id="{{doctor.doctorId}}"
 				>
 					<view class="doctor-card-main">
-						<image
-							wx:if="{{doctor.doctorPhotoUrl}}"
-							class="doctor-avatar doctor-avatar-photo"
+						<doctor-avatar
+							class="doctor-avatar"
 							src="{{doctor.doctorPhotoUrl}}"
-							mode="aspectFill"
-							lazy-load="{{true}}"
-							aria-label="医生照片"
+							label="{{doctor.doctorName}}的头像"
 						/>
-						<view wx:else class="doctor-avatar" aria-label="医生">{{doctor.avatarLabel}}</view>
 						<view class="doctor-card-copy">
-							<view class="doctor-card-name-row">
-								<text class="doctor-card-name">{{doctor.doctorName}}</text>
-								<text wx:if="{{doctor.titleName}}" class="doctor-card-title">{{doctor.titleName}}</text>
+							<view class="doctor-card-heading">
+								<view class="doctor-card-name-row">
+									<text class="doctor-card-name">{{doctor.doctorName}}</text>
+									<text wx:if="{{doctor.titleName}}" class="doctor-card-title">{{doctor.titleName}}</text>
+								</view>
 								<text
 									class="doctor-availability {{doctor.availabilityStatus === 'open' && doctor.availableSlots > 0 ? 'doctor-availability-open' : 'doctor-availability-full'}}"
 								>{{doctor.availabilityStatus === 'open' && doctor.availableSlots > 0 ? '有号' : doctor.availabilityStatus === 'stopped' ? '停诊' : doctor.availabilityStatus === 'unknown' ? '待确认' : '已约满'}}</text>
 							</view>
 							<text wx:if="{{doctor.description}}" class="doctor-card-description">{{doctor.description}}</text>
-							<text class="doctor-card-meta">共 {{doctor.scheduleCount}} 个出诊时段</text>
-							<text class="doctor-card-hint">{{doctor.availabilityStatus === 'unknown' ? '当前观测余' : '当前可预约余'}} {{doctor.availableSlots}} 个号</text>
+							<text class="doctor-card-action">查看医生简介与排班 <text aria-hidden="true">›</text></text>
 						</view>
 					</view>
 
 					<view class="doctor-card-divider"></view>
 					<view class="doctor-date-section">
-						<text class="doctor-date-label">出诊日期</text>
+						<view class="doctor-date-heading">
+							<text class="doctor-date-label">出诊日期</text>
+							<text class="doctor-date-summary">共 {{doctor.scheduleCount}} 个出诊时段</text>
+						</view>
 						<view class="doctor-date-list">
 							<block
 								wx:for="{{doctor.dates}}"
@@ -88,15 +88,10 @@
 									data-date="{{date.workDate}}"
 								>
 									<text>{{date.label}}</text>
-									<text class="doctor-date-slots">余 {{date.availableSlots}} 号</text>
 								</view>
 							</block>
 							<text wx:if="{{doctor.dates.length > 3}}" class="doctor-more-dates">...</text>
 						</view>
-					</view>
-					<view class="doctor-card-footer">
-						<text>点击医生或出诊日期查看该医生号源</text>
-						<text class="doctor-card-action">看号源</text>
 					</view>
 				</view>
 			</view>
@@ -158,21 +153,20 @@
 					bindtap="onScheduleTap"
 					data-schedule-id="{{item.scheduleId}}"
 				>
-					<image
-						wx:if="{{item.doctorPhotoUrl}}"
-						class="schedule-avatar schedule-avatar-photo"
+					<doctor-avatar
+						class="schedule-avatar"
 						src="{{item.doctorPhotoUrl}}"
-						mode="aspectFill"
-						lazy-load="{{true}}"
-						aria-label="医生照片"
+						label="{{item.doctorName}}的头像"
 					/>
-					<view wx:else class="schedule-avatar" aria-label="医生">医</view>
 					<view class="schedule-item-copy">
 						<view class="schedule-doctor-line">
 							<text class="schedule-doctor">{{item.doctorName}}</text>
-							<text class="schedule-shift">{{item.shiftName}}</text>
+							<text wx:if="{{item.titleName}}" class="schedule-doctor-title">{{item.titleName}}</text>
 						</view>
-						<text wx:if="{{item.registrationClassName}}" class="schedule-registration-class">{{item.registrationClassName}}</text>
+						<view class="schedule-info-line">
+							<text class="schedule-shift">{{item.shiftName}}</text>
+							<text wx:if="{{item.registrationClassName}}" class="schedule-registration-class">{{item.registrationClassName}}</text>
+						</view>
 						<text class="schedule-date">{{item.workDate}}</text>
 						<text wx:if="{{item.hospitalAreaName}}" class="schedule-time">{{item.hospitalAreaName}}</text>
 						<text wx:if="{{item.startTime}}" class="schedule-time">
@@ -181,7 +175,7 @@
 						<text wx:else class="schedule-time">具体时段以医院排班为准</text>
 					</view>
 					<view class="schedule-item-action">
-						<text class="schedule-slots {{item.availabilityStatus === 'open' && item.availableSlots > 0 ? 'schedule-slots-available' : 'schedule-slots-empty'}}">{{item.availabilityStatus === 'stopped' ? '停诊' : item.availabilityStatus === 'unknown' ? '状态待确认' : '剩 ' + item.availableSlots + ' 个'}}</text>
+						<text class="schedule-slots {{item.availabilityStatus === 'open' && item.availableSlots > 0 ? 'schedule-slots-available' : 'schedule-slots-empty'}}">{{item.availabilityStatus === 'stopped' ? '停诊' : item.availabilityStatus === 'unknown' ? '状态待确认' : '余 ' + item.availableSlots + ' 号'}}</text>
 						<view class="schedule-reserve {{item.availabilityStatus === 'open' && item.availableSlots > 0 ? 'schedule-reserve-active' : 'schedule-reserve-full'}}">{{item.availabilityStatus === 'open' && item.availableSlots > 0 ? '挂号' : item.availabilityStatus === 'stopped' ? '停诊' : item.availabilityStatus === 'unknown' ? '待确认' : '已约满'}}</view>
 					</view>
 				</view>
