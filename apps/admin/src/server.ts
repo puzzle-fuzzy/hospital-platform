@@ -12,6 +12,7 @@ import {
 	publicPaymentDay,
 } from "./payment-day";
 import { formatJournalTimestamp, readRawLogTrace } from "./raw-logs";
+import { createAdminRegistrationProxy } from "./registration-proxy";
 import type { RawLogEntry } from "./types";
 
 type JsonObject = Record<string, unknown>;
@@ -1115,6 +1116,15 @@ async function staticResponse(pathname: string): Promise<Response> {
 	});
 }
 
+const registrationRequest = createAdminRegistrationProxy({
+	authorize: bearer,
+	readBody: requestJson,
+	upstream: adminRefundsUpstream,
+	token: adminRefundsToken,
+	forward: upstreamRequest,
+	error: errorResponse,
+});
+
 const server = Bun.serve({
 	hostname: host,
 	port,
@@ -1142,6 +1152,21 @@ const server = Bun.serve({
 			}
 			if (url.pathname === "/api/auth/logout" && request.method === "POST") {
 				return await logoutRequest(request);
+			}
+			const registrationMatch = url.pathname.match(
+				/^\/api\/registrations\/([^/]+)\/([^/]+)(\/cancel)?$/u,
+			);
+			if (
+				registrationMatch &&
+				((!registrationMatch[3] && request.method === "GET") ||
+					(registrationMatch[3] && request.method === "POST"))
+			) {
+				return await registrationRequest(
+					request,
+					registrationMatch[1] || "",
+					registrationMatch[2] || "",
+					Boolean(registrationMatch[3]),
+				);
 			}
 			const paymentInterfaceMatch = url.pathname.match(
 				/^\/api\/payments\/day\/(\d{4}-\d{2}-\d{2})\/(payment-[a-f0-9]{24})\/interfaces\/([1-9][0-9]*)$/u,

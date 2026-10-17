@@ -105,6 +105,7 @@ import type {
 	ResultSetHeader,
 	RowDataPacket,
 } from "mysql2/promise";
+import { withMySqlAppointmentCancellationLock } from "./appointment-cancellation-lock";
 import {
 	isTransientPersistenceError,
 	PersistenceNotConfiguredError,
@@ -2031,6 +2032,8 @@ const PAYMENT_RECONCILIATION_RESOLUTIONS = [
 ] as const;
 const PAYMENT_OPERATOR_AUDIT_ACTIONS = [
 	"payment_detail_read",
+	"registration_status_read",
+	"registration_cancel",
 	"refund_request",
 	"refund_query",
 	"sync_retry",
@@ -6267,6 +6270,18 @@ export function createMySqlRepositories(
 	};
 
 	const appointmentWrites: AppointmentWriteRepository = {
+		async withCancellationLock<T>(
+			ownerUserId: string,
+			appointmentId: string,
+			operation: () => Promise<T>,
+		) {
+			return withMySqlAppointmentCancellationLock(
+				pool,
+				ownerUserId,
+				appointmentId,
+				operation,
+			);
+		},
 		async findHold(ownerUserId, holdId) {
 			const rows = await execute<AppointmentHoldRow[]>(
 				pool,

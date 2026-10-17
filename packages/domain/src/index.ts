@@ -10,6 +10,7 @@ export type {
 	AppointmentWriteGateway,
 	AppointmentWriteRepository,
 } from "./appointment-write";
+export { AppointmentCancellationBusyError } from "./appointment-write";
 export type {
 	AppointmentClinicDepartmentQuery,
 	AppointmentDepartment,

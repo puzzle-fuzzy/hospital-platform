@@ -37,6 +37,7 @@ import {
 	projectMedicalInsuranceOrder,
 	projectPaymentOrder,
 } from "./payment-operations-projector";
+import type { AdminRegistrationStatus } from "./registration-service";
 
 export type AdminWechatRefundInput = {
 	source: WechatRefundSource;
@@ -98,6 +99,8 @@ export type AdminWechatRefundPaymentRecord = AdminPaymentAmounts & {
 	/** 平台支付聚合账本 ID；用于 Admin 后续详情与对账关联。 */
 	operationAggregateId?: string;
 	business: "registration" | "outpatient" | "other";
+	/** 本地挂号快照；医院状态只有显式查看/刷新才核对。 */
+	registration?: AdminRegistrationStatus;
 	/** 管理端可展示的金额事实；不包含患者身份或支付调起参数。 */
 	totalFen: number;
 	/** 普通自费为本地订单状态；医保混合单为微信现金段状态。 */
@@ -519,6 +522,10 @@ export class AdminWechatRefundService {
 			registrationRefundUnavailableReason?: RegistrationRefundUnavailableReason;
 			paymentOperations?: PaymentOperationsRepository;
 			operatorAudits?: PaymentOperatorAuditRepository;
+			registrationForOrder?: (input: {
+				source: WechatRefundSource;
+				orderId: string;
+			}) => Promise<AdminRegistrationStatus>;
 			gateway: WechatRefundGateway;
 			now?: () => Date;
 			createId?: () => string;
@@ -1046,6 +1053,17 @@ export class AdminWechatRefundService {
 						candidate.source === "payment_order"
 							? candidate.order.orderId
 							: candidate.order.medicalOrderId;
+					const registrationBusiness =
+						candidate.source === "payment_order"
+							? normalPaymentBusiness(candidate.order) === "registration"
+							: medicalPaymentBusiness(candidate.order) === "registration";
+					const registration =
+						registrationBusiness && this.dependencies.registrationForOrder
+							? await this.dependencies.registrationForOrder({
+									source: candidate.source,
+									orderId,
+								})
+							: undefined;
 					const operations = this.dependencies.paymentOperations;
 					const [refunds, medicalRefunds, operationProjection, participants] =
 						await Promise.all([
@@ -1087,6 +1105,7 @@ export class AdminWechatRefundService {
 							source: candidate.source,
 							orderId,
 							...participants,
+							...(registration ? { registration } : {}),
 							...(operationProjection
 								? {
 										operationAggregateId:
@@ -1189,6 +1208,7 @@ export class AdminWechatRefundService {
 						source: candidate.source,
 						orderId,
 						...participants,
+						...(registration ? { registration } : {}),
 						...(operationProjection
 							? {
 									operationAggregateId:

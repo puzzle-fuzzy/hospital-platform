@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { MedicalInsuranceOrder, PaymentOrder } from "@hospital/domain";
 import {
+	createInMemoryAppointmentWriteRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryMedicalInsuranceRefundRepository,
 	createInMemoryWechatRefundRepository,
@@ -112,6 +113,7 @@ test("application delegates ordinary registration refund by server-owned appoint
 	const services = createDefaultApplicationServices({
 		repositories: {
 			...base,
+			appointmentWrites: createInMemoryAppointmentWriteRepository(),
 			paymentOrders: { ...base.paymentOrders, findById: async () => order },
 			wechatRefunds: createInMemoryWechatRefundRepository(),
 		} as unknown as MySqlRepositories,

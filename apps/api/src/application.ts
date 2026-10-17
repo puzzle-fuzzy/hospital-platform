@@ -52,6 +52,7 @@ import { createNotConfiguredRepositories } from "@hospital/persistence";
 import {
 	type AdminInsuranceQueryGateway,
 	AdminInsuranceQueryService,
+	AdminRegistrationService,
 	AdminWechatRefundService,
 	PaymentSyncAdminService,
 } from "./modules/admin";
@@ -64,10 +65,15 @@ import {
 	type AdminPaymentRefundServiceDependencies,
 } from "./modules/admin/payment-refund-service";
 import {
+	AdminRegistrationInputError,
+	AdminRegistrationNotFoundError,
+} from "./modules/admin/registration-service";
+import {
 	type RegistrationRefundUnavailableReason,
 	resolveRegistrationRefundUnavailableReason,
 } from "./modules/admin/wechat-refund-service";
 import { AppointmentService } from "./modules/appointments";
+import { createRegistrationOperationGuard } from "./modules/appointments/registration-operation-scope";
 import { AppointmentWriteService } from "./modules/appointments/write-service";
 import {
 	AuthService,
@@ -152,6 +158,7 @@ export type ApplicationServices = {
 	/** Admin 发起/查询微信自费退款；未配置微信退款 adapter 时保持不可用。 */
 	wechatRefund?: AdminWechatRefundService;
 	adminPaymentRefund?: AdminPaymentRefundService;
+	adminRegistration?: AdminRegistrationService;
 	/** Admin 只操作同步任务状态；不直接修改支付聚合单终态。 */
 	paymentSyncAdmin?: PaymentSyncAdminService;
 	sessions: SessionTokenService;
@@ -522,6 +529,11 @@ export function createDefaultApplicationServices(
 	const identityGateway = options.identityGateway ?? gateways.wechatIdentity;
 	const repositories =
 		options.repositories ?? createNotConfiguredRepositories();
+	const registrationGuard = createRegistrationOperationGuard({
+		appointments: repositories.appointmentWrites,
+		paymentOrders: repositories.paymentOrders,
+		medicalOrders: repositories.medicalInsuranceOrders,
+	});
 	const sessions = options.sessionStore
 		? createRedisSessionTokenService(options.sessionStore)
 		: createNotConfiguredSessionTokenService();
@@ -546,22 +558,26 @@ export function createDefaultApplicationServices(
 		snapshots: repositories.appointmentScheduleSnapshots,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
-	const appointmentWrites = new AppointmentWriteService({
-		repository: repositories.appointmentWrites,
-		patients: repositories.patients,
-		identityUsers: repositories.identityUsers,
-		patientProfile:
-			options.appointmentPatientProfileGateway ??
-			gateways.appointmentPatientProfile,
-		gateway: options.appointmentWriteGateway ?? gateways.appointmentWrites,
-		records:
-			options.appointmentRecordDirectoryGateway ?? gateways.appointmentRecords,
-		requireHospitalPaymentState: true,
-		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
-		paymentOrders: repositories.paymentOrders,
-		snapshots: repositories.appointmentScheduleSnapshots,
-		...(options.logger ? { logger: options.logger } : {}),
-	});
+	const appointmentWrites = registrationGuard.appointment(
+		new AppointmentWriteService({
+			repository: repositories.appointmentWrites,
+			patients: repositories.patients,
+			identityUsers: repositories.identityUsers,
+			patientProfile:
+				options.appointmentPatientProfileGateway ??
+				gateways.appointmentPatientProfile,
+			gateway: options.appointmentWriteGateway ?? gateways.appointmentWrites,
+			records:
+				options.appointmentRecordDirectoryGateway ??
+				gateways.appointmentRecords,
+			requireHospitalPaymentState: true,
+			medicalInsuranceOrders: repositories.medicalInsuranceOrders,
+			paymentOrders: repositories.paymentOrders,
+			snapshots: repositories.appointmentScheduleSnapshots,
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		["cancel", "cancelAfterConfirmedSelfPayRefund"],
+	);
 	const medicalInsuranceCore = new MedicalInsurancePaymentCore({
 		orders: repositories.medicalInsuranceOrders,
 		medicalInsurance:
@@ -569,46 +585,61 @@ export function createDefaultApplicationServices(
 		queryTasks: repositories.medicalInsuranceQueryTasks,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
-	const medicalInsurance = new MedicalInsuranceRegistrationService({
-		orders: repositories.medicalInsuranceOrders,
-		authorizations: repositories.medicalInsuranceAuthorizations,
-		appointments: repositories.appointmentWrites,
-		assertAppointmentPaymentAllowed: (ownerUserId, appointmentId, context) =>
-			appointmentWrites.assertPaymentAllowed(
-				ownerUserId,
-				appointmentId,
-				context,
-			),
-		patients: repositories.patients,
-		identityUsers: repositories.identityUsers,
-		patientProfile:
-			options.appointmentPatientProfileGateway ??
-			gateways.appointmentPatientProfile,
-		medicalInsurance:
-			options.medicalInsuranceGateway ?? gateways.medicalInsurance,
-		credentials: repositories.medicalInsuranceCredentials,
-		outpatientPayments:
-			options.outpatientPaymentGateway ?? gateways.outpatientPayments,
-		core: medicalInsuranceCore,
-		...(options.logger ? { logger: options.logger } : {}),
-	});
-	const wechatPrepay = new WechatPrepayService({
-		orders: paymentOrders,
-		identityUsers: repositories.identityUsers,
-		attempts: repositories.paymentPrepayAttempts,
-		wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
-		assertAppointmentPaymentAllowed: (ownerUserId, appointmentId, context) =>
-			appointmentWrites.assertPaymentAllowed(
-				ownerUserId,
-				appointmentId,
-				context,
-			),
-		...(options.logger ? { logger: options.logger } : {}),
-	});
+	const medicalInsurance = registrationGuard.medical(
+		new MedicalInsuranceRegistrationService({
+			orders: repositories.medicalInsuranceOrders,
+			authorizations: repositories.medicalInsuranceAuthorizations,
+			appointments: repositories.appointmentWrites,
+			assertAppointmentPaymentAllowed: (ownerUserId, appointmentId, context) =>
+				appointmentWrites.assertPaymentAllowed(
+					ownerUserId,
+					appointmentId,
+					context,
+				),
+			patients: repositories.patients,
+			identityUsers: repositories.identityUsers,
+			patientProfile:
+				options.appointmentPatientProfileGateway ??
+				gateways.appointmentPatientProfile,
+			medicalInsurance:
+				options.medicalInsuranceGateway ?? gateways.medicalInsurance,
+			credentials: repositories.medicalInsuranceCredentials,
+			outpatientPayments:
+				options.outpatientPaymentGateway ?? gateways.outpatientPayments,
+			core: medicalInsuranceCore,
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		[
+			"authorize",
+			"uploadFees",
+			"cashier",
+			"settle",
+			"query",
+			"cancel",
+			"confirmWechatCashPayment",
+			"confirmCashierPayment",
+		],
+	);
+	const wechatPrepay = registrationGuard.selfPayOrder(
+		new WechatPrepayService({
+			orders: paymentOrders,
+			identityUsers: repositories.identityUsers,
+			attempts: repositories.paymentPrepayAttempts,
+			wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
+			assertAppointmentPaymentAllowed: (ownerUserId, appointmentId, context) =>
+				appointmentWrites.assertPaymentAllowed(
+					ownerUserId,
+					appointmentId,
+					context,
+				),
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		["create", "read", "reconcile", "cancel"],
+	);
 	// 挂号自费和历史插件版医保支付共用官方 APIv3 WechatPrepayService；
 	// 旧链路的云健康 .2 只负责建立 HIS 关联流水，不再创建 v2 微信订单。
 	const registrationWechatPrepay = wechatPrepay;
-	const medicalInsurancePluginPayment =
+	const medicalInsurancePluginPayment = registrationGuard.medical(
 		new MedicalInsurancePluginPaymentService({
 			orders: repositories.medicalInsuranceOrders,
 			authorizations: repositories.medicalInsuranceAuthorizations,
@@ -625,8 +656,17 @@ export function createDefaultApplicationServices(
 			pluginWorkStationId: options.yunhealthRegistrationWorkStationId ?? "",
 			pluginTradeTypeCode: options.yunhealthRegistrationTradeTypeCode ?? "10",
 			...(options.logger ? { logger: options.logger } : {}),
-		});
-	const medicalInsuranceWechatPayment =
+		}),
+		[
+			"markOfficialWechatPrepayReady",
+			"prepareSplitPaymentsBeforeOfficialWechatPayment",
+			"prepareForOfficialWechatPayment",
+			"completeOfficialWechatPayment",
+			"create",
+			"query",
+		],
+	);
+	const medicalInsuranceWechatPayment = registrationGuard.medical(
 		new MedicalInsuranceWechatPaymentService({
 			orders: repositories.medicalInsuranceOrders,
 			queryTasks: repositories.medicalInsuranceQueryTasks,
@@ -648,30 +688,36 @@ export function createDefaultApplicationServices(
 				? { pluginPaymentBridge: medicalInsurancePluginPayment }
 				: {}),
 			...(options.logger ? { logger: options.logger } : {}),
-		});
-	const registrationSelfPay = new RegistrationSelfPayService({
-		appointments: appointmentWrites,
-		paymentOrders,
-		identityUsers: repositories.identityUsers,
-		wechatPrepay: registrationWechatPrepay,
-		hospitalSettlement:
-			options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
-		preparation:
-			options.registrationSelfPayPreparationGateway ??
-			gateways.registrationSelfPayPreparation,
-		resolveRegistrationContext: resolveRegistrationSelfPayContext(repositories),
-		saveRegistrationContext: async (input) => {
-			if (!repositories.paymentOrders.saveRegistrationSelfPayContext) {
-				throw new DependencyNotConfiguredError("payment-orders");
-			}
-			await repositories.paymentOrders.saveRegistrationSelfPayContext(
-				input.ownerUserId,
-				input.orderId,
-				input.registrationContext,
-			);
-		},
-		...(options.logger ? { logger: options.logger } : {}),
-	});
+		}),
+		["create", "query"],
+	);
+	const registrationSelfPay = registrationGuard.appointment(
+		new RegistrationSelfPayService({
+			appointments: appointmentWrites,
+			paymentOrders,
+			identityUsers: repositories.identityUsers,
+			wechatPrepay: registrationWechatPrepay,
+			hospitalSettlement:
+				options.hospitalSettlementGateway ?? gateways.hospitalSettlement,
+			preparation:
+				options.registrationSelfPayPreparationGateway ??
+				gateways.registrationSelfPayPreparation,
+			resolveRegistrationContext:
+				resolveRegistrationSelfPayContext(repositories),
+			saveRegistrationContext: async (input) => {
+				if (!repositories.paymentOrders.saveRegistrationSelfPayContext) {
+					throw new DependencyNotConfiguredError("payment-orders");
+				}
+				await repositories.paymentOrders.saveRegistrationSelfPayContext(
+					input.ownerUserId,
+					input.orderId,
+					input.registrationContext,
+				);
+			},
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		["create", "query"],
+	);
 	const outpatientSelfPay = new OutpatientSelfPayService({
 		paymentOrders,
 		patients: repositories.patients,
@@ -722,6 +768,29 @@ export function createDefaultApplicationServices(
 				paymentOperations: repositories.paymentOperations,
 				operatorAudits: repositories.operatorAudits,
 				patients: repositories.patients,
+				registrationForOrder: async (input) => {
+					try {
+						return (await adminRegistration.localForOrder(input)).registration;
+					} catch (error) {
+						if (
+							!(error instanceof AdminRegistrationNotFoundError) &&
+							!(error instanceof AdminRegistrationInputError)
+						)
+							throw error;
+						return {
+							appointmentId: null,
+							localStatus: "not_found",
+							hospitalStatus: "not_checked",
+							hospitalPaymentStatus: "unavailable",
+							checkedAt: null,
+							cancellation: {
+								allowed: false,
+								mode: "unavailable",
+								reason: "挂号关联待核对，暂不能取消",
+							},
+						};
+					}
+				},
 				userProfiles: repositories.userProfiles,
 				gateway: options.wechatRefundGateway,
 				registrationRefundEnabled: Boolean(
@@ -766,32 +835,70 @@ export function createDefaultApplicationServices(
 				...(wechatRefund ? { wechatRefund } : {}),
 			})
 		: undefined;
-	const registrationPaymentExit = new RegistrationPaymentExitService({
-		appointments: appointmentWrites,
-		medicalInsurance,
-		medicalInsuranceWechatPayment,
-		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
-		paymentOrders,
-		wechatPrepay: registrationWechatPrepay,
-		...(wechatRefund ? { selfPayRefund: wechatRefund } : {}),
-		...(options.registrationSelfPayRefundNotificationGateway
+	const registrationPaymentExit = registrationGuard.appointment(
+		new RegistrationPaymentExitService({
+			appointments: appointmentWrites,
+			medicalInsurance,
+			medicalInsuranceWechatPayment,
+			medicalInsuranceOrders: repositories.medicalInsuranceOrders,
+			paymentOrders,
+			wechatPrepay: registrationWechatPrepay,
+			...(wechatRefund ? { selfPayRefund: wechatRefund } : {}),
+			...(options.registrationSelfPayRefundNotificationGateway
+				? {
+						selfPayRefundNotification:
+							options.registrationSelfPayRefundNotificationGateway,
+					}
+				: {}),
+			resolveRegistrationContext:
+				resolveRegistrationSelfPayContext(repositories),
+			saveRegistrationContext: async (input) => {
+				if (!repositories.paymentOrders.saveRegistrationSelfPayContext) {
+					throw new DependencyNotConfiguredError("payment-orders");
+				}
+				await repositories.paymentOrders.saveRegistrationSelfPayContext(
+					input.ownerUserId,
+					input.orderId,
+					input.registrationContext,
+				);
+			},
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		["abandon"],
+	);
+	const adminRegistration = new AdminRegistrationService({
+		appointments: repositories.appointmentWrites,
+		paymentOrders: repositories.paymentOrders,
+		medicalOrders: repositories.medicalInsuranceOrders,
+		wechatRefunds: repositories.wechatRefunds,
+		medicalRefunds: repositories.medicalInsuranceRefunds,
+		paymentSync: repositories.paymentSync,
+		operations: repositories.paymentOperations,
+		audits: repositories.operatorAudits,
+		...(options.appointmentRecordDirectoryGateway
+			? { records: options.appointmentRecordDirectoryGateway }
+			: {}),
+		...(repositories.appointmentWrites.withCancellationLock
 			? {
-					selfPayRefundNotification:
-						options.registrationSelfPayRefundNotificationGateway,
+					withCancellationLock:
+						repositories.appointmentWrites.withCancellationLock.bind(
+							repositories.appointmentWrites,
+						),
 				}
 			: {}),
-		resolveRegistrationContext: resolveRegistrationSelfPayContext(repositories),
-		saveRegistrationContext: async (input) => {
-			if (!repositories.paymentOrders.saveRegistrationSelfPayContext) {
-				throw new DependencyNotConfiguredError("payment-orders");
-			}
-			await repositories.paymentOrders.saveRegistrationSelfPayContext(
-				input.ownerUserId,
-				input.orderId,
-				input.registrationContext,
-			);
-		},
-		...(options.logger ? { logger: options.logger } : {}),
+		...(options.appointmentWriteGateway
+			? {
+					directCancel: (input) => appointmentWrites.cancel(input),
+					cancelAfterRefund: (input) =>
+						appointmentWrites.cancelAfterConfirmedSelfPayRefund(input),
+					cancelUnpaid: (input) =>
+						registrationPaymentExit.abandon({
+							...input,
+							mode: "auto",
+							allowAutomaticRefund: false,
+						}),
+				}
+			: {}),
 	});
 	const medicalRefundNotification =
 		options.medicalInsuranceRefundNotificationGateway
@@ -1054,6 +1161,7 @@ export function createDefaultApplicationServices(
 		...(adminInsuranceQuery ? { adminInsuranceQuery } : {}),
 		...(wechatRefund ? { wechatRefund } : {}),
 		...(adminPaymentRefund ? { adminPaymentRefund } : {}),
+		adminRegistration,
 		paymentSyncAdmin,
 		sessions,
 	};

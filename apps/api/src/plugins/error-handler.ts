@@ -1,6 +1,7 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import { normalizeAppointmentCancellationMessage } from "@hospital/contracts";
 import {
+	AppointmentCancellationBusyError,
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	DependencyNotConfiguredError,
@@ -344,6 +345,14 @@ export function errorHandlerPlugin() {
 			if (error instanceof HttpError) {
 				set.status = error.statusCode;
 				return errorPayload(error.code, error.message);
+			}
+
+			if (error instanceof AppointmentCancellationBusyError) {
+				set.status = 409;
+				return errorPayload(
+					"payment-prepay-in-progress",
+					"该挂号正在处理支付或取消，请稍后核对",
+				);
 			}
 
 			if (error instanceof DependencyNotConfiguredError) {

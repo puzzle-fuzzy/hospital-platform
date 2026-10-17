@@ -333,6 +333,23 @@ async function fixture(
 	};
 }
 
+test("管理端只取消挂号遇到已付款或收款竞态时拒绝，不自动创建退款", async () => {
+	const f = await fixture();
+	await expect(
+		f.exit.abandon({
+			ownerUserId: f.order.ownerUserId,
+			appointmentId,
+			mode: "auto",
+			allowAutomaticRefund: false,
+			context,
+		}),
+	).rejects.toThrow("请先通过原订单退费");
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.notifyCalls).toHaveLength(0);
+	expect(f.cancelAttempts()).toBe(0);
+	expect(f.cancelled()).toBe(false);
+});
+
 test("普通微信挂号首次全额原路退款、医院回写和取消均确认才返回 completed", async () => {
 	const f = await fixture();
 	expect(await f.request()).toMatchObject({

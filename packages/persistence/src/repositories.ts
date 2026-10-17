@@ -80,6 +80,7 @@ import {
 	WechatRefundAmountExceededError,
 	WechatRefundIdempotencyConflictError,
 } from "@hospital/domain";
+import { createInMemoryAppointmentCancellationLock } from "./appointment-cancellation-lock";
 import { PersistenceNotConfiguredError } from "./errors";
 import { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
 import { createAesGcmSecretValueCipher } from "./prepay-cipher";
@@ -1839,7 +1840,9 @@ export function createInMemoryAppointmentWriteRepository(
 			{ ...registration },
 		]),
 	);
+	const withCancellationLock = createInMemoryAppointmentCancellationLock();
 	return {
+		withCancellationLock,
 		async findHold(ownerUserId, holdId) {
 			const hold = holds.get(holdId);
 			return hold?.ownerUserId === ownerUserId ? { ...hold } : undefined;

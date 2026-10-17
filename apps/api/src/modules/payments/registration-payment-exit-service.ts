@@ -383,6 +383,8 @@ export class RegistrationPaymentExitService {
 		ownerUserId: string;
 		appointmentId: string;
 		mode: RegistrationPaymentExitMode;
+		/** 管理端取消不能因支付竞态而自动转为一笔新退款。 */
+		allowAutomaticRefund?: boolean;
 		context: unknown;
 	}): Promise<{
 		appointmentId: string;
@@ -420,6 +422,10 @@ export class RegistrationPaymentExitService {
 				context,
 			});
 			if (cancellation.status === "paid") {
+				if (input.allowAutomaticRefund === false)
+					throw new RegistrationPaymentExitInputError(
+						"医院已确认收款，请先通过原订单退费后再取消挂号",
+					);
 				// 只有医院结算和平台订单均已完成时才允许走退款取消。现金已扣、
 				// HIS 回写尚未完成的中间状态仍保持原来的 fail-closed 行为。
 				if (selfPayOrder.state !== "completed")

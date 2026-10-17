@@ -28,14 +28,16 @@ import {
 	Tooltip,
 	Typography,
 } from "antd";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatAdminTime as formatTime } from "./admin-time";
 import {
 	ApiError,
+	cancelRegistration,
 	fetchPaymentDay,
 	fetchPaymentInterface,
 	fetchPaymentOperationDetail,
 	fetchPaymentSyncTasks,
+	fetchRegistrationStatus,
 	fetchWechatRefundPaymentHistory,
 	markPaymentSyncTaskManualReview,
 	queryMedicalInsuranceRefund,
@@ -55,12 +57,22 @@ import {
 	paymentRefundPreview,
 	registrationRefundFeedback,
 } from "./payment-refund-options";
+import {
+	canCancelRegistration,
+	cancellationAttemptStorageKey,
+	type RegistrationCancellationAttempt,
+	readCancellationAttempt,
+	registrationPaymentLabel,
+	registrationStatusLabel,
+	validCancellationReason,
+} from "./registration-display";
 import type {
 	AdminMedicalInsuranceRefund,
 	AdminPaymentOperationDetail,
 	AdminPaymentRefundResult,
 	AdminPaymentRefundType,
 	AdminPaymentSyncTask,
+	AdminRegistrationStatus,
 	AdminWechatRefundPaymentHistoryPage,
 	AdminWechatRefundPaymentRecord,
 	PaymentDayResult,
@@ -425,6 +437,7 @@ function paymentRecordColumns(
 	) => void,
 	onRefundQuery: (record: AdminWechatRefundPaymentRecord) => void,
 	onOperationDetail: (record: AdminWechatRefundPaymentRecord) => void,
+	onRegistrationDetail: (record: AdminWechatRefundPaymentRecord) => void,
 	refundQueryingNo?: string,
 	queryRequiredOrders: ReadonlySet<string> = new Set(),
 ): NonNullable<TableProps<AdminWechatRefundPaymentRecord>["columns"]> {
@@ -490,6 +503,17 @@ function paymentRecordColumns(
 					{paymentStatusLabel(record)}
 				</Tag>
 			),
+		},
+		{
+			title: "挂号状态",
+			key: "registrationStatus",
+			width: 205,
+			render: (_, record) =>
+				record.business === "registration" ? (
+					<Text>{registrationStatusLabel(record.registration)}</Text>
+				) : (
+					<Text type="secondary">—</Text>
+				),
 		},
 		{
 			title: "金额明细",
@@ -559,6 +583,14 @@ function paymentRecordColumns(
 				return (
 					<Space orientation="vertical" size={4}>
 						<Space wrap>
+							{record.business === "registration" ? (
+								<Button
+									type="link"
+									onClick={() => onRegistrationDetail(record)}
+								>
+									查看挂号
+								</Button>
+							) : null}
 							<Button
 								type="link"
 								disabled={!record.operationAggregateId}
@@ -656,6 +688,20 @@ export function PaymentPanel({
 	const [refundSubmitting, setRefundSubmitting] = useState(false);
 	const [refundQueryingNo, setRefundQueryingNo] = useState<string>();
 	const [refundResult, setRefundResult] = useState<AdminPaymentRefundResult>();
+	const [registrationRecord, setRegistrationRecord] =
+		useState<AdminWechatRefundPaymentRecord>();
+	const [registrationDetail, setRegistrationDetail] =
+		useState<AdminRegistrationStatus>();
+	const [registrationLoading, setRegistrationLoading] = useState(false);
+	const [registrationError, setRegistrationError] = useState<string>();
+	const [registrationConfirmOpen, setRegistrationConfirmOpen] = useState(false);
+	const [registrationReason, setRegistrationReason] = useState("");
+	const [registrationSubmitting, setRegistrationSubmitting] = useState(false);
+	const [registrationAttempt, setRegistrationAttempt] =
+		useState<RegistrationCancellationAttempt>();
+	const registrationBusy = useRef(false);
+	const registrationSelection = useRef<string | undefined>(undefined);
+	const registrationRequestGeneration = useRef(0);
 	const [operationDetail, setOperationDetail] =
 		useState<AdminPaymentOperationDetail>();
 	const [operationDetailLoading, setOperationDetailLoading] = useState(false);
@@ -856,6 +902,199 @@ export function PaymentPanel({
 		},
 		[message, onExpired, session],
 	);
+
+	const refreshRegistration = useCallback(
+		async (record: AdminWechatRefundPaymentRecord) => {
+			if (registrationBusy.current) return;
+			const selection = paymentRefundKey(record);
+			const generation = ++registrationRequestGeneration.current;
+			setRegistrationLoading(true);
+			setRegistrationError(undefined);
+			try {
+				const result = await fetchRegistrationStatus(
+					record.source,
+					record.orderId,
+					session,
+				);
+				if (
+					registrationSelection.current !== selection ||
+					registrationRequestGeneration.current !== generation
+				)
+					return;
+				setRegistrationDetail(result.registration);
+				setPaymentHistory((items) =>
+					items.map((item) =>
+						paymentRefundKey(item) === selection
+							? { ...item, registration: result.registration }
+							: item,
+					),
+				);
+				const previous = readCancellationAttempt(
+					sessionStorage,
+					cancellationAttemptStorageKey(record),
+				);
+				if (previous) {
+					const checked = { ...previous, needsQuery: false };
+					sessionStorage.setItem(
+						cancellationAttemptStorageKey(record),
+						JSON.stringify(checked),
+					);
+					setRegistrationAttempt(checked);
+					setRegistrationReason(checked.reason);
+				}
+			} catch (reason) {
+				if (
+					registrationSelection.current !== selection ||
+					registrationRequestGeneration.current !== generation
+				)
+					return;
+				if (reason instanceof ApiError && reason.status === 401) {
+					onExpired();
+					return;
+				}
+				if (
+					registrationSelection.current === selection &&
+					registrationRequestGeneration.current === generation
+				)
+					setRegistrationError(
+						reason instanceof Error
+							? reason.message
+							: "挂号状态加载失败，请先核对状态再重试",
+					);
+			} finally {
+				if (
+					registrationSelection.current === selection &&
+					registrationRequestGeneration.current === generation
+				)
+					setRegistrationLoading(false);
+			}
+		},
+		[onExpired, session],
+	);
+
+	const openRegistrationDetail = useCallback(
+		(record: AdminWechatRefundPaymentRecord) => {
+			if (record.business !== "registration" || registrationBusy.current)
+				return;
+			registrationSelection.current = paymentRefundKey(record);
+			setRegistrationRecord(record);
+			setRegistrationDetail(record.registration);
+			setRegistrationError(undefined);
+			setRegistrationConfirmOpen(false);
+			const previous = readCancellationAttempt(
+				sessionStorage,
+				cancellationAttemptStorageKey(record),
+			);
+			setRegistrationAttempt(previous);
+			setRegistrationReason(previous?.reason || "");
+			void refreshRegistration(record);
+		},
+		[refreshRegistration],
+	);
+
+	const submitRegistrationCancellation = useCallback(async () => {
+		if (
+			!registrationRecord ||
+			registrationBusy.current ||
+			registrationLoading ||
+			registrationError ||
+			registrationAttempt?.needsQuery ||
+			!canCancelRegistration(registrationDetail) ||
+			!validCancellationReason(registrationReason)
+		)
+			return;
+		registrationBusy.current = true;
+		++registrationRequestGeneration.current;
+		setRegistrationSubmitting(true);
+		setRegistrationError(undefined);
+		const attempt: RegistrationCancellationAttempt = registrationAttempt || {
+			idempotencyKey: `admin-cancel:${crypto.randomUUID()}`,
+			reason: registrationReason.trim(),
+			needsQuery: true,
+		};
+		const pending = { ...attempt, needsQuery: true };
+		let requestSent = false;
+		try {
+			// 先保留命令身份，再提交；丢失响应后只能查询，重试沿用同一身份与原因。
+			sessionStorage.setItem(
+				cancellationAttemptStorageKey(registrationRecord),
+				JSON.stringify(pending),
+			);
+			setRegistrationAttempt(pending);
+			requestSent = true;
+			const result = await cancelRegistration(
+				registrationRecord.source,
+				registrationRecord.orderId,
+				attempt.reason,
+				attempt.idempotencyKey,
+				session,
+			);
+			setRegistrationDetail(result.registration);
+			setRegistrationConfirmOpen(false);
+			sessionStorage.removeItem(
+				cancellationAttemptStorageKey(registrationRecord),
+			);
+			setRegistrationAttempt(undefined);
+			setRegistrationReason("");
+			void message.success(
+				result.outcome === "already_cancelled"
+					? "医院已确认该挂号已取消"
+					: "挂号已取消",
+			);
+			await loadPaymentHistory({
+				queryOrderId: historyOrderId,
+				page: historyPageData?.page ?? 1,
+				source: historySource,
+				business: historyBusiness,
+				businessDay: historyBusinessDay,
+				status: historyStatus,
+			});
+			setPaymentHistory((items) =>
+				items.map((item) =>
+					paymentRefundKey(item) === paymentRefundKey(registrationRecord)
+						? { ...item, registration: result.registration }
+						: item,
+				),
+			);
+		} catch (reason) {
+			if (reason instanceof ApiError && reason.status === 401) {
+				onExpired();
+				return;
+			}
+			setRegistrationConfirmOpen(false);
+			if (!requestSent) {
+				setRegistrationAttempt(undefined);
+				setRegistrationError(
+					"当前标签页无法保存操作单号，本次未提交取消请求。请检查浏览器会话存储后再试。",
+				);
+				return;
+			}
+			setRegistrationAttempt(pending);
+			setRegistrationError(
+				`${reason instanceof Error ? reason.message : "取消请求未能确认"}。请先刷新挂号状态核对结果，再决定是否重试；系统会沿用原操作单号。`,
+			);
+		} finally {
+			registrationBusy.current = false;
+			setRegistrationSubmitting(false);
+		}
+	}, [
+		registrationRecord,
+		registrationLoading,
+		registrationError,
+		registrationAttempt,
+		registrationDetail,
+		registrationReason,
+		session,
+		message,
+		loadPaymentHistory,
+		historyOrderId,
+		historyPageData,
+		historySource,
+		historyBusiness,
+		historyBusinessDay,
+		historyStatus,
+		onExpired,
+	]);
 
 	const submitPaymentRefund = useCallback(async () => {
 		if (
@@ -1361,6 +1600,7 @@ export function PaymentPanel({
 											: "CASH",
 								),
 							openOperationDetail,
+							openRegistrationDetail,
 							refundQueryingNo,
 							refundQueryRequiredOrders,
 						)}
@@ -1385,7 +1625,7 @@ export function PaymentPanel({
 									status: historyStatus,
 								}),
 						}}
-						scroll={{ x: 1880 }}
+						scroll={{ x: 2085 }}
 						size="small"
 					/>
 				</Space>
@@ -1517,6 +1757,210 @@ export function PaymentPanel({
 					/>
 				</Space>
 			</Card>
+			<Modal
+				title="挂号详情"
+				open={Boolean(registrationRecord)}
+				width={640}
+				closable={!registrationSubmitting}
+				maskClosable={!registrationSubmitting}
+				onCancel={() => {
+					if (registrationBusy.current) return;
+					registrationSelection.current = undefined;
+					++registrationRequestGeneration.current;
+					setRegistrationRecord(undefined);
+				}}
+				footer={
+					<Space wrap>
+						<Button
+							disabled={registrationSubmitting}
+							onClick={() => {
+								registrationSelection.current = undefined;
+								++registrationRequestGeneration.current;
+								setRegistrationRecord(undefined);
+							}}
+						>
+							关闭
+						</Button>
+						<Button
+							icon={<ReloadOutlined />}
+							loading={registrationLoading}
+							disabled={registrationSubmitting}
+							onClick={() => {
+								if (registrationRecord)
+									void refreshRegistration(registrationRecord);
+							}}
+						>
+							刷新医院状态
+						</Button>
+						<Button
+							danger
+							disabled={
+								registrationLoading ||
+								registrationSubmitting ||
+								Boolean(registrationError) ||
+								Boolean(registrationAttempt?.needsQuery) ||
+								!canCancelRegistration(registrationDetail)
+							}
+							onClick={() => setRegistrationConfirmOpen(true)}
+						>
+							取消挂号
+						</Button>
+					</Space>
+				}
+				destroyOnHidden
+			>
+				<Spin spinning={registrationLoading}>
+					<Space orientation="vertical" size={14} style={{ width: "100%" }}>
+						{registrationError ? (
+							<Alert
+								type="warning"
+								showIcon
+								title="处理结果需要核对"
+								description={registrationError}
+							/>
+						) : null}
+						<Descriptions
+							bordered
+							size="small"
+							column={1}
+							items={[
+								{
+									key: "patient",
+									label: "就诊人",
+									children: registrationRecord?.patientDisplayName || "未关联",
+								},
+								{
+									key: "order",
+									label: "平台订单号",
+									children: registrationRecord?.orderId,
+								},
+								{
+									key: "status",
+									label: "挂号状态",
+									children: registrationStatusLabel(registrationDetail),
+								},
+								{
+									key: "payment",
+									label: "医院支付状态",
+									children: registrationDetail
+										? registrationPaymentLabel(
+												registrationDetail.hospitalPaymentStatus,
+											)
+										: "待核对",
+								},
+								{
+									key: "department",
+									label: "科室 / 医生",
+									children: `${registrationDetail?.departmentName || "—"} / ${registrationDetail?.doctorName || "—"}`,
+								},
+								{
+									key: "date",
+									label: "就诊时间",
+									children:
+										[
+											registrationDetail?.workDate,
+											registrationDetail?.shiftName,
+										]
+											.filter(Boolean)
+											.join(" ") || "—",
+								},
+								{
+									key: "serial",
+									label: "挂号序号",
+									children: registrationDetail?.sourceSerialNumber || "—",
+								},
+								{
+									key: "checked",
+									label: "医院核对时间",
+									children: registrationDetail?.checkedAt
+										? formatTime(registrationDetail.checkedAt)
+										: "尚未核对",
+								},
+							]}
+						/>
+						<Alert
+							type={
+								canCancelRegistration(registrationDetail) ? "info" : "warning"
+							}
+							showIcon
+							title={
+								canCancelRegistration(registrationDetail)
+									? "可以取消挂号"
+									: "当前不可直接取消挂号"
+							}
+							description={
+								<Space orientation="vertical" size={4}>
+									<Text>
+										{registrationDetail?.cancellation.reason ||
+											"请先刷新医院状态，核对挂号与支付结果。"}
+									</Text>
+									{registrationDetail?.hospitalPaymentStatus === "paid" ? (
+										<Text>
+											{canCancelRegistration(registrationDetail)
+												? "退款和医院回写已核对，本操作仅补办取消挂号，不会再次退款。"
+												: "如需退费，请先关闭详情，使用本订单已有的退款入口；退款及医院回写确认后，再核对挂号状态。"}
+										</Text>
+									) : null}
+								</Space>
+							}
+						/>
+					</Space>
+				</Spin>
+			</Modal>
+			<Modal
+				title="确认取消挂号"
+				open={registrationConfirmOpen}
+				okText="确认取消挂号"
+				cancelText="返回详情"
+				confirmLoading={registrationSubmitting}
+				closable={!registrationSubmitting}
+				maskClosable={!registrationSubmitting}
+				okButtonProps={{
+					danger: true,
+					disabled:
+						registrationLoading ||
+						Boolean(registrationError) ||
+						Boolean(registrationAttempt?.needsQuery) ||
+						!canCancelRegistration(registrationDetail) ||
+						!validCancellationReason(registrationReason),
+				}}
+				onOk={() => void submitRegistrationCancellation()}
+				onCancel={() => {
+					if (!registrationBusy.current) setRegistrationConfirmOpen(false);
+				}}
+				destroyOnHidden
+			>
+				<Space orientation="vertical" size={14} style={{ width: "100%" }}>
+					<Alert
+						type="warning"
+						showIcon
+						title="取消后将释放该预约号源"
+						description="本操作仅取消挂号，不发起退款。系统会再次核对医院挂号状态与已有支付、退费结果。"
+					/>
+					<Text>
+						{registrationRecord?.patientDisplayName || "未关联"} ·{" "}
+						{registrationDetail?.departmentName || "—"} ·{" "}
+						{registrationDetail?.doctorName || "—"} ·{" "}
+						{registrationDetail?.workDate || "—"} ·{" "}
+						{registrationDetail?.sourceSerialNumber || "—"}号
+					</Text>
+					<Input.TextArea
+						value={registrationReason}
+						onChange={(event) => setRegistrationReason(event.target.value)}
+						minLength={2}
+						maxLength={80}
+						showCount
+						rows={3}
+						disabled={registrationSubmitting || Boolean(registrationAttempt)}
+						placeholder="请填写 2 至 80 字的取消原因"
+					/>
+					{registrationAttempt ? (
+						<Text type="secondary">
+							已有取消请求，重试将沿用原操作单号和原原因，避免重复处理。
+						</Text>
+					) : null}
+				</Space>
+			</Modal>
 			<Modal
 				title="转人工复核"
 				open={Boolean(syncReviewTask)}

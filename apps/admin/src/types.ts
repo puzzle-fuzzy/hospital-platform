@@ -278,6 +278,7 @@ export type AdminWechatRefundPaymentRecord = AdminPaymentDisplayAmounts & {
 	orderId: string;
 	operationAggregateId?: string;
 	business: "registration" | "outpatient" | "other";
+	registration?: AdminRegistrationStatus;
 	patientDisplayName?: string;
 	orderUserDisplayName?: string;
 	totalFen: number;
@@ -324,6 +325,45 @@ export type AdminWechatRefundPaymentRecord = AdminPaymentDisplayAmounts & {
 	refundRoute: "admin" | "appointment_cancel" | "unavailable";
 	createdAt: string;
 	updatedAt: string;
+};
+
+export type AdminRegistrationStatus = {
+	appointmentId: string | null;
+	localStatus: "booked" | "cancelled" | "expired" | "unknown" | "not_found";
+	hospitalStatus:
+		| "scheduled"
+		| "cancelled"
+		| "expired"
+		| "completed"
+		| "missed"
+		| "stopped"
+		| "substituted"
+		| "registered"
+		| "unknown"
+		| "not_checked"
+		| "unavailable";
+	hospitalPaymentStatus: "pending" | "paid" | "unavailable";
+	checkedAt: string | null;
+	departmentName?: string;
+	doctorName?: string;
+	workDate?: string;
+	shiftName?: string;
+	sourceSerialNumber?: string;
+	cancellation: {
+		allowed: boolean;
+		mode: "cancel_only" | "unavailable";
+		reason: string;
+	};
+};
+
+export type AdminRegistrationResult = {
+	source: WechatRefundSource;
+	orderId: string;
+	registration: AdminRegistrationStatus;
+};
+
+export type AdminRegistrationCancelResult = AdminRegistrationResult & {
+	outcome: "cancelled" | "already_cancelled";
 };
 
 export type AdminWechatRefundPaymentHistoryQuery = {

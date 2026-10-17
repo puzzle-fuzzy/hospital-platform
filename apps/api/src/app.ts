@@ -25,6 +25,7 @@ import {
 	adminMedicalInsuranceRefundModule,
 	adminPaymentRefundModule,
 	adminPaymentSyncModule,
+	adminRegistrationsModule,
 	adminWechatRefundModule,
 } from "./modules/admin";
 import type { AppointmentWriteService } from "./modules/appointments";
@@ -323,6 +324,14 @@ export function createApp(options: AppOptions = {}) {
 								options.adminRefundToken,
 							)
 						: new Elysia({ name: "admin-payment-refund-not-configured" }),
+				)
+				.use(
+					services.adminRegistration && options.adminRefundToken?.trim()
+						? adminRegistrationsModule(
+								services.adminRegistration,
+								options.adminRefundToken,
+							)
+						: new Elysia({ name: "admin-registration-not-configured" }),
 				)
 				.use(
 					services.medicalInsuranceRefund && options.adminRefundToken?.trim()

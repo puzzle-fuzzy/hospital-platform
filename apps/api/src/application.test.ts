@@ -12,6 +12,7 @@ import type {
 } from "@hospital/domain";
 import { DependencyNotConfiguredError } from "@hospital/domain";
 import {
+	createInMemoryAppointmentWriteRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOperationsRepository,
@@ -225,6 +226,7 @@ test("挂号退款组合根仅在取消和回写能力齐全时开放，缺失�
 			...options,
 			repositories: {
 				...createNotConfiguredRepositories(),
+				appointmentWrites: createInMemoryAppointmentWriteRepository(),
 				paymentOrders: createInMemoryPaymentOrderRepository([order]),
 				medicalInsuranceOrders: createInMemoryMedicalInsuranceOrderRepository(),
 				wechatRefunds: createInMemoryWechatRefundRepository(),

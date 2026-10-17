@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
+	AppointmentCancellationBusyError,
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	ExternalTraceReadModelValidationError,
@@ -56,6 +57,21 @@ import {
 } from "../modules/payments";
 import { ReportQueryError } from "../modules/reports/service";
 import { errorHandlerPlugin } from "./error-handler";
+
+test("挂号支付取消互斥冲突复用客户端已支持的支付处理中契约", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new AppointmentCancellationBusyError();
+	});
+	const response = await app.handle(new Request("http://localhost/probe"));
+	expect(response.status).toBe(409);
+	expect(await response.json()).toMatchObject({
+		error: {
+			code: "payment-prepay-in-progress",
+			numericCode: 50240,
+			message: "该挂号正在处理支付或取消，请稍后核对",
+		},
+	});
+});
 
 test("参保地未开通返回稳定错误，不泄露授权或患者资料", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {

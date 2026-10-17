@@ -7,6 +7,8 @@ import type {
 	AdminPaymentRefundResult,
 	AdminPaymentRefundType,
 	AdminPaymentSyncTask,
+	AdminRegistrationCancelResult,
+	AdminRegistrationResult,
 	AdminWechatRefundPaymentHistoryPage,
 	AdminWechatRefundPaymentHistoryQuery,
 	CaptchaState,
@@ -483,6 +485,50 @@ export async function queryMedicalInsuranceRefund(
 		return await request<AdminMedicalInsuranceRefund>(
 			`/api/refunds/medical-insurance/${encodeURIComponent(refundNo)}`,
 			{ headers: { Authorization: `Bearer ${session.accessToken}` } },
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function fetchRegistrationStatus(
+	source: WechatRefundSource,
+	orderId: string,
+	session: Session,
+): Promise<AdminRegistrationResult> {
+	try {
+		return await request<AdminRegistrationResult>(
+			`/api/registrations/${encodeURIComponent(source)}/${encodeURIComponent(orderId)}`,
+			{
+				headers: { Authorization: `Bearer ${session.accessToken}` },
+			},
+		);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) clearSession();
+		throw error;
+	}
+}
+
+export async function cancelRegistration(
+	source: WechatRefundSource,
+	orderId: string,
+	reason: string,
+	idempotencyKey: string,
+	session: Session,
+): Promise<AdminRegistrationCancelResult> {
+	try {
+		return await request<AdminRegistrationCancelResult>(
+			`/api/registrations/${encodeURIComponent(source)}/${encodeURIComponent(orderId)}/cancel`,
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${session.accessToken}`,
+					"Content-Type": "application/json",
+					"Idempotency-Key": idempotencyKey,
+				},
+				body: JSON.stringify({ reason }),
+			},
 		);
 	} catch (error) {
 		if (error instanceof ApiError && error.status === 401) clearSession();
