@@ -37,6 +37,10 @@ import {
 } from "./errors";
 import { MedicalInsurancePaymentCore } from "./payment-core";
 import {
+	loadMedicalInsurancePaymentPresentation,
+	type MedicalInsurancePaymentPresentation,
+} from "./payment-presentation";
+import {
 	type MedicalInsurancePaymentEligibility,
 	medicalInsurancePaymentEligibility,
 } from "./payment-region";
@@ -106,6 +110,7 @@ function opaque(value: unknown, label: string): string {
 function output(
 	order: MedicalInsuranceOrder,
 	cashierUrl?: unknown,
+	presentation: MedicalInsurancePaymentPresentation = {},
 ): MedicalInsuranceOrderPayload["data"] {
 	const safeCashierUrl =
 		typeof cashierUrl === "string" && cashierUrl.length <= 2048
@@ -130,6 +135,7 @@ function output(
 							order.amounts.fundFen +
 							(order.amounts.otherPaymentFen ?? 0),
 						cashFen: order.amounts.cashFen,
+						...presentation,
 					},
 				}
 			: {}),
@@ -180,6 +186,20 @@ export class MedicalInsuranceRegistrationService {
 				...(dependencies.logger ? { logger: dependencies.logger } : {}),
 				...(dependencies.now ? { now: dependencies.now } : {}),
 			});
+	}
+
+	private async output(
+		order: MedicalInsuranceOrder,
+		cashierUrl?: unknown,
+	): Promise<MedicalInsuranceOrderPayload["data"]> {
+		return output(
+			order,
+			cashierUrl,
+			await loadMedicalInsurancePaymentPresentation(
+				order,
+				this.dependencies.orders,
+			),
+		);
 	}
 
 	/**
@@ -508,9 +528,9 @@ export class MedicalInsuranceRegistrationService {
 				},
 				"Medical insurance fee upload reused the concurrently persisted result",
 			);
-			return output(latest, result.cashierUrl);
+			return this.output(latest, result.cashierUrl);
 		}
-		return output(
+		return this.output(
 			await this.markFeeUploadForManualReview(
 				latest,
 				"6201-persisted-result-conflict",
@@ -542,9 +562,9 @@ export class MedicalInsuranceRegistrationService {
 				Number.isFinite(claimedAt) &&
 				ageMs < FEE_UPLOAD_SUBMISSION_GRACE_MS
 			) {
-				return output(order, settlement?.cashierUrl);
+				return this.output(order, settlement?.cashierUrl);
 			}
-			return output(
+			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
 					settlement?.feeUploadStage === "pre_6201"
@@ -569,9 +589,9 @@ export class MedicalInsuranceRegistrationService {
 			) {
 				// 同一时刻的第二个请求只观察 created/确认中，不改变版本，给第一
 				// 个请求保存回包留出时间；客户端会保留原订单后再次查询。
-				return output(order, settlement.cashierUrl);
+				return this.output(order, settlement.cashierUrl);
 			}
-			return output(
+			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
 					"6201-submission-result-missing",
@@ -586,7 +606,7 @@ export class MedicalInsuranceRegistrationService {
 			!settlement.mdtrtId ||
 			(settlement.acctUsedFlag !== "0" && settlement.acctUsedFlag !== "1")
 		) {
-			return output(
+			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
 					"6201-persisted-context-incomplete",
@@ -615,7 +635,7 @@ export class MedicalInsuranceRegistrationService {
 			settlementCredential.payOrdId !== queryCredential.payOrdId ||
 			settlementCredential.payToken !== queryCredential.payToken
 		) {
-			return output(
+			return this.output(
 				await this.markFeeUploadForManualReview(
 					order,
 					"6201-persisted-credentials-incomplete",
@@ -654,7 +674,7 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance fee upload restored from persisted local context",
 		);
-		return output(latest, settlement.cashierUrl);
+		return this.output(latest, settlement.cashierUrl);
 	}
 
 	/**
@@ -1148,7 +1168,7 @@ export class MedicalInsuranceRegistrationService {
 			"Medical insurance business order recovered without client cache",
 		);
 		return {
-			...output(order, settlement?.cashierUrl),
+			...(await this.output(order, settlement?.cashierUrl)),
 			authorizationReady,
 			authorizationPending,
 			recoveryAllowed,
@@ -1610,7 +1630,9 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order business type is not registration",
 			);
 		if (order.status === "fee_upload_pending") {
-			return (await this.recoverPersistedFeeUpload(order)) ?? output(order);
+			return (
+				(await this.recoverPersistedFeeUpload(order)) ?? this.output(order)
+			);
 		}
 		if (order.status !== "created") {
 			// 终态或已推进订单必须先返回持久化事实。取消/人工复核时授权或
@@ -1621,7 +1643,7 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				orderId,
 			);
-			return output(order, context?.cashierUrl);
+			return this.output(order, context?.cashierUrl);
 		}
 		const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
 		if (recoveredFeeUpload) return recoveredFeeUpload;
@@ -1643,7 +1665,7 @@ export class MedicalInsuranceRegistrationService {
 		if (!claim.claimed) {
 			return (
 				(await this.recoverPersistedFeeUpload(claim.order)) ??
-				output(claim.order)
+				this.output(claim.order)
 			);
 		}
 		const claimedOrder = claim.order;
@@ -1721,7 +1743,7 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance fee upload completed",
 		);
-		return output(updated, result.cashierUrl);
+		return this.output(updated, result.cashierUrl);
 	}
 
 	/** 门诊 6201：重新解析同一 2.6.33 待缴事实，再进入统一医保 adapter。 */
@@ -1745,7 +1767,9 @@ export class MedicalInsuranceRegistrationService {
 				"Medical insurance order business type is not outpatient",
 			);
 		if (order.status === "fee_upload_pending") {
-			return (await this.recoverPersistedFeeUpload(order)) ?? output(order);
+			return (
+				(await this.recoverPersistedFeeUpload(order)) ?? this.output(order)
+			);
 		}
 		if (order.status !== "created") {
 			// 与挂号一致，恢复请求先读取订单状态；不能让已经取消或转人工的
@@ -1754,7 +1778,7 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				orderId,
 			);
-			return output(order, settlement?.cashierUrl);
+			return this.output(order, settlement?.cashierUrl);
 		}
 		const recoveredFeeUpload = await this.recoverPersistedFeeUpload(order);
 		if (recoveredFeeUpload) return recoveredFeeUpload;
@@ -1773,7 +1797,7 @@ export class MedicalInsuranceRegistrationService {
 		if (!claim.claimed) {
 			return (
 				(await this.recoverPersistedFeeUpload(claim.order)) ??
-				output(claim.order)
+				this.output(claim.order)
 			);
 		}
 		const claimedOrder = claim.order;
@@ -1841,7 +1865,7 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance outpatient fee upload completed",
 		);
-		return output(updated, result.cashierUrl);
+		return this.output(updated, result.cashierUrl);
 	}
 
 	async cashier(input: {
@@ -1867,7 +1891,7 @@ export class MedicalInsuranceRegistrationService {
 			},
 			"Medical insurance cashier context requested",
 		);
-		return output(order, settlementContext?.cashierUrl);
+		return this.output(order, settlementContext?.cashierUrl);
 	}
 
 	async settle(input: {

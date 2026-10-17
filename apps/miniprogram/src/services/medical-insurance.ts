@@ -85,7 +85,58 @@ export type MedicalPaymentAmounts = {
 	totalFen: number;
 	insuranceFen: number;
 	cashFen: number;
+	hospitalPartFen?: number;
+	hospitalReduceFen?: number;
+	wechatCashFen?: number;
 };
+
+function readMedicalPaymentPresentation(
+	value: Record<string, unknown>,
+	cashFen: number,
+	insuranceFen?: number,
+): Pick<
+	MedicalPaymentAmounts,
+	"hospitalPartFen" | "hospitalReduceFen" | "wechatCashFen"
+> {
+	const { hospitalPartFen, hospitalReduceFen, wechatCashFen } = value;
+	return typeof hospitalPartFen === "number" &&
+		Number.isSafeInteger(hospitalPartFen) &&
+		hospitalPartFen >= 0 &&
+		(insuranceFen === undefined || hospitalPartFen <= insuranceFen) &&
+		typeof hospitalReduceFen === "number" &&
+		typeof wechatCashFen === "number" &&
+		Number.isSafeInteger(hospitalReduceFen) &&
+		Number.isSafeInteger(wechatCashFen) &&
+		hospitalReduceFen >= 0 &&
+		wechatCashFen >= 0 &&
+		Number.isSafeInteger(hospitalPartFen + hospitalReduceFen) &&
+		Number.isSafeInteger(hospitalReduceFen + wechatCashFen) &&
+		hospitalReduceFen + wechatCashFen === cashFen
+		? { hospitalPartFen, hospitalReduceFen, wechatCashFen }
+		: {};
+}
+
+/** 只使用服务端提供的优惠，不从客户端地区或原始自费金额推断减免。 */
+export function medicalPaymentAmountView(amounts: MedicalPaymentAmounts) {
+	const presentation = readMedicalPaymentPresentation(
+		amounts,
+		amounts.cashFen,
+		amounts.insuranceFen,
+	);
+	const hasActualCashAmount = presentation.wechatCashFen !== undefined;
+	const cashFen = presentation.wechatCashFen ?? amounts.cashFen;
+	const hospitalDiscountFen =
+		(presentation.hospitalPartFen ?? 0) + (presentation.hospitalReduceFen ?? 0);
+	return {
+		insuranceAmountLabel: `${((amounts.insuranceFen - (presentation.hospitalPartFen ?? 0)) / 100).toFixed(2)}元`,
+		cashAmountLabel: `${(cashFen / 100).toFixed(2)}元`,
+		cashAmountValue: hasActualCashAmount ? (cashFen / 100).toFixed(2) : "",
+		cashAmountCaption: hasActualCashAmount ? "实际支付" : "医保结算后自费",
+		hasActualCashAmount,
+		hasHospitalDiscount: hospitalDiscountFen > 0,
+		hospitalDiscountAmountLabel: `${(hospitalDiscountFen / 100).toFixed(2)}元`,
+	};
+}
 
 /**
  * 医保授权和 6201/6202 结算完成后，门诊支付必须先停在结算明细页。
@@ -222,6 +273,9 @@ type MedicalWechatPayment = {
 		| "failed"
 		| "unknown";
 	cashFen: number;
+	hospitalPartFen?: number;
+	hospitalReduceFen?: number;
+	wechatCashFen?: number;
 	medInsFailReason?: string;
 	payParams?: MedicalWechatPayParams;
 };
@@ -328,7 +382,12 @@ function readMedicalPaymentAmounts(
 	) {
 		return null;
 	}
-	return { totalFen, insuranceFen, cashFen };
+	return {
+		totalFen,
+		insuranceFen,
+		cashFen,
+		...readMedicalPaymentPresentation(value, cashFen, insuranceFen),
+	};
 }
 
 function readMedicalOrder(value: unknown): MedicalOrder {
@@ -572,6 +631,7 @@ export function readMedicalWechatPayment(value: unknown): MedicalWechatPayment {
 		status: data.status as MedicalWechatPayment["status"],
 		paymentState: data.paymentState as MedicalWechatPayment["paymentState"],
 		cashFen: data.cashFen,
+		...readMedicalPaymentPresentation(data, data.cashFen),
 		...(data.medInsFailReason
 			? { medInsFailReason: data.medInsFailReason }
 			: {}),

@@ -31,6 +31,7 @@ import { type ProviderFetcher, requestJson } from "./http";
 import {
 	type classifyLegacyFsiOrderStatus,
 	type LegacyFsi6202SettlementSource,
+	LegacyFsiContractError,
 	yuanToFen,
 } from "./legacy-fsi-contract";
 import type {
@@ -972,21 +973,22 @@ function settlementBillingDepartmentId(
 	return [...departmentIds][0] as string;
 }
 
-function findTextDeep(
+/** 金额独立于标识文本解析：合法的 JSON 小数不能经过 safeText 的整数检查。 */
+function findAmountFenDeep(
 	value: unknown,
 	keys: readonly string[],
 	operation: string,
 	requestId: string | undefined,
 	depth = 0,
 	seen = new Set<object>(),
-): string | undefined {
+): number | undefined {
 	if (depth > 8 || value === null || value === undefined) return undefined;
 	if (typeof value !== "object") return undefined;
 	if (seen.has(value)) return undefined;
 	seen.add(value);
 	if (Array.isArray(value)) {
 		for (const item of value) {
-			const found = findTextDeep(
+			const found = findAmountFenDeep(
 				item,
 				keys,
 				operation,
@@ -994,15 +996,26 @@ function findTextDeep(
 				depth + 1,
 				seen,
 			);
-			if (found) return found;
+			if (found !== undefined) return found;
 		}
 		return undefined;
 	}
 	const object = value as ProviderRecord;
-	const direct = optionalText(object, keys, operation, requestId);
-	if (direct) return direct;
+	for (const key of keys) {
+		const amount = object[key];
+		if (amount !== undefined && amount !== null && amount !== "") {
+			try {
+				return yuanToFen(amount, key, "6201");
+			} catch (error) {
+				if (error instanceof LegacyFsiContractError) {
+					throw responseError(operation, `${key} is invalid`, requestId);
+				}
+				throw error;
+			}
+		}
+	}
 	for (const item of Object.values(object)) {
-		const found = findTextDeep(
+		const found = findAmountFenDeep(
 			item,
 			keys,
 			operation,
@@ -1010,7 +1023,7 @@ function findTextDeep(
 			depth + 1,
 			seen,
 		);
-		if (found) return found;
+		if (found !== undefined) return found;
 	}
 	return undefined;
 }
@@ -3437,24 +3450,20 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.2.6.65.1",
 					settleApply.requestId,
 				);
-				const settlementAmountRaw = findTextDeep(
+				const appliedAmountFen = findAmountFenDeep(
 					applyPayload,
 					["getAmount"],
 					"medical-insurance.2.6.65.1",
 					settleApply.requestId,
 				);
-				if (!settlementAmountRaw) {
+				if (appliedAmountFen === undefined) {
 					throw responseError(
 						"medical-insurance.2.6.65.1",
 						"真实结算主单缺少 getAmount",
 						settleApply.requestId,
 					);
 				}
-				settlementAmountFen = yuanToFen(
-					settlementAmountRaw,
-					"getAmount",
-					"6201",
-				);
+				settlementAmountFen = appliedAmountFen;
 			}
 			if (settlementAmountFen !== totalFenExpected) {
 				throw responseError(

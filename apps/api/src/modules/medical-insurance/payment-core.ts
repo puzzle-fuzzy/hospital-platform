@@ -20,6 +20,10 @@ import {
 	MedicalInsuranceOrderNotFoundError,
 	MedicalInsuranceRegistrationInputError,
 } from "./errors";
+import {
+	loadMedicalInsurancePaymentPresentation,
+	type MedicalInsurancePaymentPresentation,
+} from "./payment-presentation";
 
 function contextOf(value: unknown): AdapterCallContext {
 	const context = normalizeAdapterCallContext(value);
@@ -38,6 +42,7 @@ function opaque(value: unknown, label: string): string {
 
 function output(
 	order: MedicalInsuranceOrder,
+	presentation: MedicalInsurancePaymentPresentation = {},
 ): MedicalInsuranceOrderPayload["data"] {
 	return {
 		orderId: order.medicalOrderId,
@@ -51,6 +56,7 @@ function output(
 							order.amounts.fundFen +
 							(order.amounts.otherPaymentFen ?? 0),
 						cashFen: order.amounts.cashFen,
+						...presentation,
 					},
 				}
 			: {}),
@@ -152,6 +158,18 @@ export class MedicalInsurancePaymentCore {
 		this.now = dependencies.now ?? (() => new Date());
 	}
 
+	private async output(
+		order: MedicalInsuranceOrder,
+	): Promise<MedicalInsuranceOrderPayload["data"]> {
+		return output(
+			order,
+			await loadMedicalInsurancePaymentPresentation(
+				order,
+				this.dependencies.orders,
+			),
+		);
+	}
+
 	private async order(ownerUserId: string, orderId: string) {
 		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
 		if (!order || order.ownerUserId !== ownerUserId)
@@ -197,7 +215,7 @@ export class MedicalInsurancePaymentCore {
 			// 无论上次是否收到回包，重试都只补同一 taskId，绝不能再次调用
 			// 6202 造成重复结算。
 			await this.enqueueQueryTask(order.medicalOrderId);
-			return output(order);
+			return this.output(order);
 		}
 		if (
 			order.status === "insurance_settled" ||
@@ -206,7 +224,7 @@ export class MedicalInsurancePaymentCore {
 			order.status === "manual_review" ||
 			order.status === "cancelled"
 		)
-			return output(order);
+			return this.output(order);
 		if (!order.authorizationId || !order.feeUploadId)
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance fee upload is required",
@@ -234,9 +252,9 @@ export class MedicalInsurancePaymentCore {
 				latest.status === "awaiting_confirmation"
 			) {
 				await this.enqueueQueryTask(latest.medicalOrderId);
-				return output(latest);
+				return this.output(latest);
 			}
-			if (latest.status !== "fee_uploaded") return output(latest);
+			if (latest.status !== "fee_uploaded") return this.output(latest);
 			throw new DependencyNotConfiguredError("medical-insurance-orders");
 		}
 		// 查单任务也必须先于外部写入持久化；否则用户退出且 API 进程恰好在
@@ -291,7 +309,7 @@ export class MedicalInsurancePaymentCore {
 			const latest = await this.order(ownerUserId, orderId);
 			if (needsMedicalInsuranceQuery(result.finality))
 				await this.enqueueQueryTask(latest.medicalOrderId);
-			return output(latest);
+			return this.output(latest);
 		}
 		if (needsMedicalInsuranceQuery(result.finality))
 			await this.enqueueQueryTask(claimed.medicalOrderId);
@@ -307,7 +325,7 @@ export class MedicalInsurancePaymentCore {
 			},
 			"Medical insurance settlement completed",
 		);
-		return output(updated);
+		return this.output(updated);
 	}
 
 	async query(input: {
@@ -321,13 +339,13 @@ export class MedicalInsurancePaymentCore {
 		const orderId = opaque(input.orderId, "orderId");
 		const order = await this.order(ownerUserId, orderId);
 		if (isTerminalMedicalOrderStatus(order.status)) {
-			return output(order);
+			return this.output(order);
 		}
 		if (!order.amounts) {
 			// 6202 回包落库前中断时，6301 的公共证据只有医保合计，无法还原
 			// 基金/个账等 6202 分项。禁止把合计全部猜成个人账户后写回；保留
 			// awaiting_confirmation，由 Worker 在短暂等待后转人工核对原报文。
-			return output(order);
+			return this.output(order);
 		}
 		const result = await this.dependencies.medicalInsurance.query(
 			{
@@ -376,7 +394,7 @@ export class MedicalInsurancePaymentCore {
 			},
 			"Medical insurance settlement queried",
 		);
-		return output(updated);
+		return this.output(updated);
 	}
 
 	/**
@@ -515,7 +533,7 @@ export class MedicalInsurancePaymentCore {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		const order = await this.order(ownerUserId, orderId);
-		if (order.wechatPaymentState !== "cash_paid") return output(order);
+		if (order.wechatPaymentState !== "cash_paid") return this.output(order);
 		return this.query({
 			ownerUserId,
 			orderId,

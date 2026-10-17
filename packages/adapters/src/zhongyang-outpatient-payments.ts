@@ -341,6 +341,38 @@ function optionalAmountFen(
 	}
 }
 
+/** 单价可包含不足一分的精度；仅在能无损换算时提供兼容的整数分字段。 */
+function optionalUnitPrice(
+	value: unknown,
+	requestId: string,
+): { priceYuan?: string; priceFen?: number } {
+	if (value === undefined || value === null || value === "") return {};
+	if (
+		(typeof value !== "string" && typeof value !== "number") ||
+		(typeof value === "number" && !Number.isFinite(value))
+	) {
+		throw providerError("Zhongyang outpatient price is invalid", requestId);
+	}
+	const priceYuan = String(value).trim();
+	if (priceYuan.length > 64 || !/^\d+(?:\.\d+)?$/.test(priceYuan)) {
+		throw providerError("Zhongyang outpatient price is invalid", requestId);
+	}
+	const [whole = "0", fraction = ""] = priceYuan.split(".");
+	const scale = 10n ** BigInt(fraction.length);
+	if (
+		(BigInt(whole) * scale + BigInt(fraction || "0")) * 100n >
+		BigInt(Number.MAX_SAFE_INTEGER) * scale
+	) {
+		throw providerError("Zhongyang outpatient price is invalid", requestId);
+	}
+	const exactFraction = fraction.replace(/0+$/, "");
+	if (exactFraction.length > 2) return { priceYuan };
+	return {
+		priceYuan,
+		priceFen: amountFen(`${whole}.${exactFraction.padEnd(2, "0")}`, requestId),
+	};
+}
+
 /** 2.6.33 自付比例按 0～1 小数传递，页面只负责百分比格式化。 */
 function optionalRatio(
 	value: unknown,
@@ -599,7 +631,7 @@ function mapRecord(
 	const spec = optionalTextField(item.spec, "spec", requestId, 128);
 	const quantity = optionalTextField(item.quantity, "quantity", requestId, 64);
 	const unitName = optionalTextField(item.unitName, "unitName", requestId, 64);
-	const priceFen = optionalAmountFen(item.price, "price", requestId);
+	const unitPrice = optionalUnitPrice(item.price, requestId);
 	const chargeClassName = optionalTextField(
 		item.chargeClassName,
 		"chargeClassName",
@@ -646,7 +678,7 @@ function mapRecord(
 		...(spec ? { spec } : {}),
 		...(quantity ? { quantity } : {}),
 		...(unitName ? { unitName } : {}),
-		...(priceFen !== undefined ? { priceFen } : {}),
+		...unitPrice,
 		...(chargeClassName ? { chargeClassName } : {}),
 		...(tradePropName ? { tradePropName } : {}),
 		...(networkPatClassName ? { networkPatClassName } : {}),

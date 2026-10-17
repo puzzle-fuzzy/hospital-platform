@@ -159,7 +159,9 @@ function feeUploadDepartmentFixture(
 	resume = false,
 	outpatientSnapshot?: OutpatientPaymentRecord,
 	detailOverrides: Readonly<Record<string, unknown>> = {},
+	applyOverrides: Readonly<Record<string, unknown>> = {},
 ) {
+	const totalFen = outpatientSnapshot?.amountFen ?? 1000;
 	const providerUrls: URL[] = [];
 	const feeUploads: Record<string, unknown>[] = [];
 	const contextWrites: MedicalInsuranceSettlementContext[] = [];
@@ -201,7 +203,7 @@ function feeUploadDepartmentFixture(
 				),
 				tradeOrderIds: ["trade-current-001"],
 				feeUploadStage: "pre_6201",
-				settlementAmountFen: 1000,
+				settlementAmountFen: totalFen,
 				settlementDetailsFetchedAt: "2026-10-15T06:00:00.000Z",
 				...(outpatientSnapshot
 					? { outpatientPaymentRecord: outpatientSnapshot }
@@ -219,7 +221,7 @@ function feeUploadDepartmentFixture(
 				}
 				feeUploads.push(input);
 				return {
-					totalFen: 1000,
+					totalFen,
 					mdtrtId: "visit-current-001",
 					credential: {
 						payOrdId: "pay-current-001",
@@ -278,6 +280,7 @@ function feeUploadDepartmentFixture(
 					businessCode: "business-code-current-001",
 					tradeOrderIdList: ["trade-current-001"],
 					getAmount: "10.00",
+					...applyOverrides,
 				};
 			} else if (url.pathname.endsWith("/outpatient-child-payment-records")) {
 				data = children;
@@ -332,7 +335,7 @@ function feeUploadDepartmentFixture(
 								doctorId: "doctor-user-code-001",
 								doctorName: "测试医生",
 								departmentName: "开单科室",
-								totalFen: 1000,
+								totalFen,
 							}
 						: {
 								appointmentId: "appointment-current-001",
@@ -345,7 +348,7 @@ function feeUploadDepartmentFixture(
 								workDate: "2026-10-15",
 								shiftName: "上午",
 								sourceSerialNumber: "1",
-								totalFen: 1000,
+								totalFen,
 							},
 				},
 				context,
@@ -359,6 +362,65 @@ const currentDepartmentChild = {
 	billDeptId: "6309619828601651001",
 	billDeptCode: "DEPT-CODE-001",
 };
+
+test.each([95.25, "95.25"])(
+	"门诊 .1 getAmount=%s 不经过标识整数解析，精确上传 9525 分",
+	async (getAmount) => {
+		const fixture = feeUploadDepartmentFixture(
+			[currentDepartmentChild],
+			false,
+			{
+				recordId: "outpatient-decimal-amount",
+				status: "unpaid",
+				billDate: "2026-10-15 14:00:00",
+				amountFen: 9525,
+			},
+			{ amount: "95.25", price: "95.25" },
+			{ getAmount },
+		);
+		await fixture.upload();
+		expect(fixture.feeUploads).toHaveLength(1);
+		expect(fixture.feeUploads[0]).toMatchObject({ medfeeSumamt: "95.25" });
+	},
+);
+
+test.each(
+	[-1, "95.251", {}, [95.25], "NaN", "Infinity", "900719925474099.99"].map(
+		(getAmount) => ({ getAmount }),
+	),
+)(".1 非法金额 $getAmount 仍在费用上传前拒绝", async ({ getAmount }) => {
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		false,
+		undefined,
+		{},
+		{ getAmount },
+	);
+	await expect(fixture.upload()).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		provider: "medical-insurance",
+		operation: "medical-insurance.2.6.65.1",
+		responseInvalid: true,
+	});
+	expect(fixture.feeUploads).toHaveLength(0);
+});
+
+test(".1 解析金额后仍校验服务端总额，并保持不安全数字标识拒绝", async () => {
+	for (const applyOverrides of [
+		{ getAmount: 10.01 },
+		{ businessId: Number.MAX_SAFE_INTEGER + 1 },
+	]) {
+		const fixture = feeUploadDepartmentFixture(
+			[currentDepartmentChild],
+			false,
+			undefined,
+			{},
+			applyOverrides,
+		);
+		await expect(fixture.upload()).rejects.toThrow();
+		expect(fixture.feeUploads).toHaveLength(0);
+	}
+});
 
 test.each(
 	["registration", "outpatient"].flatMap((businessType) =>

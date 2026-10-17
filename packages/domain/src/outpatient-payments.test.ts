@@ -6,6 +6,34 @@ import {
 	validateOutpatientPaymentRecords,
 } from "./outpatient-payments";
 
+test("精确单价白名单保留高精度元字符串，合计仍为整数分", () => {
+	const record = {
+		recordId: "exact-unit-price",
+		status: "paid" as const,
+		billDate: "2026-10-17 09:00:00",
+		amountFen: 388,
+		priceYuan: "0.5536",
+		quantity: "7",
+	};
+	expect(normalizeOutpatientPaymentRecords([record], "paid")[0]).toEqual(
+		record,
+	);
+	for (const priceYuan of [0.5536, "-0.1", "NaN", "1e-4", "", "1".repeat(65)]) {
+		expect(() =>
+			normalizeOutpatientPaymentRecords([{ ...record, priceYuan }], "paid"),
+		).toThrow();
+	}
+	expect(() =>
+		normalizeOutpatientPaymentRecords(
+			[{ ...record, amountFen: 388.1 }],
+			"paid",
+		),
+	).toThrow();
+	expect(() =>
+		normalizeOutpatientPaymentRecords([{ ...record, priceFen: 55.36 }], "paid"),
+	).toThrow();
+});
+
 test("门诊费用账单时间严格拒绝自然日溢出和带时区文本", () => {
 	expect(parseOutpatientBillDateTime("2026-02-28 23:59:59")).toBeDefined();
 	expect(parseOutpatientBillDateTime("2026-02-29 00:00:00")).toBeUndefined();

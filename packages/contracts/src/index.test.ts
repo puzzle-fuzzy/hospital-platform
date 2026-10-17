@@ -135,6 +135,29 @@ test("门诊费用 contract 兼容单条与含扁平明细的合并记录", () =
 	).toBe(false);
 });
 
+test("门诊精确单价允许十进制元字符串，金额和兼容单价仍要求整数分", () => {
+	const record = {
+		recordId: "exact-price-contract",
+		status: "paid",
+		billDate: "2026-10-17 09:00:00",
+		amountFen: 388,
+		priceYuan: "0.5536",
+	};
+	expect(Value.Check(OutpatientPaymentItemSchema, record)).toBeTrue();
+	expect(outpatientPaymentRecordSchema.Check(record)).toBeTrue();
+	for (const priceYuan of [0.5536, "-0.1", "NaN", "1e-4", "", "1".repeat(65)]) {
+		expect(
+			outpatientPaymentRecordSchema.Check({ ...record, priceYuan }),
+		).toBeFalse();
+	}
+	expect(
+		outpatientPaymentRecordSchema.Check({ ...record, priceFen: 55.36 }),
+	).toBeFalse();
+	expect(
+		outpatientPaymentRecordSchema.Check({ ...record, amountFen: 388.1 }),
+	).toBeFalse();
+});
+
 test("个人资料展示名按 Unicode code point 计数，而不是 UTF-16 code unit", () => {
 	const emoji64 = String.fromCodePoint(0x1f600).repeat(64);
 	const mixed64 = "中😀".repeat(32);

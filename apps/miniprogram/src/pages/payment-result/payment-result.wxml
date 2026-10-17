@@ -22,7 +22,8 @@
 			<view class="amount-card-title">本次费用明细</view>
 			<view class="amount-row amount-total-row"><text>费用总额</text><text>{{totalAmountLabel}}</text></view>
 			<view wx:if="{{channel === 'medical'}}" class="amount-row"><text>医保基金支付</text><text>{{insuranceAmountLabel}}</text></view>
-			<view class="amount-row amount-cash-row"><text>{{channel === 'medical' ? '现金支付' : '微信支付'}}</text><text>{{cashAmountLabel}}</text></view>
+			<view wx:if="{{channel === 'medical' && hasHospitalDiscount}}" class="amount-row"><text>医院优惠</text><text>-{{hospitalDiscountAmountLabel}}</text></view>
+			<view class="amount-row amount-cash-row"><text>{{channel === 'medical' ? cashAmountCaption : '微信支付'}}</text><text>{{cashAmountLabel}}</text></view>
 			<text class="amount-source-hint">金额来自本次支付结算结果</text>
 		</view>
 		<view wx:elif="{{amountBreakdownLoading || amountBreakdownHint}}" class="amount-sync-hint">
