@@ -781,6 +781,7 @@ export function requireOutpatientPaymentListData(
 			item.priceFen,
 			"Outpatient payment response item is invalid",
 		);
+		const priceYuan = optionalOutpatientPriceYuan(item.priceYuan);
 		const preferentialAmountFen = optionalOutpatientAmountFen(
 			item.preferentialAmountFen,
 			"Outpatient payment response item is invalid",
@@ -880,6 +881,7 @@ export function requireOutpatientPaymentListData(
 			...(quantity === undefined ? {} : { quantity }),
 			...(unitName === undefined ? {} : { unitName }),
 			...(priceFen === undefined ? {} : { priceFen }),
+			...(priceYuan === undefined ? {} : { priceYuan }),
 			...(chargeClassName === undefined ? {} : { chargeClassName }),
 			...(tradePropName === undefined ? {} : { tradePropName }),
 			...(networkPatClassName === undefined ? {} : { networkPatClassName }),
@@ -893,6 +895,20 @@ export function requireOutpatientPaymentListData(
 		items,
 		total: list.total,
 	};
+}
+
+function optionalOutpatientPriceYuan(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	if (
+		typeof value !== "string" ||
+		value.length > 64 ||
+		!/^\d+(?:\.\d+)?$/.test(value)
+	) {
+		throw new ApiError("Outpatient payment response price is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	return value;
 }
 
 function optionalOutpatientAmountFen(
@@ -2173,6 +2189,16 @@ export function formatOutpatientRatioLabel(ratio: number): string {
 	return `${Number.isInteger(percent) ? percent : percent.toFixed(2)}%`;
 }
 
+/** 精确单价按十进制文本展示，禁止先转浮点或舍入成整数分。 */
+function formatOutpatientPriceLabel(priceYuan: string): string {
+	const value = optionalOutpatientPriceYuan(priceYuan);
+	if (value === undefined) {
+		throw new ApiError("门诊单价不合法", { code: "provider-response-invalid" });
+	}
+	const [whole, fraction = ""] = value.split(".");
+	return `¥${whole}.${fraction.padEnd(2, "0")}`;
+}
+
 function outpatientPaymentItemView(
 	item: OutpatientPaymentItem,
 ): OutpatientPaymentItemView {
@@ -2191,9 +2217,11 @@ function outpatientPaymentItemView(
 						.join(" "),
 				}
 			: {}),
-		...(item.priceFen === undefined
-			? {}
-			: { priceLabel: formatOutpatientAmountLabel(item.priceFen) }),
+		...(item.priceYuan !== undefined
+			? { priceLabel: formatOutpatientPriceLabel(item.priceYuan) }
+			: item.priceFen === undefined
+				? {}
+				: { priceLabel: formatOutpatientAmountLabel(item.priceFen) }),
 		...(item.preferentialAmountFen === undefined
 			? {}
 			: {

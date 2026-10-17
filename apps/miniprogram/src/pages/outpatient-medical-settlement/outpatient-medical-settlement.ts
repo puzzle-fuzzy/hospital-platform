@@ -7,6 +7,7 @@ import {
 	MEDICAL_INSURANCE_REGION_UNSUPPORTED_MESSAGE,
 	type MedicalBusinessRecovery,
 	type MedicalPaymentAmounts,
+	medicalPaymentAmountView,
 	navigateToOutpatientMedicalAuth,
 	type PaymentProgress,
 	queryMedicalBusinessRecovery,
@@ -35,6 +36,10 @@ type OutpatientMedicalSettlementPageData = {
 	insuranceAmountLabel: string;
 	cashAmountLabel: string;
 	cashAmountValue: string;
+	cashAmountCaption: string;
+	hasActualCashAmount: boolean;
+	hasHospitalDiscount: boolean;
+	hospitalDiscountAmountLabel: string;
 	paymentBusy: boolean;
 	paymentMessage: string;
 	canRetrySettlement: boolean;
@@ -114,6 +119,10 @@ function emptyData(): OutpatientMedicalSettlementPageData {
 		insuranceAmountLabel: "--",
 		cashAmountLabel: "--",
 		cashAmountValue: "--",
+		cashAmountCaption: "医保结算后自费",
+		hasActualCashAmount: false,
+		hasHospitalDiscount: false,
+		hospitalDiscountAmountLabel: "",
 		paymentBusy: false,
 		paymentMessage: "",
 		canRetrySettlement: false,
@@ -327,9 +336,7 @@ Page<
 			hasPending: true,
 			error: "",
 			totalAmountLabel: formatFen(recovery.amounts.totalFen),
-			insuranceAmountLabel: formatFen(recovery.amounts.insuranceFen),
-			cashAmountLabel: formatFen(recovery.amounts.cashFen),
-			cashAmountValue: formatFenValue(recovery.amounts.cashFen),
+			...medicalPaymentAmountView(recovery.amounts),
 			paymentMessage:
 				"点击去支付时会再次查询服务端状态，不使用上一次按钮或本地缓存",
 			canRetrySettlement: false,

@@ -1105,6 +1105,9 @@ export const MedicalInsuranceBusinessRecoveryResponse = Type.Object({
 				totalFen: Type.Integer({ minimum: 1 }),
 				insuranceFen: Type.Integer({ minimum: 0 }),
 				cashFen: Type.Integer({ minimum: 0 }),
+				hospitalPartFen: Type.Optional(Type.Integer({ minimum: 0 })),
+				hospitalReduceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+				wechatCashFen: Type.Optional(Type.Integer({ minimum: 0 })),
 			}),
 		),
 		cashierUrl: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
@@ -1141,6 +1144,9 @@ export const MedicalInsuranceOrderResponse = Type.Object({
 				totalFen: Type.Integer({ minimum: 1 }),
 				insuranceFen: Type.Integer({ minimum: 0 }),
 				cashFen: Type.Integer({ minimum: 0 }),
+				hospitalPartFen: Type.Optional(Type.Integer({ minimum: 0 })),
+				hospitalReduceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+				wechatCashFen: Type.Optional(Type.Integer({ minimum: 0 })),
 			}),
 		),
 		/** 独立医保收银台地址；仅在服务端确认存在自费金额时返回。 */
@@ -1261,6 +1267,14 @@ export const OutpatientPaymentItemSchema = Type.Object(
 		quantity: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 		unitName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 		priceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		/** 精确元单价允许小于一分，费用合计仍使用整数 amountFen。 */
+		priceYuan: Type.Optional(
+			Type.String({
+				minLength: 1,
+				maxLength: 64,
+				pattern: "^\\d+(?:\\.\\d+)?$",
+			}),
+		),
 		chargeClassName: Type.Optional(
 			Type.String({ minLength: 1, maxLength: 128 }),
 		),
@@ -1534,6 +1548,9 @@ export const MedicalInsuranceWechatPayResponse = Type.Object({
 			Type.Literal("unknown"),
 		]),
 		cashFen: Type.Integer({ minimum: 0 }),
+		hospitalPartFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		hospitalReduceFen: Type.Optional(Type.Integer({ minimum: 0 })),
+		wechatCashFen: Type.Optional(Type.Integer({ minimum: 0 })),
 		/** 仅医保部分明确为 MED_INS_PAY_FAIL 时返回医保局失败原因。 */
 		medInsFailReason: Type.Optional(
 			Type.String({ minLength: 1, maxLength: 2048 }),

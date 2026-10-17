@@ -1238,6 +1238,44 @@ test("门诊同笔费用保留全部安全明细和整笔合计，支付引用�
 	expect(single.amountLabel).toBe("¥80.00");
 });
 
+test("门诊精确单价完整透传并显示四位小数，不用单价重算费用", () => {
+	const record = {
+		recordId: "unit-price-precision",
+		status: "paid" as const,
+		billDate: "2026-10-17 09:00:00",
+		amountFen: 388,
+		priceYuan: "0.5536",
+		quantity: "7",
+	};
+	const parsed = requireOutpatientPaymentListData(
+		{ status: "paid", items: [record], total: 1 },
+		"paid",
+	);
+	expect(parsed.items[0]).toEqual(record);
+	expect(formatOutpatientPaymentRecordView(record)).toMatchObject({
+		priceLabel: "¥0.5536",
+		amountLabel: "¥3.88",
+		specQuantityLabel: "× 7",
+	});
+	for (const priceYuan of [0.5536, "-0.1", "NaN", "1e-4", "", "1".repeat(65)]) {
+		expect(() =>
+			requireOutpatientPaymentListData(
+				{ status: "paid", items: [{ ...record, priceYuan }], total: 1 },
+				"paid",
+			),
+		).toThrow();
+	}
+	for (const [priceYuan, priceLabel] of [
+		["10", "¥10.00"],
+		["0.5500", "¥0.5500"],
+		["0", "¥0.00"],
+	] as const) {
+		expect(
+			formatOutpatientPaymentRecordView({ ...record, priceYuan }).priceLabel,
+		).toBe(priceLabel);
+	}
+});
+
 test("门诊费用分组拒绝损坏、重复、嵌套、跨状态明细与不一致合计", () => {
 	const first = {
 		recordId: "fee-a",

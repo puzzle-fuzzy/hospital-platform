@@ -31,8 +31,12 @@
 					<text>医保基金支付</text>
 					<text>{{insuranceAmountLabel}}</text>
 				</view>
+				<view wx:if="{{hasHospitalDiscount}}" class="detail-row">
+					<text>医院优惠</text>
+					<text>-{{hospitalDiscountAmountLabel}}</text>
+				</view>
 				<view class="detail-row amount-cash-row">
-					<text>现金支付</text>
+					<text>{{cashAmountCaption}}</text>
 					<text>{{cashAmountLabel}}</text>
 				</view>
 				<view class="amount-divider"></view>
@@ -52,8 +56,8 @@
 
 			<view class="settlement-bottom-bar">
 				<view class="settlement-remaining">
-					<text class="settlement-remaining-label">您还需支付：</text>
-					<text class="settlement-remaining-amount">¥{{cashAmountValue}}</text>
+					<text class="settlement-remaining-label">{{hasActualCashAmount ? '您还需支付：' : '实际支付金额以收银台为准'}}</text>
+					<text wx:if="{{hasActualCashAmount}}" class="settlement-remaining-amount">¥{{cashAmountValue}}</text>
 				</view>
 				<button
 					class="primary-button"

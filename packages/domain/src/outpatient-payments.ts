@@ -44,6 +44,8 @@ export type OutpatientPaymentItem = {
 	quantity?: string;
 	unitName?: string;
 	priceFen?: number;
+	/** 精确人民币元单价，允许小于一分；不能用于费用合计或收款。 */
+	priceYuan?: string;
 	chargeClassName?: string;
 	tradePropName?: string;
 	networkPatClassName?: string;
@@ -317,6 +319,15 @@ function normalizePaymentItem(
 	const quantity = optionalPaymentDisplayText(record.quantity, 64);
 	const unitName = optionalPaymentDisplayText(record.unitName, 64);
 	const priceFen = optionalPaymentAmountFen(record.priceFen);
+	const priceYuan = record.priceYuan;
+	if (
+		priceYuan !== undefined &&
+		(typeof priceYuan !== "string" ||
+			priceYuan.length > 64 ||
+			!/^\d+(?:\.\d+)?$/.test(priceYuan))
+	) {
+		invalidResult("display-text-invalid");
+	}
 	const chargeClassName = optionalPaymentDisplayText(record.chargeClassName);
 	const tradePropName = optionalPaymentDisplayText(record.tradePropName);
 	const networkPatClassName = optionalPaymentDisplayText(
@@ -343,6 +354,7 @@ function normalizePaymentItem(
 		...(quantity !== undefined ? { quantity } : {}),
 		...(unitName !== undefined ? { unitName } : {}),
 		...(priceFen !== undefined ? { priceFen } : {}),
+		...(priceYuan !== undefined ? { priceYuan } : {}),
 		...(chargeClassName !== undefined ? { chargeClassName } : {}),
 		...(tradePropName !== undefined ? { tradePropName } : {}),
 		...(networkPatClassName !== undefined ? { networkPatClassName } : {}),

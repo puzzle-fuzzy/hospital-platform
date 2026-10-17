@@ -338,6 +338,98 @@ test("众阳同一单据出现不兼容支付上下文时拒绝拆成可支付�
 	});
 });
 
+test.each([
+	{ price: 0.5536, priceYuan: "0.5536", priceFen: undefined },
+	{ price: "0.553600", priceYuan: "0.553600", priceFen: undefined },
+	{ price: "0.5500", priceYuan: "0.5500", priceFen: 55 },
+	{ price: "8.50", priceYuan: "8.50", priceFen: 850 },
+	{ price: 0, priceYuan: "0", priceFen: 0 },
+])("门诊单价 $price 保留十进制精度且不重算费用合计", async (scenario) => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "precision-order",
+							tradeStatus: "3",
+							billDate: "2026-10-17 09:00:00",
+							amount: 3.88,
+							price: scenario.price,
+							quantity: 7,
+						},
+					],
+				}),
+			),
+	});
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "synthetic-patient",
+			status: "paid",
+			startTime: "2026-10-17 00:00:00",
+			endTime: "2026-10-17 23:59:59",
+		},
+		context,
+	);
+	expect(result.records[0]).toMatchObject({
+		amountFen: 388,
+		quantity: "7",
+		priceYuan: scenario.priceYuan,
+	});
+	if (scenario.priceFen === undefined)
+		expect(result.records[0]).not.toHaveProperty("priceFen");
+	else expect(result.records[0]?.priceFen).toBe(scenario.priceFen);
+});
+
+test.each(
+	[
+		"-0.01",
+		"NaN",
+		"Infinity",
+		"1e-4",
+		"0x10",
+		{},
+		[],
+		true,
+		"1".repeat(65),
+		"90071992547409.9101",
+	].map((price) => ({ price })),
+)("非法单价 $price 不会被忽略或舍入", async ({ price }) => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "bad-price-order",
+							tradeStatus: "1",
+							billDate: "2026-10-17 09:00:00",
+							amount: 3.88,
+							price,
+						},
+					],
+				}),
+			),
+	});
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "synthetic-patient",
+				status: "unpaid",
+				startTime: "2026-10-17 00:00:00",
+				endTime: "2026-10-17 23:59:59",
+			},
+			context,
+		),
+	).rejects.toThrow("Zhongyang outpatient price is invalid");
+});
+
 test("众阳门诊费用 adapter 缺少已确认渠道码时拒绝构造", () => {
 	expect(() =>
 		createZhongyangOutpatientPaymentGateway({
@@ -423,6 +515,7 @@ test("众阳门诊费用 adapter 只使用已确认 amount 并把元转换为分
 			quantity: "2",
 			unitName: "次",
 			priceFen: 850,
+			priceYuan: "8.50",
 			chargeClassName: "检查费",
 			tradePropName: "检查",
 			networkPatClassName: "甲类",
