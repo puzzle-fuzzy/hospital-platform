@@ -1,9 +1,15 @@
-import { MAX_REPORT_ATTACHMENTS } from "@hospital/contracts";
+import {
+	MAX_REPORT_ATTACHMENTS,
+	MAX_REPORT_TITLE_LENGTH,
+} from "@hospital/contracts";
 import { parseIsoCalendarDate } from "./date-range";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
-export { MAX_REPORT_ATTACHMENTS } from "@hospital/contracts";
+export {
+	MAX_REPORT_ATTACHMENTS,
+	MAX_REPORT_TITLE_LENGTH,
+} from "@hospital/contracts";
 
 /** 小程序报告查询使用的四类众阳来源。 */
 export type ReportKind = "laboratory" | "imaging" | "ecg" | "peis";
@@ -386,7 +392,7 @@ function normalizeNonLaboratoryReportDetail(
 	if (record.kind !== expectedKind) {
 		invalidReportResult("detail-kind-mismatch");
 	}
-	if (!hasSafeReportText(record.title, 256)) {
+	if (!hasSafeReportText(record.title, MAX_REPORT_TITLE_LENGTH)) {
 		invalidReportResult("detail-title-invalid");
 	}
 	if (
@@ -531,7 +537,7 @@ export function normalizeReportDirectoryResults(
 		const summary = rawSummary as Record<string, unknown>;
 		const kind = summary.kind;
 		if (!isReportKind(kind)) invalidReportResult("kind-invalid");
-		if (!hasSafeReportText(summary.title, 256)) {
+		if (!hasSafeReportText(summary.title, MAX_REPORT_TITLE_LENGTH)) {
 			invalidReportResult("title-invalid");
 		}
 		if (!hasSafeReportText(summary.reportedAt, 64)) {
@@ -696,7 +702,7 @@ export function normalizeLaboratoryReportDetail(
 	if (record.kind !== "laboratory") {
 		invalidReportResult("detail-kind-invalid");
 	}
-	if (!hasSafeReportText(record.title, 256)) {
+	if (!hasSafeReportText(record.title, MAX_REPORT_TITLE_LENGTH)) {
 		invalidReportResult("detail-title-invalid");
 	}
 	if (!hasSafeReportText(record.reportedAt, 64)) {

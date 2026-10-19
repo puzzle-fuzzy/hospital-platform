@@ -1739,6 +1739,7 @@ export function requireCurrentUserResponse(
 
 // 页面 CommonJS 运行时不加载 workspace 裸包；回归测试与 contracts 导出保持一致。
 const MAX_REPORT_ATTACHMENTS = 16;
+const MAX_REPORT_TITLE_LENGTH = 1024;
 
 /** 报告标识和短文本不能携带控制字符或首尾空白。 */
 function hasSafeReportText(value: unknown, maxLength: number): value is string {
@@ -1828,7 +1829,7 @@ export function requireReportListResponse(value: unknown): ReportListResponse {
 			return invalidReportResponse("Report list response item is invalid");
 		}
 		if (
-			!hasSafeReportText(item.title, 256) ||
+			!hasSafeReportText(item.title, MAX_REPORT_TITLE_LENGTH) ||
 			!hasSafeReportText(item.reportedAt, 64) ||
 			!isReportStatus(item.status) ||
 			typeof item.hasAttachment !== "boolean"
@@ -1898,7 +1899,7 @@ export function requireReportDetailResponse(
 		!hasSafeReportText(data.reportId, 128) ||
 		data.reportId !== expectedReportId ||
 		!isReportKind(data.kind) ||
-		!hasSafeReportText(data.title, 256) ||
+		!hasSafeReportText(data.title, MAX_REPORT_TITLE_LENGTH) ||
 		!hasSafeReportText(data.reportedAt, 64) ||
 		typeof data.hasAttachment !== "boolean"
 	) {

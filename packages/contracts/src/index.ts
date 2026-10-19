@@ -738,11 +738,14 @@ export const ReportKindSchema = Type.Union([
 	Type.Literal("peis"),
 ]);
 
+/** 检验组合项目名可能超过 256 字符；报告标题保留完整原文且仍有界。 */
+export const MAX_REPORT_TITLE_LENGTH = 1024;
+
 export const ReportSchema = Type.Object({
 	/** 仅当服务端详情 gate 打开且已建立短期引用时返回的 opaque id。 */
 	reportId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	kind: ReportKindSchema,
-	title: Type.String({ minLength: 1, maxLength: 256 }),
+	title: Type.String({ minLength: 1, maxLength: MAX_REPORT_TITLE_LENGTH }),
 	reportedAt: Type.String({ minLength: 1, maxLength: 64 }),
 	status: Type.Union([Type.Literal("available"), Type.Literal("abnormal")]),
 	hasAttachment: Type.Boolean(),
@@ -783,7 +786,7 @@ export const ReportAttachmentSchema = Type.Object({
 
 const ReportDetailBaseSchema = Type.Object({
 	reportId: Type.String({ minLength: 1, maxLength: 128 }),
-	title: Type.String({ minLength: 1, maxLength: 256 }),
+	title: Type.String({ minLength: 1, maxLength: MAX_REPORT_TITLE_LENGTH }),
 	reportedAt: Type.String({ minLength: 1, maxLength: 64 }),
 	hasAttachment: Type.Boolean(),
 	/** 迁移期兼容旧客户端；新服务在成功详情响应中始终返回数组。 */

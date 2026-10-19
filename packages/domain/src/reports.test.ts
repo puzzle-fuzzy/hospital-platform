@@ -3,6 +3,7 @@ import {
 	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
+	MAX_REPORT_TITLE_LENGTH,
 	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
 	parseReportTimestamp,
@@ -11,6 +12,86 @@ import {
 	validateReportDirectoryResultWindow,
 	validateReportReference,
 } from "./reports";
+
+test("报告目录与各类详情标题共享1024上限且保留274字符完整标题", () => {
+	for (const title of [
+		"检".repeat(274),
+		"检".repeat(MAX_REPORT_TITLE_LENGTH),
+	]) {
+		const imaging = syntheticImagingResult("合成临床正文");
+		const report = imaging[0];
+		if (!report) throw new Error("Missing synthetic imaging report");
+		report.summary.title = title;
+		report.detail.title = title;
+		const result = normalizeReportDirectoryResults(imaging);
+		expect(result[0]?.summary.title).toBe(title);
+		const normalized = result[0];
+		if (!normalized || !("detail" in normalized))
+			throw new Error("Missing normalized detail");
+		expect(normalized.detail.title).toBe(title);
+		expect(
+			normalizeLaboratoryReportDetail({
+				kind: "laboratory",
+				title,
+				reportedAt: "2026-08-15 10:00:00",
+				items: [],
+				hasAttachment: false,
+			}).title,
+		).toBe(title);
+	}
+});
+
+test("报告标题超限、C0/DEL或首尾空白仍拒绝，其他字段长度不随标题放宽", () => {
+	for (const title of [
+		"检".repeat(MAX_REPORT_TITLE_LENGTH + 1),
+		"标题\n",
+		"标\u0000题",
+		"标\u007f题",
+		" 标题",
+		"标题 ",
+	]) {
+		const imaging = syntheticImagingResult("合成临床正文");
+		const report = imaging[0];
+		if (!report) throw new Error("Missing synthetic imaging report");
+		report.summary.title = title;
+		report.detail.title = title;
+		expect(() => normalizeReportDirectoryResults(imaging)).toThrow(
+			new ReportResultValidationError("title-invalid"),
+		);
+		// 摘要合法而详情单独损坏时，也不能越过详情标题边界。
+		report.summary.title = "合成摘要";
+		expect(() => normalizeReportDirectoryResults(imaging)).toThrow(
+			new ReportResultValidationError("detail-title-invalid"),
+		);
+		expect(() =>
+			normalizeLaboratoryReportDetail({
+				kind: "laboratory",
+				title,
+				reportedAt: "2026-08-15 10:00:00",
+				items: [],
+				hasAttachment: false,
+			}),
+		).toThrow(new ReportResultValidationError("detail-title-invalid"));
+	}
+	for (const field of ["name", "result"]) {
+		expect(() =>
+			normalizeLaboratoryReportDetail({
+				kind: "laboratory",
+				title: "检".repeat(274),
+				reportedAt: "2026-08-15 10:00:00",
+				items: [
+					{
+						name: "合成指标",
+						result: "1",
+						flag: "normal",
+						[field]: "值".repeat(257),
+					},
+				],
+				hasAttachment: false,
+			}),
+		).toThrow(new ReportResultValidationError("detail-field-invalid"));
+	}
+});
 
 function syntheticImagingResult(content: unknown, count = 0) {
 	return [

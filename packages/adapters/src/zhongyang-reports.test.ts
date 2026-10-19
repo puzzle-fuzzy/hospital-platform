@@ -3,6 +3,8 @@ import {
 	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
+	MAX_REPORT_TITLE_LENGTH,
+	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
 } from "@hospital/domain";
 import { createZhongyangReportGateway } from "./zhongyang-reports";
@@ -11,6 +13,164 @@ const context = {
 	traceId: "report-trace-001",
 	idempotencyKey: "report-key-001",
 };
+
+function syntheticLaboratoryTitleGateway(
+	testList: string,
+	overrides: Record<string, unknown> = {},
+) {
+	return createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const path = new URL(String(input)).pathname;
+			const laboratory = {
+				reportId: "synthetic-long-title-lis",
+				testList,
+				reportTime: "2026-08-15 10:00:00",
+				details: [{ itemName: "合成检验指标", itemResult: "1.0" }],
+				...overrides,
+			};
+			const detail = path.endsWith("/details");
+			const kind = path.includes("lis-reports")
+				? "lis"
+				: path.includes("pacs")
+					? "pacs"
+					: "ecg";
+			const data = detail
+				? laboratory
+				: kind === "lis"
+					? [laboratory]
+					: kind === "pacs"
+						? [
+								{
+									reportId: "synthetic-long-title-pacs",
+									modality: "CT",
+									reportAuditTime: "2026-08-15 11:00:00",
+									finding: "合成所见\r\n第二行",
+									reportImgPath: Array.from(
+										{ length: 8 },
+										(_, index) =>
+											`https://zhongyang.example.test/synthetic/${index}.png`,
+									),
+									reportPdfPath:
+										"https://zhongyang.example.test/synthetic/report.pdf",
+								},
+							]
+						: [
+								{
+									ecgReportId: "synthetic-long-title-ecg",
+									diagnosis: "合成心电诊断",
+									diagnoseTime: "2026-08-15 12:00:00",
+								},
+							];
+			return new Response(JSON.stringify({ success: true, data }), {
+				status: 200,
+				headers: {
+					"x-request-id": `synthetic-title-${detail ? "detail" : kind}`,
+				},
+			});
+		},
+	});
+}
+
+test("274字符及上限检验组合标题完整通过三来源目录与详情，不截断或遗漏其他报告", async () => {
+	const combinedTitle = `${"合成检验项目".repeat(45)}终项合成`;
+	expect(combinedTitle).toHaveLength(274);
+	for (const title of [combinedTitle, "检".repeat(MAX_REPORT_TITLE_LENGTH)]) {
+		const gateway = syntheticLaboratoryTitleGateway(title);
+		const result = await gateway.listReports(
+			{
+				providerPatientId: "synthetic-long-title-patient",
+				query: { startDate: "2026-08-01", endDate: "2026-08-15" },
+			},
+			context,
+		);
+		const reports = normalizeReportDirectoryResults(result.reports);
+		expect(reports).toHaveLength(3);
+		expect(reports.map((report) => report.summary.kind).sort()).toEqual([
+			"ecg",
+			"imaging",
+			"laboratory",
+		]);
+		expect(
+			reports.find((report) => report.summary.kind === "laboratory")?.summary
+				.title,
+		).toBe(title);
+		const imaging = reports.find((report) => report.summary.kind === "imaging");
+		if (!imaging || !("attachments" in imaging))
+			throw new Error("Missing imaging report");
+		expect(imaging.attachments).toHaveLength(9);
+		expect(result.trace.requestIds).toHaveLength(3);
+		const detail = await gateway.getLaboratoryDetail(
+			{ providerReportId: "synthetic-long-title-lis" },
+			context,
+		);
+		expect(normalizeLaboratoryReportDetail(detail.detail).title).toBe(title);
+	}
+});
+
+test("检验标题超过1024或带控制字符时整批拒绝，编号和检测结果长度不放宽", async () => {
+	for (const title of [
+		"检".repeat(MAX_REPORT_TITLE_LENGTH + 1),
+		"合成标题\n",
+		"合成\t标题",
+		"合成\u007f标题",
+	]) {
+		const gateway = syntheticLaboratoryTitleGateway(title);
+		await expect(
+			gateway.listReports(
+				{
+					providerPatientId: "synthetic-long-title-patient",
+					query: { startDate: "2026-08-01", endDate: "2026-08-15" },
+				},
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "reports-laboratory",
+			responseInvalid: true,
+		});
+		await expect(
+			gateway.getLaboratoryDetail(
+				{ providerReportId: "synthetic-long-title-lis" },
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "reports-laboratory-detail",
+			responseInvalid: true,
+		});
+	}
+	const longTitle = "检".repeat(274);
+	await expect(
+		syntheticLaboratoryTitleGateway(longTitle, {
+			reportId: "r".repeat(257),
+		}).listReports(
+			{
+				providerPatientId: "synthetic-long-title-patient",
+				query: {
+					startDate: "2026-08-01",
+					endDate: "2026-08-15",
+					kind: "laboratory",
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+	await expect(
+		syntheticLaboratoryTitleGateway(longTitle, {
+			details: [{ itemName: "合成指标", itemResult: "1".repeat(257) }],
+		}).getLaboratoryDetail(
+			{ providerReportId: "synthetic-long-title-lis" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+});
 
 function syntheticImagingQuery(overrides: Record<string, unknown>) {
 	const gateway = createZhongyangReportGateway({

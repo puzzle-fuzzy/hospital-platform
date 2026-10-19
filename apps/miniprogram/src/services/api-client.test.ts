@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { MAX_REPORT_ATTACHMENTS } from "@hospital/contracts";
+import {
+	MAX_REPORT_ATTACHMENTS,
+	MAX_REPORT_TITLE_LENGTH,
+} from "@hospital/contracts";
 import {
 	ApiError,
 	buildAppointmentRecordQuery,
@@ -1260,6 +1263,74 @@ function syntheticImagingReport(attachmentCount = 9) {
 		},
 	};
 }
+
+test("报告目录和详情保留 274 字符检验标题且长度上限与 contracts 一致", () => {
+	for (const length of [274, MAX_REPORT_TITLE_LENGTH]) {
+		const title = "检".repeat(length);
+		const summary = {
+			reportId: "synthetic-laboratory-001",
+			kind: "laboratory" as const,
+			title,
+			reportedAt: "2026-10-19 10:30",
+			status: "available" as const,
+			hasAttachment: false,
+		};
+		const list = {
+			success: true as const,
+			data: { items: [summary], total: 1 },
+		};
+		const detail = {
+			success: true as const,
+			data: {
+				reportId: summary.reportId,
+				kind: summary.kind,
+				title,
+				reportedAt: summary.reportedAt,
+				hasAttachment: false,
+				items: [],
+				attachments: [],
+			},
+		};
+		expect(requireReportListResponse(list)).toEqual(list);
+		expect(requireReportDetailResponse(detail, summary.reportId)).toEqual(
+			detail,
+		);
+	}
+});
+
+test("放宽报告标题长度仍拒绝超限、首尾空白与控制符", () => {
+	const forbiddenControls = Array.from(
+		{ length: 32 },
+		(_, code) => code,
+	).concat(0x7f);
+	for (const title of [
+		"检".repeat(MAX_REPORT_TITLE_LENGTH + 1),
+		" 标题",
+		"标题 ",
+		...forbiddenControls.map((code) => `标题${String.fromCharCode(code)}续行`),
+	]) {
+		const summary = {
+			reportId: "synthetic-laboratory-001",
+			kind: "laboratory",
+			title,
+			reportedAt: "2026-10-19 10:30",
+			status: "available",
+			hasAttachment: false,
+		};
+		expect(() =>
+			requireReportListResponse({
+				success: true,
+				data: { items: [summary], total: 1 },
+			}),
+		).toThrow("Report list response");
+		expect(() =>
+			requireReportDetailResponse(
+				{ success: true, data: { ...summary, items: [], attachments: [] } },
+				summary.reportId,
+			),
+		).toThrow("Report detail response");
+	}
+});
 
 test("报告详情客户端附件上限与 contracts 一致并接受八张影像和 PDF", () => {
 	for (const count of [9, MAX_REPORT_ATTACHMENTS]) {

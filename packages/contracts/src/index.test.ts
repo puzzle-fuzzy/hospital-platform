@@ -6,6 +6,7 @@ import {
 	HealthKnowledgeDiseaseDetailSchema,
 	HealthKnowledgeDrugDetailSchema,
 	MAX_REPORT_ATTACHMENTS,
+	MAX_REPORT_TITLE_LENGTH,
 	MedicalInsuranceAuthorizationContextResponse,
 	OutpatientPaymentItemSchema,
 	OutpatientPaymentRecordSchema,
@@ -13,6 +14,7 @@ import {
 	PatientListResponse,
 	PatientSchema,
 	ReportDetailResponse,
+	ReportListResponse,
 	UserProfileDisplayNameSchema,
 	UserProfileSchema,
 	UserProfileUpdateRequest,
@@ -45,6 +47,35 @@ const medicalInsuranceAuthorizationContextSchema = TypeCompiler.Compile(
 const outpatientPaymentRecordSchema = TypeCompiler.Compile(
 	OutpatientPaymentRecordSchema,
 );
+
+test("检验报告目录与详情标题支持完整 274 字符并保持共享长度上限", () => {
+	const listSchema = TypeCompiler.Compile(ReportListResponse);
+	const detailSchema = TypeCompiler.Compile(ReportDetailResponse);
+	for (const length of [
+		274,
+		MAX_REPORT_TITLE_LENGTH,
+		MAX_REPORT_TITLE_LENGTH + 1,
+	]) {
+		const summary = {
+			reportId: "synthetic-laboratory-001",
+			kind: "laboratory",
+			title: "检".repeat(length),
+			reportedAt: "2026-10-19 10:30",
+			status: "available",
+			hasAttachment: false,
+		};
+		const list = { success: true, data: { items: [summary], total: 1 } };
+		const detail = {
+			success: true,
+			data: { ...summary, items: [], attachments: [] },
+		};
+		const accepted = length <= MAX_REPORT_TITLE_LENGTH;
+		expect(listSchema.Check(list)).toBe(accepted);
+		expect(Value.Check(ReportListResponse, list)).toBe(accepted);
+		expect(detailSchema.Check(detail)).toBe(accepted);
+		expect(Value.Check(ReportDetailResponse, detail)).toBe(accepted);
+	}
+});
 
 test("报告详情契约允许八张影像和 PDF 并保持附件数量上限", () => {
 	const reportDetailSchema = TypeCompiler.Compile(ReportDetailResponse);

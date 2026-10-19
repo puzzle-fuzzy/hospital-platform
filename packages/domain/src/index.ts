@@ -628,6 +628,7 @@ export {
 	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
+	MAX_REPORT_TITLE_LENGTH,
 	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
 	parseReportTimestamp,

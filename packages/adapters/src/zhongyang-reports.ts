@@ -7,6 +7,7 @@ import {
 	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
+	MAX_REPORT_TITLE_LENGTH,
 	normalizeAdapterCallContext,
 	parseIsoCalendarDate,
 	type ReportAttachmentContent,
@@ -774,7 +775,13 @@ function mapLaboratory(
 	requestId: string,
 ): ReportDirectoryEntry {
 	const title =
-		optionalText(value.testList, "testList", operation, requestId) ??
+		optionalText(
+			value.testList,
+			"testList",
+			operation,
+			requestId,
+			MAX_REPORT_TITLE_LENGTH,
+		) ??
 		optionalText(
 			value.reportTypeName,
 			"reportTypeName",
@@ -1112,7 +1119,13 @@ function mapLaboratoryDetail(
 	requestId: string,
 ): LaboratoryReportDetail {
 	const title =
-		optionalText(value.testList, "testList", operation, requestId) ??
+		optionalText(
+			value.testList,
+			"testList",
+			operation,
+			requestId,
+			MAX_REPORT_TITLE_LENGTH,
+		) ??
 		optionalText(
 			value.reportTypeName,
 			"reportTypeName",
