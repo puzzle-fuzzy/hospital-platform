@@ -384,6 +384,183 @@ const currentDepartmentChild = {
 	billDeptCode: "DEPT-CODE-001",
 };
 
+test.each([
+	{ price: 0.3125, expected: "0.3125" },
+	{ price: "0.3125", expected: "0.3125" },
+	{ price: "0.553600", expected: "0.5536" },
+	{ price: "0.123456", expected: "0.123456" },
+	{ price: 0.000001, expected: "0.000001" },
+	{ price: "00010.2300000", expected: "10.23" },
+	{ price: 999999999.999999, expected: "999999999.999999" },
+	{ price: "9000000000.000009", expected: "9000000000.000009" },
+	{ price: "9999999999.999999", expected: "9999999999.999999" },
+])("6201 专用单价保留十进制精度：$price", async ({ price, expected }) => {
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		false,
+		undefined,
+		{ price },
+	);
+	await fixture.upload();
+	expect(fixture.feeUploads).toHaveLength(1);
+	expect(fixture.feeUploads[0]).toMatchObject({
+		medfeeSumamt: "10.00",
+		feedetailList: [
+			expect.objectContaining({
+				pric: expected,
+				detItemFeeSumamt: "10.00",
+				cnt: "1",
+			}),
+		],
+	});
+});
+
+test.each([
+	undefined,
+	null,
+	"",
+	0,
+	-0.3125,
+	"-0.3125",
+	"1e-4",
+	"0.1234567",
+	"10000000000",
+	Number.NaN,
+	Number.POSITIVE_INFINITY,
+	9999999999.999998,
+	9000000000.000002,
+	Number("9000000000.000009"),
+	1000000000,
+	{},
+])("6201 拒绝非法或缺失单价，不估算或发送：%s", async (price) => {
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		false,
+		undefined,
+		{ price },
+	);
+	await expect(fixture.upload()).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+	expect(fixture.feeUploads).toHaveLength(0);
+	expect(
+		fixture.contextWrites.some(
+			(next) => next.feeUploadStage === "submitting_6201",
+		),
+	).toBe(false);
+});
+
+test.each(["registration", "outpatient"] as const)(
+	"6201 %s 四位单价和小数数量保持医院明细金额，不用乘积重算",
+	async (businessType) => {
+		const fixture = feeUploadDepartmentFixture(
+			[currentDepartmentChild],
+			false,
+			businessType === "outpatient"
+				? {
+						recordId: "synthetic-unit-price-outpatient",
+						status: "unpaid",
+						billDate: "2026-10-15 14:00:00",
+						amountFen: 1000,
+					}
+				: undefined,
+			{ price: 0.3125, quantity: "32.0001" },
+		);
+		await fixture.upload();
+		expect(fixture.feeUploads[0]).toMatchObject({
+			medfeeSumamt: "10.00",
+			feedetailList: [
+				expect.objectContaining({
+					pric: "0.3125",
+					cnt: "32.0001",
+					detItemFeeSumamt: "10.00",
+				}),
+			],
+		});
+	},
+);
+
+test("6201 从原 pre_6201 主单恢复时同样保留四位单价", async () => {
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		true,
+		undefined,
+		{ price: "0.3125", quantity: 32 },
+	);
+	await fixture.upload();
+	expect(
+		fixture.providerUrls.filter((url) =>
+			url.pathname.endsWith("/apply-pay-settle"),
+		),
+	).toHaveLength(0);
+	expect(fixture.feeUploads).toHaveLength(1);
+	expect(fixture.feeUploads[0]).toMatchObject({
+		medfeeSumamt: "10.00",
+		feedetailList: [expect.objectContaining({ pric: "0.3125" })],
+	});
+});
+
+test("6201 合成12项费用保留四位单价且总额精确为96184分", async () => {
+	const lines = [
+		...Array.from({ length: 9 }, () => ({
+			price: 100,
+			quantity: 1,
+			amount: 100,
+		})),
+		{ price: 12.35, quantity: 1, amount: 12.35 },
+		{ price: 44.49, quantity: 1, amount: 44.49 },
+		{ price: 0.3125, quantity: 16, amount: 5 },
+	];
+	const fixture = feeUploadDepartmentFixture(
+		lines.map((_, index) => ({
+			...currentDepartmentChild,
+			chargeId: `synthetic-charge-${index}`,
+		})),
+		false,
+		{
+			recordId: "synthetic-twelve-line-outpatient",
+			status: "unpaid",
+			billDate: "2026-10-15 14:00:00",
+			amountFen: 96184,
+		},
+		{},
+		{ getAmount: "961.84" },
+		{
+			detailData: (base) => ({
+				outSettleDetailList: lines.map((line, index) => ({
+					...base,
+					...line,
+					chargeId: `synthetic-charge-${index}`,
+					outSettleDetailId: `synthetic-detail-${index}`,
+				})),
+			}),
+		},
+	);
+	await fixture.upload();
+	expect(fixture.feeUploads).toHaveLength(1);
+	const payload = fixture.feeUploads[0];
+	expect(payload?.medfeeSumamt).toBe("961.84");
+	const details = payload?.feedetailList as Record<string, unknown>[];
+	expect(details).toHaveLength(12);
+	expect(details[11]).toMatchObject({
+		pric: "0.3125",
+		cnt: "16",
+		detItemFeeSumamt: "5.00",
+	});
+});
+
+test("高精度单价不放宽真实费用金额的两位小数限制", async () => {
+	const fixture = feeUploadDepartmentFixture(
+		[currentDepartmentChild],
+		false,
+		undefined,
+		{ price: "0.3125", amount: "10.001" },
+	);
+	await expect(fixture.upload()).rejects.toThrow();
+	expect(fixture.feeUploads).toHaveLength(0);
+});
+
 const splitTradeOrderIds = [
 	"8843868963491158916",
 	"8843868963491158917",

@@ -718,6 +718,45 @@ function detailAmountFen(
 	);
 }
 
+/**
+ * 山西 6201 表 272-2：单价 pric 为 N(16,6)，费用总额仍为 N(16,2)。
+ * 单价可能不足一分，必须直接传递精确的元字符串，不能先转成整数分或估算。
+ */
+function feeUnitPriceYuan(
+	value: unknown,
+	requestId: string | undefined,
+): string {
+	const invalid = (): never => {
+		throw responseError(
+			"medical-insurance.6201-fee-details",
+			"fee detail price must be a positive decimal within N(16,6)",
+			requestId,
+		);
+	};
+	if (
+		(typeof value !== "string" && typeof value !== "number") ||
+		(typeof value === "number" && !Number.isFinite(value))
+	) {
+		return invalid();
+	}
+	const text = String(value).trim();
+	if (text.length > 64 || !/^\d+(?:\.\d+)?$/.test(text)) return invalid();
+	const [integer = "", decimal = ""] = text.split(".");
+	const whole = integer.replace(/^0+(?=\d)/, "");
+	// 去除尾零只改变写法，不改变数值；超出六位的有效精度始终拒绝。
+	const fraction = decimal.replace(/0+$/, "");
+	if (whole.length > 10 || fraction.length > 6) return invalid();
+	const millionths =
+		BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0"));
+	if (millionths <= 0n) return invalid();
+	// number 为全部六位小数预留 15 位有效数字；更大单价必须用字符串，
+	// 否则 JSON 解析舍入可能已把一个六位价格变成另一个合法价格。
+	if (typeof value === "number" && millionths > 999_999_999_999_999n) {
+		return invalid();
+	}
+	return `${whole}.${fraction.padEnd(2, "0")}`;
+}
+
 function mapFeeDetails(
 	details: readonly ProviderRecord[],
 	auth: MedicalInsuranceAuthorizationContext,
@@ -739,13 +778,7 @@ function mapFeeDetails(
 			requestId,
 			"quantity",
 		);
-		const priceFen =
-			detail.price !== undefined && detail.price !== null
-				? yuanToFen(detail.price, "price", "6201")
-				: Math.round(amountFen / quantity);
-		if (priceFen <= 0) {
-			throw responseError(operation, "fee detail price is invalid", requestId);
-		}
+		const priceYuan = feeUnitPriceYuan(detail.price, requestId);
 		const medListCode = requiredText(
 			detail,
 			["networkItemCode", "medinsurItemCode", "nationalMedicalInsuranceCode"],
@@ -801,7 +834,7 @@ function mapFeeDetails(
 			medinsListCodg: medinsListCode,
 			detItemFeeSumamt: fenToYuan(amountFen),
 			cnt: quantity.toString(),
-			pric: fenToYuan(priceFen),
+			pric: priceYuan,
 			bilgDeptCodg:
 				optionalText(
 					detail,
