@@ -4,6 +4,7 @@ import {
 	InvalidReportKindError,
 	isReportKind,
 	type LaboratoryReportDetail,
+	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
 	normalizeAdapterCallContext,
@@ -408,7 +409,7 @@ function requiredText(
 	if (
 		!normalized ||
 		normalized.length > maxLength ||
-		Array.from(normalized).some((character) => {
+		Array.from(String(value)).some((character) => {
 			const code = character.charCodeAt(0);
 			return code <= 0x1f || code === 0x7f;
 		})
@@ -434,6 +435,35 @@ function optionalText(
 ): string | undefined {
 	if (value === undefined || value === null || value === "") return undefined;
 	return requiredText(value, field, operation, requestId, maxLength);
+}
+
+/** 仅临床正文允许 CR/LF/TAB 排版；原文不 trim 或删除字符。 */
+function optionalClinicalText(
+	value: unknown,
+	field: string,
+	operation: string,
+	requestId: string,
+): string | undefined {
+	if (value === undefined || value === null || value === "") return undefined;
+	if (
+		typeof value !== "string" ||
+		!value.trim() ||
+		value.length > 10_000 ||
+		Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return (
+				(code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d) ||
+				code === 0x7f
+			);
+		})
+	) {
+		throw providerError(
+			operation,
+			`Zhongyang report field ${field} is invalid`,
+			requestId,
+		);
+	}
+	return value;
 }
 
 /**
@@ -462,7 +492,7 @@ function attachmentText(
 	}
 	const normalized = marker.trim();
 	if (
-		Array.from(normalized).some((character) => {
+		Array.from(marker).some((character) => {
 			const code = character.charCodeAt(0);
 			return code <= 0x1f || code === 0x7f;
 		})
@@ -517,6 +547,53 @@ function attachmentTextList(
 		);
 	}
 	return marker.map((item) => item.trim()).filter(Boolean);
+}
+
+/** PACS 图片可为单个地址或有界地址数组；逐项验证，不截断报告页。 */
+function imagingAttachmentUrls(
+	value: ProviderObject,
+	operation: string,
+	requestId: string,
+): string[] {
+	const marker = value.reportImgPath;
+	if (Array.isArray(marker) && marker.length > MAX_REPORT_ATTACHMENTS) {
+		throw providerError(
+			operation,
+			"Zhongyang report attachment field reportImgPath contained too many items",
+			requestId,
+		);
+	}
+	const urls = attachmentTextList(
+		{ reportImgPath: typeof marker === "string" ? [marker] : marker },
+		"reportImgPath",
+		operation,
+		requestId,
+	);
+	for (const sourceUrl of urls) {
+		let url: URL;
+		try {
+			url = new URL(sourceUrl);
+		} catch {
+			throw providerError(
+				operation,
+				"Zhongyang report attachment field reportImgPath is invalid",
+				requestId,
+			);
+		}
+		if (
+			(url.protocol !== "http:" && url.protocol !== "https:") ||
+			url.username ||
+			url.password ||
+			url.hash
+		) {
+			throw providerError(
+				operation,
+				"Zhongyang report attachment field reportImgPath is invalid",
+				requestId,
+			);
+		}
+	}
+	return urls;
 }
 
 function hasAttachmentTextList(
@@ -775,32 +852,32 @@ function mapImaging(
 		requestId,
 		256,
 	);
-	const attachments = compactFields([
-		attachmentText(value, "reportPdfPath", operation, requestId)
-			? {
-					sourceUrl: attachmentText(
-						value,
-						"reportPdfPath",
-						operation,
-						requestId,
-					) as string,
-					kind: "pdf" as const,
-					label: "影像报告 PDF",
-				}
-			: undefined,
-		attachmentText(value, "reportImgPath", operation, requestId)
-			? {
-					sourceUrl: attachmentText(
-						value,
-						"reportImgPath",
-						operation,
-						requestId,
-					) as string,
-					kind: "image" as const,
-					label: "影像报告图片",
-				}
-			: undefined,
-	]);
+	const pdfPath = attachmentText(value, "reportPdfPath", operation, requestId);
+	const imageUrls = imagingAttachmentUrls(value, operation, requestId);
+	const attachments = [
+		...compactFields([
+			pdfPath
+				? {
+						sourceUrl: pdfPath,
+						kind: "pdf" as const,
+						label: "影像报告 PDF",
+					}
+				: undefined,
+		]),
+		...imageUrls.map((sourceUrl, index) => ({
+			sourceUrl,
+			kind: "image" as const,
+			label:
+				imageUrls.length > 1 ? `影像报告图片 ${index + 1}` : "影像报告图片",
+		})),
+	];
+	if (attachments.length > MAX_REPORT_ATTACHMENTS) {
+		throw providerError(
+			operation,
+			"Zhongyang imaging report contained too many attachments",
+			requestId,
+		);
+	}
 	const fields = compactFields([
 		detailField("检查设备", value.modality, "modality", operation, requestId),
 		detailField(
@@ -825,31 +902,23 @@ function mapImaging(
 			requestId,
 		),
 	]);
+	const finding = optionalClinicalText(
+		value.finding,
+		"finding",
+		operation,
+		requestId,
+	);
+	const conclusion = optionalClinicalText(
+		value.conclusion,
+		"conclusion",
+		operation,
+		requestId,
+	);
 	const sections = compactFields([
-		optionalText(value.finding, "finding", operation, requestId, 10_000)
-			? {
-					title: "检查所见",
-					content: optionalText(
-						value.finding,
-						"finding",
-						operation,
-						requestId,
-						10_000,
-					) as string,
-				}
-			: undefined,
-		optionalText(value.conclusion, "conclusion", operation, requestId, 10_000)
-			? {
-					title: "检查结论",
-					content: optionalText(
-						value.conclusion,
-						"conclusion",
-						operation,
-						requestId,
-						10_000,
-					) as string,
-				}
-			: undefined,
+		finding === undefined ? undefined : { title: "检查所见", content: finding },
+		conclusion === undefined
+			? undefined
+			: { title: "检查结论", content: conclusion },
 	]);
 	return {
 		summary: {

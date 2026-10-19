@@ -625,6 +625,7 @@ export type {
 export {
 	InvalidReportKindError,
 	isReportKind,
+	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
 	normalizeLaboratoryReportDetail,

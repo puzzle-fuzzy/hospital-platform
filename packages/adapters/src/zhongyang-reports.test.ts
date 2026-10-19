@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import {
+	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
+	normalizeReportDirectoryResults,
 } from "@hospital/domain";
 import { createZhongyangReportGateway } from "./zhongyang-reports";
 
@@ -9,6 +11,163 @@ const context = {
 	traceId: "report-trace-001",
 	idempotencyKey: "report-key-001",
 };
+
+function syntheticImagingQuery(overrides: Record<string, unknown>) {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					code: "0000",
+					data: [
+						{
+							reportId: "synthetic-imaging-report",
+							stuBodypart: "合成影像检查",
+							reportAuditTime: "2026-08-15 10:00:00",
+							...overrides,
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "synthetic-imaging-request" },
+				},
+			),
+	});
+	return gateway.listReports(
+		{
+			providerPatientId: "synthetic-patient",
+			query: {
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				kind: "imaging",
+			},
+		},
+		context,
+	);
+}
+
+test("PACS 图片字符串和四页、八页数组均保留全部附件与原始多行正文", async () => {
+	const finding = "  合成所见第一行\r\n\t合成所见第二行\n第三行\r第四行  ";
+	const conclusion = "\n合成结论一\r\n合成结论二\t \n";
+	for (const count of [1, 4, 8]) {
+		const imageUrls = Array.from(
+			{ length: count },
+			(_, index) =>
+				`https://zhongyang.example.test/synthetic/image-${index + 1}.png`,
+		);
+		const result = await syntheticImagingQuery({
+			reportImgPath: count === 1 ? imageUrls[0] : imageUrls,
+			reportPdfPath: "https://zhongyang.example.test/synthetic/report.pdf",
+			finding,
+			conclusion,
+		});
+		const reports = normalizeReportDirectoryResults(result.reports);
+		const report = reports[0];
+		if (!report || !("detail" in report))
+			throw new Error("Missing imaging detail");
+		expect(
+			report?.attachments?.map((attachment) => attachment.sourceUrl),
+		).toEqual([
+			"https://zhongyang.example.test/synthetic/report.pdf",
+			...imageUrls,
+		]);
+		expect(report?.detail?.sections).toEqual([
+			{ title: "检查所见", content: finding },
+			{ title: "检查结论", content: conclusion },
+		]);
+		expect(report?.summary.hasAttachment).toBe(true);
+	}
+});
+
+test("PACS 图片空数组保持无附件，附件数量恰好到上限时完整返回", async () => {
+	const empty = await syntheticImagingQuery({ reportImgPath: [] });
+	expect(empty.reports[0]?.summary.hasAttachment).toBe(false);
+	const emptyReport = empty.reports[0];
+	if (!emptyReport || !("attachments" in emptyReport))
+		throw new Error("Missing imaging attachments");
+	expect(emptyReport.attachments).toEqual([]);
+	const result = await syntheticImagingQuery({
+		reportImgPath: Array.from(
+			{ length: MAX_REPORT_ATTACHMENTS - 1 },
+			(_, index) =>
+				`https://zhongyang.example.test/synthetic/image-${index}.png`,
+		),
+		reportPdfPath: "https://zhongyang.example.test/synthetic/report.pdf",
+	});
+	const report = normalizeReportDirectoryResults(result.reports)[0];
+	if (!report || !("attachments" in report))
+		throw new Error("Missing imaging attachments");
+	expect(report.attachments).toHaveLength(MAX_REPORT_ATTACHMENTS);
+});
+
+test("PACS 图片数组拒绝未知元素、不安全URL、超长地址与超限数组", async () => {
+	for (const reportImgPath of [
+		{},
+		true,
+		[null],
+		[{}],
+		[["https://zhongyang.example.test/image.png"]],
+		["https://zhongyang.example.test/image.png", 1],
+		["https://zhongyang.example.test/image.png\n"],
+		"\thttps://zhongyang.example.test/image.png",
+		["https://zhongyang.example.test/image\u0000.png"],
+		[`https://zhongyang.example.test/${"x".repeat(2048)}`],
+		["javascript:alert(1)"],
+		["data:image/png;base64,AA"],
+		["/relative/image.png"],
+		["https://user:secret@zhongyang.example.test/image.png"],
+		["https://zhongyang.example.test/image.png#fragment"],
+		Array.from({ length: MAX_REPORT_ATTACHMENTS + 1 }, () => ""),
+	]) {
+		await expect(
+			syntheticImagingQuery({ reportImgPath }),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "reports-imaging",
+			responseInvalid: true,
+		});
+	}
+});
+
+test("PACS 合并PDF与图片后超过总附件上限时整批拒绝", async () => {
+	await expect(
+		syntheticImagingQuery({
+			reportImgPath: Array.from(
+				{ length: MAX_REPORT_ATTACHMENTS },
+				(_, index) =>
+					`https://zhongyang.example.test/synthetic/image-${index}.png`,
+			),
+			reportPdfPath: "https://zhongyang.example.test/synthetic/report.pdf",
+		}),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-imaging",
+		responseInvalid: true,
+	});
+});
+
+test("PACS 仅正文放行排版字符，标题、编号、URL及其他控制字符继续拒绝", async () => {
+	for (const overrides of [
+		{ finding: { content: "不能吞掉的未知结构" } },
+		{ conclusion: ["不能吞掉的未知结构"] },
+		{ finding: "\t\r\n  " },
+		{ finding: "文".repeat(10_001) },
+		{ stuBodypart: "检查\n标题" },
+		{ reportId: "report\tidentifier" },
+		{ reportPdfPath: "https://zhongyang.example.test/report.pdf\r\n" },
+		...Array.from({ length: 33 }, (_, index) => (index === 32 ? 0x7f : index))
+			.filter((code) => ![0x09, 0x0a, 0x0d].includes(code))
+			.map((code) => ({ finding: `合成正文${String.fromCharCode(code)}尾部` })),
+	]) {
+		await expect(syntheticImagingQuery(overrides)).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "reports-imaging",
+			responseInvalid: true,
+		});
+	}
+});
 
 test("众阳报告目录按来源查询并映射为安全摘要", async () => {
 	const requestUrls: string[] = [];

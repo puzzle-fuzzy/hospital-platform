@@ -5,12 +5,14 @@ import {
 	AppointmentDepartmentTreeResponse,
 	HealthKnowledgeDiseaseDetailSchema,
 	HealthKnowledgeDrugDetailSchema,
+	MAX_REPORT_ATTACHMENTS,
 	MedicalInsuranceAuthorizationContextResponse,
 	OutpatientPaymentItemSchema,
 	OutpatientPaymentRecordSchema,
 	PatientCardNumberMaskedSchema,
 	PatientListResponse,
 	PatientSchema,
+	ReportDetailResponse,
 	UserProfileDisplayNameSchema,
 	UserProfileSchema,
 	UserProfileUpdateRequest,
@@ -43,6 +45,38 @@ const medicalInsuranceAuthorizationContextSchema = TypeCompiler.Compile(
 const outpatientPaymentRecordSchema = TypeCompiler.Compile(
 	OutpatientPaymentRecordSchema,
 );
+
+test("报告详情契约允许八张影像和 PDF 并保持附件数量上限", () => {
+	const reportDetailSchema = TypeCompiler.Compile(ReportDetailResponse);
+	const responseWithAttachments = (count: number) => ({
+		success: true,
+		data: {
+			reportId: "synthetic-report-001",
+			kind: "imaging",
+			title: "合成影像报告",
+			reportedAt: "2026-10-19 10:30",
+			hasAttachment: true,
+			attachments: Array.from({ length: count }, (_, index) => ({
+				attachmentId: `synthetic-attachment-${index}`,
+				kind: index === count - 1 ? "pdf" : "image",
+				label: index === count - 1 ? "报告 PDF" : `影像 ${index + 1}`,
+			})),
+			fields: [],
+			sections: [{ title: "检查所见", content: "  第一行\r\n\t第二行\n  " }],
+		},
+	});
+	for (const count of [9, MAX_REPORT_ATTACHMENTS]) {
+		const response = responseWithAttachments(count);
+		expect(reportDetailSchema.Check(response)).toBeTrue();
+		expect(Value.Check(ReportDetailResponse, response)).toBeTrue();
+	}
+	const tooMany = responseWithAttachments(MAX_REPORT_ATTACHMENTS + 1);
+	expect(reportDetailSchema.Check(tooMany)).toBeFalse();
+	expect(Value.Check(ReportDetailResponse, tooMany)).toBeFalse();
+	const tooLong = responseWithAttachments(9);
+	tooLong.data.sections = [{ title: "检查所见", content: "文".repeat(10_001) }];
+	expect(reportDetailSchema.Check(tooLong)).toBeFalse();
+});
 
 test("医保授权上下文只附带当前患者的明确资格状态并兼容旧响应", () => {
 	for (const data of [

@@ -10,6 +10,7 @@ import { type ProviderFetcher, requestJson } from "./http";
 const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
 const PATIENT_CREATE_PATH = "/msun-middle-aggregate-patient/v1/patients";
 const PATIENT_CARD_BIND_PATH = "/msun-middle-aggregate-patient/v1/patCards";
+const MAX_HIS_PATIENT_ID = 9_223_372_036_854_775_807n;
 
 type ZhongyangPatientBindingOptions = {
 	baseUrl: string;
@@ -91,22 +92,21 @@ function successfulEnvelope(
 	return envelope;
 }
 
-type PatientReference = { patId: number; cardNo: string };
+type PatientReference = { patId: number | string; cardNo: string };
 
-function positivePatientId(value: unknown): number | undefined {
-	const normalized =
-		typeof value === "number"
-			? value
-			: typeof value === "string" && /^\d+$/u.test(value.trim())
-				? Number(value.trim())
-				: undefined;
-	if (
-		normalized === undefined ||
-		!Number.isSafeInteger(normalized) ||
-		normalized <= 0
-	) {
+function positivePatientId(value: unknown): number | string | undefined {
+	if (typeof value === "number") {
+		return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+	}
+	if (typeof value !== "string" || /\p{Cc}/u.test(value)) {
 		return undefined;
 	}
+	const normalized = value.trim();
+	if (!/^\d{1,19}$/u.test(normalized)) return undefined;
+	// HIS 的 Long 编号必须以十进制字符串无损传递；Number 转换会先舍入
+	// 19 位 patId。已解析成不安全 number 的响应无法恢复，必须在上面拒绝。
+	const patientId = BigInt(normalized);
+	if (patientId <= 0n || patientId > MAX_HIS_PATIENT_ID) return undefined;
 	return normalized;
 }
 

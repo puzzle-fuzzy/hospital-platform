@@ -772,6 +772,9 @@ export const LaboratoryReportDetailItemSchema = Type.Object({
 	]),
 });
 
+/** 同一报告可能同时提供多张影像和 PDF；公开附件引用始终受有界数量约束。 */
+export const MAX_REPORT_ATTACHMENTS = 16;
+
 export const ReportAttachmentSchema = Type.Object({
 	attachmentId: Type.String({ minLength: 1, maxLength: 128 }),
 	kind: Type.Union([Type.Literal("pdf"), Type.Literal("image")]),
@@ -785,7 +788,7 @@ const ReportDetailBaseSchema = Type.Object({
 	hasAttachment: Type.Boolean(),
 	/** 迁移期兼容旧客户端；新服务在成功详情响应中始终返回数组。 */
 	attachments: Type.Optional(
-		Type.Array(ReportAttachmentSchema, { maxItems: 8 }),
+		Type.Array(ReportAttachmentSchema, { maxItems: MAX_REPORT_ATTACHMENTS }),
 	),
 });
 

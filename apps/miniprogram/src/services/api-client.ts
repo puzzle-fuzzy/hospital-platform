@@ -1737,7 +1737,10 @@ export function requireCurrentUserResponse(
 	};
 }
 
-/** 报告文本不能携带控制字符或首尾空白，避免破坏临床展示和日志边界。 */
+// 页面 CommonJS 运行时不加载 workspace 裸包；回归测试与 contracts 导出保持一致。
+const MAX_REPORT_ATTACHMENTS = 16;
+
+/** 报告标识和短文本不能携带控制字符或首尾空白。 */
 function hasSafeReportText(value: unknown, maxLength: number): value is string {
 	return (
 		typeof value === "string" &&
@@ -1747,6 +1750,22 @@ function hasSafeReportText(value: unknown, maxLength: number): value is string {
 		!Array.from(value).some((character) => {
 			const code = character.charCodeAt(0);
 			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+/** 临床分节正文保留原始换行、制表和排版空白，仍拒绝其他控制字符。 */
+function hasSafeReportSectionContent(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.length <= 10_000 &&
+		value.trim().length > 0 &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return (
+				(code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d) ||
+				code === 0x7f
+			);
 		})
 	);
 }
@@ -1831,7 +1850,7 @@ export function requireReportListResponse(value: unknown): ReportListResponse {
 
 function requireReportAttachments(value: unknown): ReportAttachment[] {
 	if (value === undefined) return [];
-	if (!Array.isArray(value) || value.length > 8) {
+	if (!Array.isArray(value) || value.length > MAX_REPORT_ATTACHMENTS) {
 		return invalidReportResponse("Report attachment list is invalid");
 	}
 	const seen = new Set<string>();
@@ -1953,7 +1972,7 @@ export function requireReportDetailResponse(
 		if (
 			!isRecord(item) ||
 			!hasSafeReportText(item.title, 64) ||
-			!hasSafeReportText(item.content, 10_000)
+			!hasSafeReportSectionContent(item.content)
 		) {
 			return invalidReportResponse("Report detail section is invalid");
 		}

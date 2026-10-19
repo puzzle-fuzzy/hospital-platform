@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
 	normalizeLaboratoryReportDetail,
@@ -10,6 +11,99 @@ import {
 	validateReportDirectoryResultWindow,
 	validateReportReference,
 } from "./reports";
+
+function syntheticImagingResult(content: unknown, count = 0) {
+	return [
+		{
+			summary: {
+				kind: "imaging",
+				title: "合成影像报告",
+				reportedAt: "2026-08-15 10:00:00",
+				status: "available",
+				hasAttachment: count > 0,
+			},
+			providerReportId: "synthetic-imaging-report",
+			detail: {
+				kind: "imaging",
+				title: "合成影像报告",
+				reportedAt: "2026-08-15 10:00:00",
+				fields: [],
+				sections: [{ title: "检查所见", content }],
+				hasAttachment: count > 0,
+			},
+			attachments: Array.from({ length: count }, (_, index) => ({
+				sourceUrl: `https://provider.example.test/synthetic/image-${index}.png`,
+				kind: "image",
+				label: `报告图片 ${index + 1}`,
+			})),
+		},
+	];
+}
+
+test("报告正文保留首尾空白和CR/LF/TAB，附件上限与公共契约一致", () => {
+	const content = " \n合成所见一\r\n\t合成所见二\r第三行\n ";
+	const result = normalizeReportDirectoryResults(
+		syntheticImagingResult(content, MAX_REPORT_ATTACHMENTS),
+	);
+	const report = result[0];
+	if (!report || !("detail" in report))
+		throw new Error("Missing imaging detail");
+	expect(report.detail.sections[0]?.content).toBe(content);
+	expect(report.attachments).toHaveLength(MAX_REPORT_ATTACHMENTS);
+	expect(() =>
+		normalizeReportDirectoryResults(
+			syntheticImagingResult(content, MAX_REPORT_ATTACHMENTS + 1),
+		),
+	).toThrow(new ReportResultValidationError("attachment-too-many"));
+});
+
+test("报告正文继续拒绝未知结构、空白正文、超长文本和其他控制字符", () => {
+	for (const content of [
+		null,
+		{},
+		[],
+		1,
+		"",
+		" \t\r\n",
+		"文".repeat(10_001),
+		...Array.from({ length: 33 }, (_, index) => (index === 32 ? 0x7f : index))
+			.filter((code) => ![0x09, 0x0a, 0x0d].includes(code))
+			.map((code) => `临床正文${String.fromCharCode(code)}尾部`),
+	]) {
+		expect(() =>
+			normalizeReportDirectoryResults(syntheticImagingResult(content)),
+		).toThrow(new ReportResultValidationError("detail-field-invalid"));
+	}
+});
+
+test("报告正文兼容不放宽标题、编号、字段和附件URL的单行校验", () => {
+	for (const change of [
+		(value: ReturnType<typeof syntheticImagingResult>[number]) => {
+			value.summary.title += "\n";
+		},
+		(value: ReturnType<typeof syntheticImagingResult>[number]) => {
+			value.providerReportId += "\t";
+		},
+		(value: ReturnType<typeof syntheticImagingResult>[number]) => {
+			value.detail.sections = [
+				{ title: "检查所见\r", content: "合成临床正文" },
+			];
+		},
+		(value: ReturnType<typeof syntheticImagingResult>[number]) => {
+			const attachment = value.attachments[0];
+			if (!attachment) throw new Error("Missing imaging attachment");
+			attachment.sourceUrl += "\n";
+		},
+	]) {
+		const result = syntheticImagingResult("合成临床正文", 1);
+		const report = result[0];
+		if (!report) throw new Error("Missing imaging report");
+		change(report);
+		expect(() => normalizeReportDirectoryResults(result)).toThrow(
+			ReportResultValidationError,
+		);
+	}
+});
 
 test("报告时间只接受可审计格式并正确处理无效日期", () => {
 	expect(parseReportTimestamp("2026-08-15")).toBe(

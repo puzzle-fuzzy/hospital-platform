@@ -1,6 +1,9 @@
+import { MAX_REPORT_ATTACHMENTS } from "@hospital/contracts";
 import { parseIsoCalendarDate } from "./date-range";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
+
+export { MAX_REPORT_ATTACHMENTS } from "@hospital/contracts";
 
 /** 小程序报告查询使用的四类众阳来源。 */
 export type ReportKind = "laboratory" | "imaging" | "ecg" | "peis";
@@ -333,6 +336,22 @@ function hasSafeReportText(value: unknown, maxLength: number): value is string {
 	);
 }
 
+/** 临床段落保留原始排版，只有 CR/LF/TAB 可作为控制字符出现。 */
+function hasSafeReportContent(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.trim().length > 0 &&
+		value.length <= 10_000 &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return (
+				(code <= 0x1f && code !== 0x09 && code !== 0x0a && code !== 0x0d) ||
+				code === 0x7f
+			);
+		})
+	);
+}
+
 function invalidReportResult(violation: ReportResultViolation): never {
 	throw new ReportResultValidationError(violation);
 }
@@ -352,7 +371,6 @@ function optionalReportText(
 
 const MAX_REPORT_DETAIL_FIELDS = 64;
 const MAX_REPORT_DETAIL_SECTIONS = 16;
-const MAX_REPORT_ATTACHMENTS = 8;
 
 function normalizeNonLaboratoryReportDetail(
 	value: unknown,
@@ -416,7 +434,7 @@ function normalizeNonLaboratoryReportDetail(
 		const candidate = section as Record<string, unknown>;
 		if (
 			!hasSafeReportText(candidate.title, 64) ||
-			!hasSafeReportText(candidate.content, 10_000)
+			!hasSafeReportContent(candidate.content)
 		) {
 			invalidReportResult("detail-field-invalid");
 		}

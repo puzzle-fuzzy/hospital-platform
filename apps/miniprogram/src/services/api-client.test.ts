@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MAX_REPORT_ATTACHMENTS } from "@hospital/contracts";
 import {
 	ApiError,
 	buildAppointmentRecordQuery,
@@ -1237,6 +1238,119 @@ test("影像、心电和体检详情只接受通用字段、分节和不透明�
 			valid.data.reportId,
 		),
 	).toThrow("Report attachment");
+});
+
+function syntheticImagingReport(attachmentCount = 9) {
+	return {
+		success: true as const,
+		data: {
+			reportId: "synthetic-report-001",
+			kind: "imaging" as const,
+			title: "合成影像报告",
+			reportedAt: "2026-10-19 10:30",
+			fields: [{ label: "检查部位", value: "胸部" }],
+			sections: [{ title: "检查所见", content: "  第一行\r\n\t第二行\n  " }],
+			hasAttachment: true,
+			attachments: Array.from({ length: attachmentCount }, (_, index) => ({
+				attachmentId: `synthetic-attachment-${index}`,
+				kind:
+					index === attachmentCount - 1 ? ("pdf" as const) : ("image" as const),
+				label: index === attachmentCount - 1 ? "报告 PDF" : `影像 ${index + 1}`,
+			})),
+		},
+	};
+}
+
+test("报告详情客户端附件上限与 contracts 一致并接受八张影像和 PDF", () => {
+	for (const count of [9, MAX_REPORT_ATTACHMENTS]) {
+		const valid = syntheticImagingReport(count);
+		expect(requireReportDetailResponse(valid, valid.data.reportId)).toEqual(
+			valid,
+		);
+	}
+	const tooMany = syntheticImagingReport(MAX_REPORT_ATTACHMENTS + 1);
+	expect(() =>
+		requireReportDetailResponse(tooMany, tooMany.data.reportId),
+	).toThrow("Report attachment list");
+});
+
+test("报告正文保留换行制表与首尾空白且拒绝空白正文和其他控制符", () => {
+	const valid = syntheticImagingReport();
+	for (const content of ["  第一行\r\n\t第二行\n  ", "文".repeat(10_000)]) {
+		valid.data.sections = [{ title: "检查所见", content }];
+		const projected = requireReportDetailResponse(valid, valid.data.reportId);
+		expect(projected).toEqual(valid);
+	}
+	const forbiddenControls = Array.from({ length: 32 }, (_, code) => code)
+		.filter((code) => ![0x09, 0x0a, 0x0d].includes(code))
+		.concat(0x7f);
+	for (const content of [
+		"",
+		" \t\r\n ",
+		"文".repeat(10_001),
+		...forbiddenControls.map(
+			(code) => `第一行${String.fromCharCode(code)}第二行`,
+		),
+	]) {
+		valid.data.sections = [{ title: "检查所见", content }];
+		expect(() =>
+			requireReportDetailResponse(valid, valid.data.reportId),
+		).toThrow("Report detail section");
+	}
+});
+
+test("报告正文放行排版字符不会放宽标题、字段或附件标识边界", () => {
+	const valid = syntheticImagingReport();
+	for (const control of ["\r", "\n", "\t", "\u0000", "\u007f"]) {
+		const invalidResponses: unknown[] = [
+			{
+				...valid,
+				data: { ...valid.data, reportId: `synthetic${control}report` },
+			},
+			{ ...valid, data: { ...valid.data, title: `标题${control}续行` } },
+			{
+				...valid,
+				data: {
+					...valid.data,
+					fields: [{ label: "检查部位", value: `胸${control}部` }],
+				},
+			},
+			{
+				...valid,
+				data: {
+					...valid.data,
+					sections: [{ title: `检查${control}所见`, content: "合成正文" }],
+				},
+			},
+			{
+				...valid,
+				data: {
+					...valid.data,
+					attachments: [
+						{ attachmentId: `id${control}001`, kind: "pdf", label: "报告" },
+					],
+				},
+			},
+			{
+				...valid,
+				data: {
+					...valid.data,
+					attachments: [
+						{
+							attachmentId: "attachment-001",
+							kind: "pdf",
+							label: `报${control}告`,
+						},
+					],
+				},
+			},
+		];
+		for (const invalid of invalidResponses) {
+			expect(() =>
+				requireReportDetailResponse(invalid, valid.data.reportId),
+			).toThrow("Report");
+		}
+	}
 });
 
 test("报告附件下载只发送平台不透明引用和当前会话", async () => {
