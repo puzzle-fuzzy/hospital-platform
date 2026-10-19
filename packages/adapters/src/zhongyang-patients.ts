@@ -39,7 +39,9 @@ type ZhongyangPatientResponse = {
 
 type ZhongyangPatientEnvelope = {
 	success?: unknown;
+	code?: unknown;
 	data?: unknown;
+	msg?: unknown;
 	message?: unknown;
 };
 
@@ -279,6 +281,22 @@ function relationship(value: unknown): PatientRelationship {
 	return aliases[normalized] ?? "unknown";
 }
 
+/**
+ * 患者目录已确认的“无就诊人”包络；只兼容准确代码、文案与 null 数据。
+ * 已有医院患者的空快照仍由 PatientService 拒绝，避免清空历史目录。
+ */
+function isKnownEmptyPatientEnvelope(
+	envelope: ZhongyangPatientEnvelope,
+): boolean {
+	return (
+		envelope.success === false &&
+		(envelope.code === 5001 || envelope.code === "5001") &&
+		envelope.msg === "数据未找到" &&
+		(envelope.message === undefined || envelope.message === "数据未找到") &&
+		envelope.data === null
+	);
+}
+
 function responseItems(
 	value: unknown,
 	requestId: string,
@@ -299,6 +317,7 @@ function responseItems(
 		);
 	} else {
 		const envelope = value as ZhongyangPatientEnvelope;
+		if (isKnownEmptyPatientEnvelope(envelope)) return [];
 		if (envelope.success === false) {
 			throw providerError(
 				"Zhongyang patient provider rejected the request",

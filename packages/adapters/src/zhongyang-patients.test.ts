@@ -8,6 +8,96 @@ const context = {
 	idempotencyKey: "zhongyang-patient-key-001",
 };
 
+test("患者目录仅将准确的5001无就诊人包络映射为完整空目录", async () => {
+	for (const code of [5001, "5001"]) {
+		let providerCalls = 0;
+		const gateway = createZhongyangPatientGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async (input) => {
+				providerCalls += 1;
+				expect(new URL(String(input)).pathname).toBe(
+					"/api/public/patientInfoByUnionId",
+				);
+				return new Response(
+					JSON.stringify({
+						success: false,
+						code,
+						msg: "数据未找到",
+						data: null,
+						service: null,
+						level: null,
+						extra: { synthetic: true },
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "synthetic-empty-patient-response" },
+					},
+				);
+			},
+		});
+		await expect(
+			gateway.listByIdentity({ unionId: "synthetic-empty-union" }, context),
+		).resolves.toEqual({
+			complete: true,
+			patients: [],
+			trace: {
+				provider: "zhongyang",
+				operation: "patient-list",
+				requestId: "synthetic-empty-patient-response",
+			},
+		});
+		expect(providerCalls).toBe(1);
+	}
+});
+
+test("患者目录不会将其他5001、缺字段或矛盾数据吞成无就诊人", async () => {
+	const cases = [
+		{ success: false, code: 5001, msg: "服务不可用", data: null },
+		{ success: false, code: "5001", msg: "数据未找到 ", data: null },
+		{ success: false, code: 5001, message: "数据未找到", data: null },
+		{
+			success: false,
+			code: 5001,
+			msg: "数据未找到",
+			message: "权限不足",
+			data: null,
+		},
+		{ success: false, code: 5001, msg: "数据未找到", data: [] },
+		{ success: false, code: 5001, msg: "数据未找到", data: {} },
+		{
+			success: false,
+			code: 5001,
+			msg: "数据未找到",
+			data: ["unexpected-patient"],
+		},
+		{ success: false, code: 5001, msg: "数据未找到" },
+		{ success: false, code: 5001, data: null },
+		{ success: false, msg: "数据未找到", data: null },
+		{ code: 5001, msg: "数据未找到", data: null },
+		{ success: true, code: 5001, msg: "数据未找到", data: null },
+		{ success: "false", code: 5001, msg: "数据未找到", data: null },
+		{ success: false, code: "05001", msg: "数据未找到", data: null },
+		{ success: false, code: 5002, msg: "数据未找到", data: null },
+	];
+	for (const payload of cases) {
+		const gateway = createZhongyangPatientGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(JSON.stringify(payload), {
+					status: 200,
+					headers: { "x-request-id": "synthetic-rejected-patient-response" },
+				}),
+		});
+		await expect(
+			gateway.listByIdentity({ unionId: "synthetic-empty-union" }, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "patient-list",
+			retryable: false,
+		});
+	}
+});
+
 test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	const requestUrls: string[] = [];
 	let requestHeaders: Headers | undefined;
