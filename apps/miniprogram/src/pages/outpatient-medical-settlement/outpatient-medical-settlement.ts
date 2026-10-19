@@ -228,6 +228,21 @@ Page<
 					code: "payment-notification-conflict",
 				});
 			}
+			if (recovery?.status === "insurance_settled") {
+				this.redirectCompleted(recovery);
+				return;
+			}
+			if (recovery?.authorizationPending) {
+				this.setData({
+					loading: false,
+					hasPending: false,
+					error: "",
+					paymentMessage:
+						"上一次医保授权正在确认；按钮已恢复，可稍后再次查询，请勿重复展码",
+					canRetrySettlement: true,
+				});
+				return;
+			}
 			if (authCode) {
 				await continueMedicalPayment(
 					authCode,
@@ -238,16 +253,6 @@ Page<
 					}),
 					progress,
 				);
-			} else if (recovery?.authorizationPending) {
-				this.setData({
-					loading: false,
-					hasPending: false,
-					error: "",
-					paymentMessage:
-						"上一次医保授权正在确认；按钮已恢复，可稍后再次查询，请勿重复展码",
-					canRetrySettlement: true,
-				});
-				return;
 			} else if (!recovery || needsMedicalBusinessAuthorization(recovery)) {
 				if (!forceAuthorization) {
 					this.setData({
@@ -416,6 +421,10 @@ Page<
 			this.setData({ paymentMessage: message });
 		try {
 			let recovery = await queryMedicalBusinessRecovery(business);
+			if (recovery?.externalPaymentConfirmed) {
+				this.renderExternalPayment();
+				return;
+			}
 			if (!recovery) {
 				throw new ApiError("未找到可支付的医保订单，请重新授权", {
 					code: "medical-insurance-order-not-found",
@@ -429,6 +438,24 @@ Page<
 			}
 			if (recovery.status === "insurance_settled") {
 				this.redirectCompleted(recovery);
+				return;
+			}
+			if (recovery.authorizationPending) {
+				this.setData({
+					loading: false,
+					hasPending: false,
+					error: "",
+					paymentMessage:
+						"上一次医保授权正在确认；按钮已恢复，可稍后再次查询，请勿重复展码",
+					canRetrySettlement: true,
+				});
+				return;
+			}
+			if (needsMedicalBusinessAuthorization(recovery)) {
+				// 旧页面的“去支付”也必须服从当前授权事实；复用原单恢复流程，
+				// 过期时重新授权，不能直接续传费用。
+				this.setData({ paymentBusy: false });
+				await this.resumeAuthorizedPayment(true);
 				return;
 			}
 			if (recovery.status !== "cash_pending") {
