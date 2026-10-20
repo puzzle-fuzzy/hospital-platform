@@ -313,7 +313,7 @@ export class AdminRegistrationService {
 			if (order.state !== "completed")
 				return blocked("医院结算尚未确认完成，请先核对");
 			if (!this.successfulCash(records, order.amounts.cashFen))
-				return blocked("已支付挂号请先完成全额退款和医院回写，再取消挂号");
+				return blocked("已支付挂号请先确认原订单已全额退款，再取消挂号");
 			const context =
 				await this.dependencies.paymentOrders.getRegistrationSelfPayContext?.(
 					order.ownerUserId,
@@ -327,17 +327,22 @@ export class AdminRegistrationService {
 				(context.payTypeId === "5032" &&
 					context.outTradeNo === context.businessCode) ||
 				records.some((item) => item.outTradeNo !== context.outTradeNo) ||
-				!marker ||
-				marker.validationVersion !== 1 ||
-				records.length !== 1 ||
-				marker.merchantRefundNo !== records[0]?.merchantRefundNo ||
-				marker.refundFen !== order.amounts.cashFen ||
-				!Number.isFinite(Date.parse(marker.syncedAt))
+				records.length !== 1
 			)
-				return blocked("微信已退款，医院退款回写尚未严格确认，暂不能取消挂号");
+				return blocked("退款与原微信订单的关联尚未确认，请先核对");
+			if (
+				marker &&
+				(marker.merchantRefundNo !== records[0]?.merchantRefundNo ||
+					marker.refundFen !== order.amounts.cashFen ||
+					!Number.isFinite(Date.parse(marker.syncedAt)))
+			)
+				return blocked("医院退费回写记录与原退款不一致，请先核对");
 			return {
 				route: "refunded",
-				reason: "退款和医院回写已完成，可取消挂号；不会再次退款",
+				reason:
+					marker?.validationVersion === 1
+						? "退款和医院回写已完成，可取消挂号；不会再次退款"
+						: "微信实付款已全额退回，可取消挂号；医院退费回写仍待核对，不会再次退款",
 			};
 		}
 		if (records.length) return blocked("存在未核清的退款记录，请先核对");

@@ -252,6 +252,7 @@ export type RegistrationRefundStage =
 	| "wechat_refund_pending"
 	| "hospital_writeback_pending"
 	| "appointment_cancellation_pending"
+	| "appointment_cancelled_writeback_pending"
 	| "completed";
 
 export type AdminPaymentRefundResult = {
@@ -263,6 +264,9 @@ export type AdminPaymentRefundResult = {
 	medicalRefund?: AdminMedicalInsuranceRefund;
 	wechatRefund?: WechatRefund;
 	registrationRefundStage?: RegistrationRefundStage;
+	registrationCancellationPending?: boolean;
+	registrationCancellationConfirmed?: boolean;
+	hospitalWritebackPending?: boolean;
 };
 
 export type AdminPaymentDisplayAmounts = {

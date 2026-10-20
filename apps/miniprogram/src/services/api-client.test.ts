@@ -614,6 +614,131 @@ test("取消预约拒绝保留安全 HIS 原因，其他 Provider 错误仍使�
 	).toBe("取消失败");
 });
 
+const APPOINTMENT_PENDING_STAGE_MESSAGES = [
+	"退款或医院收费同步处理中，预约暂未取消，请稍后查看",
+	"退款已成功，正在同步医院收费系统，预约暂未取消，请稍后查看",
+	"微信已退款、医院已回写，挂号取消待确认，请稍后查看",
+	"微信已退款，挂号取消待确认，请稍后查看",
+] as const;
+
+test.each([...APPOINTMENT_PENDING_STAGE_MESSAGES])(
+	"30470 保留固定阶段说明：%s",
+	(message) => {
+		const error = new ApiError(message, {
+			code: "appointment-refund-pending",
+			statusCode: 409,
+		});
+		expect(error.numericCode).toBe(30470);
+		expect(safeApiErrorMessage(error, "取消预约失败")).toBe(message);
+		expect(contextualApiErrorMessage(error, "原预约取消失败")).toBe(message);
+	},
+);
+
+test("30470 不透传阶段文案外的患者资料、上游诊断或拼接文本", () => {
+	for (const value of [
+		"退款已成功，患者张某，手机号13800000000",
+		"退款已成功，正在同步医院收费系统，预约暂未取消，请稍后查看 token=private",
+		"微信已退款，挂号取消待确认，请稍后查看<script>alert(1)</script>",
+		"退款处理中，SQLSTATE 42S02 Connection refused 10.0.0.1:5432",
+		"前缀：微信已退款、医院已回写，挂号取消待确认，请稍后查看",
+		"退款已成功",
+	]) {
+		expect(
+			safeApiErrorMessage(
+				new ApiError(value, { code: "appointment-refund-pending" }),
+				"取消预约失败",
+			),
+		).toBe(APPOINTMENT_PENDING_STAGE_MESSAGES[0]);
+	}
+	expect(
+		safeApiErrorMessage(
+			new ApiError(APPOINTMENT_PENDING_STAGE_MESSAGES[1], {
+				code: "provider-response-invalid",
+			}),
+			"取消预约失败",
+		),
+	).toBe(localizedApiErrorMessage("provider-response-invalid", "取消预约失败"));
+});
+
+test("30470 真实取消响应保留各阶段且兼容新增布尔字段，不自动重试取消", async () => {
+	type RequestOptions = {
+		url: string;
+		method?: string;
+		success(response: unknown): void;
+	};
+	const testGlobal = globalThis as typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let calls = 0;
+	let responseMessage: unknown = APPOINTMENT_PENDING_STAGE_MESSAGES[0];
+	testGlobal.getApp = () => ({
+		globalData: {
+			apiBaseUrl: "https://hospital.example.test",
+			apiPrefix: "/api/v2",
+			accessToken: "pending-test-session",
+			sessionStatus: "signed_in",
+		},
+	});
+	testGlobal.wx = {
+		getStorageSync: () => "",
+		request: (options: RequestOptions) => {
+			calls++;
+			expect(options.method).toBe("POST");
+			expect(new URL(options.url).pathname).toBe(
+				"/api/v2/appointments/registrations/appointment-pending/cancel",
+			);
+			options.success({
+				statusCode: 409,
+				data: {
+					success: false,
+					error: {
+						code: "appointment-refund-pending",
+						numericCode: 30470,
+						message: responseMessage,
+						hospitalWritebackPending: true,
+					},
+				},
+			});
+		},
+	};
+	try {
+		const messages: readonly unknown[] = [
+			...APPOINTMENT_PENDING_STAGE_MESSAGES,
+			undefined,
+			"",
+			"退款成功，手机号13800000000",
+			{ patientName: "不应展示" },
+		];
+		for (const [index, value] of messages.entries()) {
+			responseMessage = value;
+			const expected =
+				typeof value === "string" &&
+				APPOINTMENT_PENDING_STAGE_MESSAGES.some((message) => message === value)
+					? value
+					: APPOINTMENT_PENDING_STAGE_MESSAGES[0];
+			try {
+				await requestAppointmentCancellation("appointment-pending");
+				throw new Error("Expected pending cancellation rejection");
+			} catch (error) {
+				expect(error).toMatchObject({
+					code: "appointment-refund-pending",
+					numericCode: 30470,
+					statusCode: 409,
+					message: expected,
+				});
+				expect(contextualApiErrorMessage(error, "取消预约失败")).toBe(expected);
+			}
+			expect(calls).toBe(index + 1);
+		}
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
 test("真实取消请求从 409 response.error.message 读取医院原因，坏提示回退且不重试", async () => {
 	type RequestOptions = {
 		url: string;

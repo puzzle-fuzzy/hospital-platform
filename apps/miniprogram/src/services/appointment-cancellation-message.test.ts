@@ -209,6 +209,13 @@ test("普通预约详情取消失败用完整弹窗显示医院原因，保留�
 		status: "scheduled",
 	});
 	fixture.page.onCancel();
+	expect(fixture.modals[0]?.content).toContain(
+		"核对原路全额退款，再请求医院取消预约",
+	);
+	expect(fixture.modals[0]?.content).toContain(
+		"医院收费回写结果单独核对，已退款不会重复退款",
+	);
+	expect(fixture.modals[0]?.content).not.toContain("仅在两者确认完成后");
 	await new Promise((resolve) => setTimeout(resolve, 0));
 	expect(fixture.modals.at(-1)).toMatchObject({
 		title: "取消预约失败",

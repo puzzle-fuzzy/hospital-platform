@@ -2174,8 +2174,25 @@ export function localizedApiErrorMessage(
 	return CLIENT_ERROR_MESSAGES[code] ?? fallback;
 }
 
+/** 30470 共用数字码，但退款、医院回写与退号的固定服务端说明不能相互覆盖。 */
+const APPOINTMENT_REFUND_PENDING_MESSAGES: ReadonlySet<string> = new Set([
+	"退款或医院收费同步处理中，预约暂未取消，请稍后查看",
+	"退款已成功，正在同步医院收费系统，预约暂未取消，请稍后查看",
+	"微信已退款、医院已回写，挂号取消待确认，请稍后查看",
+	"微信已退款，挂号取消待确认，请稍后查看",
+]);
+
+function normalizeAppointmentRefundPendingMessage(
+	value: unknown,
+): string | undefined {
+	return typeof value === "string" &&
+		APPOINTMENT_REFUND_PENDING_MESSAGES.has(value)
+		? value
+		: undefined;
+}
+
 /**
- * 页面通过稳定错误码取文案；仅取消预约拒绝允许经过白名单校验的医院业务原因。
+ * 页面通过稳定错误码取文案；取消拒绝使用医院原因白名单，30470 仅保留固定阶段说明。
  *
  * API 响应中的 message 可能来自 provider 或内部异常；即使当前 request 层
  * 已经做过一次映射，页面仍统一经过这里，避免未来新增错误构造点时绕过
@@ -2183,6 +2200,12 @@ export function localizedApiErrorMessage(
  */
 export function safeApiErrorMessage(error: unknown, fallback: string): string {
 	if (!(error instanceof ApiError)) return fallback;
+	if (error.code === "appointment-refund-pending") {
+		return (
+			normalizeAppointmentRefundPendingMessage(error.message) ??
+			localizedApiErrorMessage(error.code, fallback)
+		);
+	}
 	if (error.code === "appointment-cancellation-rejected") {
 		return (
 			normalizeAppointmentCancellationMessage(error.message) ??
@@ -2215,6 +2238,16 @@ export function contextualApiErrorMessage(
 
 function parseErrorMessage(data: unknown): string {
 	const code = parseErrorCode(data);
+	if (
+		code === "appointment-refund-pending" &&
+		isRecord(data) &&
+		isRecord(data.error)
+	) {
+		return (
+			normalizeAppointmentRefundPendingMessage(data.error.message) ??
+			localizedApiErrorMessage(code, SAFE_UNKNOWN_ERROR_MESSAGE)
+		);
+	}
 	if (
 		code === "appointment-cancellation-rejected" &&
 		isRecord(data) &&

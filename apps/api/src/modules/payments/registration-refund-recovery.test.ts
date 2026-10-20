@@ -68,6 +68,7 @@ async function fixture(
 		innerNotifyFailures?: number;
 		saveFailures?: number;
 		cancelFailures?: number;
+		cancelError?: Error;
 		queryFailures?: number;
 		requestFailures?: number;
 		missingRefundQueries?: number;
@@ -124,7 +125,10 @@ async function fixture(
 				: null,
 		providerTransactionId: null,
 		providerRequestId: null,
-		successTime: null,
+		successTime:
+			options.priorRefundStatus === "success"
+				? currentTime.toISOString()
+				: null,
 		lastErrorCode: null,
 		version: 1,
 		createdAt: currentTime.toISOString(),
@@ -140,6 +144,7 @@ async function fixture(
 		idempotencyKey: string | null;
 	}[] = [];
 	let cancelAttempts = 0;
+	const cancellationInputs: unknown[] = [];
 	let cancelled = options.initiallyCancelled ?? false;
 	let providerStatus = options.initialRefundStatus ?? "SUCCESS";
 	let notifyFailures = options.notifyFailures ?? 0;
@@ -237,24 +242,33 @@ async function fixture(
 				);
 			},
 		});
+	const paymentOrders = new PaymentOrderService({ orders });
 	const exit = new RegistrationPaymentExitService({
 		appointments: {
 			cancel: async () => {
 				throw new Error("Paid registration must use the confirmed-refund path");
 			},
-			cancelAfterConfirmedSelfPayRefund: async () => {
+			cancelAfterConfirmedSelfPayRefund: async (input: unknown) => {
+				cancellationInputs.push(input);
 				if (!cancelled) {
 					cancelAttempts++;
-					if (!options.legacy)
-						expect(
-							(await getContext(order.ownerUserId, order.orderId))
-								?.refundWriteBack,
-						).toMatchObject({
-							refundFen: 1000,
-							merchantRefundNo: moneyCalls[0]?.merchantRefundNo,
-						});
+					const original = (
+						await refunds.findBySourceAndSourceOrder?.(
+							"payment_order",
+							order.orderId,
+						)
+					)?.[0];
+					expect(original).toMatchObject({
+						status: "success",
+						providerStatus: "SUCCESS",
+						totalFen: 1000,
+						refundFen: 1000,
+					});
 					if (cancelFailures-- > 0)
-						throw new Error("fixture hospital cancellation failure");
+						throw (
+							options.cancelError ??
+							new Error("fixture hospital cancellation failure")
+						);
 					cancelled = true;
 				}
 				return { appointmentId, status: "cancelled" as const };
@@ -263,7 +277,7 @@ async function fixture(
 		medicalInsurance: {} as never,
 		medicalInsuranceWechatPayment: {} as never,
 		medicalInsuranceOrders: medicalOrders,
-		paymentOrders: new PaymentOrderService({ orders }),
+		paymentOrders,
 		wechatPrepay: {
 			cancel: async () => ({ orderId: order.orderId, status: "paid" }),
 		} as never,
@@ -305,12 +319,14 @@ async function fixture(
 	return {
 		order,
 		cash,
+		paymentOrders,
 		admin,
 		exit,
 		moneyCalls,
 		queryCalls,
 		notifyCalls,
 		cancelAttempts: () => cancelAttempts,
+		cancellationInputs,
 		cancelled: () => cancelled,
 		readContext: () => getContext(order.ownerUserId, order.orderId),
 		readRefunds: () =>
@@ -321,6 +337,13 @@ async function fixture(
 		paidRefund: () => {
 			providerStatus = "SUCCESS";
 		},
+		cancel: () =>
+			exit.abandon({
+				ownerUserId: order.ownerUserId,
+				appointmentId,
+				mode: "auto",
+				context,
+			}),
 		request: () =>
 			admin.request({
 				source: "payment_order",
@@ -350,6 +373,174 @@ test("管理端只取消挂号遇到已付款或收款竞态时拒绝，不自�
 	expect(f.cancelled()).toBe(false);
 });
 
+test("已全额退款的原单在 .15 解析失败时仍向 HIS 发出原预约取消，明确分离两个结果", async () => {
+	const f = await fixture({
+		priorRefundStatus: "success",
+		innerNotifyFailures: 1,
+	});
+	expect(await f.cancel()).toEqual({
+		appointmentId,
+		status: "cancelled",
+		hospitalWritebackConfirmed: false,
+		hospitalWritebackPending: true,
+	});
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.queryCalls).toHaveLength(0);
+	expect(f.notifyCalls).toHaveLength(1);
+	expect(f.cancellationInputs).toEqual([
+		{ ownerUserId: f.order.ownerUserId, appointmentId, context },
+	]);
+	expect(f.cancelAttempts()).toBe(1);
+	expect(f.cancelled()).toBe(true);
+	expect((await f.readContext())?.refundWriteBack).toBeUndefined();
+});
+
+test("已退全额且 .15 失败后的取消超时只保留待确认，重试仍使用同一退款且不重复退钱", async () => {
+	const f = await fixture({
+		priorRefundStatus: "success",
+		innerNotifyFailures: 2,
+		cancelFailures: 1,
+		cancelError: new ProviderRequestError({
+			provider: "zhongyang",
+			operation: "appointment-cancellation",
+			message: "fixture cancellation transport timeout",
+			retryable: true,
+			failureStage: "transport",
+			requestOutcome: "unknown",
+		}),
+	});
+	await expect(f.cancel()).rejects.toMatchObject({
+		name: "RegistrationPaymentExitCancellationPendingError",
+		hospitalWritebackConfirmed: false,
+	});
+	expect(f.cancelAttempts()).toBe(1);
+	expect(f.cancelled()).toBe(false);
+	expect(f.notifyCalls).toHaveLength(1);
+	expect(await f.cancel()).toMatchObject({
+		status: "cancelled",
+		hospitalWritebackConfirmed: false,
+		hospitalWritebackPending: true,
+	});
+	expect(f.cancelAttempts()).toBe(2);
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.queryCalls).toHaveLength(0);
+	expect(await f.readRefunds()).toHaveLength(1);
+	expect(f.notifyCalls).toHaveLength(2);
+	expect(f.notifyCalls[1]?.idempotencyKey).toBe(
+		f.notifyCalls[0]?.idempotencyKey,
+	);
+	expect((await f.readContext())?.refundWriteBack).toBeUndefined();
+});
+
+test("已退款后的 HIS 明确业务拒绝仍返回 30485 和安全原因，重复取消不再退款", async () => {
+	const message = "临近就诊时间，不能取消预约，请去门诊窗口处理";
+	const f = await fixture({
+		priorRefundStatus: "success",
+		innerNotifyFailures: 2,
+		cancelFailures: 2,
+		cancelError: new ProviderRequestError({
+			provider: "zhongyang",
+			operation: "appointment-cancellation",
+			message: "fixture hospital cancellation rejected",
+			reason: "appointment-cancellation-rejected",
+			providerErrorMessage: message,
+			retryable: false,
+			responseInvalid: false,
+			failureStage: "response",
+			requestOutcome: "rejected",
+		}),
+	});
+	const app = new Elysia()
+		.use(errorHandlerPlugin())
+		.post("/cancel-original", () => f.cancel());
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const response = await app.handle(
+			new Request("http://localhost/cancel-original", { method: "POST" }),
+		);
+		expect(response.status).toBe(409);
+		expect(await response.json()).toMatchObject({
+			success: false,
+			error: {
+				code: "appointment-cancellation-rejected",
+				numericCode: 30485,
+				message,
+			},
+		});
+	}
+	expect(f.cancelAttempts()).toBe(2);
+	expect(f.cancelled()).toBe(false);
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.queryCalls).toHaveLength(0);
+	expect(f.notifyCalls).toHaveLength(2);
+});
+
+test.each([
+	["owner 不符", { ownerUserId: "different-owner" }],
+	[
+		"挂号归属不符",
+		{ idempotencyKey: "registration-self-pay:different-appointment" },
+	],
+] as const)(
+	"原支付单%s时在支付关闭、退款和取消之前拒绝",
+	async (_label, patch) => {
+		const f = await fixture({ priorRefundStatus: "success" });
+		const find = spyOn(
+			f.paymentOrders,
+			"findByOwnerAndIdempotencyKey",
+		).mockResolvedValue({ ...f.order, ...patch });
+		try {
+			await expect(f.cancel()).rejects.toBeInstanceOf(
+				RegistrationPaymentExitRefundContextError,
+			);
+			expect(f.moneyCalls).toHaveLength(0);
+			expect(f.queryCalls).toHaveLength(0);
+			expect(f.notifyCalls).toHaveLength(0);
+			expect(f.cancelAttempts()).toBe(0);
+		} finally {
+			find.mockRestore();
+		}
+	},
+);
+
+test.each([
+	["原单号不符", { outTradeNo: "DIFFERENT-ORIGINAL-TRADE" }],
+	["原订单不符", { sourceOrderId: "different-order" }],
+	["资金来源不符", { source: "medical_insurance" }],
+	["退款幂等身份不符", { idempotencyKey: "different-refund" }],
+	["原交易总额不符", { totalFen: 2000 }],
+	["仅部分退款", { refundFen: 999 }],
+	["微信非成功", { providerStatus: "PROCESSING" }],
+	["无微信退款凭据", { providerRefundId: null }],
+	["微信退款凭据为空白", { providerRefundId: " " }],
+	["无成功时间", { successTime: null }],
+	["成功时间无效", { successTime: "not-a-time" }],
+] as const)(
+	"退款标记成功但%s时不通知 .15、不发取消，也不重退",
+	async (_label, patch) => {
+		const f = await fixture({ priorRefundStatus: "success" });
+		const original = (await f.readRefunds())?.[0];
+		if (!original) throw new Error("Missing fixture refund");
+		const request = spyOn(
+			f.cash,
+			"requestTrustedPaymentOrder",
+		).mockResolvedValue({
+			...original,
+			...patch,
+		});
+		try {
+			await expect(f.cancel()).rejects.toBeInstanceOf(
+				RegistrationPaymentExitRefundContextError,
+			);
+			expect(f.moneyCalls).toHaveLength(0);
+			expect(f.queryCalls).toHaveLength(0);
+			expect(f.notifyCalls).toHaveLength(0);
+			expect(f.cancelAttempts()).toBe(0);
+		} finally {
+			request.mockRestore();
+		}
+	},
+);
+
 test("普通微信挂号首次全额原路退款、医院回写和取消均确认才返回 completed", async () => {
 	const f = await fixture();
 	expect(await f.request()).toMatchObject({
@@ -363,15 +554,23 @@ test("普通微信挂号首次全额原路退款、医院回写和取消均确�
 	expect(f.cancelAttempts()).toBe(1);
 });
 
-test("微信全额成功后医院回写失败，查询仅恢复原回写和取消，不再退一次钱", async () => {
+test("微信全额成功后医院回写失败仍取消原预约，查询仅恢复原回写而不重复退款或取消", async () => {
 	const f = await fixture({ notifyFailures: 1 });
 	expect(await f.request()).toMatchObject({
 		status: "processing",
-		registrationRefundStage: "hospital_writeback_pending",
+		registrationRefundStage: "appointment_cancelled_writeback_pending",
+		registrationCancellationPending: false,
+		registrationCancellationConfirmed: true,
+		hospitalWritebackPending: true,
 		wechatRefund: { status: "success" },
 	});
-	expect(f.cancelled()).toBe(false);
-	expect(f.cancelAttempts()).toBe(0);
+	expect(f.cancelled()).toBe(true);
+	expect(f.cancelAttempts()).toBe(1);
+	expect(f.cancellationInputs[0]).toEqual({
+		ownerUserId: f.order.ownerUserId,
+		appointmentId,
+		context,
+	});
 	expect(f.moneyCalls).toHaveLength(1);
 	expect(f.moneyCalls[0]).toMatchObject({
 		outTradeNo: originalContext.outTradeNo,
@@ -426,16 +625,47 @@ test("医院回写成功而取消失败时返回取消待恢复；重试复用�
 	expect((await f.readContext())?.refundWriteBack).toEqual(confirmedWriteback);
 });
 
-test("外层 success 包含 XML 错误时保持医院回写待恢复，不写成功凭据也不取消预约", async () => {
+test("医院回写未确认且取消超时的管理端投影分别保留两个待确认状态", async () => {
+	const f = await fixture({
+		priorRefundStatus: "success",
+		innerNotifyFailures: 1,
+		cancelFailures: 1,
+	});
+	const pending = await f.request();
+	expect(pending).toMatchObject({
+		status: "processing",
+		registrationRefundStage: "appointment_cancellation_pending",
+		registrationCancellationPending: true,
+		hospitalWritebackPending: true,
+		wechatRefund: { status: "success" },
+	});
+	expect(pending.registrationCancellationConfirmed).not.toBe(true);
+	expect(f.cancelled()).toBe(false);
+	expect(f.cancelAttempts()).toBe(1);
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(await f.query()).toMatchObject({
+		status: "succeeded",
+		registrationRefundStage: "completed",
+	});
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.queryCalls).toHaveLength(0);
+	expect(f.cancelAttempts()).toBe(2);
+	expect(await f.readRefunds()).toHaveLength(1);
+});
+
+test("外层 success 包含 XML 错误时不写回写成功凭据，但仍取消已全额退款的原预约", async () => {
 	const f = await fixture({ innerNotifyFailures: 1 });
 	expect(await f.request()).toMatchObject({
 		status: "processing",
-		registrationRefundStage: "hospital_writeback_pending",
+		registrationRefundStage: "appointment_cancelled_writeback_pending",
+		registrationCancellationPending: false,
+		registrationCancellationConfirmed: true,
+		hospitalWritebackPending: true,
 		wechatRefund: { status: "success", refundFen: 1000 },
 	});
 	expect((await f.readContext())?.refundWriteBack).toBeUndefined();
-	expect(f.cancelled()).toBe(false);
-	expect(f.cancelAttempts()).toBe(0);
+	expect(f.cancelled()).toBe(true);
+	expect(f.cancelAttempts()).toBe(1);
 	expect(f.moneyCalls).toHaveLength(1);
 	expect(await f.query()).toMatchObject({
 		status: "succeeded",
@@ -466,7 +696,10 @@ test("历史未验证回写凭据不能误报完成或自动重放，已成功�
 	for (let attempt = 0; attempt < 2; attempt++) {
 		expect(await f.query()).toMatchObject({
 			status: "processing",
-			registrationRefundStage: "hospital_writeback_pending",
+			registrationRefundStage: "appointment_cancelled_writeback_pending",
+			registrationCancellationPending: false,
+			registrationCancellationConfirmed: true,
+			hospitalWritebackPending: true,
 			wechatRefund: {
 				status: "success",
 				merchantRefundNo: legacyMarker.merchantRefundNo,
@@ -698,9 +931,13 @@ test("医院已回写但保存凭据失败时仍保持待恢复，重试同号�
 	const f = await fixture({ saveFailures: 1 });
 	expect(await f.request()).toMatchObject({
 		status: "processing",
-		registrationRefundStage: "hospital_writeback_pending",
+		registrationRefundStage: "appointment_cancelled_writeback_pending",
+		registrationCancellationPending: false,
+		registrationCancellationConfirmed: true,
+		hospitalWritebackPending: true,
 	});
-	expect(f.cancelAttempts()).toBe(0);
+	expect(f.cancelAttempts()).toBe(1);
+	expect(f.cancelled()).toBe(true);
 	expect((await f.readContext())?.refundWriteBack).toBeUndefined();
 	expect(await f.query()).toMatchObject({
 		status: "succeeded",

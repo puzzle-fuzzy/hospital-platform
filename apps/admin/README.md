@@ -18,13 +18,13 @@ pnpm --filter @hospital/admin start
 
 默认访问 `http://127.0.0.1:18083`。生产环境使用 `.env.example` 中的变量配置旧登录服务和日志读取地址、服务间令牌；API 还需要配置 `ADMIN_LOGS_INGEST_TOKEN`，Worker 需要使用同一个内部 ingest 地址和令牌（`ADMIN_LOGS_INGEST_URL`、`ADMIN_LOGS_INGEST_TOKEN`）。建议只监听回环地址并通过 Nginx 提供 HTTPS。
 
-浏览器只访问本项目的同源 `/api`；Bun 服务端代理仅开放验证码、登录、退出、日志、支付查看及固定的退费、挂号后端入口，不接受任意上游路径。`POST /api/refunds/payment` 按服务端返回的能力选择整笔、医保或微信范围，查询使用 `GET /api/refunds/payment/{source}/{orderId}?refundType=ALL|HI|CASH`。普通微信挂号退款依次确认微信退款、医院退费回写、取消挂号，分阶段展示进度，未全部确认不显示完成。退费代理发送独立的 `X-Admin-Refund-Token`，不会把新服务令牌下发浏览器。账号密码、访问令牌和日志原文不会写入日志读模型；原始日志只在已登录管理会话的单条详情中按关联号读取，登录状态只保存在当前标签页的 `sessionStorage`。
+浏览器只访问本项目的同源 `/api`；Bun 服务端代理仅开放验证码、登录、退出、日志、支付查看及固定的退费、挂号后端入口，不接受任意上游路径。`POST /api/refunds/payment` 按服务端返回的能力选择整笔、医保或微信范围，查询使用 `GET /api/refunds/payment/{source}/{orderId}?refundType=ALL|HI|CASH`。普通微信挂号在严格确认原订单已全额退款后请求医院取消；医院退费回写未确认不再阻断退号，但仍单独标记待核对，只有微信退款、医院退费回写与退号全部确认才显示全部完成。`appointment_cancelled_writeback_pending` 表示挂号已取消、医院退费回写待处理，不代表挂号仍占号。退费代理发送独立的 `X-Admin-Refund-Token`，不会把新服务令牌下发浏览器。账号密码、访问令牌和日志原文不会写入日志读模型；原始日志只在已登录管理会话的单条详情中按关联号读取，登录状态只保存在当前标签页的 `sessionStorage`。
 
 医保聚合退费的同源入口是 `POST /api/refunds/medical-insurance`，服务端固定转发到新 API 的隐藏 Admin 路由；请求只包含订单号和可选退费原因，退费单号、6203 凭证、微信 `out_trade_no` 和两腿状态均由服务端处理。状态查询使用 `GET /api/refunds/medical-insurance/{refundNo}`。
 
 挂号订单在支付台账中另列“挂号状态”。列表只显示服务端本地快照，例如“平台已预约 / 医院未核对”，不会逐行自动查询医院。点击“查看挂号”或“刷新医院状态”，通过 `GET /api/registrations/{source}/{orderId}` 核对医院状态、支付状态、科室医生、日期、序号和核对时间；`source` 只允许 `payment_order`、`medical_insurance`。非挂号订单不提供挂号操作，未关联、院方状态未知、已就诊或支付结果未确认时不能直接取消。
 
-“取消挂号”仅在医院仍可预约且服务端完整核验证据允许时启用。确认框必填 2 至 80 字原因；`POST /api/registrations/{source}/{orderId}/cancel` 正文只含 `reason`，必须携带稳定 `Idempotency-Key`。此入口不自动退款；已付款先使用已有退款入口，退款与医院回写确认后可只补办取消。按钮提交中锁定，响应丢失后必须先刷新医院状态再重试，并沿用当前标签页保存的原操作单号与原因。
+“取消挂号”仅在医院仍可预约且服务端完整核验证据允许时启用。确认框必填 2 至 80 字原因；`POST /api/registrations/{source}/{orderId}/cancel` 正文只含 `reason`，必须携带稳定 `Idempotency-Key`。此入口不自动退款；普通微信挂号已严格确认原路全额退款后可只补办取消，收费回写未确认会保留提示；原订单或退款身份、金额不一致仍须先核对。医保挂号保留原有核验要求。按钮提交中锁定，响应丢失后必须先刷新医院状态再重试，并沿用当前标签页保存的原操作单号与原因。
 
 管理端取消与患者端挂号授权、下单、预支付、结算和退出共用按用户与挂号关联的持久锁。锁目标从服务端原订单解析；持锁后重新核对医院与全部资金记录，防止核对结束后出现新的并发付款。医院取消成功不代表退款成功，医院已取消也不会触发第二次退款。
 

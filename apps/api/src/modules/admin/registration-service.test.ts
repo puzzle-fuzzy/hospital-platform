@@ -574,22 +574,43 @@ test.each([
 	);
 	expect(f.state.writes).toEqual([]);
 });
-test.each(["version", "merchant", "amount", "missing"])(
+test.each(["merchant", "amount", "time", "missing"])(
 	"selfpay refund hospital proof rejects %s",
 	async (problem) => {
 		const f = fixture();
 		refundedSelf(f);
 		const marker = f.state.selfContext?.refundWriteBack;
 		if (marker) {
-			if (problem === "version") delete marker.validationVersion;
 			if (problem === "merchant") marker.merchantRefundNo = "another-refund";
 			if (problem === "amount") marker.refundFen--;
+			if (problem === "time") marker.syncedAt = "invalid-time";
 		}
 		if (problem === "missing") f.state.selfContext = undefined;
 		await expect(f.service().cancel(command)).rejects.toBeInstanceOf(
 			AdminRegistrationUnavailableError,
 		);
 		expect(f.state.writes).toEqual([]);
+	},
+);
+test.each(["missing", "legacy"])(
+	"confirmed original full refund allows cancellation with %s hospital writeback proof",
+	async (problem) => {
+		const f = fixture();
+		refundedSelf(f);
+		const saved = f.state.selfContext;
+		if (!saved) throw new Error("Missing saved context");
+		if (problem === "missing") delete saved.refundWriteBack;
+		else if (saved.refundWriteBack)
+			delete saved.refundWriteBack.validationVersion;
+		const before = JSON.stringify(f.state.cashRefunds);
+		const preview = await f.service().query({ ...input, context, operatorRef });
+		expect(preview.registration.cancellation.allowed).toBe(true);
+		expect(preview.registration.cancellation.reason).toContain(
+			"医院退费回写仍待核对",
+		);
+		await f.service().cancel(command);
+		expect(f.state.writes).toEqual(["after-refund"]);
+		expect(JSON.stringify(f.state.cashRefunds)).toBe(before);
 	},
 );
 test("pending extra refund blocks even when one successful record sums to full payment", async () => {

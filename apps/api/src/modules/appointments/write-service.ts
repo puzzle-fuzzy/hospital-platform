@@ -703,6 +703,7 @@ export class AppointmentWriteService {
 			);
 		if (existingByIdempotency) {
 			if (
+				existingByIdempotency.ownerUserId !== ownerUserId ||
 				existingByIdempotency.patientId !== patientId ||
 				existingByIdempotency.holdId !== holdId
 			) {
@@ -721,20 +722,37 @@ export class AppointmentWriteService {
 			ownerUserId,
 			holdId,
 		);
-		if (!hold || hold.patientId !== patientId)
+		if (
+			!hold ||
+			hold.ownerUserId !== ownerUserId ||
+			hold.patientId !== patientId
+		)
 			throw new AppointmentHoldNotFoundError();
-		if (hold.status !== "held") {
-			if (hold.status === "consumed") {
-				const snapshot = await this.activeSnapshot(hold.scheduleId);
-				const existing =
-					await this.dependencies.repository.findActiveRegistration({
-						ownerUserId,
-						patientId,
-						workDate: snapshot.schedule.workDate,
-						departmentName: snapshot.schedule.departmentName,
-					});
-				if (existing) return outputRegistration(existing, "booked");
-			}
+		if (hold.status !== "held" && hold.status !== "consumed") {
+			throw new AppointmentHoldExpiredError();
+		}
+		// Only this hold can identify a replay. Other same-day appointments,
+		// even in the same department, are separate submissions decided by HIS.
+		const registrations =
+			await this.dependencies.repository.listRegistrationsByPatient({
+				ownerUserId,
+				patientId,
+			});
+		const sameHold = registrations.filter(
+			(registration) =>
+				registration.ownerUserId === ownerUserId &&
+				registration.patientId === patientId &&
+				registration.holdId === holdId,
+		);
+		if (sameHold.length > 1) {
+			throw new AppointmentWriteInputError(
+				"Appointment hold has conflicting registrations",
+			);
+		}
+		if (sameHold[0]?.status === "booked") {
+			return outputRegistration(sameHold[0], "booked");
+		}
+		if (sameHold.length > 0 || hold.status === "consumed") {
 			throw new AppointmentHoldExpiredError();
 		}
 		if (Date.parse(hold.expiresAt) <= this.now().getTime()) {
@@ -760,79 +778,6 @@ export class AppointmentWriteService {
 			patientId,
 			context,
 		);
-		const active = await this.dependencies.gateway.listActive(
-			{
-				providerPatientId: profile.providerPatientId,
-				workDate: snapshot.schedule.workDate,
-			},
-			context,
-		);
-		const duplicateProviderRecord = active.records.find(
-			(record) =>
-				record.departmentName === snapshot.schedule.departmentName ||
-				!record.departmentName,
-		);
-		if (duplicateProviderRecord) {
-			const duplicate =
-				await this.dependencies.repository.findActiveRegistration({
-					ownerUserId,
-					patientId,
-					workDate: snapshot.schedule.workDate,
-					departmentName: snapshot.schedule.departmentName,
-				});
-			const registration =
-				duplicate ??
-				(await this.dependencies.repository.insertRegistration({
-					appointmentId: this.createId(),
-					ownerUserId,
-					patientId,
-					holdId,
-					idempotencyKey: context.idempotencyKey,
-					providerAppointmentId: duplicateProviderRecord.providerAppointmentId,
-					providerPatientId: duplicateProviderRecord.providerPatientId,
-					...(duplicateProviderRecord.providerRegisterId
-						? { providerRegisterId: duplicateProviderRecord.providerRegisterId }
-						: {}),
-					...(duplicateProviderRecord.providerHisRegisterId
-						? {
-								providerHisRegisterId:
-									duplicateProviderRecord.providerHisRegisterId,
-							}
-						: {}),
-					departmentId: snapshot.schedule.departmentId,
-					doctorId: snapshot.schedule.doctorId,
-					departmentName: snapshot.schedule.departmentName,
-					...(snapshot.schedule.registrationClassName
-						? {
-								registrationClassName: snapshot.schedule.registrationClassName,
-							}
-						: {}),
-					...(snapshot.schedule.hospitalAreaName
-						? { hospitalAreaName: snapshot.schedule.hospitalAreaName }
-						: {}),
-					doctorName: snapshot.schedule.doctorName,
-					workDate: snapshot.schedule.workDate,
-					shiftName: snapshot.schedule.shiftName,
-					sourceSerialNumber: hold.sourceSerialNumber,
-					totalFen: hold.totalFen,
-					status: "booked",
-					createdAt: this.now().toISOString(),
-					updatedAt: this.now().toISOString(),
-				}));
-			this.logger.warn(
-				{
-					event: "appointment.registration.duplicate",
-					traceId: context.traceId,
-					ownerUserId,
-					holdId,
-					appointmentId: registration.appointmentId,
-					patientId,
-					...traceLogFields(active.trace),
-				},
-				"Existing appointment detected; registration was not repeated",
-			);
-			return outputRegistration(registration, "duplicate");
-		}
 		const result = await this.dependencies.gateway.create(
 			{
 				patient: profile,
@@ -899,7 +844,7 @@ export class AppointmentWriteService {
 				appointmentId: registration.appointmentId,
 				holdId,
 				patientId,
-				...traceLogFields(active.trace, result.trace),
+				...traceLogFields(result.trace),
 			},
 			"Appointment registration created",
 		);

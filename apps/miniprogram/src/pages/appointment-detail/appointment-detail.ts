@@ -549,7 +549,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		wx.showModal({
 			title: "取消预约",
 			content:
-				"确认取消这条预约吗？如已支付，系统会先发起原路退款并同步医院收费系统；仅在两者确认完成后才会取消预约。",
+				"确认取消这条预约吗？如已支付，系统会先办理并核对原路全额退款，再请求医院取消预约；医院收费回写结果单独核对，已退款不会重复退款。",
 			confirmText: "确认取消",
 			cancelText: "暂不取消",
 			success: (result) => {

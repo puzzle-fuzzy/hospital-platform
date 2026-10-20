@@ -305,8 +305,17 @@ HIS 系统取消且付款截止已过时，平台预约同步为 `expired`；该
 接口的入口。该测试端已停止使用，以下顺序仅用于接口历史追溯；现行入口以主小程序和当前服务端发布版本为准：读取排班/号源 → 创建服务端占位 → 预约写入 → 医保授权 →
 费用上传 → 医保结算 → 按 6202 金额调用 2.6.65.2 → 使用 `.2.result` 的 APIv2/MD5 参数调起支付
 → 微信医保混合查单 → 2.6.65.5 最终结算确认。
-预约已存在时服务端返回已有的 opaque `appointmentId`，
-小程序只能先调用取消命令，取消成功后再用新的幂等键重新占位和写入。
+相同请求幂等键重放时服务端返回已有的 opaque `appointmentId`，不会重复制单。
+新请求不再因同一就诊人、同日同科室存在其他预约而被平台提前拦截，是否接受预约由医院 HIS 决定；
+已消费的占位只能找回该占位对应的预约，不能借用其他挂号。用户选择取消原预约并重新预约时，
+仍须先取得医院取消确认，再以新幂等键重新获取号源。
+
+普通微信挂号取消必须先严格核对原微信订单已全额退款，再请求医院取消。医院 `.15` 退费回写未确认
+会单独保留待核对状态，不再阻止这一步退号；外层 HTTP 200 或 `success=true` 不能作为收费回写成功依据。
+成功取消响应可含 `hospitalWritebackConfirmed:false, hospitalWritebackPending:true`，只表示挂号已取消，
+不能据此宣称医院收费记录已同步。管理端对应 `registrationRefundStage=appointment_cancelled_writeback_pending`，
+同时返回 `registrationCancellationConfirmed:true, registrationCancellationPending:false`，整体仍为处理中。
+已成功退款始终复用原退款单，不因重试取消而新建退款。
 
 预约占位、预约写入、取消、医保授权、费用上传和结算分别有独立的日志事件、幂等键和错误边界；
 provider 患者号、预约号、身份证、卡号、授权码和 payToken 不进入公共响应。微信现金段的
@@ -515,7 +524,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 30458 | `appointment-payment-unavailable` | HIS 预约已取消、付款期限已过或缺少允许缴费的事实；不能新发起付款，原资金记录和核对入口保留 |
 | 409 | 30460 | `appointment-source-unavailable` | 服务端重新读取号源时，提交的号源序号已不可用；可刷新号源后重试 |
 | 409 | 30465 | `appointment-refund-context-unavailable` | 已完成的插件自费订单缺少经核验的 `.2 out_trade_no` 或退款关联上下文；不会猜测退款目标，预约保留 |
-| 409 | 30470 | `appointment-refund-pending` | 微信退款或退款后的医院收费系统 `.15` 回写尚未确认；预约保留，稍后可重试同一取消动作 |
+| 409 | 30470 | `appointment-refund-pending` | 微信退款或医院取消预约结果待确认，按安全阶段说明核对；已确认原路全额退款时，`.15` 回写待处理不再单独阻断退号 |
 | 409 | 30480 | `appointment-refund-failed` | 微信退款已明确失败；预约保留，由收费端处理 |
 | 409 | 30485 | `appointment-cancellation-rejected` | HIS 明确拒绝取消，返回经校验的真实业务原因；预约保留，取消失败不继续重复预约 |
 | 503 | 30490 | `appointment-refund-not-configured` | 自费退款或医院收费系统回写通道未配置；预约保留 |

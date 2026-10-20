@@ -27,19 +27,36 @@ export function registrationRefundFeedback(
 			};
 		case "hospital_writeback_pending":
 			return {
-				title: "微信已退款，等待医院退费回写",
+				title: "微信已退款，医院退费回写待核对",
 				description:
-					"微信退款已确认成功；医院退费回写和取消挂号尚未完成，请查询最新状态。",
+					"医院退费回写尚未确认，请联系医院核对收费记录和挂号状态；请勿再次发起退款。",
+				type: "warning",
+			};
+		case "appointment_cancelled_writeback_pending":
+			return {
+				title: "微信已退款、挂号已取消",
+				description:
+					"医院退费回写仍待核对，请联系医院确认收费记录；请勿再次发起退款。",
 				type: "warning",
 			};
 		case "appointment_cancellation_pending":
+			if (result.hospitalWritebackPending === true)
+				return {
+					title: "微信已退款，挂号取消待确认",
+					description:
+						"微信已退款，挂号取消待确认；医院退费回写仍待处理。请联系医院核对收费记录，请勿再次发起退款。",
+					type: "warning",
+				};
 			return {
 				title: "微信已退款、医院已回写，等待取消挂号",
 				description: "医院退费回写已确认，挂号尚未取消，请查询最新状态。",
 				type: "warning",
 			};
 		case "completed":
-			return result.status === "succeeded"
+			return result.status === "succeeded" &&
+				result.hospitalWritebackPending !== true &&
+				result.registrationCancellationPending !== true &&
+				result.registrationCancellationConfirmed !== false
 				? {
 						title: "退款并取消挂号已完成",
 						description: "微信退款、医院退费回写和取消挂号均已确认完成。",

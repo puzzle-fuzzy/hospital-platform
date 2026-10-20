@@ -145,8 +145,8 @@ export function appointmentsModule(
 			async ({ request, headers, params }) => {
 				const principal = await authentication.get(request);
 				// 详情页取消也必须走支付退出编排：未支付订单先安全失效；已完成
-				// 的挂号自费必须退款并完成医院回写，其余已支付或 Provider 未知
-				// 的状态保持预约，不允许直接释放号源。
+				// 的挂号自费须严格确认原路全额退款，再向医院请求取消；收费
+				// 回写未确认单独保留。其余支付未知状态保持预约。
 				return success(
 					registrationPaymentExit
 						? await registrationPaymentExit.abandon({

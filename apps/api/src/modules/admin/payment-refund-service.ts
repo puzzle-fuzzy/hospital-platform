@@ -31,6 +31,7 @@ export type RegistrationRefundStage =
 	| "wechat_refund_pending"
 	| "hospital_writeback_pending"
 	| "appointment_cancellation_pending"
+	| "appointment_cancelled_writeback_pending"
 	| "completed";
 export type AdminPaymentRefundResult = {
 	source: WechatRefundSource;
@@ -46,6 +47,8 @@ export type AdminPaymentRefundResult = {
 	medicalRefund?: MedicalInsuranceRefundPayload["data"];
 	wechatRefund?: WechatRefund;
 	registrationCancellationPending?: boolean;
+	registrationCancellationConfirmed?: boolean;
+	hospitalWritebackPending?: boolean;
 	registrationRefundStage?: RegistrationRefundStage;
 };
 
@@ -75,7 +78,13 @@ export type AdminPaymentRefundServiceDependencies = {
 		order: PaymentOrder,
 		context: AdapterCallContext,
 		reason?: string,
-	) => Promise<void> | Promise<{ hospitalWritebackConfirmed?: boolean }>;
+	) =>
+		| Promise<void>
+		| Promise<{
+				status?: "cancelled";
+				hospitalWritebackConfirmed?: boolean;
+				hospitalWritebackPending?: boolean;
+		  }>;
 	notifyMedicalRefund?: (
 		order: MedicalInsuranceOrder,
 		refund: MedicalInsuranceRefund,
@@ -351,6 +360,7 @@ export class AdminPaymentRefundService {
 		);
 		let registrationRefundStage: RegistrationRefundStage | undefined;
 		let registrationRecoveryUnverified = false;
+		let hospitalWritebackPending = false;
 		const alreadySucceeded =
 			records
 				.filter((item) => item.status === "success")
@@ -419,18 +429,26 @@ export class AdminPaymentRefundService {
 					);
 				if (registrationResult?.hospitalWritebackConfirmed === true)
 					registrationRefundStage = "completed";
-				else registrationRecoveryUnverified = true;
+				else if (
+					registrationResult?.status === "cancelled" &&
+					registrationResult.hospitalWritebackPending === true
+				) {
+					registrationRefundStage = "appointment_cancelled_writeback_pending";
+					hospitalWritebackPending = true;
+				} else registrationRecoveryUnverified = true;
 			} catch (error) {
 				if (error instanceof RegistrationPaymentExitRefundPendingError)
 					registrationRefundStage = "wechat_refund_pending";
-				else if (error instanceof RegistrationPaymentExitRefundSyncPendingError)
-					registrationRefundStage = "hospital_writeback_pending";
 				else if (
+					error instanceof RegistrationPaymentExitRefundSyncPendingError
+				) {
+					registrationRefundStage = "hospital_writeback_pending";
+					hospitalWritebackPending = true;
+				} else if (
 					error instanceof RegistrationPaymentExitCancellationPendingError
 				) {
-					if (error.hospitalWritebackConfirmed)
-						registrationRefundStage = "appointment_cancellation_pending";
-					else registrationRecoveryUnverified = true;
+					registrationRefundStage = "appointment_cancellation_pending";
+					hospitalWritebackPending = !error.hospitalWritebackConfirmed;
 				} else throw error;
 			}
 		}
@@ -439,11 +457,14 @@ export class AdminPaymentRefundService {
 			.filter((item) => item.status === "success")
 			.reduce((sum, item) => sum + item.refundFen, 0);
 		if (
-			registrationRefundStage === "completed" &&
+			(registrationRefundStage === "completed" ||
+				registrationRefundStage ===
+					"appointment_cancelled_writeback_pending") &&
 			(succeeded !== order.amounts.cashFen || order.amounts.cashFen <= 0)
 		) {
 			registrationRefundStage = undefined;
 			registrationRecoveryUnverified = true;
+			hospitalWritebackPending = false;
 		}
 		if (
 			registration &&
@@ -455,24 +476,29 @@ export class AdminPaymentRefundService {
 			registrationRefundStage = "wechat_refund_pending";
 		const registrationCancellationPending =
 			registrationRefundStage !== undefined &&
-			registrationRefundStage !== "completed";
-		const status = registrationCancellationPending
-			? "processing"
-			: registrationRecoveryUnverified
-				? "manual_review"
-				: succeeded >= order.amounts.cashFen && order.amounts.cashFen > 0
-					? "succeeded"
-					: records.some((item) =>
-								["unknown", "abnormal"].includes(item.status),
-							)
-						? "manual_review"
+			registrationRefundStage !== "completed" &&
+			registrationRefundStage !== "appointment_cancelled_writeback_pending";
+		const registrationCancellationConfirmed =
+			registrationRefundStage === "completed" ||
+			registrationRefundStage === "appointment_cancelled_writeback_pending";
+		const status =
+			registrationCancellationPending || hospitalWritebackPending
+				? "processing"
+				: registrationRecoveryUnverified
+					? "manual_review"
+					: succeeded >= order.amounts.cashFen && order.amounts.cashFen > 0
+						? "succeeded"
 						: records.some((item) =>
-									["requested", "processing"].includes(item.status),
+									["unknown", "abnormal"].includes(item.status),
 								)
-							? "processing"
-							: records.length
-								? "failed"
-								: "requested";
+							? "manual_review"
+							: records.some((item) =>
+										["requested", "processing"].includes(item.status),
+									)
+								? "processing"
+								: records.length
+									? "failed"
+									: "requested";
 		return {
 			source: input.source,
 			orderId: input.orderId,
@@ -485,9 +511,10 @@ export class AdminPaymentRefundService {
 				fundFen: 0,
 			},
 			...(records[0] ? { wechatRefund: records[0] } : {}),
-			...(registrationCancellationPending
-				? { registrationCancellationPending: true }
+			...(registrationRefundStage
+				? { registrationCancellationPending, registrationCancellationConfirmed }
 				: {}),
+			...(hospitalWritebackPending ? { hospitalWritebackPending: true } : {}),
 			...(registrationRefundStage ? { registrationRefundStage } : {}),
 		};
 	}

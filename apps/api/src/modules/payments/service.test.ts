@@ -7,6 +7,7 @@ import {
 	IdentityUserReadModelValidationError,
 	PaymentOrderInputError,
 	PaymentOrderService,
+	type WechatRefund,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import {
@@ -20,7 +21,6 @@ import {
 	RegistrationPaymentExitInputError,
 	RegistrationPaymentExitRefundContextError,
 	RegistrationPaymentExitRefundPendingError,
-	RegistrationPaymentExitRefundSyncPendingError,
 	RegistrationPaymentExitService,
 } from "./registration-payment-exit-service";
 import { registrationSelfPayOrderKey } from "./registration-self-pay-service";
@@ -37,6 +37,36 @@ const order = {
 	createdAt: "2026-08-15T00:00:00.000Z",
 	updatedAt: "2026-08-15T00:00:00.000Z",
 };
+
+function confirmedRefundForRequest(input: {
+	orderId: string;
+	outTradeNo: string;
+	refundFen: number;
+	idempotencyKey: string;
+	merchantRefundNo: string;
+}): WechatRefund {
+	return {
+		refundRecordId: "fixture-confirmed-refund",
+		merchantRefundNo: input.merchantRefundNo,
+		source: "payment_order",
+		sourceOrderId: input.orderId,
+		outTradeNo: input.outTradeNo,
+		totalFen: input.refundFen,
+		refundFen: input.refundFen,
+		reason: null,
+		idempotencyKey: input.idempotencyKey,
+		status: "success",
+		providerStatus: "SUCCESS",
+		providerRefundId: "fixture-provider-refund",
+		providerTransactionId: null,
+		providerRequestId: "fixture-refund-request",
+		successTime: "2026-09-18T01:00:00.000Z",
+		lastErrorCode: null,
+		version: 2,
+		createdAt: "2026-09-18T01:00:00.000Z",
+		updatedAt: "2026-09-18T01:00:00.000Z",
+	};
+}
 
 test("通用微信预支付不能绕过预约新支付门禁", async () => {
 	let checked = 0;
@@ -508,10 +538,10 @@ test("已完成的挂号自费会全额退款确认后才取消预约", async ()
 			requestTrustedPaymentOrder: async (input) => {
 				refundRequests += 1;
 				refundInput = input;
-				return {
-					status: "success",
+				return confirmedRefundForRequest({
+					...input,
 					merchantRefundNo: "refund-registration-001",
-				} as never;
+				});
 			},
 			query: async () => {
 				throw new Error("a confirmed refund must not be queried again");
@@ -618,10 +648,10 @@ test("MD5 挂号自费使用 .2 返回的商户单号退款并在 .15 回写后�
 		selfPayRefund: {
 			requestTrustedPaymentOrder: async (input) => {
 				refundInput = input;
-				return {
-					status: "success",
+				return confirmedRefundForRequest({
+					...input,
 					merchantRefundNo: "RF-PO-YUNHEALTH-001",
-				} as never;
+				});
 			},
 			query: async () => {
 				throw new Error("a confirmed refund must not be queried again");
@@ -765,7 +795,7 @@ test("缺少 .2 原始 out_trade_no 的旧 MD5 订单不会猜测退款目标", 
 	expect(cancellations).toBe(0);
 });
 
-test("微信退款成功但 .15 回写未知时保留预约", async () => {
+test("微信原路全额退款成功但 .15 回写未知时仍取消预约并单列医院同步结果", async () => {
 	const appointmentId = "appointment-exit-refund-md5-sync-001";
 	const completedOrder = {
 		...order,
@@ -825,11 +855,11 @@ test("微信退款成功但 .15 回写未知时保留预约", async () => {
 			}),
 		} as never,
 		selfPayRefund: {
-			requestTrustedPaymentOrder: async () =>
-				({
-					status: "success",
+			requestTrustedPaymentOrder: async (input) =>
+				confirmedRefundForRequest({
+					...input,
 					merchantRefundNo: "RF-PO-YUNHEALTH-SYNC-001",
-				}) as never,
+				}),
 			query: async () => {
 				throw new Error("refund query must not be reached");
 			},
@@ -853,8 +883,13 @@ test("微信退款成功但 .15 回写未知时保留预约", async () => {
 				idempotencyKey: "exit-refund-md5-sync-001",
 			},
 		}),
-	).rejects.toBeInstanceOf(RegistrationPaymentExitRefundSyncPendingError);
-	expect(cancellations).toBe(0);
+	).resolves.toEqual({
+		appointmentId,
+		status: "cancelled",
+		hospitalWritebackConfirmed: false,
+		hospitalWritebackPending: true,
+	});
+	expect(cancellations).toBe(1);
 });
 
 test("挂号退款处理中保留预约，满一分钟后查单确认才取消", async () => {
@@ -903,10 +938,14 @@ test("挂号退款处理中保留预约，满一分钟后查单确认才取消",
 				}) as never,
 			query: async () => {
 				refundQueries += 1;
-				return {
-					status: "success",
+				return confirmedRefundForRequest({
+					orderId: order.orderId,
+					outTradeNo: order.orderId,
+					refundFen: order.amounts.cashFen,
+					idempotencyKey:
+						"registration-self-pay-refund:appointment-exit-refund-002",
 					merchantRefundNo: "refund-registration-002",
-				} as never;
+				});
 			},
 		},
 		now: () => now,

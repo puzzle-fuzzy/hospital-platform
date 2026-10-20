@@ -1,8 +1,13 @@
 import { expect, test } from "bun:test";
+import type {
+	AppointmentHold,
+	AppointmentRegistration,
+} from "@hospital/domain";
 import { createInMemoryAppointmentWriteRepository } from "@hospital/persistence";
 import {
 	AppointmentCancellationPaymentActiveError,
 	AppointmentHoldExpiredError,
+	AppointmentHoldNotFoundError,
 	AppointmentWriteInputError,
 	AppointmentWriteService,
 } from "./write-service";
@@ -118,6 +123,243 @@ function createTestDependencies(
 		...overrides,
 	};
 }
+
+function registrationPolicyHold(
+	overrides: Partial<AppointmentHold> = {},
+): AppointmentHold {
+	return {
+		holdId: "hold-policy-001",
+		ownerUserId,
+		patientId,
+		scheduleId: "schedule-001",
+		providerScheduleId: "provider-schedule-001",
+		providerSourceId: "provider-source-policy-001",
+		sourceSerialNumber: "2",
+		totalFen: 1000,
+		status: "held",
+		idempotencyKey: "hold-policy-key",
+		expiresAt: "2026-09-16T10:01:00.000Z",
+		createdAt: "2026-09-16T10:00:00.000Z",
+		updatedAt: "2026-09-16T10:00:00.000Z",
+		...overrides,
+	};
+}
+
+function registrationPolicyRecord(
+	overrides: Partial<AppointmentRegistration> = {},
+): AppointmentRegistration {
+	return {
+		appointmentId: "appointment-policy-existing",
+		ownerUserId,
+		patientId,
+		holdId: "hold-policy-existing",
+		idempotencyKey: "registration-policy-existing-key",
+		providerAppointmentId: "provider-policy-existing",
+		providerPatientId,
+		departmentName: "测试科室",
+		doctorName: "测试医生",
+		workDate: "2026-09-20",
+		shiftName: "上午",
+		sourceSerialNumber: "1",
+		totalFen: 1000,
+		status: "booked",
+		createdAt: "2026-09-16T10:00:00.000Z",
+		updatedAt: "2026-09-16T10:00:00.000Z",
+		...overrides,
+	};
+}
+
+function registrationPolicyFixture(
+	hold: AppointmentHold = registrationPolicyHold(),
+	registrations: readonly AppointmentRegistration[] = [],
+	options: { snapshotUnavailable?: boolean; createError?: Error } = {},
+) {
+	const repository = createInMemoryAppointmentWriteRepository(
+		[hold],
+		registrations,
+	);
+	const defaults = createTestDependencies();
+	const calls = { create: 0, list: 0, snapshot: 0 };
+	const service = new AppointmentWriteService({
+		...defaults,
+		repository,
+		snapshots: {
+			findActive: async () => {
+				calls.snapshot += 1;
+				if (options.snapshotUnavailable) return undefined;
+				return (
+					defaults.snapshots as { findActive: () => Promise<unknown> }
+				).findActive();
+			},
+		},
+		gateway: {
+			...(defaults.gateway as Record<string, unknown>),
+			listActive: async () => {
+				calls.list += 1;
+				throw new Error(
+					"Registration must let HIS decide without a directory prefilter",
+				);
+			},
+			create: async () => {
+				calls.create += 1;
+				if (options.createError) throw options.createError;
+				return {
+					providerAppointmentId: "provider-policy-new",
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-create",
+						requestId: "policy-create-fixture",
+					},
+				};
+			},
+		},
+	} as never);
+	const input = {
+		ownerUserId,
+		patientId,
+		holdId: hold.holdId,
+		context: {
+			traceId: "registration-policy-trace",
+			idempotencyKey: "registration-policy-new-key",
+		},
+	};
+	return { repository, service, calls, input };
+}
+
+test("同日同科室的其他本地挂号不替代本次新 hold，原幂等键重放仍只提交一次 HIS", async () => {
+	const f = registrationPolicyFixture(registrationPolicyHold(), [
+		registrationPolicyRecord(),
+	]);
+	const result = await f.service.register(f.input);
+	expect(result.status).toBe("booked");
+	expect(result.appointmentId).toBe("generated-appointment-001");
+	expect(result.appointmentId).not.toBe("appointment-policy-existing");
+	await expect(f.service.register(f.input)).resolves.toEqual(result);
+	expect(f.calls.create).toBe(1);
+	expect(f.calls.list).toBe(0);
+});
+
+test("consumed hold 只回放本次 hold 的原挂号，不依赖过期排班或同科室其他预约", async () => {
+	const hold = registrationPolicyHold({ status: "consumed" });
+	const exact = registrationPolicyRecord({
+		appointmentId: "appointment-exact-hold",
+		holdId: hold.holdId,
+	});
+	const f = registrationPolicyFixture(
+		hold,
+		[registrationPolicyRecord(), exact],
+		{ snapshotUnavailable: true },
+	);
+	await expect(f.service.register(f.input)).resolves.toMatchObject({
+		appointmentId: exact.appointmentId,
+		status: "booked",
+	});
+	expect(f.calls).toEqual({ create: 0, list: 0, snapshot: 0 });
+});
+
+test("consumed hold 缺少本次挂号映射时不串用同日同科室预约或重新调用 HIS", async () => {
+	const f = registrationPolicyFixture(
+		registrationPolicyHold({ status: "consumed" }),
+		[registrationPolicyRecord()],
+		{ snapshotUnavailable: true },
+	);
+	await expect(f.service.register(f.input)).rejects.toBeInstanceOf(
+		AppointmentHoldExpiredError,
+	);
+	expect(f.calls).toEqual({ create: 0, list: 0, snapshot: 0 });
+});
+
+test("注册已落库而 hold 仍 held 的重试按 hold 精确回放，不再制单", async () => {
+	const hold = registrationPolicyHold({
+		expiresAt: "2026-09-16T09:59:00.000Z",
+	});
+	const exact = registrationPolicyRecord({ holdId: hold.holdId });
+	const f = registrationPolicyFixture(hold, [exact], {
+		snapshotUnavailable: true,
+	});
+	await expect(f.service.register(f.input)).resolves.toMatchObject({
+		appointmentId: exact.appointmentId,
+		status: "booked",
+	});
+	expect(f.calls).toEqual({ create: 0, list: 0, snapshot: 0 });
+});
+
+for (const status of ["cancelled", "expired", "unknown"] as const) {
+	test(`本次 hold 的注册为 ${status} 时不复用该 hold 重挂`, async () => {
+		const hold = registrationPolicyHold();
+		const f = registrationPolicyFixture(hold, [
+			registrationPolicyRecord({ holdId: hold.holdId, status }),
+		]);
+		await expect(f.service.register(f.input)).rejects.toBeInstanceOf(
+			AppointmentHoldExpiredError,
+		);
+		expect(f.calls.create).toBe(0);
+	});
+}
+
+test("一个 hold 对应多条注册时停止回放，不任选其他挂号或新增 HIS 写入", async () => {
+	const hold = registrationPolicyHold();
+	const f = registrationPolicyFixture(hold, [
+		registrationPolicyRecord({ holdId: hold.holdId }),
+		registrationPolicyRecord({
+			appointmentId: "appointment-policy-conflict",
+			holdId: hold.holdId,
+		}),
+	]);
+	await expect(f.service.register(f.input)).rejects.toBeInstanceOf(
+		AppointmentWriteInputError,
+	);
+	expect(f.calls.create).toBe(0);
+});
+
+test("注册幂等键不能跨 hold 或跨就诊人重放", async () => {
+	const original = registrationPolicyRecord({
+		idempotencyKey: "registration-policy-new-key",
+	});
+	const f = registrationPolicyFixture(registrationPolicyHold(), [original]);
+	await expect(f.service.register(f.input)).rejects.toBeInstanceOf(
+		AppointmentWriteInputError,
+	);
+	await expect(
+		f.service.register({
+			...f.input,
+			holdId: original.holdId,
+			patientId: "patient-unrelated",
+		}),
+	).rejects.toBeInstanceOf(AppointmentWriteInputError);
+	expect(f.calls.create).toBe(0);
+});
+
+test("注册不能使用其他用户持有的 hold", async () => {
+	const f = registrationPolicyFixture(
+		registrationPolicyHold({ ownerUserId: "fixture-other-owner" }),
+	);
+	await expect(f.service.register(f.input)).rejects.toBeInstanceOf(
+		AppointmentHoldNotFoundError,
+	);
+	expect(f.calls.create).toBe(0);
+});
+
+test("HIS 拒绝新挂号时保留原错误，不伪造已有预约或消耗 hold", async () => {
+	const createError = new Error("Synthetic HIS registration rejection");
+	const f = registrationPolicyFixture(
+		registrationPolicyHold(),
+		[registrationPolicyRecord()],
+		{ createError },
+	);
+	await expect(f.service.register(f.input)).rejects.toBe(createError);
+	expect(f.calls.create).toBe(1);
+	expect(f.calls.list).toBe(0);
+	expect(
+		await f.repository.findHold(ownerUserId, f.input.holdId),
+	).toMatchObject({ status: "held" });
+	expect(
+		await f.repository.findRegistrationByIdempotency(
+			ownerUserId,
+			f.input.context.idempotencyKey,
+		),
+	).toBeUndefined();
+});
 
 test("挂号结算在众阳未返回 registerId 时沿用 hisRegisterId", async () => {
 	const providerHisRegisterId = "8842077739088012808";
@@ -314,8 +556,9 @@ test("预约注册保留排班号别和院区到写入结果", async () => {
 	});
 });
 
-test("预约注册在 Provider 已有同日同科室记录时不重复写入", async () => {
+test("预约注册不按 Provider 同日同科室记录拦截，由 HIS 决定新挂号", async () => {
 	let createCalls = 0;
+	let listCalls = 0;
 	const repository = createInMemoryAppointmentWriteRepository([
 		{
 			holdId: "hold-001",
@@ -339,26 +582,29 @@ test("预约注册在 Provider 已有同日同科室记录时不重复写入", a
 		repository,
 		gateway: {
 			...(defaults.gateway as Record<string, unknown>),
-			listActive: async () => ({
-				records: [
-					{
-						providerAppointmentId: "provider-existing-001",
-						providerPatientId,
-						departmentName: "测试科室",
-						workDate: "2026-09-20",
-						status: "active",
+			listActive: async () => {
+				listCalls += 1;
+				return {
+					records: [
+						{
+							providerAppointmentId: "provider-existing-001",
+							providerPatientId,
+							departmentName: "测试科室",
+							workDate: "2026-09-20",
+							status: "active",
+						},
+					],
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-records",
+						requestId: "records-duplicate-001",
 					},
-				],
-				trace: {
-					provider: "zhongyang",
-					operation: "appointment-records",
-					requestId: "records-duplicate-001",
-				},
-			}),
+				};
+			},
 			create: async () => {
 				createCalls += 1;
 				return {
-					providerAppointmentId: "must-not-be-created",
+					providerAppointmentId: "provider-new-registration-001",
 					trace: {
 						provider: "zhongyang",
 						operation: "appointment-create",
@@ -379,9 +625,17 @@ test("预约注册在 Provider 已有同日同科室记录时不重复写入", a
 		},
 	});
 
-	expect(result.status).toBe("duplicate");
+	expect(result.status).toBe("booked");
 	expect(result.appointmentId).toBe("generated-appointment-001");
-	expect(createCalls).toBe(0);
+	expect(createCalls).toBe(1);
+	expect(listCalls).toBe(0);
+	expect(
+		await repository.findRegistration(ownerUserId, result.appointmentId),
+	).toMatchObject({
+		providerAppointmentId: "provider-new-registration-001",
+		holdId: "hold-001",
+		idempotencyKey: "register-key-001",
+	});
 });
 
 test("预约注册拒绝已过期占位并将占位标记为 expired", async () => {

@@ -1897,7 +1897,7 @@ export function PaymentPanel({
 									{registrationDetail?.hospitalPaymentStatus === "paid" ? (
 										<Text>
 											{canCancelRegistration(registrationDetail)
-												? "退款和医院回写已核对，本操作仅补办取消挂号，不会再次退款。"
+												? "原微信实付款已全额退回，本操作仅取消挂号，不会再次退款；医院退费回写结果请按核对提示处理。"
 												: "如需退费，请先关闭详情，使用本订单已有的退款入口；退款及医院回写确认后，再核对挂号状态。"}
 										</Text>
 									) : null}
@@ -2274,7 +2274,7 @@ export function PaymentPanel({
 							description={
 								refundRecord.source === "payment_order" &&
 								refundRecord.refundRoute === "appointment_cancel"
-									? "微信退款确认成功后，先回写医院退费结果，再取消挂号。退款按原微信支付渠道退回。"
+									? "退款按原微信支付渠道退回。确认原实付款已全额退回后，系统会请求医院取消挂号；医院退费回写结果单独核对。"
 									: "退款按原支付渠道退回。医院减免不属于实付金额，不计入本次退款。"
 							}
 						/>
