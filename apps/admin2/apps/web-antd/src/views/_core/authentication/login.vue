@@ -114,9 +114,10 @@ onBeforeUnmount(() => {
 <template>
   <AuthenticationLogin
     ref="loginForm"
+    class="hospital-login"
     :form-schema="formSchema"
     :loading="authStore.loginLoading"
-    :show-remember-me="false"
+    :show-remember-me="true"
     :show-forget-password="false"
     :show-code-login="false"
     :show-qrcode-login="false"
@@ -125,23 +126,16 @@ onBeforeUnmount(() => {
     @submit="submit"
   >
     <template #title>
-      <h1 class="mb-2 text-2xl font-semibold">登录管理后台</h1>
-      <p class="text-muted-foreground mb-6">高平市人民医院 · Admin 2.0</p>
-      <Segmented
-        class="mb-6 w-full"
-        block
-        :value="loginMode"
-        :options="options"
-        :disabled="authStore.loginLoading"
-        @change="changeMode"
-      />
-      <Alert
-        v-if="loginMode === 'viewer'"
-        class="mb-5"
-        message="只读账号可查看支付与日志，不能退费或取消挂号。"
-        type="info"
-        show-icon
-      />
+      <div class="hospital-login__heading">
+        <h1 id="hospital-login-title">登录</h1>
+        <Segmented
+          size="small"
+          :value="loginMode"
+          :options="options"
+          :disabled="authStore.loginLoading"
+          @change="changeMode"
+        />
+      </div>
       <Alert
         v-if="captchaError"
         class="mb-5"
@@ -156,5 +150,61 @@ onBeforeUnmount(() => {
         >
       </Alert>
     </template>
+    <template #third-party-login>
+      <p class="hospital-login__note">
+        {{
+          loginMode === 'viewer'
+            ? '只读账号可查看支付与日志，不能退费或取消挂号。'
+            : '请使用已授权的运营管理账号登录。'
+        }}
+      </p>
+    </template>
   </AuthenticationLogin>
 </template>
+
+<style scoped>
+.hospital-login__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+.hospital-login__heading h1 {
+  margin: 0;
+  color: inherit;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 40px;
+}
+.hospital-login__note {
+  margin: 20px 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.8;
+}
+.hospital-login :deep(input) {
+  min-height: 40px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.hospital-login :deep(button[aria-label='login']) {
+  height: 42px;
+  border-radius: 6px;
+  background: #0960bd;
+  color: #fff;
+  font-size: 16px;
+  letter-spacing: 0.5em;
+}
+.hospital-login :deep(button[aria-label='login']:hover) {
+  background: #1473d4;
+}
+@media (max-width: 420px) {
+  .hospital-login__heading {
+    gap: 8px;
+  }
+  .hospital-login__heading h1 {
+    font-size: 24px;
+  }
+}
+</style>

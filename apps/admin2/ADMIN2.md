@@ -71,3 +71,7 @@ node apps/admin2/tools/ensure-public-env.mjs
 ```
 
 外层 Biome 不重排 Vben 官方源码；应用使用官方格式工具与 Vue 类型检查。
+
+## 经典登录页
+
+医院应用的 `src/layouts/auth.vue` 采用 Vben v2 经典蓝白曲线的应用布局，继续使用 Vben 5.7 的 `AuthenticationLogin`、主题 / 语言组件和现有登录适配。未改 `packages` 或 `internal`。明暗背景与电脑插画来自官方 v2 固定提交 `038936ff7d6178b1f3da2f5e6a36dc5a1155c74b`，来源、SHA-256 及 MIT 通知保存在 `public/auth-classic/ORIGIN.txt`。账号名称与医院文案用于当前业务；登录入口仅显示后端支持的功能。
