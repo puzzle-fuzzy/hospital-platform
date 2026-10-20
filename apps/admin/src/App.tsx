@@ -4,6 +4,7 @@ import {
 	LogoutOutlined,
 	ReloadOutlined,
 	SafetyCertificateOutlined,
+	UnorderedListOutlined,
 	UserOutlined,
 	WalletOutlined,
 } from "@ant-design/icons";
@@ -244,7 +245,11 @@ function Console() {
 					<div className="header-context">
 						<Text className="header-eyebrow">高平市人民医院 / 管理后台</Text>
 						<Text type="secondary" className="header-subtitle">
-							{activeKey === "logs" ? "实时接口日志" : "支付数据"}
+							{activeKey === "logs"
+								? "实时接口日志"
+								: activeKey === "payment-simple"
+									? "支付展示"
+									: "支付数据"}
 						</Text>
 					</div>
 				</div>
@@ -279,6 +284,11 @@ function Console() {
 							onClick={({ key }) => setActiveKey(key)}
 							items={[
 								{
+									key: "payment-simple",
+									icon: <UnorderedListOutlined />,
+									label: "支付展示",
+								},
+								{
 									key: "logs",
 									icon: <CodeOutlined />,
 									label: "实时日志",
@@ -300,8 +310,19 @@ function Console() {
 							setSession(undefined);
 						}}
 					/>
+				) : activeKey === "payment-simple" ? (
+					<PaymentPanel
+						key="payment-simple"
+						presentation="simple"
+						session={session}
+						onExpired={() => {
+							clearSession();
+							setSession(undefined);
+						}}
+					/>
 				) : activeKey === "payments" ? (
 					<PaymentPanel
+						key="payments"
 						session={session}
 						onExpired={() => {
 							clearSession();

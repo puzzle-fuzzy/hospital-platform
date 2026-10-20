@@ -67,6 +67,7 @@ import {
 	registrationStatusLabel,
 	validCancellationReason,
 } from "./registration-display";
+import { SimplePaymentList } from "./SimplePaymentList";
 import type {
 	AdminMedicalInsuranceRefund,
 	AdminPaymentOperationDetail,
@@ -702,12 +703,15 @@ export function PaymentSyncActions({
 export function PaymentPanel({
 	session,
 	onExpired,
+	presentation = "full",
 }: {
 	session: Session;
 	onExpired: () => void;
+	presentation?: "full" | "simple";
 }) {
 	const { message } = AntdApp.useApp();
 	const readOnly = isReadOnlySession(session);
+	const simple = presentation === "simple";
 	const [date, setDate] = useState(todayInShanghai);
 	const [appliedDate, setAppliedDate] = useState(todayInShanghai);
 	const [day, setDay] = useState<PaymentDayResult>();
@@ -792,8 +796,8 @@ export function PaymentPanel({
 	}, [appliedDate, message, onExpired, session]);
 
 	useEffect(() => {
-		void load();
-	}, [load]);
+		if (!simple) void load();
+	}, [load, simple]);
 
 	const loadPaymentHistory = useCallback(
 		async (
@@ -818,7 +822,7 @@ export function PaymentPanel({
 				const result = await fetchWechatRefundPaymentHistory(
 					{
 						page: options.page ?? 1,
-						pageSize: 8,
+						pageSize: simple ? 20 : 8,
 						...(options.source ? { source: options.source } : {}),
 						...(options.business ? { business: options.business } : {}),
 						...(options.businessDay
@@ -853,7 +857,7 @@ export function PaymentPanel({
 				setHistoryLoading(false);
 			}
 		},
-		[message, onExpired, session],
+		[message, onExpired, session, simple],
 	);
 
 	useEffect(() => {
@@ -887,8 +891,8 @@ export function PaymentPanel({
 	}, [onExpired, session, syncStatus]);
 
 	useEffect(() => {
-		void loadSyncTasks();
-	}, [loadSyncTasks]);
+		if (!simple) void loadSyncTasks();
+	}, [loadSyncTasks, simple]);
 
 	const openInterface = useCallback(
 		async (flow: PaymentFlowSummary, item: PaymentInterfaceSummary) => {
@@ -1453,784 +1457,853 @@ export function PaymentPanel({
 
 	return (
 		<main className="console-content payment-page">
-			<div className="content-heading">
-				<div className="content-heading-copy">
-					<Text className="page-kicker">PAYMENT OPERATIONS</Text>
-					<Title level={2}>支付数据</Title>
-				</div>
-			</div>
-			<div className="payment-metrics">
-				<Card className="metric-card">
-					<Statistic
-						title="订单总量"
-						value={historyPageData?.total ?? 0}
-						suffix="笔"
-					/>
-				</Card>
-				<Card className="metric-card metric-card-medical">
-					<Statistic
-						title="当前页医保支付订单"
-						value={medicalOrderCount}
-						suffix="笔"
-					/>
-				</Card>
-				<Card className="metric-card metric-card-confirmed">
-					<Statistic
-						title="当前页微信已确认"
-						value={confirmedPaymentCount}
-						suffix="笔"
-					/>
-				</Card>
-				<Card className="metric-card metric-card-refund">
-					<Statistic
-						title="当前页微信可退余额"
-						value={refundableCashFen / 100}
-						precision={2}
-						suffix="元"
-					/>
-				</Card>
-			</div>
-			<Card title="全部支付记录" className="payment-search-card">
-				<Space orientation="vertical" size={14} style={{ width: "100%" }}>
-					<Flex align="center" gap={8} wrap="wrap">
-						<Input
-							value={historyOrderId}
-							onChange={(event) => setHistoryOrderId(event.target.value)}
-							onPressEnter={() =>
-								void loadPaymentHistory({
-									queryOrderId: historyOrderId,
-									source: historySource,
-									business: historyBusiness,
-									businessDay: historyBusinessDay,
-									status: historyStatus,
-								})
-							}
-							placeholder="按订单号精确查询；留空显示最近记录"
-							maxLength={64}
-							style={{ minWidth: 300, flex: 1 }}
-						/>
-						<Select
-							allowClear
-							placeholder="全部来源"
-							value={historySource}
-							onChange={(value) => {
-								const source = value as WechatRefundSource | undefined;
-								setHistorySource(source);
-								void loadPaymentHistory({
-									queryOrderId: historyOrderId,
-									source,
-									business: historyBusiness,
-									businessDay: historyBusinessDay,
-									status: historyStatus,
-								});
-							}}
-							options={[
-								{ value: "medical_insurance", label: "医保支付订单" },
-								{ value: "payment_order", label: "普通微信" },
-							]}
-							style={{ width: 140 }}
-						/>
-						<Select
-							allowClear
-							placeholder="全部业务"
-							value={historyBusiness}
-							onChange={(value) => {
-								const business = value as
-									| "registration"
-									| "outpatient"
-									| "other"
-									| undefined;
-								setHistoryBusiness(business);
-								void loadPaymentHistory({
-									queryOrderId: historyOrderId,
-									source: historySource,
-									business,
-									businessDay: historyBusinessDay,
-									status: historyStatus,
-								});
-							}}
-							options={[
-								{ value: "registration", label: "挂号" },
-								{ value: "outpatient", label: "门诊" },
-								{ value: "other", label: "其他" },
-							]}
-							style={{ width: 120 }}
-						/>
-						<Input
-							type="date"
-							allowClear
-							value={historyBusinessDay ?? ""}
-							onChange={(event) => {
-								const businessDay = event.target.value || undefined;
-								setHistoryBusinessDay(businessDay);
-								void loadPaymentHistory({
-									queryOrderId: historyOrderId,
-									source: historySource,
-									business: historyBusiness,
-									businessDay,
-									status: historyStatus,
-								});
-							}}
-							aria-label="业务日"
-							style={{ width: 160 }}
-						/>
-						<Select
-							allowClear
-							placeholder="全部状态"
-							value={historyStatus}
-							onChange={(value) => {
-								const status = value as
-									| "created"
-									| "pending"
-									| "paid"
-									| "failed"
-									| "manual_review"
-									| undefined;
-								setHistoryStatus(status);
-								void loadPaymentHistory({
-									queryOrderId: historyOrderId,
-									source: historySource,
-									business: historyBusiness,
-									businessDay: historyBusinessDay,
-									status,
-								});
-							}}
-							options={[
-								{ value: "created", label: "待支付" },
-								{ value: "pending", label: "处理中" },
-								{ value: "paid", label: "已支付" },
-								{ value: "failed", label: "失败/取消" },
-								{ value: "manual_review", label: "人工复核" },
-							]}
-							style={{ width: 130 }}
-						/>
-						<Button
-							icon={<ReloadOutlined />}
-							loading={historyLoading}
-							onClick={() =>
-								void loadPaymentHistory({
-									queryOrderId: historyOrderId,
-									source: historySource,
-									business: historyBusiness,
-									businessDay: historyBusinessDay,
-									status: historyStatus,
-								})
-							}
-						>
-							刷新支付数据
-						</Button>
-						<Button
-							onClick={() => {
-								setHistoryOrderId("");
-								void loadPaymentHistory({
-									queryOrderId: "",
-									source: historySource,
-									business: historyBusiness,
-									businessDay: historyBusinessDay,
-									status: historyStatus,
-								});
-							}}
-						>
-							显示最近记录
-						</Button>
-					</Flex>
-					{historyError ? (
-						<Alert type="error" showIcon title={historyError} />
-					) : null}
-					<Table<AdminWechatRefundPaymentRecord>
-						rowKey={(record) => `${record.source}:${record.orderId}`}
-						columns={paymentRecordColumns(
-							openPaymentRefund,
-							(record) =>
-								void queryOrderRefund(
-									record,
-									record.latestMedicalRefund &&
-										!record.latestRefund &&
-										record.latestMedicalRefund.wechatStatus === "not_required"
-										? "HI"
-										: record.latestMedicalRefund
-											? "ALL"
-											: "CASH",
-								),
-							openOperationDetail,
-							openRegistrationDetail,
-							refundQueryingNo,
-							refundQueryRequiredOrders,
-							readOnly,
-						)}
-						dataSource={paymentHistory}
-						loading={historyLoading}
-						rowClassName={(record) =>
-							record.source === "medical_insurance" ? "payment-row-medical" : ""
-						}
-						pagination={{
-							current: historyPageData?.page ?? 1,
-							pageSize: historyPageData?.pageSize ?? 8,
-							total: historyPageData?.total ?? 0,
-							showSizeChanger: false,
-							hideOnSinglePage: true,
-							onChange: (page) =>
-								void loadPaymentHistory({
-									queryOrderId: historyOrderId,
-									page,
-									source: historySource,
-									business: historyBusiness,
-									businessDay: historyBusinessDay,
-									status: historyStatus,
-								}),
+			{simple ? (
+				<SimplePaymentList
+					items={paymentHistory}
+					loading={historyLoading}
+					error={historyError}
+					page={historyPageData?.page ?? 1}
+					pageSize={historyPageData?.pageSize ?? 20}
+					total={historyPageData?.total ?? 0}
+					readOnly={readOnly}
+					businessDay={historyBusinessDay}
+					onBusinessDayChange={(businessDay) => {
+						setHistoryBusinessDay(businessDay);
+						void loadPaymentHistory({ businessDay });
+					}}
+					onRefresh={() =>
+						void loadPaymentHistory({
+							page: historyPageData?.page ?? 1,
+							businessDay: historyBusinessDay,
+						})
+					}
+					onPageChange={(page) =>
+						void loadPaymentHistory({ page, businessDay: historyBusinessDay })
+					}
+					onRefund={openPaymentRefund}
+					onRefundQuery={(record) =>
+						void queryOrderRefund(
+							record,
+							record.latestMedicalRefund &&
+								!record.latestRefund &&
+								record.latestMedicalRefund.wechatStatus === "not_required"
+								? "HI"
+								: record.latestMedicalRefund
+									? "ALL"
+									: "CASH",
+						)
+					}
+					refundQueryingNo={refundQueryingNo}
+					queryRequiredOrders={refundQueryRequiredOrders}
+				/>
+			) : (
+				<>
+					<div className="content-heading">
+						<div className="content-heading-copy">
+							<Text className="page-kicker">PAYMENT OPERATIONS</Text>
+							<Title level={2}>支付数据</Title>
+						</div>
+					</div>
+					<div className="payment-metrics">
+						<Card className="metric-card">
+							<Statistic
+								title="订单总量"
+								value={historyPageData?.total ?? 0}
+								suffix="笔"
+							/>
+						</Card>
+						<Card className="metric-card metric-card-medical">
+							<Statistic
+								title="当前页医保支付订单"
+								value={medicalOrderCount}
+								suffix="笔"
+							/>
+						</Card>
+						<Card className="metric-card metric-card-confirmed">
+							<Statistic
+								title="当前页微信已确认"
+								value={confirmedPaymentCount}
+								suffix="笔"
+							/>
+						</Card>
+						<Card className="metric-card metric-card-refund">
+							<Statistic
+								title="当前页微信可退余额"
+								value={refundableCashFen / 100}
+								precision={2}
+								suffix="元"
+							/>
+						</Card>
+					</div>
+					<Card title="全部支付记录" className="payment-search-card">
+						<Space orientation="vertical" size={14} style={{ width: "100%" }}>
+							<Flex align="center" gap={8} wrap="wrap">
+								<Input
+									value={historyOrderId}
+									onChange={(event) => setHistoryOrderId(event.target.value)}
+									onPressEnter={() =>
+										void loadPaymentHistory({
+											queryOrderId: historyOrderId,
+											source: historySource,
+											business: historyBusiness,
+											businessDay: historyBusinessDay,
+											status: historyStatus,
+										})
+									}
+									placeholder="按订单号精确查询；留空显示最近记录"
+									maxLength={64}
+									style={{ minWidth: 300, flex: 1 }}
+								/>
+								<Select
+									allowClear
+									placeholder="全部来源"
+									value={historySource}
+									onChange={(value) => {
+										const source = value as WechatRefundSource | undefined;
+										setHistorySource(source);
+										void loadPaymentHistory({
+											queryOrderId: historyOrderId,
+											source,
+											business: historyBusiness,
+											businessDay: historyBusinessDay,
+											status: historyStatus,
+										});
+									}}
+									options={[
+										{ value: "medical_insurance", label: "医保支付订单" },
+										{ value: "payment_order", label: "普通微信" },
+									]}
+									style={{ width: 140 }}
+								/>
+								<Select
+									allowClear
+									placeholder="全部业务"
+									value={historyBusiness}
+									onChange={(value) => {
+										const business = value as
+											| "registration"
+											| "outpatient"
+											| "other"
+											| undefined;
+										setHistoryBusiness(business);
+										void loadPaymentHistory({
+											queryOrderId: historyOrderId,
+											source: historySource,
+											business,
+											businessDay: historyBusinessDay,
+											status: historyStatus,
+										});
+									}}
+									options={[
+										{ value: "registration", label: "挂号" },
+										{ value: "outpatient", label: "门诊" },
+										{ value: "other", label: "其他" },
+									]}
+									style={{ width: 120 }}
+								/>
+								<Input
+									type="date"
+									allowClear
+									value={historyBusinessDay ?? ""}
+									onChange={(event) => {
+										const businessDay = event.target.value || undefined;
+										setHistoryBusinessDay(businessDay);
+										void loadPaymentHistory({
+											queryOrderId: historyOrderId,
+											source: historySource,
+											business: historyBusiness,
+											businessDay,
+											status: historyStatus,
+										});
+									}}
+									aria-label="业务日"
+									style={{ width: 160 }}
+								/>
+								<Select
+									allowClear
+									placeholder="全部状态"
+									value={historyStatus}
+									onChange={(value) => {
+										const status = value as
+											| "created"
+											| "pending"
+											| "paid"
+											| "failed"
+											| "manual_review"
+											| undefined;
+										setHistoryStatus(status);
+										void loadPaymentHistory({
+											queryOrderId: historyOrderId,
+											source: historySource,
+											business: historyBusiness,
+											businessDay: historyBusinessDay,
+											status,
+										});
+									}}
+									options={[
+										{ value: "created", label: "待支付" },
+										{ value: "pending", label: "处理中" },
+										{ value: "paid", label: "已支付" },
+										{ value: "failed", label: "失败/取消" },
+										{ value: "manual_review", label: "人工复核" },
+									]}
+									style={{ width: 130 }}
+								/>
+								<Button
+									icon={<ReloadOutlined />}
+									loading={historyLoading}
+									onClick={() =>
+										void loadPaymentHistory({
+											queryOrderId: historyOrderId,
+											source: historySource,
+											business: historyBusiness,
+											businessDay: historyBusinessDay,
+											status: historyStatus,
+										})
+									}
+								>
+									刷新支付数据
+								</Button>
+								<Button
+									onClick={() => {
+										setHistoryOrderId("");
+										void loadPaymentHistory({
+											queryOrderId: "",
+											source: historySource,
+											business: historyBusiness,
+											businessDay: historyBusinessDay,
+											status: historyStatus,
+										});
+									}}
+								>
+									显示最近记录
+								</Button>
+							</Flex>
+							{historyError ? (
+								<Alert type="error" showIcon title={historyError} />
+							) : null}
+							<Table<AdminWechatRefundPaymentRecord>
+								rowKey={(record) => `${record.source}:${record.orderId}`}
+								columns={paymentRecordColumns(
+									openPaymentRefund,
+									(record) =>
+										void queryOrderRefund(
+											record,
+											record.latestMedicalRefund &&
+												!record.latestRefund &&
+												record.latestMedicalRefund.wechatStatus ===
+													"not_required"
+												? "HI"
+												: record.latestMedicalRefund
+													? "ALL"
+													: "CASH",
+										),
+									openOperationDetail,
+									openRegistrationDetail,
+									refundQueryingNo,
+									refundQueryRequiredOrders,
+									readOnly,
+								)}
+								dataSource={paymentHistory}
+								loading={historyLoading}
+								rowClassName={(record) =>
+									record.source === "medical_insurance"
+										? "payment-row-medical"
+										: ""
+								}
+								pagination={{
+									current: historyPageData?.page ?? 1,
+									pageSize: historyPageData?.pageSize ?? 8,
+									total: historyPageData?.total ?? 0,
+									showSizeChanger: false,
+									hideOnSinglePage: true,
+									onChange: (page) =>
+										void loadPaymentHistory({
+											queryOrderId: historyOrderId,
+											page,
+											source: historySource,
+											business: historyBusiness,
+											businessDay: historyBusinessDay,
+											status: historyStatus,
+										}),
+								}}
+								scroll={{ x: 2085 }}
+								size="small"
+							/>
+						</Space>
+					</Card>
+					<Card title="同步任务与人工复核" className="payment-search-card">
+						<Space orientation="vertical" size={12} style={{ width: "100%" }}>
+							<Flex align="center" gap={8} wrap="wrap">
+								<Select
+									allowClear
+									placeholder="全部同步状态"
+									value={syncStatus}
+									onChange={(value) =>
+										setSyncStatus(
+											value as AdminPaymentSyncTask["status"] | undefined,
+										)
+									}
+									options={[
+										{ value: "pending", label: "待执行" },
+										{ value: "in_progress", label: "执行中" },
+										{ value: "failed", label: "失败" },
+										{ value: "manual_review", label: "人工复核" },
+										{ value: "succeeded", label: "已完成" },
+									]}
+									style={{ width: 150 }}
+								/>
+								<Button
+									icon={<ReloadOutlined />}
+									loading={syncLoading}
+									onClick={() => void loadSyncTasks()}
+								>
+									刷新同步任务
+								</Button>
+								<Text type="secondary">
+									这里只处理同步任务状态，不会直接修改支付聚合单终态。
+								</Text>
+							</Flex>
+							{syncError ? (
+								<Alert type="error" showIcon title={syncError} />
+							) : null}
+							<Table<AdminPaymentSyncTask>
+								rowKey="taskId"
+								loading={syncLoading}
+								dataSource={syncTasks}
+								pagination={false}
+								size="small"
+								scroll={{ x: 980 }}
+								columns={[
+									{
+										title: "任务号",
+										dataIndex: "taskId",
+										key: "taskId",
+										width: 220,
+										ellipsis: true,
+									},
+									{
+										title: "来源 / 类型",
+										key: "source",
+										width: 160,
+										render: (_, task) =>
+											`${syncTaskSourceLabel(task.source)} / ${syncTaskKindLabel(task.kind)}`,
+									},
+									{
+										title: "状态",
+										dataIndex: "status",
+										key: "status",
+										width: 110,
+										render: (value: AdminPaymentSyncTask["status"]) => (
+											<Tag
+												color={
+													value === "succeeded"
+														? "success"
+														: value === "manual_review" || value === "failed"
+															? "warning"
+															: "blue"
+												}
+											>
+												{syncTaskStatusLabel(value)}
+											</Tag>
+										),
+									},
+									{
+										title: "尝试",
+										key: "attempts",
+										width: 90,
+										render: (_, task) =>
+											`${task.attempts} / ${task.maxAttempts}`,
+									},
+									{
+										title: "最近错误",
+										dataIndex: "lastErrorCode",
+										key: "lastErrorCode",
+										width: 180,
+										ellipsis: true,
+										render: (value: string | null) => value || "—",
+									},
+									{
+										title: "操作",
+										key: "actions",
+										fixed: "right",
+										width: 220,
+										render: (_, task) => (
+											<PaymentSyncActions
+												task={task}
+												readOnly={readOnly}
+												loading={syncActionLoading}
+												onRetry={() => void retrySyncTask(task)}
+												onManualReview={() => {
+													setSyncReviewTask(task);
+													setSyncReviewReason("");
+												}}
+											/>
+										),
+									},
+								]}
+							/>
+						</Space>
+					</Card>
+					<Modal
+						title="挂号详情"
+						open={!readOnly && Boolean(registrationRecord)}
+						width={640}
+						closable={!registrationSubmitting}
+						maskClosable={!registrationSubmitting}
+						onCancel={() => {
+							if (registrationBusy.current) return;
+							registrationSelection.current = undefined;
+							++registrationRequestGeneration.current;
+							setRegistrationRecord(undefined);
 						}}
-						scroll={{ x: 2085 }}
-						size="small"
-					/>
-				</Space>
-			</Card>
-			<Card title="同步任务与人工复核" className="payment-search-card">
-				<Space orientation="vertical" size={12} style={{ width: "100%" }}>
-					<Flex align="center" gap={8} wrap="wrap">
-						<Select
-							allowClear
-							placeholder="全部同步状态"
-							value={syncStatus}
-							onChange={(value) =>
-								setSyncStatus(
-									value as AdminPaymentSyncTask["status"] | undefined,
-								)
-							}
-							options={[
-								{ value: "pending", label: "待执行" },
-								{ value: "in_progress", label: "执行中" },
-								{ value: "failed", label: "失败" },
-								{ value: "manual_review", label: "人工复核" },
-								{ value: "succeeded", label: "已完成" },
-							]}
-							style={{ width: 150 }}
-						/>
-						<Button
-							icon={<ReloadOutlined />}
-							loading={syncLoading}
-							onClick={() => void loadSyncTasks()}
-						>
-							刷新同步任务
-						</Button>
-						<Text type="secondary">
-							这里只处理同步任务状态，不会直接修改支付聚合单终态。
-						</Text>
-					</Flex>
-					{syncError ? <Alert type="error" showIcon title={syncError} /> : null}
-					<Table<AdminPaymentSyncTask>
-						rowKey="taskId"
-						loading={syncLoading}
-						dataSource={syncTasks}
-						pagination={false}
-						size="small"
-						scroll={{ x: 980 }}
-						columns={[
-							{
-								title: "任务号",
-								dataIndex: "taskId",
-								key: "taskId",
-								width: 220,
-								ellipsis: true,
-							},
-							{
-								title: "来源 / 类型",
-								key: "source",
-								width: 160,
-								render: (_, task) =>
-									`${syncTaskSourceLabel(task.source)} / ${syncTaskKindLabel(task.kind)}`,
-							},
-							{
-								title: "状态",
-								dataIndex: "status",
-								key: "status",
-								width: 110,
-								render: (value: AdminPaymentSyncTask["status"]) => (
-									<Tag
-										color={
-											value === "succeeded"
-												? "success"
-												: value === "manual_review" || value === "failed"
-													? "warning"
-													: "blue"
-										}
-									>
-										{syncTaskStatusLabel(value)}
-									</Tag>
-								),
-							},
-							{
-								title: "尝试",
-								key: "attempts",
-								width: 90,
-								render: (_, task) => `${task.attempts} / ${task.maxAttempts}`,
-							},
-							{
-								title: "最近错误",
-								dataIndex: "lastErrorCode",
-								key: "lastErrorCode",
-								width: 180,
-								ellipsis: true,
-								render: (value: string | null) => value || "—",
-							},
-							{
-								title: "操作",
-								key: "actions",
-								fixed: "right",
-								width: 220,
-								render: (_, task) => (
-									<PaymentSyncActions
-										task={task}
-										readOnly={readOnly}
-										loading={syncActionLoading}
-										onRetry={() => void retrySyncTask(task)}
-										onManualReview={() => {
-											setSyncReviewTask(task);
-											setSyncReviewReason("");
-										}}
+						footer={
+							<Space wrap>
+								<Button
+									disabled={registrationSubmitting}
+									onClick={() => {
+										registrationSelection.current = undefined;
+										++registrationRequestGeneration.current;
+										setRegistrationRecord(undefined);
+									}}
+								>
+									关闭
+								</Button>
+								<Button
+									icon={<ReloadOutlined />}
+									loading={registrationLoading}
+									disabled={registrationSubmitting}
+									onClick={() => {
+										if (registrationRecord)
+											void refreshRegistration(registrationRecord);
+									}}
+								>
+									刷新医院状态
+								</Button>
+								<Button
+									danger
+									disabled={
+										registrationLoading ||
+										registrationSubmitting ||
+										Boolean(registrationError) ||
+										Boolean(registrationAttempt?.needsQuery) ||
+										!canCancelRegistration(registrationDetail)
+									}
+									onClick={() => setRegistrationConfirmOpen(true)}
+								>
+									取消挂号
+								</Button>
+							</Space>
+						}
+						destroyOnHidden
+					>
+						<Spin spinning={registrationLoading}>
+							<Space orientation="vertical" size={14} style={{ width: "100%" }}>
+								{registrationError ? (
+									<Alert
+										type="warning"
+										showIcon
+										title="处理结果需要核对"
+										description={registrationError}
 									/>
-								),
-							},
-						]}
-					/>
-				</Space>
-			</Card>
-			<Modal
-				title="挂号详情"
-				open={!readOnly && Boolean(registrationRecord)}
-				width={640}
-				closable={!registrationSubmitting}
-				maskClosable={!registrationSubmitting}
-				onCancel={() => {
-					if (registrationBusy.current) return;
-					registrationSelection.current = undefined;
-					++registrationRequestGeneration.current;
-					setRegistrationRecord(undefined);
-				}}
-				footer={
-					<Space wrap>
-						<Button
-							disabled={registrationSubmitting}
-							onClick={() => {
-								registrationSelection.current = undefined;
-								++registrationRequestGeneration.current;
-								setRegistrationRecord(undefined);
-							}}
-						>
-							关闭
-						</Button>
-						<Button
-							icon={<ReloadOutlined />}
-							loading={registrationLoading}
-							disabled={registrationSubmitting}
-							onClick={() => {
-								if (registrationRecord)
-									void refreshRegistration(registrationRecord);
-							}}
-						>
-							刷新医院状态
-						</Button>
-						<Button
-							danger
-							disabled={
+								) : null}
+								<Descriptions
+									bordered
+									size="small"
+									column={1}
+									items={[
+										{
+											key: "patient",
+											label: "就诊人",
+											children:
+												registrationRecord?.patientDisplayName || "未关联",
+										},
+										{
+											key: "order",
+											label: "平台订单号",
+											children: registrationRecord?.orderId,
+										},
+										{
+											key: "status",
+											label: "挂号状态",
+											children: registrationStatusLabel(registrationDetail),
+										},
+										{
+											key: "payment",
+											label: "医院支付状态",
+											children: registrationDetail
+												? registrationPaymentLabel(
+														registrationDetail.hospitalPaymentStatus,
+													)
+												: "待核对",
+										},
+										{
+											key: "department",
+											label: "科室 / 医生",
+											children: `${registrationDetail?.departmentName || "—"} / ${registrationDetail?.doctorName || "—"}`,
+										},
+										{
+											key: "date",
+											label: "就诊时间",
+											children:
+												[
+													registrationDetail?.workDate,
+													registrationDetail?.shiftName,
+												]
+													.filter(Boolean)
+													.join(" ") || "—",
+										},
+										{
+											key: "serial",
+											label: "挂号序号",
+											children: registrationDetail?.sourceSerialNumber || "—",
+										},
+										{
+											key: "checked",
+											label: "医院核对时间",
+											children: registrationDetail?.checkedAt
+												? formatTime(registrationDetail.checkedAt)
+												: "尚未核对",
+										},
+									]}
+								/>
+								<Alert
+									type={
+										canCancelRegistration(registrationDetail)
+											? "info"
+											: "warning"
+									}
+									showIcon
+									title={
+										canCancelRegistration(registrationDetail)
+											? "可以取消挂号"
+											: "当前不可直接取消挂号"
+									}
+									description={
+										<Space orientation="vertical" size={4}>
+											<Text>
+												{registrationDetail?.cancellation.reason ||
+													"请先刷新医院状态，核对挂号与支付结果。"}
+											</Text>
+											{registrationDetail?.hospitalPaymentStatus === "paid" ? (
+												<Text>
+													{canCancelRegistration(registrationDetail)
+														? "原微信实付款已全额退回，本操作仅取消挂号，不会再次退款；医院退费回写结果请按核对提示处理。"
+														: "如需退费，请先关闭详情，使用本订单已有的退款入口；退款及医院回写确认后，再核对挂号状态。"}
+												</Text>
+											) : null}
+										</Space>
+									}
+								/>
+							</Space>
+						</Spin>
+					</Modal>
+					<Modal
+						title="确认取消挂号"
+						open={!readOnly && registrationConfirmOpen}
+						okText="确认取消挂号"
+						cancelText="返回详情"
+						confirmLoading={registrationSubmitting}
+						closable={!registrationSubmitting}
+						maskClosable={!registrationSubmitting}
+						okButtonProps={{
+							danger: true,
+							disabled:
 								registrationLoading ||
-								registrationSubmitting ||
 								Boolean(registrationError) ||
 								Boolean(registrationAttempt?.needsQuery) ||
-								!canCancelRegistration(registrationDetail)
-							}
-							onClick={() => setRegistrationConfirmOpen(true)}
-						>
-							取消挂号
-						</Button>
-					</Space>
-				}
-				destroyOnHidden
-			>
-				<Spin spinning={registrationLoading}>
-					<Space orientation="vertical" size={14} style={{ width: "100%" }}>
-						{registrationError ? (
+								!canCancelRegistration(registrationDetail) ||
+								!validCancellationReason(registrationReason),
+						}}
+						onOk={() => void submitRegistrationCancellation()}
+						onCancel={() => {
+							if (!registrationBusy.current) setRegistrationConfirmOpen(false);
+						}}
+						destroyOnHidden
+					>
+						<Space orientation="vertical" size={14} style={{ width: "100%" }}>
 							<Alert
 								type="warning"
 								showIcon
-								title="处理结果需要核对"
-								description={registrationError}
+								title="取消后将释放该预约号源"
+								description="本操作仅取消挂号，不发起退款。系统会再次核对医院挂号状态与已有支付、退费结果。"
 							/>
-						) : null}
-						<Descriptions
-							bordered
-							size="small"
-							column={1}
-							items={[
-								{
-									key: "patient",
-									label: "就诊人",
-									children: registrationRecord?.patientDisplayName || "未关联",
-								},
-								{
-									key: "order",
-									label: "平台订单号",
-									children: registrationRecord?.orderId,
-								},
-								{
-									key: "status",
-									label: "挂号状态",
-									children: registrationStatusLabel(registrationDetail),
-								},
-								{
-									key: "payment",
-									label: "医院支付状态",
-									children: registrationDetail
-										? registrationPaymentLabel(
-												registrationDetail.hospitalPaymentStatus,
-											)
-										: "待核对",
-								},
-								{
-									key: "department",
-									label: "科室 / 医生",
-									children: `${registrationDetail?.departmentName || "—"} / ${registrationDetail?.doctorName || "—"}`,
-								},
-								{
-									key: "date",
-									label: "就诊时间",
-									children:
-										[
-											registrationDetail?.workDate,
-											registrationDetail?.shiftName,
-										]
-											.filter(Boolean)
-											.join(" ") || "—",
-								},
-								{
-									key: "serial",
-									label: "挂号序号",
-									children: registrationDetail?.sourceSerialNumber || "—",
-								},
-								{
-									key: "checked",
-									label: "医院核对时间",
-									children: registrationDetail?.checkedAt
-										? formatTime(registrationDetail.checkedAt)
-										: "尚未核对",
-								},
-							]}
-						/>
-						<Alert
-							type={
-								canCancelRegistration(registrationDetail) ? "info" : "warning"
-							}
-							showIcon
-							title={
-								canCancelRegistration(registrationDetail)
-									? "可以取消挂号"
-									: "当前不可直接取消挂号"
-							}
-							description={
-								<Space orientation="vertical" size={4}>
-									<Text>
-										{registrationDetail?.cancellation.reason ||
-											"请先刷新医院状态，核对挂号与支付结果。"}
-									</Text>
-									{registrationDetail?.hospitalPaymentStatus === "paid" ? (
-										<Text>
-											{canCancelRegistration(registrationDetail)
-												? "原微信实付款已全额退回，本操作仅取消挂号，不会再次退款；医院退费回写结果请按核对提示处理。"
-												: "如需退费，请先关闭详情，使用本订单已有的退款入口；退款及医院回写确认后，再核对挂号状态。"}
-										</Text>
-									) : null}
-								</Space>
-							}
-						/>
-					</Space>
-				</Spin>
-			</Modal>
-			<Modal
-				title="确认取消挂号"
-				open={!readOnly && registrationConfirmOpen}
-				okText="确认取消挂号"
-				cancelText="返回详情"
-				confirmLoading={registrationSubmitting}
-				closable={!registrationSubmitting}
-				maskClosable={!registrationSubmitting}
-				okButtonProps={{
-					danger: true,
-					disabled:
-						registrationLoading ||
-						Boolean(registrationError) ||
-						Boolean(registrationAttempt?.needsQuery) ||
-						!canCancelRegistration(registrationDetail) ||
-						!validCancellationReason(registrationReason),
-				}}
-				onOk={() => void submitRegistrationCancellation()}
-				onCancel={() => {
-					if (!registrationBusy.current) setRegistrationConfirmOpen(false);
-				}}
-				destroyOnHidden
-			>
-				<Space orientation="vertical" size={14} style={{ width: "100%" }}>
-					<Alert
-						type="warning"
-						showIcon
-						title="取消后将释放该预约号源"
-						description="本操作仅取消挂号，不发起退款。系统会再次核对医院挂号状态与已有支付、退费结果。"
-					/>
-					<Text>
-						{registrationRecord?.patientDisplayName || "未关联"} ·{" "}
-						{registrationDetail?.departmentName || "—"} ·{" "}
-						{registrationDetail?.doctorName || "—"} ·{" "}
-						{registrationDetail?.workDate || "—"} ·{" "}
-						{registrationDetail?.sourceSerialNumber || "—"}号
-					</Text>
-					<Input.TextArea
-						value={registrationReason}
-						onChange={(event) => setRegistrationReason(event.target.value)}
-						minLength={2}
-						maxLength={80}
-						showCount
-						rows={3}
-						disabled={registrationSubmitting || Boolean(registrationAttempt)}
-						placeholder="请填写 2 至 80 字的取消原因"
-					/>
-					{registrationAttempt ? (
-						<Text type="secondary">
-							已有取消请求，重试将沿用原操作单号和原原因，避免重复处理。
-						</Text>
-					) : null}
-				</Space>
-			</Modal>
-			<Modal
-				title="转人工复核"
-				open={!readOnly && Boolean(syncReviewTask)}
-				confirmLoading={syncActionLoading}
-				okText="确认转人工"
-				cancelText="取消"
-				onOk={() => void submitSyncManualReview()}
-				onCancel={() => {
-					if (!syncActionLoading) setSyncReviewTask(undefined);
-				}}
-				destroyOnHidden
-			>
-				<Input.TextArea
-					value={syncReviewReason}
-					onChange={(event) => setSyncReviewReason(event.target.value)}
-					maxLength={64}
-					showCount
-					placeholder="填写人工复核原因"
-				/>
-			</Modal>
-			<Card className="payment-search-card">
-				<Flex align="center" gap={8} wrap="wrap">
-					<Input
-						prefix={<ClockCircleOutlined />}
-						type="date"
-						value={date}
-						onChange={(event) => setDate(event.target.value)}
-						style={{ width: 190 }}
-					/>
-					<Button
-						type="primary"
-						icon={<ReloadOutlined />}
-						onClick={() => setAppliedDate(date)}
-						loading={loading}
+							<Text>
+								{registrationRecord?.patientDisplayName || "未关联"} ·{" "}
+								{registrationDetail?.departmentName || "—"} ·{" "}
+								{registrationDetail?.doctorName || "—"} ·{" "}
+								{registrationDetail?.workDate || "—"} ·{" "}
+								{registrationDetail?.sourceSerialNumber || "—"}号
+							</Text>
+							<Input.TextArea
+								value={registrationReason}
+								onChange={(event) => setRegistrationReason(event.target.value)}
+								minLength={2}
+								maxLength={80}
+								showCount
+								rows={3}
+								disabled={
+									registrationSubmitting || Boolean(registrationAttempt)
+								}
+								placeholder="请填写 2 至 80 字的取消原因"
+							/>
+							{registrationAttempt ? (
+								<Text type="secondary">
+									已有取消请求，重试将沿用原操作单号和原原因，避免重复处理。
+								</Text>
+							) : null}
+						</Space>
+					</Modal>
+					<Modal
+						title="转人工复核"
+						open={!readOnly && Boolean(syncReviewTask)}
+						confirmLoading={syncActionLoading}
+						okText="确认转人工"
+						cancelText="取消"
+						onOk={() => void submitSyncManualReview()}
+						onCancel={() => {
+							if (!syncActionLoading) setSyncReviewTask(undefined);
+						}}
+						destroyOnHidden
 					>
-						查询当天支付
-					</Button>
-					{day ? (
-						<Tag color="blue">共 {day.orders.length} 笔支付流程</Tag>
-					) : null}
-				</Flex>
-			</Card>
-			{error ? <Alert type="error" showIcon title={error} /> : null}
-			<Card
-				className="payment-flow-card"
-				title={`支付流程${day ? ` · ${day.date}` : ""}`}
-			>
-				{loading && !day ? (
-					<Flex justify="center" style={{ padding: 48 }}>
-						<Spin />
-					</Flex>
-				) : day && day.orders.length > 0 ? (
-					<Collapse
-						accordion
-						{...(activeFlow ? { activeKey: activeFlow } : {})}
-						onChange={(key) => setActiveFlow(Array.isArray(key) ? key[0] : key)}
-						items={day.orders.map((flow) => ({
-							key: flow.id,
-							label: flowTitle(flow),
-							children: (
-								<Space
-									orientation="vertical"
-									size={12}
-									style={{ width: "100%" }}
-								>
-									<Descriptions
-										bordered
-										size="small"
-										column={2}
-										items={[
-											{ key: "order", label: "订单号", children: flow.orderId },
-											{
-												key: "started",
-												label: "开始时间",
-												children: formatTime(flow.startedAt),
-											},
-											{
-												key: "status",
-												label: "流程状态",
-												children: (
-													<Tag color={statusColor(flow.status)}>
-														{statusText(flow.status)}
-													</Tag>
-												),
-											},
-											{
-												key: "interfaces",
-												label: "实际接口",
-												children: `${flow.interfaceCount} 个（${flow.completeInterfaceCount} 个完整）`,
-											},
-										]}
-									/>
-									{flow.attributionWarningCount > 0 ? (
-										<Alert
-											type="warning"
-											showIcon
-											title={`有 ${flow.attributionWarningCount} 个日志块无法唯一归属`}
-											description="这些记录已排除，不会被隐式算到本支付流程。"
-										/>
-									) : null}
-									<div className="payment-interface-list">
-										{flow.interfaces.map((item) => {
-											const detailKey = `${flow.id}:${item.ordinal}`;
-											return (
-												<div className="payment-interface-row" key={item.id}>
-													<div className="payment-interface-main">
-														<span className="payment-interface-index">
-															{String(item.ordinal).padStart(2, "0")}
-														</span>
-														{interfaceIcon(item)}
-														<Text strong>{interfaceLabel(item)}</Text>
-														<Tag color={boundaryColor(item.boundary)}>
-															{boundaryText(item.boundary)}
-														</Tag>
-														<Text type="secondary">
-															{formatTime(item.timestamp)}
-														</Text>
-													</div>
-													{!readOnly ? (
-														<Button
-															type="text"
-															icon={<InfoCircleOutlined />}
-															aria-label={`查看第 ${item.ordinal} 个接口的入参和返回`}
-															loading={detailLoading === detailKey}
-															onClick={() => void openInterface(flow, item)}
-														/>
-													) : null}
-												</div>
-											);
-										})}
-										{flow.interfaces.length === 0 ? (
-											<Empty
-												image={Empty.PRESENTED_IMAGE_SIMPLE}
-												description="没有还原出传输层接口"
+						<Input.TextArea
+							value={syncReviewReason}
+							onChange={(event) => setSyncReviewReason(event.target.value)}
+							maxLength={64}
+							showCount
+							placeholder="填写人工复核原因"
+						/>
+					</Modal>
+					<Card className="payment-search-card">
+						<Flex align="center" gap={8} wrap="wrap">
+							<Input
+								prefix={<ClockCircleOutlined />}
+								type="date"
+								value={date}
+								onChange={(event) => setDate(event.target.value)}
+								style={{ width: 190 }}
+							/>
+							<Button
+								type="primary"
+								icon={<ReloadOutlined />}
+								onClick={() => setAppliedDate(date)}
+								loading={loading}
+							>
+								查询当天支付
+							</Button>
+							{day ? (
+								<Tag color="blue">共 {day.orders.length} 笔支付流程</Tag>
+							) : null}
+						</Flex>
+					</Card>
+					{error ? <Alert type="error" showIcon title={error} /> : null}
+					<Card
+						className="payment-flow-card"
+						title={`支付流程${day ? ` · ${day.date}` : ""}`}
+					>
+						{loading && !day ? (
+							<Flex justify="center" style={{ padding: 48 }}>
+								<Spin />
+							</Flex>
+						) : day && day.orders.length > 0 ? (
+							<Collapse
+								accordion
+								{...(activeFlow ? { activeKey: activeFlow } : {})}
+								onChange={(key) =>
+									setActiveFlow(Array.isArray(key) ? key[0] : key)
+								}
+								items={day.orders.map((flow) => ({
+									key: flow.id,
+									label: flowTitle(flow),
+									children: (
+										<Space
+											orientation="vertical"
+											size={12}
+											style={{ width: "100%" }}
+										>
+											<Descriptions
+												bordered
+												size="small"
+												column={2}
+												items={[
+													{
+														key: "order",
+														label: "订单号",
+														children: flow.orderId,
+													},
+													{
+														key: "started",
+														label: "开始时间",
+														children: formatTime(flow.startedAt),
+													},
+													{
+														key: "status",
+														label: "流程状态",
+														children: (
+															<Tag color={statusColor(flow.status)}>
+																{statusText(flow.status)}
+															</Tag>
+														),
+													},
+													{
+														key: "interfaces",
+														label: "实际接口",
+														children: `${flow.interfaceCount} 个（${flow.completeInterfaceCount} 个完整）`,
+													},
+												]}
 											/>
-										) : null}
-									</div>
-								</Space>
-							),
-						}))}
-					/>
-				) : (
-					<Empty
-						image={Empty.PRESENTED_IMAGE_SIMPLE}
-						description={loading ? "支付日志加载中…" : "当天没有识别到支付流程"}
-					/>
-				)}
-			</Card>
-			<Modal
-				title="支付运营账本时间线"
-				open={Boolean(operationDetail)}
-				footer={null}
-				confirmLoading={operationDetailLoading}
-				onCancel={() => setOperationDetail(undefined)}
-				destroyOnHidden
-				width={760}
-			>
-				{operationDetail ? (
-					<Space orientation="vertical" size={16} style={{ width: "100%" }}>
-						<Descriptions
-							bordered
-							size="small"
-							column={2}
-							items={[
-								{
-									key: "aggregate",
-									label: "聚合单号",
-									children: operationDetail.aggregate.aggregateId,
-								},
-								{
-									key: "business",
-									label: "业务",
-									children: operationDetail.aggregate.business,
-								},
-								{
-									key: "status",
-									label: "聚合状态",
-									children: operationStatusLabel(
-										operationDetail.aggregate.status,
+											{flow.attributionWarningCount > 0 ? (
+												<Alert
+													type="warning"
+													showIcon
+													title={`有 ${flow.attributionWarningCount} 个日志块无法唯一归属`}
+													description="这些记录已排除，不会被隐式算到本支付流程。"
+												/>
+											) : null}
+											<div className="payment-interface-list">
+												{flow.interfaces.map((item) => {
+													const detailKey = `${flow.id}:${item.ordinal}`;
+													return (
+														<div
+															className="payment-interface-row"
+															key={item.id}
+														>
+															<div className="payment-interface-main">
+																<span className="payment-interface-index">
+																	{String(item.ordinal).padStart(2, "0")}
+																</span>
+																{interfaceIcon(item)}
+																<Text strong>{interfaceLabel(item)}</Text>
+																<Tag color={boundaryColor(item.boundary)}>
+																	{boundaryText(item.boundary)}
+																</Tag>
+																<Text type="secondary">
+																	{formatTime(item.timestamp)}
+																</Text>
+															</div>
+															{!readOnly ? (
+																<Button
+																	type="text"
+																	icon={<InfoCircleOutlined />}
+																	aria-label={`查看第 ${item.ordinal} 个接口的入参和返回`}
+																	loading={detailLoading === detailKey}
+																	onClick={() => void openInterface(flow, item)}
+																/>
+															) : null}
+														</div>
+													);
+												})}
+												{flow.interfaces.length === 0 ? (
+													<Empty
+														image={Empty.PRESENTED_IMAGE_SIMPLE}
+														description="没有还原出传输层接口"
+													/>
+												) : null}
+											</div>
+										</Space>
 									),
-								},
-								{
-									key: "his",
-									label: "HIS 同步",
-									children: operationDetail.aggregate.hisSyncStatus,
-								},
-								{
-									key: "total",
-									label: "金额",
-									children: paymentAmountLines(
-										operationDetail.aggregate,
-										operationDetail.legs.some(
-											(leg) =>
-												leg.legType === "wechat_cash" &&
-												["confirmed", "refunded"].includes(leg.status),
-										),
-									).join("；"),
-								},
-								{
-									key: "source",
-									label: "来源版本",
-									children: `${operationDetail.aggregate.sourceVersion} / ${operationDetail.aggregate.version}`,
-								},
-							]}
-						/>
-						<Card size="small" title="支付腿">
-							<Space orientation="vertical" size={8} style={{ width: "100%" }}>
-								{operationDetail.legs.map((leg) => (
-									<Flex
-										key={leg.legId}
-										justify="space-between"
-										wrap="wrap"
-										gap={8}
+								}))}
+							/>
+						) : (
+							<Empty
+								image={Empty.PRESENTED_IMAGE_SIMPLE}
+								description={
+									loading ? "支付日志加载中…" : "当天没有识别到支付流程"
+								}
+							/>
+						)}
+					</Card>
+					<Modal
+						title="支付运营账本时间线"
+						open={Boolean(operationDetail)}
+						footer={null}
+						confirmLoading={operationDetailLoading}
+						onCancel={() => setOperationDetail(undefined)}
+						destroyOnHidden
+						width={760}
+					>
+						{operationDetail ? (
+							<Space orientation="vertical" size={16} style={{ width: "100%" }}>
+								<Descriptions
+									bordered
+									size="small"
+									column={2}
+									items={[
+										{
+											key: "aggregate",
+											label: "聚合单号",
+											children: operationDetail.aggregate.aggregateId,
+										},
+										{
+											key: "business",
+											label: "业务",
+											children: operationDetail.aggregate.business,
+										},
+										{
+											key: "status",
+											label: "聚合状态",
+											children: operationStatusLabel(
+												operationDetail.aggregate.status,
+											),
+										},
+										{
+											key: "his",
+											label: "HIS 同步",
+											children: operationDetail.aggregate.hisSyncStatus,
+										},
+										{
+											key: "total",
+											label: "金额",
+											children: paymentAmountLines(
+												operationDetail.aggregate,
+												operationDetail.legs.some(
+													(leg) =>
+														leg.legType === "wechat_cash" &&
+														["confirmed", "refunded"].includes(leg.status),
+												),
+											).join("；"),
+										},
+										{
+											key: "source",
+											label: "来源版本",
+											children: `${operationDetail.aggregate.sourceVersion} / ${operationDetail.aggregate.version}`,
+										},
+									]}
+								/>
+								<Card size="small" title="支付腿">
+									<Space
+										orientation="vertical"
+										size={8}
+										style={{ width: "100%" }}
 									>
-										<Text strong>{operationLegLabel(leg.legType)}</Text>
-										<Text>{fen(leg.amountFen)}</Text>
-										<Tag>{operationLegStatusLabel(leg.status)}</Tag>
-									</Flex>
-								))}
+										{operationDetail.legs.map((leg) => (
+											<Flex
+												key={leg.legId}
+												justify="space-between"
+												wrap="wrap"
+												gap={8}
+											>
+												<Text strong>{operationLegLabel(leg.legType)}</Text>
+												<Text>{fen(leg.amountFen)}</Text>
+												<Tag>{operationLegStatusLabel(leg.status)}</Tag>
+											</Flex>
+										))}
+									</Space>
+								</Card>
+								<Timeline
+									items={operationDetail.events.map((event) => ({
+										key: event.eventId,
+										color: event.nextStatus === "failed" ? "red" : "blue",
+										label: formatTime(event.eventAt),
+										title: event.eventType,
+										content: `${event.previousStatus ? `${operationStatusLabel(event.previousStatus)} → ` : ""}${operationStatusLabel(event.nextStatus)}；${fen(event.amountFen)}`,
+									}))}
+								/>
 							</Space>
-						</Card>
-						<Timeline
-							items={operationDetail.events.map((event) => ({
-								key: event.eventId,
-								color: event.nextStatus === "failed" ? "red" : "blue",
-								label: formatTime(event.eventAt),
-								title: event.eventType,
-								content: `${event.previousStatus ? `${operationStatusLabel(event.previousStatus)} → ` : ""}${operationStatusLabel(event.nextStatus)}；${fen(event.amountFen)}`,
-							}))}
-						/>
-					</Space>
-				) : null}
-			</Modal>
+						) : null}
+					</Modal>
+				</>
+			)}
 			<Modal
 				title={
 					refundResult

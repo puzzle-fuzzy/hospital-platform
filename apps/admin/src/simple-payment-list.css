@@ -1,0 +1,115 @@
+.simple-payments {
+	background: var(--ant-color-bg-container, #fff);
+	border: 1px solid var(--ant-color-border-secondary, #e5e7eb);
+	border-radius: var(--ant-border-radius-lg, 8px);
+}
+
+.simple-payments-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 16px 20px;
+}
+
+.simple-payments-note {
+	margin: 0;
+	color: var(--ant-color-text-secondary, #595959);
+	font-size: 14px;
+	line-height: 1.6;
+}
+
+.simple-payments-filters {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.simple-payments-date-label {
+	color: var(--ant-color-text, #262626);
+}
+
+.simple-payments-date {
+	width: 168px;
+}
+
+.simple-payments-explanation,
+.simple-payments-readonly {
+	padding: 0 20px 12px;
+}
+
+.simple-payments-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.simple-payment-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 20px;
+	padding: 18px 20px;
+	border-top: 1px solid var(--ant-color-border-secondary, #e5e7eb);
+}
+
+.simple-payment-sentence {
+	min-width: 0;
+	margin: 0;
+	color: var(--ant-color-text, #262626);
+	font-size: 15px;
+	line-height: 1.8;
+	overflow-wrap: anywhere;
+	font-variant-numeric: tabular-nums;
+}
+
+.simple-payment-actions {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.simple-payment-refund-status {
+	display: inline-block;
+	margin-inline-start: 8px;
+	color: var(--ant-color-text-secondary, #595959);
+	font-size: 14px;
+}
+
+.simple-payments-empty {
+	padding: 24px 16px;
+}
+
+.simple-payments-pagination {
+	display: flex;
+	justify-content: flex-end;
+	padding: 16px 20px;
+	border-top: 1px solid var(--ant-color-border-secondary, #e5e7eb);
+}
+
+@media (max-width: 600px) {
+	.simple-payments-toolbar {
+		align-items: flex-start;
+		padding: 14px 16px;
+	}
+
+	.simple-payments-explanation,
+	.simple-payments-readonly {
+		padding-inline: 16px;
+	}
+
+	.simple-payment-row {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 10px;
+		padding: 16px;
+	}
+
+	.simple-payments-pagination {
+		justify-content: flex-start;
+		padding: 16px;
+	}
+}
