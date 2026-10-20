@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'vitest';
 
 import {
-  isRetiredLogEntry,
-  removeRetiredLogSearchHistory,
-} from './retired-log-state';
+  isRetiredPageEntry,
+  removeRetiredPageSearchHistory,
+  retiredPageReplacement,
+} from './retired-page-state';
 
 const HOSTNAME = 'synthetic-admin.test';
 const SEARCH_KEY = `__search-history-${HOSTNAME}__`;
@@ -28,20 +29,31 @@ function memoryStorage(raw?: string) {
   return { reads, storage, values, writes };
 }
 
-describe('retired real-time log entry identity', () => {
+describe('retired business page entry identity', () => {
   test('matches only the retired route name, path or fullPath', () => {
-    expect(isRetiredLogEntry({ name: 'HospitalLogs' })).toBe(true);
-    expect(isRetiredLogEntry({ path: '/hospital/logs' })).toBe(true);
-    expect(isRetiredLogEntry({ fullPath: '/hospital/logs' })).toBe(true);
+    expect(isRetiredPageEntry({ name: 'HospitalLogs' })).toBe(true);
+    expect(isRetiredPageEntry({ path: '/hospital/logs' })).toBe(true);
+    expect(isRetiredPageEntry({ fullPath: '/hospital/logs' })).toBe(true);
+    expect(isRetiredPageEntry({ name: 'HospitalPaymentSimple' })).toBe(true);
+    expect(isRetiredPageEntry({ path: '/hospital/payments/simple' })).toBe(
+      true,
+    );
+    expect(isRetiredPageEntry({ fullPath: '/hospital/payments/simple' })).toBe(
+      true,
+    );
     expect(
-      isRetiredLogEntry({
+      isRetiredPageEntry({
         name: 'OldTabWithoutRouteName',
-        path: '/hospital/payments/simple',
+        path: '/hospital/payments/records',
         fullPath: '/hospital/logs?level=error',
       }),
     ).toBe(true);
-    expect(isRetiredLogEntry({ name: '实时日志' })).toBe(false);
-    expect(isRetiredLogEntry({ key: '/hospital/logs' })).toBe(false);
+    expect(isRetiredPageEntry({ name: '实时日志' })).toBe(false);
+    expect(isRetiredPageEntry({ name: '支付展示' })).toBe(false);
+    expect(isRetiredPageEntry({ key: '/hospital/logs' })).toBe(false);
+    expect(isRetiredPageEntry({ key: '/hospital/payments/simple' })).toBe(
+      false,
+    );
   });
 
   test('matches query, hash and trailing-slash variants on either path field', () => {
@@ -52,10 +64,16 @@ describe('retired real-time log entry identity', () => {
       '/hospital/logs#record',
       '/hospital/logs/?level=warn#record',
       '/hospital/logs///#record?level=info',
+      '/hospital/payments/simple/',
+      '/hospital/payments/simple///',
+      '/hospital/payments/simple?mode=viewer',
+      '/hospital/payments/simple#record',
+      '/hospital/payments/simple/?mode=viewer#record',
+      '/hospital/payments/simple///#record?mode=viewer',
     ];
     for (const path of paths) {
-      expect(isRetiredLogEntry({ path })).toBe(true);
-      expect(isRetiredLogEntry({ fullPath: path })).toBe(true);
+      expect(isRetiredPageEntry({ path })).toBe(true);
+      expect(isRetiredPageEntry({ fullPath: path })).toBe(true);
     }
   });
 
@@ -65,16 +83,25 @@ describe('retired real-time log entry identity', () => {
       '/hospital/logs2',
       '/hospital/logs-archive',
       '/hospital/logs/archive',
-      '/hospital/payments/simple?return=/hospital/logs',
+      '/hospital/payments/records?return=/hospital/logs',
+      '/hospital/payments/records?return=/hospital/payments/simple',
+      '/hospital/payments/simple2',
+      '/hospital/payments/simple-archive',
+      '/hospital/payments/simple/archive',
+      '/other/hospital/payments/simple',
       '/other/hospital/logs',
       'https://external.test/hospital/logs',
       'https://external.test/hospital/logs/?level=error#record',
       '//external.test/hospital/logs',
       '#/hospital/logs',
+      'https://external.test/hospital/payments/simple',
+      'https://external.test/hospital/payments/simple/?mode=viewer#record',
+      '//external.test/hospital/payments/simple',
+      '#/hospital/payments/simple',
     ];
     for (const path of paths) {
-      expect(isRetiredLogEntry({ name: 'UnrelatedRoute', path })).toBe(false);
-      expect(isRetiredLogEntry({ fullPath: path })).toBe(false);
+      expect(isRetiredPageEntry({ name: 'UnrelatedRoute', path })).toBe(false);
+      expect(isRetiredPageEntry({ fullPath: path })).toBe(false);
     }
   });
 
@@ -90,17 +117,17 @@ describe('retired real-time log entry identity', () => {
       { path: 1 },
       { fullPath: null },
     ]) {
-      expect(isRetiredLogEntry(entry)).toBe(false);
+      expect(isRetiredPageEntry(entry)).toBe(false);
     }
   });
 });
 
-describe('retired real-time log search history migration', () => {
+describe('retired business page search history migration', () => {
   test('removes only target entries from mixed history while preserving order and unrelated data', () => {
     const remaining = [
       {
-        name: '支付展示',
-        path: '/hospital/payments/simple',
+        name: '支付记录',
+        path: '/hospital/payments/records',
         extra: 'unchanged',
       },
       { name: '归档记录', path: '/hospital/logs/archive' },
@@ -112,16 +139,25 @@ describe('retired real-time log search history migration', () => {
     const history = [
       remaining[0],
       { name: '实时日志', path: '/hospital/logs?level=warn#record' },
+      {
+        name: '支付展示',
+        path: '/hospital/payments/simple?mode=viewer#record',
+      },
       remaining[1],
       { name: 'HospitalLogs', path: '/synthetic-previous-path' },
+      {
+        name: 'HospitalPaymentSimple',
+        path: '/synthetic-previous-payment-path',
+      },
       remaining[2],
       remaining[3],
       { fullPath: '/hospital/logs///#record' },
+      { fullPath: '/hospital/payments/simple///#record' },
       remaining[4],
       remaining[5],
     ];
     const fixture = memoryStorage(JSON.stringify(history));
-    removeRetiredLogSearchHistory(fixture.storage, HOSTNAME);
+    removeRetiredPageSearchHistory(fixture.storage, HOSTNAME);
     expect(fixture.reads).toEqual([SEARCH_KEY]);
     expect(fixture.writes).toEqual([
       { key: SEARCH_KEY, value: JSON.stringify(remaining) },
@@ -131,15 +167,18 @@ describe('retired real-time log search history migration', () => {
     );
   });
 
-  test('writes an empty list when every entry targets the retired page', () => {
+  test('writes an empty list when every entry targets either retired page', () => {
     const fixture = memoryStorage(
       JSON.stringify([
         { name: 'HospitalLogs' },
         { path: '/hospital/logs/' },
         { fullPath: '/hospital/logs?q=synthetic' },
+        { name: 'HospitalPaymentSimple' },
+        { path: '/hospital/payments/simple/' },
+        { fullPath: '/hospital/payments/simple?mode=viewer#record' },
       ]),
     );
-    removeRetiredLogSearchHistory(fixture.storage, HOSTNAME);
+    removeRetiredPageSearchHistory(fixture.storage, HOSTNAME);
     expect(fixture.writes).toEqual([{ key: SEARCH_KEY, value: '[]' }]);
   });
 
@@ -147,7 +186,7 @@ describe('retired real-time log search history migration', () => {
     const raw =
       '[\n  { "name": "支付记录", "path": "/hospital/payments/records" }\n]';
     const fixture = memoryStorage(raw);
-    removeRetiredLogSearchHistory(fixture.storage, HOSTNAME);
+    removeRetiredPageSearchHistory(fixture.storage, HOSTNAME);
     expect(fixture.writes).toEqual([]);
     expect(fixture.values.get(SEARCH_KEY)).toBe(raw);
   });
@@ -156,11 +195,12 @@ describe('retired real-time log search history migration', () => {
     const fixture = memoryStorage(
       JSON.stringify([
         { path: '/hospital/logs' },
+        { path: '/hospital/payments/simple' },
         { path: '/hospital/payments/day' },
       ]),
     );
-    removeRetiredLogSearchHistory(fixture.storage, HOSTNAME);
-    removeRetiredLogSearchHistory(fixture.storage, HOSTNAME);
+    removeRetiredPageSearchHistory(fixture.storage, HOSTNAME);
+    removeRetiredPageSearchHistory(fixture.storage, HOSTNAME);
     expect(fixture.writes).toHaveLength(1);
     expect(JSON.parse(fixture.values.get(SEARCH_KEY) ?? 'null')).toEqual([
       { path: '/hospital/payments/day' },
@@ -179,7 +219,7 @@ describe('retired real-time log search history migration', () => {
     ]) {
       const fixture = memoryStorage(raw);
       expect(() =>
-        removeRetiredLogSearchHistory(fixture.storage, HOSTNAME),
+        removeRetiredPageSearchHistory(fixture.storage, HOSTNAME),
       ).not.toThrow();
       expect(fixture.writes).toEqual([]);
       expect(fixture.values.get(SEARCH_KEY)).toBe(raw);
@@ -197,7 +237,7 @@ describe('retired real-time log search history migration', () => {
       },
     };
     expect(() =>
-      removeRetiredLogSearchHistory(storage, HOSTNAME),
+      removeRetiredPageSearchHistory(storage, HOSTNAME),
     ).not.toThrow();
     expect(writes).toBe(0);
   });
@@ -211,11 +251,55 @@ describe('retired real-time log search history migration', () => {
       },
     };
     expect(() =>
-      removeRetiredLogSearchHistory(storage, HOSTNAME),
+      removeRetiredPageSearchHistory(storage, HOSTNAME),
     ).not.toThrow();
     expect(fixture.values.get(SEARCH_KEY)).toBe('[{"path":"/hospital/logs"}]');
     expect(fixture.values.get('synthetic-other-setting')).toBe(
       'keep-this-value',
     );
+  });
+});
+
+describe('retired business page replacement', () => {
+  test('maps only the retired payment display page to payment records', () => {
+    for (const path of [
+      '/hospital/payments/simple',
+      '/hospital/payments/simple/',
+      '/hospital/payments/simple///',
+      '/hospital/payments/simple?mode=viewer',
+      '/hospital/payments/simple#record',
+      '/hospital/payments/simple/?mode=viewer#record',
+      '/hospital/payments/simple///#record?mode=viewer',
+    ]) {
+      expect(retiredPageReplacement(path)).toBe('/hospital/payments/records');
+    }
+  });
+
+  test('does not replace logs, active pages, adjacent paths or external URLs', () => {
+    for (const path of [
+      '/hospital/logs',
+      '/hospital/logs/',
+      '/hospital/logs?mode=viewer#record',
+      '/hospital/payments/records',
+      '/hospital/payments/simple2',
+      '/hospital/payments/simple-archive',
+      '/hospital/payments/simple/archive',
+      '/other/hospital/payments/simple',
+      '/hospital/payments/records?return=/hospital/payments/simple',
+      '/auth/login?redirect=%2Fhospital%2Fpayments%2Fsimple',
+      'https://external.test/hospital/payments/simple',
+      'https://external.test/hospital/payments/simple/?mode=viewer#record',
+      '//external.test/hospital/payments/simple',
+      '#/hospital/payments/simple',
+      'HospitalPaymentSimple',
+      undefined,
+      null,
+      false,
+      0,
+      [],
+      { path: '/hospital/payments/simple' },
+    ]) {
+      expect(retiredPageReplacement(path)).toBeUndefined();
+    }
   });
 });

@@ -13,9 +13,9 @@ import { $t, setupI18n } from '#/locales';
 import '#/hospital/icons';
 import { clearSession } from '#/hospital/api';
 import {
-  isRetiredLogEntry,
-  removeRetiredLogSearchHistory,
-} from '#/hospital/retired-log-state';
+  isRetiredPageEntry,
+  removeRetiredPageSearchHistory,
+} from '#/hospital/retired-page-state';
 import { useAuthStore } from '#/store';
 
 import { initComponentAdapter } from './adapter/component';
@@ -55,19 +55,19 @@ async function bootstrap(namespace: string) {
 
   // Remove only retired business entries from native Vben persisted state.
   const tabbar = useTabbarStore();
-  const retiredTabs = tabbar.tabs.filter(isRetiredLogEntry);
+  const retiredTabs = tabbar.tabs.filter(isRetiredPageEntry);
   const retiredKeys = new Set(retiredTabs.map((tab) => tab.key));
   const retiredHistory = tabbar.visitHistory
     .toArray()
-    .filter((key) => retiredKeys.has(key) || isRetiredLogEntry({ path: key }));
+    .filter((key) => retiredKeys.has(key) || isRetiredPageEntry({ path: key }));
   if (retiredTabs.length || retiredHistory.length) {
-    tabbar.tabs = tabbar.tabs.filter((tab) => !isRetiredLogEntry(tab));
+    tabbar.tabs = tabbar.tabs.filter((tab) => !isRetiredPageEntry(tab));
     tabbar.visitHistory.remove(...retiredHistory);
     await tabbar.updateCacheTabs();
     tabbar.setUpdateTime();
   }
   try {
-    removeRetiredLogSearchHistory(
+    removeRetiredPageSearchHistory(
       window.localStorage,
       window.location.hostname,
     );

@@ -3,7 +3,7 @@ import { defineOverridesPreferences } from '@vben/preferences';
 export const overridesPreferences = defineOverridesPreferences({
   app: {
     name: '高平市人民医院 · Admin 2.0',
-    defaultHomePath: '/hospital/payments/simple',
+    defaultHomePath: '/hospital/payments/records',
     defaultAvatar: '/hospital-logo.svg',
     accessMode: 'frontend',
     locale: 'zh-CN',

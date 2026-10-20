@@ -12,7 +12,7 @@ export async function getUserInfoApi(): Promise<UserInfo> {
     roles: [readOnly ? 'hospital-viewer' : 'hospital-operator'],
     avatar: '/hospital-logo.svg',
     desc: readOnly ? '只读查看' : '运营管理',
-    homePath: '/hospital/payments/simple',
+    homePath: '/hospital/payments/records',
     token: session.accessToken,
   };
 }

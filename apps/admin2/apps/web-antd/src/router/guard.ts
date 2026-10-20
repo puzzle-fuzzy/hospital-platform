@@ -8,6 +8,7 @@ import { startProgress, stopProgress } from '@vben/utils';
 import { accessRoutes, coreRouteNames } from '#/router/routes';
 import { useAuthStore } from '#/store';
 import { loadSession } from '#/hospital/api';
+import { retiredPageReplacement } from '#/hospital/retired-page-state';
 
 import { generateAccess } from './access';
 
@@ -20,6 +21,14 @@ function setupCommonGuard(router: Router) {
   const loadedPaths = new Set<string>();
 
   router.beforeEach((to) => {
+    const replacement = retiredPageReplacement(to.path);
+    if (replacement) {
+      return {
+        path: replacement,
+        query: to.query.mode === 'viewer' ? { mode: 'viewer' } : {},
+        replace: true,
+      };
+    }
     to.meta.loaded = loadedPaths.has(to.path);
 
     // 页面加载进度条

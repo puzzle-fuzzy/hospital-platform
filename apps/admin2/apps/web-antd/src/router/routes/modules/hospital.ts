@@ -4,20 +4,18 @@ const routes: RouteRecordRaw[] = [
   {
     name: 'HospitalPayments',
     path: '/hospital/payments',
-    redirect: '/hospital/payments/simple',
+    redirect: '/hospital/payments/records',
     meta: { title: '支付管理', icon: 'lucide:wallet-cards', order: 1 },
     children: [
-      {
-        name: 'HospitalPaymentSimple',
-        path: '/hospital/payments/simple',
-        component: () => import('#/views/hospital/payments/simple.vue'),
-        meta: { title: '支付展示', icon: 'lucide:list', affixTab: true },
-      },
       {
         name: 'HospitalPaymentRecords',
         path: '/hospital/payments/records',
         component: () => import('#/views/hospital/payments/records.vue'),
-        meta: { title: '支付记录', icon: 'lucide:receipt-text' },
+        meta: {
+          title: '支付记录',
+          icon: 'lucide:receipt-text',
+          affixTab: true,
+        },
       },
       {
         name: 'HospitalPaymentDay',
