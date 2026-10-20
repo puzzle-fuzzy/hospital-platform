@@ -156,6 +156,7 @@ onBeforeUnmount(() => {
 
 <template>
   <Page
+    content-class="flex flex-col gap-4"
     title="支付记录"
     description="按订单核对支付事实、医保与微信金额，以及退款和挂号状态。"
   >
@@ -164,9 +165,8 @@ onBeforeUnmount(() => {
       message="当前为只读查看账号，可查看支付记录与账本。"
       type="info"
       show-icon
-      class="mb-4"
     />
-    <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Card
         ><Statistic title="符合条件的订单" :value="total" suffix="笔"
       /></Card>
@@ -188,221 +188,220 @@ onBeforeUnmount(() => {
       /></Card>
     </div>
     <Card title="全部支付记录">
-      <form
-        class="mb-4 flex flex-wrap items-center gap-3"
-        @submit.prevent="load(1, true)"
-      >
-        <Input
-          v-model:value="filters.orderId"
-          allow-clear
-          placeholder="订单号精确查询"
-          :maxlength="64"
-          style="width: 280px"
-          aria-label="订单号"
-        />
-        <Select
-          v-model:value="filters.source"
-          allow-clear
-          placeholder="全部来源"
-          :options="sourceOptions"
-          style="width: 160px"
-          aria-label="支付来源"
-        />
-        <Select
-          v-model:value="filters.business"
-          allow-clear
-          placeholder="全部业务"
-          :options="businessOptions"
-          style="width: 140px"
-          aria-label="业务类型"
-        />
-        <Input
-          v-model:value="filters.businessDay"
-          type="date"
-          aria-label="业务日"
-          style="width: 170px"
-        />
-        <Select
-          v-model:value="filters.status"
-          allow-clear
-          placeholder="全部状态"
-          :options="stateOptions"
-          style="width: 140px"
-          aria-label="支付状态"
-        />
-        <Button type="primary" html-type="submit" :loading="loading"
-          >查询</Button
+      <div class="flex flex-col gap-4">
+        <form
+          class="flex flex-wrap items-center gap-3"
+          @submit.prevent="load(1, true)"
         >
-        <Button :disabled="loading" @click="reset">重置</Button>
-        <Button :loading="loading" @click="load()">刷新</Button>
-      </form>
-      <Alert
-        v-if="error"
-        :message="error"
-        type="error"
-        show-icon
-        class="mb-4"
-      />
-      <div class="mb-3 text-sm text-muted-foreground">
-        更新时间是订单或结算上下文最后更新时间，并非支付完成时间。金额未确认时显示“待核实”。
-      </div>
-      <Table
-        :columns="columns"
-        :data-source="records"
-        :loading="loading"
-        :row-key="paymentRefundKey"
-        :scroll="{ x: 1940 }"
-        :pagination="{
-          current: page,
-          pageSize: 8,
-          total,
-          showSizeChanger: false,
-          showTotal: (count: number) => `共 ${count} 笔`,
-        }"
-        @change="(pagination) => load(pagination.current || 1)"
-      >
-        <template #bodyCell="{ column, record: item }">
-          <template
-            v-for="record in [item as AdminWechatRefundPaymentRecord]"
-            :key="paymentRefundKey(record)"
+          <Input
+            v-model:value="filters.orderId"
+            allow-clear
+            placeholder="订单号精确查询"
+            :maxlength="64"
+            style="width: 280px"
+            aria-label="订单号"
+          />
+          <Select
+            v-model:value="filters.source"
+            allow-clear
+            placeholder="全部来源"
+            :options="sourceOptions"
+            style="width: 160px"
+            aria-label="支付来源"
+          />
+          <Select
+            v-model:value="filters.business"
+            allow-clear
+            placeholder="全部业务"
+            :options="businessOptions"
+            style="width: 140px"
+            aria-label="业务类型"
+          />
+          <Input
+            v-model:value="filters.businessDay"
+            type="date"
+            aria-label="业务日"
+            style="width: 170px"
+          />
+          <Select
+            v-model:value="filters.status"
+            allow-clear
+            placeholder="全部状态"
+            :options="stateOptions"
+            style="width: 140px"
+            aria-label="支付状态"
+          />
+          <Button type="primary" html-type="submit" :loading="loading"
+            >查询</Button
           >
-            <template v-if="column.key === 'updatedAt'">{{
-              formatAdminTime(record.updatedAt)
-            }}</template>
-            <template v-else-if="column.key === 'business'"
-              ><div>{{ label(record.business) }}</div>
-              <div class="mt-1 text-sm text-muted-foreground">
-                {{
-                  record.source === 'medical_insurance'
-                    ? '医保支付订单'
-                    : '普通微信支付'
-                }}
-              </div></template
+          <Button :disabled="loading" @click="reset">重置</Button>
+          <Button :loading="loading" @click="load()">刷新</Button>
+        </form>
+        <Alert v-if="error" :message="error" type="error" show-icon />
+        <div class="text-sm text-muted-foreground">
+          更新时间是订单或结算上下文最后更新时间，并非支付完成时间。金额未确认时显示“待核实”。
+        </div>
+        <Table
+          :columns="columns"
+          :data-source="records"
+          :loading="loading"
+          :row-key="paymentRefundKey"
+          :scroll="{ x: 1940 }"
+          :pagination="{
+            current: page,
+            pageSize: 8,
+            total,
+            showSizeChanger: false,
+            showTotal: (count: number) => `共 ${count} 笔`,
+          }"
+          @change="(pagination) => load(pagination.current || 1)"
+        >
+          <template #bodyCell="{ column, record: item }">
+            <template
+              v-for="record in [item as AdminWechatRefundPaymentRecord]"
+              :key="paymentRefundKey(record)"
             >
-            <template v-else-if="column.key === 'person'"
-              ><div>{{ record.patientDisplayName?.trim() || '未关联' }}</div>
-              <div class="mt-1 text-sm text-muted-foreground">
-                下单用户：{{ record.orderUserDisplayName?.trim() || '未设置' }}
-              </div></template
-            >
-            <template v-else-if="column.key === 'status'"
-              ><Tag :color="statusColor(record.paymentState)">{{
-                label(record.paymentState)
-              }}</Tag>
-              <div v-if="record.medicalStatus" class="mt-1 text-sm">
-                医保：{{ label(record.medicalStatus) }}
-              </div>
-              <div
-                v-if="record.business === 'registration'"
-                class="mt-1 text-sm"
+              <template v-if="column.key === 'updatedAt'">{{
+                formatAdminTime(record.updatedAt)
+              }}</template>
+              <template v-else-if="column.key === 'business'"
+                ><div>{{ label(record.business) }}</div>
+                <div class="mt-1 text-sm text-muted-foreground">
+                  {{
+                    record.source === 'medical_insurance'
+                      ? '医保支付订单'
+                      : '普通微信支付'
+                  }}
+                </div></template
               >
-                {{ registrationStatusLabel(record.registration) }}
-              </div></template
-            >
-            <template v-else-if="column.key === 'amounts'"
-              ><div
-                v-for="line in paymentAmountLines(
-                  record,
-                  record.cashPaymentConfirmed,
-                )"
-                :key="line"
-                class="text-sm leading-6"
+              <template v-else-if="column.key === 'person'"
+                ><div>{{ record.patientDisplayName?.trim() || '未关联' }}</div>
+                <div class="mt-1 text-sm text-muted-foreground">
+                  下单用户：{{
+                    record.orderUserDisplayName?.trim() || '未设置'
+                  }}
+                </div></template
               >
-                {{ line }}
-              </div></template
-            >
-            <template v-else-if="column.key === 'refund'">
-              <div v-if="record.latestMedicalRefund">
-                医保：{{ label(record.latestMedicalRefund.medicalStatus) }}
-                <div
-                  v-if="
-                    !record.latestRefund &&
-                    record.latestMedicalRefund.wechatStatus !== 'not_required'
-                  "
-                >
-                  微信：{{ label(record.latestMedicalRefund.wechatStatus) }}
+              <template v-else-if="column.key === 'status'"
+                ><Tag :color="statusColor(record.paymentState)">{{
+                  label(record.paymentState)
+                }}</Tag>
+                <div v-if="record.medicalStatus" class="mt-1 text-sm">
+                  医保：{{ label(record.medicalStatus) }}
                 </div>
-              </div>
-              <div v-if="record.latestRefund">
-                微信：{{ label(record.latestRefund.status) }} ·
-                {{ formatPaymentAmount(record.latestRefund.refundFen) }}
-              </div>
-              <div
-                v-if="!hasRefundReceipt(record)"
-                class="text-muted-foreground"
+                <div
+                  v-if="record.business === 'registration'"
+                  class="mt-1 text-sm"
+                >
+                  {{ registrationStatusLabel(record.registration) }}
+                </div></template
               >
-                暂无退款
-              </div>
-              <div class="mt-1 text-sm text-muted-foreground">
-                剩余医保 {{ formatPaymentAmount(record.medicalRefundableFen) }}
-              </div>
-              <div class="text-sm text-muted-foreground">
-                剩余微信 {{ formatPaymentAmount(record.refundableFen) }}
-              </div>
-            </template>
-            <template v-else-if="column.key === 'actions'">
-              <Space wrap :size="4"
-                ><Button
-                  type="link"
-                  size="small"
-                  :disabled="!record.operationAggregateId"
-                  @click="ledger(record)"
-                  >查看账本</Button
-                ><Button
-                  v-if="!readOnly && record.business === 'registration'"
-                  type="link"
-                  size="small"
-                  :disabled="refundLocks.busy.value"
-                  @click="registrationModal?.open(record)"
-                  >查看挂号</Button
-                ><Button
-                  v-if="
-                    !readOnly &&
-                    (hasRefundReceipt(record) ||
-                      refundModal?.queryRequiredOrders?.has(
-                        paymentRefundKey(record),
-                      ))
-                  "
-                  type="link"
-                  size="small"
-                  :loading="
-                    refundModal?.queryingKey === paymentRefundKey(record)
-                  "
-                  :disabled="refundLocks.busy.value"
-                  @click="queryRefund(record)"
-                  >查询退款</Button
-                ></Space
+              <template v-else-if="column.key === 'amounts'"
+                ><div
+                  v-for="line in paymentAmountLines(
+                    record,
+                    record.cashPaymentConfirmed,
+                  )"
+                  :key="line"
+                  class="text-sm leading-6"
+                >
+                  {{ line }}
+                </div></template
               >
-              <Space v-if="!readOnly" wrap class="mt-2" :size="4"
-                ><Tooltip
-                  v-for="type in PAYMENT_REFUND_TYPES"
-                  :key="type"
-                  :title="
-                    refundModal?.queryRequiredOrders?.has(
-                      paymentRefundKey(record),
-                    )
-                      ? '退款结果尚未确认，请先查询'
-                      : paymentRefundOption(record, type).reason
-                  "
-                  ><Button
-                    danger
-                    size="small"
-                    :disabled="
-                      refundLocks.busy.value ||
-                      refundModal?.queryRequiredOrders?.has(
-                        paymentRefundKey(record),
-                      ) ||
-                      !paymentRefundOption(record, type).enabled
+              <template v-else-if="column.key === 'refund'">
+                <div v-if="record.latestMedicalRefund">
+                  医保：{{ label(record.latestMedicalRefund.medicalStatus) }}
+                  <div
+                    v-if="
+                      !record.latestRefund &&
+                      record.latestMedicalRefund.wechatStatus !== 'not_required'
                     "
-                    @click="refundModal?.open(record, type)"
-                    >{{ paymentRefundLabel(record, type) }}</Button
-                  ></Tooltip
-                ></Space
-              >
+                  >
+                    微信：{{ label(record.latestMedicalRefund.wechatStatus) }}
+                  </div>
+                </div>
+                <div v-if="record.latestRefund">
+                  微信：{{ label(record.latestRefund.status) }} ·
+                  {{ formatPaymentAmount(record.latestRefund.refundFen) }}
+                </div>
+                <div
+                  v-if="!hasRefundReceipt(record)"
+                  class="text-muted-foreground"
+                >
+                  暂无退款
+                </div>
+                <div class="mt-1 text-sm text-muted-foreground">
+                  剩余医保
+                  {{ formatPaymentAmount(record.medicalRefundableFen) }}
+                </div>
+                <div class="text-sm text-muted-foreground">
+                  剩余微信 {{ formatPaymentAmount(record.refundableFen) }}
+                </div>
+              </template>
+              <template v-else-if="column.key === 'actions'">
+                <Space wrap :size="4"
+                  ><Button
+                    type="link"
+                    size="small"
+                    :disabled="!record.operationAggregateId"
+                    @click="ledger(record)"
+                    >查看账本</Button
+                  ><Button
+                    v-if="!readOnly && record.business === 'registration'"
+                    type="link"
+                    size="small"
+                    :disabled="refundLocks.busy.value"
+                    @click="registrationModal?.open(record)"
+                    >查看挂号</Button
+                  ><Button
+                    v-if="
+                      !readOnly &&
+                      (hasRefundReceipt(record) ||
+                        refundModal?.queryRequiredOrders?.has(
+                          paymentRefundKey(record),
+                        ))
+                    "
+                    type="link"
+                    size="small"
+                    :loading="
+                      refundModal?.queryingKey === paymentRefundKey(record)
+                    "
+                    :disabled="refundLocks.busy.value"
+                    @click="queryRefund(record)"
+                    >查询退款</Button
+                  ></Space
+                >
+                <Space v-if="!readOnly" wrap class="mt-2" :size="4"
+                  ><Tooltip
+                    v-for="type in PAYMENT_REFUND_TYPES"
+                    :key="type"
+                    :title="
+                      refundModal?.queryRequiredOrders?.has(
+                        paymentRefundKey(record),
+                      )
+                        ? '退款结果尚未确认，请先查询'
+                        : paymentRefundOption(record, type).reason
+                    "
+                    ><Button
+                      danger
+                      size="small"
+                      :disabled="
+                        refundLocks.busy.value ||
+                        refundModal?.queryRequiredOrders?.has(
+                          paymentRefundKey(record),
+                        ) ||
+                        !paymentRefundOption(record, type).enabled
+                      "
+                      @click="refundModal?.open(record, type)"
+                      >{{ paymentRefundLabel(record, type) }}</Button
+                    ></Tooltip
+                  ></Space
+                >
+              </template>
             </template>
           </template>
-        </template>
-      </Table>
+        </Table>
+      </div>
     </Card>
     <PaymentRefundModal ref="refundModal" @updated="load()" />
     <RegistrationModal ref="registrationModal" @updated="load()" />

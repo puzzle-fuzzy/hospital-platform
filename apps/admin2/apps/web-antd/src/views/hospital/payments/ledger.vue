@@ -96,10 +96,11 @@ onBeforeUnmount(() => {
 
 <template>
   <Page
+    content-class="flex flex-col gap-4"
     title="支付账本"
     description="核对一笔支付的原始金额事实、分项状态和平台事件。"
   >
-    <Card class="mb-4">
+    <Card>
       <form class="flex flex-wrap gap-3" @submit.prevent="search">
         <Input
           v-model:value="aggregateId"
@@ -113,9 +114,9 @@ onBeforeUnmount(() => {
         >
       </form>
     </Card>
-    <Alert v-if="error" :message="error" type="error" show-icon class="mb-4" />
+    <Alert v-if="error" :message="error" type="error" show-icon />
     <Spin :spinning="loading">
-      <div v-if="detail" class="space-y-4">
+      <div v-if="detail" class="flex flex-col gap-4">
         <Card title="订单概况">
           <template #extra
             ><Button

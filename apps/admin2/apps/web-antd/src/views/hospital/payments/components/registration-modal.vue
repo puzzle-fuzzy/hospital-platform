@@ -197,57 +197,58 @@ onBeforeUnmount(() => {
     :keyboard="!submitting"
     @cancel="close"
   >
-    <Alert v-if="error" :message="error" type="error" show-icon class="mb-4" />
-    <Alert
-      v-if="attempt?.needsQuery"
-      message="上一次取消结果尚未确认，请先刷新挂号状态。"
-      type="warning"
-      show-icon
-      class="mb-4"
-    />
-    <Descriptions bordered :column="2" size="small">
-      <DescriptionsItem label="订单号" :span="2">{{
-        record?.orderId
-      }}</DescriptionsItem>
-      <DescriptionsItem label="就诊人">{{
-        record?.patientDisplayName || '未关联'
-      }}</DescriptionsItem>
-      <DescriptionsItem label="挂号状态">{{
-        registrationStatusLabel(detail)
-      }}</DescriptionsItem>
-      <DescriptionsItem label="医院支付状态">{{
-        detail
-          ? registrationPaymentLabel(detail.hospitalPaymentStatus)
-          : '待核对'
-      }}</DescriptionsItem>
-      <DescriptionsItem label="核对时间">{{
-        detail?.checkedAt ? formatAdminTime(detail.checkedAt) : '尚未核对'
-      }}</DescriptionsItem>
-      <DescriptionsItem label="科室 / 医生"
-        >{{ detail?.departmentName || '—' }} /
-        {{ detail?.doctorName || '—' }}</DescriptionsItem
-      >
-      <DescriptionsItem label="就诊日期"
-        >{{ detail?.workDate || '—' }}
-        {{ detail?.shiftName || '' }}</DescriptionsItem
-      >
-      <DescriptionsItem label="取消条件" :span="2">{{
-        detail?.cancellation.reason || '请先核对挂号状态'
-      }}</DescriptionsItem>
-    </Descriptions>
-    <div v-if="!readOnly" class="mt-4 space-y-2">
+    <div class="flex flex-col gap-4">
+      <Alert v-if="error" :message="error" type="error" show-icon />
       <Alert
-        message="此入口仅执行医院允许的取消挂号；支付退款请使用支付记录中的退费功能。"
-        type="info"
+        v-if="attempt?.needsQuery"
+        message="上一次取消结果尚未确认，请先刷新挂号状态。"
+        type="warning"
         show-icon
       />
-      <Input.TextArea
-        v-model:value="reason"
-        :maxlength="80"
-        :disabled="submitting || !!attempt"
-        placeholder="取消原因，2–80 个字"
-        :rows="2"
-      />
+      <Descriptions bordered :column="2" size="small">
+        <DescriptionsItem label="订单号" :span="2">{{
+          record?.orderId
+        }}</DescriptionsItem>
+        <DescriptionsItem label="就诊人">{{
+          record?.patientDisplayName || '未关联'
+        }}</DescriptionsItem>
+        <DescriptionsItem label="挂号状态">{{
+          registrationStatusLabel(detail)
+        }}</DescriptionsItem>
+        <DescriptionsItem label="医院支付状态">{{
+          detail
+            ? registrationPaymentLabel(detail.hospitalPaymentStatus)
+            : '待核对'
+        }}</DescriptionsItem>
+        <DescriptionsItem label="核对时间">{{
+          detail?.checkedAt ? formatAdminTime(detail.checkedAt) : '尚未核对'
+        }}</DescriptionsItem>
+        <DescriptionsItem label="科室 / 医生"
+          >{{ detail?.departmentName || '—' }} /
+          {{ detail?.doctorName || '—' }}</DescriptionsItem
+        >
+        <DescriptionsItem label="就诊日期"
+          >{{ detail?.workDate || '—' }}
+          {{ detail?.shiftName || '' }}</DescriptionsItem
+        >
+        <DescriptionsItem label="取消条件" :span="2">{{
+          detail?.cancellation.reason || '请先核对挂号状态'
+        }}</DescriptionsItem>
+      </Descriptions>
+      <div v-if="!readOnly" class="flex flex-col gap-2">
+        <Alert
+          message="此入口仅执行医院允许的取消挂号；支付退款请使用支付记录中的退费功能。"
+          type="info"
+          show-icon
+        />
+        <Input.TextArea
+          v-model:value="reason"
+          :maxlength="80"
+          :disabled="submitting || !!attempt"
+          placeholder="取消原因，2–80 个字"
+          :rows="2"
+        />
+      </div>
     </div>
     <template #footer>
       <Space>
@@ -281,7 +282,11 @@ onBeforeUnmount(() => {
     :keyboard="!submitting"
     @ok="submit"
   >
-    <p>确认取消 {{ record?.patientDisplayName || '该就诊人' }} 的挂号？</p>
-    <p class="mt-2">原因：{{ attempt?.reason || reason.trim() }}</p>
+    <div class="flex flex-col gap-2">
+      <div>
+        确认取消 {{ record?.patientDisplayName || '该就诊人' }} 的挂号？
+      </div>
+      <div>原因：{{ attempt?.reason || reason.trim() }}</div>
+    </div>
   </Modal>
 </template>

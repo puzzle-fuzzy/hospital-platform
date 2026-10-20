@@ -186,8 +186,9 @@ onBeforeUnmount(() => {
   <Page
     title="当日支付链路"
     description="按北京时间还原当天日志中的支付流程；摘要反映已观测事实，未完整记录的接口会单独标记。"
+    content-class="flex flex-col gap-4"
   >
-    <Card class="mb-4"
+    <Card
       ><form class="flex flex-wrap items-center gap-3" @submit.prevent="load">
         <label for="payment-day">查询日期</label
         ><Input
@@ -205,10 +206,9 @@ onBeforeUnmount(() => {
       type="info"
       show-icon
       message="只读账号可查看链路摘要；接口入参和原始返回仅向运营账号开放。"
-      class="mb-4"
     />
-    <Alert v-if="error" :message="error" type="error" show-icon class="mb-4" />
-    <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <Alert v-if="error" :message="error" type="error" show-icon />
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Card
         ><Statistic
           :title="`${appliedDate} 已识别支付流程`"
@@ -230,94 +230,103 @@ onBeforeUnmount(() => {
     </div>
     <Spin :spinning="loading">
       <Card :title="`${appliedDate} 支付流程`">
-        <div v-if="day" class="mb-4 text-sm leading-6 text-muted-foreground">
-          北京时间 {{ formatAdminTime(day.window.start) }} 至
-          {{
-            formatAdminTime(day.window.endExclusive)
-          }}（不含结束时刻），额外读取前后
-          {{ day.window.boundaryBufferMinutes }} 分钟边界日志。未归属支付事件
-          {{ day.unmatchedPaymentEventCount }} 条。
-        </div>
-        <Collapse v-if="day?.orders.length" accordion>
-          <CollapsePanel v-for="flow in day.orders" :key="flow.id"
-            ><template #header
-              ><Space wrap
-                ><Tag :color="flowColor(flow.status)">{{
-                  flowLabel(flow.status)
-                }}</Tag
-                ><span class="font-medium">订单 {{ flow.orderId }}</span
-                ><span class="text-sm text-muted-foreground"
-                  >{{ formatAdminTime(flow.startedAt) }} ·
-                  {{ flow.completeInterfaceCount }}/{{
-                    flow.interfaceCount
-                  }}
-                  个完整接口</span
-                ><Tag v-if="flow.hasBoundaryCrossing" color="orange"
-                  >跨日边界</Tag
-                ></Space
-              ></template
-            >
-            <Descriptions size="small" :column="2" class="mb-4"
-              ><DescriptionsItem label="流程编号">{{
-                flow.id
-              }}</DescriptionsItem
-              ><DescriptionsItem label="关联挂号">{{
-                flow.appointmentId || '—'
-              }}</DescriptionsItem></Descriptions
-            >
-            <Alert
-              v-if="flow.attributionWarningCount > 0"
-              type="warning"
-              show-icon
-              :message="`有 ${flow.attributionWarningCount} 个日志块无法唯一归属，已排除。`"
-              class="mb-4"
-            />
-            <Table
-              :data-source="flow.interfaces"
-              :columns="columns"
-              row-key="id"
-              size="small"
-              :pagination="false"
-              :scroll="{ x: 1000 }"
-              ><template #bodyCell="{ column, record }"
-                ><template v-if="column.key === 'operation'"
-                  >{{ record.displayOperation
-                  }}<span
-                    v-if="record.invocationIndex > 0"
-                    class="text-muted-foreground"
-                  >
-                    · 第 {{ record.invocationIndex + 1 }} 次调用</span
-                  ></template
-                ><template v-else-if="column.key === 'timestamp'">{{
-                  formatAdminTime(record.timestamp)
-                }}</template
-                ><template v-else-if="column.key === 'boundary'"
-                  ><Tag
-                    :color="
-                      record.boundary === 'within-day' ? 'default' : 'orange'
-                    "
-                    >{{
-                      boundary((record as PaymentInterfaceSummary).boundary)
-                    }}</Tag
-                  ></template
-                ><template v-else-if="column.key === 'complete'"
-                  ><Tag :color="record.complete ? 'success' : 'warning'">{{
-                    record.complete ? '均已校验' : '缺失或校验未通过'
-                  }}</Tag></template
-                ><template v-else-if="column.key === 'actions'"
-                  ><Button
-                    v-if="!readOnly"
-                    type="link"
-                    size="small"
-                    @click="openDetail(flow, record as PaymentInterfaceSummary)"
-                    >查看接口详情</Button
-                  ><span v-else class="text-muted-foreground">—</span></template
+        <div class="flex flex-col gap-4">
+          <div v-if="day" class="text-sm leading-6 text-muted-foreground">
+            北京时间 {{ formatAdminTime(day.window.start) }} 至
+            {{
+              formatAdminTime(day.window.endExclusive)
+            }}（不含结束时刻），额外读取前后
+            {{ day.window.boundaryBufferMinutes }} 分钟边界日志。未归属支付事件
+            {{ day.unmatchedPaymentEventCount }} 条。
+          </div>
+          <Collapse v-if="day?.orders.length" accordion>
+            <CollapsePanel v-for="flow in day.orders" :key="flow.id"
+              ><template #header
+                ><Space wrap
+                  ><Tag :color="flowColor(flow.status)">{{
+                    flowLabel(flow.status)
+                  }}</Tag
+                  ><span class="font-medium">订单 {{ flow.orderId }}</span
+                  ><span class="text-sm text-muted-foreground"
+                    >{{ formatAdminTime(flow.startedAt) }} ·
+                    {{ flow.completeInterfaceCount }}/{{
+                      flow.interfaceCount
+                    }}
+                    个完整接口</span
+                  ><Tag v-if="flow.hasBoundaryCrossing" color="orange"
+                    >跨日边界</Tag
+                  ></Space
                 ></template
-              ></Table
-            >
-          </CollapsePanel>
-        </Collapse>
-        <Empty v-else description="当天没有识别到支付流程" />
+              >
+              <div class="flex flex-col gap-4">
+                <Descriptions size="small" :column="2"
+                  ><DescriptionsItem label="流程编号">{{
+                    flow.id
+                  }}</DescriptionsItem
+                  ><DescriptionsItem label="关联挂号">{{
+                    flow.appointmentId || '—'
+                  }}</DescriptionsItem></Descriptions
+                >
+                <Alert
+                  v-if="flow.attributionWarningCount > 0"
+                  type="warning"
+                  show-icon
+                  :message="`有 ${flow.attributionWarningCount} 个日志块无法唯一归属，已排除。`"
+                />
+                <Table
+                  :data-source="flow.interfaces"
+                  :columns="columns"
+                  row-key="id"
+                  size="small"
+                  :pagination="false"
+                  :scroll="{ x: 1000 }"
+                  ><template #bodyCell="{ column, record }"
+                    ><template v-if="column.key === 'operation'"
+                      >{{ record.displayOperation
+                      }}<span
+                        v-if="record.invocationIndex > 0"
+                        class="text-muted-foreground"
+                      >
+                        · 第 {{ record.invocationIndex + 1 }} 次调用</span
+                      ></template
+                    ><template v-else-if="column.key === 'timestamp'">{{
+                      formatAdminTime(record.timestamp)
+                    }}</template
+                    ><template v-else-if="column.key === 'boundary'"
+                      ><Tag
+                        :color="
+                          record.boundary === 'within-day'
+                            ? 'default'
+                            : 'orange'
+                        "
+                        >{{
+                          boundary((record as PaymentInterfaceSummary).boundary)
+                        }}</Tag
+                      ></template
+                    ><template v-else-if="column.key === 'complete'"
+                      ><Tag :color="record.complete ? 'success' : 'warning'">{{
+                        record.complete ? '均已校验' : '缺失或校验未通过'
+                      }}</Tag></template
+                    ><template v-else-if="column.key === 'actions'"
+                      ><Button
+                        v-if="!readOnly"
+                        type="link"
+                        size="small"
+                        @click="
+                          openDetail(flow, record as PaymentInterfaceSummary)
+                        "
+                        >查看接口详情</Button
+                      ><span v-else class="text-muted-foreground"
+                        >—</span
+                      ></template
+                    ></template
+                  ></Table
+                >
+              </div>
+            </CollapsePanel>
+          </Collapse>
+          <Empty v-else description="当天没有识别到支付流程" />
+        </div>
       </Card>
     </Spin>
     <Drawer
@@ -327,102 +336,105 @@ onBeforeUnmount(() => {
       :destroy-on-close="true"
       @close="closeDetail"
     >
-      <Alert
-        v-if="detailError"
-        :message="detailError"
-        type="error"
-        show-icon
-        class="mb-4"
-      />
-      <Spin :spinning="detailLoading"
-        ><div v-if="detail" class="space-y-4">
-          <Descriptions bordered size="small" :column="2"
-            ><DescriptionsItem label="订单号" :span="2">{{
-              detail.orderId
-            }}</DescriptionsItem
-            ><DescriptionsItem label="调用接口">{{
-              detail.interface.displayOperation
-            }}</DescriptionsItem
-            ><DescriptionsItem label="调用时间">{{
-              formatAdminTime(detail.interface.timestamp)
-            }}</DescriptionsItem
-            ><DescriptionsItem label="日期归属">{{
-              boundary(detail.interface.boundary)
-            }}</DescriptionsItem
-            ><DescriptionsItem label="归属依据">{{
-              detail.interface.attribution === 'correlation'
-                ? '关联号匹配'
-                : '时间线唯一匹配'
-            }}</DescriptionsItem
-            ><DescriptionsItem label="Trace / 上游请求号" :span="2">{{
-              detail.interface.traceId ||
-              detail.interface.providerRequestId ||
-              '—'
-            }}</DescriptionsItem
-            ><DescriptionsItem label="完整性" :span="2">{{
-              detail.interface.complete
-                ? '入参和返回均已校验'
-                : '缺少一侧或校验未通过，请勿据此认定支付结果'
-            }}</DescriptionsItem></Descriptions
-          >
-          <Card
-            v-for="part in packets"
-            :key="part.title"
-            :title="part.title"
-            size="small"
-            ><template v-if="part.entry"
-              ><Space wrap class="mb-3"
-                ><Tag :color="part.entry.complete ? 'success' : 'warning'">{{
-                  part.entry.complete ? '日志已校验' : '日志不完整 / 校验未通过'
-                }}</Tag
-                ><span>{{ formatAdminTime(part.entry.timestamp) }}</span
-                ><span>{{ part.entry.chunkCount }} 个日志块</span
-                ><span v-if="part.entry.statusCode"
-                  >HTTP {{ part.entry.statusCode }}</span
-                ></Space
-              ><Alert
-                v-if="part.entry.error"
-                :message="part.entry.error"
-                type="warning"
-                class="mb-3"
-              />
-              <div
-                v-if="part.entry.missingChunkIndexes?.length"
-                class="mb-2 text-sm"
-              >
-                缺失块：{{ part.entry.missingChunkIndexes.join(', ') }}
-              </div>
-              <Descriptions
-                v-if="part.entry.integrity"
-                size="small"
-                :column="1"
-                class="mb-3"
-                ><DescriptionsItem label="字节数（预期 / 实际）"
-                  >{{ part.entry.integrity.expectedByteLength ?? '—' }} /
-                  {{
-                    part.entry.integrity.actualByteLength ?? '—'
-                  }}</DescriptionsItem
-                ><DescriptionsItem label="预期 SHA-256">{{
-                  part.entry.integrity.expectedSha256 || '—'
-                }}</DescriptionsItem
-                ><DescriptionsItem label="实际 SHA-256">{{
-                  part.entry.integrity.actualSha256 || '—'
-                }}</DescriptionsItem></Descriptions
-              ></template
-            ><Alert
-              v-else
-              message="未记录此侧日志，无法确认完整内容。"
-              type="warning"
-              show-icon
-              class="mb-3"
-            />
-            <pre
-              class="max-h-[560px] overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-4 text-xs leading-6"
-              >{{ packet(part.entry) }}</pre
+      <div class="flex flex-col gap-4">
+        <Alert
+          v-if="detailError"
+          :message="detailError"
+          type="error"
+          show-icon
+        />
+        <Spin :spinning="detailLoading"
+          ><div v-if="detail" class="flex flex-col gap-4">
+            <Descriptions bordered size="small" :column="2"
+              ><DescriptionsItem label="订单号" :span="2">{{
+                detail.orderId
+              }}</DescriptionsItem
+              ><DescriptionsItem label="调用接口">{{
+                detail.interface.displayOperation
+              }}</DescriptionsItem
+              ><DescriptionsItem label="调用时间">{{
+                formatAdminTime(detail.interface.timestamp)
+              }}</DescriptionsItem
+              ><DescriptionsItem label="日期归属">{{
+                boundary(detail.interface.boundary)
+              }}</DescriptionsItem
+              ><DescriptionsItem label="归属依据">{{
+                detail.interface.attribution === 'correlation'
+                  ? '关联号匹配'
+                  : '时间线唯一匹配'
+              }}</DescriptionsItem
+              ><DescriptionsItem label="Trace / 上游请求号" :span="2">{{
+                detail.interface.traceId ||
+                detail.interface.providerRequestId ||
+                '—'
+              }}</DescriptionsItem
+              ><DescriptionsItem label="完整性" :span="2">{{
+                detail.interface.complete
+                  ? '入参和返回均已校验'
+                  : '缺少一侧或校验未通过，请勿据此认定支付结果'
+              }}</DescriptionsItem></Descriptions
             >
-          </Card>
-        </div></Spin
-      >
+            <Card
+              v-for="part in packets"
+              :key="part.title"
+              :title="part.title"
+              size="small"
+              ><div class="flex flex-col gap-3">
+                <template v-if="part.entry"
+                  ><div class="flex flex-wrap items-center gap-2">
+                    <Tag :color="part.entry.complete ? 'success' : 'warning'">{{
+                      part.entry.complete
+                        ? '日志已校验'
+                        : '日志不完整 / 校验未通过'
+                    }}</Tag
+                    ><span>{{ formatAdminTime(part.entry.timestamp) }}</span
+                    ><span>{{ part.entry.chunkCount }} 个日志块</span
+                    ><span v-if="part.entry.statusCode"
+                      >HTTP {{ part.entry.statusCode }}</span
+                    >
+                  </div>
+                  <Alert
+                    v-if="part.entry.error"
+                    :message="part.entry.error"
+                    type="warning"
+                  />
+                  <div
+                    v-if="part.entry.missingChunkIndexes?.length"
+                    class="text-sm"
+                  >
+                    缺失块：{{ part.entry.missingChunkIndexes.join(', ') }}
+                  </div>
+                  <Descriptions
+                    v-if="part.entry.integrity"
+                    size="small"
+                    :column="1"
+                    ><DescriptionsItem label="字节数（预期 / 实际）"
+                      >{{ part.entry.integrity.expectedByteLength ?? '—' }} /
+                      {{
+                        part.entry.integrity.actualByteLength ?? '—'
+                      }}</DescriptionsItem
+                    ><DescriptionsItem label="预期 SHA-256">{{
+                      part.entry.integrity.expectedSha256 || '—'
+                    }}</DescriptionsItem
+                    ><DescriptionsItem label="实际 SHA-256">{{
+                      part.entry.integrity.actualSha256 || '—'
+                    }}</DescriptionsItem></Descriptions
+                  ></template
+                ><Alert
+                  v-else
+                  message="未记录此侧日志，无法确认完整内容。"
+                  type="warning"
+                  show-icon
+                />
+                <pre
+                  class="max-h-[560px] overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-4 text-xs leading-6"
+                  >{{ packet(part.entry) }}</pre
+                >
+              </div>
+            </Card>
+          </div></Spin
+        >
+      </div>
     </Drawer>
   </Page>
 </template>
