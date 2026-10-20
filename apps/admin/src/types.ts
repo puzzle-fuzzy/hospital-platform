@@ -1,4 +1,5 @@
 export type LoginValues = {
+	loginMode?: "operator" | "viewer";
 	username: string;
 	password: string;
 	captcha?: string;
@@ -16,6 +17,7 @@ export type Session = {
 	tokenType: string;
 	expiresIn: number;
 	username: string;
+	capabilities?: { readOnly: boolean };
 };
 
 export type AdminLogLevel = "debug" | "info" | "warn" | "error";

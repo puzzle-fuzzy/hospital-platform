@@ -27,9 +27,11 @@ import { useCallback, useEffect, useState } from "react";
 import {
 	ApiError,
 	fetchWechatRefundPaymentHistory,
+	isReadOnlySession,
 	queryWechatRefund,
 	requestWechatRefund,
 } from "./api";
+import { PaymentPanel } from "./PaymentPanel";
 import type {
 	AdminWechatRefundPaymentRecord,
 	Session,
@@ -112,6 +114,20 @@ function newIdempotencyKey(): string {
 }
 
 export function RefundPanel({
+	session,
+	onExpired,
+}: {
+	session: Session;
+	onExpired: () => void;
+}) {
+	return isReadOnlySession(session) ? (
+		<PaymentPanel session={session} onExpired={onExpired} />
+	) : (
+		<OperatorRefundPanel session={session} onExpired={onExpired} />
+	);
+}
+
+function OperatorRefundPanel({
 	session,
 	onExpired,
 }: {

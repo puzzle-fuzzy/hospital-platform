@@ -39,6 +39,7 @@ import {
 	fetchPaymentSyncTasks,
 	fetchRegistrationStatus,
 	fetchWechatRefundPaymentHistory,
+	isReadOnlySession,
 	markPaymentSyncTaskManualReview,
 	queryMedicalInsuranceRefund,
 	queryPaymentRefund,
@@ -430,7 +431,7 @@ function syncTaskKindLabel(kind: AdminPaymentSyncTask["kind"]): string {
 	}[kind];
 }
 
-function paymentRecordColumns(
+export function paymentRecordColumns(
 	onRefund: (
 		record: AdminWechatRefundPaymentRecord,
 		refundType: AdminPaymentRefundType,
@@ -440,6 +441,7 @@ function paymentRecordColumns(
 	onRegistrationDetail: (record: AdminWechatRefundPaymentRecord) => void,
 	refundQueryingNo?: string,
 	queryRequiredOrders: ReadonlySet<string> = new Set(),
+	readOnly = false,
 ): NonNullable<TableProps<AdminWechatRefundPaymentRecord>["columns"]> {
 	return [
 		{
@@ -570,8 +572,19 @@ function paymentRecordColumns(
 			title: "操作",
 			key: "action",
 			fixed: "right",
-			width: 460,
+			width: readOnly ? 120 : 460,
 			render: (_, record) => {
+				if (readOnly) {
+					return (
+						<Button
+							type="link"
+							disabled={!record.operationAggregateId}
+							onClick={() => onOperationDetail(record)}
+						>
+							查看账本
+						</Button>
+					);
+				}
 				const queryRequired = queryRequiredOrders.has(paymentRefundKey(record));
 				const options = PAYMENT_REFUND_TYPES.map((type) => ({
 					type,
@@ -647,6 +660,45 @@ function paymentRecordColumns(
 	];
 }
 
+export function PaymentSyncActions({
+	task,
+	readOnly,
+	loading,
+	onRetry,
+	onManualReview,
+}: {
+	task: AdminPaymentSyncTask;
+	readOnly: boolean;
+	loading: boolean;
+	onRetry: () => void;
+	onManualReview: () => void;
+}) {
+	if (readOnly) return null;
+	return (
+		<Space wrap>
+			<Button
+				size="small"
+				disabled={task.status !== "failed" && task.status !== "manual_review"}
+				loading={loading}
+				onClick={onRetry}
+			>
+				重新排队
+			</Button>
+			<Button
+				size="small"
+				disabled={
+					task.status === "succeeded" ||
+					task.status === "manual_review" ||
+					task.status === "in_progress"
+				}
+				onClick={onManualReview}
+			>
+				转人工
+			</Button>
+		</Space>
+	);
+}
+
 export function PaymentPanel({
 	session,
 	onExpired,
@@ -655,6 +707,7 @@ export function PaymentPanel({
 	onExpired: () => void;
 }) {
 	const { message } = AntdApp.useApp();
+	const readOnly = isReadOnlySession(session);
 	const [date, setDate] = useState(todayInShanghai);
 	const [appliedDate, setAppliedDate] = useState(todayInShanghai);
 	const [day, setDay] = useState<PaymentDayResult>();
@@ -1603,6 +1656,7 @@ export function PaymentPanel({
 							openRegistrationDetail,
 							refundQueryingNo,
 							refundQueryRequiredOrders,
+							readOnly,
 						)}
 						dataSource={paymentHistory}
 						loading={historyLoading}
@@ -1724,33 +1778,16 @@ export function PaymentPanel({
 								fixed: "right",
 								width: 220,
 								render: (_, task) => (
-									<Space wrap>
-										<Button
-											size="small"
-											disabled={
-												task.status !== "failed" &&
-												task.status !== "manual_review"
-											}
-											loading={syncActionLoading}
-											onClick={() => void retrySyncTask(task)}
-										>
-											重新排队
-										</Button>
-										<Button
-											size="small"
-											disabled={
-												task.status === "succeeded" ||
-												task.status === "manual_review" ||
-												task.status === "in_progress"
-											}
-											onClick={() => {
-												setSyncReviewTask(task);
-												setSyncReviewReason("");
-											}}
-										>
-											转人工
-										</Button>
-									</Space>
+									<PaymentSyncActions
+										task={task}
+										readOnly={readOnly}
+										loading={syncActionLoading}
+										onRetry={() => void retrySyncTask(task)}
+										onManualReview={() => {
+											setSyncReviewTask(task);
+											setSyncReviewReason("");
+										}}
+									/>
 								),
 							},
 						]}
@@ -1759,7 +1796,7 @@ export function PaymentPanel({
 			</Card>
 			<Modal
 				title="挂号详情"
-				open={Boolean(registrationRecord)}
+				open={!readOnly && Boolean(registrationRecord)}
 				width={640}
 				closable={!registrationSubmitting}
 				maskClosable={!registrationSubmitting}
@@ -1909,7 +1946,7 @@ export function PaymentPanel({
 			</Modal>
 			<Modal
 				title="确认取消挂号"
-				open={registrationConfirmOpen}
+				open={!readOnly && registrationConfirmOpen}
 				okText="确认取消挂号"
 				cancelText="返回详情"
 				confirmLoading={registrationSubmitting}
@@ -1963,7 +2000,7 @@ export function PaymentPanel({
 			</Modal>
 			<Modal
 				title="转人工复核"
-				open={Boolean(syncReviewTask)}
+				open={!readOnly && Boolean(syncReviewTask)}
 				confirmLoading={syncActionLoading}
 				okText="确认转人工"
 				cancelText="取消"
@@ -2079,13 +2116,15 @@ export function PaymentPanel({
 															{formatTime(item.timestamp)}
 														</Text>
 													</div>
-													<Button
-														type="text"
-														icon={<InfoCircleOutlined />}
-														aria-label={`查看第 ${item.ordinal} 个接口的入参和返回`}
-														loading={detailLoading === detailKey}
-														onClick={() => void openInterface(flow, item)}
-													/>
+													{!readOnly ? (
+														<Button
+															type="text"
+															icon={<InfoCircleOutlined />}
+															aria-label={`查看第 ${item.ordinal} 个接口的入参和返回`}
+															loading={detailLoading === detailKey}
+															onClick={() => void openInterface(flow, item)}
+														/>
+													) : null}
 												</div>
 											);
 										})}
@@ -2200,7 +2239,7 @@ export function PaymentPanel({
 							: "退款结果与渠道状态"
 						: `确认${refundRecord ? paymentRefundLabel(refundRecord, refundType) : PAYMENT_REFUND_LABELS[refundType]}`
 				}
-				open={Boolean(refundRecord)}
+				open={!readOnly && Boolean(refundRecord)}
 				confirmLoading={refundSubmitting}
 				okText={`确认退款 ¥${((selectedRefundOption?.amountFen ?? 0) / 100).toFixed(2)}`}
 				okButtonProps={{
@@ -2416,7 +2455,7 @@ export function PaymentPanel({
 						? `${interfaceLabel(detail.interface)} · 入参和返回`
 						: "接口入参和返回"
 				}
-				open={Boolean(detail || detailLoading)}
+				open={!readOnly && Boolean(detail || detailLoading)}
 				onCancel={() => {
 					setDetail(undefined);
 					setDetailLoading(undefined);

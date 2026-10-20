@@ -14,6 +14,11 @@ import {
 import { formatJournalTimestamp, readRawLogTrace } from "./raw-logs";
 import { createAdminRegistrationProxy } from "./registration-proxy";
 import type { RawLogEntry } from "./types";
+import {
+	AdminViewerAuthError,
+	createAdminViewerAuth,
+	isAdminViewerAuthorization,
+} from "./viewer-auth";
 
 type JsonObject = Record<string, unknown>;
 
@@ -44,6 +49,15 @@ const rateLimits = new Map<string, { count: number; expiresAt: number }>();
 const activeSessions = new Map<string, number>();
 const maxActiveSessions = 500;
 const maxSessionTokenLength = 4096;
+const viewerAuth = createAdminViewerAuth({
+	...(Bun.env.ADMIN_VIEWER_USERNAME !== undefined
+		? { username: Bun.env.ADMIN_VIEWER_USERNAME }
+		: {}),
+	...(Bun.env.ADMIN_VIEWER_PASSWORD_HASH !== undefined
+		? { passwordHash: Bun.env.ADMIN_VIEWER_PASSWORD_HASH }
+		: {}),
+	onAudit: (event) => console.info(JSON.stringify(event)),
+});
 // 单条日志详情默认只查前后 15 分钟；traceId 已在元数据列表中确定，
 // 继续扫描半小时会把大量无关 raw chunk 传给管理端。需要更宽窗口时，
 // 使用受控 provider-trace-export 工具显式指定 since/until。
@@ -356,6 +370,7 @@ function optionalText(value: unknown, maxLength: number): string {
 
 function bearer(request: Request): string {
 	const authorization = request.headers.get("authorization")?.trim() || "";
+	if (viewerAuth.principal(request)) return authorization;
 	if (!/^Bearer [A-Za-z0-9._~+/-]+=*$/u.test(authorization)) {
 		throw new Error("UNAUTHORIZED");
 	}
@@ -486,8 +501,15 @@ async function upstreamRequest(
 		base.origin,
 	);
 	try {
+		// The independent viewer credential never leaves this server, including
+		// internal read proxies that use their own service credential.
+		const headers = new Headers(init.headers);
+		if (isAdminViewerAuthorization(headers.get("authorization") || "")) {
+			headers.delete("authorization");
+		}
 		const response = await fetch(target, {
 			...init,
+			headers,
 			redirect: "manual",
 			signal: AbortSignal.timeout(25_000),
 		});
@@ -510,6 +532,12 @@ async function upstreamRequest(
 async function loginRequest(request: Request): Promise<Response> {
 	const input = await requestJson(request);
 	const username = requiredText(input.username, "USERNAME", 64);
+	const viewerSession = await viewerAuth.login({
+		username,
+		password: input.password,
+		loginMode: input.loginMode,
+	});
+	if (viewerSession) return json({ code: 0, data: viewerSession });
 	const password = requiredText(input.password, "PASSWORD", 256);
 	const captchaKey = optionalText(input.captchaKey, 128);
 	const captcha = optionalText(input.captcha, 32);
@@ -1062,6 +1090,7 @@ async function logRawDetailRequest(
 }
 
 async function logoutRequest(request: Request): Promise<Response> {
+	if (viewerAuth.logout(request)) return json({ code: 0, data: null });
 	const authorization = bearer(request);
 	const token = authorization.slice("Bearer ".length);
 	const response = await upstreamRequest(
@@ -1137,6 +1166,7 @@ const server = Bun.serve({
 				return json({ status: "ok", service: "admin" });
 			}
 			if (url.pathname.startsWith("/api/")) checkRateLimit(clientAddress);
+			if (url.pathname.startsWith("/api/")) viewerAuth.authorize(request);
 			if (url.pathname === "/api/auth/captcha" && request.method === "GET") {
 				return await upstreamRequest(
 					legacyUpstream,
@@ -1291,6 +1321,9 @@ const server = Bun.serve({
 			}
 			return await staticResponse(url.pathname);
 		} catch (error) {
+			if (error instanceof AdminViewerAuthError) {
+				return errorResponse(error.message, error.status);
+			}
 			const reason = error instanceof Error ? error.message : "UNKNOWN";
 			if (reason === "UNAUTHORIZED") return errorResponse("请先登录", 401);
 			if (reason === "RATE_LIMITED")

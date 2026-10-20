@@ -39,6 +39,24 @@ function isObject(value: unknown): value is JsonObject {
 	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+export function isReadOnlySession(session: Session): boolean {
+	return session.capabilities?.readOnly === true;
+}
+
+function readCapabilities(value: unknown): Session["capabilities"] {
+	if (value === undefined) return undefined;
+	if (!isObject(value) || typeof value.readOnly !== "boolean") {
+		throw new ApiError("登录权限信息不可用，请重新登录", 502);
+	}
+	return { readOnly: value.readOnly };
+}
+
+function requireOperatorSession(session: Session): void {
+	if (isReadOnlySession(session)) {
+		throw new ApiError("当前账号仅支持只读查看", 403);
+	}
+}
+
 function messageOf(value: unknown): string {
 	if (!isObject(value)) return "请求失败，请稍后重试";
 	const nestedError = isObject(value.error) ? value.error : undefined;
@@ -87,7 +105,11 @@ export function loadSession(): Session | undefined {
 		if (!value) return undefined;
 		const parsed = JSON.parse(value) as Partial<Session>;
 		if (!parsed.accessToken || !parsed.username) return undefined;
-		return parsed as Session;
+		const capabilities = readCapabilities(parsed.capabilities);
+		return {
+			...(parsed as Session),
+			...(capabilities ? { capabilities } : {}),
+		};
 	} catch {
 		sessionStorage.removeItem(SESSION_KEY);
 		return undefined;
@@ -131,23 +153,34 @@ export async function login(
 		refresh_token?: string;
 		token_type?: string;
 		expires_in?: number;
+		capabilities?: unknown;
 	}>("/api/auth/login", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
+			loginMode: values.loginMode ?? "operator",
 			username: values.username.trim(),
 			password: values.password,
-			captchaKey: captcha.key,
-			captcha: String(values.captcha || "").trim(),
+			...(values.loginMode === "viewer"
+				? {}
+				: {
+						captchaKey: captcha.key,
+						captcha: String(values.captcha || "").trim(),
+					}),
 		}),
 	});
 	if (!value.access_token) throw new ApiError("登录成功但未返回访问令牌", 502);
+	const capabilities = readCapabilities(value.capabilities);
+	if (values.loginMode === "viewer" && capabilities?.readOnly !== true) {
+		throw new ApiError("只读账号权限信息不可用，请重新登录", 502);
+	}
 	const session: Session = {
 		accessToken: value.access_token,
 		refreshToken: String(value.refresh_token || ""),
 		tokenType: String(value.token_type || "Bearer"),
 		expiresIn: Number(value.expires_in || 0),
 		username: values.username.trim(),
+		...(capabilities ? { capabilities } : {}),
 	};
 	saveSession(session);
 	return session;
@@ -208,6 +241,7 @@ export async function fetchLogRaw(
 	id: string,
 	session: Session,
 ): Promise<RawLogTrace> {
+	requireOperatorSession(session);
 	try {
 		return await request<RawLogTrace>(
 			`/api/logs/${encodeURIComponent(id)}/raw`,
@@ -244,6 +278,7 @@ export async function fetchPaymentInterface(
 	ordinal: number,
 	session: Session,
 ): Promise<PaymentInterfaceDetail> {
+	requireOperatorSession(session);
 	try {
 		return await request<PaymentInterfaceDetail>(
 			`/api/payments/day/${encodeURIComponent(date)}/${encodeURIComponent(flowId)}/interfaces/${ordinal}`,
@@ -267,6 +302,7 @@ export async function requestWechatRefund(
 	},
 	session: Session,
 ): Promise<WechatRefund> {
+	requireOperatorSession(session);
 	try {
 		return await request<WechatRefund>("/api/refunds/wechat", {
 			method: "POST",
@@ -286,6 +322,7 @@ export async function queryWechatRefund(
 	merchantRefundNo: string,
 	session: Session,
 ): Promise<WechatRefund> {
+	requireOperatorSession(session);
 	try {
 		return await request<WechatRefund>(
 			`/api/refunds/wechat/${encodeURIComponent(merchantRefundNo)}`,
@@ -373,6 +410,7 @@ async function postPaymentSyncTaskAction<T>(
 	session: Session,
 	body?: unknown,
 ): Promise<T> {
+	requireOperatorSession(session);
 	try {
 		return await request<T>(path, {
 			method: "POST",
@@ -414,6 +452,7 @@ export async function requestMedicalInsuranceRefund(
 	input: { orderId: string; idempotencyKey: string; reason?: string },
 	session: Session,
 ): Promise<AdminMedicalInsuranceRefund> {
+	requireOperatorSession(session);
 	try {
 		return await request<AdminMedicalInsuranceRefund>(
 			"/api/refunds/medical-insurance",
@@ -445,6 +484,7 @@ export async function requestPaymentRefund(
 	},
 	session: Session,
 ): Promise<AdminPaymentRefundResult> {
+	requireOperatorSession(session);
 	try {
 		return await request<AdminPaymentRefundResult>("/api/refunds/payment", {
 			method: "POST",
@@ -466,6 +506,7 @@ export async function queryPaymentRefund(
 	session: Session,
 	refundType: AdminPaymentRefundType = "ALL",
 ): Promise<AdminPaymentRefundResult> {
+	requireOperatorSession(session);
 	try {
 		return await request<AdminPaymentRefundResult>(
 			`/api/refunds/payment/${encodeURIComponent(source)}/${encodeURIComponent(orderId)}?refundType=${encodeURIComponent(refundType)}`,
@@ -481,6 +522,7 @@ export async function queryMedicalInsuranceRefund(
 	refundNo: string,
 	session: Session,
 ): Promise<AdminMedicalInsuranceRefund> {
+	requireOperatorSession(session);
 	try {
 		return await request<AdminMedicalInsuranceRefund>(
 			`/api/refunds/medical-insurance/${encodeURIComponent(refundNo)}`,
@@ -497,6 +539,7 @@ export async function fetchRegistrationStatus(
 	orderId: string,
 	session: Session,
 ): Promise<AdminRegistrationResult> {
+	requireOperatorSession(session);
 	try {
 		return await request<AdminRegistrationResult>(
 			`/api/registrations/${encodeURIComponent(source)}/${encodeURIComponent(orderId)}`,
@@ -517,6 +560,7 @@ export async function cancelRegistration(
 	idempotencyKey: string,
 	session: Session,
 ): Promise<AdminRegistrationCancelResult> {
+	requireOperatorSession(session);
 	try {
 		return await request<AdminRegistrationCancelResult>(
 			`/api/registrations/${encodeURIComponent(source)}/${encodeURIComponent(orderId)}/cancel`,

@@ -17,11 +17,20 @@ import {
 	Input,
 	Layout,
 	Menu,
+	Select,
 	Space,
+	Tag,
 	Typography,
 } from "antd";
 import { useCallback, useEffect, useState } from "react";
-import { clearSession, loadCaptcha, loadSession, login, logout } from "./api";
+import {
+	clearSession,
+	isReadOnlySession,
+	loadCaptcha,
+	loadSession,
+	login,
+	logout,
+} from "./api";
 import { LogPanel } from "./LogPanel";
 import { PaymentPanel } from "./PaymentPanel";
 import type { CaptchaState, LoginValues, Session } from "./types";
@@ -31,14 +40,73 @@ const { Text, Title } = Typography;
 
 const EMPTY_CAPTCHA: CaptchaState = { enabled: true, key: "", image: "" };
 
-function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
+export function LoginCaptcha({
+	loginMode,
+	captcha,
+	loading,
+	onRefresh,
+}: {
+	loginMode: NonNullable<LoginValues["loginMode"]>;
+	captcha: CaptchaState;
+	loading: boolean;
+	onRefresh: () => void;
+}) {
+	if (loginMode === "viewer" || !captcha.enabled) return null;
+	return (
+		<Form.Item label="验证码" required>
+			<Flex className="captcha-row" gap={8} align="center">
+				<Form.Item
+					name="captcha"
+					noStyle
+					rules={[{ required: true, message: "请输入验证码" }, { max: 32 }]}
+				>
+					<Input placeholder="输入计算结果" />
+				</Form.Item>
+				<Button
+					className="captcha-button"
+					onClick={onRefresh}
+					loading={loading}
+					aria-label="刷新验证码"
+				>
+					{captcha.image ? (
+						<img src={captcha.image} alt="登录验证码" />
+					) : (
+						<ReloadOutlined />
+					)}
+				</Button>
+			</Flex>
+		</Form.Item>
+	);
+}
+
+export function loginModeFromSearch(
+	search: string,
+): NonNullable<LoginValues["loginMode"]> {
+	return new URLSearchParams(search).get("mode") === "viewer"
+		? "viewer"
+		: "operator";
+}
+
+export function LoginPanel({
+	onLogin,
+}: {
+	onLogin: (session: Session) => void;
+}) {
 	const { message } = AntdApp.useApp();
 	const [form] = Form.useForm<LoginValues>();
 	const [captcha, setCaptcha] = useState<CaptchaState>(EMPTY_CAPTCHA);
 	const [captchaLoading, setCaptchaLoading] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+	const [loginMode, setLoginMode] = useState<
+		NonNullable<LoginValues["loginMode"]>
+	>(() =>
+		loginModeFromSearch(
+			typeof window === "undefined" ? "" : window.location.search,
+		),
+	);
 
 	const refreshCaptcha = useCallback(async () => {
+		if (loginMode === "viewer") return;
 		setCaptchaLoading(true);
 		try {
 			setCaptcha(await loadCaptcha());
@@ -49,7 +117,7 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 		} finally {
 			setCaptchaLoading(false);
 		}
-	}, [message]);
+	}, [loginMode, message]);
 
 	useEffect(() => {
 		void refreshCaptcha();
@@ -64,7 +132,7 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 		} catch (error) {
 			void message.error(error instanceof Error ? error.message : "登录失败");
 			form.setFieldValue("captcha", "");
-			await refreshCaptcha();
+			if (values.loginMode !== "viewer") await refreshCaptcha();
 		} finally {
 			setSubmitting(false);
 		}
@@ -96,9 +164,22 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 						layout="vertical"
 						size="large"
 						onFinish={submit}
+						initialValues={{ loginMode }}
 						autoComplete="off"
 						requiredMark={false}
 					>
+						<Form.Item name="loginMode" label="账号类型">
+							<Select
+								onChange={(value: NonNullable<LoginValues["loginMode"]>) => {
+									setLoginMode(value);
+									form.setFieldValue("captcha", "");
+								}}
+								options={[
+									{ value: "operator", label: "运营管理" },
+									{ value: "viewer", label: "只读查看" },
+								]}
+							/>
+						</Form.Item>
 						<Form.Item
 							name="username"
 							label="账号"
@@ -121,34 +202,12 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 								autoComplete="current-password"
 							/>
 						</Form.Item>
-						{captcha.enabled ? (
-							<Form.Item label="验证码" required>
-								<Flex className="captcha-row" gap={8} align="center">
-									<Form.Item
-										name="captcha"
-										noStyle
-										rules={[
-											{ required: true, message: "请输入验证码" },
-											{ max: 32 },
-										]}
-									>
-										<Input placeholder="输入计算结果" />
-									</Form.Item>
-									<Button
-										className="captcha-button"
-										onClick={() => void refreshCaptcha()}
-										loading={captchaLoading}
-										aria-label="刷新验证码"
-									>
-										{captcha.image ? (
-											<img src={captcha.image} alt="登录验证码" />
-										) : (
-											<ReloadOutlined />
-										)}
-									</Button>
-								</Flex>
-							</Form.Item>
-						) : null}
+						<LoginCaptcha
+							loginMode={loginMode}
+							captcha={captcha}
+							loading={captchaLoading}
+							onRefresh={() => void refreshCaptcha()}
+						/>
 						<Button type="primary" htmlType="submit" block loading={submitting}>
 							登录管理端
 						</Button>
@@ -195,6 +254,9 @@ function Console() {
 							<UserOutlined />
 						</span>
 						<Text>{session.username}</Text>
+						{isReadOnlySession(session) ? (
+							<Tag color="blue">只读查看</Tag>
+						) : null}
 					</div>
 					<Button icon={<LogoutOutlined />} onClick={() => void signOut()}>
 						退出
