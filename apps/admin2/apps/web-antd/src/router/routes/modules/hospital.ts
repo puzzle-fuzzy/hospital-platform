@@ -40,12 +40,6 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   {
-    name: 'HospitalLogs',
-    path: '/hospital/logs',
-    component: () => import('#/views/hospital/logs/index.vue'),
-    meta: { title: '实时日志', icon: 'lucide:terminal', order: 2 },
-  },
-  {
     name: 'HospitalAccount',
     path: '/hospital/account',
     component: () => import('#/views/hospital/account.vue'),

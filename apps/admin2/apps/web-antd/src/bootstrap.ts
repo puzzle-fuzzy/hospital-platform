@@ -3,7 +3,7 @@ import { createApp, watchEffect } from 'vue';
 import { registerAccessDirective } from '@vben/access';
 import { registerLoadingDirective } from '@vben/common-ui/es/loading';
 import { preferences } from '@vben/preferences';
-import { initStores } from '@vben/stores';
+import { initStores, useTabbarStore } from '@vben/stores';
 import '@vben/styles';
 import '@vben/styles/antd';
 
@@ -12,6 +12,10 @@ import { useTitle } from '@vueuse/core';
 import { $t, setupI18n } from '#/locales';
 import '#/hospital/icons';
 import { clearSession } from '#/hospital/api';
+import {
+  isRetiredLogEntry,
+  removeRetiredLogSearchHistory,
+} from '#/hospital/retired-log-state';
 import { useAuthStore } from '#/store';
 
 import { initComponentAdapter } from './adapter/component';
@@ -48,6 +52,28 @@ async function bootstrap(namespace: string) {
 
   // 配置 pinia-tore
   await initStores(app, { namespace });
+
+  // Remove only retired business entries from native Vben persisted state.
+  const tabbar = useTabbarStore();
+  const retiredTabs = tabbar.tabs.filter(isRetiredLogEntry);
+  const retiredKeys = new Set(retiredTabs.map((tab) => tab.key));
+  const retiredHistory = tabbar.visitHistory
+    .toArray()
+    .filter((key) => retiredKeys.has(key) || isRetiredLogEntry({ path: key }));
+  if (retiredTabs.length || retiredHistory.length) {
+    tabbar.tabs = tabbar.tabs.filter((tab) => !isRetiredLogEntry(tab));
+    tabbar.visitHistory.remove(...retiredHistory);
+    await tabbar.updateCacheTabs();
+    tabbar.setUpdateTime();
+  }
+  try {
+    removeRetiredLogSearchHistory(
+      window.localStorage,
+      window.location.hostname,
+    );
+  } catch {
+    // Some webviews may deny access to the storage property itself.
+  }
 
   let sessionExpired = false;
   window.addEventListener('hospital:session-expired', async () => {
