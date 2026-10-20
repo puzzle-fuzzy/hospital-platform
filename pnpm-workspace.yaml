@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - '!apps/admin2'
   - packages/*
 
 catalog:

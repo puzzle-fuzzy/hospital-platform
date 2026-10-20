@@ -9,6 +9,11 @@
 		"node": "24.12.0"
 	},
 	"scripts": {
+		"admin2:dev": "node apps/admin2/tools/run.mjs dev:antd",
+		"admin2:build": "node apps/admin2/tools/build.mjs",
+		"admin2:typecheck": "node apps/admin2/tools/run.mjs typecheck",
+		"admin2:verify-vben": "node apps/admin2/tools/verify-upstream.mjs",
+		"admin2:start": "bun apps/admin2/dist/server.js",
 		"architecture:audit": "bun tools/architecture-audit.mjs",
 		"build": "turbo run build",
 		"check": "pnpm check:candidate && pnpm release:baseline:audit",

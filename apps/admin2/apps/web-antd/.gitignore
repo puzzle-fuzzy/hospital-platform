@@ -1,0 +1,3 @@
+# Public build templates loaded by tools/run.mjs.
+!.env.development.example
+!.env.production.example

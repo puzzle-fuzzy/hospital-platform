@@ -9,6 +9,7 @@
 		"includes": [
 			"**",
 			"!**/dist",
+			"!**/apps/admin2",
 			"!**/node_modules",
 			"!**/.turbo",
 			"!**/apps/miniprogram/project.config.json",
