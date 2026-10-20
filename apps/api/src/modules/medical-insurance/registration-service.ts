@@ -173,7 +173,7 @@ function preparedFeeUploadContext(
 	settlementAmountFen: number;
 } {
 	if (
-		order.status !== "fee_upload_pending" ||
+		(order.status !== "created" && order.status !== "fee_upload_pending") ||
 		order.feeUploadId ||
 		order.payOrdId ||
 		order.payTokenHash ||
@@ -909,7 +909,10 @@ export class MedicalInsuranceRegistrationService {
 		});
 		if (active.length > 1) throw new PaymentNotificationConflictError();
 		const preparedOrder = active[0];
-		if (preparedOrder?.status === "fee_upload_pending") {
+		if (
+			preparedOrder?.status === "created" ||
+			preparedOrder?.status === "fee_upload_pending"
+		) {
 			const settlement = await this.dependencies.orders.getSettlementContext(
 				ownerUserId,
 				preparedOrder.medicalOrderId,
@@ -1508,6 +1511,9 @@ export class MedicalInsuranceRegistrationService {
 			order.version,
 			{
 				...emptySettlementPatch(order),
+				// 尚未发送6201的原主单重授成功后恢复可续传状态；不能让授权
+				// 更新的时间戳被费用恢复误认为一笔新的6201仍在发送中。
+				status: preparedAuthorization ? "created" : order.status,
 				authorizationId: result.authorizationId,
 				businessType: "outpatient",
 				orderType: "DiagPay",
@@ -1750,6 +1756,7 @@ export class MedicalInsuranceRegistrationService {
 			order.version,
 			{
 				...emptySettlementPatch(order),
+				status: preparedAuthorization ? "created" : order.status,
 				authorizationId: result.authorizationId,
 				businessType: "registration",
 				orderType: REGISTRATION_ORDER_TYPE,
