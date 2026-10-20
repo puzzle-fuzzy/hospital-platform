@@ -1,9 +1,14 @@
 import { expect, test } from "bun:test";
+import { ProviderRequestError } from "@hospital/adapters";
+import { AppointmentRegistrationResponse, success } from "@hospital/contracts";
 import type {
 	AppointmentHold,
+	AppointmentProviderRecord,
 	AppointmentRegistration,
 } from "@hospital/domain";
 import { createInMemoryAppointmentWriteRepository } from "@hospital/persistence";
+import { Elysia } from "elysia";
+import { errorHandlerPlugin } from "../../plugins/error-handler";
 import {
 	AppointmentCancellationPaymentActiveError,
 	AppointmentHoldExpiredError,
@@ -360,6 +365,434 @@ test("HIS 拒绝新挂号时保留原错误，不伪造已有预约或消耗 hol
 		),
 	).toBeUndefined();
 });
+
+function duplicateRegistrationError(
+	overrides: Partial<
+		ConstructorParameters<typeof ProviderRequestError>[0]
+	> = {},
+) {
+	return new ProviderRequestError({
+		provider: "zhongyang",
+		operation: "appointment-registration-create",
+		message: "Synthetic HIS duplicate registration rejection",
+		reason: "appointment-registration-duplicate",
+		providerErrorCode: "smcAppointment@1217",
+		requestOutcome: "rejected",
+		retryable: false,
+		responseInvalid: false,
+		failureStage: "response",
+		...overrides,
+	});
+}
+
+function duplicateRegistrationFixture(
+	options: {
+		local?: readonly AppointmentRegistration[];
+		hospital?: readonly AppointmentProviderRecord[];
+		error?: Error;
+		readError?: "local" | "hospital";
+		doctorId?: string;
+		departmentId?: string;
+		beforeCreateLocal?: readonly AppointmentRegistration[];
+	} = {},
+) {
+	const hold = registrationPolicyHold();
+	const original = registrationPolicyRecord({
+		departmentId: "department-001",
+		doctorId: "doctor-001",
+		sourceSerialNumber: "12",
+		totalFen: 900,
+	});
+	const oldHold = registrationPolicyHold({
+		holdId: original.holdId,
+		status: "consumed",
+		idempotencyKey: "old-hold-key",
+	});
+	const repository = createInMemoryAppointmentWriteRepository(
+		[hold, oldHold],
+		[original],
+	);
+	const defaults = createTestDependencies();
+	const events: string[] = [];
+	const calls = {
+		create: 0,
+		hospitalRead: 0,
+		localRead: 0,
+		insert: 0,
+		holdWrite: 0,
+		payment: 0,
+	};
+	const error = options.error ?? duplicateRegistrationError();
+	let createAttempted = false;
+	const hospitalRecord: AppointmentProviderRecord = {
+		providerAppointmentId: original.providerAppointmentId,
+		providerPatientId,
+		departmentName: original.departmentName,
+		workDate: original.workDate,
+		status: "active",
+	};
+	const hospitalInputs: unknown[] = [];
+	const service = new AppointmentWriteService({
+		...defaults,
+		repository: {
+			...repository,
+			listRegistrationsByPatient: async (input: {
+				ownerUserId: string;
+				patientId: string;
+			}) => {
+				calls.localRead++;
+				events.push(
+					createAttempted ? "local-after-create" : "local-before-create",
+				);
+				expect(input).toEqual({ ownerUserId, patientId });
+				if (createAttempted && options.readError === "local")
+					throw new Error("Synthetic local read failure");
+				return createAttempted
+					? (options.local ?? [original])
+					: (options.beforeCreateLocal ?? [original]);
+			},
+			insertRegistration: async (value: AppointmentRegistration) => {
+				calls.insert++;
+				return repository.insertRegistration(value);
+			},
+			updateHold: async (...args: Parameters<typeof repository.updateHold>) => {
+				calls.holdWrite++;
+				return repository.updateHold(...args);
+			},
+		},
+		gateway: {
+			...(defaults.gateway as Record<string, unknown>),
+			create: async () => {
+				calls.create++;
+				events.push("create");
+				createAttempted = true;
+				throw error;
+			},
+			listActive: async (input: unknown) => {
+				calls.hospitalRead++;
+				events.push("hospital-after-create");
+				hospitalInputs.push(input);
+				if (options.readError === "hospital")
+					throw new Error("Synthetic HIS directory read failure");
+				return {
+					records: options.hospital ?? [hospitalRecord],
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-active-records",
+						requestId: "fixture-duplicate-read",
+					},
+				};
+			},
+		},
+		snapshots: {
+			findActive: async () => {
+				const result = await (
+					defaults.snapshots as {
+						findActive: () => Promise<{
+							schedule: Record<string, unknown>;
+							providerScheduleId: string;
+						}>;
+					}
+				).findActive();
+				return {
+					...result,
+					schedule: {
+						...result.schedule,
+						...(options.doctorId !== undefined
+							? { doctorId: options.doctorId }
+							: {}),
+						...(options.departmentId !== undefined
+							? { departmentId: options.departmentId }
+							: {}),
+					},
+				};
+			},
+		},
+		paymentOrders: {
+			findByOwnerAndIdempotencyKey: async () => {
+				calls.payment++;
+				throw new Error("Duplicate navigation must never enter payment");
+			},
+		},
+	} as never);
+	const input = {
+		ownerUserId,
+		patientId,
+		holdId: hold.holdId,
+		context: {
+			traceId: "fixture-his-duplicate",
+			idempotencyKey: "fixture-his-duplicate-new-key",
+		},
+	};
+	return {
+		service,
+		input,
+		original,
+		oldHold,
+		hold,
+		repository,
+		calls,
+		events,
+		error,
+		hospitalInputs,
+		hospitalRecord,
+	};
+}
+
+test("HIS 明确重复拒绝后才按唯一医院身份关联原预约，不插入或消费新旧 hold、不进入支付", async () => {
+	const f = duplicateRegistrationFixture();
+	const before = await f.repository.findRegistration(
+		ownerUserId,
+		f.original.appointmentId,
+	);
+	expect(await f.service.register(f.input)).toEqual({
+		appointmentId: f.original.appointmentId,
+		status: "duplicate",
+		patientId,
+		departmentName: f.original.departmentName,
+		doctorName: f.original.doctorName,
+		workDate: f.original.workDate,
+		shiftName: f.original.shiftName,
+		sourceSerialNumber: "12",
+		totalFen: 900,
+	});
+	expect(f.calls).toEqual({
+		create: 1,
+		hospitalRead: 1,
+		localRead: 2,
+		insert: 0,
+		holdWrite: 0,
+		payment: 0,
+	});
+	expect(f.events).toEqual([
+		"local-before-create",
+		"create",
+		"hospital-after-create",
+		"local-after-create",
+	]);
+	expect(f.hospitalInputs).toEqual([
+		{ providerPatientId, workDate: f.original.workDate },
+	]);
+	expect(await f.repository.findHold(ownerUserId, f.hold.holdId)).toEqual(
+		f.hold,
+	);
+	expect(await f.repository.findHold(ownerUserId, f.oldHold.holdId)).toEqual(
+		f.oldHold,
+	);
+	expect(
+		await f.repository.findRegistration(ownerUserId, f.original.appointmentId),
+	).toEqual(before);
+	expect(
+		await f.repository.findRegistrationByIdempotency(
+			ownerUserId,
+			f.input.context.idempotencyKey,
+		),
+	).toBeUndefined();
+});
+
+test("重复拒绝后的本地列表必须重新读取，不能用 create 前的旧快照导航", async () => {
+	const f = duplicateRegistrationFixture({ local: [] });
+	await expect(f.service.register(f.input)).rejects.toBe(f.error);
+	expect(f.calls.localRead).toBe(2);
+	expect(f.calls.insert).toBe(0);
+	expect(f.calls.create).toBe(1);
+});
+
+test("重复拒绝后可见的唯一原挂号使用新读取结果，不能以 create 前查无记录为由再次写入", async () => {
+	const base = duplicateRegistrationFixture();
+	const f = duplicateRegistrationFixture({
+		beforeCreateLocal: [],
+		local: [base.original],
+	});
+	await expect(f.service.register(f.input)).resolves.toMatchObject({
+		appointmentId: base.original.appointmentId,
+		status: "duplicate",
+	});
+	expect(f.calls).toEqual({
+		create: 1,
+		hospitalRead: 1,
+		localRead: 2,
+		insert: 0,
+		holdWrite: 0,
+		payment: 0,
+	});
+});
+
+test("真实 HTTP 仅对唯一原挂号返回 200 duplicate，无法匹配时保留 409/30475 且不泄露医院身份", async () => {
+	for (const canMatch of [true, false]) {
+		const f = duplicateRegistrationFixture(canMatch ? {} : { local: [] });
+		const app = new Elysia()
+			.use(errorHandlerPlugin())
+			.post(
+				"/register",
+				async () => success(await f.service.register(f.input)),
+				{ response: { 200: AppointmentRegistrationResponse } },
+			);
+		const response = await app.handle(
+			new Request("http://localhost/register", { method: "POST" }),
+		);
+		const payload = await response.json();
+		expect(response.status).toBe(canMatch ? 200 : 409);
+		if (canMatch) {
+			expect(payload).toEqual({
+				success: true,
+				data: {
+					appointmentId: f.original.appointmentId,
+					status: "duplicate",
+					patientId,
+					departmentName: f.original.departmentName,
+					doctorName: f.original.doctorName,
+					workDate: f.original.workDate,
+					shiftName: f.original.shiftName,
+					sourceSerialNumber: f.original.sourceSerialNumber,
+					totalFen: f.original.totalFen,
+				},
+			});
+		} else {
+			expect(payload).toEqual({
+				success: false,
+				error: {
+					code: "appointment-registration-duplicate",
+					numericCode: 30475,
+					message: "您当天已预约该医生，请先查看并处理原预约",
+				},
+			});
+		}
+		expect(JSON.stringify(payload)).not.toContain(providerPatientId);
+		expect(JSON.stringify(payload)).not.toContain(
+			f.original.providerAppointmentId,
+		);
+		expect(f.calls.create).toBe(1);
+		expect(f.calls.insert).toBe(0);
+		expect(f.calls.holdWrite).toBe(0);
+		expect(f.calls.payment).toBe(0);
+	}
+});
+
+for (const [label, patch] of [
+	["其它 owner", { ownerUserId: "other-owner" }],
+	["其它患者", { patientId: "other-patient" }],
+	["其它医生", { doctorId: "other-doctor" }],
+	["缺少医生ID", { doctorId: undefined }],
+	["空医生ID", { doctorId: "" }],
+	["其它科室", { departmentId: "other-department" }],
+	["缺少科室ID", { departmentId: undefined }],
+	["其它日期", { workDate: "2026-09-21" }],
+	["取消状态", { status: "cancelled" }],
+	["未知状态", { status: "unknown" }],
+	["其它医院患者", { providerPatientId: "other-provider-patient" }],
+	["其它医院预约", { providerAppointmentId: "other-provider-appointment" }],
+] as const) {
+	test(`重复拒绝后原本地记录为${label}时保留固定业务拒绝，不选错挂号`, async () => {
+		const base = duplicateRegistrationFixture();
+		const f = duplicateRegistrationFixture({
+			local: [{ ...base.original, ...patch } as AppointmentRegistration],
+		});
+		await expect(f.service.register(f.input)).rejects.toBe(f.error);
+		expect(f.calls).toEqual({
+			create: 1,
+			hospitalRead: 1,
+			localRead: 2,
+			insert: 0,
+			holdWrite: 0,
+			payment: 0,
+		});
+	});
+}
+
+for (const [label, patch] of [
+	["其它医院预约", { providerAppointmentId: "other-provider-appointment" }],
+	["其它医院患者", { providerPatientId: "other-provider-patient" }],
+	["其它日期", { workDate: "2026-09-21" }],
+	["非活动状态", { status: "cancelled" }],
+	["未知状态", { status: "unknown" }],
+] as const) {
+	test(`重复拒绝后的医院记录为${label}时不能导航本地原挂号`, async () => {
+		const base = duplicateRegistrationFixture();
+		const f = duplicateRegistrationFixture({
+			hospital: [{ ...base.hospitalRecord, ...patch }],
+		});
+		await expect(f.service.register(f.input)).rejects.toBe(f.error);
+		expect(f.calls.insert).toBe(0);
+		expect(f.calls.holdWrite).toBe(0);
+		expect(f.calls.create).toBe(1);
+	});
+}
+
+test("重复拒绝后出现多条可匹配旧挂号或重复医院身份时不任选一个", async () => {
+	const base = duplicateRegistrationFixture();
+	const second = {
+		...base.original,
+		appointmentId: "second-local-appointment",
+		providerAppointmentId: "second-provider-appointment",
+	};
+	for (const options of [
+		{
+			local: [base.original, second],
+			hospital: [
+				base.hospitalRecord,
+				{
+					...base.hospitalRecord,
+					providerAppointmentId: second.providerAppointmentId,
+				},
+			],
+		},
+		{ hospital: [base.hospitalRecord, base.hospitalRecord] },
+		{
+			local: [
+				base.original,
+				{ ...base.original, appointmentId: "second-same-provider-reference" },
+			],
+		},
+		{ local: [] },
+		{ hospital: [] },
+		{ doctorId: "" },
+		{ departmentId: "" },
+	]) {
+		const f = duplicateRegistrationFixture(options);
+		await expect(f.service.register(f.input)).rejects.toBe(f.error);
+		expect(f.calls.create).toBe(1);
+		expect(f.calls.insert).toBe(0);
+		expect(f.calls.holdWrite).toBe(0);
+		expect(f.calls.payment).toBe(0);
+	}
+});
+
+for (const readError of ["local", "hospital"] as const) {
+	test(`重复拒绝后的${readError}只读查询异常不覆盖已知拒绝、不再次create`, async () => {
+		const f = duplicateRegistrationFixture({ readError });
+		await expect(f.service.register(f.input)).rejects.toBe(f.error);
+		expect(f.calls.create).toBe(1);
+		expect(f.calls.insert).toBe(0);
+		expect(f.calls.holdWrite).toBe(0);
+	});
+}
+
+for (const [label, patch] of [
+	["其它Provider", { provider: "other" }],
+	["其它操作", { operation: "appointment-cancellation" }],
+	["其它code", { providerErrorCode: "smcAppointment@1218" }],
+	["无精确reason", { reason: undefined }],
+	["结果未知", { requestOutcome: "unknown" }],
+	["可重试", { retryable: true }],
+	["响应无效", { responseInvalid: true }],
+] as const) {
+	test(`创建错误为${label}时不触发重复预约恢复查找`, async () => {
+		const error = duplicateRegistrationError(
+			patch as Partial<ConstructorParameters<typeof ProviderRequestError>[0]>,
+		);
+		const f = duplicateRegistrationFixture({ error });
+		await expect(f.service.register(f.input)).rejects.toBe(error);
+		expect(f.calls).toEqual({
+			create: 1,
+			hospitalRead: 0,
+			localRead: 1,
+			insert: 0,
+			holdWrite: 0,
+			payment: 0,
+		});
+	});
+}
 
 test("挂号结算在众阳未返回 registerId 时沿用 hisRegisterId", async () => {
 	const providerHisRegisterId = "8842077739088012808";

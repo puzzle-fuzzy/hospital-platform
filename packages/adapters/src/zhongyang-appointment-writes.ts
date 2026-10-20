@@ -107,6 +107,24 @@ function successfulEnvelope(
 		);
 	}
 	if (!ok) {
+		if (
+			operation === "appointment-registration-create" &&
+			code === "smcAppointment@1217"
+		) {
+			throw new ProviderRequestError({
+				provider: "zhongyang",
+				operation,
+				message:
+					"Zhongyang appointment provider rejected duplicate registration",
+				requestId,
+				reason: "appointment-registration-duplicate",
+				providerErrorCode: "smcAppointment@1217",
+				requestOutcome: "rejected",
+				responseInvalid: false,
+				retryable: false,
+				failureStage: "response",
+			});
+		}
 		const cancellationMessage =
 			operation === "appointment-cancellation"
 				? normalizeAppointmentCancellationMessage(value.message)

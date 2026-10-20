@@ -1,3 +1,4 @@
+import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	AppointmentDetailPayload,
 	AppointmentHoldPayload,
@@ -686,6 +687,63 @@ export class AppointmentWriteService {
 		};
 	}
 
+	/** Only an explicit HIS duplicate rejection authorizes looking up an old booking. */
+	private async existingRegistrationAfterDuplicate(input: {
+		ownerUserId: string;
+		patientId: string;
+		providerPatientId: string;
+		departmentId: string;
+		doctorId: string;
+		workDate: string;
+		context: Context;
+	}): Promise<AppointmentRegistration | undefined> {
+		try {
+			const [hospital, registrations] = await Promise.all([
+				this.dependencies.gateway.listActive(
+					{
+						providerPatientId: input.providerPatientId,
+						workDate: input.workDate,
+					},
+					input.context,
+				),
+				this.dependencies.repository.listRegistrationsByPatient({
+					ownerUserId: input.ownerUserId,
+					patientId: input.patientId,
+				}),
+			]);
+			if (
+				!isBoundedOpaqueIdentifier(input.doctorId) ||
+				!isBoundedOpaqueIdentifier(input.departmentId)
+			)
+				return undefined;
+			const matches = registrations.filter(
+				(registration) =>
+					registration.ownerUserId === input.ownerUserId &&
+					registration.patientId === input.patientId &&
+					registration.status === "booked" &&
+					registration.workDate === input.workDate &&
+					registration.doctorId === input.doctorId &&
+					registration.departmentId === input.departmentId &&
+					registration.providerPatientId === input.providerPatientId &&
+					isBoundedOpaqueIdentifier(registration.appointmentId) &&
+					isBoundedOpaqueIdentifier(registration.providerAppointmentId) &&
+					hospital.records.filter(
+						(record) =>
+							record.status === "active" &&
+							record.workDate === input.workDate &&
+							record.providerPatientId === input.providerPatientId &&
+							record.providerAppointmentId ===
+								registration.providerAppointmentId,
+					).length === 1,
+			);
+			return matches.length === 1 ? matches[0] : undefined;
+		} catch {
+			// A directory/storage read failure cannot replace the known HIS rejection
+			// with an unknown write result or authorize another create/payment.
+			return undefined;
+		}
+	}
+
 	async register(input: {
 		ownerUserId: string;
 		patientId: string;
@@ -778,28 +836,54 @@ export class AppointmentWriteService {
 			patientId,
 			context,
 		);
-		const result = await this.dependencies.gateway.create(
-			{
-				patient: profile,
-				target: {
-					scheduleId: hold.scheduleId,
-					providerScheduleId: hold.providerScheduleId,
-					departmentId: snapshot.schedule.departmentId,
-					departmentName: snapshot.schedule.departmentName,
-					doctorId: snapshot.schedule.doctorId,
-					doctorName: snapshot.schedule.doctorName,
-					workDate: snapshot.schedule.workDate,
-					shiftName: snapshot.schedule.shiftName,
-					sourceSerialNumber: hold.sourceSerialNumber,
-					providerSourceId: hold.providerSourceId,
+		let result: Awaited<ReturnType<AppointmentWriteGateway["create"]>>;
+		try {
+			result = await this.dependencies.gateway.create(
+				{
+					patient: profile,
+					target: {
+						scheduleId: hold.scheduleId,
+						providerScheduleId: hold.providerScheduleId,
+						departmentId: snapshot.schedule.departmentId,
+						departmentName: snapshot.schedule.departmentName,
+						doctorId: snapshot.schedule.doctorId,
+						doctorName: snapshot.schedule.doctorName,
+						workDate: snapshot.schedule.workDate,
+						shiftName: snapshot.schedule.shiftName,
+						sourceSerialNumber: hold.sourceSerialNumber,
+						providerSourceId: hold.providerSourceId,
+					},
+					totalFen: hold.totalFen,
+					recordId: context.idempotencyKey
+						.replace(/[^A-Za-z0-9]/g, "")
+						.slice(0, 32),
 				},
-				totalFen: hold.totalFen,
-				recordId: context.idempotencyKey
-					.replace(/[^A-Za-z0-9]/g, "")
-					.slice(0, 32),
-			},
-			context,
-		);
+				context,
+			);
+		} catch (error) {
+			if (
+				!(error instanceof ProviderRequestError) ||
+				error.provider !== "zhongyang" ||
+				error.operation !== "appointment-registration-create" ||
+				error.reason !== "appointment-registration-duplicate" ||
+				error.providerErrorCode !== "smcAppointment@1217" ||
+				error.requestOutcome !== "rejected" ||
+				error.retryable ||
+				error.responseInvalid
+			)
+				throw error;
+			const original = await this.existingRegistrationAfterDuplicate({
+				ownerUserId,
+				patientId,
+				providerPatientId: profile.providerPatientId,
+				departmentId: snapshot.schedule.departmentId,
+				doctorId: snapshot.schedule.doctorId,
+				workDate: snapshot.schedule.workDate,
+				context,
+			});
+			if (original) return outputRegistration(original, "duplicate");
+			throw error;
+		}
 		const registration = await this.dependencies.repository.insertRegistration({
 			appointmentId: this.createId(),
 			ownerUserId,

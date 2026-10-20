@@ -176,6 +176,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-source-unavailable": 30460,
 	"appointment-refund-context-unavailable": 30465,
 	"appointment-refund-pending": 30470,
+	"appointment-registration-duplicate": 30475,
 	"appointment-refund-failed": 30480,
 	"appointment-cancellation-rejected": 30485,
 	"appointment-refund-not-configured": 30490,
@@ -508,6 +509,21 @@ export function errorHandlerPlugin() {
 			}
 
 			if (error instanceof ProviderRequestError) {
+				if (
+					error.reason === "appointment-registration-duplicate" &&
+					error.provider === "zhongyang" &&
+					error.operation === "appointment-registration-create" &&
+					error.providerErrorCode === "smcAppointment@1217" &&
+					error.requestOutcome === "rejected" &&
+					!error.retryable &&
+					!error.responseInvalid
+				) {
+					set.status = 409;
+					return errorPayload(
+						"appointment-registration-duplicate",
+						"您当天已预约该医生，请先查看并处理原预约",
+					);
+				}
 				if (
 					error.reason === "appointment-cancellation-rejected" &&
 					error.provider === "zhongyang" &&

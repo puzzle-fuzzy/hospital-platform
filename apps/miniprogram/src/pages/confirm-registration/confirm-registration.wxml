@@ -53,31 +53,31 @@
 		</view>
 	</view>
 
-	<view wx:if="{{duplicate}}" class="confirm-card confirm-duplicate-card">
+	<view wx:if="{{duplicateDetected}}" class="confirm-card confirm-duplicate-card">
 		<view class="confirm-card-title confirm-duplicate-title">
-			<text>该就诊人已有同日预约</text>
-			<text>未重复挂号</text>
+			<text>当天已预约该医生</text>
 		</view>
-		<view class="confirm-row">
+		<view wx:if="{{duplicate}}" class="confirm-row">
 			<text class="confirm-row-label">已有预约</text>
 			<text class="confirm-row-value">{{duplicate.departmentName}} · {{duplicate.doctorName}}</text>
 		</view>
-		<view class="confirm-row">
+		<view wx:if="{{duplicate}}" class="confirm-row">
 			<text class="confirm-row-label">就诊日期</text>
 			<text class="confirm-row-value">{{duplicate.workDate}} {{duplicate.shiftName}}</text>
 		</view>
-		<view class="confirm-duplicate-hint">系统不会自动重复挂号。确认取消原预约后，才会重新核验号源并进入支付。</view>
-		<view class="confirm-duplicate-action" bindtap="onCancelAndRetry">
-			<text>{{submitting ? '正在取消并重新预约…' : '取消原预约并重新预约'}}</text>
+		<view wx:if="{{duplicate}}" class="confirm-row">
+			<text class="confirm-row-label">挂号序号</text>
+			<text class="confirm-row-value">{{duplicate.sourceSerialNumber}}号</text>
 		</view>
+		<view class="confirm-duplicate-hint">{{duplicate ? '如需重新预约，请先前往原预约详情取消。' : '请前往我的挂号查找原预约，如需重新预约，请先在详情中取消。'}}</view>
+		<button class="confirm-duplicate-action" disabled="{{duplicateNavigating || patientLoading}}" bindtap="onViewExistingAppointment">{{duplicateNavigating ? '正在打开…' : duplicate ? '查看原预约' : '前往我的挂号'}}</button>
 	</view>
 
-	<view wx:if="{{refreshingSources || sourceNotice}}" class="confirm-card confirm-source-card">
+	<view wx:if="{{!duplicateDetected && (refreshingSources || sourceNotice)}}" class="confirm-card confirm-source-card">
 		<view class="confirm-card-title">
 			<text>最新可用时段</text>
 			<text wx:if="{{!refreshingSources && !submitting && !holdId && !holdIdempotencyKey && !registrationIdempotencyKey}}" class="confirm-card-action" bindtap="onRefreshSources">刷新号源</text>
 		</view>
-		<view wx:if="{{originalAppointmentCancelled}}" class="confirm-source-hint">原预约已取消，新预约尚未完成。</view>
 		<view class="confirm-source-hint">{{sourceNotice}}</view>
 		<view wx:if="{{!refreshingSources && !holdId && !holdIdempotencyKey && !registrationIdempotencyKey && sourceChoices.length}}" class="confirm-source-choices">
 			<view wx:for="{{sourceChoices}}" wx:key="serialNumber" data-index="{{index}}" bindtap="onSourceChoiceTap" class="confirm-source-choice {{!sourceSelectionRequired && serialNumber === item.serialNumber && timeLabel === item.timeLabel ? 'confirm-source-choice-selected' : ''}}">
@@ -87,7 +87,7 @@
 		</view>
 	</view>
 
-	<view class="confirm-agree" bindtap="onToggleAgree">
+	<view wx:if="{{!duplicateDetected}}" class="confirm-agree" bindtap="onToggleAgree">
 		<view class="confirm-checkbox {{agreed ? 'confirm-checkbox-on' : ''}}">
 			<text wx:if="{{agreed}}" class="confirm-checkbox-mark">✓</text>
 		</view>
@@ -95,17 +95,17 @@
 		<text class="confirm-agree-link" catchtap="onOpenNotice">《预约挂号须知》</text>
 	</view>
 
-	<view class="confirm-submit {{agreed && !submitting && !refreshingSources && !sourceSelectionRequired ? '' : 'confirm-submit-off'}}" bindtap="onConfirmTap">
+	<view wx:if="{{!duplicateDetected}}" class="confirm-submit {{agreed && !submitting && !refreshingSources && !sourceSelectionRequired ? '' : 'confirm-submit-off'}}" bindtap="onConfirmTap">
 		<text>{{refreshingSources ? '正在更新号源…' : submitting ? '正在提交预约…' : sourceSelectionRequired ? '请先选择可用时段' : '确定预约'}}</text>
 	</view>
 
-	<view wx:if="{{!submitting && !refreshingSources && (holdId || holdIdempotencyKey || registrationIdempotencyKey)}}" class="confirm-note">上次预约结果尚未确认，请点“确定预约”继续确认。</view>
+	<view wx:if="{{!duplicateDetected && !submitting && !refreshingSources && (holdId || holdIdempotencyKey || registrationIdempotencyKey)}}" class="confirm-note">上次预约结果尚未确认，请点“确定预约”继续确认。</view>
 
 	<view wx:if="{{error}}" class="confirm-note confirm-error">
 		<text>{{error}}</text>
 	</view>
 
-	<view class="confirm-note">
+	<view wx:if="{{!duplicateDetected}}" class="confirm-note">
 		<text>预约会先由服务端重新核验号源并写入，成功后进入挂号支付页；金额、医保授权和微信调起参数均由服务端生成。</text>
 	</view>
 </scroll-view>

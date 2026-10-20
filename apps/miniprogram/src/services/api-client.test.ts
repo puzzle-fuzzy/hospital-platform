@@ -576,6 +576,35 @@ test("患者范围读取失败使用页面领域兜底，但保留明确业务�
 	).toBe("登录已过期，请重新登录");
 });
 
+test("30475使用固定原预约引导，不透传上游原文也不被读取兜底压扁", () => {
+	const message = "您当天已预约该医生，请先查看并处理原预约";
+	for (const raw of [
+		message,
+		"1217 重复预约 patientName=不可展示",
+		"SQLSTATE 42S02",
+		`${message} 手机号13800000000`,
+	]) {
+		const error = new ApiError(raw, {
+			code: "appointment-registration-duplicate",
+			statusCode: 409,
+		});
+		expect(error.numericCode).toBe(30475);
+		expect(safeApiErrorMessage(error, "预约失败")).toBe(message);
+		expect(
+			contextualApiErrorMessage(error, "预约暂时无法完成，请稍后重试"),
+		).toBe(message);
+	}
+	expect(
+		contextualApiErrorMessage(
+			new ApiError(message, {
+				code: "provider-request-rejected",
+				numericCode: 10800,
+			}),
+			"预约暂时无法完成，请稍后重试",
+		),
+	).toBe("预约暂时无法完成，请稍后重试");
+});
+
 test("取消预约拒绝保留安全 HIS 原因，其他 Provider 错误仍使用静态文案", () => {
 	const message = "临近就诊时间，不能取消预约，请去门诊窗口处理";
 	const error = new ApiError(message, {

@@ -74,7 +74,7 @@ test("医院取消业务提示不展示内部连接、数据库或 IP 诊断", (
 type TestPage = {
 	data: Record<string, unknown>;
 	setData(patch: Record<string, unknown>): void;
-	onCancelAndRetry(): void;
+	onViewExistingAppointment(): void;
 	onCancel(): void;
 	submitRegistration(): void;
 };
@@ -109,6 +109,7 @@ async function cancellationPage(
 	let definition: TestPage | undefined;
 	let registrationCalls = 0;
 	const calls: string[] = [];
+	const redirects: string[] = [];
 	const modals: ModalOptions[] = [];
 	const toasts: { title: string; icon: string }[] = [];
 	const app = {
@@ -148,6 +149,7 @@ async function cancellationPage(
 			},
 			showToast: (options: { title: string; icon: string }) =>
 				toasts.push(options),
+			redirectTo: (options: { url: string }) => redirects.push(options.url),
 		},
 	});
 	// 独立模块实例避免同进程其他页面测试的 import 缓存绕过 Page 捕获。
@@ -172,28 +174,36 @@ async function cancellationPage(
 	return {
 		page,
 		calls,
+		redirects,
 		modals,
 		toasts,
 		registrationCalls: () => registrationCalls,
 	};
 }
 
-test("取消原预约失败显示医院窗口原因，保留 duplicate 且不重新预约", async () => {
+test("确认页原预约操作仅打开详情，不发取消或重新预约", async () => {
 	const fixture = await cancellationPage("confirm-registration");
 	const duplicate = {
 		appointmentId: "appointment-001",
 		patientId: "patient-001",
 		status: "duplicate",
 	};
-	Object.assign(fixture.page.data, { duplicate, submitting: false });
-	fixture.page.onCancelAndRetry();
+	Object.assign(fixture.page.data, {
+		duplicate,
+		duplicateDetected: true,
+		duplicatePatientId: "patient-001",
+		duplicateSessionGeneration: getSessionGeneration(),
+		submitting: false,
+	});
+	fixture.page.onViewExistingAppointment();
 	await new Promise((resolve) => setTimeout(resolve, 0));
-	expect(fixture.page.data.error).toBe(`${HIS_MESSAGE}（错误码 30485）`);
+	expect(fixture.page.data.error).toBe("");
 	expect(fixture.page.data.duplicate).toBe(duplicate);
 	expect(fixture.page.data.submitting).toBeFalse();
 	expect(fixture.registrationCalls()).toBe(0);
-	expect(fixture.calls).toEqual([
-		"POST /api/v2/appointments/registrations/appointment-001/cancel",
+	expect(fixture.calls).toEqual([]);
+	expect(fixture.redirects).toEqual([
+		"/pages/appointment-detail/appointment-detail?patientId=patient-001&appointmentId=appointment-001",
 	]);
 	expect(fixture.toasts).toHaveLength(0);
 });

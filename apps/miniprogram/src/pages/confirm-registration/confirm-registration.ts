@@ -2,7 +2,6 @@ import {
 	ApiError,
 	contextualApiErrorMessage,
 	createIdempotencyKey,
-	requestAppointmentCancellation,
 	requestAppointmentHold,
 	requestAppointmentRegistration,
 	requestAppointmentScheduleSources,
@@ -31,6 +30,7 @@ import {
 	getSessionGeneration,
 	isCurrentSessionGeneration,
 } from "../../services/session-generation";
+import { hasPlatformSession } from "../../services/session-service";
 import { logClientErrorTransformed } from "../../services/telemetry";
 import type { ConfirmRegistrationPageData } from "../../types";
 
@@ -41,7 +41,7 @@ type ConfirmRegistrationPageMethods = {
 	onOpenNotice(): void;
 	onConfirmTap(): void;
 	submitRegistration(recoverSources?: boolean): void;
-	onCancelAndRetry(): void;
+	onViewExistingAppointment(): void;
 	loadSourceContext(): Promise<void>;
 	refreshSources(autoContinue?: boolean): Promise<void>;
 	onRefreshSources(): void;
@@ -77,7 +77,6 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		sourceChoices: [],
 		sourceSelectionRequired: false,
 		sourceNotice: "",
-		originalAppointmentCancelled: false,
 		departmentName: "",
 		registrationClassName: "",
 		hospitalAreaName: "",
@@ -96,6 +95,10 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		holdIdempotencyKey: "",
 		registrationIdempotencyKey: "",
 		duplicate: null,
+		duplicateDetected: false,
+		duplicatePatientId: "",
+		duplicateSessionGeneration: -1,
+		duplicateNavigating: false,
 		error: "",
 	},
 
@@ -144,7 +147,10 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 					holdIdempotencyKey: "",
 					registrationIdempotencyKey: "",
 					duplicate: null,
-					originalAppointmentCancelled: false,
+					duplicateDetected: false,
+					duplicatePatientId: "",
+					duplicateSessionGeneration: -1,
+					duplicateNavigating: false,
 					error: "",
 				});
 			},
@@ -154,7 +160,15 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	},
 
 	onShow() {
+		// navigateTo 兜底会保留当前页；返回后允许再次查看，并淘汰旧导航回调。
+		getPageLatestRequestGuard(this, "registration-navigation").begin();
+		if (this.data.duplicateNavigating)
+			this.setData({ duplicateNavigating: false });
 		// 从统一就诊人选择页返回后重新确认，不沿用上一位就诊人卡片。
+		if (this.data.patientId && !isCurrentSelectedPatient(this.data.patientId)) {
+			this.loadPatient();
+			return;
+		}
 		if (
 			!this.data.patientLoading &&
 			!this.data.submitting &&
@@ -164,6 +178,28 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	},
 
 	loadPatient(): void {
+		if (
+			(this.data.patientId && !isCurrentSelectedPatient(this.data.patientId)) ||
+			(this.data.duplicateDetected &&
+				!isCurrentSessionGeneration(this.data.duplicateSessionGeneration))
+		) {
+			getPageLatestRequestGuard(this, "registration-command").begin();
+			getPageLatestRequestGuard(this, "registration-sources").begin();
+			getPageLatestRequestGuard(this, "registration-navigation").begin();
+			this.setData({
+				duplicate: null,
+				duplicateDetected: false,
+				duplicatePatientId: "",
+				duplicateSessionGeneration: -1,
+				duplicateNavigating: false,
+				submitting: false,
+				refreshingSources: false,
+				holdId: "",
+				holdIdempotencyKey: "",
+				registrationIdempotencyKey: "",
+				error: "",
+			});
+		}
 		const guard = getPageLatestRequestGuard(this, "registration-patient");
 		const token = guard.begin();
 		const session = getSessionGeneration();
@@ -178,6 +214,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 				if (patientChanged) {
 					getPageLatestRequestGuard(this, "registration-command").begin();
 					getPageLatestRequestGuard(this, "registration-sources").begin();
+					getPageLatestRequestGuard(this, "registration-navigation").begin();
 				}
 				this.setData({
 					patientId: patient.id,
@@ -192,7 +229,10 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 								holdIdempotencyKey: "",
 								registrationIdempotencyKey: "",
 								duplicate: null,
-								originalAppointmentCancelled: false,
+								duplicateDetected: false,
+								duplicatePatientId: "",
+								duplicateSessionGeneration: -1,
+								duplicateNavigating: false,
 								submitting: false,
 								refreshingSources: false,
 							}
@@ -215,6 +255,10 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 					holdIdempotencyKey: "",
 					registrationIdempotencyKey: "",
 					duplicate: null,
+					duplicateDetected: false,
+					duplicatePatientId: "",
+					duplicateSessionGeneration: -1,
+					duplicateNavigating: false,
 				});
 			})
 			.finally(() => {
@@ -223,7 +267,12 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	},
 
 	onOpenPatientSelector(): void {
-		if (this.data.submitting || this.data.refreshingSources) return;
+		if (
+			this.data.submitting ||
+			this.data.refreshingSources ||
+			this.data.duplicateNavigating
+		)
+			return;
 		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
 	},
 
@@ -252,7 +301,9 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		if (
 			this.data.submitting ||
 			this.data.refreshingSources ||
-			this.data.patientLoading
+			this.data.patientLoading ||
+			this.data.duplicateDetected ||
+			this.data.duplicate
 		)
 			return;
 		if (this.data.sourceSelectionRequired) {
@@ -272,18 +323,18 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 			return;
 		}
 
-		this.setData({ duplicate: null });
 		this.submitRegistration();
 	},
 
 	/**
-	 * 预约写入的可重试主体。重复预约取消成功后复用同一入口，确保重新
-	 * 取号、锁号和支付上下文都从服务端重新开始。
+	 * 普通预约写入的可重试主体；已有预约由用户前往原详情独立处理。
 	 */
 	submitRegistration(recoverSources = true): void {
 		if (
 			!this.data.patientId ||
 			this.data.patientLoading ||
+			this.data.duplicateDetected ||
+			this.data.duplicate ||
 			!isCurrentSelectedPatient(this.data.patientId)
 		)
 			return;
@@ -331,14 +382,21 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 			);
 			if (!current()) return;
 			if (registration.data.status === "duplicate") {
-				// 不能把 duplicate 当 booked 继续跳支付；保留原预约信息，
-				// 只有明确取消成功后才允许再次取号和写入。
+				// 原预约只能由服务端核对返回，不能借用本次 hold 或跳转新支付。
+				getPageLatestRequestGuard(this, "registration-sources").begin();
 				this.setData({
 					submitting: false,
+					refreshingSources: false,
 					holdId: "",
 					holdIdempotencyKey: "",
 					registrationIdempotencyKey: "",
 					duplicate: registration.data,
+					duplicateDetected: true,
+					duplicatePatientId: patientId,
+					duplicateSessionGeneration: session,
+					duplicateNavigating: false,
+					sourceChoices: [],
+					sourceNotice: "",
 					error: "",
 				});
 				return;
@@ -356,6 +414,28 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 			});
 		})().catch((error: unknown) => {
 			if (!current()) return;
+			if (
+				error instanceof ApiError &&
+				error.code === "appointment-registration-duplicate"
+			) {
+				getPageLatestRequestGuard(this, "registration-sources").begin();
+				this.setData({
+					submitting: false,
+					refreshingSources: false,
+					holdId: "",
+					holdIdempotencyKey: "",
+					registrationIdempotencyKey: "",
+					duplicate: null,
+					duplicateDetected: true,
+					duplicatePatientId: patientId,
+					duplicateSessionGeneration: session,
+					duplicateNavigating: false,
+					sourceChoices: [],
+					sourceNotice: "",
+					error: "",
+				});
+				return;
+			}
 			// 只有锁号前的明确拒绝可换引用和幂等键；超时/未知结果必须保留原请求。
 			if (!holdCompleted && isSourceChangedError(error)) {
 				this.setData({
@@ -380,75 +460,57 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 		});
 	},
 
-	onCancelAndRetry(): void {
+	onViewExistingAppointment(): void {
 		const duplicate = this.data.duplicate;
+		const patientId = this.data.patientId;
 		if (
-			!duplicate ||
+			!this.data.duplicateDetected ||
+			this.data.duplicateNavigating ||
 			this.data.submitting ||
 			this.data.refreshingSources ||
-			!this.data.patientId ||
-			!isCurrentSelectedPatient(this.data.patientId) ||
+			!patientId ||
+			!hasPlatformSession() ||
+			this.data.duplicatePatientId !== patientId ||
+			!isCurrentSessionGeneration(this.data.duplicateSessionGeneration) ||
+			!isCurrentSelectedPatient(patientId) ||
 			this.data.patientLoading
 		)
 			return;
-		const guard = getPageLatestRequestGuard(this, "registration-command");
+		const guard = getPageLatestRequestGuard(this, "registration-navigation");
 		const token = guard.begin();
-		const patientId = this.data.patientId;
 		const session = getSessionGeneration();
 		const current = () =>
 			guard.isCurrent(token) &&
 			this.data.patientId === patientId &&
 			isCurrentSelectedPatient(patientId) &&
-			isCurrentSessionGeneration(session);
-		// 打开确认框即锁定，防止连点产生多个取消请求。
-		this.setData({ submitting: true, error: "" });
-		let cancellationRequested = false;
-		wx.showModal({
-			title: "确认取消并重新预约？",
-			content:
-				"将先取消当前已有预约。取消成功后，系统会重新核验号源、重新预约，再进入支付；取消失败时会保留原预约。",
-			confirmText: "确认继续",
-			success: (result) => {
-				if (!current() || cancellationRequested) return;
-				if (!result.confirm) {
-					this.setData({ submitting: false });
-					return;
-				}
-				cancellationRequested = true;
-				void requestAppointmentCancellation(duplicate.appointmentId)
-					.then(() => {
-						if (!current()) return;
-						this.setData({
-							duplicate: null,
-							originalAppointmentCancelled: true,
-							holdId: "",
-							holdIdempotencyKey: "",
-							registrationIdempotencyKey: "",
-							submitting: false,
-							sourceSelectionRequired: true,
-							sourceNotice: "原预约已取消，正在核验最新号源…",
-						});
-						return this.refreshSources(true);
-					})
-					.catch((error: unknown) => {
-						if (!current()) return;
-						const message = contextualApiErrorMessage(
-							error,
-							"原预约取消失败，请勿重复预约；请稍后重试",
-						);
-						this.setData({
-							submitting: false,
-							error: errorMessageWithCode(error, message),
-						});
-						logClientErrorTransformed(
-							"confirm-registration.cancel-duplicate",
-							error,
-						);
-					});
-			},
+			isCurrentSessionGeneration(session) &&
+			hasPlatformSession();
+		if (!current()) return;
+		getPageLatestRequestGuard(this, "registration-command").begin();
+		getPageLatestRequestGuard(this, "registration-sources").begin();
+		this.setData({ duplicateNavigating: true });
+		const query = `patientId=${encodeURIComponent(patientId)}`;
+		const url =
+			duplicate?.patientId === patientId
+				? `/pages/appointment-detail/appointment-detail?${query}&appointmentId=${encodeURIComponent(duplicate.appointmentId)}`
+				: `/pages/appointment-records/appointment-records?${query}`;
+		let fallbackStarted = false;
+		wx.redirectTo({
+			url,
 			fail: () => {
-				if (current() && !cancellationRequested)
-					this.setData({ submitting: false });
+				if (!current() || fallbackStarted) return;
+				fallbackStarted = true;
+				wx.navigateTo({
+					url,
+					fail: () => {
+						if (!current()) return;
+						this.setData({ duplicateNavigating: false });
+						wx.showToast({
+							title: "页面暂时无法打开，请稍后重试",
+							icon: "none",
+						});
+					},
+				});
 			},
 		});
 	},
@@ -496,6 +558,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	async refreshSources(autoContinue = false): Promise<void> {
 		if (
 			this.data.holdId ||
+			this.data.duplicateDetected ||
 			this.data.holdIdempotencyKey ||
 			this.data.registrationIdempotencyKey ||
 			this.data.refreshingSources ||
@@ -601,6 +664,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	onRefreshSources(): void {
 		if (
 			this.data.submitting ||
+			this.data.duplicateDetected ||
 			this.data.refreshingSources ||
 			this.data.holdId ||
 			this.data.holdIdempotencyKey ||
@@ -613,6 +677,7 @@ Page<ConfirmRegistrationPageData, ConfirmRegistrationPageMethods>({
 	onSourceChoiceTap(event): void {
 		if (
 			this.data.submitting ||
+			this.data.duplicateDetected ||
 			this.data.refreshingSources ||
 			this.data.holdId ||
 			this.data.holdIdempotencyKey ||

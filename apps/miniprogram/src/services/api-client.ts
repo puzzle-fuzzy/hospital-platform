@@ -187,6 +187,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"appointment-hold-not-found": "预约占位已失效，请重新选择号源",
 		"appointment-hold-expired": "号源占位已失效，请重新选择号源",
 		"appointment-registration-not-found": "未找到对应的预约记录",
+		"appointment-registration-duplicate":
+			"您当天已预约该医生，请先查看并处理原预约",
 		"appointment-medical-payment-active":
 			"该预约已有医保支付流水，不能直接取消，请先完成或由收费端处理",
 		"appointment-payment-active":

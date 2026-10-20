@@ -45,6 +45,7 @@ type ErrorMetadata = {
 	providerRequestOutcome?: "not_sent" | "rejected" | "unknown";
 	providerFailureReason?:
 		| "appointment-source-unavailable"
+		| "appointment-registration-duplicate"
 		| "payment-order-not-found"
 		| "medical-insurance-payment-in-progress"
 		| "medical-insurance-cancellation-context-missing";
@@ -113,6 +114,16 @@ function publicErrorCode(error: unknown): string | undefined {
 	if (error instanceof HttpError) return error.code;
 	if (error instanceof ProviderRequestError) {
 		if (
+			error.reason === "appointment-registration-duplicate" &&
+			error.provider === "zhongyang" &&
+			error.operation === "appointment-registration-create" &&
+			error.providerErrorCode === "smcAppointment@1217" &&
+			error.requestOutcome === "rejected" &&
+			!error.retryable &&
+			!error.responseInvalid
+		)
+			return "appointment-registration-duplicate";
+		if (
 			error.reason === "appointment-cancellation-rejected" &&
 			error.provider === "zhongyang" &&
 			error.operation === "appointment-cancellation" &&
@@ -160,6 +171,12 @@ export function safeErrorMetadata(
 		return {
 			...metadata,
 			...providerFailureMetadata(error),
+			...(resolvedErrorCode === "appointment-registration-duplicate"
+				? {
+						providerFailureReason:
+							"appointment-registration-duplicate" as const,
+					}
+				: {}),
 		};
 	}
 	if (error instanceof PersistenceUnavailableError) {

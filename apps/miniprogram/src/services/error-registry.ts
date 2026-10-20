@@ -48,6 +48,7 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-source-unavailable": 30460,
 	"appointment-refund-context-unavailable": 30465,
 	"appointment-refund-pending": 30470,
+	"appointment-registration-duplicate": 30475,
 	"appointment-refund-failed": 30480,
 	"appointment-cancellation-rejected": 30485,
 	"appointment-refund-not-configured": 30490,

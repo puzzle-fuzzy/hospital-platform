@@ -591,7 +591,6 @@ export type ConfirmRegistrationPageData = {
 	sourceChoices: Array<AppointmentScheduleSource>;
 	sourceSelectionRequired: boolean;
 	sourceNotice: string;
-	originalAppointmentCancelled: boolean;
 	departmentName: string;
 	/** 旧端确认页的真实挂号类型名称；缺失时不拼接虚假号别。 */
 	registrationClassName: string;
@@ -610,8 +609,12 @@ export type ConfirmRegistrationPageData = {
 	holdId: string;
 	holdIdempotencyKey: string;
 	registrationIdempotencyKey: string;
-	/** 服务端判定已有同日预约时保留原预约，禁止直接进入支付。 */
+	/** 服务端唯一核对的原预约；无法唯一核对时只提供挂号记录入口。 */
 	duplicate: AppointmentRegistrationResponse["data"] | null;
+	duplicateDetected: boolean;
+	duplicatePatientId: string;
+	duplicateSessionGeneration: number;
+	duplicateNavigating: boolean;
 	error: string;
 };
 

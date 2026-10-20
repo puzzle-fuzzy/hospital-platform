@@ -38,6 +38,8 @@ export type ProviderRequestOutcome = "not_sent" | "rejected" | "unknown";
 /** 已确认的 Provider/医保流程边界原因；只用于稳定映射和低敏日志。 */
 export type ProviderFailureReason =
 	| "appointment-source-unavailable"
+	/** HIS 明确拒绝当天同一医生的重复预约，不携带患者或原预约信息。 */
+	| "appointment-registration-duplicate"
 	/** HIS 明确拒绝取消预约，附带通过安全边界校验的患者可见业务原因。 */
 	| "appointment-cancellation-rejected"
 	/** 微信查单明确返回订单不存在，可安全把本地尝试置为 failed 后重试。 */

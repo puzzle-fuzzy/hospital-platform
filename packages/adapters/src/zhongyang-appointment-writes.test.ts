@@ -169,6 +169,135 @@ test("预约创建映射服务端患者资料、非支付预约字段和大整�
 	});
 });
 
+function registrationCreateInput() {
+	return {
+		patient: {
+			providerPatientId: "1001",
+			name: "测试患者",
+			cardNo: "TEST-CARD",
+			idNo: "11010519900101007X",
+			phone: "13800000000",
+		},
+		target: {
+			scheduleId: "schedule-001",
+			providerScheduleId: "1002",
+			departmentId: "department-001",
+			departmentName: "测试科室",
+			doctorId: "doctor-001",
+			doctorName: "测试医生",
+			providerSourceId: "1003",
+			workDate: "2026-10-20",
+			shiftName: "上午",
+			sourceSerialNumber: "7",
+		},
+		totalFen: 1000,
+		recordId: "test-registration-001",
+	};
+}
+
+test("创建预约仅把明确的 1217 业务拒绝标记为重复预约且不保存医院原文", async () => {
+	const privateMessage = "您已经预约同一天测试医生1次，患者姓名和token=private";
+	const gateway = createZhongyangAppointmentWriteGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			jsonResponse(
+				{
+					success: false,
+					code: "smcAppointment@1217",
+					message: privateMessage,
+				},
+				"duplicate-registration-001",
+			),
+	});
+	try {
+		await gateway.create(registrationCreateInput(), context);
+		throw new Error("Duplicate registration must not succeed");
+	} catch (error) {
+		expect(error).toBeInstanceOf(ProviderRequestError);
+		expect(error).toMatchObject({
+			provider: "zhongyang",
+			operation: "appointment-registration-create",
+			requestId: "duplicate-registration-001",
+			reason: "appointment-registration-duplicate",
+			providerErrorCode: "smcAppointment@1217",
+			requestOutcome: "rejected",
+			failureStage: "response",
+			retryable: false,
+			responseInvalid: false,
+			providerErrorMessage: undefined,
+		});
+		expect(String(error)).not.toContain(privateMessage);
+		expect(JSON.stringify(error)).not.toContain(privateMessage);
+	}
+});
+
+test("相近错误码及其它操作不能被误判为重复预约", async () => {
+	for (const code of [
+		"1217",
+		1217,
+		"smcAppointment@12170",
+		"SMCAppointment@1217",
+		" smcAppointment@1217",
+	]) {
+		const gateway = createZhongyangAppointmentWriteGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				jsonResponse(
+					{ success: false, code, message: "您已经预约同一天测试医生1次" },
+					"near-duplicate-code",
+				),
+		});
+		await expect(
+			gateway.create(registrationCreateInput(), context),
+		).rejects.toMatchObject({
+			reason: undefined,
+			providerErrorCode: undefined,
+			providerErrorMessage: undefined,
+			responseInvalid: false,
+		});
+	}
+	const gateway = createZhongyangAppointmentWriteGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			jsonResponse(
+				{ success: false, code: "smcAppointment@1217", message: "医院原文" },
+				"other-operation-1217",
+			),
+	});
+	await expect(
+		gateway.getFactRegisterFee(
+			{ providerPatientId: "1001", providerScheduleId: "1002" },
+			context,
+		),
+	).rejects.toMatchObject({
+		operation: "appointment-fact-register-fee",
+		reason: undefined,
+		providerErrorCode: undefined,
+		providerErrorMessage: undefined,
+	});
+});
+
+test("沿用成功封套判定，成功响应中的 1217 不触发重复预约拒绝", async () => {
+	for (const envelope of [
+		{ success: true, code: "smcAppointment@1217" },
+		{ success: false, code: 0 },
+	]) {
+		const gateway = createZhongyangAppointmentWriteGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				jsonResponse(
+					{ ...envelope, data: { appointmentInfoId: "2001" } },
+					"successful-registration-envelope",
+				),
+		});
+		expect(
+			await gateway.create(registrationCreateInput(), context),
+		).toMatchObject({
+			providerAppointmentId: "2001",
+		});
+	}
+});
+
 test("预约取消只向 Provider 发送服务端映射后的标识并返回关联号", async () => {
 	let requestUrl = "";
 	let requestBody: unknown;
