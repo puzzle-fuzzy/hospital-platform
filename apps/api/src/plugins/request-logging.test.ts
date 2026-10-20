@@ -11,7 +11,17 @@ import {
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { HttpError } from "../errors";
 import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
+import { MedicalInsuranceRegionUnsupportedError } from "../modules/medical-insurance/errors";
 import { safeErrorMetadata } from "./request-logging";
+
+test("新增重复预约日志映射时保留已上线的参保地拒绝分类", () => {
+	expect(
+		safeErrorMetadata(new MedicalInsuranceRegionUnsupportedError(), "UNKNOWN"),
+	).toEqual({
+		errorName: "MedicalInsuranceRegionUnsupportedError",
+		errorCode: "medical-insurance-region-unsupported",
+	});
+});
 
 test("请求日志把可重试 Provider 失败映射为稳定业务错误码", () => {
 	const error = new ProviderRequestError({
