@@ -1,8 +1,6 @@
 import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
-import { resolve as resolvePath } from 'node:path';
-import { parseEnv } from 'node:util';
 
+import { ensurePublicEnv } from './ensure-public-env.mjs';
 import { admin2Root, isMain } from './paths.mjs';
 
 // Command strings are constants, never assembled from command-line input.
@@ -35,14 +33,20 @@ export function publicAction(argv) {
 export async function runFixedPnpm(action) {
   const spec = pnpmSpawnSpec(action);
   const mode = action === 'build:antd' ? 'production' : 'development';
-  const publicEnv = action === 'build:antd' || action === 'dev:antd' ? {
-    ...parseEnv(await readFile(resolvePath(admin2Root, 'apps/web-antd/.env.example'), 'utf8')),
-    ...parseEnv(await readFile(resolvePath(admin2Root, `apps/web-antd/.env.${mode}.example`), 'utf8')),
-  } : {};
+  const renderAction = action === 'build:antd' || action === 'dev:antd';
+  const materialized = renderAction ? await ensurePublicEnv() : undefined;
+  const environment = { ...process.env, ...(action === 'install' ? { CI: 'true', LEFTHOOK: '0' } : {}) };
+  if (materialized) {
+    // Keep Vite's process-env precedence consistent with the fixed public files.
+    for (const key of Object.keys(environment)) {
+      if (key.toUpperCase().startsWith('VITE_')) delete environment[key];
+    }
+    Object.assign(environment, materialized.byMode[mode]);
+  }
   await new Promise((resolve, reject) => {
     const child = spawn(spec.command, spec.args, {
       cwd: spec.cwd,
-      env: { ...publicEnv, ...process.env, ...(action === 'install' ? { CI: 'true', LEFTHOOK: '0' } : {}) },
+      env: environment,
       shell: false,
       stdio: 'inherit',
       windowsHide: true,

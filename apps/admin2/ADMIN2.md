@@ -60,4 +60,14 @@ node --test apps/admin2/tools/tools.test.mjs
 
 Vben 的 Iconify 图标可按名称在运行时访问外部图标服务；生产 CSP 不允许这类请求。医院应用应在应用层预注册实际使用的离线图标，或使用构建时已打包的图标。不要为图标修改官方组件或增加公网 `connect-src`。最终浏览器验收应同时检查菜单图标、主题切换、登录、只读权限和 `/api` 请求。
 
-应用公开构建配置保存在 `apps/web-antd/.env*.example`，执行入口按开发 / 生产模式加载并传给 Vben 原生构建，不提交真实 `.env` 或凭据。外层 Biome 不重排 Vben 官方源码；应用使用官方格式工具与 Vue 类型检查。
+应用公开构建配置保存在已提交的三个固定模板：`apps/web-antd/.env.example`、`.env.development.example` 和 `.env.production.example`。开发和构建入口会先在同一应用目录生成对应的 `.env`、`.env.development` 和 `.env.production`，使 Vben 原生配置读取以及 `_app.config.js` 在全新检出时也能正确获得 `/api`。这三个生成文件被 Git 忽略，仅含浏览器公开参数，不包含部署环境或凭据。
+
+生成前校验固定路径及符号链接 / Windows junction。已有相同字节的文件保持原样；已有不同字节时直接停止，不覆盖。所有 `.env.local`、`.env.<mode>.local` 覆盖文件均会使开发 / 构建停止，只报告路径，不读取或输出其内容。更改公开构建参数时，应审查并修改已提交的 `.env*.example`，主动核对或清理本地旧生成文件后重跑；不要用本地覆盖文件携带后端值。子进程的 `VITE_*` 也以本次固定模板为准，避免宿主环境覆盖产物。
+
+必要时可单独核验 / 生成这三个公开文件，不接受额外路径或模式参数：
+
+```powershell
+node apps/admin2/tools/ensure-public-env.mjs
+```
+
+外层 Biome 不重排 Vben 官方源码；应用使用官方格式工具与 Vue 类型检查。
