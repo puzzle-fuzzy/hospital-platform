@@ -30,7 +30,6 @@ async function handleLogout() {
         :menus="menus"
         :text="userStore.userInfo?.realName"
         :description="userStore.userInfo?.desc"
-        tag-text="2.0"
         @logout="handleLogout"
         @clear-preferences-and-logout="handleLogout"
       />

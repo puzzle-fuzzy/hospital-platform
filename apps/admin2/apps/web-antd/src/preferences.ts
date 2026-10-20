@@ -11,7 +11,6 @@ export const overridesPreferences = defineOverridesPreferences({
     enableRefreshToken: false,
   },
   logo: { source: '/hospital-logo.svg' },
-  theme: { mode: 'light' },
   copyright: {
     companyName: '高平市人民医院',
     companySiteLink: '',

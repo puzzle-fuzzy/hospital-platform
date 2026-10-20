@@ -4,7 +4,6 @@ import type { CaptchaState } from '#/hospital/types';
 import { computed, markRaw, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { AuthenticationLogin, z } from '@vben/common-ui';
-import { Alert, Button, Segmented } from 'ant-design-vue';
 import { loadCaptcha } from '#/hospital/api';
 import CaptchaField from '#/hospital/captcha-field.vue';
 import { useAuthStore } from '#/store';
@@ -14,9 +13,8 @@ const authStore = useAuthStore();
 const route = useRoute();
 const initialMode =
   route.query.mode ?? new URLSearchParams(window.location.search).get('mode');
-const loginMode = ref<'operator' | 'viewer'>(
-  initialMode === 'viewer' ? 'viewer' : 'operator',
-);
+const defaultMode = initialMode === 'viewer' ? 'viewer' : 'operator';
+const loginMode = ref<'operator' | 'viewer'>(defaultMode);
 const captcha = ref<CaptchaState>({ enabled: true, key: '', image: '' });
 const captchaLoading = ref(false);
 const captchaError = ref('');
@@ -29,6 +27,7 @@ const options = [
 async function refreshCaptcha() {
   if (loginMode.value !== 'operator') return;
   const request = ++generation;
+  captcha.value = { enabled: true, key: '', image: '' };
   captchaLoading.value = true;
   captchaError.value = '';
   try {
@@ -56,8 +55,32 @@ function changeMode(value: string | number) {
 }
 const formSchema = computed((): VbenFormSchema[] => [
   {
+    component: 'VbenSelect',
+    componentProps: {
+      options,
+      placeholder: '请选择登录方式',
+      disabled: authStore.loginLoading,
+    },
+    defaultValue: defaultMode,
+    fieldName: 'loginMode',
+    label: '登录方式',
+    rules: z.enum(['operator', 'viewer']).default(defaultMode),
+  },
+  {
     component: 'VbenInput',
     componentProps: { placeholder: '请输入账号', autocomplete: 'username' },
+    dependencies: {
+      trigger(values) {
+        const mode = values.loginMode;
+        if (
+          (mode === 'operator' || mode === 'viewer') &&
+          mode !== loginMode.value
+        ) {
+          changeMode(mode);
+        }
+      },
+      triggerFields: ['loginMode'],
+    },
     fieldName: 'username',
     label: '账号',
     rules: z.string().trim().min(1, '请输入账号'),
@@ -78,6 +101,7 @@ const formSchema = computed((): VbenFormSchema[] => [
           component: markRaw(CaptchaField),
           fieldName: 'captcha',
           label: '验证码',
+          description: captchaError.value || undefined,
           componentProps: {
             image: captcha.value.image,
             loading: captchaLoading.value,
@@ -114,97 +138,13 @@ onBeforeUnmount(() => {
 <template>
   <AuthenticationLogin
     ref="loginForm"
-    class="hospital-login"
     :form-schema="formSchema"
     :loading="authStore.loginLoading"
-    :show-remember-me="true"
     :show-forget-password="false"
     :show-code-login="false"
     :show-qrcode-login="false"
     :show-register="false"
     :show-third-party-login="false"
     @submit="submit"
-  >
-    <template #title>
-      <div class="hospital-login__heading">
-        <h1 id="hospital-login-title">登录</h1>
-        <Segmented
-          size="small"
-          :value="loginMode"
-          :options="options"
-          :disabled="authStore.loginLoading"
-          @change="changeMode"
-        />
-      </div>
-      <Alert
-        v-if="captchaError"
-        class="mb-5"
-        :message="captchaError"
-        type="error"
-        show-icon
-      >
-        <template #action
-          ><Button size="small" @click="refreshCaptcha"
-            >重新加载</Button
-          ></template
-        >
-      </Alert>
-    </template>
-    <template #third-party-login>
-      <p class="hospital-login__note">
-        {{
-          loginMode === 'viewer'
-            ? '只读账号可查看支付与日志，不能退费或取消挂号。'
-            : '请使用已授权的运营管理账号登录。'
-        }}
-      </p>
-    </template>
-  </AuthenticationLogin>
+  />
 </template>
-
-<style scoped>
-.hospital-login__heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 28px;
-}
-.hospital-login__heading h1 {
-  margin: 0;
-  color: inherit;
-  font-size: 28px;
-  font-weight: 600;
-  line-height: 40px;
-}
-.hospital-login__note {
-  margin: 20px 0 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 12px;
-  line-height: 1.8;
-}
-.hospital-login :deep(input) {
-  min-height: 40px;
-  border-radius: 6px;
-  font-size: 14px;
-}
-.hospital-login :deep(button[aria-label='login']) {
-  height: 42px;
-  border-radius: 6px;
-  background: #0960bd;
-  color: #fff;
-  font-size: 16px;
-  letter-spacing: 0.5em;
-}
-.hospital-login :deep(button[aria-label='login']:hover) {
-  background: #1473d4;
-}
-@media (max-width: 420px) {
-  .hospital-login__heading {
-    gap: 8px;
-  }
-  .hospital-login__heading h1 {
-    font-size: 24px;
-  }
-}
-</style>
