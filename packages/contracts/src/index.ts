@@ -624,6 +624,8 @@ export const AppointmentCancellationResponse = Type.Object({
 	data: Type.Object({
 		appointmentId: Type.String({ minLength: 1, maxLength: 64 }),
 		status: Type.Literal("cancelled"),
+		hospitalWritebackConfirmed: Type.Optional(Type.Boolean()),
+		hospitalWritebackPending: Type.Optional(Type.Boolean()),
 	}),
 });
 

@@ -3,6 +3,7 @@ import {
 	createYunhealthRegistrationSelfPayRefundNotificationGateway,
 	ProviderRequestError,
 } from "@hospital/adapters";
+import { AppointmentCancellationResponse, success } from "@hospital/contracts";
 import {
 	type PaymentOrder,
 	PaymentOrderService,
@@ -393,6 +394,91 @@ test("已全额退款的原单在 .15 解析失败时仍向 HIS 发出原预约�
 	expect(f.cancelAttempts()).toBe(1);
 	expect(f.cancelled()).toBe(true);
 	expect((await f.readContext())?.refundWriteBack).toBeUndefined();
+});
+
+test("真实 HTTP 200 保留取消成功与 .15 待确认字段，响应白名单不泄露内部资金字段", async () => {
+	const f = await fixture({
+		priorRefundStatus: "success",
+		innerNotifyFailures: 1,
+	});
+	const app = new Elysia().use(errorHandlerPlugin()).get(
+		"/cancel-original",
+		async () =>
+			success({
+				...(await f.cancel()),
+				privateField: "fixture-private-value",
+				ownerUserId: f.order.ownerUserId,
+				providerAppointmentId: "fixture-provider-appointment",
+				outTradeNo: originalContext.outTradeNo,
+				merchantRefundNo: "fixture-refund-private",
+			}),
+		{ response: { 200: AppointmentCancellationResponse } },
+	);
+	const response = await app.handle(
+		new Request("http://localhost/cancel-original"),
+	);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({
+		success: true,
+		data: {
+			appointmentId,
+			status: "cancelled",
+			hospitalWritebackConfirmed: false,
+			hospitalWritebackPending: true,
+		},
+	});
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.cancelAttempts()).toBe(1);
+	expect((await f.readContext())?.refundWriteBack).toBeUndefined();
+});
+
+test("取消响应兼容旧的无回写字段结果，同时剥离未声明内部字段", async () => {
+	const app = new Elysia().get(
+		"/cancel-legacy",
+		() =>
+			success({
+				appointmentId,
+				status: "cancelled" as const,
+				privateField: "fixture-private-value",
+			}),
+		{ response: { 200: AppointmentCancellationResponse } },
+	);
+	const response = await app.handle(
+		new Request("http://localhost/cancel-legacy"),
+	);
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({
+		success: true,
+		data: { appointmentId, status: "cancelled" },
+	});
+});
+
+test("真实 HTTP 取消结果未确认保持 30470 阶段，不能序列化为 200 取消成功", async () => {
+	const f = await fixture({
+		priorRefundStatus: "success",
+		innerNotifyFailures: 1,
+		cancelFailures: 1,
+	});
+	const app = new Elysia()
+		.use(errorHandlerPlugin())
+		.get("/cancel-unknown", async () => success(await f.cancel()), {
+			response: { 200: AppointmentCancellationResponse },
+		});
+	const response = await app.handle(
+		new Request("http://localhost/cancel-unknown"),
+	);
+	expect(response.status).toBe(409);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "appointment-refund-pending",
+			numericCode: 30470,
+			message: "微信已退款，挂号取消待确认，请稍后查看",
+		},
+	});
+	expect(f.moneyCalls).toHaveLength(0);
+	expect(f.cancelled()).toBe(false);
+	expect(f.cancelAttempts()).toBe(1);
 });
 
 test("已退全额且 .15 失败后的取消超时只保留待确认，重试仍使用同一退款且不重复退钱", async () => {
