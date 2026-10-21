@@ -25,6 +25,13 @@ const INITIAL_QUERY_DELAY_MS = 5_000;
 /** provider 结果未确定时的下一次查单间隔；后续可按 provider SLA 配置化。 */
 const DEFAULT_QUERY_DELAY_MS = 15_000;
 
+/** 普通门诊自费只能使用已绑定 HIS 主单的 MD5 通道，不能重建官方微信订单。 */
+function assertOfficialWechatOrder(order: { idempotencyKey: string }): void {
+	if (order.idempotencyKey.startsWith("outpatient-self-pay:")) {
+		throw new PaymentCashPrepayNotAllowedError();
+	}
+}
+
 export class PaymentIdentityNotFoundError extends Error {
 	constructor() {
 		super("Payment identity was not found for the current user");
@@ -250,6 +257,7 @@ export class WechatPrepayService {
 			input.ownerUserId,
 			input.orderId,
 		);
+		assertOfficialWechatOrder(order);
 		if (order.state !== "cash_pending" || order.amounts.cashFen <= 0) {
 			throw new PaymentCashPrepayNotAllowedError();
 		}
@@ -492,6 +500,7 @@ export class WechatPrepayService {
 			input.ownerUserId,
 			input.orderId,
 		);
+		assertOfficialWechatOrder(order);
 		const attempt =
 			await this.dependencies.attempts.findByOwnerOrderAndIdempotencyKey(
 				input.ownerUserId,
@@ -552,6 +561,7 @@ export class WechatPrepayService {
 			input.ownerUserId,
 			input.orderId,
 		);
+		assertOfficialWechatOrder(order);
 		if (order.state === "cash_paid" || order.state === "failed") {
 			return {
 				orderId: order.orderId,
@@ -608,6 +618,7 @@ export class WechatPrepayService {
 			input.ownerUserId,
 			input.orderId,
 		);
+		assertOfficialWechatOrder(order);
 		if (order.state === "cancelled" || order.state === "failed") {
 			return { orderId: order.orderId, status: "cancelled" };
 		}

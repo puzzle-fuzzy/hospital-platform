@@ -8,6 +8,7 @@ import {
 	createWechatMedicalInsuranceNotificationDecoder,
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
+	createYunhealthOutpatientSelfPayCancellationGateway,
 	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSelfPayPreparationGateway,
 	createYunhealthRegistrationSelfPayRefundNotificationGateway,
@@ -445,6 +446,17 @@ const registrationSelfPayPreparationGateway =
 				logger,
 			})
 		: undefined;
+const outpatientSelfPayCancellationGateway =
+	yunhealthRegistrationSettlementStatus === "configured"
+		? createYunhealthOutpatientSelfPayCancellationGateway({
+				baseUrl: config.yunhealthBaseUrl ?? "",
+				authorizationToken: config.yunhealthAuthorizationToken ?? "",
+				hospitalId: config.medicalInsuranceHospitalId,
+				authSysCode: config.yunhealthRegistrationAuthSysCode,
+				workStationId: config.yunhealthRegistrationWorkStationId ?? "",
+				logger,
+			})
+		: undefined;
 const registrationSelfPayRefundAuthorization =
 	yunhealthRegistrationRefundAuthorizationStatus(config);
 const registrationSelfPayRefundNotificationGateway =
@@ -778,6 +790,9 @@ const services = createDefaultApplicationServices({
 	...(hospitalSettlementGateway ? { hospitalSettlementGateway } : {}),
 	...(registrationSelfPayPreparationGateway
 		? { registrationSelfPayPreparationGateway }
+		: {}),
+	...(outpatientSelfPayCancellationGateway
+		? { outpatientSelfPayCancellationGateway }
 		: {}),
 	...(registrationSelfPayRefundNotificationGateway
 		? { registrationSelfPayRefundNotificationGateway }

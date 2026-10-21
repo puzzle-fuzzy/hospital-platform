@@ -133,6 +133,10 @@ export {
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
 export {
+	createYunhealthOutpatientSelfPayCancellationGateway,
+	type YunhealthOutpatientSelfPayCancellationGatewayOptions,
+} from "./yunhealth-outpatient-cancellation";
+export {
 	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSelfPayPreparationGateway,
 	createYunhealthRegistrationSelfPayRefundNotificationGateway,
@@ -160,17 +164,17 @@ export {
 	ZhongyangMedicalRecordApiGateway,
 } from "./zhongyang-medical-records";
 export {
-	createZhongyangOutpatientPaymentGateway,
-	ZhongyangOutpatientPaymentApiGateway,
-} from "./zhongyang-outpatient-payments";
+	createZhongyangOutpatientElectronicInvoiceQueryGateway,
+	ZhongyangOutpatientElectronicInvoiceQueryApiGateway,
+} from "./zhongyang-outpatient-invoice-query";
 export {
 	createZhongyangOutpatientElectronicInvoiceGateway,
 	ZhongyangOutpatientElectronicInvoiceApiGateway,
 } from "./zhongyang-outpatient-invoices";
 export {
-	createZhongyangOutpatientElectronicInvoiceQueryGateway,
-	ZhongyangOutpatientElectronicInvoiceQueryApiGateway,
-} from "./zhongyang-outpatient-invoice-query";
+	createZhongyangOutpatientPaymentGateway,
+	ZhongyangOutpatientPaymentApiGateway,
+} from "./zhongyang-outpatient-payments";
 export {
 	createZhongyangPatientBindingGateway,
 	ZhongyangPatientBindingApiGateway,

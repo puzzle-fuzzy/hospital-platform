@@ -221,6 +221,11 @@ export type RegistrationSelfPaySettlementContext = {
 	businessId: string;
 	/** 本次门诊合缴的安全展示快照，只绑定成员，不作为支付成功证据。 */
 	outpatientPaymentRecord?: OutpatientPaymentRecord;
+	/** 普通门诊撤销意图只存密文；一旦发起即禁止复用原预支付参数或盲目完成结算。 */
+	outpatientCancellation?: {
+		state: "requested" | "awaiting_confirmation" | "cancelled" | "paid";
+		requestedAt: string;
+	};
 	/** 本次 Provider 业务类型对应的交易类型；门诊自费固定为 2。 */
 	tradeTypeCode?: string;
 	/** 2.6.65.1 返回的结算单编码；只在服务端创建 .2 时使用。 */
@@ -641,6 +646,22 @@ export interface RegistrationSelfPayPreparationGateway {
 	): Promise<{
 		registrationContext: RegistrationSelfPaySettlementContext;
 		trace: ExternalTrace;
+	}>;
+}
+
+/** 普通门诊自费的原结算撤销边界；不负责退款或创建新的支付流水。 */
+export interface OutpatientSelfPayCancellationGateway {
+	cancel(
+		input: {
+			orderId: string;
+			totalFen: number;
+			registrationContext: RegistrationSelfPaySettlementContext;
+		},
+		context: AdapterCallContext,
+	): Promise<{
+		state: "cancelled" | "awaiting_confirmation" | "paid";
+		trace: ExternalTrace;
+		providerStatus: string;
 	}>;
 }
 

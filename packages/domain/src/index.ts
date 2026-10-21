@@ -280,6 +280,14 @@ export {
 	normalizeMedicalInsuranceSettlementNotification,
 } from "./medical-insurance-order";
 export { medicalInsuranceGroupPayTypeId } from "./medical-insurance-payment-types";
+export type {
+	MedicalInsuranceRefund,
+	MedicalInsuranceRefundGateway,
+	MedicalInsuranceRefundLegStatus,
+	MedicalInsuranceRefundRepository,
+	MedicalInsuranceRefundStatus,
+	MedicalInsuranceRefundType,
+} from "./medical-insurance-refund";
 export {
 	MedicalInsuranceRefundAmountExceededError,
 	medicalRefundReservesMedicalAmount,
@@ -291,14 +299,6 @@ export {
 	MedicalInsuranceRefundNotificationCoordinator,
 	type MedicalInsuranceRefundNotificationGateway,
 } from "./medical-insurance-refund-notification";
-export type {
-	MedicalInsuranceRefund,
-	MedicalInsuranceRefundGateway,
-	MedicalInsuranceRefundLegStatus,
-	MedicalInsuranceRefundRepository,
-	MedicalInsuranceRefundStatus,
-	MedicalInsuranceRefundType,
-} from "./medical-insurance-refund";
 export {
 	MedicalInsuranceWritebackConflictError,
 	preserveMedicalInsuranceThirdPartyWriteback,
@@ -578,6 +578,7 @@ export type {
 	MedicalInsuranceWechatProviderMedicalStatus,
 	MedicalInsuranceWechatProviderState,
 	OutpatientMedicalInsuranceContext,
+	OutpatientSelfPayCancellationGateway,
 	PaymentOrderSnapshot,
 	RegistrationSelfPayLaunchParams,
 	RegistrationSelfPayPreparationGateway,

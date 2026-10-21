@@ -28,6 +28,7 @@ import type {
 	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentDetailResponse,
 	OutpatientPaymentListResponse,
+	OutpatientSelfPayCancelResponse,
 	OutpatientSelfPayResponse,
 	PatientBindingRequest,
 	PatientBindingResponse,
@@ -1093,6 +1094,51 @@ function registrationSelfPayResponse(
 				data.paymentState as RegistrationSelfPayResponse["data"]["paymentState"],
 			totalFen: data.totalFen as number,
 			...(payParams ? { payParams } : {}),
+		},
+	};
+}
+
+export function requireOutpatientSelfPayCancelResponse(
+	value: unknown,
+	expectedRecordId: string,
+	expectedOrderId: string,
+): OutpatientSelfPayCancelResponse {
+	const invalid = (): never => {
+		throw new ApiError("门诊支付取消结果不可用", {
+			code: "provider-response-invalid",
+		});
+	};
+	if (!isRecord(value) || value.success !== true || !isRecord(value.data))
+		return invalid();
+	const data = value.data;
+	if (
+		data.recordId !== expectedRecordId ||
+		data.orderId !== expectedOrderId ||
+		typeof data.status !== "string" ||
+		!["cancelled", "awaiting_confirmation", "already_paid"].includes(
+			data.status,
+		) ||
+		typeof data.paymentState !== "string" ||
+		!PAYMENT_STATES.has(data.paymentState)
+	)
+		return invalid();
+	if (
+		(data.status === "cancelled" && data.paymentState !== "cancelled") ||
+		(data.status === "already_paid" && data.paymentState === "cancelled") ||
+		(data.status === "awaiting_confirmation" &&
+			!["created", "cash_pending", "awaiting_confirmation", "failed"].includes(
+				data.paymentState,
+			))
+	)
+		return invalid();
+	return {
+		success: true,
+		data: {
+			recordId: expectedRecordId,
+			orderId: expectedOrderId,
+			status: data.status as OutpatientSelfPayCancelResponse["data"]["status"],
+			paymentState:
+				data.paymentState as OutpatientSelfPayCancelResponse["data"]["paymentState"],
 		},
 	};
 }
@@ -3591,9 +3637,43 @@ export function requestOutpatientSelfPay(
 	}).then((payload) => outpatientSelfPayResponse(payload, recordId));
 }
 
+/** 只撤销本次 SDK 明确取消的原结算；不自动登录或重放写命令。 */
+export async function requestOutpatientSelfPayCancellation(
+	input: { recordId: string; patientId: string; orderId: string },
+	idempotencyKey: string,
+	expectedSessionGeneration: number,
+): Promise<OutpatientSelfPayCancelResponse> {
+	const patientId = requirePatientScopedId(input?.patientId);
+	const recordId = requireAppointmentWriteIdentifier(input?.recordId);
+	const orderId = requireAppointmentWriteIdentifier(input?.orderId);
+	if (recordId.length > 128 || orderId.length > 64)
+		throw new ApiError("门诊支付引用无效", {
+			code: "outpatient-payment-query-invalid",
+		});
+	const key = requireCommandIdempotencyKey(idempotencyKey);
+	const token = getAppConfig().accessToken;
+	if (!token || !isCurrentSessionGeneration(expectedSessionGeneration))
+		throw new ApiError("Session changed before outpatient cancellation", {
+			code: "session-changed",
+		});
+	const payload = await requestForSession<unknown>(
+		{
+			url: `/payments/outpatient/records/${encodeURIComponent(recordId)}/self-pay/cancel`,
+			method: "POST",
+			authenticated: true,
+			data: { patientId, orderId },
+			idempotencyKey: key,
+		},
+		expectedSessionGeneration,
+		token,
+	);
+	return requireOutpatientSelfPayCancelResponse(payload, recordId, orderId);
+}
+
 export function queryOutpatientSelfPay(
 	recordId: string,
 	patientId: string,
+	orderId?: string,
 ): Promise<OutpatientSelfPayResponse> {
 	if (
 		typeof recordId !== "string" ||
@@ -3607,10 +3687,30 @@ export function queryOutpatientSelfPay(
 			}),
 		);
 	}
-	return requestWithSession<unknown>({
-		url: `/payments/outpatient/records/${encodeURIComponent(recordId)}/self-pay?patientId=${encodeURIComponent(patientId)}`,
+	if (
+		orderId !== undefined &&
+		(!isBoundedAppointmentRequestIdentifier(orderId) || orderId.length > 64)
+	)
+		return Promise.reject(
+			new ApiError("门诊支付引用无效", {
+				code: "outpatient-payment-query-invalid",
+			}),
+		);
+	const options: ApiRequestOptions = {
+		url: `/payments/outpatient/records/${encodeURIComponent(recordId)}/self-pay?patientId=${encodeURIComponent(patientId)}${orderId ? `&orderId=${encodeURIComponent(orderId)}` : ""}`,
 		method: "GET",
-	}).then((payload) => outpatientSelfPayResponse(payload, recordId));
+	};
+	const pending = orderId
+		? requestWithStableSession<unknown>(options, getSessionGeneration())
+		: requestWithSession<unknown>(options);
+	return pending.then((payload) => {
+		const result = outpatientSelfPayResponse(payload, recordId);
+		if (orderId && result.data.orderId !== orderId)
+			throw new ApiError("原门诊支付查询结果不一致", {
+				code: "provider-response-invalid",
+			});
+		return result;
+	});
 }
 
 /** 读取当前用户所选就诊人的门诊费用记录；临床患者映射只在服务端解析。 */

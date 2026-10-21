@@ -2,6 +2,7 @@ import {
 	OutpatientPaymentDetailResponse,
 	OutpatientPaymentListResponse,
 	OutpatientPaymentStatusSchema,
+	OutpatientSelfPayCancelResponse,
 	OutpatientSelfPayResponse,
 	success,
 } from "@hospital/contracts";
@@ -39,7 +40,10 @@ import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
-import type { OutpatientSelfPayService } from "./self-pay-service";
+import {
+	type OutpatientSelfPayService,
+	outpatientSelfPayNextAttemptKey,
+} from "./self-pay-service";
 
 export class OutpatientPaymentPatientNotFoundError extends Error {
 	constructor() {
@@ -108,25 +112,35 @@ export function createOutpatientPaidRecordSnapshotResolver(repositories: {
 	OutpatientPaymentServiceDependencies["resolvePaidRecordSnapshot"]
 > {
 	return async ({ ownerUserId, patientId, recordId }) => {
-		const key = `outpatient-self-pay:${recordId}`;
-		const cashOrder =
-			await repositories.paymentOrders.findByOwnerAndIdempotencyKey(
-				ownerUserId,
-				key,
-			);
-		if (
-			cashOrder?.ownerUserId === ownerUserId &&
-			cashOrder.patientId === patientId &&
-			cashOrder.idempotencyKey === key &&
-			["cash_paid", "his_written_back", "completed"].includes(cashOrder.state)
-		) {
-			const context =
-				await repositories.paymentOrders.getRegistrationSelfPayContext?.(
+		let key = `outpatient-self-pay:${recordId}`;
+		for (let index = 0; index < 64; index += 1) {
+			const cashOrder =
+				await repositories.paymentOrders.findByOwnerAndIdempotencyKey(
 					ownerUserId,
-					cashOrder.orderId,
+					key,
 				);
-			if (context?.outpatientPaymentRecord)
-				return context.outpatientPaymentRecord;
+			if (
+				cashOrder?.ownerUserId === ownerUserId &&
+				cashOrder.patientId === patientId &&
+				cashOrder.idempotencyKey === key &&
+				["cash_paid", "his_written_back", "completed", "cancelled"].includes(
+					cashOrder.state,
+				)
+			) {
+				const context =
+					await repositories.paymentOrders.getRegistrationSelfPayContext?.(
+						ownerUserId,
+						cashOrder.orderId,
+					);
+				if (cashOrder.state === "cancelled") {
+					if (context?.outpatientCancellation?.state !== "cancelled") break;
+					key = outpatientSelfPayNextAttemptKey(recordId, cashOrder.orderId);
+					continue;
+				}
+				if (context?.outpatientPaymentRecord)
+					return context.outpatientPaymentRecord;
+			}
+			break;
 		}
 		const medicalOrder =
 			await repositories.medicalInsuranceOrders.findByOwnerAndBusinessKey?.(
@@ -771,6 +785,7 @@ export function outpatientPaymentsModule(
 						ownerUserId: principal.userId,
 						recordId: params.recordId,
 						patientId: query.patientId,
+						...(query.orderId ? { orderId: query.orderId } : {}),
 						context: adapterContextFromHeaders(headers),
 					}),
 				);
@@ -784,8 +799,42 @@ export function outpatientPaymentsModule(
 				}),
 				query: t.Object({
 					patientId: t.String({ minLength: 1, maxLength: 128 }),
+					orderId: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
 				}),
 				response: { 200: OutpatientSelfPayResponse },
+				tags: ["payments"],
+			},
+		);
+		module.post(
+			"/payments/outpatient/records/:recordId/self-pay/cancel",
+			async ({ request, headers, params, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await selfPay.cancel({
+						ownerUserId: principal.userId,
+						recordId: params.recordId,
+						patientId: body.patientId,
+						orderId: body.orderId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: t.Object({
+					authorization: t.Optional(t.String({ maxLength: 512 })),
+					"idempotency-key": t.String({ minLength: 1, maxLength: 128 }),
+				}),
+				params: t.Object({
+					recordId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
+				body: t.Object(
+					{
+						patientId: t.String({ minLength: 1, maxLength: 128 }),
+						orderId: t.String({ minLength: 1, maxLength: 64 }),
+					},
+					{ additionalProperties: false },
+				),
+				response: { 200: OutpatientSelfPayCancelResponse },
 				tags: ["payments"],
 			},
 		);

@@ -85,6 +85,7 @@ import { createInMemoryAppointmentCancellationLock } from "./appointment-cancell
 import { PersistenceNotConfiguredError } from "./errors";
 import { createNotConfiguredHisPaymentReferenceRepository } from "./his-payment-references";
 import { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
+import { createInMemoryPaymentBusinessOperationLock } from "./payment-business-operation-lock";
 import { createAesGcmSecretValueCipher } from "./prepay-cipher";
 
 function clonePaymentAggregate(value: PaymentAggregate): PaymentAggregate {
@@ -1257,8 +1258,15 @@ export function createInMemoryPaymentOrderRepository(
 		string,
 		RegistrationSelfPaySettlementContext
 	>();
+	const cloneContext = (context: RegistrationSelfPaySettlementContext) => ({
+		...context,
+		...(context.outpatientCancellation
+			? { outpatientCancellation: { ...context.outpatientCancellation } }
+			: {}),
+	});
 
 	return {
+		withBusinessOperationLock: createInMemoryPaymentBusinessOperationLock(),
 		async findById(orderId) {
 			return orders.get(orderId);
 		},
@@ -1353,19 +1361,19 @@ export function createInMemoryPaymentOrderRepository(
 			if (!order || order.ownerUserId !== ownerUserId) {
 				throw new PaymentOrderNotFoundError();
 			}
-			registrationSelfPayContexts.set(orderId, { ...context });
+			registrationSelfPayContexts.set(orderId, cloneContext(context));
 		},
 		async getRegistrationSelfPayContext(ownerUserId, orderId) {
 			const order = orders.get(orderId);
 			if (!order || order.ownerUserId !== ownerUserId) return undefined;
 			const context = registrationSelfPayContexts.get(orderId);
-			return context ? { ...context } : undefined;
+			return context ? cloneContext(context) : undefined;
 		},
 		async findByRegistrationSelfPayRecordCode(recordCode) {
 			for (const [orderId, context] of registrationSelfPayContexts) {
 				if (context.recordCode !== recordCode) continue;
 				const order = orders.get(orderId);
-				if (order) return { order, context: { ...context } };
+				if (order) return { order, context: cloneContext(context) };
 			}
 			return undefined;
 		},

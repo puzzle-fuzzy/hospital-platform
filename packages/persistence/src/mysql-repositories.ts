@@ -114,6 +114,7 @@ import {
 } from "./errors";
 import { createMySqlHisPaymentReferenceRepository } from "./his-payment-references";
 import { createMySqlHealthKnowledgeRepository } from "./mysql-health-knowledge-repository";
+import { withMySqlPaymentBusinessOperationLock } from "./payment-business-operation-lock";
 import {
 	createAesGcmSecretValueCipher,
 	type SecretValueCipher,
@@ -1173,6 +1174,7 @@ function deserializeMedicalInsuranceSettlementContext(
 const REGISTRATION_SELF_PAY_CONTEXT_FIELDS = new Set([
 	"businessId",
 	"outpatientPaymentRecord",
+	"outpatientCancellation",
 	"tradeTypeCode",
 	"businessCode",
 	"payingId",
@@ -1259,6 +1261,22 @@ function validRegistrationSelfPayRefundWriteBack(value: unknown): boolean {
 	);
 }
 
+function validOutpatientCancellation(value: unknown): boolean {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	const record = value as Record<string, unknown>;
+	return (
+		Object.keys(record).every(
+			(key) => key === "state" || key === "requestedAt",
+		) &&
+		typeof record.state === "string" &&
+		["requested", "awaiting_confirmation", "cancelled", "paid"].includes(
+			record.state,
+		) &&
+		typeof record.requestedAt === "string" &&
+		parseStrictIsoInstant(record.requestedAt) !== undefined
+	);
+}
+
 function deserializeRegistrationSelfPayContext(
 	value: string,
 ): RegistrationSelfPaySettlementContext {
@@ -1294,6 +1312,9 @@ function deserializeRegistrationSelfPayContext(
 		Object.keys(record).some(
 			(field) => !REGISTRATION_SELF_PAY_CONTEXT_FIELDS.has(field),
 		) ||
+		(record.outpatientCancellation !== undefined &&
+			(!validOutpatientCancellation(record.outpatientCancellation) ||
+				record.tradeTypeCode !== "2")) ||
 		requiredTextFields.some(
 			(field) => typeof record[field] !== "string" || !record[field].trim(),
 		) ||
@@ -4865,6 +4886,18 @@ export function createMySqlRepositories(
 	};
 
 	const paymentOrders: PaymentOrderRepository = {
+		withBusinessOperationLock<T>(
+			ownerUserId: string,
+			businessKey: string,
+			operation: () => Promise<T>,
+		) {
+			return withMySqlPaymentBusinessOperationLock(
+				pool,
+				ownerUserId,
+				businessKey,
+				operation,
+			);
+		},
 		async findById(orderId) {
 			const rows = await execute<PaymentOrderRow[]>(
 				pool,

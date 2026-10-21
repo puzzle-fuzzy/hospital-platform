@@ -1628,6 +1628,21 @@ export const OutpatientSelfPayResponse = Type.Object({
 	}),
 });
 
+/** 撤销普通门诊自费原结算；不包含患者实名资料、医院流水或支付参数。 */
+export const OutpatientSelfPayCancelResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		recordId: Type.String({ minLength: 1, maxLength: 128 }),
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Union([
+			Type.Literal("cancelled"),
+			Type.Literal("awaiting_confirmation"),
+			Type.Literal("already_paid"),
+		]),
+		paymentState: PaymentStateSchema,
+	}),
+});
+
 /** 用户明确退出挂号支付时，服务端按当前支付路线作废订单并取消预约。 */
 export const RegistrationPaymentExitRequest = Type.Object(
 	{
@@ -1866,6 +1881,9 @@ export type RegistrationSelfPayPayload = Static<
 	typeof RegistrationSelfPayResponse
 >;
 export type OutpatientSelfPayPayload = Static<typeof OutpatientSelfPayResponse>;
+export type OutpatientSelfPayCancelPayload = Static<
+	typeof OutpatientSelfPayCancelResponse
+>;
 export type RegistrationPaymentExitRequestPayload = Static<
 	typeof RegistrationPaymentExitRequest
 >;

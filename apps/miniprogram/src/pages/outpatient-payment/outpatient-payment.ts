@@ -13,7 +13,10 @@ import {
 	queryMedicalBusinessRecovery,
 	queryMedicalOrder,
 } from "../../services/medical-insurance";
-import { startOutpatientSelfPay } from "../../services/outpatient-self-pay";
+import {
+	OutpatientSelfPayCancellationPendingError,
+	startOutpatientSelfPay,
+} from "../../services/outpatient-self-pay";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -227,11 +230,17 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 			this.setData({ hasShown: true });
 			return;
 		}
+		// 微信窗口返回不等于医院取消完成；原命令处理期间不清空或重读费用。
+		if (this.data.paymentBusy === "wechat" && this.isPatientContextCurrent())
+			return;
 		this.loadPage();
 	},
 
 	/** 先确认当前患者归属，再读取门诊费用，避免把临床患者映射交给页面。 */
 	loadPage(): Promise<void> {
+		if (this.data.paymentBusy === "wechat" && this.isPatientContextCurrent())
+			return Promise.resolve();
+		getPageLatestRequestGuard(this, "outpatient-self-pay-command").begin();
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const requestToken = loadGuard.begin();
 		getPageLatestRequestGuard(this, "outpatient-medical-eligibility").begin();
@@ -246,6 +255,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 		);
 		this.setData({
 			loading: true,
+			paymentBusy: "",
 			error: "",
 			sessionState: "checking",
 			selectedPatient: preservedPatient,
@@ -382,6 +392,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 
 	/** 切换待缴费/已缴费时只请求当前患者和当前状态。 */
 	onStatusTap(event): void {
+		if (this.data.paymentBusy) return;
 		const status = event.currentTarget?.dataset?.status;
 		if (status !== "unpaid" && status !== "paid") return;
 		if (status === this.data.activeStatus) return;
@@ -529,6 +540,7 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 
 	/** 待缴费卡片直接展示缴费按钮；费用卡片本身不再打开详情页。 */
 	onPaymentTap(event: ViewKeyEvent): void {
+		if (this.data.paymentBusy) return;
 		if (!this.isPatientContextCurrent()) return;
 		const record = findVisiblePayment(
 			this.data.visibleItems,
@@ -720,6 +732,18 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 	): Promise<void> {
 		if (this.data.paymentBusy) return;
 		if (!this.isPatientContextCurrent()) return;
+		if (this.data.selectedPatient?.id !== patientId) return;
+		const commandGuard = getPageLatestRequestGuard(
+			this,
+			"outpatient-self-pay-command",
+		);
+		const commandToken = commandGuard.begin();
+		const expectedSession = this.data.patientSessionGeneration;
+		const current = () =>
+			commandGuard.isCurrent(commandToken) &&
+			this.isPatientContextCurrent() &&
+			this.data.selectedPatient?.id === patientId &&
+			this.data.patientSessionGeneration === expectedSession;
 		this.setData({
 			paymentSheetVisible: false,
 			paymentRecord: null,
@@ -742,8 +766,30 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 			const result = await startOutpatientSelfPay(
 				record.recordId,
 				patientId,
-				(_stage, message) => showPaymentToast(message),
+				(_stage, message) => {
+					if (current()) showPaymentToast(message);
+				},
+				current,
 			);
+			if (!current()) return;
+			if (result.data.status === "cancelled") {
+				showPaymentToast("本次结算已取消，正在刷新待缴费记录");
+				this.setData({ paymentBusy: "" });
+				await this.loadPage();
+				return;
+			}
+			if (result.data.status === "already_paid") {
+				showPaymentToast("医院已有支付记录，请先核对，请勿重复付款");
+				return;
+			}
+			if (result.data.status === "awaiting_confirmation") {
+				showPaymentToast(
+					"totalFen" in result.data
+						? "支付状态正在确认，请勿重复付款"
+						: "取消状态正在确认，请勿重复付款",
+				);
+				return;
+			}
 			if (result.data.status === "cash_paid") {
 				wx.redirectTo({
 					url: paymentResultUrl(patientId, record.recordId, "wechat", {
@@ -752,11 +798,14 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 				});
 			}
 		} catch (error) {
+			if (!current()) return;
 			showPaymentToast(
-				errorMessageWithCode(error, "门诊微信支付未完成，请稍后重试"),
+				error instanceof OutpatientSelfPayCancellationPendingError
+					? "取消状态正在确认，请勿重复付款"
+					: errorMessageWithCode(error, "门诊微信支付未完成，请稍后重试"),
 			);
 		} finally {
-			this.setData({ paymentBusy: "" });
+			if (current()) this.setData({ paymentBusy: "" });
 		}
 	},
 

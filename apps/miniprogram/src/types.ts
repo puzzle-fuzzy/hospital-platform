@@ -27,6 +27,7 @@ import type {
 	OutpatientMedicalRecordListPayload,
 	OutpatientPaymentDetailPayload,
 	OutpatientPaymentListPayload,
+	OutpatientSelfPayCancelPayload,
 	OutpatientSelfPayPayload,
 	PatientBindingPayload,
 	PatientBindingRequestPayload,
@@ -109,6 +110,7 @@ export type AppointmentRegistrationResponse = AppointmentRegistrationPayload;
 export type RegistrationSelfPayResponse = RegistrationSelfPayPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
 export type OutpatientSelfPayResponse = OutpatientSelfPayPayload;
+export type OutpatientSelfPayCancelResponse = OutpatientSelfPayCancelPayload;
 export type OutpatientMedicalRecordListResponse =
 	OutpatientMedicalRecordListPayload;
 export type InpatientEpisodeListResponse = InpatientEpisodeListPayload;

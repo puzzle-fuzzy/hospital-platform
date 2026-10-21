@@ -1,4 +1,7 @@
 import type { PaymentState } from "@hospital/contracts";
+import { DependencyNotConfiguredError } from "./errors";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import type { OutboxEvent } from "./outbox";
 import type {
 	PaymentAggregate,
 	PaymentHistoryStatus,
@@ -6,8 +9,6 @@ import type {
 	PaymentOperationsProjection,
 	PaymentOperationsRepository,
 } from "./payment-operations";
-import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
-import type { OutboxEvent } from "./outbox";
 import { transitionPayment } from "./payment-state";
 import type {
 	ExternalTrace,
@@ -466,6 +467,12 @@ export type PaymentOrderOperationsProjector = (
 
 /** 支付订单持久化端口；生产实现必须对 ownerUserId + idempotencyKey 建唯一约束。 */
 export interface PaymentOrderRepository {
+	/** 同一业务的创建、支付确认和取消共享跨进程互斥，不能仅按 HTTP 请求锁定。 */
+	withBusinessOperationLock?<T>(
+		ownerUserId: string,
+		businessKey: string,
+		operation: () => Promise<T>,
+	): Promise<T>;
 	/** 后台 worker 不持有用户会话，必须使用只读内部订单 id 查询。 */
 	findById(orderId: string): Promise<PaymentOrder | undefined>;
 	/**
@@ -672,6 +679,30 @@ export class PaymentOrderService {
 		this.createOrderId =
 			dependencies.createOrderId ??
 			(() => crypto.randomUUID().replaceAll("-", ""));
+	}
+
+	async withBusinessOperationLock<T>(
+		ownerUserId: string,
+		businessKey: string,
+		operation: () => Promise<T>,
+	): Promise<T> {
+		if (
+			!isBoundedOpaqueIdentifier(ownerUserId) ||
+			typeof businessKey !== "string" ||
+			!businessKey.trim() ||
+			businessKey !== businessKey.trim() ||
+			businessKey.length > 256
+		)
+			throw new PaymentOrderInputError(
+				"Payment business lock scope is invalid",
+			);
+		if (!this.dependencies.orders.withBusinessOperationLock)
+			throw new DependencyNotConfiguredError("payment-business-operation-lock");
+		return this.dependencies.orders.withBusinessOperationLock(
+			ownerUserId,
+			businessKey,
+			operation,
+		);
 	}
 
 	private async insertOrder(

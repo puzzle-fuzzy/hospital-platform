@@ -22,6 +22,7 @@ import type {
 	OutpatientElectronicInvoiceQueryGateway,
 	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
+	OutpatientSelfPayCancellationGateway,
 	PatientBindingGateway,
 	PatientDirectoryGateway,
 	PatientProviderAuthorizationGateway,
@@ -39,8 +40,8 @@ import type {
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
-	normalizeHisPaymentReference,
 	MedicalInsuranceRefundNotificationCoordinator,
+	normalizeHisPaymentReference,
 	PaymentOrderService,
 	PaymentSyncCoordinator,
 } from "@hospital/domain";
@@ -186,6 +187,7 @@ export type ApplicationServiceOptions = {
 	hospitalSettlementGateway?: HospitalSettlementGateway;
 	/** 普通挂号自费在微信下单前固定执行 .1 -> .32 -> .2。 */
 	registrationSelfPayPreparationGateway?: RegistrationSelfPayPreparationGateway;
+	outpatientSelfPayCancellationGateway?: OutpatientSelfPayCancellationGateway;
 	/** 仅在微信退款 SUCCESS 后回写众阳 .15；未配置时新 MD5 自费退款 fail-closed。 */
 	registrationSelfPayRefundNotificationGateway?: RegistrationSelfPayRefundNotificationGateway;
 	/** 仅传可公开的能力分类；配置值和服务端授权内容不得进入管理端读模型。 */
@@ -771,6 +773,9 @@ export function createDefaultApplicationServices(
 		["create", "query"],
 	);
 	const outpatientSelfPay = new OutpatientSelfPayService({
+		...(options.outpatientSelfPayCancellationGateway
+			? { cancellation: options.outpatientSelfPayCancellationGateway }
+			: {}),
 		paymentOrders,
 		patients: repositories.patients,
 		identityUsers: repositories.identityUsers,
