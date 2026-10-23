@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import { AppointmentRegistrationResponse, success } from "@hospital/contracts";
-import type {
-	AppointmentHold,
-	AppointmentProviderRecord,
-	AppointmentRegistration,
+import {
+	type AppointmentHold,
+	type AppointmentProviderRecord,
+	type AppointmentRegistration,
+	DependencyNotConfiguredError,
 } from "@hospital/domain";
 import { createInMemoryAppointmentWriteRepository } from "@hospital/persistence";
 import { Elysia } from "elysia";
@@ -13,6 +14,7 @@ import {
 	AppointmentCancellationPaymentActiveError,
 	AppointmentHoldExpiredError,
 	AppointmentHoldNotFoundError,
+	AppointmentRegistrationNotFoundError,
 	AppointmentWriteInputError,
 	AppointmentWriteService,
 } from "./write-service";
@@ -1180,7 +1182,7 @@ test("预约存在活动自费支付关联时禁止取消", async () => {
 	expect(cancelCalls).toBe(0);
 });
 
-test("仅退款编排可在已完成自费订单仍保留时取消预约", async () => {
+test("支付退出仅在退款确认后可取消仍有关联自费订单的预约", async () => {
 	const repository = createInMemoryAppointmentWriteRepository(
 		[],
 		[
@@ -1254,6 +1256,280 @@ test("仅退款编排可在已完成自费订单仍保留时取消预约", async
 	});
 	expect(cancelCalls).toBe(1);
 });
+
+for (const status of ["booked", "expired", "unknown"] as const) {
+	test(`患者取消 ${status} 预约由医院决定，不查询资金或按过期状态提前返回`, async () => {
+		const original = registrationPolicyRecord({ status });
+		const repository = createInMemoryAppointmentWriteRepository([], [original]);
+		const defaults = createTestDependencies();
+		let cancelCalls = 0;
+		const service = new AppointmentWriteService({
+			...defaults,
+			repository,
+			paymentOrders: {
+				findByOwnerAndIdempotencyKey: async () => {
+					throw new Error("patient cancellation must not inspect cash state");
+				},
+			},
+			medicalInsuranceOrders: {
+				findByOwnerAndAppointmentId: async () => {
+					throw new Error(
+						"patient cancellation must not inspect medical state",
+					);
+				},
+			},
+			gateway: {
+				...(defaults.gateway as Record<string, unknown>),
+				cancel: async (input: unknown) => {
+					cancelCalls += 1;
+					expect(input).toEqual({
+						providerPatientId: original.providerPatientId,
+						providerAppointmentId: original.providerAppointmentId,
+					});
+					expect(
+						(
+							await repository.findRegistration(
+								ownerUserId,
+								original.appointmentId,
+							)
+						)?.status,
+					).toBe(status);
+					return {
+						trace: {
+							provider: "zhongyang",
+							operation: "appointment-cancellation",
+							requestId: "hospital-cancel-fixture",
+						},
+					};
+				},
+			},
+		} as never);
+		const input = {
+			ownerUserId,
+			appointmentId: original.appointmentId,
+			context: {
+				traceId: "hospital-cancel-trace",
+				idempotencyKey: "hospital-cancel-key",
+			},
+		};
+		await expect(service.cancelByHospital(input)).resolves.toEqual({
+			appointmentId: original.appointmentId,
+			status: "cancelled",
+		});
+		expect(
+			(await repository.findRegistration(ownerUserId, original.appointmentId))
+				?.status,
+		).toBe("cancelled");
+		await expect(service.cancelByHospital(input)).resolves.toMatchObject({
+			status: "cancelled",
+		});
+		expect(cancelCalls).toBe(1);
+		await expect(
+			service.cancelByHospital({ ...input, ownerUserId: "another-owner" }),
+		).rejects.toBeInstanceOf(AppointmentRegistrationNotFoundError);
+		expect(cancelCalls).toBe(1);
+	});
+}
+
+for (const concurrentStatus of ["expired", "cancelled"] as const) {
+	test(`医院取消成功后，读取并发同步为 ${concurrentStatus} 只恢复本地状态，不再次调用医院`, async () => {
+		const original = registrationPolicyRecord();
+		const repository = createInMemoryAppointmentWriteRepository([], [original]);
+		const defaults = createTestDependencies();
+		const expectedStatuses: (AppointmentRegistration["status"] | undefined)[] =
+			[];
+		let cancelCalls = 0;
+		const service = new AppointmentWriteService({
+			...defaults,
+			repository: {
+				...repository,
+				updateRegistration: async (
+					record: AppointmentRegistration,
+					expectedStatus?: AppointmentRegistration["status"],
+				) => {
+					expectedStatuses.push(expectedStatus);
+					return repository.updateRegistration(record, expectedStatus);
+				},
+			},
+			gateway: {
+				...(defaults.gateway as Record<string, unknown>),
+				cancel: async () => {
+					cancelCalls += 1;
+					await repository.updateRegistration(
+						{ ...original, status: concurrentStatus },
+						"booked",
+					);
+					return {
+						trace: {
+							provider: "zhongyang",
+							operation: "appointment-cancellation",
+							requestId: "hospital-cancel-race",
+						},
+					};
+				},
+			},
+		} as never);
+		await expect(
+			service.cancelByHospital({
+				ownerUserId,
+				appointmentId: original.appointmentId,
+				context: {
+					traceId: "hospital-cancel-race-trace",
+					idempotencyKey: "hospital-cancel-race-key",
+				},
+			}),
+		).resolves.toMatchObject({ status: "cancelled" });
+		expect(cancelCalls).toBe(1);
+		expect(expectedStatuses).toEqual(
+			concurrentStatus === "cancelled" ? ["booked"] : ["booked", "expired"],
+		);
+		expect(
+			(await repository.findRegistration(ownerUserId, original.appointmentId))
+				?.status,
+		).toBe("cancelled");
+	});
+}
+
+test("医院确认后的本地 CAS 持续冲突有上限，不重发医院取消或伪造保存成功", async () => {
+	const original = registrationPolicyRecord();
+	const repository = createInMemoryAppointmentWriteRepository([], [original]);
+	const defaults = createTestDependencies();
+	let cancelCalls = 0;
+	let updates = 0;
+	const service = new AppointmentWriteService({
+		...defaults,
+		repository: {
+			...repository,
+			updateRegistration: async () => {
+				updates += 1;
+				return undefined;
+			},
+		},
+		gateway: {
+			...(defaults.gateway as Record<string, unknown>),
+			cancel: async () => {
+				cancelCalls += 1;
+				return {
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-cancellation",
+						requestId: "hospital-cancel-cas-conflict",
+					},
+				};
+			},
+		},
+	} as never);
+	await expect(
+		service.cancelByHospital({
+			ownerUserId,
+			appointmentId: original.appointmentId,
+			context: {
+				traceId: "hospital-cas-conflict-trace",
+				idempotencyKey: "hospital-cas-conflict-key",
+			},
+		}),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+	expect(cancelCalls).toBe(1);
+	expect(updates).toBe(3);
+	expect(
+		await repository.findRegistration(ownerUserId, original.appointmentId),
+	).toEqual(original);
+});
+
+test("医院确认后的 CAS 恢复不能覆盖已改变医院映射的预约", async () => {
+	const original = registrationPolicyRecord();
+	const repository = createInMemoryAppointmentWriteRepository([], [original]);
+	const defaults = createTestDependencies();
+	let cancelCalls = 0;
+	let updates = 0;
+	const service = new AppointmentWriteService({
+		...defaults,
+		repository: {
+			...repository,
+			updateRegistration: async () => {
+				updates += 1;
+				return undefined;
+			},
+		},
+		gateway: {
+			...(defaults.gateway as Record<string, unknown>),
+			cancel: async () => {
+				cancelCalls += 1;
+				await repository.updateRegistration(
+					{
+						...original,
+						providerAppointmentId: "another-hospital-appointment",
+					},
+					"booked",
+				);
+				return {
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-cancellation",
+						requestId: "hospital-cancel-changed-mapping",
+					},
+				};
+			},
+		},
+	} as never);
+	await expect(
+		service.cancelByHospital({
+			ownerUserId,
+			appointmentId: original.appointmentId,
+			context: {
+				traceId: "hospital-mapping-conflict-trace",
+				idempotencyKey: "hospital-mapping-conflict-key",
+			},
+		}),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+	expect(cancelCalls).toBe(1);
+	expect(updates).toBe(1);
+	expect(
+		(await repository.findRegistration(ownerUserId, original.appointmentId))
+			?.providerAppointmentId,
+	).toBe("another-hospital-appointment");
+});
+
+for (const failure of [
+	new ProviderRequestError({
+		provider: "zhongyang",
+		operation: "appointment-cancellation",
+		message: "fixture hospital rejection",
+		reason: "appointment-cancellation-rejected",
+		requestOutcome: "rejected",
+		retryable: false,
+	}),
+	new Error("fixture hospital timeout"),
+]) {
+	test(`医院取消未确认时保留原预约状态：${failure.name}`, async () => {
+		const original = registrationPolicyRecord({ status: "expired" });
+		const repository = createInMemoryAppointmentWriteRepository([], [original]);
+		const defaults = createTestDependencies();
+		const service = new AppointmentWriteService({
+			...defaults,
+			repository,
+			gateway: {
+				...(defaults.gateway as Record<string, unknown>),
+				cancel: async () => {
+					throw failure;
+				},
+			},
+		} as never);
+		await expect(
+			service.cancelByHospital({
+				ownerUserId,
+				appointmentId: original.appointmentId,
+				context: {
+					traceId: "hospital-reject-trace",
+					idempotencyKey: "hospital-reject-key",
+				},
+			}),
+		).rejects.toBe(failure);
+		expect(
+			await repository.findRegistration(ownerUserId, original.appointmentId),
+		).toEqual(original);
+	});
+}
 
 test("医保订单本地状态不再阻断预约取消", async () => {
 	const repository = createInMemoryAppointmentWriteRepository(

@@ -39,6 +39,9 @@ export function projectAppointmentPayment(input: {
 		...(payExpiresAt ? { payExpiresAt } : {}),
 		canPay: false,
 	};
+	// 已经由医院取消命令或明确医院记录确认的本地取消事实不可被旧列表复活。
+	if (registration?.status === "cancelled")
+		return { ...base, status: "cancelled", paymentStatus: "cancelled" };
 	// 预约终态与资金账分开：医院取消仍同步，但不迁移资金状态。
 	if (status === "cancelled" || status === "expired") {
 		const automaticallyExpired =

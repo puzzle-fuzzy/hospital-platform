@@ -940,19 +940,28 @@ export class AppointmentWriteService {
 		appointmentId: string;
 		context: unknown;
 	}): Promise<{ appointmentId: string; status: "cancelled" }> {
-		return this.cancelInternal(input, false);
+		return this.cancelInternal(input, "payment_safe");
+	}
+
+	/** 患者主动取消由 HIS 判断资格和退费；平台只确认归属及医院取消结果。 */
+	async cancelByHospital(input: {
+		ownerUserId: string;
+		appointmentId: string;
+		context: unknown;
+	}): Promise<{ appointmentId: string; status: "cancelled" }> {
+		return this.cancelInternal(input, "hospital");
 	}
 
 	/**
-	 * 仅供挂号退款编排在微信退款已明确成功后调用；患者端路由始终使用 cancel，
-	 * 因而不能利用此分支绕过活动支付订单保护。
+	 * 仅供挂号退款编排在微信退款已明确成功后调用；患者主动取消使用独立的
+	 * cancelByHospital，不改变支付退出编排的资金保护。
 	 */
 	async cancelAfterConfirmedSelfPayRefund(input: {
 		ownerUserId: string;
 		appointmentId: string;
 		context: unknown;
 	}): Promise<{ appointmentId: string; status: "cancelled" }> {
-		return this.cancelInternal(input, true);
+		return this.cancelInternal(input, "confirmed_self_pay_refund");
 	}
 
 	private async cancelInternal(
@@ -961,7 +970,7 @@ export class AppointmentWriteService {
 			appointmentId: string;
 			context: unknown;
 		},
-		confirmedSelfPayRefund: boolean,
+		mode: "payment_safe" | "confirmed_self_pay_refund" | "hospital",
 	): Promise<{ appointmentId: string; status: "cancelled" }> {
 		const context = contextOf(input.context);
 		const ownerUserId = id(input.ownerUserId, "ownerUserId");
@@ -970,25 +979,32 @@ export class AppointmentWriteService {
 			ownerUserId,
 			appointmentId,
 		);
-		if (!registration) throw new AppointmentRegistrationNotFoundError();
+		if (
+			!registration ||
+			registration.ownerUserId !== ownerUserId ||
+			registration.appointmentId !== appointmentId
+		)
+			throw new AppointmentRegistrationNotFoundError();
 		if (
 			registration.status === "cancelled" ||
-			registration.status === "expired"
+			(mode !== "hospital" && registration.status === "expired")
 		)
 			return { appointmentId, status: "cancelled" };
 		// 医保结算状态以 HIS/Provider 的取消结果为准，不再使用本地医保订单
 		// 状态拦截预约取消。旧订单可能已经完成医保结算，但本地状态仍停留在
 		// payment-in-progress，不能因此把取消请求挡在本地。
 		const selfPayOrder =
-			await this.dependencies.paymentOrders?.findByOwnerAndIdempotencyKey(
-				ownerUserId,
-				registrationSelfPayOrderKey(appointmentId),
-			);
+			mode === "hospital"
+				? undefined
+				: await this.dependencies.paymentOrders?.findByOwnerAndIdempotencyKey(
+						ownerUserId,
+						registrationSelfPayOrderKey(appointmentId),
+					);
 		if (
 			selfPayOrder &&
 			selfPayOrder.state !== "failed" &&
 			selfPayOrder.state !== "cancelled" &&
-			!confirmedSelfPayRefund
+			mode !== "confirmed_self_pay_refund"
 		) {
 			throw new AppointmentCancellationPaymentActiveError();
 		}
@@ -1008,15 +1024,43 @@ export class AppointmentWriteService {
 			},
 			context,
 		);
-		const updated = await this.dependencies.repository.updateRegistration(
-			{
-				...registration,
-				status: "cancelled",
-				updatedAt: this.now().toISOString(),
-			},
-			"booked",
-		);
-		if (!updated) throw new DependencyNotConfiguredError("appointment-writes");
+		let current = registration;
+		let saved = false;
+		// 详情读取可能在医院取消在途时同步 booked -> expired，不受命令锁保护。
+		// 医院已经确认成功后只恢复本地 CAS，不再重复提交医院取消。
+		for (let attempt = 0; attempt < 3; attempt += 1) {
+			const updated = await this.dependencies.repository.updateRegistration(
+				{
+					...current,
+					status: "cancelled",
+					updatedAt: this.now().toISOString(),
+				},
+				current.status,
+			);
+			if (updated) {
+				saved = true;
+				break;
+			}
+			const latest = await this.dependencies.repository.findRegistration(
+				ownerUserId,
+				appointmentId,
+			);
+			if (
+				!latest ||
+				latest.ownerUserId !== ownerUserId ||
+				latest.appointmentId !== appointmentId ||
+				latest.patientId !== registration.patientId ||
+				latest.providerPatientId !== registration.providerPatientId ||
+				latest.providerAppointmentId !== registration.providerAppointmentId
+			)
+				throw new DependencyNotConfiguredError("appointment-writes");
+			if (latest.status === "cancelled") {
+				saved = true;
+				break;
+			}
+			current = latest;
+		}
+		if (!saved) throw new DependencyNotConfiguredError("appointment-writes");
 		this.logger.info(
 			{
 				event: "appointment.cancellation.completed",

@@ -411,7 +411,6 @@ export function createApp(options: AppOptions = {}) {
 						services.appointments,
 						appointmentWrites,
 						services.sessions,
-						registrationPaymentExit,
 					),
 				)
 				.use(

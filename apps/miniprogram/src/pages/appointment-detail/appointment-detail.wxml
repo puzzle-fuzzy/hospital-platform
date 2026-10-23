@@ -106,7 +106,7 @@
 					wx:if="{{canCancel}}"
 					class="detail-action-button detail-cancel-button"
 					bindtap="onCancel"
-					disabled="{{canceling}}"
+					disabled="{{loading || canceling}}"
 				>{{canceling ? "取消中..." : "取消预约"}}</button>
 				<button class="detail-action-button detail-home-button" bindtap="onBackHome">返回首页</button>
 			</view>

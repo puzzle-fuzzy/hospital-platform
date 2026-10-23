@@ -82,8 +82,12 @@ test("真实组合根的挂号资金入口与管理员取消使用同一个持�
 	const cash = { ownerUserId, orderId: cashOrder.orderId, context };
 	const operations: [string, () => Promise<unknown>][] = [
 		[
-			"patient cancel",
+			"payment-safe cancel",
 			() => required(services.appointmentWrites).cancel(direct),
+		],
+		[
+			"patient hospital cancel",
+			() => required(services.appointmentWrites).cancelByHospital(direct),
 		],
 		[
 			"cancel refunded",

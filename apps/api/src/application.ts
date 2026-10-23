@@ -629,7 +629,7 @@ export function createDefaultApplicationServices(
 			snapshots: repositories.appointmentScheduleSnapshots,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
-		["cancel", "cancelAfterConfirmedSelfPayRefund"],
+		["cancel", "cancelAfterConfirmedSelfPayRefund", "cancelByHospital"],
 	);
 	const medicalInsuranceCore = new MedicalInsurancePaymentCore({
 		orders: repositories.medicalInsuranceOrders,

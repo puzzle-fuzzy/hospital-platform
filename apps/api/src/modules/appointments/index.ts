@@ -16,7 +16,6 @@ import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
-import type { RegistrationPaymentExitService } from "../payments/registration-payment-exit-service";
 import type { AppointmentService } from "./service";
 import type { AppointmentWriteService } from "./write-service";
 
@@ -78,7 +77,6 @@ export function appointmentsModule(
 	appointmentService: AppointmentService,
 	appointmentWrites: AppointmentWriteService,
 	sessions: SessionTokenService,
-	registrationPaymentExit?: RegistrationPaymentExitService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions);
 	return new Elysia({ name: "appointments-module" })
@@ -144,22 +142,14 @@ export function appointmentsModule(
 			"/appointments/registrations/:appointmentId/cancel",
 			async ({ request, headers, params }) => {
 				const principal = await authentication.get(request);
-				// 详情页取消也必须走支付退出编排：未支付订单先安全失效；已完成
-				// 的挂号自费须严格确认原路全额退款，再向医院请求取消；收费
-				// 回写未确认单独保留。其余支付未知状态保持预约。
+				// 患者主动取消直接提交 HIS，由医院判断取消资格及退费处理；
+				// 不复用支付退出命令，也不在这里另行发起微信退款。
 				return success(
-					registrationPaymentExit
-						? await registrationPaymentExit.abandon({
-								ownerUserId: principal.userId,
-								appointmentId: params.appointmentId,
-								mode: "auto",
-								context: adapterContextFromHeaders(headers),
-							})
-						: await appointmentWrites.cancel({
-								ownerUserId: principal.userId,
-								appointmentId: params.appointmentId,
-								context: adapterContextFromHeaders(headers),
-							}),
+					await appointmentWrites.cancelByHospital({
+						ownerUserId: principal.userId,
+						appointmentId: params.appointmentId,
+						context: adapterContextFromHeaders(headers),
+					}),
 				);
 			},
 			{

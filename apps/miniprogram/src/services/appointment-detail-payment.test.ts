@@ -44,10 +44,14 @@ let definition: DetailPage | undefined;
 async function detailFixture(
 	patch: Record<string, unknown> = {},
 	sourceRecordStatus = "",
+	fixtureOptions: { delayCancellation?: boolean } = {},
 ) {
 	const requests: Array<{ method: string; path: string }> = [];
 	const urls: string[] = [];
 	let paymentCalls = 0;
+	let delayNextDetailRead = false;
+	let pendingDetail: (() => void) | undefined;
+	let pendingCancellation: (() => void) | undefined;
 	const app = {
 		globalData: {
 			apiBaseUrl: "https://hospital.example.test",
@@ -132,6 +136,11 @@ async function detailFixture(
 					method === "GET" &&
 					path === `/api/v2/appointments/registrations/${APPOINTMENT_ID}`
 				) {
+					if (delayNextDetailRead) {
+						delayNextDetailRead = false;
+						pendingDetail = () => respond(detail);
+						return;
+					}
 					respond(detail);
 					return;
 				}
@@ -139,6 +148,11 @@ async function detailFixture(
 					method === "POST" &&
 					path === `/api/v2/appointments/registrations/${APPOINTMENT_ID}/cancel`
 				) {
+					if (fixtureOptions.delayCancellation) {
+						pendingCancellation = () =>
+							respond({ appointmentId: APPOINTMENT_ID, status: "cancelled" });
+						return;
+					}
 					respond({ appointmentId: APPOINTMENT_ID, status: "cancelled" });
 					return;
 				}
@@ -175,7 +189,27 @@ async function detailFixture(
 	expect(requests.at(-1)?.path).toBe(
 		`/api/v2/appointments/registrations/${APPOINTMENT_ID}`,
 	);
-	return { page, requests, urls, paymentCalls: () => paymentCalls };
+	return {
+		page,
+		requests,
+		urls,
+		paymentCalls: () => paymentCalls,
+		updateDetail: (value: Record<string, unknown>) => {
+			Object.assign(detail, value);
+		},
+		delayNextDetailRead: () => {
+			delayNextDetailRead = true;
+		},
+		respondPendingDetail: () => {
+			if (!pendingDetail) throw new Error("No pending detail response");
+			pendingDetail();
+		},
+		respondPendingCancellation: () => {
+			if (!pendingCancellation)
+				throw new Error("No pending cancellation response");
+			pendingCancellation();
+		},
+	};
 }
 
 function expectReadOnly(fixture: Awaited<ReturnType<typeof detailFixture>>) {
@@ -225,7 +259,7 @@ test("医院及列表已取消或已过期时，旧已付字段不能展示缴�
 			expect(fixture.page.data.paymentCompleted).toBeFalse();
 			expect(fixture.page.data.paymentMessage).not.toBe(PAID_MESSAGE);
 			expect(fixture.page.data.canPay).toBeFalse();
-			expect(fixture.page.data.canCancel).toBeFalse();
+			expect(fixture.page.data.canCancel).toBe(status !== "cancelled");
 			expect(fixture.page.data.canViewOriginalPayment).toBeTrue();
 			expectReadOnly(fixture);
 		}
@@ -259,6 +293,7 @@ test("取消预约成功清除已缴费展示，不额外创建任何支付", as
 	expect(fixture.page.data.paymentCompleted).toBeFalse();
 	expect(fixture.page.data.payDeadlineLabel).toBe("");
 	expect(fixture.page.data.canCancel).toBeFalse();
+	expect(fixture.page.data.sourceRecordStatus).toBe("cancelled");
 	expect(fixture.page.data.canPay).toBeFalse();
 	expect(
 		fixture.requests.filter((request) => request.method !== "GET"),
@@ -269,6 +304,73 @@ test("取消预约成功清除已缴费展示，不额外创建任何支付", as
 		},
 	]);
 	expect(fixture.paymentCalls()).toBe(0);
+});
+
+test("取消申请不按就诊状态、过期时间或付款状态预判医院资格", async () => {
+	for (const status of [
+		"scheduled",
+		"expired",
+		"completed",
+		"missed",
+		"stopped",
+		"substituted",
+		"registered",
+		"unknown",
+	]) {
+		const fixture = await detailFixture({ status });
+		expect(fixture.page.data.canCancel).toBeTrue();
+		fixture.page.onCancel();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(fixture.page.data.status).toBe("cancelled");
+		expect(
+			fixture.requests.filter((request) => request.method === "POST"),
+		).toEqual([
+			{
+				method: "POST",
+				path: `/api/v2/appointments/registrations/${APPOINTMENT_ID}/cancel`,
+			},
+		]);
+		expect(fixture.paymentCalls()).toBe(0);
+	}
+});
+
+test("医院确认取消后，取消前在途及后续陈旧详情不能重新显示取消按钮", async () => {
+	const fixture = await detailFixture({}, "", { delayCancellation: true });
+	fixture.page.onCancel();
+	fixture.delayNextDetailRead();
+	const staleRead = fixture.page.loadDetail(PATIENT_ID, APPOINTMENT_ID);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	fixture.respondPendingCancellation();
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(fixture.page.data.status).toBe("cancelled");
+	expect(fixture.page.data.loading).toBeFalse();
+	fixture.respondPendingDetail();
+	await staleRead;
+	expect(fixture.page.data.status).toBe("cancelled");
+	expect(fixture.page.data.canCancel).toBeFalse();
+	for (const status of ["scheduled", "expired", "completed", "unknown"]) {
+		fixture.updateDetail({ status });
+		await fixture.page.loadDetail(PATIENT_ID, APPOINTMENT_ID);
+		expect(fixture.page.data.status).toBe("cancelled");
+		expect(fixture.page.data.canCancel).toBeFalse();
+	}
+	expect(fixture.paymentCalls()).toBe(0);
+});
+
+test("没有平台可写引用、已确认取消及请求处理中不能发起重复取消", async () => {
+	for (const patch of [
+		{ localDetail: false },
+		{ appointmentId: "" },
+		{ canCancel: false },
+		{ loading: true },
+		{ canceling: true },
+	]) {
+		const fixture = await detailFixture();
+		fixture.page.setData(patch);
+		fixture.page.onCancel();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expectReadOnly(fixture);
+	}
 });
 
 test("详情收到账号切换时清除旧缴费成功信息、截止时间和操作入口", async () => {

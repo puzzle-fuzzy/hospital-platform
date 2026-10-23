@@ -135,7 +135,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/appointments/holds` | Bearer + 幂等键 | body 为 `{patientId, scheduleId, sourceSerialNumber}`；服务端重新读取有效排班、号源和挂号费，创建 60 秒服务端占位 |
 | `POST` | `/api/v2/appointments/registrations` | Bearer + 幂等键 | body 为 `{patientId, holdId}`；服务端执行重复预约检查、预约写入并保存 owner-scoped 取消映射 |
 | `GET` | `/api/v2/appointments/registrations/{appointmentId}` | Bearer | 必填 query `patientId`；仅返回当前账号、当前就诊人对应的挂号详情和脱敏就诊卡；Provider 历史记录没有平台详情引用时由小程序按已核实摘要展示 |
-| `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射取消预约；未支付订单先安全失效，已完成的插件自费先以服务端保存的真实 `out_trade_no` 原路退款并回写医院 `.15`，两边确认后才取消；重复取消返回已取消，不接收 provider 预约号 |
+| `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 患者主动取消：校验当前用户及服务端预约映射后直接提交 HIS `2.10.4.3`，取消资格、时间及退费由医院判断，不以本地支付或过期状态拦截、不另行发起平台退款；医院明确成功后保存已取消，重复取消返回已取消，不接收 provider 预约号 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
 | `GET` | `/api/v2/medical-records` | Bearer | 必填内部 `patientId`、`startDate`、`endDate`，跨度最多 30 天；只返回门诊就诊摘要，生产 Provider gate 默认关闭 |
 | `GET` | `/api/v2/inpatient/episodes` | Bearer | 必填内部 `patientId`；只返回旧服务住院摘要，费用、账单和支付不属于此路由，生产 Provider gate 默认关闭 |
@@ -318,7 +318,14 @@ HIS 系统取消且付款截止已过时，平台预约同步为 `expired`；该
 不取消、不重新预约。无法唯一关联时返回 `30475`，改为提供“前往我的挂号”入口。
 其他医院拒绝、超时或未知状态不能按重复预约处理，不透传包含身份信息的医院原始提示。
 
-普通微信挂号取消必须先严格核对原微信订单已全额退款，再请求医院取消。医院 `.15` 退费回写未确认
+患者主动取消预约与支付退出是两个独立命令。`/appointments/registrations/{appointmentId}/cancel`
+只校验当前会话归属及服务端保存的医院预约映射，然后请求 HIS `2.10.4.3`；不按挂号时段、
+本地过期状态、支付状态或是否可退费拦截，也不会另外调用平台微信退款。HIS 明确确认取消后才保存
+`status=cancelled`，医院拒绝或超时不伪造取消成功。已确认的本地取消事实优先于滞后的医院列表，
+列表和详情不能再次显示成可操作的有效预约。取消成功也不代表任何渠道的资金已退款。
+
+支付退出及管理端原路退款编排保留独立资金校验：普通微信挂号先严格核对原微信订单已全额退款，
+再请求医院取消。医院 `.15` 退费回写未确认
 会单独保留待核对状态，不再阻止这一步退号；外层 HTTP 200 或 `success=true` 不能作为收费回写成功依据。
 成功取消响应可含 `hospitalWritebackConfirmed:false, hospitalWritebackPending:true`，只表示挂号已取消，
 不能据此宣称医院收费记录已同步。管理端对应 `registrationRefundStage=appointment_cancelled_writeback_pending`，

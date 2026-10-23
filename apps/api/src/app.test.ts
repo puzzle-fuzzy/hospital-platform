@@ -734,7 +734,7 @@ test("appointment write routes are registered and remain auth-protected", async 
 	}
 });
 
-test("预约取消路由通过支付退出编排先收敛未支付订单", async () => {
+test("患者预约取消直接交给医院，不另行查支付或发起平台退款", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const ownerUserId = "appointment-cancel-auto-owner";
 	const issued = await sessions.issue(ownerUserId);
@@ -742,7 +742,6 @@ test("预约取消路由通过支付退出编排先收敛未支付订单", async
 		| {
 				ownerUserId: string;
 				appointmentId: string;
-				mode: string;
 				context: unknown;
 		  }
 		| undefined;
@@ -750,15 +749,22 @@ test("预约取消路由通过支付退出编排先收敛未支付订单", async
 		services: {
 			...createDefaultApplicationServices(),
 			sessions,
-			registrationPaymentExit: {
-				abandon: async (input) => {
+			appointmentWrites: {
+				cancelByHospital: async (input) => {
 					received = input;
 					return {
 						appointmentId: input.appointmentId,
 						status: "cancelled" as const,
 					};
 				},
-			} as NonNullable<ApplicationServices["registrationPaymentExit"]>,
+			} as NonNullable<ApplicationServices["appointmentWrites"]>,
+			registrationPaymentExit: {
+				abandon: async () => {
+					throw new Error("patient cancellation must not issue a refund");
+				},
+			} as unknown as NonNullable<
+				ApplicationServices["registrationPaymentExit"]
+			>,
 		},
 	});
 
@@ -789,7 +795,6 @@ test("预约取消路由通过支付退出编排先收敛未支付订单", async
 	expect(received).toMatchObject({
 		ownerUserId,
 		appointmentId: "appointment-cancel-auto",
-		mode: "auto",
 		context: {
 			traceId: "appointment-cancel-auto-trace",
 			idempotencyKey: "appointment-cancel-auto-key",
@@ -797,7 +802,7 @@ test("预约取消路由通过支付退出编排先收敛未支付订单", async
 	});
 });
 
-test("预约退款取消的安全错误以稳定契约返回且保留预约", async () => {
+test("支付退出退款的安全错误以稳定契约返回且保留预约", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const issued = await sessions.issue("appointment-refund-error-owner");
 	const errorsByAppointment = new Map([
@@ -856,7 +861,7 @@ test("预约退款取消的安全错误以稳定契约返回且保留预约", as
 	for (const [appointmentId, status, code, numericCode] of expected) {
 		const response = await app.handle(
 			new Request(
-				`http://localhost/api/v1/appointments/registrations/${appointmentId}/cancel`,
+				`http://localhost/api/v1/payments/appointments/${appointmentId}/payment-exit`,
 				{
 					method: "POST",
 					headers: {
@@ -865,7 +870,7 @@ test("预约退款取消的安全错误以稳定契约返回且保留预约", as
 						"idempotency-key": `appointment-refund-error:${appointmentId}`,
 						"x-request-id": `appointment-refund-error:${appointmentId}`,
 					},
-					body: "{}",
+					body: JSON.stringify({ mode: "self" }),
 				},
 			),
 		);

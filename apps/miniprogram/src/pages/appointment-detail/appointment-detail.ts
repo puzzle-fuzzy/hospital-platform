@@ -73,7 +73,7 @@ type AppointmentDetailPageState = AppointmentDetailPageData & {
 	location: string;
 	/**
 	 * 挂号列表已经从 Provider 确认的状态。详情接口读取的是本地预约引用，
-	 * 可能仍是 booked；这里仅用于收紧取消按钮，不能把列表状态当作写入事实。
+	 * 可能仍是 booked；已确认取消不能被陈旧详情恢复为可取消。
 	 */
 	sourceRecordStatus: AppointmentDetailPageData["status"];
 	canCancel: boolean;
@@ -283,6 +283,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		if (
 			this.data.localDetail &&
 			!this.data.loading &&
+			!this.data.canceling &&
 			this.data.sourceAppointmentId &&
 			this.data.sourcePatientId
 		) {
@@ -381,14 +382,16 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					return;
 				}
 				const detail = payload.data;
-				// 预约列表的 Provider 状态可能比本地详情引用更新。终态只允许
-				// 收紧展示和取消动作，不能把列表的“已预约”覆盖服务端更明确的终态。
+				// 医院已确认取消是确定结果；陈旧详情或列表不能重新开放取消。
+				// 其他列表状态仅补充本地仍为 scheduled 的展示，不决定医院取消资格。
 				const status =
-					this.data.sourceRecordStatus &&
-					this.data.sourceRecordStatus !== "scheduled" &&
-					detail.status === "scheduled"
-						? this.data.sourceRecordStatus
-						: detail.status;
+					this.data.sourceRecordStatus === "cancelled"
+						? "cancelled"
+						: this.data.sourceRecordStatus &&
+								this.data.sourceRecordStatus !== "scheduled" &&
+								detail.status === "scheduled"
+							? this.data.sourceRecordStatus
+							: detail.status;
 				const paymentView = { ...detail, status };
 				const canPay = canContinueAppointmentPayment(paymentView);
 				// 已确认缴费是详情页的正常结果；旧截止时间不再作为待支付提醒。
@@ -448,8 +451,8 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 						: canPay
 							? ""
 							: appointmentPaymentBlockedMessage(paymentNoticeView),
-					canceling: false,
-					canCancel: status === "scheduled",
+					// 是否允许取消、是否退费均由 HIS 判断，页面不按日期或支付状态拦截。
+					canCancel: status !== "cancelled",
 					sessionGeneration: expectedSessionGeneration,
 					localDetail: true,
 					legacySummary: false,
@@ -530,6 +533,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 
 	onCancel(): void {
 		if (
+			this.data.loading ||
 			!this.data.localDetail ||
 			!this.data.appointmentId ||
 			!this.data.canCancel ||
@@ -549,7 +553,7 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		wx.showModal({
 			title: "取消预约",
 			content:
-				"确认取消这条预约吗？如已支付，系统会先办理并核对原路全额退款，再请求医院取消预约；医院收费回写结果单独核对，已退款不会重复退款。",
+				"确认向医院申请取消这条预约吗？取消结果及是否退费以医院处理结果为准。",
 			confirmText: "确认取消",
 			cancelText: "暂不取消",
 			success: (result) => {
@@ -563,11 +567,16 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					this.showError(error);
 					return;
 				}
-				this.setData({ canceling: true });
+				getPageLatestRequestGuard(this, "appointment-detail").begin();
+				this.setData({ loading: false, canceling: true });
 				void requestAppointmentCancellation(this.data.appointmentId)
 					.then(() => {
+						// 作废取消前的在途详情读取，避免旧 scheduled 响应重新显示按钮。
+						getPageLatestRequestGuard(this, "appointment-detail").begin();
 						this.setData({
+							loading: false,
 							status: "cancelled",
+							sourceRecordStatus: "cancelled",
 							statusLabel: STATUS_LABELS.cancelled,
 							canCancel: false,
 							canPay: false,

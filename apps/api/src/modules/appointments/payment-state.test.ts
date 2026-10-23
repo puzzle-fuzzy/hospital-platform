@@ -43,7 +43,7 @@ const registration: AppointmentRegistration = {
 const future = "2026-10-13T03:00:00.000Z";
 const past = "2026-10-13T01:30:00.000Z";
 
-test("已过期预约重复取消保持幂等且不再请求 HIS 或修改资金", async () => {
+test("支付退出内部取消对已过期预约保持幂等，不请求 HIS 或修改资金", async () => {
 	const expired = { ...registration, status: "expired" as const };
 	const repository = createInMemoryAppointmentWriteRepository([], [expired]);
 	let cancellations = 0;
@@ -88,11 +88,17 @@ function setup(
 		paymentState?: PaymentOrder["state"];
 		noRecords?: boolean;
 		providerError?: Error;
+		registrationStatus?: AppointmentRegistration["status"];
 	} = {},
 ) {
 	const repository = createInMemoryAppointmentWriteRepository(
 		[],
-		[registration],
+		[
+			{
+				...registration,
+				status: input.registrationStatus ?? registration.status,
+			},
+		],
 	);
 	const paymentOrders = createInMemoryPaymentOrderRepository(
 		input.paymentState
@@ -206,6 +212,47 @@ function setup(
 			context,
 		);
 	return { repository, paymentOrders, writes, lists, detail, assertPay };
+}
+
+for (const status of [
+	"scheduled",
+	"registered",
+	"completed",
+	"unknown",
+] as const) {
+	test(`医院已确认取消后，旧 ${status} 列表不恢复详情或列表中的可操作预约`, async () => {
+		const fixture = setup({
+			status,
+			registrationStatus: "cancelled",
+			needPay: true,
+			payExpiresAt: future,
+			paymentState: "completed",
+		});
+		const detail = await fixture.detail();
+		const list = await fixture.lists.listRecords(
+			registration.ownerUserId,
+			registration.patientId,
+			{ scope: "all" },
+			context,
+		);
+		for (const result of [detail, list.items[0]])
+			expect(result).toMatchObject({
+				status: "cancelled",
+				paymentStatus: "cancelled",
+				canPay: false,
+			});
+		await expect(fixture.assertPay()).rejects.toBeInstanceOf(
+			AppointmentPaymentUnavailableError,
+		);
+		expect(
+			(
+				await fixture.paymentOrders.findByOwnerAndIdempotencyKey(
+					registration.ownerUserId,
+					`registration-self-pay:${registration.appointmentId}`,
+				)
+			)?.state,
+		).toBe("completed");
+	});
 }
 
 for (const scenario of [
