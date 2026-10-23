@@ -78,7 +78,7 @@
 | `POST /common/mbs-fsi/6202` | `MedicalInsuranceGateway.settle` | 6202 返回的医保订单与金额必须落库 | 服务端已实现；配置、schema 和 provider验收后才开放 |
 | `POST /common/mbs-fsi/6301` | `MedicalInsuranceGateway.query` | 查单是补偿路径，不是前端猜状态 | 服务端已实现；配置、schema 和 provider验收后才开放 |
 | 新平台支付页明确退出医保/混合支付/自费 | `POST /api/v2/payments/appointments/{appointmentId}/payment-exit` | 服务端按 owner + appointment 解析关联订单；明确未支付后作废订单并取消预约释放号源，已支付或未知状态保持 fail-closed | 代码、API contract、小程序调用和回归测试已实现；真实 provider、公网和真机验收待完成 |
-| 普通门诊微信收银台明确取消 | `POST /api/v2/payments/outpatient/records/{recordId}/self-pay/cancel` | 仅平台 `{patientId,orderId}`；原单 `.4(autoSettle=0)` 明确失败 `code=5` 后才调用 `.6`，仅 `cancelStatus=1` 确认取消；支付中保留待确认、已支付拦截，不调用 `.11` 或退款；取消后刷新真实 HIS 列表，新付款另建尝试 | contract、adapter、durable 业务锁、API、小程序及 mock 回归已实现；生产 HIS 联调与真机验收待完成 |
+| 普通门诊微信收银台明确取消 | `POST /api/v2/payments/outpatient/records/{recordId}/self-pay/cancel` | 仅平台 `{patientId,orderId}`；原单 `.4(autoSettle=0)` 明确失败，或持久化取消意图下 `code=2` 的唯一原流水完整匹配且仍为发起阶段时提交 `.6`，仅 `cancelStatus=1` 确认取消；其余未知保留待确认、已支付拦截，不调用 `.11` 或退款；取消后刷新真实 HIS 列表，新付款另建尝试 | contract、adapter、durable 业务锁、API、小程序及 mock 回归已实现；生产 HIS 联调与真机验收待完成 |
 | `POST /common/mbs-fsi/6203` | 聚合退费服务内部 `MedicalInsuranceRefundGateway.refund` | 6203 必须绑定已落库医保订单、原始四项金额和服务端加密授权上下文；微信现金腿另走 APIv3 普通退款 | 代码已实现；迁移 `0051`、Provider/微信/HIS/资金真实验收待完成 |
 | `POST /common/mbs-fsi/6302` | `POST /api/v1/webhooks/medical-insurance/settlement` | 公开回调验签、去重、入事件表后异步处理 | 待实现 |
 | `POST /common/mbs-fsi/wechat-med-ins/*` | `WechatPaymentGateway` | 微信医保混合支付只暴露启动/查询结果视图 | 待实现 |

@@ -157,6 +157,128 @@ function referencesMatch(data: RecordValue, expected: CancellationReference) {
 	return true;
 }
 
+function amountMatches(value: unknown, expectedFen: number): boolean {
+	const text = typeof value === "number" ? String(value) : value;
+	if (typeof text !== "string" || text.length > 32) return false;
+	const parts = /^(0|[1-9]\d*)(?:\.(\d+))?$/u.exec(text);
+	if (!parts || /[1-9]/u.test(parts[2]?.slice(2) ?? "")) return false;
+	return (
+		BigInt(parts[1] ?? "0") * 100n +
+			BigInt((parts[2] ?? "").slice(0, 2).padEnd(2, "0")) ===
+		BigInt(expectedFen)
+	);
+}
+
+/**
+ * A cashier exit can leave .4 at code=2 with nullable top-level payment fields.
+ * This is not proof of failed payment: submit only the bound initiation-stage
+ * settlement to HIS, which must independently accept .6 before we cancel it.
+ */
+function hasBoundInitiatingPayment(
+	data: RecordValue,
+	expected: CancellationReference,
+	totalFen: number,
+	context: RegistrationSelfPaySettlementContext,
+): boolean {
+	if (
+		context.outpatientCancellation?.state !== "requested" ||
+		data.success !== false ||
+		(data.code !== 2 && data.code !== "2") ||
+		data.payTypeId !== null ||
+		!Array.isArray(data.payRecords) ||
+		data.payRecords.length !== 1
+	)
+		return false;
+	const trading = record(data.record);
+	if (
+		!trading ||
+		positiveLong(trading.tradingId) !== expected.tradingId ||
+		positiveLong(trading.hospitalId) !== expected.hospitalId ||
+		positiveLong(trading.patId) !== expected.patientId ||
+		String(trading.tradeTypeCode) !== "2" ||
+		positiveLong(trading.tradeStatus) !== "1" ||
+		(trading.tradeStatusId !== undefined &&
+			positiveLong(trading.tradeStatusId) !== "1") ||
+		!amountMatches(trading.tradeAmount, totalFen)
+	)
+		return false;
+	const matches = (value: unknown) => {
+		const payment = record(value);
+		return (
+			payment !== undefined &&
+			positiveLong(payment.payingId) === expected.payingId &&
+			positiveLong(payment.tradingId) === expected.tradingId &&
+			positiveLong(payment.hospitalId) === expected.hospitalId &&
+			positiveLong(payment.payTypeId) === "5032" &&
+			positiveLong(payment.status) === "1" &&
+			positiveLong(payment.payingType) === "1" &&
+			(payment.refundTimes === 0 || payment.refundTimes === "0") &&
+			(payment.relationPayingId === 0 || payment.relationPayingId === "0") &&
+			(payment.invalidFlag === 0 || payment.invalidFlag === "0") &&
+			amountMatches(payment.refundAmount, 0) &&
+			amountMatches(payment.receiveAmount, totalFen)
+		);
+	};
+	return (
+		matches(data.payRecords[0]) &&
+		(data.payRecord === null ||
+			data.payRecord === undefined ||
+			matches(data.payRecord)) &&
+		referencesMatch(
+			{
+				...data,
+				payTypeId: undefined,
+				payRecord: data.payRecord ?? undefined,
+			},
+			expected,
+		)
+	);
+}
+
+/** A failed summary must never override contradictory paid/refund details. */
+function hasConflictingPaymentEvidence(
+	data: RecordValue,
+	totalFen: number,
+): boolean {
+	const trading = record(data.record);
+	if (
+		trading &&
+		((trading.tradeStatus !== undefined &&
+			positiveLong(trading.tradeStatus) !== "1") ||
+			(trading.tradeStatusId !== undefined &&
+				positiveLong(trading.tradeStatusId) !== "1") ||
+			(trading.tradeAmount !== undefined &&
+				!amountMatches(trading.tradeAmount, totalFen)))
+	)
+		return true;
+	const payments = [
+		data.payRecord,
+		...(Array.isArray(data.payRecords) ? data.payRecords : []),
+	];
+	return payments.some((value) => {
+		const payment = record(value);
+		if (!payment) return false;
+		return (
+			(payment.status !== undefined && positiveLong(payment.status) !== "1") ||
+			(payment.payingType !== undefined &&
+				positiveLong(payment.payingType) !== "1") ||
+			(payment.refundTimes !== undefined &&
+				payment.refundTimes !== 0 &&
+				payment.refundTimes !== "0") ||
+			(payment.refundAmount !== undefined &&
+				!amountMatches(payment.refundAmount, 0)) ||
+			(payment.relationPayingId !== undefined &&
+				payment.relationPayingId !== 0 &&
+				payment.relationPayingId !== "0") ||
+			(payment.invalidFlag !== undefined &&
+				payment.invalidFlag !== 0 &&
+				payment.invalidFlag !== "0") ||
+			(payment.receiveAmount !== undefined &&
+				!amountMatches(payment.receiveAmount, totalFen))
+		);
+	});
+}
+
 function configuredText(value: unknown, allowEmpty = false): string {
 	if (
 		typeof value !== "string" ||
@@ -170,9 +292,10 @@ function configuredText(value: unknown, allowEmpty = false): string {
 }
 
 /**
- * Explicit unpaid cancellation only: strict .4 code=5 -> .6 cancelStatus=1.
+ * Explicit cashier cancellation: failed payment, or fully bound code=2 at its
+ * initiation stage, may submit .6. Only .6 cancelStatus=1 confirms cancellation.
  * .4 autoSettle=0 cannot finish a settlement while checking cancellation safety.
- * Processing/unknown stays pending: .11 can revoke paid money and is never used.
+ * Other unknown states stay pending; .11 can revoke money and is never used.
  */
 export function createYunhealthOutpatientSelfPayCancellationGateway(
 	options: YunhealthOutpatientSelfPayCancellationGatewayOptions,
@@ -234,6 +357,17 @@ export function createYunhealthOutpatientSelfPayCancellationGateway(
 						? { requestIds: [...new Set(requestIds)] }
 						: {}),
 				};
+				options.logger?.info(
+					{
+						event: "outpatient.self-payment.cancellation-result",
+						orderId: input.orderId,
+						traceId: normalizedContext.traceId,
+						state,
+						providerStatus,
+						providerRequestCount: requestIds.length,
+					},
+					"Outpatient cancellation result observed",
+				);
 				return { state, providerStatus, trace };
 			};
 			const request = async (
@@ -286,17 +420,36 @@ export function createYunhealthOutpatientSelfPayCancellationGateway(
 			} catch {
 				return finish("awaiting_confirmation", "payment_query_unavailable");
 			}
-			if (
-				queried?.success !== true ||
-				positiveLong(queried.payTypeId) !== "5032" ||
-				!referencesMatch(queried, saved)
-			)
+			if (!queried)
 				return finish("awaiting_confirmation", "payment_query_not_confirmed");
-			if (queried.code === 3 || queried.code === "3")
-				return finish("paid", "payment_paid");
-			if (queried.code !== 5 && queried.code !== "5")
-				return finish("awaiting_confirmation", "payment_not_confirmed_failed");
+			if (
+				!hasBoundInitiatingPayment(
+					queried,
+					saved,
+					input.totalFen,
+					input.registrationContext,
+				)
+			) {
+				if (
+					queried.success !== true ||
+					positiveLong(queried.payTypeId) !== "5032" ||
+					!referencesMatch(queried, saved)
+				)
+					return finish("awaiting_confirmation", "payment_query_not_confirmed");
+				if (queried.code === 3 || queried.code === "3")
+					return finish("paid", "payment_paid");
+				if (queried.code !== 5 && queried.code !== "5")
+					return finish(
+						"awaiting_confirmation",
+						"payment_not_confirmed_failed",
+					);
+			}
 
+			if (hasConflictingPaymentEvidence(queried, input.totalFen))
+				return finish(
+					"awaiting_confirmation",
+					"payment_query_conflicting_evidence",
+				);
 			let cancelled: RecordValue | undefined;
 			try {
 				cancelled = await request("cancel", {

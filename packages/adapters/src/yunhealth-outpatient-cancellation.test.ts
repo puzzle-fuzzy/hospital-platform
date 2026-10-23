@@ -33,7 +33,7 @@ const input = {
 type Call = { url: string; body: string; headers: Headers };
 type Reply = unknown | Error | ((init?: RequestInit) => Promise<Response>);
 
-function envelope(data: unknown, extra: Record<string, unknown> = {}) {
+function envelope<T>(data: T, extra: Record<string, unknown> = {}) {
 	return { success: true, code: "0000", data, ...extra };
 }
 function query(code: unknown = 5, extra: Record<string, unknown> = {}) {
@@ -41,6 +41,49 @@ function query(code: unknown = 5, extra: Record<string, unknown> = {}) {
 }
 function cancelled(extra: Record<string, unknown> = {}) {
 	return envelope({ cancelStatus: "1", ...extra });
+}
+const requestedInput = {
+	...input,
+	registrationContext: {
+		...saved,
+		outpatientCancellation: {
+			state: "requested" as const,
+			requestedAt: "2026-10-23T09:43:32.000Z",
+		},
+	},
+};
+function initiatingQuery(code: string | number = 2) {
+	return envelope({
+		success: false,
+		code,
+		msg: "状态未知",
+		payTypeId: null,
+		payRecord: null,
+		record: {
+			tradingId: saved.tradingId,
+			hospitalId: saved.hospitalId,
+			patId: saved.patientId,
+			tradeTypeCode: "2",
+			tradeStatus: 1,
+			tradeStatusId: 1,
+			tradeAmount: 21.37,
+		},
+		payRecords: [
+			{
+				payingId: saved.payingId,
+				tradingId: saved.tradingId,
+				hospitalId: saved.hospitalId,
+				payTypeId: "5032",
+				status: 1,
+				payingType: 1,
+				refundTimes: 0,
+				refundAmount: 0,
+				relationPayingId: "0",
+				invalidFlag: "0",
+				receiveAmount: 21.37,
+			},
+		],
+	});
 }
 function harness(replies: Reply[], logger?: ProviderRequestLogger) {
 	const calls: Call[] = [];
@@ -112,6 +155,138 @@ test("普通门诊明确支付失败才查后取消，Long 原样传输且不调
 		saved.businessId,
 	);
 });
+
+for (const code of [2, "2"]) {
+	test(`明确退出收银台且原流水仍在发起阶段时，查单未知 ${code} 也提交 .6`, async () => {
+		const reply = initiatingQuery(code);
+		const { gateway, calls } = harness([reply, cancelled()]);
+		expect(await gateway.cancel(requestedInput, context)).toMatchObject({
+			state: "cancelled",
+			providerStatus: "settlement_cancel_confirmed",
+		});
+		expect(calls.map((call) => new URL(call.url).pathname)).toEqual([
+			"/msun-middle-open-settlepay/api/v2/open/payment/pay-query",
+			"/msun-middle-open-settlepay/api/v2/open/settle/cancel-settle",
+		]);
+		expect(calls[1]?.body).toContain(`"businessId":${saved.businessId}`);
+	});
+}
+
+test("查单未知的原单没有明确取消意图时，不发 .6", async () => {
+	const { gateway, calls } = harness([initiatingQuery()]);
+	expect((await gateway.cancel(input, context)).state).toBe(
+		"awaiting_confirmation",
+	);
+	expect(calls).toHaveLength(1);
+});
+
+test("查单可空 payRecord 也可以是完全相同的原发起流水", async () => {
+	const reply = initiatingQuery();
+	Object.assign(reply.data, { payRecord: reply.data.payRecords[0] });
+	const { gateway, calls } = harness([reply, cancelled()]);
+	expect((await gateway.cancel(requestedInput, context)).state).toBe(
+		"cancelled",
+	);
+	expect(calls).toHaveLength(2);
+});
+
+for (const [scope, field, value] of [
+	["data", "success", true],
+	["data", "code", 3],
+	["data", "code", "02"],
+	["data", "payTypeId", 5033],
+	["data", "payRecords", []],
+	["data", "payRecord", {}],
+	["data", "payRecord", []],
+	["data", "businessId", "9000000000000000201"],
+	["record", "tradingId", "9000000000000000203"],
+	["record", "hospitalId", "10389002"],
+	["record", "patId", "9000000000000000204"],
+	["record", "tradeTypeCode", "10"],
+	["record", "tradeStatus", 3],
+	["record", "tradeStatusId", 3],
+	["record", "tradeAmount", 21.38],
+	["payment", "payingId", "9000000000000000202"],
+	["payment", "tradingId", "9000000000000000203"],
+	["payment", "hospitalId", "10389002"],
+	["payment", "payTypeId", "5033"],
+	["payment", "status", 3],
+	["payment", "status", 4],
+	["payment", "payingType", 2],
+	["payment", "refundTimes", 1],
+	["payment", "refundAmount", 0.01],
+	["payment", "relationPayingId", saved.payingId],
+	["payment", "invalidFlag", "1"],
+	["payment", "receiveAmount", 21.38],
+	["payment", "receiveAmount", 21.3701],
+	["payment", "payingId", undefined],
+] as const) {
+	test(`未知状态不能绕过原单、发起阶段和金额核对 ${scope}.${field}=${String(value)}`, async () => {
+		const reply = initiatingQuery();
+		const target =
+			scope === "data"
+				? reply.data
+				: scope === "record"
+					? reply.data.record
+					: reply.data.payRecords[0];
+		Object.assign(target ?? {}, { [field]: value });
+		const { gateway, calls } = harness([reply]);
+		expect((await gateway.cancel(requestedInput, context)).state).toBe(
+			"awaiting_confirmation",
+		);
+		expect(calls).toHaveLength(1);
+	});
+}
+
+test("未知状态存在多条支付流水时不按其中一条撤销整笔结算", async () => {
+	const reply = initiatingQuery();
+	reply.data.payRecords = [...reply.data.payRecords, ...reply.data.payRecords];
+	const { gateway, calls } = harness([reply]);
+	expect((await gateway.cancel(requestedInput, context)).state).toBe(
+		"awaiting_confirmation",
+	);
+	expect(calls).toHaveLength(1);
+});
+
+for (const extra of [
+	{ record: { tradeStatus: 3 } },
+	{ record: { tradeStatusId: 3 } },
+	{ record: { tradeAmount: 21.38 } },
+	{ payRecord: { status: 3 } },
+	{ payRecord: { status: 4 } },
+	{ payRecord: { payingType: 3 } },
+	{ payRecord: { refundAmount: 0.01 } },
+	{ payRecord: { refundTimes: 1 } },
+	{ payRecord: { relationPayingId: saved.payingId } },
+	{ payRecord: { invalidFlag: "1" } },
+	{ payRecord: { receiveAmount: 21.38 } },
+	{ payRecords: [{ payingId: saved.payingId, status: 3 }] },
+]) {
+	test(`code5 摘要不能覆盖已支付、退款或金额冲突证据 ${JSON.stringify(extra)}`, async () => {
+		const { gateway, calls } = harness([query(5, extra)]);
+		expect(await gateway.cancel(requestedInput, context)).toMatchObject({
+			state: "awaiting_confirmation",
+			providerStatus: "payment_query_conflicting_evidence",
+		});
+		expect(calls).toHaveLength(1);
+	});
+}
+
+for (const reply of [
+	cancelled({ cancelStatus: "0" }),
+	cancelled({ success: false }),
+	envelope({ cancelStatus: "1" }, { success: false }),
+	new Error("hospital unavailable"),
+]) {
+	test("原流水发起阶段提交 .6 后，医院未确认仍保留待确认，不关单退款", async () => {
+		const { gateway, calls } = harness([initiatingQuery(), reply]);
+		expect((await gateway.cancel(requestedInput, context)).state).toBe(
+			"awaiting_confirmation",
+		);
+		expect(calls).toHaveLength(2);
+		expect(new URL(calls[1]?.url ?? "").pathname).toEndWith("/cancel-settle");
+	});
+}
 
 for (const code of [3, "3"]) {
 	test(`查单明确已支付 ${code} 不撤销原结算`, async () => {

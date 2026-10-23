@@ -181,7 +181,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/payments/outpatient/records/{recordId}` | Bearer；幂等键可选 | 必填 query `patientId`、`status=unpaid|paid`；返回当前用户/就诊人范围内已核对的单笔门诊费用摘要，不返回项目级费用明细 |
 | `POST` | `/api/v2/payments/outpatient/records/{recordId}/self-pay` | Bearer + 必填幂等键 | body 仅含内部 `patientId`；服务端重新读取 2.6.33 待缴记录，使用 `tradeTypeCode=2`、与挂号相同的 `autoSettle` 和 `requestParam.outTradeOrderIds` 创建门诊微信支付订单，返回服务端校验后的 MD5 调起参数 |
 | `GET` | `/api/v2/payments/outpatient/records/{recordId}/self-pay` | Bearer；幂等键可选 | 必填 query `patientId`；可选 `orderId` 固定查询原支付尝试，缺省查询最新尝试；调起成功不代表门诊结算已完成，已请求取消的原单不再触发 `.5` |
-| `POST` | `/api/v2/payments/outpatient/records/{recordId}/self-pay/cancel` | Bearer + 必填幂等键 | body 仅含内部 `{patientId,orderId}`，绑定原支付尝试；仅在微信明确取消后调用。服务端 `.4(autoSettle=0)` 确认支付失败后调用 `.6`，不调用 `.11`；返回 `cancelled`、`awaiting_confirmation` 或 `already_paid`，支付中/未知不撤销 |
+| `POST` | `/api/v2/payments/outpatient/records/{recordId}/self-pay/cancel` | Bearer + 必填幂等键 | body 仅含内部 `{patientId,orderId}`，绑定原支付尝试；仅在微信明确取消后调用。服务端 `.4(autoSettle=0)` 确认支付失败，或已持久化取消意图且 `code=2` 的唯一原支付流水完整匹配、仍为发起阶段时，提交 `.6`，不调用 `.11`；仅 `cancelStatus=1` 返回 `cancelled`，其他未知/拒绝返回 `awaiting_confirmation`，已支付返回 `already_paid` |
 | `GET` | `/api/v2/payments/outpatient/invoices` | Bearer；幂等键可选 | 必填 `patientId`；服务端按当前用户患者映射查询 2.6.17 已支付门诊发票，只返回平台 `recordId` 和电子票据展示字段 |
 | `POST` | `/api/v2/payments/outpatient/invoices/{recordId}/issue` | Bearer + 必填幂等键 | body 为 `{patientId,payerType}`；服务端重新查询 2.6.17 并将匹配的 `outInvoiceMainId`、`outSettleMainId` 交给 2.6.29，客户端不得提交 Provider 主键 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
