@@ -345,6 +345,7 @@ export function createYunhealthOutpatientSelfPayCancellationGateway(
 				workStationId,
 			);
 			const requestIds: string[] = [];
+			let providerRequestAttempts = 0;
 			const finish = (
 				state: "cancelled" | "awaiting_confirmation" | "paid",
 				providerStatus: string,
@@ -364,7 +365,7 @@ export function createYunhealthOutpatientSelfPayCancellationGateway(
 						traceId: normalizedContext.traceId,
 						state,
 						providerStatus,
-						providerRequestCount: requestIds.length,
+						providerRequestAttempts,
 					},
 					"Outpatient cancellation result observed",
 				);
@@ -377,6 +378,7 @@ export function createYunhealthOutpatientSelfPayCancellationGateway(
 				const key = createHash("sha256")
 					.update(`${input.orderId}:${saved.businessId}:${saved.payingId}`)
 					.digest("hex");
+				providerRequestAttempts++;
 				const response = await requestJson<unknown>(
 					{
 						provider: "yunhealth",

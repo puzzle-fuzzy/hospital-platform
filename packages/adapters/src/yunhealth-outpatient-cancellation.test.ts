@@ -540,6 +540,30 @@ test("默认普通日志不包含患者、授权或结算原单号", async () =>
 	}
 });
 
+for (const stage of ["query", "cancel"] as const) {
+	test(`${stage} 传输失败仍准确记录请求尝试，不能把未收到响应误报为未调用`, async () => {
+		const logs: Record<string, unknown>[] = [];
+		const logger: ProviderRequestLogger = {
+			info: (value) => logs.push(value as Record<string, unknown>),
+			warn: () => undefined,
+			error: () => undefined,
+		};
+		const failure = new Error("synthetic network failure");
+		const { gateway, calls } = harness(
+			stage === "query" ? [failure] : [initiatingQuery(), failure],
+			logger,
+		);
+		expect((await gateway.cancel(requestedInput, context)).state).toBe(
+			"awaiting_confirmation",
+		);
+		const result = logs.find(
+			(entry) => entry.event === "outpatient.self-payment.cancellation-result",
+		);
+		expect(result?.providerRequestAttempts).toBe(calls.length);
+		expect(result?.providerRequestAttempts).toBe(stage === "query" ? 1 : 2);
+	});
+}
+
 test("沿用受控原报文日志开关，诊断保留准确请求和返回，普通元数据仍安全", async () => {
 	const previous = Bun.env.PROVIDER_RAW_LOGGING;
 	Bun.env.PROVIDER_RAW_LOGGING = "1";
