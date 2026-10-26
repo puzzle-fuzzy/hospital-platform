@@ -519,7 +519,7 @@ test("appointment department reads add the provider date window on the server", 
 	});
 });
 
-test("appointment department tree keeps hierarchy separate and resolves clinic departments by opaque parent ID", async () => {
+test("appointment department tree keeps hierarchy separate and clinic availability matches the selected opaque ID", async () => {
 	let clinicInput:
 		| {
 				startDate: string;
@@ -528,6 +528,13 @@ test("appointment department tree keeps hierarchy separate and resolves clinic d
 		  }
 		| undefined;
 	let clinicCalls = 0;
+	let clinicDepartments = [
+		{
+			departmentId: "second-cardiology",
+			displayName: "心内科门诊",
+			providerExtra: "provider-secret",
+		},
+	];
 	const service = new AppointmentService({
 		directory: {
 			listDepartments: async () => ({
@@ -573,13 +580,7 @@ test("appointment department tree keeps hierarchy separate and resolves clinic d
 				clinicCalls += 1;
 				clinicInput = input;
 				return {
-					departments: [
-						{
-							departmentId: "clinic-cardiology",
-							displayName: "心内科门诊",
-							providerExtra: "provider-secret",
-						},
-					],
+					departments: clinicDepartments,
 					trace: {
 						provider: "zhongyang",
 						operation: "appointment-clinic-departments",
@@ -613,7 +614,7 @@ test("appointment department tree keeps hierarchy separate and resolves clinic d
 	await expect(
 		service.listClinicDepartments("second-cardiology", context),
 	).resolves.toEqual({
-		items: [{ departmentId: "clinic-cardiology", displayName: "心内科门诊" }],
+		items: [{ departmentId: "second-cardiology", displayName: "心内科门诊" }],
 		total: 1,
 	});
 	expect(clinicInput).toEqual({
@@ -625,6 +626,36 @@ test("appointment department tree keeps hierarchy separate and resolves clinic d
 		service.listClinicDepartments("\ninvalid", context),
 	).rejects.toBeInstanceOf(AppointmentScheduleQueryError);
 	expect(clinicCalls).toBe(1);
+
+	for (const returned of [
+		[
+			{
+				departmentId: "other-campus",
+				displayName: "心内科门诊",
+				providerExtra: "provider-secret",
+			},
+		],
+		[
+			...clinicDepartments,
+			{
+				departmentId: "other-campus",
+				displayName: "心内科门诊（其他院区）",
+				providerExtra: "provider-secret",
+			},
+		],
+	]) {
+		clinicDepartments = returned;
+		await expect(
+			service.listClinicDepartments("second-cardiology", context),
+		).rejects.toMatchObject({
+			name: "AppointmentDirectoryResultValidationError",
+			violation: "clinic-department-id-mismatch",
+		});
+	}
+	clinicDepartments = [];
+	await expect(
+		service.listClinicDepartments("second-cardiology", context),
+	).resolves.toEqual({ items: [], total: 0 });
 });
 
 test("appointment date ranges accept the configured span and reject anything wider", async () => {

@@ -2898,8 +2898,8 @@ export function requestAppointmentDepartmentTree(): Promise<AppointmentDepartmen
 }
 
 /**
- * 读取已选二级科室下的三级可预约门诊。仅发送目录返回的 opaque ID；名称
- * 由服务端从受控树重新解析，永不把搜索框或任意文本透传给 Provider。
+ * 读取与所选科室 ID 精确对应的可预约门诊，保留既有目录展开接口。
+ * 仅发送目录返回的 opaque ID，普通展开不把名称作为模糊搜索词。
  */
 export function requestAppointmentClinicDepartments(
 	parentDepartmentId: string,

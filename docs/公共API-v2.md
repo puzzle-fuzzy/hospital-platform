@@ -128,7 +128,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/patients/{patientId}/qr` | Bearer | 服务端复核当前用户对就诊人的归属并实时查询就诊卡号，返回 `{imageDataUrl}` 的 GIF 二维码图片；响应设置 `Cache-Control: no-store` |
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
 | `GET` | `/api/v2/appointments/department-tree` | Bearer；幂等键可选 | 返回挂号页的一级/二级真实科室树 |
-| `GET` | `/api/v2/appointments/clinic-departments` | Bearer；幂等键可选 | 必填 `parentDepartmentId`；返回该受控二级科室下的三级可预约门诊 |
+| `GET` | `/api/v2/appointments/clinic-departments` | Bearer；幂等键可选 | 必填 `parentDepartmentId`；保留既有展开接口，返回与该受控科室 ID 精确对应的可预约门诊，最多一条 |
 | `GET` | `/api/v2/appointments/doctor-schedules` | Bearer；幂等键可选 | 旧端“按医生挂号”专用目录；必填 `startDate`、`endDate`，可选 `departmentId`、`doctorId`；服务端展开 Provider `scheduling-doctors` 的嵌套排班，状态未由该端点返回时保持 `unknown` |
 | `GET` | `/api/v2/appointments/schedules` | Bearer；幂等键可选 | 必填 `startDate`、`endDate`；可选 `departmentId`、`doctorId` |
 | `GET` | `/api/v2/appointments/schedules/{scheduleId}/sources` | Bearer；幂等键可选 | 读取单个排班的分时段号源；`scheduleId` 必须对应未过期排班快照，否则 404 `appointment-schedule-reference-expired`；不返回 provider 号源 ID、锁号状态或费用 |
@@ -260,9 +260,11 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 原有 `/appointments/departments` 继续返回扁平的可预约科室目录，保持既有客户端兼容。
 挂号选择页使用独立的 `/appointments/department-tree` 返回
 `groupId`、`displayName` 和每个一级科室下的二级 `departments`；展开二级科室时，
-仅能把该树返回的 `parentDepartmentId` 传给 `/appointments/clinic-departments`，由服务端
-重新解析旧 Provider 所需名称后读取三级可预约门诊。小程序不得提交任意名称或搜索词给
-Provider，也不能把医生列表当成三级门诊。
+仅能把该树返回的 `parentDepartmentId` 传给 `/appointments/clinic-departments`。这个字段
+保留既有名称，实际代表当前选中的二级科室 ID。服务端重新核对它仍在树中，再从当前
+可预约科室目录中按相同 `deptId` 精确匹配，返回零或一条；不通过名称推断父子关系。
+HIS 已确认普通查询不需要 `searchCondition`，该参数仅用于明确的模糊查询；当前展开
+操作不发送它，小程序也不能透传任意搜索词、科室筛选参数或把医生列表当成门诊。
 
 排班目录返回规范化的 `departmentId`、`doctorId`、`workDate`、`shiftName`、
 `totalSlots`、`availableSlots` 和 `timeGroup`。`timeGroup` 只允许 `point`、`range`、
@@ -464,7 +466,7 @@ OpenAPI 仍保留路由是为了冻结公共契约，不代表当前支付已经
 | `GET /api/v2/patients`、`POST /api/v2/patients/sync` | 当前 owner 的有效目录；同步必须是完整快照 | 使用服务端读模型顺序；第一项只能作为“从未选择过时的展示默认值”，不能解释为本人关系 | 选择页展示完整目录 |
 | `GET /api/v2/appointments/departments` | 服务端生成的预约目录日期窗口 | 保留 adapter 返回的 provider 顺序；顺序不是科室优先级事实 | 左栏直接展示目录 |
 | `GET /api/v2/appointments/department-tree` | Provider `first-depts` 的受控一级/二级目录 | 保留 Provider 已给出的排序；一级 ID 和二级 ID 均必须唯一 | 左栏显示一级、右栏显示二级；不预读三级或医生 |
-| `GET /api/v2/appointments/clinic-departments` | 服务端先按 `parentDepartmentId` 回查一级/二级树，再以受控名称读取 `scheduling-depts` | 保留可预约门诊返回顺序；未知或过期二级 ID 不会退化为名称搜索 | 展开二级科室后显示蓝底三级门诊；选择三级门诊才读取医生和排班 |
+| `GET /api/v2/appointments/clinic-departments` | 服务端先按 `parentDepartmentId` 回查一级/二级树；`scheduling-depts` 仅传渠道与日期，再按相同科室 ID 精确对应 | 最多一条；未知或过期 ID 拒绝，无匹配则为空，不以同名或院区后缀扩大结果 | 保留展开交互，显示当前科室的可预约条目；点击后才读取医生和排班 |
 | `GET /api/v2/appointments/schedules` | 起止日期差值最多 31 天；当前小程序请求未来 7 天；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序；页面按 `workDate` 升序分组，同一天内保留返回顺序 | 右栏每次最多渲染 12 条；这是本地渲染分页，不减少 provider 请求量 |
 | `GET /api/v2/appointments/records` | `scope=online` 时起止日期差值最多 366 天；“我的挂号”请求当前日前后各三个月并遵循旧服务月底日历月溢出规则，“爽约记录”请求过去 90 天；`scope=all` 不传日期；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取结果首批渲染 10 条，点击“加载更多”继续展示；这是本地渲染分批，不代表 provider 分页 |
 | `GET /api/v2/reports` | 起止日期差值最多 366 天；当前小程序默认按旧端语义查询当前日前一个日历月，可用日期选择器调整；月底保留 JavaScript 日历月溢出；Provider `endDate` 包含规则待确认；每条返回摘要的 `reportedAt` 必须可解析且落在本次请求的首尾自然日内 | 服务端仅对通过时间窗口校验的结果按 `reportedAt` 时间倒序；同时间再按 `reportedAt`、`kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |

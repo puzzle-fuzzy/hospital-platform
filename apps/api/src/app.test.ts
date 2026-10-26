@@ -2279,6 +2279,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 			};
 		},
 	};
+	let clinicDepartmentMismatch = false;
 	const departmentTree: AppointmentDepartmentTreeGateway = {
 		listDepartmentTree: async (context) => ({
 			groups: [
@@ -2304,8 +2305,10 @@ test("appointment directory keeps provider fields behind a server read model", a
 			return {
 				departments: [
 					{
-						departmentId: "clinic-neurosurgery",
-						displayName: "神经外科门诊",
+						departmentId: clinicDepartmentMismatch
+							? "unrelated-clinic"
+							: "second-general",
+						displayName: "普外科门诊",
 					},
 				],
 				trace: {
@@ -2443,8 +2446,8 @@ test("appointment directory keeps provider fields behind a server read model", a
 		data: {
 			items: [
 				{
-					departmentId: "clinic-neurosurgery",
-					displayName: "神经外科门诊",
+					departmentId: "second-general",
+					displayName: "普外科门诊",
 				},
 			],
 			total: 1,
@@ -2454,6 +2457,18 @@ test("appointment directory keeps provider fields behind a server read model", a
 		parentDepartmentId: "second-general",
 		startDate: "2026-08-15",
 		endDate: "2026-08-22",
+	});
+	clinicDepartmentMismatch = true;
+	const mismatchedClinicResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/clinic-departments?parentDepartmentId=second-general",
+			{ headers: { authorization } },
+		),
+	);
+	expect(mismatchedClinicResponse.status).toBe(502);
+	expect(await mismatchedClinicResponse.json()).toMatchObject({
+		success: false,
+		error: { code: "provider-response-invalid" },
 	});
 	expect(schedulesResponse.status).toBe(200);
 	expect(await schedulesResponse.json()).toEqual({

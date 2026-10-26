@@ -632,10 +632,10 @@ export class AppointmentService {
 	}
 
 	/**
-	 * 读取指定二级科室下的三级可预约科室。
+	 * 确认所选二级科室在当前日期窗口内是否可预约。
 	 *
-	 * HTTP 只提供已公开树中的 opaque 二级 ID；日期窗口和旧 Provider 所需的
-	 * 名称检索均由服务端/adapter 决定，客户端不能扩大成任意关键词搜索。
+	 * HTTP 只提供已公开树中的 opaque 科室 ID；日期窗口由服务端决定，
+	 * adapter 正常查询不带模糊搜索词，只返回相同 ID 的可预约目录条目。
 	 */
 	async listClinicDepartments(
 		parentDepartmentId: string,
@@ -684,6 +684,15 @@ export class AppointmentService {
 			const normalizedDepartments = normalizeAppointmentDepartmentResults(
 				(result as { departments?: unknown } | undefined)?.departments,
 			);
+			if (
+				normalizedDepartments.some(
+					(department) => department.departmentId !== parentDepartmentId,
+				)
+			) {
+				throw new AppointmentDirectoryResultValidationError(
+					"clinic-department-id-mismatch",
+				);
+			}
 			this.logger.info(
 				{
 					event: "appointment.directory.clinic-departments.synced",

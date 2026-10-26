@@ -1368,8 +1368,7 @@ export class ZhongyangAppointmentApiGateway
 					department.departmentId === normalizedInput.parentDepartmentId,
 			);
 		if (!parent) {
-			// 只接受当前服务端树中存在的二级 ID。未知/过期引用不得回退为
-			// 客户端名称或空 searchCondition，否则会扩大成任意 Provider 检索。
+			// 只接受当前服务端树中存在的科室 ID，未知/过期引用不触发全量查询。
 			throw providerError(
 				operation,
 				"Zhongyang appointment parent department is not available",
@@ -1382,9 +1381,8 @@ export class ZhongyangAppointmentApiGateway
 		url.searchParams.set("requestChannel", SCHEDULING_REQUEST_CHANNEL);
 		url.searchParams.set("startDate", normalizedInput.startDate);
 		url.searchParams.set("endDate", normalizedInput.endDate);
-		// 旧端只支持名称筛选；此名称严格来自刚刚验证的一级/二级目录，
-		// 而不是 HTTP query、页面文本或任何 Provider 原样字段。
-		url.searchParams.set("searchCondition", parent.displayName);
+		// HIS 确认正常科室查询不带模糊关键词。完整结果验证后只按受控 ID
+		// 精确匹配，不把同名或名称带院区后缀的其他科室视作其子级。
 		const headers = this.headers();
 		const response = await requestJson<unknown>(
 			{
@@ -1409,7 +1407,9 @@ export class ZhongyangAppointmentApiGateway
 				? undefined
 				: [tree.requestId, response.requestId];
 		return {
-			departments,
+			departments: departments.filter(
+				(department) => department.departmentId === parent.departmentId,
+			),
 			trace: trace(operation, response.requestId, requestIds),
 		};
 	}

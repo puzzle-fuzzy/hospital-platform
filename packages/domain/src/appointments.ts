@@ -126,6 +126,7 @@ export type AppointmentDirectoryResultViolation =
 	| "department-not-object"
 	| "department-field-invalid"
 	| "department-id-duplicate"
+	| "clinic-department-id-mismatch"
 	| "department-groups-not-array"
 	| "department-groups-too-many"
 	| "department-group-not-object"
@@ -270,8 +271,8 @@ export function normalizeAppointmentDepartmentResults(
  * 校验并重新投影一级/二级科室树。
  *
  * 第一层仅用于挂号页目录导航，第二层仍是服务端控制的 opaque 科室引用。
- * 这里不允许跨分组复用二级科室 ID：否则后续三级科室读取仅凭
- * `parentDepartmentId` 无法确定应使用哪一个真实名称，可能造成错误检索。
+ * 这里不允许跨分组复用二级科室 ID，避免当前选择的目录归属不明确。
+ * 后续可预约门诊只按该科室 ID 精确对应，不通过名称构造父子关系。
  */
 export function normalizeAppointmentDepartmentGroupResults(
 	value: unknown,
@@ -593,11 +594,11 @@ export type AppointmentDepartmentQuery = Pick<
 >;
 
 /**
- * 三级可预约科室查询的服务端输入。
+ * 目录展开时确认所选科室是否可预约的服务端输入。
  *
- * `parentDepartmentId` 来自一级/二级树的受控二级引用；adapter 必须先重新
- * 从树中解析其名称，再把该名称作为旧 Provider 的 searchCondition。客户端
- * 不得提交名称或其它 Provider 检索字段。
+ * `parentDepartmentId` 保留既有字段名，实际是一级/二级树中的选中科室 ID。
+ * adapter 先复核该 ID 仍在树中，再从正常查询的可预约目录中按相同 ID 精确
+ * 对应；普通展开不向 Provider 发送 searchCondition，也不猜测名称父子关系。
  */
 export type AppointmentClinicDepartmentQuery = AppointmentDepartmentQuery & {
 	parentDepartmentId: string;
@@ -1179,7 +1180,7 @@ export type AppointmentScheduleSourceQuery = {
 };
 
 /**
- * 一级/二级目录和其下三级可预约科室的独立读取能力。
+ * 一级/二级目录和按所选科室 ID 精确确认可预约条目的独立读取能力。
  *
  * 保持它与既有扁平 `AppointmentDirectoryGateway` 分离，避免新目录协议改变
  * 已发布的 `/appointments/departments` 公共响应。

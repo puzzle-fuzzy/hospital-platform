@@ -48,8 +48,8 @@ const AppointmentScheduleQuery = t.Object({
 });
 
 /**
- * 三级可预约科室只接受一级/二级树中公开的二级 opaque ID；名称筛选由
- * service/adapter 从树中重新解析，不能让 HTTP query 进入 Provider。
+ * 目录展开只接受一级/二级树中公开的科室 opaque ID，服务端按 ID 精确
+ * 对应可预约目录；普通查询不构造或透传 Provider 模糊搜索词。
  */
 const AppointmentClinicDepartmentQuery = t.Object({
 	parentDepartmentId: t.String({ minLength: 1, maxLength: 128 }),
