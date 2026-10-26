@@ -120,7 +120,6 @@ type OutpatientPaymentPageMethods = {
 	onRetry(): void;
 	onChangePatient(): void;
 	onHospitalTap(): void;
-	onElectronicInvoiceTap(): void;
 	onPaymentTap(event: ViewKeyEvent): void;
 	onPaymentMethodTap(event: PaymentMethodEvent): void;
 	refreshMedicalPaymentEligibility(
@@ -519,23 +518,6 @@ Page<OutpatientPaymentPageState, OutpatientPaymentPageMethods>({
 	 */
 	onHospitalTap(): void {
 		wx.showToast({ title: "当前仅支持高平市人民医院", icon: "none" });
-	},
-
-	/** 电子发票按 2.6.17 已支付结算记录查询，不能由 2.6.33 费用卡片推导。 */
-	onElectronicInvoiceTap(): void {
-		const patient = this.data.selectedPatient;
-		if (
-			!patient ||
-			this.data.sessionState !== "valid" ||
-			this.data.patientSessionGeneration !== getSessionGeneration() ||
-			!isCurrentSelectedPatient(patient.id)
-		) {
-			wx.showToast({ title: "请先完成登录并选择就诊人", icon: "none" });
-			return;
-		}
-		wx.navigateTo({
-			url: "/pages/outpatient-electronic-invoice/outpatient-electronic-invoice",
-		});
 	},
 
 	/** 待缴费卡片直接展示缴费按钮；费用卡片本身不再打开详情页。 */

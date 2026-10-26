@@ -1,8 +1,4 @@
 import { afterEach, expect, test } from "bun:test";
-import type {
-	OutpatientElectronicInvoicePageData,
-	ViewKeyEvent,
-} from "../types";
 import { ApiError, downloadOutpatientInvoiceResource } from "./api-client";
 import {
 	clearApiRequestObservations,
@@ -12,17 +8,7 @@ import {
 	classifyInvoiceResourceNetworkFailure,
 	invoiceResourceErrorData,
 } from "./outpatient-invoice-resource";
-import { setSelectedPatientId } from "./patient-selection-service";
-import { notifySessionChanged } from "./session-events";
 
-type InvoicePage = {
-	data: OutpatientElectronicInvoicePageData;
-	setData(patch: Partial<OutpatientElectronicInvoicePageData>): void;
-	onLoad(): void;
-	onUnload(): void;
-	onView(event: ViewKeyEvent): void;
-	loadPage(): Promise<void>;
-};
 type ResourceRequestOptions = {
 	url: string;
 	method: string;
@@ -37,20 +23,12 @@ type ResourceRequestOptions = {
 	}): void;
 	fail(error: { errMsg: string; errCode?: unknown }): void;
 };
-type Modal = {
-	title: string;
-	content: string;
-	confirmText: string;
-	success(value: { confirm: boolean; cancel: boolean }): void;
-};
 const globals = new Map(
 	["wx", "getApp", "Page", "fetch"].map((name) => [
 		name,
 		Object.getOwnPropertyDescriptor(globalThis, name),
 	]),
 );
-const pages: InvoicePage[] = [];
-let definition: InvoicePage | undefined;
 const PNG = new Uint8Array([
 	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0,
 ]);
@@ -64,22 +42,15 @@ const PATIENT = {
 	source: "hospital-his" as const,
 	clinicalAccess: "ready" as const,
 };
-const TICKET_URL =
-	"http://hospital.example.test:18003/medical-web/industryMain.do?method=displayH5&ciphertext=test-only";
-const event: ViewKeyEvent = {
-	currentTarget: { dataset: { viewKey: "invoice-view-001" } },
-} as ViewKeyEvent;
-
 afterEach(() => {
 	clearApiRequestObservations();
-	for (const page of pages.splice(0)) page.onUnload();
 	for (const [name, descriptor] of globals) {
 		if (descriptor) Object.defineProperty(globalThis, name, descriptor);
 		else Reflect.deleteProperty(globalThis, name);
 	}
 });
 
-async function fixture(inline?: string) {
+async function fixture() {
 	const app = {
 		globalData: {
 			apiBaseUrl: "https://test-hp.meiyi.pro",
@@ -92,19 +63,12 @@ async function fixture(inline?: string) {
 	let selectedPatientId = PATIENT.id;
 	const files = new Map<string, Uint8Array>();
 	const removed: string[] = [];
-	const previews: string[] = [];
-	const documents: string[] = [];
-	const clipboard: string[] = [];
-	const modals: Modal[] = [];
 	const requests: Array<{ options: ResourceRequestOptions }> = [];
 	const writes: string[] = [];
 	let storageFailure: "none" | "partial-write" | "corrupt-write" = "none";
 	let onWrite: (() => void) | undefined;
 	Object.assign(globalThis, {
 		getApp: () => app,
-		Page: (value: InvoicePage) => {
-			definition = value;
-		},
 		fetch: () => {
 			throw new Error("Invoice regression must not use the network");
 		},
@@ -166,60 +130,8 @@ async function fixture(inline?: string) {
 			downloadFile: () => {
 				throw new Error("Invoice transport must use the platform request");
 			},
-			previewImage: (options: { current: string; success(): void }) => {
-				previews.push(options.current);
-				options.success();
-			},
-			openDocument: (options: {
-				filePath: string;
-				fileType: string;
-				success(): void;
-			}) => {
-				expect(options.fileType).toBe("pdf");
-				documents.push(options.filePath);
-				options.success();
-			},
-			showModal: (options: Modal) => {
-				modals.push(options);
-			},
-			showToast: () => undefined,
-			setClipboardData: (options: { data: string }) => {
-				clipboard.push(options.data);
-			},
 		},
 	});
-	if (!definition) {
-		const modulePath =
-			"../pages/outpatient-electronic-invoice/outpatient-electronic-invoice";
-		await import(`${modulePath}.ts?invoice-resource-test`);
-	}
-	if (!definition) throw new Error("Invoice page not registered");
-	const page: InvoicePage = {
-		...definition,
-		data: {
-			...definition.data,
-			loading: false,
-			sessionState: "valid",
-			selectedPatient: PATIENT,
-			patientSessionGeneration: 17,
-			items: [
-				{
-					recordId: "invoice-record-001",
-					viewKey: "invoice-view-001",
-					issueState: "issued",
-					billBatchCode: "fixture-batch",
-					billNo: "fixture-no",
-					pictureUrl: inline ?? TICKET_URL,
-				},
-			],
-		},
-		setData(patch) {
-			Object.assign(this.data, patch);
-		},
-		loadPage: async () => undefined,
-	};
-	pages.push(page);
-	page.onLoad();
 	const finish = (
 		index: number,
 		bytes = PNG,
@@ -243,13 +155,8 @@ async function fixture(inline?: string) {
 	};
 	return {
 		app,
-		page,
 		files,
 		removed,
-		previews,
-		documents,
-		clipboard,
-		modals,
 		requests,
 		writes,
 		finish,
@@ -263,10 +170,6 @@ async function fixture(inline?: string) {
 			selectedPatientId = id;
 		},
 	};
-}
-
-async function flush() {
-	for (let index = 0; index < 6; index++) await Promise.resolve();
 }
 
 test("票据下载只发送平台患者引用与Bearer，PNG/JPEG/PDF按真实类型识别", async () => {
@@ -397,101 +300,6 @@ test("票据下载前后阻断会话与患者变化，旧文件被清理", async
 	await expect(oldSession).rejects.toMatchObject({ code: "session-changed" });
 	expect(sessionPath).toBe("");
 	expect(f.writes).toHaveLength(0);
-});
-
-test("H5票据走固定资源入口，重复点击仅下载一次，PDF用原生文档打开", async () => {
-	const f = await fixture();
-	f.page.onView(event);
-	f.page.onView(event);
-	expect(f.page.data.openingViewKey).toBe("invoice-view-001");
-	expect(f.requests).toHaveLength(1);
-	f.finish(0, PDF, "application/pdf");
-	await flush();
-	expect(f.documents).toHaveLength(1);
-	expect(f.previews).toHaveLength(0);
-	expect(f.page.data.openingViewKey).toBe("");
-	f.page.onUnload();
-	expect(f.files.size).toBe(0);
-});
-
-test("平台下载的图片原生预览并在卸载后清理，保留已开具票据", async () => {
-	const f = await fixture();
-	f.page.onView(event);
-	const path = f.finish(0);
-	await flush();
-	expect(f.previews).toEqual([path]);
-	expect(f.page.data.items[0]?.issueState).toBe("issued");
-	f.page.onUnload();
-	expect(f.removed).toContain(path);
-});
-
-test("真实Base64影像使用独立文件，患者切换和卸载都清理且不重新开票", async () => {
-	const f = await fixture(Buffer.from(PNG).toString("base64"));
-	f.page.onView(event);
-	await flush();
-	const first = f.previews[0];
-	if (!first) throw new Error("Inline invoice was not previewed");
-	expect(first).toStartWith("wxfile://usr/invoice-17-");
-	f.page.onView(event);
-	await flush();
-	expect(f.previews[1]).not.toBe(first);
-	expect(f.removed).toContain(first);
-	setSelectedPatientId("invoice-patient-002");
-	expect(f.files.size).toBe(0);
-	expect(f.requests).toHaveLength(0);
-	expect(f.page.data.items[0]?.issueState).toBe("issued");
-});
-
-test("伪Base64不预览，网页提取失败可明确复制原链接，过期确认不能复制", async () => {
-	const f = await fixture(Buffer.from("not a real image").toString("base64"));
-	const invoice = f.page.data.items[0];
-	if (!invoice) throw new Error("Missing invoice fixture");
-	invoice.pictureNetUrl = TICKET_URL;
-	f.page.onView(event);
-	expect(f.previews).toHaveLength(0);
-	expect(f.requests).toHaveLength(1);
-	f.finish(0, new TextEncoder().encode("bad gateway"), "text/html", 502);
-	await flush();
-	expect(f.modals[0]?.content).toContain("复制医院提供的票据链接");
-	expect(f.modals[0]?.content).not.toContain("尚未配置");
-	expect(f.clipboard).toHaveLength(0);
-	f.modals[0]?.success({ confirm: true, cancel: false });
-	expect(f.clipboard).toEqual([TICKET_URL]);
-	f.app.globalData.sessionGeneration = 18;
-	f.modals[0]?.success({ confirm: true, cancel: false });
-	expect(f.clipboard).toHaveLength(1);
-});
-
-test("非HTTP地址不能成为复制入口，下载超时不改变开票状态", async () => {
-	const f = await fixture("javascript:alert(1)");
-	f.page.onView(event);
-	f.requests[0]?.options.fail({ errMsg: "request:fail timeout" });
-	await flush();
-	expect(f.modals[0]?.confirmText).toBe("知道了");
-	expect(f.modals[0]?.content).toContain("未重新开票");
-	f.modals[0]?.success({ confirm: true, cancel: false });
-	expect(f.clipboard).toHaveLength(0);
-	expect(f.previews).toHaveLength(0);
-	expect(f.page.data.items[0]?.issueState).toBe("issued");
-	expect(f.page.data.openingViewKey).toBe("");
-});
-
-test("卸载、登出和患者变更时的晚到影像不能打开，且清理临时文件", async () => {
-	for (const boundary of ["unload", "session", "patient"] as const) {
-		const f = await fixture();
-		f.page.onView(event);
-		if (boundary === "unload") f.page.onUnload();
-		else if (boundary === "session") {
-			f.app.globalData.sessionGeneration = 18;
-			notifySessionChanged("account-switched");
-		} else setSelectedPatientId("invoice-patient-002");
-		const path = f.finish(0);
-		await flush();
-		expect(f.previews).toHaveLength(0);
-		expect(f.documents).toHaveLength(0);
-		if (boundary === "unload") expect(f.removed).toContain(path);
-		else expect(f.writes).toHaveLength(0);
-	}
 });
 
 test("医院超时JSON保留10810和服务端关联号，不落盘、不自动重试", async () => {
@@ -739,14 +547,61 @@ test("网络失败只记录固定分类及有界数字，不记录原始微信�
 	}
 });
 
-test("患者切换后再切回也不能让旧页面请求打开票据", async () => {
-	const f = await fixture();
-	f.page.onView(event);
-	setSelectedPatientId("another-patient");
-	setSelectedPatientId(PATIENT.id);
-	f.finish(0);
-	await flush();
-	expect(f.previews).toHaveLength(0);
-	expect(f.documents).toHaveLength(0);
-	expect(f.files.size).toBe(0);
+test("旧电子票据路由只显示导诊机打印指引，不读取会话或触发任何票据操作", async () => {
+	type GuidePage = {
+		data: { printHint: string };
+		onLoad?: () => void;
+		onShow?: () => void;
+		onPullDownRefresh?: () => void;
+		onUnload?: () => void;
+	};
+	let captured: unknown;
+	const accesses: string[] = [];
+	const forbidden = (name: string): never => {
+		accesses.push(name);
+		throw new Error(`Print guidance must not invoke ${name}`);
+	};
+	Object.assign(globalThis, {
+		Page: (value: unknown) => {
+			captured = value;
+		},
+		getApp: () => forbidden("getApp"),
+		fetch: () => forbidden("fetch"),
+		wx: new Proxy(
+			{},
+			{ get: (_target, name) => forbidden(`wx.${String(name)}`) },
+		),
+	});
+	const modulePath =
+		"../pages/outpatient-electronic-invoice/outpatient-electronic-invoice";
+	await import(`${modulePath}.ts?invoice-print-guidance-test`);
+	const page = captured as GuidePage | undefined;
+	if (!page) throw new Error("Invoice print guide not registered");
+	page.onLoad?.();
+	page.onShow?.();
+	page.onPullDownRefresh?.();
+	page.onUnload?.();
+	expect(page.data.printHint).toBe("请前往导诊机自主打印发票");
+	expect(accesses).toEqual([]);
+	const template = await Bun.file(
+		new URL(
+			"../pages/outpatient-electronic-invoice/outpatient-electronic-invoice.wxml",
+			import.meta.url,
+		),
+	).text();
+	expect(template).toContain("{{printHint}}");
+	expect(template.trimStart()).toStartWith(
+		'<scroll-view class="secondary-page-scroll"',
+	);
+	expect(template).toContain('scroll-y="true"');
+	expect(template).not.toMatch(/bindtap|<button|patient-hospital-context/u);
+	const configuration = await Bun.file(
+		new URL(
+			"../pages/outpatient-electronic-invoice/outpatient-electronic-invoice.json",
+			import.meta.url,
+		),
+	).json();
+	expect(configuration.navigationBarTitleText).toBe("发票打印");
+	expect(configuration.enablePullDownRefresh).toBe(false);
+	expect(configuration.usingComponents).toBeUndefined();
 });

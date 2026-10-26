@@ -11,12 +11,9 @@
 		<view class="tab {{activeStatus === 'unpaid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="unpaid">待缴费</view>
 		<view class="tab {{activeStatus === 'paid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="paid">已缴费</view>
 	</view>
-	<view class="electronic-invoice-entry" bindtap="onElectronicInvoiceTap">
-		<view>
-			<text class="electronic-invoice-entry-title">门诊电子发票</text>
-			<text class="electronic-invoice-entry-hint">查询并开具当前就诊人的电子发票</text>
-		</view>
-		<text class="electronic-invoice-entry-arrow">›</text>
+	<view class="invoice-print-notice">
+		<text class="invoice-print-notice-title">发票打印</text>
+		<text class="invoice-print-notice-hint">请前往导诊机自主打印发票</text>
 	</view>
 
 	<!--

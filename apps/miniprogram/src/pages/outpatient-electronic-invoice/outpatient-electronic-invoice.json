@@ -1,11 +1,8 @@
 {
-	"navigationBarTitleText": "门诊电子发票",
+	"navigationBarTitleText": "发票打印",
 	"navigationBarBackgroundColor": "#f8f8f8",
 	"navigationBarTextStyle": "black",
 	"backgroundColor": "#f6f8fc",
 	"disableScroll": true,
-	"enablePullDownRefresh": true,
-	"usingComponents": {
-		"patient-hospital-context": "/components/patient-hospital-context/patient-hospital-context"
-	}
+	"enablePullDownRefresh": false
 }

@@ -95,40 +95,31 @@ page {
 	border-bottom: 1rpx solid #f0f0f0;
 }
 
-.electronic-invoice-entry {
-	display: flex;
+.invoice-print-notice {
 	box-sizing: border-box;
 	width: 710rpx;
-	min-height: 106rpx;
 	margin: 18rpx auto 0;
 	padding: 18rpx 28rpx;
-	align-items: center;
-	justify-content: space-between;
 	border-radius: 16rpx;
 	background: #ffffff;
 }
 
-.electronic-invoice-entry-title,
-.electronic-invoice-entry-hint {
+.invoice-print-notice-title,
+.invoice-print-notice-hint {
 	display: block;
 }
 
-.electronic-invoice-entry-title {
+.invoice-print-notice-title {
 	color: #303640;
 	font-size: 29rpx;
 	font-weight: 700;
 }
 
-.electronic-invoice-entry-hint {
+.invoice-print-notice-hint {
 	margin-top: 7rpx;
-	color: #8b949e;
-	font-size: 23rpx;
-}
-
-.electronic-invoice-entry-arrow {
-	color: #9da4ad;
-	font-size: 40rpx;
-	line-height: 1;
+	color: #666666;
+	font-size: 26rpx;
+	line-height: 1.6;
 }
 
 .tab {
