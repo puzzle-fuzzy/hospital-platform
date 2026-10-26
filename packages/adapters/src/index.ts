@@ -168,6 +168,10 @@ export {
 	ZhongyangOutpatientElectronicInvoiceQueryApiGateway,
 } from "./zhongyang-outpatient-invoice-query";
 export {
+	createZhongyangOutpatientElectronicInvoiceResourceGateway,
+	type ZhongyangOutpatientElectronicInvoiceResourceGatewayOptions,
+} from "./zhongyang-outpatient-invoice-resource";
+export {
 	createZhongyangOutpatientElectronicInvoiceGateway,
 	ZhongyangOutpatientElectronicInvoiceApiGateway,
 } from "./zhongyang-outpatient-invoices";

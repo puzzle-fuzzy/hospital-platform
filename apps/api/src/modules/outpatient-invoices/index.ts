@@ -12,10 +12,13 @@ import type {
 	OutpatientElectronicInvoicePayerType,
 	OutpatientElectronicInvoiceQueryGateway,
 	OutpatientElectronicInvoiceRecord,
+	OutpatientElectronicInvoiceResourceContent,
+	OutpatientElectronicInvoiceResourceGateway,
 	PatientRepository,
 } from "@hospital/domain";
 import {
 	adapterContextTraceId,
+	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
 	normalizeAdapterCallContext,
 	normalizeExternalTrace,
@@ -229,6 +232,7 @@ export type OutpatientElectronicInvoiceServiceDependencies = {
 	repository: PatientRepository;
 	query: OutpatientElectronicInvoiceQueryGateway;
 	issue: OutpatientElectronicInvoiceGateway;
+	resourceGateway?: OutpatientElectronicInvoiceResourceGateway;
 	logger?: AppLogger;
 	now?: () => Date;
 };
@@ -386,6 +390,64 @@ export class OutpatientElectronicInvoiceService {
 			invoice: publicIssuedInvoice(issued.invoice),
 		};
 	}
+
+	/** 查看始终重新确认患者和票据归属；不调用 2.6.29 开票。 */
+	async resource(
+		ownerUserId: string,
+		patientId: string,
+		recordId: string,
+		context: AdapterCallContext,
+	): Promise<OutpatientElectronicInvoiceResourceContent> {
+		const normalizedContext = normalizeAdapterCallContext(context);
+		if (!normalizedContext || !isBoundedOpaqueIdentifier(recordId)) {
+			throw new OutpatientElectronicInvoiceQueryError();
+		}
+		const result = await this.query(ownerUserId, patientId, normalizedContext);
+		const record = result.records.find(
+			(candidate) =>
+				invoiceRecordId(ownerUserId, patientId, candidate) === recordId,
+		);
+		if (!record?.billBatchCode || !record.billNo) {
+			throw new OutpatientElectronicInvoiceRecordNotFoundError();
+		}
+		if (!this.dependencies.resourceGateway) {
+			throw new DependencyNotConfiguredError(
+				"outpatient-electronic-invoice-resource",
+			);
+		}
+		const content = await this.dependencies.resourceGateway.fetchResource(
+			{
+				...(record.pictureNetUrl
+					? { pictureNetUrl: record.pictureNetUrl }
+					: {}),
+				...(record.pictureUrl ? { pictureUrl: record.pictureUrl } : {}),
+			},
+			normalizedContext,
+		);
+		if (
+			!(content.body instanceof Uint8Array) ||
+			content.body.byteLength === 0 ||
+			content.body.byteLength > 8 * 1024 * 1024 ||
+			!["image/png", "image/jpeg", "application/pdf"].includes(
+				content.contentType,
+			)
+		) {
+			throw new Error("outpatient-electronic-invoice-resource-invalid");
+		}
+		this.logger.info(
+			{
+				event: "outpatient.electronic-invoice.resource.loaded",
+				traceId: adapterContextTraceId(normalizedContext),
+				businessType: "outpatient",
+				capability: "electronic-invoice-resource-read",
+				...traceLogFields(result.trace),
+				contentType: content.contentType,
+				byteLength: content.body.byteLength,
+			},
+			"Outpatient electronic invoice resource loaded",
+		);
+		return { body: content.body, contentType: content.contentType };
+	}
 }
 
 const AuthorizationHeaders = t.Object({
@@ -427,6 +489,34 @@ export function outpatientElectronicInvoicesModule(
 				headers: AuthorizationHeaders,
 				query: InvoiceQuery,
 				response: { 200: OutpatientElectronicInvoiceListResponse },
+				tags: ["payments"],
+			},
+		)
+		.get(
+			"/payments/outpatient/invoices/:recordId/resource",
+			async ({ request, headers, params, query }) => {
+				const principal = await authentication.get(request);
+				const content = await service.resource(
+					principal.userId,
+					query.patientId,
+					params.recordId,
+					adapterContextFromHeaders(headers),
+				);
+				return new Response(Uint8Array.from(content.body).buffer, {
+					headers: {
+						"content-type": content.contentType,
+						"content-disposition": "inline",
+						"cache-control": "no-store",
+						"x-content-type-options": "nosniff",
+					},
+				});
+			},
+			{
+				headers: AuthorizationHeaders,
+				query: InvoiceQuery,
+				params: t.Object({
+					recordId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
 				tags: ["payments"],
 			},
 		)

@@ -20,6 +20,7 @@ import type {
 	MedicalInsuranceRefundNotificationGateway,
 	OutpatientElectronicInvoiceGateway,
 	OutpatientElectronicInvoiceQueryGateway,
+	OutpatientElectronicInvoiceResourceGateway,
 	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	OutpatientSelfPayCancellationGateway,
@@ -229,6 +230,8 @@ export type ApplicationServiceOptions = {
 	outpatientElectronicInvoiceQueryGateway?: OutpatientElectronicInvoiceQueryGateway;
 	/** 2.6.29 门诊电子发票开具网关。 */
 	outpatientElectronicInvoiceGateway?: OutpatientElectronicInvoiceGateway;
+	/** 已归属门诊票据的只读图片/PDF；不转发调用方传入的 URL。 */
+	outpatientElectronicInvoiceResourceGateway?: OutpatientElectronicInvoiceResourceGateway;
 	/** 门诊就诊摘要 Provider；独立配置并默认 fail-closed。 */
 	outpatientMedicalRecordGateway?: OutpatientMedicalRecordGateway;
 	/** 住院摘要 Provider；独立配置并默认 fail-closed。 */
@@ -1190,6 +1193,11 @@ export function createDefaultApplicationServices(
 			issue:
 				options.outpatientElectronicInvoiceGateway ??
 				gateways.outpatientElectronicInvoices,
+			...(options.outpatientElectronicInvoiceResourceGateway
+				? {
+						resourceGateway: options.outpatientElectronicInvoiceResourceGateway,
+					}
+				: {}),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		outpatientSelfPay,

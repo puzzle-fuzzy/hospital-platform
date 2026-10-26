@@ -454,6 +454,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/payments/outpatient/records/{recordId}/self-pay/cancel",
 		"/api/v1/payments/outpatient/invoices",
 		"/api/v1/payments/outpatient/invoices/{recordId}/issue",
+		"/api/v1/payments/outpatient/invoices/{recordId}/resource",
 		"/api/v1/payments/wechat/notifications",
 		"/api/v1/reports",
 		"/api/v1/reports/{reportId}",

@@ -206,6 +206,7 @@ export type OutpatientElectronicInvoicePageData = {
 	items: Array<OutpatientElectronicInvoiceView>;
 	loading: boolean;
 	issuingViewKey: string;
+	openingViewKey: string;
 	error: string;
 	canSelectPatient: boolean;
 };

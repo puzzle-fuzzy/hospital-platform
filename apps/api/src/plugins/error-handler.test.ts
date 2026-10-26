@@ -558,7 +558,7 @@ test("电子发票未知记录返回稳定的 404 公共契约", async () => {
 		error: {
 			code: "outpatient-electronic-invoice-record-not-found",
 			numericCode: 50340,
-			message: "未找到可开具的门诊电子发票记录",
+			message: "未找到对应的门诊电子发票记录",
 		},
 	});
 });
@@ -666,6 +666,42 @@ test("医保关单上下文缺失不再伪装成 Provider 502", async () => {
 		},
 	});
 });
+
+test.each([
+	{
+		retryable: false,
+		providerErrorCode: "INVOICE_RESOURCE_UNSUPPORTED",
+		message: "医院返回的票据网页暂不能直接预览，可复制票据链接到浏览器查看",
+		status: 502,
+	},
+	{
+		retryable: true,
+		providerErrorCode: undefined,
+		message: "票据影像暂时无法获取，请稍后重试",
+		status: 503,
+	},
+])(
+	"票据影像错误说明实际下一步，不泄露资源地址或断言域名配置 $status",
+	async (example) => {
+		const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+			throw new ProviderRequestError({
+				provider: "zhongyang",
+				operation: "outpatient-electronic-invoice-resource",
+				message: "private resource URL must not appear in response",
+				retryable: example.retryable,
+				responseInvalid: !example.retryable,
+				...(example.providerErrorCode
+					? { providerErrorCode: example.providerErrorCode }
+					: {}),
+			});
+		});
+		const response = await app.handle(new Request("http://localhost/probe"));
+		expect(response.status).toBe(example.status);
+		const payload = await response.json();
+		expect(payload.error.message).toBe(example.message);
+		expect(JSON.stringify(payload)).not.toContain("private resource");
+	},
+);
 
 test("医保 6201/6202 内嵌 504 返回可重试的连接超时提示", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {

@@ -582,6 +582,12 @@ export function errorHandlerPlugin() {
 						? "provider-temporarily-unavailable"
 						: "provider-request-rejected";
 				const providerMessage =
+					(error.provider === "zhongyang" &&
+					error.operation === "outpatient-electronic-invoice-resource"
+						? error.providerErrorCode === "INVOICE_RESOURCE_UNSUPPORTED"
+							? "医院返回的票据网页暂不能直接预览，可复制票据链接到浏览器查看"
+							: "票据影像暂时无法获取，请稍后重试"
+						: undefined) ??
 					adminProviderDiagnosticMessage(error, request) ??
 					(responseInvalid
 						? "外部服务返回数据异常，请稍后重试"
@@ -766,7 +772,7 @@ export function errorHandlerPlugin() {
 				set.status = 404;
 				return errorPayload(
 					"outpatient-electronic-invoice-record-not-found",
-					"未找到可开具的门诊电子发票记录",
+					"未找到对应的门诊电子发票记录",
 				);
 			}
 

@@ -20,6 +20,7 @@ import {
 	createZhongyangMedicalRecordGateway,
 	createZhongyangOutpatientElectronicInvoiceGateway,
 	createZhongyangOutpatientElectronicInvoiceQueryGateway,
+	createZhongyangOutpatientElectronicInvoiceResourceGateway,
 	createZhongyangOutpatientPaymentGateway,
 	createZhongyangPatientBindingGateway,
 	createZhongyangPatientGateway,
@@ -339,6 +340,15 @@ const outpatientElectronicInvoiceQueryGateway =
 				...(config.zhongyangAuthorizationToken
 					? { authorizationToken: config.zhongyangAuthorizationToken }
 					: {}),
+			})
+		: undefined;
+// 仅复用已确认的众阳 HTTPS 资源中转；医院 HTTP/IP 地址始终由服务端校验。
+const outpatientElectronicInvoiceResourceGateway =
+	outpatientElectronicInvoiceQueryGateway &&
+	config.zhongyangBaseUrl &&
+	/^https:\/\/gpsrmyy\.meiyi\.pro\/?$/u.test(config.zhongyangBaseUrl ?? "")
+		? createZhongyangOutpatientElectronicInvoiceResourceGateway({
+				relayBaseUrl: config.zhongyangBaseUrl,
 			})
 		: undefined;
 const outpatientElectronicInvoiceOperatorType =
@@ -753,6 +763,9 @@ const services = createDefaultApplicationServices({
 	...(outpatientElectronicInvoiceGateway
 		? { outpatientElectronicInvoiceGateway }
 		: {}),
+	...(outpatientElectronicInvoiceResourceGateway
+		? { outpatientElectronicInvoiceResourceGateway }
+		: {}),
 	...(outpatientMedicalRecordGateway ? { outpatientMedicalRecordGateway } : {}),
 	...(inpatientEpisodeGateway ? { inpatientEpisodeGateway } : {}),
 	outpatientPaymentAuthSysCode: config.outpatientPaymentAuthSysCode,
@@ -1067,6 +1080,8 @@ logger.info(
 			? { outpatientPaymentMissing }
 			: {}),
 		outpatientElectronicInvoiceConfiguration: outpatientElectronicInvoiceStatus,
+		outpatientElectronicInvoiceResourceRuntime:
+			outpatientElectronicInvoiceResourceGateway ? "enabled" : "disabled",
 		...(outpatientElectronicInvoiceMissing.length > 0
 			? { outpatientElectronicInvoiceMissing }
 			: {}),

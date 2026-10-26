@@ -45,7 +45,7 @@
 				</view>
 				<block wx:if="{{item.issueState === 'issued'}}">
 					<view class="invoice-issued-hint">电子票据已生成；票据影像以医院电子票据平台返回结果为准。</view>
-					<button class="invoice-view-button" bindtap="onView" data-view-key="{{item.viewKey}}">查看电子票据</button>
+					<button class="invoice-view-button" bindtap="onView" data-view-key="{{item.viewKey}}" loading="{{openingViewKey === item.viewKey}}" disabled="{{openingViewKey !== '' || issuingViewKey !== '' || loading}}">{{openingViewKey === item.viewKey ? '正在获取票据' : '查看电子票据'}}</button>
 				</block>
 				<button
 					wx:else
@@ -53,7 +53,7 @@
 					bindtap="onIssue"
 					data-view-key="{{item.viewKey}}"
 					loading="{{issuingViewKey === item.viewKey}}"
-					disabled="{{issuingViewKey !== ''}}"
+					disabled="{{issuingViewKey !== '' || openingViewKey !== ''}}"
 				>确认开具</button>
 			</view>
 		</view>

@@ -347,6 +347,8 @@ export type {
 	OutpatientElectronicInvoicePayerType,
 	OutpatientElectronicInvoiceQueryGateway,
 	OutpatientElectronicInvoiceRecord,
+	OutpatientElectronicInvoiceResourceContent,
+	OutpatientElectronicInvoiceResourceGateway,
 } from "./outpatient-invoices";
 export type {
 	OutpatientPaymentGateway,

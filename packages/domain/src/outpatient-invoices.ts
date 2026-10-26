@@ -81,3 +81,20 @@ export interface OutpatientElectronicInvoiceGateway {
 		trace: ExternalTrace;
 	}>;
 }
+
+/** 只读票据资源；不返回、执行或转发医院的 HTML 页面。 */
+export type OutpatientElectronicInvoiceResourceContent = {
+	body: Uint8Array;
+	contentType: "image/png" | "image/jpeg" | "application/pdf";
+};
+
+/** 输入资源必须来自服务端本次按患者归属重新查询的医院票据记录。 */
+export interface OutpatientElectronicInvoiceResourceGateway {
+	fetchResource(
+		input: Pick<
+			OutpatientElectronicInvoiceRecord,
+			"pictureNetUrl" | "pictureUrl"
+		>,
+		context: AdapterCallContext,
+	): Promise<OutpatientElectronicInvoiceResourceContent>;
+}

@@ -1,4 +1,5 @@
 import {
+	downloadOutpatientInvoiceResource,
 	getCurrentUser,
 	issueOutpatientElectronicInvoice,
 } from "../../services/api-client";
@@ -9,6 +10,10 @@ import {
 } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
+	readOutpatientInvoiceResourceType,
+	removeOutpatientInvoiceResource,
+} from "../../services/outpatient-invoice-resource";
+import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
@@ -18,12 +23,14 @@ import {
 	isPatientSelectionError,
 	patientContextErrorMessage,
 	preservedPatientForReload,
+	registerPatientSelectionChangedListener,
 	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
+	registerSessionChangedListener,
 } from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
 import {
@@ -38,7 +45,28 @@ import type {
 	ViewKeyEvent,
 } from "../../types";
 
-const INVOICE_QR_PREVIEW_PATH = `${wx.env.USER_DATA_PATH}/outpatient-electronic-invoice-qr.png`;
+type InvoicePreviewRuntime = {
+	files: Set<string>;
+	unsubscribe: Array<() => void>;
+};
+const invoicePreviews = new WeakMap<object, InvoicePreviewRuntime>();
+let previewSequence = 0;
+
+function previewRuntime(page: object): InvoicePreviewRuntime {
+	let runtime = invoicePreviews.get(page);
+	if (!runtime) {
+		runtime = { files: new Set(), unsubscribe: [] };
+		invoicePreviews.set(page, runtime);
+	}
+	return runtime;
+}
+
+function clearInvoicePreviews(page: object): void {
+	getPageLatestRequestGuard(page, "outpatient-electronic-invoice-view").begin();
+	for (const file of previewRuntime(page).files)
+		removeOutpatientInvoiceResource(file);
+	previewRuntime(page).files.clear();
+}
 
 function findInvoice(
 	items: readonly OutpatientElectronicInvoiceView[],
@@ -79,11 +107,14 @@ function invoiceImageBase64(
 	return undefined;
 }
 
-function hasHospitalInvoiceLink(
+function hospitalInvoiceLink(
 	invoice: OutpatientElectronicInvoiceView,
-): boolean {
-	return [invoice.pictureNetUrl, invoice.pictureUrl].some(
-		(value) => typeof value === "string" && /^https?:\/\//iu.test(value.trim()),
+): string | undefined {
+	return [invoice.pictureNetUrl, invoice.pictureUrl].find(
+		(value) =>
+			typeof value === "string" &&
+			value.length <= 32_768 &&
+			/^https?:\/\/[^\s<>"'@]+$/iu.test(value),
 	);
 }
 
@@ -108,6 +139,11 @@ type OutpatientElectronicInvoicePageMethods = {
 	onRetry(): void;
 	onIssue(event: ViewKeyEvent): void;
 	onView(event: ViewKeyEvent): void;
+	openInvoice(
+		invoice: OutpatientElectronicInvoiceView,
+		patient: Patient,
+		expectedSessionGeneration: number,
+	): Promise<void>;
 	issueInvoice(
 		invoice: OutpatientElectronicInvoiceView,
 		patient: Patient,
@@ -129,12 +165,24 @@ Page<
 		items: [],
 		loading: true,
 		issuingViewKey: "",
+		openingViewKey: "",
 		error: "",
 		canSelectPatient: false,
 	},
 
 	onLoad(): void {
 		this.setData({ hasShown: false });
+		const runtime = previewRuntime(this);
+		const invalidatePreview = () => {
+			clearInvoicePreviews(this);
+			this.setData({ openingViewKey: "" });
+		};
+		runtime.unsubscribe.push(
+			registerSessionChangedListener(invalidatePreview),
+			registerPatientSelectionChangedListener(({ patientId }) => {
+				if (this.data.selectedPatient?.id !== patientId) invalidatePreview();
+			}),
+		);
 		registerPageSessionResetListener(
 			this,
 			() => {
@@ -145,6 +193,7 @@ Page<
 					items: [],
 					loading: true,
 					issuingViewKey: "",
+					openingViewKey: "",
 					error: "",
 					canSelectPatient: false,
 				});
@@ -164,6 +213,7 @@ Page<
 
 	/** 发票列表与开具命令都只绑定当前 owner、当前患者和当前会话代际。 */
 	loadPage(): Promise<void> {
+		clearInvoicePreviews(this);
 		const guard = getPageLatestRequestGuard(
 			this,
 			"outpatient-electronic-invoice",
@@ -181,6 +231,7 @@ Page<
 			patientSessionGeneration: -1,
 			items: [],
 			issuingViewKey: "",
+			openingViewKey: "",
 			canSelectPatient: false,
 		});
 		return getCurrentUser()
@@ -270,7 +321,12 @@ Page<
 	},
 
 	onIssue(event: ViewKeyEvent): void {
-		if (this.data.issuingViewKey || this.data.loading) return;
+		if (
+			this.data.issuingViewKey ||
+			this.data.openingViewKey ||
+			this.data.loading
+		)
+			return;
 		const patient = this.data.selectedPatient;
 		const invoice = findInvoice(
 			this.data.items,
@@ -301,44 +357,136 @@ Page<
 	},
 
 	/**
-	 * 已开具记录只查看 Provider 已返回的影像/二维码，绝不复用开票命令。
-	 * 不能把 Provider 的任意 H5 地址作为通用 WebView 打开；这既会违反
-	 * 微信业务域名限制，也会绕过小程序的外部地址边界。
+	 * 查看只读取原票据，不复用开票命令。网页由服务端受控解析为影像，
+	 * 不把医院的任意 URL 直接传给 WebView 或 downloadFile。
 	 */
 	onView(event: ViewKeyEvent): void {
+		if (
+			this.data.loading ||
+			this.data.openingViewKey ||
+			this.data.issuingViewKey
+		)
+			return;
+		const patient = this.data.selectedPatient;
 		const invoice = findInvoice(
 			this.data.items,
 			event.currentTarget?.dataset?.viewKey,
 		);
-		if (invoice?.issueState !== "issued") return;
-
-		const base64 = invoiceImageBase64(invoice);
-		if (base64) {
-			try {
-				wx.getFileSystemManager().writeFileSync(
-					INVOICE_QR_PREVIEW_PATH,
-					base64,
-					"base64",
-				);
-				wx.previewImage({
-					urls: [INVOICE_QR_PREVIEW_PATH],
-					current: INVOICE_QR_PREVIEW_PATH,
-					fail: () => wx.showToast({ title: "票据影像预览失败", icon: "none" }),
-				});
-			} catch {
-				wx.showToast({ title: "票据影像预览失败", icon: "none" });
-			}
+		if (
+			!patient ||
+			invoice?.issueState !== "issued" ||
+			this.data.sessionState !== "valid" ||
+			this.data.patientSessionGeneration !== getSessionGeneration() ||
+			!isCurrentSelectedPatient(patient.id)
+		)
 			return;
-		}
+		void this.openInvoice(invoice, patient, this.data.patientSessionGeneration);
+	},
 
-		wx.showModal({
-			title: "暂不能在小程序内查看",
-			content: hasHospitalInvoiceLink(invoice)
-				? "医院返回的是票据网页地址，但尚未配置为小程序可用的电子票据业务域名。请医院提供可配置的 HTTPS 域名后再开通。"
-				: "医院尚未返回可预览的票据影像或二维码，请稍后刷新电子发票记录。",
-			showCancel: false,
-			confirmText: "知道了",
-		});
+	async openInvoice(
+		invoice,
+		patient,
+		expectedSessionGeneration,
+	): Promise<void> {
+		clearInvoicePreviews(this);
+		const guard = getPageLatestRequestGuard(
+			this,
+			"outpatient-electronic-invoice-view",
+		);
+		const token = guard.begin();
+		const current = () =>
+			guard.isCurrent(token) &&
+			expectedSessionGeneration === getSessionGeneration() &&
+			this.data.patientSessionGeneration === expectedSessionGeneration &&
+			this.data.selectedPatient?.id === patient.id &&
+			isCurrentSelectedPatient(patient.id) &&
+			findInvoice(this.data.items, invoice.viewKey)?.recordId ===
+				invoice.recordId;
+		if (!current()) return;
+		this.setData({ openingViewKey: invoice.viewKey });
+		let filePath = "";
+		try {
+			let kind: "image" | "pdf" = "image";
+			const base64 = invoiceImageBase64(invoice);
+			if (base64) {
+				// 不含姓名、患者号和票据密文；不同会话、页面及操作不会覆盖文件。
+				filePath = `${wx.env.USER_DATA_PATH}/invoice-${expectedSessionGeneration}-${Date.now()}-${++previewSequence}.png`;
+				previewRuntime(this).files.add(filePath);
+				try {
+					wx.getFileSystemManager().writeFileSync(filePath, base64, "base64");
+					if (!readOutpatientInvoiceResourceType(filePath).startsWith("image/"))
+						throw new Error("Inline invoice is not an image");
+				} catch {
+					removeOutpatientInvoiceResource(filePath);
+					previewRuntime(this).files.delete(filePath);
+					filePath = "";
+				}
+			}
+			if (!filePath) {
+				const resource = await downloadOutpatientInvoiceResource(
+					patient.id,
+					invoice.recordId,
+					expectedSessionGeneration,
+				);
+				filePath = resource.tempFilePath;
+				kind = resource.kind;
+				previewRuntime(this).files.add(filePath);
+			}
+			if (!current()) return;
+			await new Promise<void>((resolve, reject) => {
+				if (kind === "pdf") {
+					wx.openDocument({
+						filePath,
+						fileType: "pdf",
+						showMenu: true,
+						success: () => resolve(),
+						fail: reject,
+					});
+				} else {
+					wx.previewImage({
+						urls: [filePath],
+						current: filePath,
+						success: () => resolve(),
+						fail: reject,
+					});
+				}
+			});
+		} catch (error) {
+			if (!current()) return;
+			if (filePath) {
+				removeOutpatientInvoiceResource(filePath);
+				previewRuntime(this).files.delete(filePath);
+			}
+			const link = hospitalInvoiceLink(invoice);
+			const message = errorMessageWithCode(
+				error,
+				"票据影像暂时无法获取，请稍后重试",
+			);
+			wx.showModal({
+				title: "票据暂时无法打开",
+				content: link
+					? `${message}。也可复制医院提供的票据链接，粘贴到浏览器查看；若仍无法打开，请联系医院核实。`
+					: `${message}。本次操作未重新开票，请稍后刷新票据记录。`,
+				showCancel: Boolean(link),
+				confirmText: link ? "复制链接" : "知道了",
+				success: ({ confirm }) => {
+					if (!confirm || !link || !current()) return;
+					wx.setClipboardData({
+						data: link,
+						fail: () => {
+							if (current())
+								wx.showToast({ title: "链接复制失败，请重试", icon: "none" });
+						},
+					});
+				},
+			});
+		} finally {
+			if (!current() && filePath) {
+				removeOutpatientInvoiceResource(filePath);
+				previewRuntime(this).files.delete(filePath);
+			}
+			if (guard.isCurrent(token)) this.setData({ openingViewKey: "" });
+		}
 	},
 
 	async issueInvoice(
@@ -421,6 +569,9 @@ Page<
 	},
 
 	onUnload(): void {
+		clearInvoicePreviews(this);
+		for (const unsubscribe of previewRuntime(this).unsubscribe) unsubscribe();
+		invoicePreviews.delete(this);
 		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
