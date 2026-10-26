@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type {
 	LaboratoryReportDetail,
+	LaboratoryReportDetailInput,
 	PatientRepository,
 	ReportDetailGateway,
 	ReportDirectoryEntry,
@@ -2035,4 +2036,246 @@ test("报告目录 service 超过资源上限时不创建短期详情引用", as
 		violation: "reports-too-many",
 	});
 	expect(referenceWrites).toBe(0);
+});
+
+test("LIS 详情和附件复用原目录窗口并重新绑定当前患者", async () => {
+	const references = createInMemoryReportReferenceRepository();
+	const now = new Date("2026-08-16T00:00:00.000Z");
+	const detailInputs: LaboratoryReportDetailInput[] = [];
+	const sourceUrl = "https://zhongyang.example.test/private/lis-window.pdf";
+	let providerPatientId = "his-patient-original";
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId,
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory",
+							title: "合成检验",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available",
+							hasAttachment: true,
+						},
+						providerReportId: "lis-window-001",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "lis-window-directory",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async (input) => {
+				detailInputs.push(input);
+				return {
+					detail: {
+						kind: "laboratory",
+						title: "合成检验",
+						reportedAt: "2026-08-15 10:00:00",
+						items: [{ name: "合成指标", result: "1", flag: "normal" }],
+						hasAttachment: true,
+					},
+					attachments: [{ sourceUrl, kind: "pdf", label: "检验报告 PDF" }],
+					trace: {
+						provider: "zhongyang",
+						operation: "reports-laboratory-detail",
+						requestId: "lis-window-detail",
+					},
+				};
+			},
+		},
+		attachment: {
+			fetchAttachment: async (attachment) => {
+				expect(attachment.sourceUrl).toBe(sourceUrl);
+				return {
+					body: new Uint8Array([37, 80, 68, 70]),
+					contentType: "application/pdf",
+				};
+			},
+		},
+		references,
+		now: () => now,
+	});
+	const context = {
+		traceId: "trace-lis-window",
+		idempotencyKey: "key-lis-window",
+	};
+	const list = await service.list(
+		"user-001",
+		"patient-001",
+		{
+			startDate: "2026-08-01",
+			endDate: "2026-08-15",
+			kind: "laboratory",
+		},
+		context,
+	);
+	const reportId = list.items[0]?.reportId;
+	if (!reportId) throw new Error("Missing LIS reference");
+	await expect(
+		references.findByOwnerPatientAndId(
+			"user-001",
+			"patient-001",
+			reportId,
+			now.toISOString(),
+		),
+	).resolves.toMatchObject({
+		startDate: "2026-08-01",
+		endDate: "2026-08-15",
+	});
+	providerPatientId = "his-patient-current";
+	const detail = await service.detail(
+		"user-001",
+		"patient-001",
+		reportId,
+		context,
+	);
+	const attachmentId = detail.attachments?.[0]?.attachmentId;
+	if (!attachmentId) throw new Error("Missing attachment reference");
+	await service.attachment(
+		"user-001",
+		"patient-001",
+		reportId,
+		attachmentId,
+		context,
+	);
+	expect(detailInputs).toEqual(
+		[0, 1].map(() => ({
+			providerReportId: "lis-window-001",
+			directoryContext: {
+				providerPatientId: "his-patient-current",
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+			},
+		})),
+	);
+	expect(JSON.stringify(detail)).not.toContain("his-patient-current");
+	expect(JSON.stringify(detail)).not.toContain(sourceUrl);
+});
+
+test("历史无窗口 LIS 引用仍可读取旧对象详情且不猜测目录范围", async () => {
+	const references = createInMemoryReportReferenceRepository();
+	const now = new Date("2026-08-16T00:00:00.000Z");
+	await references.upsert({
+		reportId: "report-legacy-lis",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		provider: "zhongyang",
+		kind: "laboratory",
+		providerReportId: "legacy-lis",
+		createdAt: now.toISOString(),
+		expiresAt: "2026-08-16T00:10:00.000Z",
+	});
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => {
+				throw new Error("Legacy path must not invent a directory lookup");
+			},
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => {
+				throw new Error("Must not be called");
+			},
+		},
+		detail: {
+			getLaboratoryDetail: async (input) => {
+				expect(input).toEqual({ providerReportId: "legacy-lis" });
+				return {
+					detail: {
+						kind: "laboratory",
+						title: "历史合成检验",
+						reportedAt: "2026-08-15 10:00:00",
+						items: [],
+						hasAttachment: false,
+					},
+					trace: {
+						provider: "zhongyang",
+						operation: "reports-laboratory-detail",
+						requestId: "legacy-lis-detail",
+					},
+				};
+			},
+		},
+		references,
+		now: () => now,
+	});
+	await expect(
+		service.detail("user-001", "patient-001", "report-legacy-lis", {
+			traceId: "trace-legacy-lis",
+			idempotencyKey: "key-legacy-lis",
+		}),
+	).resolves.toMatchObject({ title: "历史合成检验" });
+});
+
+test("目录仓储不能替换或丢弃 LIS 原查询窗口后继续提供详情入口", async () => {
+	for (const changedWindow of [
+		{ startDate: "2026-07-01", endDate: "2026-08-15" },
+		{ startDate: undefined, endDate: undefined },
+	]) {
+		const service = new ReportService({
+			repository: {
+				resolveProviderReference: async () => ({
+					patientId: "patient-001",
+					provider: "zhongyang",
+					providerPatientId: "his-patient-001",
+				}),
+			} as unknown as PatientRepository,
+			directory: {
+				listReports: async () => ({
+					reports: [
+						{
+							summary: {
+								kind: "laboratory",
+								title: "合成检验",
+								reportedAt: "2026-08-15 10:00:00",
+								status: "available",
+								hasAttachment: false,
+							},
+							providerReportId: "lis-window-mismatch",
+						},
+					],
+					trace: {
+						provider: "zhongyang",
+						operation: "reports-directory",
+						requestId: "window-mismatch",
+					},
+				}),
+			},
+			detail: {
+				getLaboratoryDetail: async () => {
+					throw new Error("Must not be called");
+				},
+			},
+			references: {
+				upsert: async (input) =>
+					({
+						...input,
+						createdAt: input.createdAt ?? "2026-08-16T00:00:00.000Z",
+						...changedWindow,
+					}) as never,
+				findByOwnerPatientAndId: async () => undefined,
+			},
+			now: () => new Date("2026-08-16T00:00:00.000Z"),
+		});
+		const list = await service.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-15" },
+			{
+				traceId: "trace-window-mismatch",
+				idempotencyKey: "key-window-mismatch",
+			},
+		);
+		expect(list.total).toBe(1);
+		expect(list.items[0]).not.toHaveProperty("reportId");
+	}
 });

@@ -6,6 +6,7 @@ import type {
 import type {
 	AdapterCallContext,
 	AppointmentPatientProfileGateway,
+	LaboratoryReportDetailInput,
 	PatientRepository,
 	ReportAttachmentContent,
 	ReportAttachmentGateway,
@@ -457,6 +458,38 @@ export class ReportService {
 		};
 	}
 
+	private async laboratoryDetailInput(
+		ownerUserId: string,
+		patientId: string,
+		reference: Extract<ReportReference, { kind: "laboratory" }>,
+		context: AdapterCallContext,
+	): Promise<LaboratoryReportDetailInput> {
+		if (reference.startDate === undefined || reference.endDate === undefined) {
+			// 历史引用仍可读取完整对象详情；缺少原窗口时不猜测补查范围。
+			return { providerReportId: reference.providerReportId };
+		}
+		const query = {
+			startDate: reference.startDate,
+			endDate: reference.endDate,
+			kind: "laboratory",
+		} satisfies ReportDirectoryQuery;
+		validateQuery(query);
+		const input = await this.directoryInput(
+			ownerUserId,
+			patientId,
+			query,
+			context,
+		);
+		return {
+			providerReportId: reference.providerReportId,
+			directoryContext: {
+				providerPatientId: input.providerPatientId,
+				startDate: query.startDate,
+				endDate: query.endDate,
+			},
+		};
+	}
+
 	async list(
 		ownerUserId: string,
 		patientId: string,
@@ -586,15 +619,12 @@ export class ReportService {
 							).toISOString(),
 							createdAt: observedNow.toISOString(),
 						};
-						const referenceInput: ReportReferenceInput =
-							entry.summary.kind === "laboratory"
-								? { ...referenceBase, kind: "laboratory" }
-								: {
-										...referenceBase,
-										kind: entry.summary.kind,
-										startDate: normalizedQuery.startDate,
-										endDate: normalizedQuery.endDate,
-									};
+						const referenceInput: ReportReferenceInput = {
+							...referenceBase,
+							kind: entry.summary.kind,
+							startDate: normalizedQuery.startDate,
+							endDate: normalizedQuery.endDate,
+						};
 						const reference =
 							await this.dependencies.references.upsert(referenceInput);
 						// 仓储返回值仍是跨层边界，不能只相信 TypeScript 类型。若实现
@@ -612,7 +642,9 @@ export class ReportService {
 							reference.kind !== referenceInput.kind ||
 							reference.providerReportId !== referenceInput.providerReportId ||
 							reference.createdAt !== referenceInput.createdAt ||
-							reference.expiresAt !== referenceInput.expiresAt
+							reference.expiresAt !== referenceInput.expiresAt ||
+							reference.startDate !== referenceInput.startDate ||
+							reference.endDate !== referenceInput.endDate
 						) {
 							throw new Error(
 								"Report reference repository returned a mismatched scope or window",
@@ -740,7 +772,12 @@ export class ReportService {
 			let trace: ReturnType<typeof normalizeExternalTrace>;
 			if (reference.kind === "laboratory") {
 				const result = await this.dependencies.detail.getLaboratoryDetail(
-					{ providerReportId: reference.providerReportId },
+					await this.laboratoryDetailInput(
+						ownerUserId,
+						patientId,
+						reference,
+						context,
+					),
 					context,
 				);
 				trace = normalizeExternalTrace(
@@ -901,7 +938,12 @@ export class ReportService {
 			let attachments: readonly ReportProviderAttachment[];
 			if (reference.kind === "laboratory") {
 				const result = await this.dependencies.detail.getLaboratoryDetail(
-					{ providerReportId: reference.providerReportId },
+					await this.laboratoryDetailInput(
+						ownerUserId,
+						patientId,
+						reference,
+						context,
+					),
 					context,
 				);
 				normalizeExternalTrace(

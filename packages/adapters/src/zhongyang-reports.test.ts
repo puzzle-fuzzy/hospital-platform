@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	type LaboratoryReportDetailInput,
 	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
@@ -70,6 +71,83 @@ function syntheticLaboratoryTitleGateway(
 			});
 		},
 	});
+}
+
+const syntheticLaboratoryArrayInput: LaboratoryReportDetailInput = {
+	providerReportId: "synthetic-array-report",
+	directoryContext: {
+		providerPatientId: "synthetic-array-patient",
+		startDate: "2026-08-01",
+		endDate: "2026-08-15",
+	},
+};
+
+const syntheticLaboratoryArrayItem = {
+	reportId: "synthetic-array-report",
+	keynoGroup: "synthetic-array-report",
+	itemName: "合成检验指标",
+	itemResult: "12.34",
+	unit: "合成单位",
+	itemRange: "1-20",
+	resultTime: "2026-08-15 09:30:00",
+	testList: null,
+};
+
+const syntheticLaboratoryArrayDirectory = {
+	reportId: "synthetic-array-report",
+	patId: "synthetic-array-patient",
+	patName: "合成患者隐私字段",
+	testList: "合成检验组合",
+	reportTime: "2026-08-15 10:20:30",
+	details: [
+		{ ...syntheticLaboratoryArrayItem, itemResult: "不能复用的目录缓存值" },
+	],
+	pdfUrlList: ["https://zhongyang.example.test/private/synthetic-report.pdf"],
+};
+
+function syntheticLaboratoryArrayGateway(
+	options: {
+		detailPayload?: unknown;
+		detailItems?: readonly unknown[];
+		directoryPayload?: unknown;
+		directoryRows?: readonly unknown[];
+	} = {},
+) {
+	const requests: string[] = [];
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const url = String(input);
+			requests.push(url);
+			const isDetail = new URL(url).pathname.endsWith("/details");
+			const payload = isDetail
+				? Object.hasOwn(options, "detailPayload")
+					? options.detailPayload
+					: {
+							success: true,
+							code: "0000",
+							data: options.detailItems ?? [syntheticLaboratoryArrayItem],
+						}
+				: Object.hasOwn(options, "directoryPayload")
+					? options.directoryPayload
+					: {
+							success: true,
+							code: "0000",
+							data: options.directoryRows ?? [
+								syntheticLaboratoryArrayDirectory,
+							],
+						};
+			return new Response(JSON.stringify(payload), {
+				status: 200,
+				headers: {
+					"x-request-id": isDetail
+						? "synthetic-array-detail"
+						: "synthetic-array-directory",
+				},
+			});
+		},
+	});
+	return { gateway, requests };
 }
 
 test("274字符及上限检验组合标题完整通过三来源目录与详情，不截断或遗漏其他报告", async () => {
@@ -945,6 +1023,266 @@ test("众阳 LIS 详情在公开 contract 边界拒绝超长单位", async () =>
 		retryable: false,
 		responseInvalid: true,
 	});
+});
+
+test("众阳 LIS 数组详情按同患者原窗口补目录元数据，检测项与报告时间不混用", async () => {
+	for (const detailPayload of [
+		{ success: true, code: "0000", data: [syntheticLaboratoryArrayItem] },
+		[syntheticLaboratoryArrayItem],
+	]) {
+		const { gateway, requests } = syntheticLaboratoryArrayGateway({
+			detailPayload,
+			directoryRows: [
+				{
+					...syntheticLaboratoryArrayDirectory,
+					reportId: "synthetic-other-report",
+					pdfUrlList: ["https://zhongyang.example.test/private/other.pdf"],
+				},
+				syntheticLaboratoryArrayDirectory,
+			],
+		});
+		const result = await gateway.getLaboratoryDetail(
+			syntheticLaboratoryArrayInput,
+			context,
+		);
+		expect(requests).toEqual([
+			"https://zhongyang.example.test/msun-middle-business-lis/v1/lis-reports/details?reportId=synthetic-array-report",
+			"https://zhongyang.example.test/msun-middle-business-lis/v1/lis-reports-filter?patId=synthetic-array-patient&startTime=2026-08-01+00%3A00%3A00&endTime=2026-08-15+23%3A59%3A59",
+		]);
+		expect(normalizeLaboratoryReportDetail(result.detail)).toEqual({
+			kind: "laboratory",
+			title: "合成检验组合",
+			reportedAt: "2026-08-15 10:20:30",
+			items: [
+				{
+					name: "合成检验指标",
+					result: "12.34",
+					unit: "合成单位",
+					referenceRange: "1-20",
+					flag: "unknown",
+				},
+			],
+			hasAttachment: true,
+		});
+		expect(result.attachments).toEqual([
+			{
+				sourceUrl:
+					"https://zhongyang.example.test/private/synthetic-report.pdf",
+				kind: "pdf",
+				label: "检验报告 PDF",
+			},
+		]);
+		expect(result.trace).toEqual({
+			provider: "zhongyang",
+			operation: "reports-laboratory-detail",
+			requestId: "synthetic-array-detail",
+			requestIds: ["synthetic-array-detail", "synthetic-array-directory"],
+		});
+		expect(JSON.stringify(result)).not.toContain("合成患者隐私字段");
+		expect(JSON.stringify(result)).not.toContain("不能复用的目录缓存值");
+	}
+});
+
+test("众阳 LIS 旧完整对象携带目录上下文时仍只请求详情", async () => {
+	const { gateway, requests } = syntheticLaboratoryArrayGateway({
+		detailPayload: {
+			success: true,
+			data: {
+				...syntheticLaboratoryArrayDirectory,
+				details: [syntheticLaboratoryArrayItem],
+			},
+		},
+	});
+	const result = await gateway.getLaboratoryDetail(
+		syntheticLaboratoryArrayInput,
+		context,
+	);
+	expect(requests).toHaveLength(1);
+	expect(result.detail.reportedAt).toBe("2026-08-15 10:20:30");
+	expect(result.detail.items[0]?.result).toBe("12.34");
+	expect(result.trace.requestIds).toBeUndefined();
+});
+
+test("众阳 LIS 数组详情没有原目录上下文时拒绝猜测报告日期", async () => {
+	const { gateway, requests } = syntheticLaboratoryArrayGateway();
+	await expect(
+		gateway.getLaboratoryDetail(
+			{ providerReportId: "synthetic-array-report" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-laboratory-detail",
+		requestId: "synthetic-array-detail",
+		responseInvalid: true,
+	});
+	expect(requests).toHaveLength(1);
+});
+
+test("众阳 LIS 数组详情拒绝混合报告、缺失报告号和患者冲突且不继续查询", async () => {
+	const { reportId: _reportId, ...withoutReportId } =
+		syntheticLaboratoryArrayItem;
+	for (const detailItems of [
+		[{ ...syntheticLaboratoryArrayItem, reportId: "synthetic-other-report" }],
+		[
+			syntheticLaboratoryArrayItem,
+			{ ...syntheticLaboratoryArrayItem, reportId: "synthetic-other-report" },
+		],
+		[withoutReportId],
+		[{ ...syntheticLaboratoryArrayItem, keynoGroup: "synthetic-other-report" }],
+		[{ ...syntheticLaboratoryArrayItem, patId: "synthetic-other-patient" }],
+	]) {
+		const { gateway, requests } = syntheticLaboratoryArrayGateway({
+			detailItems,
+		});
+		await expect(
+			gateway.getLaboratoryDetail(syntheticLaboratoryArrayInput, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "reports-laboratory-detail",
+			responseInvalid: true,
+		});
+		expect(requests).toHaveLength(1);
+	}
+});
+
+test("众阳 LIS 数组目录回补拒绝患者冲突、重复报告、缺报及窗口外时间", async () => {
+	const { patId: _patId, ...withoutPatientId } =
+		syntheticLaboratoryArrayDirectory;
+	for (const directoryRows of [
+		[],
+		[
+			{
+				...syntheticLaboratoryArrayDirectory,
+				patId: "synthetic-other-patient",
+			},
+		],
+		[withoutPatientId],
+		[syntheticLaboratoryArrayDirectory, syntheticLaboratoryArrayDirectory],
+		[
+			{
+				...syntheticLaboratoryArrayDirectory,
+				reportTime: "2026-08-16 00:00:00",
+			},
+		],
+		[
+			{
+				...syntheticLaboratoryArrayDirectory,
+				reportTime: "2026-02-30 10:00:00",
+			},
+		],
+		[{ ...syntheticLaboratoryArrayDirectory, reportTime: undefined }],
+		[
+			syntheticLaboratoryArrayDirectory,
+			{
+				...syntheticLaboratoryArrayDirectory,
+				reportId: "synthetic-other-report",
+				reportTime: "2026-07-31 23:59:59",
+			},
+		],
+	]) {
+		const { gateway, requests } = syntheticLaboratoryArrayGateway({
+			directoryRows,
+		});
+		await expect(
+			gateway.getLaboratoryDetail(syntheticLaboratoryArrayInput, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			responseInvalid: true,
+		});
+		expect(requests).toHaveLength(2);
+	}
+});
+
+test("众阳 LIS 数组与目录回补保持包络、条数、附件及检测项字段上限", async () => {
+	for (const detailPayload of [
+		{ data: [syntheticLaboratoryArrayItem] },
+		{ success: false, data: [syntheticLaboratoryArrayItem] },
+		{ success: "true", data: [syntheticLaboratoryArrayItem] },
+		{
+			success: true,
+			data: Array.from(
+				{ length: MAX_REPORT_DETAIL_ITEMS + 1 },
+				() => syntheticLaboratoryArrayItem,
+			),
+		},
+	]) {
+		const { gateway, requests } = syntheticLaboratoryArrayGateway({
+			detailPayload,
+		});
+		await expect(
+			gateway.getLaboratoryDetail(syntheticLaboratoryArrayInput, context),
+		).rejects.toMatchObject({ name: "ProviderRequestError" });
+		expect(requests).toHaveLength(1);
+	}
+	for (const options of [
+		{ directoryPayload: { data: [syntheticLaboratoryArrayDirectory] } },
+		{
+			directoryPayload: {
+				success: false,
+				data: [syntheticLaboratoryArrayDirectory],
+			},
+		},
+		{
+			directoryRows: Array.from(
+				{ length: MAX_REPORT_DIRECTORY_ITEMS + 1 },
+				() => syntheticLaboratoryArrayDirectory,
+			),
+		},
+		{
+			directoryRows: [
+				{ ...syntheticLaboratoryArrayDirectory, pdfUrlList: "invalid.pdf" },
+			],
+		},
+		{
+			detailItems: [{ ...syntheticLaboratoryArrayItem, unit: "x".repeat(65) }],
+		},
+	]) {
+		const { gateway, requests } = syntheticLaboratoryArrayGateway(options);
+		await expect(
+			gateway.getLaboratoryDetail(syntheticLaboratoryArrayInput, context),
+		).rejects.toMatchObject({ name: "ProviderRequestError" });
+		expect(requests).toHaveLength(2);
+	}
+});
+
+test("众阳 LIS 新目录上下文运行时拒绝非法字段和日期，触网前停止", async () => {
+	for (const directoryContext of [
+		null,
+		[],
+		{
+			...syntheticLaboratoryArrayInput.directoryContext,
+			providerPatientId: "",
+		},
+		{
+			...syntheticLaboratoryArrayInput.directoryContext,
+			providerPatientId: "synthetic-patient\n",
+		},
+		{
+			...syntheticLaboratoryArrayInput.directoryContext,
+			startDate: "2026-02-30",
+		},
+		{
+			...syntheticLaboratoryArrayInput.directoryContext,
+			startDate: "2026-08-16",
+		},
+		{ ...syntheticLaboratoryArrayInput.directoryContext, unsafeField: "extra" },
+	]) {
+		const { gateway, requests } = syntheticLaboratoryArrayGateway();
+		await expect(
+			gateway.getLaboratoryDetail(
+				{
+					...syntheticLaboratoryArrayInput,
+					directoryContext,
+				} as LaboratoryReportDetailInput,
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			responseInvalid: false,
+		});
+		expect(requests).toHaveLength(0);
+	}
 });
 
 test("众阳报告 adapter 拒绝带控制字符的 Provider 文本", async () => {

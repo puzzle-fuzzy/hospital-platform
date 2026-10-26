@@ -3118,3 +3118,56 @@ test("MySQL PACS 引用持久化查询窗口并按 owner 和患者读回", async
 	expect(state.values[0]).toContain("2026-08-01");
 	expect(state.values[0]).toContain("2026-08-15");
 });
+
+test("MySQL LIS 引用往返原查询窗口且拒绝半缺失的历史窗口", async () => {
+	const row = {
+		report_id: "report-lis-window-001",
+		owner_user_id: "user-001",
+		patient_id: "patient-001",
+		provider: "zhongyang",
+		kind: "laboratory",
+		provider_report_id: "provider-lis-window-001",
+		start_date: "2026-08-01",
+		end_date: "2026-08-15",
+		expires_at: "2026-08-15 00:10:00.000",
+		created_at: "2026-08-15 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([
+		{ affectedRows: 1 },
+		[row],
+		[{ ...row, start_date: null, end_date: null }],
+		[{ ...row, end_date: null }],
+	]);
+	const references = createMySqlRepositories(pool).reportReferences;
+	await references.upsert({
+		reportId: row.report_id,
+		ownerUserId: row.owner_user_id,
+		patientId: row.patient_id,
+		provider: "zhongyang",
+		kind: "laboratory",
+		providerReportId: row.provider_report_id,
+		startDate: row.start_date,
+		endDate: row.end_date,
+		createdAt: "2026-08-15T00:00:00.000Z",
+		expiresAt: "2026-08-15T00:10:00.000Z",
+	});
+	expect(state.values[0]?.slice(6, 8)).toEqual(["2026-08-01", "2026-08-15"]);
+	const find = () =>
+		references.findByOwnerPatientAndId(
+			"user-001",
+			"patient-001",
+			row.report_id,
+			"2026-08-15T00:05:00.000Z",
+		);
+	await expect(find()).resolves.toMatchObject({
+		startDate: row.start_date,
+		endDate: row.end_date,
+	});
+	const legacy = await find();
+	expect(legacy).not.toHaveProperty("startDate");
+	expect(legacy).not.toHaveProperty("endDate");
+	await expect(find()).rejects.toMatchObject({
+		name: "ReportReferenceValidationError",
+		reason: "invalid_reference",
+	});
+});

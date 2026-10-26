@@ -2911,7 +2911,12 @@ function reportReference(row: ReportReferenceRow): ReportReference {
 	};
 	const reference: ReportReference =
 		row.kind === "laboratory"
-			? { ...base, kind: "laboratory" }
+			? {
+					...base,
+					kind: "laboratory",
+					...(row.start_date !== null ? { startDate: row.start_date } : {}),
+					...(row.end_date !== null ? { endDate: row.end_date } : {}),
+				}
 			: row.start_date && row.end_date
 				? {
 						...base,
@@ -5919,8 +5924,8 @@ export function createMySqlRepositories(
 					input.provider,
 					input.kind,
 					input.providerReportId,
-					input.kind === "laboratory" ? null : input.startDate,
-					input.kind === "laboratory" ? null : input.endDate,
+					input.startDate ?? null,
+					input.endDate ?? null,
 					mysqlDateTime(input.expiresAt),
 					mysqlDateTime(createdAt),
 					mysqlDateTime(new Date()),

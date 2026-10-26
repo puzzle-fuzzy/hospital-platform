@@ -4,6 +4,7 @@ import {
 	InvalidReportKindError,
 	isReportKind,
 	type LaboratoryReportDetail,
+	type LaboratoryReportDetailInput,
 	MAX_REPORT_ATTACHMENTS,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
@@ -20,6 +21,7 @@ import {
 	type ReportKind,
 	type ReportProviderAttachment,
 	type ReportSummary,
+	validateReportDirectoryResultWindow,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
@@ -94,6 +96,85 @@ function normalizeProviderReportInput(
 		);
 	}
 	return { providerReportId: record.providerReportId };
+}
+
+function normalizeLaboratoryDetailInput(
+	value: unknown,
+	operation: string,
+): LaboratoryReportDetailInput {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return invalidInput(
+			operation,
+			"Zhongyang laboratory detail input is invalid",
+		);
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		Object.keys(record).some(
+			(field) => field !== "providerReportId" && field !== "directoryContext",
+		)
+	) {
+		return invalidInput(
+			operation,
+			"Zhongyang laboratory detail input contains an unknown field",
+		);
+	}
+	const reportInput = normalizeProviderReportInput(
+		{ providerReportId: record.providerReportId },
+		operation,
+	);
+	if (record.directoryContext === undefined) return reportInput;
+	const directoryContext = record.directoryContext;
+	if (
+		typeof directoryContext !== "object" ||
+		directoryContext === null ||
+		Array.isArray(directoryContext)
+	) {
+		return invalidInput(
+			operation,
+			"Zhongyang laboratory directory context is invalid",
+		);
+	}
+	const directory = directoryContext as Record<string, unknown>;
+	if (
+		Object.keys(directory).some(
+			(field) =>
+				field !== "providerPatientId" &&
+				field !== "startDate" &&
+				field !== "endDate",
+		) ||
+		typeof directory.providerPatientId !== "string" ||
+		directory.providerPatientId.length === 0 ||
+		directory.providerPatientId.length > 256 ||
+		directory.providerPatientId !== directory.providerPatientId.trim() ||
+		Array.from(directory.providerPatientId).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		}) ||
+		typeof directory.startDate !== "string" ||
+		typeof directory.endDate !== "string"
+	) {
+		return invalidInput(
+			operation,
+			"Zhongyang laboratory directory context is invalid",
+		);
+	}
+	const start = parseIsoCalendarDate(directory.startDate);
+	const end = parseIsoCalendarDate(directory.endDate);
+	if (start === undefined || end === undefined || start > end) {
+		return invalidInput(
+			operation,
+			"Zhongyang laboratory directory window is invalid",
+		);
+	}
+	return {
+		...reportInput,
+		directoryContext: {
+			providerPatientId: directory.providerPatientId,
+			startDate: directory.startDate,
+			endDate: directory.endDate,
+		},
+	};
 }
 
 /**
@@ -390,6 +471,22 @@ function responseObject(
 		return objectValue(envelope.data, operation, requestId);
 	}
 	return envelope;
+}
+
+/** LIS 新端返回检测项数组，旧端仍返回包含报告元数据的完整对象。 */
+function laboratoryDetailResponse(
+	value: unknown,
+	operation: string,
+	requestId: string,
+): ProviderObject | ProviderObject[] {
+	if (Array.isArray(value)) {
+		return responseItems(value, operation, requestId, MAX_REPORT_DETAIL_ITEMS);
+	}
+	const envelope = objectValue(value, operation, requestId);
+	if (Array.isArray(envelope.data)) {
+		return responseItems(value, operation, requestId, MAX_REPORT_DETAIL_ITEMS);
+	}
+	return responseObject(value, operation, requestId);
 }
 
 function requiredText(
@@ -1480,7 +1577,11 @@ export class ZhongyangReportApiGateway
 		kind: ReportKind,
 		input: ReportDirectoryInput,
 		context: AdapterCallContext,
-	): Promise<{ reports: ReportDirectoryEntry[]; requestId: string }> {
+	): Promise<{
+		reports: ReportDirectoryEntry[];
+		providerItems: readonly ProviderObject[];
+		requestId: string;
+	}> {
 		const operation = `reports-${kind}`;
 		// 患者号通常来自 service 的 owner-scoped 映射，但 adapter 也必须
 		// 独立拒绝空引用：任务、回放器或可注入仓储不能仅凭 TypeScript 类型
@@ -1571,12 +1672,13 @@ export class ZhongyangReportApiGateway
 		ensureUniqueReportIds(reports, operation, response.requestId);
 		return {
 			reports,
+			providerItems: items,
 			requestId: response.requestId,
 		};
 	}
 
 	async getLaboratoryDetail(
-		input: { providerReportId: string },
+		input: LaboratoryReportDetailInput,
 		context: AdapterCallContext,
 	): Promise<{
 		detail: LaboratoryReportDetail;
@@ -1588,7 +1690,7 @@ export class ZhongyangReportApiGateway
 		trace: ExternalTrace;
 	}> {
 		const operation = "reports-laboratory-detail";
-		const normalizedInput = normalizeProviderReportInput(input, operation);
+		const normalizedInput = normalizeLaboratoryDetailInput(input, operation);
 		const url = new URL(LABORATORY_DETAIL_PATH, this.baseUrl);
 		url.searchParams.set(
 			"reportId",
@@ -1607,11 +1709,116 @@ export class ZhongyangReportApiGateway
 			},
 			this.fetcher,
 		);
-		const providerDetail = responseObject(
+		const detailResponse = laboratoryDetailResponse(
 			response.data,
 			operation,
 			response.requestId,
 		);
+		let providerDetail: ProviderObject;
+		let directoryRequestId: string | undefined;
+		if (Array.isArray(detailResponse)) {
+			// 检测项本身不能证明报告标题、报告时间或附件。先确认所有项都
+			// 属于本次报告，再用 owner-scoped 患者和原目录窗口取回这些元数据。
+			// 不能从报告号猜日期，也不能用 resultTime 冒充 reportTime。
+			const directoryContext = normalizedInput.directoryContext;
+			if (!directoryContext) {
+				throw providerError(
+					operation,
+					"Zhongyang laboratory array detail requires its directory context",
+					response.requestId,
+				);
+			}
+			for (const item of detailResponse) {
+				const reportId = requiredText(
+					item.reportId,
+					"reportId",
+					operation,
+					response.requestId,
+				);
+				const groupId = optionalText(
+					item.keynoGroup,
+					"keynoGroup",
+					operation,
+					response.requestId,
+				);
+				const patientId = optionalText(
+					item.patId,
+					"patId",
+					operation,
+					response.requestId,
+				);
+				if (
+					reportId !== normalizedInput.providerReportId ||
+					(groupId !== undefined && groupId !== reportId) ||
+					(patientId !== undefined &&
+						patientId !== directoryContext.providerPatientId)
+				) {
+					throw providerError(
+						operation,
+						"Zhongyang laboratory detail contained an unrelated report or patient",
+						response.requestId,
+					);
+				}
+			}
+			const query: ReportDirectoryQuery = {
+				startDate: directoryContext.startDate,
+				endDate: directoryContext.endDate,
+				kind: "laboratory",
+			};
+			const directory = await this.requestKind(
+				"laboratory",
+				{ providerPatientId: directoryContext.providerPatientId, query },
+				context,
+			);
+			directoryRequestId = directory.requestId;
+			try {
+				validateReportDirectoryResultWindow(directory.reports, query);
+			} catch {
+				throw providerError(
+					operation,
+					"Zhongyang laboratory directory did not match its query window",
+					directory.requestId,
+				);
+			}
+			const matches = directory.providerItems.filter(
+				(item) =>
+					optionalText(
+						item.reportId,
+						"reportId",
+						operation,
+						directory.requestId,
+					) === normalizedInput.providerReportId,
+			);
+			const metadata = matches[0];
+			if (
+				matches.length !== 1 ||
+				!metadata ||
+				requiredText(
+					metadata.patId,
+					"patId",
+					operation,
+					directory.requestId,
+				) !== directoryContext.providerPatientId
+			) {
+				throw providerError(
+					operation,
+					"Zhongyang laboratory directory did not identify the requested report and patient",
+					directory.requestId,
+				);
+			}
+			// 仅复用目录中的报告元数据，不使用目录的缓存检测项，也不向
+			// public detail 透传姓名、患者号或任意原始 Provider 字段。
+			providerDetail = {
+				testList: metadata.testList,
+				reportTypeName: metadata.reportTypeName,
+				sampleClassName: metadata.sampleClassName,
+				reportTime: metadata.reportTime,
+				pdfUrlList: metadata.pdfUrlList,
+				details: detailResponse,
+			};
+		} else {
+			providerDetail = detailResponse;
+		}
 		const attachmentUrls = attachmentTextList(
 			providerDetail,
 			"pdfUrlList",
@@ -1636,6 +1843,9 @@ export class ZhongyangReportApiGateway
 				provider: "zhongyang",
 				operation,
 				requestId: response.requestId,
+				...(directoryRequestId
+					? { requestIds: [response.requestId, directoryRequestId] }
+					: {}),
 			},
 		};
 	}

@@ -145,7 +145,12 @@ type ReportReferenceBase = {
 };
 
 export type ReportReference =
-	| (ReportReferenceBase & { kind: "laboratory" })
+	| (ReportReferenceBase & {
+			kind: "laboratory";
+			/** 旧 LIS 引用可能没有目录窗口；新引用保留原查询范围。 */
+			startDate?: string;
+			endDate?: string;
+	  })
 	| (ReportReferenceBase & {
 			kind: "imaging" | "ecg" | "peis";
 			startDate: string;
@@ -225,7 +230,17 @@ export function validateReportReference(input: ReportReferenceInput): void {
 	) {
 		throw new ReportReferenceValidationError("invalid_window");
 	}
-	if (input.kind !== "laboratory") {
+	if (
+		input.kind !== "laboratory" ||
+		input.startDate !== undefined ||
+		input.endDate !== undefined
+	) {
+		if (
+			typeof input.startDate !== "string" ||
+			typeof input.endDate !== "string"
+		) {
+			throw new ReportReferenceValidationError("invalid_reference");
+		}
 		const start = parseIsoCalendarDate(input.startDate);
 		const end = parseIsoCalendarDate(input.endDate);
 		if (start === undefined || end === undefined || end < start) {
@@ -769,10 +784,20 @@ export function normalizeLaboratoryReportDetail(
 	};
 }
 
+/** 数组形态 LIS 详情只能使用已绑定患者和原目录查询窗口补全报告头。 */
+export type LaboratoryReportDetailInput = {
+	providerReportId: string;
+	directoryContext?: {
+		providerPatientId: string;
+		startDate: string;
+		endDate: string;
+	};
+};
+
 /** 报告详情 provider 端口只接受服务端已 owner 校验的受限引用。 */
 export interface ReportDetailGateway {
 	getLaboratoryDetail(
-		input: { providerReportId: string },
+		input: LaboratoryReportDetailInput,
 		context: AdapterCallContext,
 	): Promise<{
 		detail: LaboratoryReportDetail;

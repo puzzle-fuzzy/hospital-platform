@@ -603,6 +603,7 @@ export {
 } from "./ports";
 export type {
 	LaboratoryReportDetail,
+	LaboratoryReportDetailInput,
 	LaboratoryReportDetailItem,
 	NonLaboratoryReportDetail,
 	ReportAttachmentContent,

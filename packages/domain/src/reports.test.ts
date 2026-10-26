@@ -295,3 +295,34 @@ test("报告引用拒绝带控制字符的 owner，避免越过 owner 隔离边�
 		).toThrow(new ReportReferenceValidationError("invalid_owner"));
 	}
 });
+
+test("LIS 引用保留有效原查询窗口并兼容没有窗口的旧引用", () => {
+	const reference = {
+		reportId: "report-window-001",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		provider: "zhongyang" as const,
+		kind: "laboratory" as const,
+		providerReportId: "provider-report-window-001",
+		createdAt: "2026-08-15T00:00:00.000Z",
+		expiresAt: "2026-08-15T00:10:00.000Z",
+	};
+	expect(() => validateReportReference(reference)).not.toThrow();
+	expect(() =>
+		validateReportReference({
+			...reference,
+			startDate: "2026-08-01",
+			endDate: "2026-08-15",
+		}),
+	).not.toThrow();
+	for (const window of [
+		{ startDate: "2026-08-01" },
+		{ endDate: "2026-08-15" },
+		{ startDate: "2026-08-16", endDate: "2026-08-15" },
+		{ startDate: "2026-02-30", endDate: "2026-03-01" },
+	]) {
+		expect(() => validateReportReference({ ...reference, ...window })).toThrow(
+			new ReportReferenceValidationError("invalid_reference"),
+		);
+	}
+});
