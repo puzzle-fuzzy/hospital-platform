@@ -56,6 +56,14 @@ const AdminRefundHistoryQuery = t.Object(
 			]),
 		),
 		orderId: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+		participantName: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+		identityNumber: t.Optional(
+			t.String({
+				minLength: 15,
+				maxLength: 18,
+				pattern: "^(?:[0-9]{15}|[0-9]{17}[0-9xX])$",
+			}),
+		),
 		page: t.Optional(t.String({ minLength: 1, maxLength: 5 })),
 		pageSize: t.Optional(t.String({ minLength: 1, maxLength: 3 })),
 		/** 兼容旧管理端调用；新调用使用 pageSize。 */
@@ -337,6 +345,12 @@ export function adminWechatRefundModule(
 							...(query.business ? { business: query.business } : {}),
 							...(query.orderId?.trim()
 								? { orderId: query.orderId.trim() }
+								: {}),
+							...(query.participantName?.trim()
+								? { participantName: query.participantName.trim() }
+								: {}),
+							...(query.identityNumber?.trim()
+								? { identityNumber: query.identityNumber.trim() }
 								: {}),
 							...(query.businessDay ? { businessDay: query.businessDay } : {}),
 							...(query.status ? { status: query.status } : {}),

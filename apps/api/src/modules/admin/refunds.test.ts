@@ -268,7 +268,7 @@ test("Admin 微信退款历史只接受退款令牌并返回最小支付读模�
 
 	const response = await app.handle(
 		new Request(
-			"http://localhost/admin/wechat-refund-payments?source=payment_order&limit=20&businessDay=2026-09-18&status=paid",
+			"http://localhost/admin/wechat-refund-payments?source=payment_order&limit=20&businessDay=2026-09-18&status=paid&participantName=%E6%B5%8B%E8%AF%95%E7%94%A8%E6%88%B7&identityNumber=11010519900101007x",
 			{
 				headers: {
 					"x-admin-refund-token": "admin-refund-token-001",
@@ -284,6 +284,8 @@ test("Admin 微信退款历史只接受退款令牌并返回最小支付读模�
 		pageSize: 20,
 		businessDay: "2026-09-18",
 		status: "paid",
+		participantName: "测试用户",
+		identityNumber: "11010519900101007x",
 	});
 	expect(await response.json()).toEqual({
 		success: true,
@@ -308,6 +310,28 @@ test("Admin 微信退款历史只接受退款令牌并返回最小支付读模�
 		}),
 	);
 	expect(invalidLimit.status).toBe(400);
+	for (const query of [
+		"identityNumber=123",
+		"identityNumber=11010519900101007%25",
+		`participantName=${"x".repeat(65)}`,
+	]) {
+		const invalid = await app.handle(
+			new Request(`http://localhost/admin/wechat-refund-payments?${query}`, {
+				headers: { "x-admin-refund-token": "admin-refund-token-001" },
+			}),
+		);
+		expect(invalid.status).toBe(400);
+	}
+	const ignoredOwner = await app.handle(
+		new Request(
+			"http://localhost/admin/wechat-refund-payments?ownerUserId=other-owner",
+			{
+				headers: { "x-admin-refund-token": "admin-refund-token-001" },
+			},
+		),
+	);
+	expect(ignoredOwner.status).toBe(200);
+	expect(query).not.toHaveProperty("ownerUserId");
 });
 
 test("Admin 医保订单退费固定走医保+微信整笔聚合入口", async () => {

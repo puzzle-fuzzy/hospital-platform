@@ -796,6 +796,35 @@ async function adminRefundHistoryRequest(
 		if (orderId.length > 64) return errorResponse("订单号参数不合法", 400);
 		forwarded.set("orderId", orderId);
 	}
+	const participantName = url.searchParams.get("participantName")?.trim();
+	if (url.searchParams.getAll("participantName").length > 1) {
+		return errorResponse("姓名或用户名参数不合法", 400);
+	}
+	if (participantName) {
+		if (
+			participantName.length > 64 ||
+			Array.from(participantName).some((character) => {
+				const code = character.charCodeAt(0);
+				return code <= 0x1f || code === 0x7f;
+			})
+		) {
+			return errorResponse("姓名或用户名参数不合法", 400);
+		}
+		forwarded.set("participantName", participantName);
+	}
+	const identityNumber = url.searchParams
+		.get("identityNumber")
+		?.trim()
+		.toUpperCase();
+	if (url.searchParams.getAll("identityNumber").length > 1) {
+		return errorResponse("身份证号参数不合法", 400);
+	}
+	if (identityNumber) {
+		if (!/^(?:\d{15}|\d{17}[\dX])$/u.test(identityNumber)) {
+			return errorResponse("请输入15位或18位身份证号", 400);
+		}
+		forwarded.set("identityNumber", identityNumber);
+	}
 	const page = url.searchParams.get("page");
 	if (page) {
 		if (!/^[1-9][0-9]{0,4}$/u.test(page)) {

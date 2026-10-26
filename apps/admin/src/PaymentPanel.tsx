@@ -485,6 +485,12 @@ export function paymentRecordColumns(
 			render: (_, record) => record.orderUserDisplayName?.trim() || "未设置",
 		},
 		{
+			title: "就诊人身份证号",
+			key: "patientIdentityNumber",
+			width: 200,
+			render: (_, record) => record.patientIdentityNumber?.trim() || "未留存",
+		},
+		{
 			title: "支付来源",
 			key: "source",
 			width: 170,
@@ -718,6 +724,13 @@ export function PaymentPanel({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string>();
 	const [historyOrderId, setHistoryOrderId] = useState("");
+	const [historyParticipantName, setHistoryParticipantName] = useState("");
+	const [historyIdentityNumber, setHistoryIdentityNumber] = useState("");
+	const appliedParticipantSearch = useRef<{
+		participantName?: string;
+		identityNumber?: string;
+	}>({});
+	const historyRequestGeneration = useRef(0);
 	const [paymentHistory, setPaymentHistory] = useState<
 		readonly AdminWechatRefundPaymentRecord[]
 	>([]);
@@ -816,11 +829,13 @@ export function PaymentPanel({
 					| undefined;
 			} = {},
 		) => {
+			const generation = ++historyRequestGeneration.current;
 			setHistoryLoading(true);
 			setHistoryError(undefined);
 			try {
 				const result = await fetchWechatRefundPaymentHistory(
 					{
+						...appliedParticipantSearch.current,
 						page: options.page ?? 1,
 						pageSize: simple ? 20 : 8,
 						...(options.source ? { source: options.source } : {}),
@@ -835,6 +850,7 @@ export function PaymentPanel({
 					},
 					session,
 				);
+				if (generation !== historyRequestGeneration.current) return;
 				setPaymentHistory(result.items);
 				setHistoryPageData(result);
 				setRefundRecord((current) =>
@@ -845,6 +861,7 @@ export function PaymentPanel({
 						: current,
 				);
 			} catch (reason) {
+				if (generation !== historyRequestGeneration.current) return;
 				if (reason instanceof ApiError && reason.status === 401) {
 					onExpired();
 					return;
@@ -854,7 +871,8 @@ export function PaymentPanel({
 				setHistoryError(messageText);
 				void message.error(messageText);
 			} finally {
-				setHistoryLoading(false);
+				if (generation === historyRequestGeneration.current)
+					setHistoryLoading(false);
 			}
 		},
 		[message, onExpired, session, simple],
@@ -862,7 +880,46 @@ export function PaymentPanel({
 
 	useEffect(() => {
 		void loadPaymentHistory();
+		return () => {
+			historyRequestGeneration.current++;
+		};
 	}, [loadPaymentHistory]);
+
+	const searchPaymentHistory = () => {
+		if (
+			historyIdentityNumber.trim() &&
+			!/^(?:\d{15}|\d{17}[\dX])$/iu.test(historyIdentityNumber.trim())
+		) {
+			void message.error("请输入15位或18位身份证号");
+			return;
+		}
+		appliedParticipantSearch.current = {
+			...(historyParticipantName.trim()
+				? { participantName: historyParticipantName.trim() }
+				: {}),
+			...(historyIdentityNumber.trim()
+				? { identityNumber: historyIdentityNumber.trim().toUpperCase() }
+				: {}),
+		};
+		void loadPaymentHistory({
+			queryOrderId: historyOrderId,
+			source: historySource,
+			business: historyBusiness,
+			businessDay: historyBusinessDay,
+			status: historyStatus,
+		});
+	};
+	const resetPaymentHistory = () => {
+		setHistoryOrderId("");
+		setHistoryParticipantName("");
+		setHistoryIdentityNumber("");
+		setHistorySource(undefined);
+		setHistoryBusiness(undefined);
+		setHistoryBusinessDay(undefined);
+		setHistoryStatus(undefined);
+		appliedParticipantSearch.current = {};
+		void loadPaymentHistory();
+	};
 
 	const loadSyncTasks = useCallback(async () => {
 		setSyncLoading(true);
@@ -1467,6 +1524,12 @@ export function PaymentPanel({
 					total={historyPageData?.total ?? 0}
 					readOnly={readOnly}
 					businessDay={historyBusinessDay}
+					participantName={historyParticipantName}
+					identityNumber={historyIdentityNumber}
+					onParticipantNameChange={setHistoryParticipantName}
+					onIdentityNumberChange={setHistoryIdentityNumber}
+					onSearch={searchPaymentHistory}
+					onReset={resetPaymentHistory}
 					onBusinessDayChange={(businessDay) => {
 						setHistoryBusinessDay(businessDay);
 						void loadPaymentHistory({ businessDay });
@@ -1539,17 +1602,33 @@ export function PaymentPanel({
 						<Space orientation="vertical" size={14} style={{ width: "100%" }}>
 							<Flex align="center" gap={8} wrap="wrap">
 								<Input
+									aria-label="姓名/用户名"
+									value={historyParticipantName}
+									onChange={(event) =>
+										setHistoryParticipantName(event.target.value)
+									}
+									onPressEnter={searchPaymentHistory}
+									allowClear
+									placeholder="姓名/用户名（就诊人或下单用户）"
+									maxLength={64}
+									style={{ width: 290 }}
+								/>
+								<Input
+									aria-label="就诊人身份证号"
+									value={historyIdentityNumber}
+									onChange={(event) =>
+										setHistoryIdentityNumber(event.target.value)
+									}
+									onPressEnter={searchPaymentHistory}
+									allowClear
+									placeholder="就诊人身份证号（精确查询）"
+									maxLength={18}
+									style={{ width: 265 }}
+								/>
+								<Input
 									value={historyOrderId}
 									onChange={(event) => setHistoryOrderId(event.target.value)}
-									onPressEnter={() =>
-										void loadPaymentHistory({
-											queryOrderId: historyOrderId,
-											source: historySource,
-											business: historyBusiness,
-											businessDay: historyBusinessDay,
-											status: historyStatus,
-										})
-									}
+									onPressEnter={searchPaymentHistory}
 									placeholder="按订单号精确查询；留空显示最近记录"
 									maxLength={64}
 									style={{ minWidth: 300, flex: 1 }}
@@ -1650,10 +1729,18 @@ export function PaymentPanel({
 									style={{ width: 130 }}
 								/>
 								<Button
+									type="primary"
+									onClick={searchPaymentHistory}
+									loading={historyLoading}
+								>
+									查询
+								</Button>
+								<Button
 									icon={<ReloadOutlined />}
 									loading={historyLoading}
 									onClick={() =>
 										void loadPaymentHistory({
+											page: historyPageData?.page ?? 1,
 											queryOrderId: historyOrderId,
 											source: historySource,
 											business: historyBusiness,
@@ -1664,20 +1751,7 @@ export function PaymentPanel({
 								>
 									刷新支付数据
 								</Button>
-								<Button
-									onClick={() => {
-										setHistoryOrderId("");
-										void loadPaymentHistory({
-											queryOrderId: "",
-											source: historySource,
-											business: historyBusiness,
-											businessDay: historyBusinessDay,
-											status: historyStatus,
-										});
-									}}
-								>
-									显示最近记录
-								</Button>
+								<Button onClick={resetPaymentHistory}>重置筛选</Button>
 							</Flex>
 							{historyError ? (
 								<Alert type="error" showIcon title={historyError} />
@@ -1727,7 +1801,7 @@ export function PaymentPanel({
 											status: historyStatus,
 										}),
 								}}
-								scroll={{ x: 2085 }}
+								scroll={{ x: 2285 }}
 								size="small"
 							/>
 						</Space>

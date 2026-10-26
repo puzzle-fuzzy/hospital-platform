@@ -53,6 +53,8 @@ const router = useRouter();
 const refundLocks = usePaymentRefundLocks();
 const filters = reactive<AdminWechatRefundPaymentHistoryQuery>({
   orderId: '',
+  participantName: '',
+  identityNumber: '',
   page: 1,
   pageSize: 8,
 });
@@ -89,6 +91,7 @@ const columns = [
   { title: '更新时间（北京时间）', key: 'updatedAt', width: 180 },
   { title: '业务 / 支付来源', key: 'business', width: 160 },
   { title: '就诊人 / 下单用户', key: 'person', width: 180 },
+  { title: '就诊人身份证号', key: 'patientIdentityNumber', width: 200 },
   { title: '订单号', dataIndex: 'orderId', key: 'orderId', width: 275 },
   { title: '支付 / 挂号状态', key: 'status', width: 220 },
   { title: '金额明细', key: 'amounts', width: 275 },
@@ -97,6 +100,14 @@ const columns = [
 ];
 
 async function load(nextPage = page.value, apply = false) {
+  if (
+    apply &&
+    filters.identityNumber?.trim() &&
+    !/^(?:\d{15}|\d{17}[\dX])$/i.test(filters.identityNumber.trim())
+  ) {
+    error.value = '请输入15位或18位身份证号';
+    return;
+  }
   const current = ++generation;
   if (apply) appliedFilters.value = { ...filters, pageSize: 8 };
   loading.value = true;
@@ -122,6 +133,8 @@ async function load(nextPage = page.value, apply = false) {
 function reset() {
   Object.assign(filters, {
     orderId: '',
+    participantName: '',
+    identityNumber: '',
     source: undefined,
     business: undefined,
     businessDay: undefined,
@@ -194,6 +207,22 @@ onBeforeUnmount(() => {
           @submit.prevent="load(1, true)"
         >
           <Input
+            v-model:value="filters.participantName"
+            allow-clear
+            placeholder="姓名/用户名（就诊人或下单用户）"
+            :maxlength="64"
+            style="width: 280px"
+            aria-label="姓名/用户名"
+          />
+          <Input
+            v-model:value="filters.identityNumber"
+            allow-clear
+            placeholder="就诊人身份证号（精确查询）"
+            :maxlength="18"
+            style="width: 260px"
+            aria-label="就诊人身份证号"
+          />
+          <Input
             v-model:value="filters.orderId"
             allow-clear
             placeholder="订单号精确查询"
@@ -239,14 +268,14 @@ onBeforeUnmount(() => {
         </form>
         <Alert v-if="error" :message="error" type="error" show-icon />
         <div class="text-sm text-muted-foreground">
-          更新时间是订单或结算上下文最后更新时间，并非支付完成时间。金额未确认时显示“待核实”。
+          姓名/用户名同时匹配就诊人和下单用户；身份证号精确匹配就诊人。更新时间不是支付完成时间，金额未确认时显示“待核实”。
         </div>
         <Table
           :columns="columns"
           :data-source="records"
           :loading="loading"
           :row-key="paymentRefundKey"
-          :scroll="{ x: 1940 }"
+          :scroll="{ x: 2140 }"
           :pagination="{
             current: page,
             pageSize: 8,
@@ -282,6 +311,9 @@ onBeforeUnmount(() => {
                   }}
                 </div></template
               >
+              <template v-else-if="column.key === 'patientIdentityNumber'">{{
+                record.patientIdentityNumber?.trim() || '未留存'
+              }}</template>
               <template v-else-if="column.key === 'status'"
                 ><Tag :color="statusColor(record.paymentState)">{{
                   label(record.paymentState)

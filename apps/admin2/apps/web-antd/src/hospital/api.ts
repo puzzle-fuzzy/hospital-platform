@@ -344,6 +344,10 @@ export async function fetchWechatRefundPaymentHistory(
 	if (input.businessDay) query.set("businessDay", input.businessDay);
 	if (input.status) query.set("status", input.status);
 	if (input.orderId?.trim()) query.set("orderId", input.orderId.trim());
+	if (input.participantName?.trim())
+		query.set("participantName", input.participantName.trim());
+	if (input.identityNumber?.trim())
+		query.set("identityNumber", input.identityNumber.trim().toUpperCase());
 	if (input.page !== undefined) query.set("page", String(input.page));
 	if (input.pageSize !== undefined)
 		query.set("pageSize", String(input.pageSize));

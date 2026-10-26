@@ -31,6 +31,12 @@ export type SimplePaymentListProps = {
 	queryRequiredOrders?: ReadonlySet<string> | undefined;
 	businessDay?: string | undefined;
 	onBusinessDayChange?: ((value: string | undefined) => void) | undefined;
+	participantName?: string;
+	identityNumber?: string;
+	onParticipantNameChange?: (value: string) => void;
+	onIdentityNumberChange?: (value: string) => void;
+	onSearch?: () => void;
+	onReset?: () => void;
 };
 
 export function SimplePaymentList({
@@ -49,6 +55,12 @@ export function SimplePaymentList({
 	queryRequiredOrders,
 	businessDay,
 	onBusinessDayChange,
+	participantName,
+	identityNumber,
+	onParticipantNameChange,
+	onIdentityNumberChange,
+	onSearch,
+	onReset,
 }: SimplePaymentListProps) {
 	return (
 		<section
@@ -58,6 +70,46 @@ export function SimplePaymentList({
 		>
 			<div className="simple-payments-toolbar">
 				<div className="simple-payments-filters">
+					{onSearch ? (
+						<form
+							className="simple-payments-filters"
+							onSubmit={(event) => {
+								event.preventDefault();
+								onSearch();
+							}}
+						>
+							<Input
+								aria-label="姓名/用户名"
+								placeholder="姓名/用户名"
+								value={participantName ?? ""}
+								maxLength={64}
+								allowClear
+								onChange={(event) =>
+									onParticipantNameChange?.(event.target.value)
+								}
+								style={{ width: 210 }}
+							/>
+							<Input
+								aria-label="就诊人身份证号"
+								placeholder="就诊人身份证号（精确查询）"
+								value={identityNumber ?? ""}
+								maxLength={18}
+								allowClear
+								onChange={(event) =>
+									onIdentityNumberChange?.(event.target.value)
+								}
+								style={{ width: 260 }}
+							/>
+							<Button htmlType="submit" type="primary" loading={loading}>
+								查询
+							</Button>
+							{onReset ? (
+								<Button onClick={onReset} disabled={loading}>
+									重置
+								</Button>
+							) : null}
+						</form>
+					) : null}
 					{onBusinessDayChange ? (
 						<>
 							<label
@@ -132,6 +184,11 @@ export function SimplePaymentList({
 								<li className="simple-payment-row" key={key}>
 									<p className="simple-payment-sentence">
 										{simplePaymentSentence(record)}
+										<br />
+										<span className="simple-payments-note">
+											就诊人身份证号：
+											{record.patientIdentityNumber?.trim() || "未留存"}
+										</span>
 										{refundStatus ? (
 											<span className="simple-payment-refund-status">
 												{refundStatus}

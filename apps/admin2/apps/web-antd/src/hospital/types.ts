@@ -278,7 +278,7 @@ export type AdminPaymentDisplayAmounts = {
 	amountBreakdownStatus: "confirmed" | "unverified";
 };
 
-/** 管理端退款页使用的最小历史支付读模型；仅含就诊人和下单用户展示名，不含身份标识、凭证或支付调起参数。 */
+/** 管理端历史支付读模型；身份证号仅属于已关联就诊人，不含凭证或支付调起参数。 */
 export type AdminWechatRefundPaymentRecord = AdminPaymentDisplayAmounts & {
 	source: WechatRefundSource;
 	orderId: string;
@@ -286,6 +286,7 @@ export type AdminWechatRefundPaymentRecord = AdminPaymentDisplayAmounts & {
 	business: "registration" | "outpatient" | "other";
 	registration?: AdminRegistrationStatus;
 	patientDisplayName?: string;
+	patientIdentityNumber?: string;
 	orderUserDisplayName?: string;
 	totalFen: number;
 	insuranceFen?: number;
@@ -378,6 +379,8 @@ export type AdminWechatRefundPaymentHistoryQuery = {
 	businessDay?: string;
 	status?: "created" | "pending" | "paid" | "failed" | "manual_review";
 	orderId?: string;
+	participantName?: string;
+	identityNumber?: string;
 	page?: number;
 	pageSize?: number;
 	limit?: number;
