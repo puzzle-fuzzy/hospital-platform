@@ -59,10 +59,12 @@ import { readAppointmentPaymentFields } from "./appointment-payment-view";
 import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import { resolveErrorNumericCode } from "./error-registry";
 import {
+	classifyInvoiceResourceNetworkFailure,
+	invoiceResourceErrorData,
 	MAX_OUTPATIENT_INVOICE_RESOURCE_BYTES,
 	type OutpatientInvoiceResource,
-	readOutpatientInvoiceResourceType,
 	removeOutpatientInvoiceResource,
+	saveOutpatientInvoiceResource,
 } from "./outpatient-invoice-resource";
 import { isBoundedPatientId } from "./patient-identifiers";
 import { notifySessionChanged } from "./session-events";
@@ -4211,7 +4213,7 @@ export function downloadReportAttachment(
 }
 
 /**
- * 只下载当前患者的票据影像，不把医院网页地址或密文作为 downloadFile 参数；
+ * 只读取当前患者的票据影像，不把医院网页地址或密文作为请求参数；
  * 本次读取不自动登录、重放或复用开票命令。
  */
 export function downloadOutpatientInvoiceResource(
@@ -4252,32 +4254,37 @@ export function downloadOutpatientInvoiceResource(
 	const requestId = createRequestId();
 	const startedAt = Date.now();
 	return new Promise<OutpatientInvoiceResource>((resolve, reject) => {
-		let headers: Record<string, unknown> = {};
-		const task = wx.downloadFile({
+		// 与已成功读取票据列表的请求使用同源 request 传输，不重试或重新开票。
+		wx.request<ArrayBuffer>({
 			url: buildApiRequestUrl(config.apiBaseUrl, config.apiPrefix, path),
-			timeout: API_REQUEST_TIMEOUT_MS,
+			method: "GET",
+			responseType: "arraybuffer",
+			// 旧版类型把任意非 JSON 模式仅标为中文“其他”；运行时使用 other。
+			dataType: "other" as "其他",
+			// 服务器资源获取最多 20 秒，另有归属/票据查询；留出返回错误的时间。
+			timeout: 30_000,
 			header: {
 				Authorization: `Bearer ${config.accessToken}`,
 				"x-request-id": requestId,
 			},
 			success: (response) => {
-				const filePath = response.tempFilePath;
 				const statusCode = response.statusCode;
-				const rejectFile = (error: ApiError) => {
-					removeOutpatientInvoiceResource(filePath);
+				const resolvedRequestId = responseRequestId(response) || requestId;
+				const rejectResponse = (error: ApiError) => {
 					recordApiRequestObservation({
-						requestId,
+						requestId: resolvedRequestId,
 						method: "GET",
 						path: sanitizeApiRequestPath(path),
 						statusCode,
 						durationMs: Math.max(0, Date.now() - startedAt),
 						outcome: "http-error",
 						errorCode: error.code,
+						transport: "request",
 					});
 					reject(error);
 				};
 				if (!sessionCurrent() || !patientCurrent()) {
-					rejectFile(
+					rejectResponse(
 						new ApiError("当前就诊人或登录状态已变更，请重新查看票据", {
 							code: sessionCurrent()
 								? "patient-selection-stale"
@@ -4287,35 +4294,22 @@ export function downloadOutpatientInvoiceResource(
 					return;
 				}
 				if (statusCode < 200 || statusCode >= 300) {
-					let errorData: unknown = {};
-					try {
-						const fs = wx.getFileSystemManager();
-						const stat = fs.statSync(filePath);
-						if (!Array.isArray(stat) && stat.size > 0 && stat.size <= 65_536) {
-							const body = fs.readFileSync(filePath, "utf8");
-							if (typeof body === "string") errorData = JSON.parse(body);
-						}
-					} catch {
-						// 不展示 HTTP 网关的 HTML/内部 URL，统一使用安全兜底。
-					}
-					if (
-						statusCode === 401 &&
-						getAppConfig().accessToken === config.accessToken
-					)
-						setAccessToken("");
-					rejectFile(
+					const errorData = invoiceResourceErrorData(response.data);
+					if (statusCode === 401 && sessionCurrent()) setAccessToken("");
+					rejectResponse(
 						new ApiError(parseErrorMessage(errorData), {
 							statusCode,
 							code: parseErrorCode(errorData) ?? "api-request-failed",
 							numericCode: parseErrorNumericCode(errorData),
-							requestId,
+							requestId: resolvedRequestId,
 						}),
 					);
 					return;
 				}
+				let savedFilePath = "";
 				try {
 					const headerValue = (name: string) =>
-						Object.entries(headers).find(
+						Object.entries(response.header || {}).find(
 							([key]) => key.toLowerCase() === name,
 						)?.[1];
 					const contentType = headerValue("content-type");
@@ -4325,41 +4319,59 @@ export function downloadOutpatientInvoiceResource(
 							: undefined;
 					const length = headerValue("content-length");
 					if (
-						!filePath ||
+						!(response.data instanceof ArrayBuffer) ||
+						response.data.byteLength > MAX_OUTPATIENT_INVOICE_RESOURCE_BYTES ||
 						!mime ||
 						!["image/png", "image/jpeg", "application/pdf"].includes(mime) ||
 						(typeof length === "string" &&
 							(!/^\d+$/u.test(length) ||
-								Number(length) > MAX_OUTPATIENT_INVOICE_RESOURCE_BYTES)) ||
-						readOutpatientInvoiceResourceType(filePath) !== mime
+								Number(length) > MAX_OUTPATIENT_INVOICE_RESOURCE_BYTES))
 					) {
 						throw new Error(
 							"Invoice resource does not match its declared type",
 						);
 					}
+					const resource = saveOutpatientInvoiceResource(
+						response.data,
+						mime,
+						expectedSessionGeneration,
+					);
+					savedFilePath = resource.tempFilePath;
+					if (!sessionCurrent() || !patientCurrent()) {
+						removeOutpatientInvoiceResource(savedFilePath);
+						rejectResponse(
+							new ApiError("当前就诊人或登录状态已变更，请重新查看票据", {
+								code: sessionCurrent()
+									? "patient-selection-stale"
+									: "session-changed",
+								requestId: resolvedRequestId,
+							}),
+						);
+						return;
+					}
 					recordApiRequestObservation({
-						requestId,
+						requestId: resolvedRequestId,
 						method: "GET",
 						path: sanitizeApiRequestPath(path),
 						statusCode,
 						durationMs: Math.max(0, Date.now() - startedAt),
 						outcome: "success",
+						transport: "request",
 					});
-					resolve({
-						tempFilePath: filePath,
-						kind: mime === "application/pdf" ? "pdf" : "image",
-					});
+					resolve(resource);
 				} catch {
-					rejectFile(
+					if (savedFilePath) removeOutpatientInvoiceResource(savedFilePath);
+					rejectResponse(
 						new ApiError("医院暂未提供可预览的票据影像，请稍后重试", {
 							code: "provider-response-invalid",
-							requestId,
+							requestId: resolvedRequestId,
 						}),
 					);
 				}
 			},
 			fail: (error) => {
-				const timedOut = /timeout|超时/iu.test(error.errMsg ?? "");
+				const networkFailure = classifyInvoiceResourceNetworkFailure(error);
+				const timedOut = networkFailure.networkFailureReason === "timeout";
 				recordApiRequestObservation({
 					requestId,
 					method: "GET",
@@ -4368,6 +4380,8 @@ export function downloadOutpatientInvoiceResource(
 					durationMs: Math.max(0, Date.now() - startedAt),
 					outcome: "network-error",
 					errorCode: timedOut ? "request-timeout" : "network-failed",
+					transport: "request",
+					...networkFailure,
 				});
 				reject(
 					new ApiError(
@@ -4381,9 +4395,6 @@ export function downloadOutpatientInvoiceResource(
 					),
 				);
 			},
-		});
-		task.onHeadersReceived(({ header }) => {
-			headers = header;
 		});
 	});
 }

@@ -29,6 +29,57 @@ test("客户端观测路径会去掉患者和账单查询参数", () => {
 	expect(sanitizeApiRequestPath("/patients#fragment")).toBe("/patients");
 });
 
+test("网络分类与有界微信错误号进入实时诊断，错误原文不能冒充分类", () => {
+	clearApiRequestObservations();
+	clearClientTelemetryEvents();
+	setClientTelemetryEnvVersionForTests("trial");
+	const base = {
+		requestId: "invoice-network-fixture",
+		method: "GET" as const,
+		path: "/payments/outpatient/invoices/fixture/resource?patientId=PATIENT_CANARY",
+		statusCode: 0,
+		durationMs: 20,
+		outcome: "network-error" as const,
+		errorCode: "network-failed",
+	};
+	try {
+		recordApiRequestObservation({
+			...base,
+			transport: "request",
+			networkFailureReason: "tls-failed",
+			networkErrorCode: -1202,
+		});
+		const secret = "URL_TOKEN_PATIENT_CANARY_80100";
+		recordApiRequestObservation({
+			...base,
+			// 故意模拟未来未正确分类的调用方，不允许把整段 SDK 错误送入日志。
+			transport: secret as "request",
+			networkFailureReason: secret as "unknown",
+			networkErrorCode: 2_000_001,
+		});
+		const [valid, rejected] = getRecentApiRequestObservations();
+		expect(valid?.transport).toBe("request");
+		expect(valid?.networkFailureReason).toBe("tls-failed");
+		expect(valid?.networkErrorCode).toBe(-1202);
+		expect(rejected?.transport).toBeUndefined();
+		expect(rejected?.networkFailureReason).toBeUndefined();
+		expect(rejected?.networkErrorCode).toBeUndefined();
+		const [telemetry] = getRecentClientTelemetryEvents();
+		expect(telemetry?.fields?.networkFailureReason).toBe("tls-failed");
+		expect(telemetry?.fields?.networkErrorCode).toBe(-1202);
+		expect(telemetry?.fields?.transport).toBe("request");
+		const retained = JSON.stringify({
+			observations: getRecentApiRequestObservations(),
+			telemetry: getRecentClientTelemetryEvents(),
+		});
+		expect(retained).not.toContain(secret);
+		expect(retained).not.toContain("PATIENT_CANARY");
+	} finally {
+		clearApiRequestObservations();
+		clearClientTelemetryEvents();
+	}
+});
+
 test("客户端观测环只保留最近固定数量的低敏请求元数据", () => {
 	clearApiRequestObservations();
 	try {

@@ -1,10 +1,30 @@
 import type { ApiMethod } from "../types";
+import { resolveErrorNumericCode } from "./error-registry";
 import {
 	isVerboseClientTelemetry,
 	recordClientTelemetrySilentEvent,
 	redactClientValue,
 } from "./telemetry";
-import { resolveErrorNumericCode } from "./error-registry";
+
+/** 只允许固定分类，微信原始 errMsg 可能带 URL、凭据或患者引用。 */
+export type ApiNetworkFailureReason =
+	| "timeout"
+	| "domain-not-allowed"
+	| "tls-failed"
+	| "dns-failed"
+	| "connection-failed"
+	| "aborted"
+	| "unknown";
+
+const NETWORK_FAILURE_REASONS: ReadonlySet<string> = new Set([
+	"timeout",
+	"domain-not-allowed",
+	"tls-failed",
+	"dns-failed",
+	"connection-failed",
+	"aborted",
+	"unknown",
+]);
 
 /**
  * 小程序客户端请求的安全观测结果。
@@ -21,6 +41,10 @@ export type ApiRequestObservation = Readonly<{
 	durationMs: number;
 	outcome: "success" | "http-error" | "network-error";
 	errorCode?: string;
+	transport?: "request" | "downloadFile";
+	networkFailureReason?: ApiNetworkFailureReason;
+	/** 微信网络错误号只接收有界整数，不接收错误原文。 */
+	networkErrorCode?: number;
 	/** 平台 API 封套的安全摘要；成功与失败响应都会尽量提取。 */
 	envelope?: ApiRequestEnvelopeSummary;
 	/**
@@ -128,9 +152,27 @@ export function recordApiRequestObservation(
 			? undefined
 			: summarizeResponseEnvelope(payload.responseData);
 	const verbose = isVerboseClientTelemetry();
+	const {
+		transport,
+		networkFailureReason,
+		networkErrorCode,
+		...baseObservation
+	} = observation;
 	const safeObservation = Object.freeze({
-		...observation,
+		...baseObservation,
 		path: sanitizeApiRequestPath(observation.path),
+		...(transport === "request" || transport === "downloadFile"
+			? { transport }
+			: {}),
+		...(typeof networkFailureReason === "string" &&
+		NETWORK_FAILURE_REASONS.has(networkFailureReason)
+			? { networkFailureReason }
+			: {}),
+		...(typeof networkErrorCode === "number" &&
+		Number.isSafeInteger(networkErrorCode) &&
+		Math.abs(networkErrorCode) <= 1_000_000
+			? { networkErrorCode }
+			: {}),
 		...(envelope === undefined ? {} : { envelope }),
 		...(verbose &&
 		payload?.sensitive !== true &&
@@ -165,6 +207,15 @@ export function recordApiRequestObservation(
 			statusCode: observation.statusCode,
 			durationMs: observation.durationMs,
 			result: observation.outcome,
+			...(safeObservation.transport === undefined
+				? {}
+				: { transport: safeObservation.transport }),
+			...(safeObservation.networkFailureReason === undefined
+				? {}
+				: { networkFailureReason: safeObservation.networkFailureReason }),
+			...(safeObservation.networkErrorCode === undefined
+				? {}
+				: { networkErrorCode: safeObservation.networkErrorCode }),
 			// 失败时数字码进 fields.errorCode，实时日志可按它过滤；
 			// 字符串码保留在 errorName，便于直接 grep 源码。
 			...(observation.outcome === "success"
