@@ -385,10 +385,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"patient-binding": {
 		title: "添加就诊人",
 		readiness: "代码已实现，待实证",
-		description:
-			"姓名、手机号和身份证号表单的代码链路已具备，真实查档、建档、绑卡和患者档案关联仍待实证。",
+		description: "在医院公众号页面完成就诊人绑定，返回小程序后刷新就诊人列表。",
 		contractHint:
-			"服务端负责旧服务授权、众阳查档、建档、绑卡、幂等和完成后的患者目录同步。",
+			"使用百灵固定入口及网页微信授权，返回后按当前账号同步真实目录；小程序内绑卡流程暂时停用。",
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"pre-visit": {

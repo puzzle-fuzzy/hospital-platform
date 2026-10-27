@@ -112,19 +112,21 @@
 	margin-top: 24rpx;
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
-	gap: 20rpx;
+	gap: 16rpx;
 }
 
 .timeslot-slot {
+	box-sizing: border-box;
 	background: #ffffff;
 	border: 2rpx solid #eef0f4;
 	border-radius: 16rpx;
-	height: 140rpx;
+	min-height: 112rpx;
+	padding: 14rpx 12rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 8rpx;
+	gap: 4rpx;
 	box-shadow: 0 4rpx 12rpx rgba(20, 30, 50, 0.04);
 }
 
@@ -137,11 +139,13 @@
 	color: #22252c;
 	font-size: 32rpx;
 	font-weight: 600;
+	line-height: 40rpx;
 }
 
 .timeslot-slot-time {
 	color: #444a56;
 	font-size: 26rpx;
+	line-height: 34rpx;
 }
 
 .timeslot-empty-title {

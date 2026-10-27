@@ -488,7 +488,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "partial",
 			nativeTarget: "pages/patient-binding/patient-binding",
 			featureKey: "patient-binding",
-			note: "已迁移姓名、手机号、身份证号和协议确认表单，并通过服务端提交；查档、建档、绑卡、幂等和最终确认仍由服务端 contract/gate 控制。",
+			note: "添加入口改由百灵公众号页面完成绑定，返回后同步真实目录；小程序内实名表单及查档、建档、绑卡提交暂时停用。",
 		},
 		{
 			legacyPath: "pagesB/patient/patientChange.vue",

@@ -1,137 +1,65 @@
-.patient-binding-scroll {
-	height: 100vh;
-	background: #f7f9fd;
-}
-
 .patient-binding-page {
 	box-sizing: border-box;
-	min-height: 100%;
-	padding: 34rpx 24rpx 52rpx;
-}
-
-.patient-binding-hero {
-	padding: 8rpx 8rpx 28rpx;
-}
-
-.patient-binding-subtitle,
-.patient-binding-notice {
-	display: block;
-	margin-top: 0;
-	color: #68738a;
-	font-size: 25rpx;
-	line-height: 1.7;
+	min-height: 100vh;
+	padding: 48rpx 28rpx;
+	background: #f6f8fc;
 }
 
 .patient-binding-card {
-	box-sizing: border-box;
-	padding: 8rpx 30rpx;
+	padding: 36rpx 30rpx;
 	border-radius: 20rpx;
 	background: #fff;
-	box-shadow: 0 8rpx 26rpx rgba(40, 74, 150, 0.06);
 }
 
-.patient-binding-field {
-	display: flex;
-	align-items: center;
-	min-height: 106rpx;
-	border-bottom: 1rpx solid #e9edf5;
+.patient-binding-title,
+.patient-binding-description,
+.patient-binding-error {
+	display: block;
 }
 
-.patient-binding-field-last {
-	border-bottom: 0;
-}
-
-.patient-binding-label {
-	flex: 0 0 auto;
-	width: 150rpx;
-	color: #333d56;
-	font-size: 29rpx;
-}
-
-.patient-binding-input {
-	flex: 1;
-	min-width: 0;
+.patient-binding-title {
 	color: #222b45;
-	font-size: 29rpx;
+	font-size: 34rpx;
+	font-weight: 600;
+	line-height: 1.5;
 }
 
-.patient-binding-consent {
-	display: flex;
-	align-items: center;
-	margin: 26rpx 8rpx 0;
+.patient-binding-description,
+.patient-binding-error {
+	margin-top: 24rpx;
 	color: #68738a;
-	font-size: 25rpx;
-	line-height: 1.6;
-}
-
-.patient-binding-checkbox {
-	box-sizing: border-box;
-	width: 34rpx;
-	height: 34rpx;
-	margin-right: 12rpx;
-	border: 2rpx solid #b8c1d1;
-	border-radius: 8rpx;
-	color: #fff;
-	font-size: 25rpx;
-	line-height: 30rpx;
-	text-align: center;
-}
-
-.patient-binding-checkbox-on {
-	border-color: #3d6df6;
-	background: #3d6df6;
-}
-
-.patient-binding-consent-copy {
-	flex: 0 0 auto;
-}
-
-.patient-binding-agreement {
-	color: #3d6df6;
+	font-size: 28rpx;
+	line-height: 1.75;
 }
 
 .patient-binding-error {
-	margin-top: 22rpx;
-	padding: 20rpx 24rpx;
-	border-radius: 14rpx;
-	background: #fff2f0;
-	color: #d84a4a;
-	font-size: 26rpx;
-	line-height: 1.6;
+	padding: 22rpx;
+	border-radius: 12rpx;
+	background: #f3f6fc;
 }
 
-.patient-binding-submit,
+.patient-binding-retry,
 .patient-binding-back {
 	box-sizing: border-box;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	width: 100%;
-	height: 86rpx;
-	margin-top: 30rpx;
-	padding: 0;
+	min-height: 92rpx;
+	margin-top: 32rpx;
+	padding: 16rpx 20rpx;
 	border-radius: 14rpx;
 	font-size: 29rpx;
-	line-height: 1;
+	line-height: 1.5;
 }
 
-.patient-binding-submit {
+.patient-binding-retry {
 	background: #3d6df6;
-	color: #fff;
-}
-
-.patient-binding-submit[disabled] {
-	background: #aebfe9;
 	color: #fff;
 }
 
 .patient-binding-back {
 	margin-top: 18rpx;
-	background: transparent;
-	color: #68738a;
-}
-
-.patient-binding-notice {
-	margin: 26rpx 8rpx 0;
-	text-align: center;
+	background: #f3f6fc;
+	color: #455774;
 }

@@ -114,9 +114,15 @@ describe("旧端页面全量迁移台账", () => {
 		const pageScript = await Bun.file(
 			new URL("../pages/hospital/hospital.ts", import.meta.url),
 		).text();
-		expect(pageScript).toContain("INTERNET_HOSPITAL_BASE_URL");
-		expect(pageScript).toContain("https://cx.o2o.bailingjk.net/wechat/");
-		expect(pageScript).toContain("publicNoCode=gzh-048400_0001");
+		const patientCardService = await Bun.file(
+			new URL("./bailing-patient-card.ts", import.meta.url),
+		).text();
+		expect(pageScript).toContain("buildBailingPatientCardUrl");
+		expect(patientCardService).toContain(
+			"https://cx.o2o.bailingjk.net/wechat/",
+		);
+		expect(patientCardService).toContain("publicNoCode=gzh-048400_0001");
+		expect(patientCardService).not.toContain("userId=");
 		expect(pageScript).not.toContain("decodeURIComponent");
 		expect(pageScript).not.toContain("system/auth/ticket");
 		expect(pageScript).not.toContain("navigateToMiniProgram");

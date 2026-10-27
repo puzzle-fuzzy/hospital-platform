@@ -209,7 +209,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		const shouldSyncAfterBinding = patientBindingReturnPending.delete(this);
 		if (shouldSyncAfterBinding) {
 			this.clearDisplayedPatientDirectory();
-			// 新增页返回是一次明确的写入后刷新，不是普通的页面曝光；
+			// 从公众号绑定页返回是一次明确的目录核对，不是普通的页面曝光；
 			// 这里必须走 Provider 同步，不能只读刚才可能尚未更新的本地快照。
 			// 保持 loading=true 直到同步结束，避免清空旧目录后在请求尚未完成时
 			// 短暂渲染“暂无已绑定就诊人”的误导性空态。不能调用 onSyncPatients：
@@ -381,7 +381,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		patientNavigationTimers.set(this, navigationTimer);
 	},
 
-	/** 患者绑定已接入服务端，进入真实的实名资料表单。 */
+	/** 在百灵公众号完成绑定，返回后查询真实目录；暂停小程序内绑卡。 */
 	onAddPatient(): void {
 		patientBindingReturnPending.add(this);
 		navigateToFeatureEntry("patient-binding");

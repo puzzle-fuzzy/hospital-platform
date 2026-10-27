@@ -5,16 +5,24 @@ page {
 }
 
 .smart-guide-page {
-	position: relative;
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	display: flex;
+	flex-direction: column;
 	width: 100%;
-	height: 100%;
 	overflow: hidden;
 	background: #ffffff;
 }
 
 .smart-guide-scroll {
 	box-sizing: border-box;
-	height: 100%;
+	height: 0;
+	min-height: 0;
+	flex: 1;
+	padding-bottom: 0;
 	background: #ffffff;
 }
 
@@ -207,30 +215,39 @@ page {
 }
 
 .guide-departments {
+	display: flex;
 	box-sizing: border-box;
+	align-items: stretch;
+	flex-direction: column;
 	width: 100%;
 	margin-top: 16rpx;
-	padding: 18rpx 20rpx;
+	padding: 12rpx;
 	border: 1rpx solid #e3edf8;
 	border-radius: 16rpx;
 	background: #f4f8fe;
 }
 
-.guide-department {
+.guide-departments .guide-department {
 	display: flex;
 	box-sizing: border-box;
 	align-items: center;
+	align-self: stretch;
 	justify-content: space-between;
 	width: 100%;
-	height: 68rpx;
+	height: auto;
+	min-width: 0;
+	max-width: none;
+	min-height: 84rpx;
 	margin: 0 0 14rpx;
-	padding: 0 18rpx 0 26rpx;
+	padding: 14rpx 16rpx;
 	border: 0;
-	border-radius: 34rpx;
+	border-radius: 14rpx;
 	background: #ffffff;
 	color: #3f80f5;
 	font-size: 25rpx;
-	line-height: 68rpx;
+	line-height: 38rpx;
+	text-align: left;
+	white-space: normal;
 }
 
 .guide-department:last-child {
@@ -244,43 +261,46 @@ page {
 }
 
 .guide-department__name {
+	display: block;
 	min-width: 0;
-	overflow: hidden;
+	flex: 1;
+	line-height: 38rpx;
 	text-align: left;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	white-space: normal;
+	word-break: break-all;
 }
 
 .guide-department__action {
 	box-sizing: border-box;
 	flex-shrink: 0;
 	height: 52rpx;
-	margin-left: 18rpx;
+	margin-left: 16rpx;
 	padding: 0 20rpx;
 	border-radius: 26rpx;
 	background: #2f73f2;
 	color: #ffffff;
 	font-size: 24rpx;
 	line-height: 52rpx;
+	white-space: nowrap;
 }
 
-.guide-bottom-space {
-	height: 190rpx;
+.guide-message-end {
+	height: 24rpx;
 }
 
 .guide-composer {
-	position: fixed;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	z-index: 10;
 	display: flex;
 	box-sizing: border-box;
 	align-items: center;
+	flex-shrink: 0;
 	gap: 18rpx;
 	min-height: 124rpx;
 	padding: 24rpx 30rpx calc(24rpx + env(safe-area-inset-bottom));
 	background: linear-gradient(180deg, #e9faff 0%, #d8f4ff 100%);
+}
+
+.guide-composer--keyboard {
+	padding-bottom: 24rpx;
 }
 
 .guide-tool {
@@ -332,14 +352,23 @@ page {
 	height: 76rpx;
 	min-width: 0;
 	flex: 1;
-	display: block;
-	padding: 14rpx 24rpx;
+	display: flex;
+	align-items: center;
+	padding: 0 24rpx;
 	border: 4rpx solid #943df2;
 	border-radius: 38rpx;
 	background: #ffffff;
+}
+
+.guide-input__control {
+	box-sizing: border-box;
+	width: 100%;
+	height: 48rpx;
+	min-width: 0;
+	padding: 0;
 	color: #333333;
 	font-size: 28rpx;
-	line-height: 40rpx;
+	line-height: 48rpx;
 }
 
 .guide-input__placeholder {

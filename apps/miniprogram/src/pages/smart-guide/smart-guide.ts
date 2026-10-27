@@ -7,6 +7,7 @@ import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
+	getPageLifecycle,
 } from "../../services/page-instance-state";
 import type { IntelligentGuideMessageResponse } from "../../types";
 
@@ -36,11 +37,18 @@ type SmartGuidePageData = {
 	error: string;
 	disclaimer: string;
 	scrollIntoView: string;
+	keyboardHeight: number;
 };
 
 type SmartGuidePageMethods = {
 	onLoad(): void;
 	onInput(event: WechatMiniprogram.Input): void;
+	onInputFocus(event: WechatMiniprogram.InputFocus): void;
+	onKeyboardHeightChange(
+		event: WechatMiniprogram.InputKeyboardHeightChange,
+	): void;
+	updateKeyboardHeight(height: number): void;
+	onHide(): void;
 	onSend(): void;
 	sendMessage(): Promise<void>;
 	onVoiceTouchStart(): void;
@@ -150,6 +158,7 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 		disclaimer:
 			"智能导诊仅用于推荐可能合适的门诊科室，不能替代医生诊断；如有急危重症，请立即就医或拨打 120。",
 		scrollIntoView: "",
+		keyboardHeight: 0,
 	},
 
 	onLoad() {
@@ -163,6 +172,40 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 			inputValue: Array.from(value).slice(0, 50).join(""),
 			error: "",
 		});
+	},
+
+	onInputFocus(event) {
+		this.updateKeyboardHeight(event.detail.height);
+	},
+
+	onKeyboardHeightChange(event) {
+		this.updateKeyboardHeight(event.detail.height);
+	},
+
+	updateKeyboardHeight(height) {
+		if (
+			!getPageLifecycle(this).isActive() ||
+			!Number.isFinite(height) ||
+			height < 0 ||
+			height === this.data.keyboardHeight
+		) {
+			return;
+		}
+		// 禁用原生整页上推，由根容器统一给键盘留出空间；输入栏参与 flex 布局，
+		// 消息区随之缩短，避免 fixed 输入栏与整页位移叠加。
+		this.setData({ keyboardHeight: height, scrollIntoView: "" }, () => {
+			if (
+				getPageLifecycle(this).isActive() &&
+				this.data.keyboardHeight === height &&
+				this.data.messages.length > 0
+			) {
+				this.setData({ scrollIntoView: "guide-message-end" });
+			}
+		});
+	},
+
+	onHide() {
+		this.setData({ keyboardHeight: 0 });
 	},
 
 	onSend() {

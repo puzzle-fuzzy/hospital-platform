@@ -1211,7 +1211,7 @@ test("patient selection never silently switches a stale patient to another patie
 	});
 });
 
-test("native patient selection routes to the live patient binding page", async () => {
+test("patient selection opens the fixed Bailing patient-card page and refreshes on return", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const template = await source("pages/patient-select/patient-select.wxml");
 	const featureNavigation = await source("services/feature-navigation.ts");
@@ -1219,16 +1219,13 @@ test("native patient selection routes to the live patient binding page", async (
 	const bindingTemplate = await source(
 		"pages/patient-binding/patient-binding.wxml",
 	);
-	const bindingContract = await Bun.file(
-		join(import.meta.dir, "../../../docs/迁移/患者绑定契约草案.md"),
-	).text();
+	const patientCardService = await source("services/bailing-patient-card.ts");
 
-	// 患者绑定候选闭环已接入，正常入口直接进入实名表单；旧服务 JWT 由 API
-	// 服务端换取并注入众阳请求上下文，小程序不接触旧 JWT 或众阳地址。
+	// 新增改由百灵公众号页办理，入口保留原路径与返回后目录同步；小程序
+	// 不再采集实名信息或提交查档/建档/绑卡，也不从路由接收任意外部地址。
 	expect(selection).toContain("onAddPatient");
 	expect(selection).toContain("navigateToFeatureEntry");
 	expect(selection).toContain('"patient-binding"');
-	expect(featureNavigation).toContain('readiness: "代码已实现，待实证"');
 	expect(featureNavigation).toContain(
 		'"patient-binding": "/pages/patient-binding/patient-binding"',
 	);
@@ -1236,23 +1233,34 @@ test("native patient selection routes to the live patient binding page", async (
 	expect(selection).not.toContain("createPatientApi");
 	expect(selection).not.toContain("bindCardApi");
 	expect(template).toContain("添加就诊人");
-	expect(bindingPage).toContain("bindPatientToHospital");
-	expect(bindingPage).toContain("getWechatLoginCode");
-	expect(bindingPage).toContain("wx.login");
-	expect(bindingPage).toContain("legacyLoginCode");
+	expect(bindingPage).toContain("buildBailingPatientCardUrl");
+	expect(bindingPage).toContain("hasPlatformSession");
+	expect(bindingPage).toContain("registerPageSessionResetListener");
+	expect(bindingPage).toContain("disposePageSessionResetListener");
+	expect(bindingPage).not.toContain("bindPatientToHospital");
+	expect(bindingPage).not.toContain("wx.login");
+	expect(bindingPage).not.toContain("legacyLoginCode");
 	expect(bindingPage).not.toContain("legacy-jwt");
 	expect(bindingPage).not.toContain("providerPatientId");
-	expect(bindingPage).toContain("请输入正确的手机号");
-	expect(bindingPage).toContain("请输入正确的身份证号");
-	expect(bindingTemplate).toContain('data-field="displayName"');
-	expect(bindingTemplate).toContain('data-field="mobile"');
+	expect(bindingPage).not.toContain("decodeURIComponent");
+	expect(bindingTemplate).toContain("<web-view");
+	expect(bindingTemplate).toContain('src="{{webViewUrl}}"');
+	expect(bindingTemplate).toContain('binderror="onWebViewError"');
+	expect(bindingTemplate).toContain('bindtap="onRetry"');
+	expect(bindingTemplate).toContain('bindtap="onBack"');
+	expect(bindingTemplate).not.toContain("<input");
+	expect(bindingTemplate).not.toContain("onSubmit");
+	expect(bindingTemplate).not.toContain("bindmessage");
+	expect(patientCardService).toContain("cx.o2o.bailingjk.net");
+	expect(patientCardService).toContain("publicNoCode=gzh-048400_0001");
+	expect(patientCardService).not.toContain("userId=");
+	expect(patientCardService).not.toContain("access_token");
+	expect(selection).toContain("patientBindingReturnPending.add(this)");
+	expect(selection).toContain("patientBindingReturnPending.delete(this)");
+	expect(selection).toContain("this.syncPatientDirectoryForLoad(loadToken)");
 	expect(template).not.toContain("患者绑定 contract 未完成");
 	expect(template).not.toContain("暂时无法新增就诊人");
 	expect(template).not.toContain("新增服务开放后可在此办理");
-	expect(bindingTemplate).toContain('data-field="identityNumber"');
-	expect(bindingTemplate).toContain("我已阅读并同意");
-	expect(bindingContract).toContain("查找异常不得转成“没有档案”");
-	expect(bindingContract).toContain("PB-01");
 });
 
 test("patient selection keeps an existing confirmed directory when provider refresh fails", async () => {
@@ -2244,6 +2252,7 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	const consultTemplate = await source("pages/consult/consult.wxml");
 	const hospital = await source("pages/hospital/hospital.ts");
 	const hospitalTemplate = await source("pages/hospital/hospital.wxml");
+	const patientCardService = await source("services/bailing-patient-card.ts");
 	const smartCustomer = await source("pages/smart-customer/smart-customer.ts");
 	const smartCustomerTemplate = await source(
 		"pages/smart-customer/smart-customer.wxml",
@@ -2272,7 +2281,8 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	// 互联网医院只恢复旧端已确认的固定地址；页面不接受任意 URL，也不把
 	// 平台 token 或通用 ticket 交给外部页面。
 	expect(hospital).toContain("webViewUrl");
-	expect(hospital).toContain("cx.o2o.bailingjk.net");
+	expect(hospital).toContain("buildBailingPatientCardUrl");
+	expect(patientCardService).toContain("cx.o2o.bailingjk.net");
 	expect(hospital).not.toContain("system/auth/ticket");
 	expect(hospital).not.toContain("navigateToMiniProgram");
 	expect(hospitalTemplate).toContain(
@@ -2316,7 +2326,7 @@ test("native intelligent guide matches the Lanhu chat composer on narrow screens
 	const style = await source("pages/smart-guide/smart-guide.wxss");
 
 	// 蓝湖底部是两个圆形工具入口、一个可收缩输入框和一个固定宽度的发送键；
-	// 原生 button/textarea 的默认盒模型不能把输入区挤出窄屏。
+	// 原生 button/input 的默认盒模型不能把输入区挤出窄屏。
 	expect(style).toMatch(
 		/\.guide-input\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?flex:\s*1;/,
 	);
@@ -2330,7 +2340,16 @@ test("native intelligent guide matches the Lanhu chat composer on narrow screens
 		/\.guide-input\s*\{[\s\S]*?height:\s*76rpx;[\s\S]*?flex:\s*1;/,
 	);
 	expect(style).toContain("position: fixed;");
-	expect(template).toContain("请输入症状/药品/疾病...");
+	expect(template).toContain('placeholder="请描述症状"');
+	expect(template).toContain("<input");
+	expect(template).not.toContain("<textarea");
+	expect(template).toContain('adjust-position="{{false}}"');
+	expect(template).toContain(
+		'bindkeyboardheightchange="onKeyboardHeightChange"',
+	);
+	expect(template).toContain('style="bottom: {{keyboardHeight}}px;"');
+	expect(template).toContain('id="guide-message-end"');
+	expect(template).not.toContain("guide-bottom-space");
 	expect(template).toContain("/assets/legacy-user/microphone.svg");
 	expect(template).toContain("/assets/legacy-user/image.svg");
 	expect(template).toContain("guide-bubble__code");
@@ -2413,6 +2432,16 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 		const expectedClass = tabPages.has(pagePath) ? "tab-page-scroll" : "scroll";
 
 		expect(pageConfig.disableScroll).toBe(true);
+		if (pagePath === "pages/patient-binding/patient-binding") {
+			// 添加就诊人现在交给固定百灵 H5；web-view 独占页面，错误态仍提供
+			// 原生重试和返回按钮，不再把外部页面塞进第二层滚动容器。
+			expect(template.trimStart().startsWith("<web-view")).toBe(true);
+			expect(template).toContain('src="{{webViewUrl}}"');
+			expect(template).toContain('binderror="onWebViewError"');
+			expect(template).toContain('class="patient-binding-page"');
+			expect(template).not.toContain("<scroll-view");
+			continue;
+		}
 		if (
 			pagePath === "pages/hospital/hospital" ||
 			pagePath === "pages/smart-customer/smart-customer"
@@ -2427,7 +2456,14 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 			expect(template).toContain('src="{{webViewUrl}}"');
 			continue;
 		}
-		expect(template.trimStart().startsWith("<scroll-view")).toBe(true);
+		if (pagePath === "pages/smart-guide/smart-guide") {
+			// 聊天页的输入栏和消息滚动区共用随键盘缩短的 flex 容器。
+			expect(
+				template.trimStart().startsWith('<view class="smart-guide-page"'),
+			).toBe(true);
+		} else {
+			expect(template.trimStart().startsWith("<scroll-view")).toBe(true);
+		}
 		expect(template).toContain('scroll-y="true"');
 		expect(template).toMatch(new RegExp(`class="[^"]*${expectedClass}`));
 	}

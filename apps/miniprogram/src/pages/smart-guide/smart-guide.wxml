@@ -1,5 +1,6 @@
+<view class="smart-guide-page" style="bottom: {{keyboardHeight}}px;">
 	<scroll-view
-		class="smart-guide-page smart-guide-scroll secondary-page-scroll"
+		class="smart-guide-scroll secondary-page-scroll"
 		scroll-y="true"
 		enhanced="true"
 		scroll-into-view="{{scrollIntoView}}"
@@ -49,10 +50,10 @@
 				</view>
 			</view>
 		</view>
-		<view class="guide-bottom-space"></view>
+		<view id="guide-message-end" class="guide-message-end"></view>
 	</scroll-view>
 
-	<view class="guide-composer">
+	<view class="guide-composer {{keyboardHeight > 0 ? 'guide-composer--keyboard' : ''}}">
 		<button
 			plain="true"
 			class="guide-tool guide-voice {{recording ? 'guide-tool--recording' : ''}}"
@@ -67,19 +68,24 @@
 		<button plain="true" class="guide-tool guide-tool--image" disabled="true">
 			<image class="guide-tool__icon" src="/assets/legacy-user/image.svg" mode="aspectFit"></image>
 		</button>
-		<textarea
-			class="guide-input"
-			value="{{inputValue}}"
-			maxlength="50"
-			placeholder="请输入症状/药品/疾病..."
-			placeholder-class="guide-input__placeholder"
-			confirm-type="send"
-			show-confirm-bar="false"
-			adjust-position="true"
-			hold-keyboard="true"
-			cursor-spacing="16"
-			bindinput="onInput"
-			bindconfirm="onSend"
-		></textarea>
+		<view class="guide-input">
+			<input
+				class="guide-input__control"
+				type="text"
+				value="{{inputValue}}"
+				maxlength="50"
+				placeholder="请描述症状"
+				placeholder-class="guide-input__placeholder"
+				confirm-type="send"
+				confirm-hold="{{true}}"
+				adjust-position="{{false}}"
+				hold-keyboard="{{true}}"
+				bindinput="onInput"
+				bindfocus="onInputFocus"
+				bindkeyboardheightchange="onKeyboardHeightChange"
+				bindconfirm="onSend"
+			/>
+		</view>
 		<button class="guide-send" disabled="{{sending}}" bindtap="onSend">{{sending ? '分析中' : '发送'}}</button>
 	</view>
+</view>
