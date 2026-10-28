@@ -105,7 +105,7 @@ test("非支付取消预约响应必须回显引用并确认 cancelled", () => {
 	).toThrow("预约服务返回数据异常");
 });
 
-test("智能导诊响应只接受平台会话引用和白名单结果字段", () => {
+test("就医助手响应只接受平台会话引用和白名单结果字段", () => {
 	expect(
 		requireIntelligentGuideMessageResponse({
 			success: true,

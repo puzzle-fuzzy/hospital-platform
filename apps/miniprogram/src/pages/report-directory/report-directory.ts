@@ -44,6 +44,20 @@ import type {
 const REPORT_PAGE_SIZE = 10;
 const INITIAL_REPORT_RANGE = createReportDateRange(new Date());
 
+/**
+ * 服务端报告目录按平台资源边界限制查询窗口（end - start ≤ 366 天）。
+ * 超过上限时不再发起注定被 report-query-invalid（40100）拒绝的查询，而是
+ * 保留用户刚选的一端，把另一端自动收进最多 366 个自然日的窗口并提示。
+ */
+const REPORT_RANGE_MAX_SPAN_DAYS = 365;
+
+function shiftReportDateDays(value: string, days: number): string {
+	const date = new Date(`${value}T00:00:00Z`);
+	if (Number.isNaN(date.getTime())) return value;
+	date.setUTCDate(date.getUTCDate() + days);
+	return date.toISOString().slice(0, 10);
+}
+
 const REPORT_KIND_LABELS = Object.freeze({
 	laboratory: "检验报告",
 	imaging: "影像报告",
@@ -339,9 +353,15 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 
 	onStartDateChange(event): void {
 		const value = event.detail?.value;
-		if (typeof value !== "string" || !value || value > this.data.endDate)
-			return;
-		this.setData({ startDate: value });
+		if (typeof value !== "string" || !value || value > this.data.today) return;
+		// 开始日期越过当前结束日期时结束日期跟随，窗口保持有效。
+		let endDate = value > this.data.endDate ? value : this.data.endDate;
+		const spanEnd = shiftReportDateDays(value, REPORT_RANGE_MAX_SPAN_DAYS);
+		if (endDate > spanEnd) {
+			endDate = spanEnd;
+			wx.showToast({ title: "已按最多 366 天收窄查询范围", icon: "none" });
+		}
+		this.setData({ startDate: value, endDate });
 		void this.loadPage();
 	},
 
@@ -354,7 +374,13 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			value > this.data.today
 		)
 			return;
-		this.setData({ endDate: value });
+		const spanStart = shiftReportDateDays(value, -REPORT_RANGE_MAX_SPAN_DAYS);
+		let startDate = this.data.startDate;
+		if (spanStart > startDate) {
+			startDate = spanStart;
+			wx.showToast({ title: "已按最多 366 天收窄查询范围", icon: "none" });
+		}
+		this.setData({ startDate, endDate: value });
 		void this.loadPage();
 	},
 

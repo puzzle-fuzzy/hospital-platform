@@ -156,18 +156,6 @@ importers:
         specifier: 'catalog:'
         version: 7.0.2
 
-  apps/miniprogram-pay:
-    devDependencies:
-      '@types/bun':
-        specifier: 'catalog:'
-        version: 1.3.14
-      '@types/wechat-miniprogram':
-        specifier: 'catalog:'
-        version: 3.4.10
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-
   apps/worker:
     dependencies:
       '@hospital/adapters':
@@ -1381,8 +1369,8 @@ packages:
     engines: {node: '>=16.20.0'}
     hasBin: true
 
-  uint8array-extras@1.5.0:
-    resolution: {integrity: sha512-rvKSBiC5zqCCiDZ9kAOszZcDvdAHwwIKJG33Ykj43OKcWsnmcBRL09YTU4nOeHZ8Y2a7l1MgTd08SBe9A8Qj6A==}
+  uint8array-extras@1.6.0:
+    resolution: {integrity: sha512-8iAasVS4wUx0gPLjH8Xtz2PeDzTSiy8QiLGu2DT3X5GU+egFEQhpnbtkehbAwjvDcxIERmCYcysiODFmE3Ud0Q==}
     engines: {node: '>=18'}
 
   undici-types@8.3.0:
@@ -2158,7 +2146,7 @@ snapshots:
       '@tokenizer/inflate': 0.4.1
       strtok3: 10.3.5
       token-types: 6.1.2
-      uint8array-extras: 1.5.0
+      uint8array-extras: 1.6.0
     transitivePeerDependencies:
       - supports-color
 
@@ -2440,7 +2428,7 @@ snapshots:
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
 
-  uint8array-extras@1.5.0: {}
+  uint8array-extras@1.6.0: {}
 
   undici-types@8.3.0: {}
 

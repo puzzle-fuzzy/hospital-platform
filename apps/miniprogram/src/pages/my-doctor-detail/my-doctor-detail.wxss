@@ -10,7 +10,8 @@ page {
 .my-doctor-detail-page {
 	box-sizing: border-box;
 	min-height: 100vh;
-	padding: 28rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
+	/* 底部为固定操作栏预留空间：栏高 128rpx + 上下留白 + 安全区。 */
+	padding: 28rpx 24rpx calc(180rpx + env(safe-area-inset-bottom));
 }
 
 .doctor-profile-card,
@@ -28,6 +29,8 @@ page {
 	display: flex;
 	align-items: center;
 	min-height: 180rpx;
+	background: linear-gradient(140deg, #6fa8f5 0%, #4a7fe8 100%);
+	box-shadow: 0 10rpx 28rpx rgba(74, 127, 232, 0.22);
 }
 
 .doctor-profile-avatar {
@@ -36,7 +39,10 @@ page {
 	width: 112rpx;
 	height: 112rpx;
 	border-radius: 56rpx;
+	border: 4rpx solid rgba(255, 255, 255, 0.85);
+	box-sizing: border-box;
 	background: #edf3ff;
+	box-shadow: 0 6rpx 16rpx rgba(31, 66, 135, 0.25);
 }
 
 .doctor-profile-avatar-photo {
@@ -60,8 +66,8 @@ page {
 .doctor-profile-name {
 	max-width: 240rpx;
 	overflow: hidden;
-	color: #252a34;
-	font-size: 34rpx;
+	color: #ffffff;
+	font-size: 36rpx;
 	font-weight: 700;
 	line-height: 1.4;
 	text-overflow: ellipsis;
@@ -70,26 +76,36 @@ page {
 
 .doctor-profile-title {
 	margin-left: 12rpx;
-	color: #5c79b8;
+	color: rgba(255, 255, 255, 0.92);
 	font-size: 24rpx;
 	white-space: nowrap;
 }
 
 .doctor-profile-department,
-.doctor-profile-location {
+.doctor-profile-hospital {
 	margin-top: 10rpx;
 	overflow: hidden;
-	color: #697181;
+	color: rgba(255, 255, 255, 0.95);
 	font-size: 25rpx;
 	line-height: 1.4;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
+.doctor-profile-hospital {
+	margin-top: 6rpx;
+	color: rgba(255, 255, 255, 0.78);
+	font-size: 23rpx;
+}
+
 .doctor-profile-location {
 	margin-top: 5rpx;
-	color: #9ca3af;
+	overflow: hidden;
+	color: rgba(255, 255, 255, 0.68);
 	font-size: 23rpx;
+	line-height: 1.4;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .doctor-follow-button {
@@ -98,18 +114,18 @@ page {
 	height: 62rpx;
 	margin: 0 0 0 14rpx;
 	padding: 0 20rpx;
-	border: 1rpx solid #5d8ff3;
+	border: 2rpx solid rgba(255, 255, 255, 0.9);
 	border-radius: 999rpx;
-	background: #5d8ff3;
+	background: rgba(255, 255, 255, 0.14);
 	color: #ffffff;
 	font-size: 24rpx;
-	line-height: 60rpx;
+	line-height: 58rpx;
 }
 
 .doctor-follow-button.doctor-followed {
-	border-color: #dbe5f7;
-	background: #ffffff;
-	color: #6883b6;
+	border-color: rgba(255, 255, 255, 0.6);
+	background: rgba(255, 255, 255, 0.28);
+	color: #ffffff;
 }
 
 .doctor-introduction-copy {
@@ -407,4 +423,73 @@ page {
 	to {
 		transform: rotate(360deg);
 	}
+}
+
+
+/* 设计稿底部固定操作栏：左侧关注描边按钮，右侧“立即挂号”主按钮。 */
+.doctor-action-bar {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 20;
+	display: flex;
+	box-sizing: border-box;
+	align-items: center;
+	gap: 20rpx;
+	padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
+	background: #ffffff;
+	box-shadow: 0 -6rpx 20rpx rgba(40, 67, 118, 0.08);
+}
+
+.doctor-action-bar button {
+	margin: 0;
+}
+
+.doctor-action-bar button::after {
+	border: 0;
+}
+
+.doctor-action-follow {
+	box-sizing: border-box;
+	width: 168rpx;
+	height: 88rpx;
+	flex: 0 0 168rpx;
+	padding: 0;
+	border: 2rpx solid #4a7fe8;
+	border-radius: 44rpx;
+	background: #ffffff;
+	color: #4a7fe8;
+	font-size: 27rpx;
+	line-height: 84rpx;
+}
+
+.doctor-action-follow.doctor-action-followed {
+	border-color: #c6d4ec;
+	background: #f2f6fd;
+	color: #8ba3c9;
+}
+
+.doctor-action-follow[disabled] {
+	opacity: 1;
+	color: #4a7fe8;
+}
+
+.doctor-action-follow.doctor-action-followed[disabled] {
+	color: #8ba3c9;
+}
+
+.doctor-action-book {
+	box-sizing: border-box;
+	height: 88rpx;
+	min-width: 0;
+	flex: 1;
+	padding: 0;
+	border-radius: 44rpx;
+	background: linear-gradient(135deg, #5ea1f0 0%, #4a7fe8 100%);
+	color: #ffffff;
+	font-size: 30rpx;
+	font-weight: 600;
+	line-height: 88rpx;
+	box-shadow: 0 8rpx 20rpx rgba(74, 127, 232, 0.28);
 }

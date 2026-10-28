@@ -1,3 +1,110 @@
-<scroll-view class="smart-customer-scroll" scroll-y="true" enhanced="true">
-	<web-view class="smart-customer-webview" src="{{webViewUrl}}"></web-view>
+<scroll-view
+	class="customer-scroll secondary-page-scroll"
+	scroll-y="true"
+	enhanced="true"
+	style="{{scrollAreaStyle}}"
+	scroll-into-view="{{scrollIntoView}}"
+>
+	<view class="customer-hero">
+		<view class="customer-hero__copy">
+			<text class="customer-hero__greeting">Hi,亲爱的用户</text>
+			<text class="customer-hero__subtitle">智能客服为您服务~</text>
+		</view>
+		<image class="customer-hero__agent" src="/assets/legacy-user/smart-customer.svg" mode="aspectFit"></image>
+	</view>
+
+	<view class="customer-faq">
+		<view class="customer-faq__header">
+			<text class="customer-faq__title">常见问题 · 门诊与住院一站式服务</text>
+		</view>
+		<view
+			wx:for="{{faqGroups}}"
+			wx:for-item="group"
+			wx:key="id"
+			class="customer-faq__group"
+		>
+			<view class="customer-faq__group-title">{{group.title}}</view>
+			<view
+				wx:for="{{group.items}}"
+				wx:for-item="faq"
+				wx:key="id"
+				class="customer-faq__item"
+			>
+				<view class="customer-faq__question" data-id="{{faq.id}}" bindtap="onFaqToggle">
+					<text class="customer-faq__question-text">{{faq.question}}</text>
+					<text class="customer-faq__arrow {{expandedFaqId === faq.id ? 'customer-faq__arrow--open' : ''}}">›</text>
+				</view>
+				<view wx:if="{{expandedFaqId === faq.id}}" class="customer-faq__answer">
+					<text class="customer-faq__answer-text" user-select="true">{{faq.answer}}</text>
+					<button
+						wx:if="{{faq.action}}"
+						class="customer-faq__action"
+						data-id="{{faq.id}}"
+						catchtap="onFaqAction"
+					>
+						<text class="customer-faq__action-label">{{faq.action.label}}</text>
+					</button>
+				</view>
+			</view>
+		</view>
+	</view>
+
+	<view class="customer-messages">
+		<view
+			wx:for="{{messages}}"
+			wx:key="id"
+			id="{{item.id}}"
+			class="customer-message customer-message--{{item.role}}"
+		>
+			<view class="customer-message__avatar" wx:if="{{item.role === 'assistant'}}">
+				<image src="/assets/legacy-user/smart-customer.svg" mode="aspectFit"></image>
+			</view>
+			<view class="customer-message__body">
+				<view class="customer-bubble {{item.pending ? 'customer-bubble--pending' : ''}} {{item.isError ? 'customer-bubble--error' : ''}}">
+					<view class="customer-bubble__heading" wx:if="{{item.isError}}">服务提示</view>
+					<text class="customer-message__content" user-select="true">{{item.content}}</text>
+					<text class="customer-bubble__code" wx:if="{{item.errorCode}}">错误码 {{item.errorCode}}</text>
+				</view>
+				<button
+					wx:if="{{item.isError}}"
+					class="customer-retry"
+					data-message-id="{{item.id}}"
+					bindtap="onRestart"
+				>
+					<text class="customer-retry__label">重新开始</text>
+				</button>
+				<button
+					wx:if="{{item.redirect === 'ai_guide'}}"
+					class="customer-redirect"
+					data-message-id="{{item.id}}"
+					bindtap="onRedirectTap"
+				>
+					<text class="customer-redirect__label">症状不清楚？去就医助手选科室</text>
+				</button>
+			</view>
+		</view>
+	</view>
+	<view id="customer-message-end" class="customer-message-end"></view>
 </scroll-view>
+
+<view class="customer-composer" style="bottom: {{keyboardHeight}}px;">
+	<view class="customer-input">
+		<input
+			class="customer-input__control"
+			type="text"
+			value="{{inputValue}}"
+			maxlength="100"
+			placeholder="请描述您的就医服务问题"
+			placeholder-class="customer-input__placeholder"
+			confirm-type="send"
+			confirm-hold="{{true}}"
+			adjust-position="{{false}}"
+			hold-keyboard="{{true}}"
+			bindinput="onInput"
+			bindfocus="onInputFocus"
+			bindkeyboardheightchange="onKeyboardHeightChange"
+			bindconfirm="onSend"
+		/>
+	</view>
+	<button class="customer-send" disabled="{{sending}}" bindtap="onSend">{{sending ? '回复中' : '发送'}}</button>
+</view>

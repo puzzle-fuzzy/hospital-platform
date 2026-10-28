@@ -49,7 +49,7 @@ Page<MyDoctorPageData, MyDoctorPageMethods>({
 	},
 
 	onShow() {
-		// 从医生详情返回时重新读取，确保取消关注后列表立即反映服务端事实。
+		// 从医生名片返回时重新读取，确保取消关注后列表立即反映服务端事实。
 		if (!this.data.loading && this.data.items.length > 0) {
 			void this.loadDoctors();
 		}

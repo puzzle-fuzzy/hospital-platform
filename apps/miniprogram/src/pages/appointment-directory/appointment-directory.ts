@@ -194,7 +194,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		void this.loadClinicDepartments(this.data.selectedDepartmentId);
 	},
 
-	/** 预约目录顶部与首页共用同一个智能导诊页面，不复制第二套会话。 */
+	/** 预约目录顶部与首页共用同一个就医助手（原智能导诊）页面，不复制第二套会话。 */
 	onGuideTap(): void {
 		navigateToFeatureEntry("guide");
 	},

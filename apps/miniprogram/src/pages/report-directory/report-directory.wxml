@@ -6,7 +6,7 @@
 		<view class="query-row">
 			<text class="query-label">报告日期</text>
 			<view class="date-range">
-				<picker mode="date" value="{{startDate}}" end="{{endDate}}" bindchange="onStartDateChange">
+				<picker mode="date" value="{{startDate}}" end="{{today}}" bindchange="onStartDateChange">
 					<view class="date-picker">{{startDate}}</view>
 				</picker>
 				<text class="date-separator">至</text>

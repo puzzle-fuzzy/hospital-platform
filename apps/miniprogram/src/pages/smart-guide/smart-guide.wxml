@@ -8,7 +8,7 @@
 		<view class="guide-hero">
 			<view class="guide-hero__copy">
 				<text class="guide-hero__greeting">Hi,亲爱的用户</text>
-				<text class="guide-hero__subtitle">智能医助为您服务~</text>
+				<text class="guide-hero__subtitle">就医助手为您服务~</text>
 			</view>
 			<image class="guide-hero__doctor" src="/assets/legacy-user/doctor.svg" mode="aspectFit"></image>
 		</view>
@@ -45,6 +45,31 @@
 						>
 							<text class="guide-department__name">{{department.displayName}}</text>
 							<text class="guide-department__action">去挂号</text>
+						</button>
+					</view>
+					<view
+						class="guide-doctors"
+						wx:if="{{item.doctorsLoading || item.doctors.length > 0}}"
+					>
+						<view class="guide-doctors__title">
+							<text>{{item.doctorsDepartmentName}}坐诊医生，可直接选医生挂号</text>
+						</view>
+						<view wx:if="{{item.doctorsLoading}}" class="guide-doctors__loading">
+							<text>正在获取医生排班…</text>
+						</view>
+						<button
+							wx:for="{{item.doctors}}"
+							wx:for-item="doctor"
+							wx:key="doctorId"
+							class="guide-doctor"
+							data-department-id="{{item.doctorsDepartmentId}}"
+							data-department-name="{{item.doctorsDepartmentName}}"
+							data-doctor-id="{{doctor.doctorId}}"
+							data-doctor-name="{{doctor.doctorName}}"
+							bindtap="onDoctorTap"
+						>
+							<text class="guide-doctor__name">{{doctor.doctorName}}</text>
+							<text class="guide-doctor__slots">{{doctor.availableSlots > 0 ? '余号 ' + doctor.availableSlots : '约满/待放号'}}</text>
 						</button>
 					</view>
 				</view>

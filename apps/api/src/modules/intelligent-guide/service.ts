@@ -24,7 +24,7 @@ import {
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 
 const GUIDE_DISCLAIMER =
-	"智能导诊仅用于推荐可能合适的门诊科室，不能替代医生诊断；如有急危重症，请立即就医或拨打 120。";
+	"就医助手仅用于推荐可能合适的门诊科室，不能替代医生诊断；如有急危重症，请立即就医或拨打 120。";
 const CONVERSATION_REFERENCE_PATTERN = /^[A-Za-z0-9._:-]+$/u;
 
 export class IntelligentGuideInputError extends Error {

@@ -169,6 +169,7 @@ const MIGRATION_CONTRACT_FAMILY_BY_FEATURE_KEY: Readonly<
 	cashier: "payment-write",
 	companion: "external-session",
 	consultation: "external-session",
+	"smart-customer": "external-session",
 	"discharge-followup": "clinical-content-write",
 	doctor: "provider-read-only",
 	"doctor-directory": "provider-read-only",
@@ -199,7 +200,6 @@ const MIGRATION_CONTRACT_FAMILY_BY_FEATURE_KEY: Readonly<
 	"report-follow-up": "provider-read-only",
 	"report-share": "external-session",
 	"risk-evaluation": "clinical-content-write",
-	"smart-customer": "external-session",
 });
 
 const CONTRACT_FAMILY_LABELS: Readonly<

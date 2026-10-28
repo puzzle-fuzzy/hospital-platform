@@ -28,7 +28,7 @@ export const PRIMARY_TAB_PAGE_PATHS = Object.freeze([
 ] as const);
 
 /**
- * 智能陪诊首页快捷入口的固定落点。
+ * 智能陪诊导引首页快捷入口的固定落点。
  *
  * 这不是独立陪诊页面，也不是功能状态页：用户点击首页 `companion` 时，
  * 必须切换到底部原生 Tab 的“就诊”页面。路径故意保留为固定字面量，

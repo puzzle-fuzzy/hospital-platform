@@ -302,10 +302,10 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		icon: "/assets/legacy-home/service-banner.svg",
 	},
 	guide: {
-		title: "智能导诊",
+		title: "就医助手",
 		readiness: "代码已实现，待实证",
 		description:
-			"智能导诊的文字、语音问答和科室推荐代码链路已具备，真实模型和语音结果仍待实证。",
+			"就医助手（原智能导诊）的文字、语音问答和科室推荐代码链路已具备，真实模型和语音结果仍待实证。",
 		contractHint:
 			"平台按当前用户隔离会话，不向小程序暴露旧服务凭证或旧会话标识；导诊结果不能替代医生诊断。",
 		icon: "/assets/legacy-home/right-guide.png",
@@ -436,20 +436,21 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 			"等待分享受众、脱敏字段、有效期、防重放、撤销和访问审计确认。",
 		icon: "/assets/legacy-home/report-share.svg",
 	},
+	"smart-customer": {
+		title: "智能客服",
+		readiness: "代码已实现，待实证",
+		description:
+			"智能客服已改为原生会话，回答医院服务问题；资料未覆盖时如实说明并建议核对公告，症状类问题会引导前往就医助手。",
+		contractHint:
+			"知识库检索来源、内容审核、模型回答边界和多轮轮次策略仍待真实环境验收。",
+		icon: "/assets/legacy-user/smart-customer.svg",
+	},
 	"risk-evaluation": {
 		title: "风险自评",
 		readiness: "待临床审核",
 		description: "风险自评正在迁移中，当前不会使用未经临床审核的分级和建议。",
 		contractHint: "等待题目、评分、阈值、适用人群、版本和免责声明确认。",
 		icon: "/assets/legacy-home/service-risk.svg",
-	},
-	"smart-customer": {
-		title: "智能客服",
-		readiness: "待外部入口 contract",
-		description:
-			"智能客服固定网页入口已恢复；当前不向网页交付平台登录态或客服会话凭证。",
-		contractHint: "等待客服会话、外部域名白名单、登录态隔离和失败回退确认。",
-		icon: "/assets/legacy-user/smart-customer.svg",
 	},
 });
 

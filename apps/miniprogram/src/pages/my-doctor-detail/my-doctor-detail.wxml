@@ -1,4 +1,4 @@
-<scroll-view class="my-doctor-detail-scroll" scroll-y="true" enhanced="true">
+<scroll-view class="my-doctor-detail-scroll" scroll-y="true" enhanced="true" scroll-into-view="{{scheduleScrollIntoView}}">
 	<view class="my-doctor-detail-page">
 		<view wx:if="{{loading}}" class="detail-state">
 			<view class="detail-spinner"></view>
@@ -24,6 +24,7 @@
 						<text wx:if="{{doctor.titleName}}" class="doctor-profile-title">{{doctor.titleName}}</text>
 					</view>
 					<text class="doctor-profile-department">{{doctor.departmentName}}</text>
+					<text class="doctor-profile-hospital">高平市人民医院</text>
 					<text wx:if="{{doctor.hospitalAreaName}}" class="doctor-profile-location">{{doctor.hospitalAreaName}}</text>
 					<text wx:if="{{doctor.departmentLocation}}" class="doctor-profile-location">{{doctor.departmentLocation}}</text>
 				</view>
@@ -52,7 +53,7 @@
 				<text>查看完整简介 ></text>
 			</view>
 
-			<view class="doctor-schedule-card">
+			<view id="doctor-schedule-section" class="doctor-schedule-card">
 				<view class="detail-section-heading">
 					<text class="detail-section-title">出诊排班</text>
 					<text class="detail-section-caption">未来七天</text>
@@ -116,6 +117,15 @@
 				</view>
 			</view>
 			<text class="detail-note">号源和出诊时间以医院实时安排为准，点击有余号的时段查看预约信息。</text>
+
+			<view class="doctor-action-bar">
+				<button
+					class="doctor-action-follow {{followed ? 'doctor-action-followed' : ''}}"
+					disabled="{{actionLoading}}"
+					bindtap="onFollowTap"
+				>{{actionLoading ? '处理中' : followed ? '已关注' : '关注'}}</button>
+				<button class="doctor-action-book" bindtap="onBookTap">立即挂号</button>
+			</view>
 		</block>
 
 		<view wx:if="{{showProfile}}" class="doctor-profile-modal">

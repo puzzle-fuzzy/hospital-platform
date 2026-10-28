@@ -33,7 +33,7 @@ describe("会话验证入口门禁", () => {
 });
 
 describe("微信原生 Tab 路由边界", () => {
-	test("智能陪诊固定落到底部就诊 Tab", () => {
+	test("智能陪诊导引固定落到底部就诊 Tab", () => {
 		expect(SMART_COMPANION_PRIMARY_TAB).toBe("/pages/consult/consult");
 		expect(PRIMARY_TAB_PAGE_PATHS).toContain(SMART_COMPANION_PRIMARY_TAB);
 	});

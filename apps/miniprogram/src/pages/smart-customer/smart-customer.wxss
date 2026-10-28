@@ -4,12 +4,393 @@ page {
 	background: #ffffff;
 }
 
-.smart-customer-webview {
-	display: block;
-	width: 100%;
-	height: 100%;
+/*
+ * 根 scroll-view 承担消息滚动；输入栏 fixed 在窗口底部并随键盘抬高。
+ * 键盘收起时高度用 env() 预留底部安全区；键盘弹起时由页面逻辑写入内联
+ * calc 高度（减去键盘像素），避免 100vh 在 adjust-position=false 时被整页上推。
+ */
+.customer-scroll {
+	box-sizing: border-box;
+	height: calc(100vh - 124rpx - env(safe-area-inset-bottom));
+	background: #ffffff;
 }
 
-.smart-customer-scroll {
-	height: 100%;
+.customer-hero {
+	position: relative;
+	box-sizing: border-box;
+	height: 400rpx;
+	overflow: hidden;
+	background: linear-gradient(180deg, #ffe9c9 0%, #fff3e0 45%, #fffaf3 76%, #ffffff 100%);
+}
+
+.customer-hero__copy {
+	position: absolute;
+	left: 46rpx;
+	top: 54rpx;
+	z-index: 1;
+}
+
+.customer-hero__greeting,
+.customer-hero__subtitle {
+	display: block;
+	color: #8a5a1e;
+	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
+}
+
+.customer-hero__greeting {
+	font-size: 34rpx;
+	line-height: 48rpx;
+}
+
+.customer-hero__subtitle {
+	margin-top: 18rpx;
+	font-size: 26rpx;
+	line-height: 38rpx;
+}
+
+.customer-hero__agent {
+	position: absolute;
+	top: 32rpx;
+	right: 30rpx;
+	display: block;
+	width: 176rpx;
+	height: 176rpx;
+}
+
+/* 一站式常见问题卡片：内容为原生事实兜底，与模型问答互不替代。
+ * 卡片沿用旧消息区的负边距上叠，压在 hero 渐变尾部之上。 */
+.customer-faq {
+	box-sizing: border-box;
+	margin: -106rpx 24rpx 0;
+	padding: 24rpx;
+	border: 1rpx solid #f4e3cd;
+	border-radius: 18rpx;
+	background: #fffdf9;
+}
+
+.customer-messages {
+	box-sizing: border-box;
+	margin-top: 20rpx;
+	padding-bottom: 18rpx;
+}
+
+.customer-faq__title {
+	color: #8a5a1e;
+	font-size: 28rpx;
+	font-weight: 600;
+	line-height: 40rpx;
+}
+
+.customer-faq__group + .customer-faq__group {
+	margin-top: 18rpx;
+}
+
+.customer-faq__group-title {
+	margin: 14rpx 0 6rpx;
+	color: #b07c3a;
+	font-size: 24rpx;
+	line-height: 34rpx;
+}
+
+.customer-faq__item + .customer-faq__item {
+	border-top: 1rpx solid #f7ecdc;
+}
+
+.customer-faq__question {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12rpx;
+	padding: 18rpx 0;
+}
+
+.customer-faq__question-text {
+	flex: 1;
+	color: #3c3226;
+	font-size: 27rpx;
+	line-height: 40rpx;
+}
+
+.customer-faq__arrow {
+	flex-shrink: 0;
+	color: #c07a1d;
+	font-size: 32rpx;
+	line-height: 40rpx;
+	transform: rotate(0deg);
+	transition: transform 0.15s ease-in-out;
+}
+
+.customer-faq__arrow--open {
+	transform: rotate(90deg);
+}
+
+.customer-faq__answer {
+	padding: 0 0 20rpx;
+}
+
+.customer-faq__answer-text {
+	display: block;
+	color: #6b5c48;
+	font-size: 25rpx;
+	line-height: 40rpx;
+	word-break: break-word;
+}
+
+.customer-faq__action {
+	display: inline-flex;
+	box-sizing: border-box;
+	align-items: center;
+	height: 60rpx;
+	margin: 14rpx 0 0;
+	padding: 0 26rpx;
+	border: 1rpx solid #ffd9b0;
+	border-radius: 30rpx;
+	background: #ffffff;
+	color: #c07a1d;
+	font-size: 24rpx;
+	line-height: 58rpx;
+	white-space: nowrap;
+}
+
+.customer-faq__action::after {
+	border: 0;
+}
+
+.customer-faq__action-label {
+	line-height: 58rpx;
+	white-space: nowrap;
+}
+
+.customer-message {
+	display: flex;
+	box-sizing: border-box;
+	align-items: flex-start;
+	gap: 16rpx;
+	margin-bottom: 28rpx;
+	padding-right: 30rpx;
+	padding-left: 30rpx;
+}
+
+.customer-message--assistant {
+	flex-direction: row;
+}
+
+.customer-message--user {
+	justify-content: flex-end;
+	padding-left: 90rpx;
+}
+
+.customer-message__avatar {
+	display: flex;
+	box-sizing: border-box;
+	align-items: center;
+	justify-content: center;
+	width: 56rpx;
+	height: 56rpx;
+	flex: 0 0 56rpx;
+	margin-top: 4rpx;
+	border-radius: 50%;
+	background: #fff1dc;
+}
+
+.customer-message__avatar image {
+	display: block;
+	width: 52rpx;
+	height: 52rpx;
+}
+
+.customer-message__body {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.customer-message--assistant .customer-message__body {
+	flex: 1;
+}
+
+.customer-message--user .customer-message__body {
+	max-width: 82%;
+}
+
+.customer-bubble {
+	box-sizing: border-box;
+	max-width: 100%;
+	border: 1rpx solid transparent;
+	border-radius: 14rpx 24rpx 24rpx 24rpx;
+	font-size: 29rpx;
+	line-height: 44rpx;
+	word-break: break-word;
+}
+
+.customer-message--assistant .customer-bubble {
+	padding: 22rpx 26rpx;
+	border-color: #f4e3cd;
+	background: #fdf7ee;
+	box-shadow: 0 8rpx 22rpx rgba(158, 116, 60, 0.08);
+	color: #3c3226;
+}
+
+.customer-message--user .customer-bubble {
+	display: block;
+	padding: 16rpx 24rpx;
+	border-radius: 24rpx 8rpx 24rpx 24rpx;
+	background: #f08c2f;
+	box-shadow: 0 8rpx 18rpx rgba(240, 140, 47, 0.18);
+	color: #ffffff;
+}
+
+.customer-bubble--error {
+	border-color: #ffe0c8;
+	background: #fff8f2;
+	box-shadow: 0 8rpx 22rpx rgba(195, 119, 67, 0.08);
+	color: #4a3b31;
+}
+
+.customer-bubble--pending {
+	color: #a8b0bd;
+}
+
+.customer-bubble__heading {
+	margin-bottom: 6rpx;
+	color: #c46b38;
+	font-size: 22rpx;
+	font-weight: 600;
+	line-height: 32rpx;
+}
+
+.customer-message__content {
+	display: block;
+	word-break: break-word;
+}
+
+.customer-bubble__code {
+	display: block;
+	margin-top: 12rpx;
+	padding-top: 10rpx;
+	border-top: 1rpx solid #f1d4bd;
+	color: #b47754;
+	font-size: 22rpx;
+	line-height: 32rpx;
+}
+
+.customer-redirect {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	height: auto;
+	min-height: 72rpx;
+	margin: 14rpx 0 0;
+	padding: 14rpx 18rpx;
+	border: 1rpx solid #f0ddb9;
+	border-radius: 14rpx;
+	background: #ffffff;
+	color: #c07a1d;
+	font-size: 25rpx;
+	line-height: 38rpx;
+	text-align: left;
+	white-space: normal;
+}
+
+.customer-redirect::after,
+.customer-retry::after,
+.customer-send::after {
+	border: 0;
+}
+
+.customer-retry {
+	display: block;
+	box-sizing: border-box;
+	align-self: flex-start;
+	width: auto;
+	height: 60rpx;
+	margin: 14rpx 0 0;
+	padding: 0 26rpx;
+	border: 1rpx solid #ffd9b0;
+	border-radius: 30rpx;
+	background: #ffffff;
+	color: #c07a1d;
+	font-size: 24rpx;
+	line-height: 58rpx;
+	white-space: nowrap;
+}
+
+.customer-retry__label {
+	line-height: 58rpx;
+	white-space: nowrap;
+}
+
+.customer-redirect__label {
+	line-height: 38rpx;
+	white-space: normal;
+	word-break: break-all;
+}
+
+.customer-message-end {
+	height: 24rpx;
+}
+
+.customer-composer {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 10;
+	display: flex;
+	box-sizing: border-box;
+	align-items: center;
+	gap: 18rpx;
+	min-height: 124rpx;
+	padding: 24rpx 30rpx calc(24rpx + env(safe-area-inset-bottom));
+	background: linear-gradient(180deg, #fff4e3 0%, #ffe8c9 100%);
+	box-shadow: 0 -6rpx 18rpx rgba(158, 116, 60, 0.06);
+}
+
+.customer-input {
+	box-sizing: border-box;
+	width: auto;
+	height: 76rpx;
+	min-width: 0;
+	flex: 1;
+	display: flex;
+	align-items: center;
+	padding: 0 24rpx;
+	border: 4rpx solid #f08c2f;
+	border-radius: 38rpx;
+	background: #ffffff;
+}
+
+.customer-input__control {
+	box-sizing: border-box;
+	width: 100%;
+	height: 48rpx;
+	min-width: 0;
+	padding: 0;
+	color: #333333;
+	font-size: 28rpx;
+	line-height: 48rpx;
+}
+
+.customer-input__placeholder {
+	color: #6f7078;
+	opacity: 1;
+}
+
+.customer-send {
+	box-sizing: border-box;
+	width: 116rpx;
+	min-width: 116rpx;
+	height: 76rpx;
+	flex: 0 0 116rpx;
+	margin: 0;
+	padding: 0;
+	border-radius: 15rpx;
+	background: #f08c2f;
+	color: #ffffff;
+	font-size: 30rpx;
+	line-height: 76rpx;
+}
+
+.customer-send[disabled] {
+	background: #f5bd83;
+	color: #ffffff;
 }

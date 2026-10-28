@@ -3,13 +3,18 @@ import {
 	requestIntelligentGuideAudio,
 	requestIntelligentGuideMessage,
 } from "../../services/api-client";
+import { groupAppointmentDoctorCards } from "../../services/appointment-directory-view";
+import { loadAppointmentDoctorSchedules } from "../../services/dashboard-service";
 import { errorMessageWithCode } from "../../services/error-presentation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 	getPageLifecycle,
 } from "../../services/page-instance-state";
-import type { IntelligentGuideMessageResponse } from "../../types";
+import type {
+	AppointmentDoctorCard,
+	IntelligentGuideMessageResponse,
+} from "../../types";
 
 type GuideDepartment =
 	IntelligentGuideMessageResponse["data"]["departments"][number];
@@ -25,6 +30,11 @@ type GuideMessage = {
 	pending: boolean;
 	isError: boolean;
 	errorCode: string;
+	/** 推荐后异步加载的真实坐诊医生；仅服务端排班数据，不由模型生成。 */
+	doctors: AppointmentDoctorCard[];
+	doctorsDepartmentId: string;
+	doctorsDepartmentName: string;
+	doctorsLoading: boolean;
 };
 
 type SmartGuidePageData = {
@@ -59,6 +69,12 @@ type SmartGuidePageMethods = {
 		fileSize: number,
 	): Promise<void>;
 	onDepartmentTap(event: WechatMiniprogram.TouchEvent): void;
+	loadRecommendedDoctors(
+		messageId: string,
+		departmentId: string,
+		departmentName: string,
+	): void;
+	onDoctorTap(event: WechatMiniprogram.TouchEvent): void;
 	onRestart(): void;
 	onUnload(): void;
 };
@@ -92,6 +108,10 @@ function assistantMessage(
 		pending: input.pending ?? false,
 		isError: input.isError ?? false,
 		errorCode: input.errorCode ?? "",
+		doctors: input.doctors ?? [],
+		doctorsDepartmentId: input.doctorsDepartmentId ?? "",
+		doctorsDepartmentName: input.doctorsDepartmentName ?? "",
+		doctorsLoading: input.doctorsLoading ?? false,
 	};
 }
 
@@ -110,9 +130,9 @@ function guideErrorMessage(error: unknown): {
 		error instanceof ApiError &&
 		error.code === "dependency-not-configured"
 	) {
-		message = "智能导诊服务暂未配置完成，请稍后再试";
+		message = "就医助手服务暂未配置完成，请稍后再试";
 	} else {
-		message = "智能导诊暂时无法回复，请稍后再试";
+		message = "就医助手暂时无法回复，请稍后再试";
 	}
 	const displayText = errorMessageWithCode(error, message);
 	const errorCode = displayText.match(/错误码\s+(\d+)/)?.[1] ?? "";
@@ -156,7 +176,7 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 		recording: false,
 		error: "",
 		disclaimer:
-			"智能导诊仅用于推荐可能合适的门诊科室，不能替代医生诊断；如有急危重症，请立即就医或拨打 120。",
+			"就医助手仅用于推荐可能合适的门诊科室，不能替代医生诊断；如有急危重症，请立即就医或拨打 120。",
 		scrollIntoView: "",
 		keyboardHeight: 0,
 	},
@@ -232,6 +252,10 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 			pending: false,
 			isError: false,
 			errorCode: "",
+			doctors: [],
+			doctorsDepartmentId: "",
+			doctorsDepartmentName: "",
+			doctorsLoading: false,
 		};
 		const pendingMessage = assistantMessage("正在分析，请稍候…", {
 			pending: true,
@@ -278,6 +302,13 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 				error: "",
 				scrollIntoView: completedMessage.id,
 			});
+			const firstDepartment = reply.departments[0];
+			if (firstDepartment)
+				this.loadRecommendedDoctors(
+					completedMessage.id,
+					firstDepartment.departmentId,
+					firstDepartment.displayName,
+				);
 		} catch (error) {
 			if (!guard.isCurrent(token)) return;
 			const errorMessage = guideErrorMessage(error);
@@ -337,6 +368,10 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 			pending: true,
 			isError: false,
 			errorCode: "",
+			doctors: [],
+			doctorsDepartmentId: "",
+			doctorsDepartmentName: "",
+			doctorsLoading: false,
 		};
 		const pendingMessage = assistantMessage("正在分析语音内容，请稍候…", {
 			pending: true,
@@ -391,6 +426,13 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 				error: "",
 				scrollIntoView: completedMessage.id,
 			});
+			const firstDepartment = reply.departments[0];
+			if (firstDepartment)
+				this.loadRecommendedDoctors(
+					completedMessage.id,
+					firstDepartment.departmentId,
+					firstDepartment.displayName,
+				);
 		} catch (error) {
 			if (!guard.isCurrent(token)) return;
 			const errorMessage = guideErrorMessage(error);
@@ -429,6 +471,78 @@ Page<SmartGuidePageData, SmartGuidePageMethods>({
 			url: `/pages/appointment-schedule/appointment-schedule?departmentId=${encodeURIComponent(
 				departmentId,
 			)}&departmentName=${encodeURIComponent(displayName)}`,
+		});
+	},
+
+	/**
+	 * 推荐科室后异步补齐该科室真实坐诊医生卡片。
+	 * 医生与余号只来自服务端排班读模型，不由模型生成；加载失败静默收起，
+	 * 科室挂号入口不受影响。
+	 */
+	loadRecommendedDoctors(messageId, departmentId, departmentName) {
+		const guard = getPageLatestRequestGuard(this, "intelligent-guide-doctors");
+		const token = guard.begin();
+		const patchMessage = (
+			patch: Partial<
+				Pick<
+					GuideMessage,
+					| "doctors"
+					| "doctorsLoading"
+					| "doctorsDepartmentId"
+					| "doctorsDepartmentName"
+				>
+			>,
+		) => {
+			this.setData({
+				messages: this.data.messages.map((item) =>
+					item.id === messageId ? { ...item, ...patch } : item,
+				),
+			});
+		};
+		patchMessage({
+			doctors: [],
+			doctorsLoading: true,
+			doctorsDepartmentId: departmentId,
+			doctorsDepartmentName: departmentName,
+		});
+		loadAppointmentDoctorSchedules(departmentId)
+			.then((schedules) => {
+				if (!guard.isCurrent(token)) return;
+				patchMessage({
+					doctors: groupAppointmentDoctorCards(schedules, {
+						includeUnknownAvailableSlots: true,
+					}).slice(0, 6),
+					doctorsLoading: false,
+				});
+			})
+			.catch(() => {
+				if (!guard.isCurrent(token)) return;
+				patchMessage({ doctors: [], doctorsLoading: false });
+			});
+	},
+
+	/** 医生卡片直达该医生的排班号源；数据集必须来自当前消息内已加载卡片。 */
+	onDoctorTap(event) {
+		const departmentId = String(
+			event.currentTarget?.dataset?.departmentId ?? "",
+		);
+		const departmentName = String(
+			event.currentTarget?.dataset?.departmentName ?? "",
+		);
+		const doctorId = String(event.currentTarget?.dataset?.doctorId ?? "");
+		const doctorName = String(event.currentTarget?.dataset?.doctorName ?? "");
+		const exists = this.data.messages.some(
+			(message) =>
+				message.doctorsDepartmentId === departmentId &&
+				message.doctors.some((doctor) => doctor.doctorId === doctorId),
+		);
+		if (!exists || !doctorName) return;
+		wx.navigateTo({
+			url: `/pages/appointment-schedule/appointment-schedule?departmentId=${encodeURIComponent(
+				departmentId,
+			)}&departmentName=${encodeURIComponent(
+				departmentName,
+			)}&doctorId=${encodeURIComponent(doctorId)}&doctorName=${encodeURIComponent(doctorName)}`,
 		});
 	},
 

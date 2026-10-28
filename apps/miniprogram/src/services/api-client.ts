@@ -17,6 +17,8 @@ import type {
 	HealthKnowledgeDrugDetailResponse,
 	HealthKnowledgeSymptomListResponse,
 	InpatientEpisodeListResponse,
+	IntelligentCustomerMessageRequest,
+	IntelligentCustomerMessageResponse,
 	IntelligentGuideMessageRequest,
 	IntelligentGuideMessageResponse,
 	LaboratoryReportItem,
@@ -945,7 +947,48 @@ function invalidIntelligentGuideResponse(): never {
 	});
 }
 
-/** 智能导诊响应处在网络边界，不能依靠泛型直接进入聊天页面。 */
+function invalidIntelligentCustomerResponse(): never {
+	throw new ApiError("Intelligent customer response is invalid", {
+		code: "provider-response-invalid",
+	});
+}
+
+/**
+ * 智能客服响应处在网络边界，不能依靠泛型直接进入聊天页面；
+ * redirect 只允许服务端白名单值，防止任意跳转指令进入页面。
+ */
+export function requireIntelligentCustomerMessageResponse(
+	value: unknown,
+): IntelligentCustomerMessageResponse {
+	if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
+		return invalidIntelligentCustomerResponse();
+	}
+	const data = value.data;
+	if (
+		Object.keys(data).some(
+			(field) =>
+				!["conversationReference", "userInput", "message", "redirect"].includes(
+					field,
+				),
+		) ||
+		typeof data.conversationReference !== "string" ||
+		!data.conversationReference ||
+		data.conversationReference.length > 128 ||
+		!/^[A-Za-z0-9._:-]+$/u.test(data.conversationReference) ||
+		typeof data.userInput !== "string" ||
+		!data.userInput ||
+		data.userInput.length > 100 ||
+		typeof data.message !== "string" ||
+		!data.message ||
+		data.message.length > 4_000 ||
+		(data.redirect !== "" && data.redirect !== "ai_guide")
+	) {
+		return invalidIntelligentCustomerResponse();
+	}
+	return value as IntelligentCustomerMessageResponse;
+}
+
+/** 就医助手（原智能导诊）响应处在网络边界，不能依靠泛型直接进入聊天页面。 */
 export function requireIntelligentGuideMessageResponse(
 	value: unknown,
 ): IntelligentGuideMessageResponse {
@@ -2914,7 +2957,7 @@ export function requestAppointmentClinicDepartments(
 }
 
 /**
- * 发送一条智能导诊文字消息。请求只依赖平台会话，旧 JWT、微信临时 code
+ * 发送一条就医助手（原智能导诊）文字消息。请求只依赖平台会话，旧 JWT、微信临时 code
  * 和 provider conversation_id 永远不会进入小程序。
  */
 export function requestIntelligentGuideMessage(
@@ -2927,6 +2970,22 @@ export function requestIntelligentGuideMessage(
 		authenticated: true,
 		sensitivePayload: true,
 	}).then(requireIntelligentGuideMessageResponse);
+}
+
+/**
+ * 发送一条智能客服文字消息。与就医助手使用不同的服务端编排、提示词和
+ * 知识库来源；小程序不接触模型参数、资料原文或旧客服会话凭证。
+ */
+export function requestIntelligentCustomerMessage(
+	input: IntelligentCustomerMessageRequest,
+): Promise<IntelligentCustomerMessageResponse> {
+	return requestWithSession<unknown>({
+		url: "/intelligent-customer/messages",
+		method: "POST",
+		data: input,
+		authenticated: true,
+		sensitivePayload: true,
+	}).then(requireIntelligentCustomerMessageResponse);
 }
 
 type IntelligentGuideAudioUpload = {

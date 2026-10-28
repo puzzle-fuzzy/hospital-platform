@@ -2033,7 +2033,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(app).toContain('"wx81ce904580cc0ff1"');
 	expect(my).toContain("navigateToFeatureEntry");
 	expect(home).toContain("onFloatingGuide");
-	expect(home).toContain('navigateToFeatureEntry("smart-customer")');
+	expect(home).toContain('navigateToFeatureEntry("guide")');
 	expect(home).not.toContain('title: "智能客服功能迁移中"');
 	expect(featureNavigation).toContain("医保支付流程需要独立授权和结算回写");
 	expect(featureNavigation).toContain("FEATURE_STATUS_CATALOG");
@@ -2253,6 +2253,9 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	const hospital = await source("pages/hospital/hospital.ts");
 	const hospitalTemplate = await source("pages/hospital/hospital.wxml");
 	const patientCardService = await source("services/bailing-patient-card.ts");
+	const appConfig = JSON.parse(await source("app.json")) as {
+		pages?: Array<string>;
+	};
 	const smartCustomer = await source("pages/smart-customer/smart-customer.ts");
 	const smartCustomerTemplate = await source(
 		"pages/smart-customer/smart-customer.wxml",
@@ -2293,18 +2296,19 @@ test("consult remains closed while fixed legacy H5 entries stay bounded", async 
 	expect(hospitalTemplate).not.toContain("扫描身份证办卡");
 	expect(hospitalTemplate).not.toContain("query-state-shell");
 
-	// 智能客服同样恢复旧端默认 H5，但不恢复通用 webview 的动态 URL 和 ticket。
-	expect(smartCustomer).toContain("SMART_CUSTOMER_BASE_URL");
-	expect(smartCustomer).toContain("https://html.ydrj.top");
-	expect(smartCustomer).not.toContain("system/auth/ticket");
-	expect(smartCustomer).not.toContain("decodeURIComponent");
-	expect(smartCustomerTemplate).toContain(
-		'<web-view class="smart-customer-webview"',
+	// 旧智能客服 H5（html.ydrj.top 证书失效）已退役，重建为原生会话页：
+	// 只调平台文字接口，回答边界和转就医助手由服务端提示词与 redirect 白名单控制。
+	expect(appConfig.pages ?? []).toContain(
+		"pages/smart-customer/smart-customer",
 	);
-	expect(smartCustomerTemplate).toContain('src="{{webViewUrl}}"');
-	expect(smartCustomerTemplate).not.toContain("migration-surface");
+	expect(home).toContain('navigateToFeatureEntry("smart-customer")');
+	expect(smartCustomer).toContain("requestIntelligentCustomerMessage");
+	expect(smartCustomer).not.toContain("html.ydrj.top");
+	expect(smartCustomer).not.toContain("system/auth/ticket");
+	expect(smartCustomerTemplate).not.toContain("<web-view");
+	expect(smartCustomerTemplate).toContain('bindtap="onRedirectTap"');
 
-	// 智能导诊不再复用失效证书、ticket 或旧 AI 登录 code；小程序只
+	// 就医助手（原智能导诊）不再复用失效证书、ticket 或旧 AI 登录 code；小程序只
 	// 提交平台会话引用，由原生 TS API 服务端编排模型和 HIS 科室目录。
 	expect(home).toContain('navigateToFeatureEntry("guide")');
 	expect(smartGuide).toContain("requestIntelligentGuideMessage");
@@ -2421,7 +2425,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	// 当前原生运行包也包含独立预约排班页，共 55 个已登记页面。
+	// 智能客服重建为原生会话页后，当前原生运行包共 55 个已登记页面。
 	expect(app.pages).toHaveLength(55);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
@@ -2442,16 +2446,11 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 			expect(template).not.toContain("<scroll-view");
 			continue;
 		}
-		if (
-			pagePath === "pages/hospital/hospital" ||
-			pagePath === "pages/smart-customer/smart-customer"
-		) {
-			// 互联网医院和默认智能客服按旧端行为承载固定 H5，是原生页面中
-			// 唯一的两个 WebView 例外。
+		if (pagePath === "pages/hospital/hospital") {
+			// 互联网医院按旧端行为承载固定 H5，是原生页面中唯一的 WebView 例外；
+			// 旧智能客服 WebView 页已随 H5 退役删除。
 			expect(template.trimStart()).toContain(
-				pagePath === "pages/hospital/hospital"
-					? '<web-view class="internet-hospital-webview"'
-					: '<web-view class="smart-customer-webview"',
+				'<web-view class="internet-hospital-webview"',
 			);
 			expect(template).toContain('src="{{webViewUrl}}"');
 			continue;

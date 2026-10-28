@@ -2,6 +2,8 @@
 
 医院小程序平台的全新 TypeScript/Bun 重构仓库。
 
+> **添加就诊人改由公众号办理（2026-10-26）**：添加入口打开百灵医院公众号就诊卡页面，由网页微信授权识别当前用户，完成绑定后返回并同步就诊人目录。小程序内实名表单及查档、建档、绑卡提交暂时停用；详见 [公众号绑定说明](docs/添加就诊人公众号绑定说明.md)。
+
 > **管理端支付身份查询（2026-10-26）**：支付记录支持按就诊人姓名或下单用户名查询、按就诊人身份证号精确查询，并展示订单留存的就诊人身份证号。查询语义与数据边界见 [支付记录身份查询说明](docs/管理端支付记录身份查询说明.md)。
 
 > **检验详情数组兼容（2026-10-26）**：LIS 返回检测项数组时，后端按同一患者、同一报告号和原目录查询窗口补齐报告标题、报告时间与附件。实现边界与验证方法见 [LIS 详情数组兼容说明](docs/LIS详情数组兼容说明.md)。
@@ -21,7 +23,7 @@
 >
 > 本次只同步文档，不执行服务器部署、服务重启、数据库迁移或真实 Provider/医保/微信请求。线上 `test-hp.meiyi.pro` 的实际版本必须通过 `3090-local` 上的 release、systemd、公网 readiness 和业务日志证据单独确认，不能由 Git 状态推断。
 
-> **`miniprogram-pay` 退役边界（2026-09-17）**：`apps/miniprogram-pay` 已停止使用，暂时保留以便历史追溯，后续择机删除。它不再作为开发、修复、支付验收、运行包构建或 3090 发布入口；现行支付以主小程序和服务端当前合同为准。详见 [`docs/迁移/miniprogram-pay退役说明.md`](docs/迁移/miniprogram-pay退役说明.md)。
+> **`miniprogram-pay` 退役边界（2026-09-17，目录已于 2026-10-28 删除）**：`apps/miniprogram-pay` 停止使用后已从仓库删除，相关历史文档仅保留追溯。它不是开发、修复、支付验收、运行包构建或 3090 发布入口；现行支付以主小程序和服务端当前合同为准。详见 [`docs/迁移/miniprogram-pay退役说明.md`](docs/迁移/miniprogram-pay退役说明.md)。
 
 > **主小程序运行入口（2026-09-17）**：开发、预览、真机调试和上传统一使用 `apps/miniprogram/dist/`；`.local/hospital-miniprogram/development/` 不再更新或打开。详见 [`docs/迁移/小程序运行入口统一说明.md`](docs/迁移/小程序运行入口统一说明.md)。
 
@@ -33,12 +35,11 @@
 | --- | --- | --- |
 | `apps/api` | Bun + Elysia API、会话、患者目录/同步/手动绑定入口、预约目录/排班、预约写入/取消/详情、挂号自费、医保支付、门诊费用只读、报告和结构化日志 | 生产可用性以运行时 gate、实际数据库/schema、Provider 合同、商户权限、回调和线上 release 证据为准；路由注册不代表业务已验收 |
 | `apps/miniprogram` | 43 个原生微信页面；微信登录、会话恢复、就诊人选择/同步、患者绑定表单、预约目录/排班、主小程序预约写入/取消/详情、挂号记录、门诊费用列表/详情等链路 | 患者 Provider 查档/建档/绑卡、临床 Provider、实时叫号和未确认内容仍按各自 gate 处理；现行支付入口以主项目实际发布版本和服务端合同为准 |
-| `apps/miniprogram-pay` | 历史挂号支付测试端，暂保留用于代码和版本追溯 | 已停止使用，不再开发、修复、构建、验收或发布；后续择机删除 |
 | `apps/worker` | 医保订单/微信通知 outbox 的查单与补偿执行骨架、生产日志和 schema 前置检查 | 是否在线运行、是否接管生产订单必须通过服务器上的 systemd 和日志证据确认 |
 
 ### 历史挂号支付测试端流程（仅供追溯）
 
-以下内容只记录已退役测试端曾经使用的流程，不是当前开发或验收入口。`miniprogram-pay` 的退役和后续删除边界见 [`docs/迁移/miniprogram-pay退役说明.md`](docs/迁移/miniprogram-pay退役说明.md)。
+以下内容只记录已退役测试端曾经使用的流程，不是当前开发或验收入口。`miniprogram-pay` 已于 2026-10-28 从仓库删除，退役和删除记录见 [`docs/迁移/miniprogram-pay退役说明.md`](docs/迁移/miniprogram-pay退役说明.md)。
 
 ```text
 POST /appointments/holds
@@ -68,7 +69,6 @@ POST /appointments/holds
 apps/
   api/                 Elysia API 服务
   miniprogram/         主项目原生微信小程序壳
-  miniprogram-pay/     历史挂号支付测试端（已停止使用，待删除）
   worker/              异步查单、outbox 与回调处理进程
 packages/
   contracts/           HTTP/API 契约与 TypeBox schema
@@ -176,7 +176,7 @@ provider gate 配置完整不等于真实 provider 已授权或真机可用。
 
 预约写入、锁号、取消、挂号自费和医保支付接口已经形成独立的新版 contract 与服务层，
 现行入口以 [`apps/miniprogram`](apps/miniprogram/README.md) 和服务端当前发布版本为准；
-[`apps/miniprogram-pay`](apps/miniprogram-pay/README.md) 仅作历史追溯；门诊费用页面由主小程序承载，当前仍只读。
+已退役并删除的历史测试端 `miniprogram-pay` 仅通过 [`docs/迁移/miniprogram-pay退役说明.md`](docs/迁移/miniprogram-pay退役说明.md) 追溯；门诊费用页面由主小程序承载，当前仍只读。
 真实 Provider、医保、微信支付和 HIS 回写仍必须按 [`docs/发布/支付验收.md`](docs/发布/支付验收.md)
 完成配置、部署和业务证据，不能把接口已注册当作生产业务已验收。
 

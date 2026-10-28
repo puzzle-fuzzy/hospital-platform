@@ -128,7 +128,7 @@ describe("旧端页面全量迁移台账", () => {
 		expect(pageScript).not.toContain("navigateToMiniProgram");
 	});
 
-	test("智能客服旧入口恢复为固定 H5 WebView，不恢复通用动态入口", async () => {
+	test("智能客服旧 H5 已退役，重建为原生会话页并可转就医助手", async () => {
 		const entry = LEGACY_PAGE_MIGRATION_CATALOG.find(
 			(item) => item.legacyPath === "pagesB/health/webview.vue",
 		);
@@ -141,19 +141,21 @@ describe("旧端页面全量迁移台账", () => {
 		const pageWxml = await Bun.file(
 			new URL("../pages/smart-customer/smart-customer.wxml", import.meta.url),
 		).text();
-		expect(pageWxml).toContain('<web-view class="smart-customer-webview"');
-		expect(pageWxml).toContain('src="{{webViewUrl}}"');
 		const pageScript = await Bun.file(
 			new URL("../pages/smart-customer/smart-customer.ts", import.meta.url),
 		).text();
-		expect(pageScript).toContain("SMART_CUSTOMER_BASE_URL");
-		expect(pageScript).toContain("https://html.ydrj.top");
+		expect(pageWxml).not.toContain("<web-view");
+		expect(pageWxml).toContain('bindtap="onRedirectTap"');
+		expect(pageScript).toContain("requestIntelligentCustomerMessage");
+		expect(pageScript).not.toContain("html.ydrj.top");
 		expect(pageScript).not.toContain("system/auth/ticket");
-		expect(pageScript).not.toContain("decodeURIComponent");
-		expect(pageScript).not.toContain("fullUrl");
+		const home = await Bun.file(
+			new URL("../pages/index/index.ts", import.meta.url),
+		).text();
+		expect(home).toContain('navigateToFeatureEntry("smart-customer")');
 	});
 
-	test("智能导诊 action-only 入口迁为原生文字和语音会话", async () => {
+	test("就医助手（原智能导诊）action-only 入口迁为原生文字和语音会话", async () => {
 		expect(FEATURE_STATUS_CATALOG.guide).toMatchObject({
 			readiness: "代码已实现，待实证",
 		});
@@ -172,7 +174,7 @@ describe("旧端页面全量迁移台账", () => {
 		expect(pageScript).not.toContain("providerConversationId");
 	});
 
-	test("智能陪诊首页入口固定切换到底部就诊 Tab", async () => {
+	test("智能陪诊导引首页入口固定切换到底部就诊 Tab", async () => {
 		const pageScript = await Bun.file(
 			new URL("../pages/index/index.ts", import.meta.url),
 		).text();

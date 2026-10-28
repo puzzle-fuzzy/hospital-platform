@@ -33,6 +33,7 @@ type MyDoctorDetailPageMethods = {
 	onProfileTap(): void;
 	onProfileClose(): void;
 	onScheduleTap(event: WechatMiniprogram.TouchEvent): void;
+	onBookTap(): void;
 	onRetry(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
@@ -138,6 +139,7 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 		scheduleLoading: true,
 		actionLoading: false,
 		error: "",
+		scheduleScrollIntoView: "",
 	},
 
 	onLoad(options: Record<string, string | undefined>) {
@@ -197,7 +199,7 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 					throw scheduleResult.reason;
 				}
 				if (followedResult.status === "rejected") {
-					// 关注关系是医生详情的附加能力；旧端关注查询失败时仍
+					// 关注关系是医生名片的附加能力；旧端关注查询失败时仍
 					// 展示排班。记录经过转换的错误，但不把它伪装成排班失败。
 					logClientErrorTransformed(
 						"my-doctor-detail.follow-state",
@@ -331,6 +333,13 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 			url:
 				"/pages/timeslot-source/timeslot-source?scheduleId=" +
 				encodeURIComponent(schedule.scheduleId),
+		});
+	},
+
+	/** 底部“立即挂号”定位到出诊排班；能否继续挂号由排班行的号源状态判定。 */
+	onBookTap(): void {
+		this.setData({ scheduleScrollIntoView: "" }, () => {
+			this.setData({ scheduleScrollIntoView: "doctor-schedule-section" });
 		});
 	},
 

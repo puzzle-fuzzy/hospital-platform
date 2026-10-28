@@ -628,7 +628,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 - `POST /api/v2/payments/insurance/authorization`：旧的通用医保授权路径。
 - `POST /api/v2/appointments`、`POST /api/v2/appointments/{appointmentId}/cancel`：旧的通用预约路径。
 
-它们与历史 `miniprogram-pay` 使用的分层命令不是同一路由；旧服务存在对应能力不改变这些旧路径的关闭状态。`miniprogram-pay` 已停止使用，相关测试端目录和文档只保留追溯，后续择机删除。
+它们与历史 `miniprogram-pay` 使用的分层命令不是同一路由；旧服务存在对应能力不改变这些旧路径的关闭状态。`miniprogram-pay` 已停止使用，测试端目录已于 2026-10-28 删除，相关文档仅保留追溯。
 
 ## 6. 源码证据与维护入口
 

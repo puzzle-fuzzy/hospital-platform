@@ -367,7 +367,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "partial",
 			nativeTarget: "pages/smart-customer/smart-customer",
 			featureKey: "smart-customer",
-			note: "已按旧端默认行为恢复固定 HTTPS 智能客服 WebView；不恢复同一通用页面承载的任意 URL、智能导诊、患者绑定/解绑或旧 ticket 链路。",
+			note: "旧端智能客服固定 H5（html.ydrj.top）已随其证书失效退役；现由原生智能客服会话页承载，回答医院服务问题并按 redirect 引导前往就医助手，不恢复任意 URL、患者绑定/解绑或旧 ticket 链路。",
 		},
 		{
 			legacyPath: "pagesB/hospital/bloodAppointment.vue",

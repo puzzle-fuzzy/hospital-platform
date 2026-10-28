@@ -200,6 +200,19 @@ Page<AppointmentSchedulePageData, AppointmentSchedulePageMethods>({
 			datePickerEnd,
 		});
 		wx.setNavigationBarTitle({ title: departmentName });
+		// 就医助手推荐直达具体医生：携带合法 doctorId 时按日期模式直接筛该医生，
+		// 否则保持默认的“按医生”目录。
+		const doctorId = decodeRouteValue(options.doctorId);
+		const doctorName = decodeRouteValue(options.doctorName);
+		if (
+			doctorId &&
+			doctorName &&
+			isBoundedRouteValue(doctorId, 128) &&
+			isBoundedRouteValue(doctorName, 128)
+		) {
+			void this.loadDateSchedules(datePickerStart, doctorId, doctorName);
+			return;
+		}
 		void this.loadDoctorSchedules();
 	},
 

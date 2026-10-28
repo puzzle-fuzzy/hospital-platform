@@ -111,7 +111,7 @@ const BANNER_LIST = Object.freeze([
 
 /**
  * 右侧快捷入口保留设计稿布局；第三项固定为旧端的门诊病历入口。
- * `companion` 只是“智能陪诊”快捷入口，目标固定为底部“就诊”Tab，
+ * `companion` 只是“智能陪诊导引”快捷入口，目标固定为底部“就诊”Tab，
  * 不能据此创建独立陪诊页或跳转统一功能状态页。
  */
 const RIGHT_LIST = Object.freeze([
@@ -228,6 +228,16 @@ type IndexPageMethods = {
 	onPatientQrStatus(): void;
 	onTopAction(event: ActionEvent): void;
 	onRightAction(event: ActionEvent): void;
+	initFloatingGuidePosition(): void;
+	applyFloatingGuideLayout(
+		windowWidth: number,
+		windowHeight: number,
+		imageWidth: number,
+		imageHeight: number,
+	): void;
+	onFloatingGuideTouchStart(event: WechatMiniprogram.TouchEvent): void;
+	onFloatingGuideTouchMove(event: WechatMiniprogram.TouchEvent): void;
+	onFloatingGuideTouchEnd(): void;
 	onFloatingGuide(): void;
 	executeQuickAction(action?: string): void;
 	onServiceTabChange(event: IndexEvent): void;
@@ -269,6 +279,40 @@ type LoginOptions = {
 const indexPatientSelectionSubscriptions = new WeakMap<object, () => void>();
 
 /**
+ * 空目录提示弹窗每个“空档期”只出现一次；目录恢复非空或会话重置后允许
+ * 再次提示，避免每次切回首页都被同一个弹窗打断。
+ */
+const indexPatientEmptyPrompted = new WeakMap<object, boolean>();
+
+/** 悬浮导诊按钮显示宽度沿用旧端 150rpx；px 值按当前窗口宽度换算。 */
+const FLOATING_GUIDE_WIDTH_RPX = 150;
+
+/** 拖动位移超过该像素数后松手不再视为点击，避免拖完后误入就医助手页。 */
+const FLOATING_GUIDE_TAP_SLOP = 4;
+
+/**
+ * 悬浮导诊按钮的拖动基准只服务当前页面实例的触摸手势，保存在实例关联的
+ * WeakMap 中：不进入 data、不参与渲染，也不会跨页面栈的另一个首页实例共享。
+ */
+type FloatingGuideDragState = {
+	windowWidth: number;
+	windowHeight: number;
+	guideWidth: number;
+	guideHeight: number;
+	pointerStartX: number;
+	pointerStartY: number;
+	baseLeft: number;
+	baseTop: number;
+	movedDistance: number;
+};
+
+const indexFloatingGuideDragStates = new WeakMap<object, FloatingGuideDragState>();
+
+function clampFloatingGuidePosition(value: number, min: number, max: number): number {
+	return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+/**
  * 首页可能同时发生会话恢复、下拉刷新和用户明确发起的目录同步。各类 guard 使用固定
  * key 存在页面实例的 WeakMap 中：同一首页实例内后发的同步会淘汰旧读取，
  * 但不会影响页面栈中的另一个首页实例。
@@ -304,12 +348,16 @@ Page<IndexPageData, IndexPageMethods>({
 		loading: false,
 		syncingPatients: false,
 		error: "",
+		floatingGuideReady: false,
+		floatingGuideLeft: 0,
+		floatingGuideTop: 0,
 	},
 
 	onLoad() {
 		// 生命周期状态必须保存在页面实例 data 内；模块热复用或多层页面栈
 		// 不能共享“是否首次展示”的标记。
 		this.setData({ hasShown: false });
+		this.initFloatingGuidePosition();
 		registerPageSessionResetListener(
 			this,
 			() => {
@@ -716,9 +764,104 @@ Page<IndexPageData, IndexPageMethods>({
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
 	},
 
+	/** 测量窗口与图片实际尺寸后，把悬浮导诊按钮从 WXSS 初始定位切换为 px 坐标接管。 */
+	initFloatingGuidePosition() {
+		// 首帧仍由 WXSS 的“右缘垂直居中”定位；这里换算出同一位置的 px 坐标后
+		// 才允许拖动。接管前后视觉位置一致，不会出现跳动。
+		const systemInfo = wx.getSystemInfoSync();
+		wx.getImageInfo({
+			src: "/assets/legacy-home/floating-guide.png",
+			success: (imageInfo) =>
+				this.applyFloatingGuideLayout(
+					systemInfo.windowWidth,
+					systemInfo.windowHeight,
+					imageInfo.width,
+					imageInfo.height,
+				),
+			fail: () =>
+				// 包内静态资源正常不会读取失败；兜底沿用当前 PNG 的 136x124 比例，
+				// 保证窗口边界约束仍然生效。
+				this.applyFloatingGuideLayout(
+					systemInfo.windowWidth,
+					systemInfo.windowHeight,
+					136,
+					124,
+				),
+		});
+	},
+
+	applyFloatingGuideLayout(
+		windowWidth: number,
+		windowHeight: number,
+		imageWidth: number,
+		imageHeight: number,
+	) {
+		const guideWidth = (FLOATING_GUIDE_WIDTH_RPX / 750) * windowWidth;
+		const guideHeight = guideWidth * (imageHeight / imageWidth);
+		indexFloatingGuideDragStates.set(this, {
+			windowWidth,
+			windowHeight,
+			guideWidth,
+			guideHeight,
+			pointerStartX: 0,
+			pointerStartY: 0,
+			baseLeft: 0,
+			baseTop: 0,
+			movedDistance: 0,
+		});
+		this.setData({
+			floatingGuideReady: true,
+			floatingGuideLeft: windowWidth - guideWidth,
+			floatingGuideTop: (windowHeight - guideHeight) / 2,
+		});
+	},
+
+	onFloatingGuideTouchStart(event: WechatMiniprogram.TouchEvent) {
+		const dragState = indexFloatingGuideDragStates.get(this);
+		const touch = event.touches[0];
+		if (!dragState || !touch) return;
+		dragState.pointerStartX = touch.clientX;
+		dragState.pointerStartY = touch.clientY;
+		dragState.baseLeft = this.data.floatingGuideLeft;
+		dragState.baseTop = this.data.floatingGuideTop;
+		dragState.movedDistance = 0;
+	},
+
+	onFloatingGuideTouchMove(event: WechatMiniprogram.TouchEvent) {
+		const dragState = indexFloatingGuideDragStates.get(this);
+		const touch = event.touches[0];
+		if (!dragState || !touch) return;
+		const deltaX = touch.clientX - dragState.pointerStartX;
+		const deltaY = touch.clientY - dragState.pointerStartY;
+		dragState.movedDistance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+		// 固定定位的可视范围就是页面窗口；拖动只允许停留在窗口内，越界方向贴边停留。
+		const left = clampFloatingGuidePosition(
+			dragState.baseLeft + deltaX,
+			0,
+			dragState.windowWidth - dragState.guideWidth,
+		);
+		const top = clampFloatingGuidePosition(
+			dragState.baseTop + deltaY,
+			0,
+			dragState.windowHeight - dragState.guideHeight,
+		);
+		if (
+			left === this.data.floatingGuideLeft &&
+			top === this.data.floatingGuideTop
+		)
+			return;
+		this.setData({ floatingGuideLeft: left, floatingGuideTop: top });
+	},
+
+	onFloatingGuideTouchEnd() {
+		// 拖动结束没有额外状态要清理；松手是否当作点击在 onFloatingGuide 内裁决。
+	},
+
 	onFloatingGuide() {
-		// 悬浮按钮也是首页可见入口；智能客服页只承载旧端确认的固定 H5，
-		// 不接受任意 URL，也不通过旧 ticket 交换平台登录态。
+		// 旧端智能客服 H5 已退役；悬浮按钮进入原生智能客服会话页，
+		// 与“就医助手”（原智能导诊）使用不同的服务端编排和提示词。
+		const dragState = indexFloatingGuideDragStates.get(this);
+		if (dragState && dragState.movedDistance > FLOATING_GUIDE_TAP_SLOP) return;
 		navigateToFeatureEntry("smart-customer");
 	},
 
@@ -758,7 +901,7 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureEntry("guide");
 				break;
 			case "companion":
-				// 固定契约：智能陪诊 -> 底部原生 Tab“就诊”。
+				// 固定契约：智能陪诊导引 -> 底部原生 Tab“就诊”。
 				// 不得改成 feature-status、smart-guide 或“我的问诊”页面。
 				switchToPrimaryTab(SMART_COMPANION_PRIMARY_TAB);
 				break;
@@ -1087,6 +1230,7 @@ Page<IndexPageData, IndexPageMethods>({
 	 * 清除上下文时，才调用下面会同步删除本地选择的 clearPatientContext。
 	 */
 	clearDisplayedPatientContext(): void {
+		indexPatientEmptyPrompted.delete(this);
 		this.setData({
 			patients: [],
 			selectedPatient: null,
@@ -1156,6 +1300,26 @@ Page<IndexPageData, IndexPageMethods>({
 		const selectedPatient = resolution.patient ?? null;
 		const selectedPatientId =
 			typeof selectedPatient?.id === "string" ? selectedPatient.id : "";
+		// 服务端确认当前账号没有就诊人时，不再把提示常驻在页面首部红条，
+		// 而是用一次性弹窗引导添加；卡片显示“微信已登录”占位，右侧仍保留
+		// “新增就诊人”入口。stale/unavailable 仍按原语义走页面提示。
+		const directoryEmpty = resolution.state === "empty";
+		if (directoryEmpty) {
+			if (!indexPatientEmptyPrompted.get(this)) {
+				indexPatientEmptyPrompted.set(this, true);
+				wx.showModal({
+					title: "暂未添加就诊人",
+					content: "添加就诊人后即可使用预约挂号、门诊缴费等功能",
+					confirmText: "去添加",
+					cancelText: "暂不",
+					success: (result) => {
+						if (result.confirm) this.openPatientSelector();
+					},
+				});
+			}
+		} else {
+			indexPatientEmptyPrompted.delete(this);
+		}
 		this.setData({
 			patients,
 			selectedPatientId,
@@ -1167,7 +1331,7 @@ Page<IndexPageData, IndexPageMethods>({
 			patientQrName: "",
 			patientQrCardNumber: "",
 			hasPatients: patients.length > 0,
-			error: patientSelectionResolutionMessage(resolution),
+			error: directoryEmpty ? "" : patientSelectionResolutionMessage(resolution),
 		});
 	},
 });

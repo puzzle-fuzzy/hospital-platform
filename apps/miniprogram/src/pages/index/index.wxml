@@ -25,9 +25,10 @@
 				<!--
 					会话恢复期间不能展示上一轮患者，但也不能把整张卡片收缩成空白。
 					固定两行占位可以同时满足隐私边界和视觉稳定性，避免主 Tab 切回
-					首页时因为异步验证造成内容首帧闪动。
+					首页时因为异步验证造成内容首帧闪动；目录确认为空时走下方分支显示
+						“微信已登录”，不能把已完成的空目录结果伪装成仍在验证。
 				-->
-				<block wx:if="{{sessionStatus === '验证会话中' || (sessionStatus === '已恢复会话' && !selectedPatient)}}">
+				<block wx:if="{{sessionStatus === '验证会话中' || (sessionStatus === '已恢复会话' && !selectedPatient && hasPatients)}}">
 					<view class="patient-name patient-card-pending">正在验证就诊人</view>
 					<view class="patient-id patient-card-pending">请稍候...</view>
 				</block>
@@ -142,7 +143,11 @@
 	<image
 		class="floating-guide"
 		src="/assets/legacy-home/floating-guide.png"
-		mode="widthFix"
+		mode="aspectFit"
+		style="{{floatingGuideReady ? 'left:' + floatingGuideLeft + 'px;top:' + floatingGuideTop + 'px;transform:none;' : ''}}"
+		bindtouchstart="onFloatingGuideTouchStart"
+		catchtouchmove="onFloatingGuideTouchMove"
+		bindtouchend="onFloatingGuideTouchEnd"
 		bindtap="onFloatingGuide"
 	/>
 

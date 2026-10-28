@@ -1,4 +1,0 @@
-{
-	"desc": "医保测试一键挂号",
-	"rules": [{ "action": "allow", "page": "*" }]
-}

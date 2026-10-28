@@ -47,7 +47,7 @@
 					class="my-doctor-arrow"
 					src="/assets/legacy-user/arrow-right.svg"
 					mode="aspectFit"
-					aria-label="查看医生详情"
+					aria-label="查看医生名片"
 				/>
 			</view>
 		</view>

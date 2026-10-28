@@ -342,6 +342,10 @@ page {
 	white-space: nowrap;
 }
 
+/* 测量完成前先按右缘垂直居中显示；JS 测量窗口与图片尺寸后用同位置的 left/top px
+ * 接管定位并支持拖动，接管前后视觉位置一致。
+ * 高度按资源 136x124 等比固定（150 * 124 / 136 ≈ 137rpx）：配合 aspectFit 让
+ * 拖动时盒子尺寸恒定，避免 widthFix 动态高度在快速重排中拉伸变形。 */
 .floating-guide {
 	position: fixed;
 	top: 50%;
@@ -349,6 +353,7 @@ page {
 	z-index: 10;
 	display: block;
 	width: 150rpx;
+	height: 137rpx;
 	transform: translateY(-50%);
 }
 

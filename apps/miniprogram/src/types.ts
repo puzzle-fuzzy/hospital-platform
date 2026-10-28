@@ -17,6 +17,8 @@ import type {
 	HealthKnowledgeSymptomListResponsePayload,
 	HealthPayload,
 	InpatientEpisodeListPayload,
+	IntelligentCustomerMessageRequestPayload,
+	IntelligentCustomerMessageResponsePayload,
 	IntelligentGuideMessageRequestPayload,
 	IntelligentGuideMessageResponsePayload,
 	MyDoctorDeletePayload,
@@ -69,10 +71,25 @@ export type ApiRequestOptions = {
 };
 
 export type HealthResponse = HealthPayload;
+export type IntelligentCustomerMessageRequest =
+	IntelligentCustomerMessageRequestPayload;
+export type IntelligentCustomerMessageResponse =
+	IntelligentCustomerMessageResponsePayload;
 export type IntelligentGuideMessageRequest =
 	IntelligentGuideMessageRequestPayload;
 export type IntelligentGuideMessageResponse =
 	IntelligentGuideMessageResponsePayload;
+
+/** 智能客服会话页的消息渲染模型；redirect 仅承载服务端白名单值 ai_guide。 */
+export type SmartCustomerMessage = {
+	id: string;
+	role: "assistant" | "user";
+	content: string;
+	redirect: "" | "ai_guide";
+	pending: boolean;
+	isError: boolean;
+	errorCode: string;
+};
 export type HealthKnowledgeCatalogResponse =
 	HealthKnowledgeCatalogResponsePayload;
 export type HealthKnowledgeDiseaseListResponse =
@@ -402,6 +419,11 @@ export type IndexPageData = {
 	loading: boolean;
 	syncingPatients: boolean;
 	error: string;
+	/** 悬浮导诊按钮是否已完成窗口尺寸测量；测量前保持 WXSS 的右缘垂直居中定位。 */
+	floatingGuideReady: boolean;
+	/** 悬浮导诊按钮左上角相对页面窗口的 px 坐标，拖动范围按窗口边界收敛。 */
+	floatingGuideLeft: number;
+	floatingGuideTop: number;
 };
 
 /** 就诊人选择页的渲染状态；列表数据始终来自平台脱敏患者目录。 */
@@ -512,6 +534,8 @@ export type MyDoctorDetailPageData = {
 	scheduleLoading: boolean;
 	actionLoading: boolean;
 	error: string;
+	/** “立即挂号”滚动定位到出诊排班区的锚点。 */
+	scheduleScrollIntoView: string;
 };
 
 /** 挂号记录页使用服务端规范化状态，避免在小程序解析 provider 状态码。 */
