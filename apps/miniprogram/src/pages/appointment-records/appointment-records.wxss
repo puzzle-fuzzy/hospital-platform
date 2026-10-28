@@ -596,3 +596,206 @@ page {
 	font-size: 36rpx;
 	font-weight: 600;
 }
+
+/*
+ * 蓝湖 27 / 27-1 的页面尺寸。爽约记录仍导入上方的共用卡片基线，
+ * 因此本次差异仅作用于“我的挂号”根节点。患者组件的变量亦仅在此页传入。
+ */
+.registration-records-page {
+	--hospital-primary: #4c8eff;
+	background: #f8f8f8;
+}
+
+.registration-records-context {
+	--patient-context-row-height: 94rpx;
+	--patient-context-row-padding: 0 30rpx;
+	--patient-context-label-width: 180rpx;
+	--patient-context-label-color: #888888;
+	--patient-context-label-font-size: 32rpx;
+	--patient-context-value-align: flex-start;
+	--patient-context-value-font-size: 32rpx;
+	--patient-context-card-gap: 0;
+	--patient-context-card-color: #333333;
+	--patient-context-card-font-size: 32rpx;
+	--patient-context-card-white-space: nowrap;
+	--patient-context-arrow-margin: auto;
+}
+
+.registration-records-page .page {
+	min-height: calc(100vh - 188rpx);
+	padding-bottom: 40rpx;
+	background: #f8f8f8;
+}
+
+.registration-records-page .status-tabs {
+	margin-top: 22rpx;
+	border-bottom: 1rpx solid #dddddd;
+}
+
+.registration-records-page .status-tab {
+	height: 88rpx;
+	min-height: 88rpx;
+	color: #888888;
+	font-size: 28rpx;
+}
+
+.registration-records-page .status-tab-active {
+	color: var(--hospital-primary, #3d6df6);
+	font-weight: 400;
+}
+
+.registration-records-page .status-tab-indicator {
+	width: 172rpx;
+	height: 3rpx;
+	border-radius: 0;
+	background: var(--hospital-primary, #4c8eff);
+}
+
+.registration-records-page .record-list {
+	padding: 30rpx 30rpx 80rpx;
+	background: #f8f8f8;
+}
+
+.registration-records-page .record-card {
+	margin-bottom: 24rpx;
+	padding: 30rpx 30rpx 24rpx;
+	border-radius: 12rpx;
+	box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.035);
+}
+
+.registration-records-page .record-card-header {
+	min-height: 48rpx;
+}
+
+.registration-records-page .record-department {
+	display: block;
+	padding-right: 124rpx;
+	color: #000000;
+	font-size: 32rpx;
+	font-weight: 400;
+	line-height: 48rpx;
+}
+
+.registration-records-page .record-status-stamp {
+	top: 32rpx;
+	right: 50rpx;
+	width: 100rpx;
+	height: 88rpx;
+}
+
+/* 支付和其他业务状态保留真实文案，不用图章覆盖待支付或支付异常。 */
+.registration-records-page .record-status-badge {
+	top: 32rpx;
+	right: 30rpx;
+	padding: 0 14rpx;
+	border-radius: 4rpx;
+	font-size: 24rpx;
+}
+
+.registration-records-page .record-status-badge::before {
+	display: none;
+}
+
+.registration-records-page .record-card-text-status .record-department {
+	padding-right: 184rpx;
+}
+
+.registration-records-page .record-primary-meta {
+	margin-top: 18rpx;
+	padding-right: 116rpx;
+	color: #4c4c4c;
+	font-size: 26rpx;
+	line-height: 40rpx;
+}
+
+.registration-records-page .record-card-text-status .record-primary-meta {
+	padding-right: 184rpx;
+}
+
+.registration-records-page .record-hospital-area {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.registration-records-page .record-visit-info {
+	margin-top: 18rpx;
+	padding-right: 42rpx;
+	padding-bottom: 0;
+}
+
+.registration-records-page .record-date,
+.registration-records-page .record-time,
+.registration-records-page .record-number {
+	color: #4c4c4c;
+	font-size: 26rpx;
+	font-weight: 400;
+	line-height: 40rpx;
+}
+
+.registration-records-page .record-date {
+	display: block;
+}
+
+.registration-records-page .record-time-row {
+	flex-wrap: wrap;
+	margin-top: 6rpx;
+	padding-right: 0;
+}
+
+.registration-records-page .record-number {
+	margin-left: 28rpx;
+	white-space: nowrap;
+}
+
+.registration-records-page .record-number-emphasis {
+	color: #f08359;
+	font-size: 26rpx;
+	font-weight: 400;
+}
+
+.registration-records-page .record-detail-arrow {
+	top: 14rpx;
+	width: 28rpx;
+	height: 28rpx;
+	transform: none;
+}
+
+.registration-records-page .record-actions {
+	flex-wrap: wrap;
+	gap: 14rpx;
+	margin-top: 12rpx;
+	padding-top: 24rpx;
+	border-top-color: #eeeeee;
+}
+
+/* 覆盖微信 style-v2 的 button:not([size=mini]) 默认宽度和 auto 边距。 */
+.registration-records-page .record-actions > .record-action-button {
+	flex: 0 0 auto;
+	width: auto;
+	min-width: 132rpx;
+	height: 60rpx;
+	margin: 0;
+	padding: 0 24rpx;
+	border: 1rpx solid #bbbbbb;
+	border-radius: 30rpx;
+	background: #ffffff;
+	color: #111111;
+	font-size: 28rpx;
+	font-weight: 500;
+	line-height: 60rpx;
+}
+
+.registration-records-page .clinical-query-state {
+	border-radius: 0;
+	background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.registration-records-page .record-card {
+		transition: none;
+	}
+
+	.registration-records-page .record-card:active {
+		transform: none;
+	}
+}

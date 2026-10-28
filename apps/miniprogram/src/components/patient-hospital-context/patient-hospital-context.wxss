@@ -11,8 +11,8 @@
 	align-items: center;
 	justify-content: space-between;
 	box-sizing: border-box;
-	min-height: 92rpx;
-	padding: 26rpx 30rpx;
+	min-height: var(--patient-context-row-height, 92rpx);
+	padding: var(--patient-context-row-padding, 26rpx 30rpx);
 	color: #333;
 }
 
@@ -26,30 +26,33 @@
 }
 
 .patient-hospital-context-label {
-	flex: 0 0 150rpx;
-	font-size: 28rpx;
+	flex: 0 0 var(--patient-context-label-width, 150rpx);
+	color: var(--patient-context-label-color, #333);
+	font-size: var(--patient-context-label-font-size, 28rpx);
 }
 
 .patient-hospital-context-value {
 	display: flex;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: var(--patient-context-value-align, flex-end);
 	flex: 1;
 	min-width: 0;
-	font-size: 30rpx;
+	font-size: var(--patient-context-value-font-size, 30rpx);
 	text-align: right;
 }
 
 .patient-hospital-context-name {
 	overflow: hidden;
+	min-width: 0;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .patient-hospital-context-card-number {
-	margin-left: 10rpx;
-	color: #999;
-	font-size: 23rpx;
+	margin-left: var(--patient-context-card-gap, 10rpx);
+	color: var(--patient-context-card-color, #999);
+	font-size: var(--patient-context-card-font-size, 23rpx);
+	white-space: var(--patient-context-card-white-space, normal);
 }
 
 .patient-hospital-context-arrow {
@@ -57,7 +60,7 @@
 	flex: 0 0 28rpx;
 	width: 28rpx;
 	height: 28rpx;
-	margin-left: 14rpx;
+	margin-left: var(--patient-context-arrow-margin, 14rpx);
 }
 
 .patient-hospital-context-error {

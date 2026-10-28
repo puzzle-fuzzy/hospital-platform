@@ -1,5 +1,6 @@
-<scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+<scroll-view class="secondary-page-scroll registration-records-page" scroll-y="true" enhanced="true">
 	<patient-hospital-context
+		class="registration-records-context"
 		hospital-selectable="{{true}}"
 		bindchangepatient="onChangePatient"
 		bindhospitaltap="onHospitalTap"
@@ -82,7 +83,7 @@
 		<view
 			wx:for="{{visibleRecords}}"
 			wx:key="viewKey"
-			class="record-card"
+			class="record-card {{(item.status === 'scheduled' && !item.paymentStatus) || (item.status === 'completed' && item.statusLabel === '已完成') ? '' : 'record-card-text-status'}}"
 			bindtap="onRecordTap"
 			data-view-key="{{item.viewKey}}"
 		>
@@ -97,6 +98,14 @@
 				class="record-status-stamp"
 				src="/assets/legacy-user/appointment-status.svg"
 				mode="aspectFit"
+				aria-label="{{item.statusLabel}}"
+			/>
+			<image
+				wx:elif="{{item.status === 'completed' && item.statusLabel === '已完成'}}"
+				class="record-status-stamp"
+				src="/assets/legacy-user/appointment-completed.png"
+				mode="aspectFit"
+				aria-label="{{item.statusLabel}}"
 			/>
 			<view wx:else class="record-status-badge {{item.statusClass}}">
 				<text>{{item.statusLabel}}</text>
