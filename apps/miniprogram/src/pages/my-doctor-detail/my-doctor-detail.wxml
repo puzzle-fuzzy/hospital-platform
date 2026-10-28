@@ -47,27 +47,18 @@
 				</view>
 			</view>
 
-			<view wx:if="{{doctor.expertise}}" class="doctor-introduction-card">
-				<text class="detail-section-title">擅长</text>
-				<text class="doctor-introduction-copy">{{doctor.expertise}}</text>
-			</view>
-
-			<view wx:if="{{doctor.introduction}}" class="doctor-introduction-card">
-				<text class="detail-section-title">个人简介</text>
-				<text class="doctor-introduction-copy">{{doctor.introduction}}</text>
-			</view>
-
-			<view
-				wx:if="{{doctor.introduction || doctor.expertise}}"
-				class="doctor-profile-link"
-				bindtap="onProfileTap"
-			>
-				<text>查看完整简介 ></text>
+			<view wx:if="{{doctor.introduction || doctor.expertise}}" class="doctor-introduction-card">
+				<text class="detail-section-title">简介</text>
+				<text wx:if="{{doctor.introduction}}" class="doctor-introduction-copy">{{doctor.introduction}}</text>
+				<text wx:if="{{doctor.expertise}}" class="doctor-introduction-copy doctor-introduction-expertise">擅长：{{doctor.expertise}}</text>
+				<view class="doctor-profile-link" bindtap="onProfileTap">
+					<text>查看完整简介 ></text>
+				</view>
 			</view>
 
 			<view id="doctor-schedule-section" class="doctor-schedule-card">
 				<view class="detail-section-heading">
-					<text class="detail-section-title">出诊排班</text>
+					<text class="detail-section-title">坐诊信息</text>
 					<text class="detail-section-caption">未来七天</text>
 				</view>
 				<scroll-view wx:if="{{dateOptions.length}}" class="doctor-date-scroll" scroll-x="true" show-scrollbar="false">
@@ -108,13 +99,7 @@
 							<text wx:elif="{{item.availabilityStatus !== 'open'}}" class="doctor-schedule-slots">状态待确认</text>
 							<text wx:else class="doctor-schedule-slots {{item.availableSlots > 0 ? 'doctor-slots-available' : ''}}">余 {{item.availableSlots}} 号</text>
 							<view wx:if="{{item.availabilityStatus === 'open' && item.availableSlots > 0}}" class="doctor-schedule-booking">
-								<text class="doctor-schedule-arrow-label">预约</text>
-								<image
-									class="doctor-schedule-arrow"
-									src="/assets/legacy-user/selector-arrow-right.svg"
-									mode="aspectFit"
-									aria-label="查看预约时段"
-								/>
+								<text>挂号</text>
 							</view>
 							<text wx:elif="{{item.availabilityStatus === 'stopped'}}" class="doctor-schedule-arrow-label">已停诊</text>
 							<text wx:else class="doctor-schedule-arrow-label">待确认</text>
