@@ -11,6 +11,7 @@ import {
 	DASHBOARD_DATE_RANGE_DAYS,
 	requireAppointmentScheduleListData,
 } from "../../services/dashboard-service";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -34,6 +35,7 @@ type MyDoctorDetailPageMethods = {
 	onProfileClose(): void;
 	onScheduleTap(event: WechatMiniprogram.TouchEvent): void;
 	onBookTap(): void;
+	onConsultTap(): void;
 	onRetry(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
@@ -334,6 +336,14 @@ Page<MyDoctorDetailPageData, MyDoctorDetailPageMethods>({
 				"/pages/timeslot-source/timeslot-source?scheduleId=" +
 				encodeURIComponent(schedule.scheduleId),
 		});
+	},
+
+	/**
+	 * 图文/视频问诊入口。问诊会话 contract 未确认前不能伪装成可用能力，
+	 * 统一进入功能状态页说明当前边界。
+	 */
+	onConsultTap(): void {
+		navigateToFeatureStatus("consultation");
 	},
 
 	/** 底部“立即挂号”定位到出诊排班；能否继续挂号由排班行的号源状态判定。 */

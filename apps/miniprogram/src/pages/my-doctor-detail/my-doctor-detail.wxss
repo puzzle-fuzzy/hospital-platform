@@ -27,10 +27,51 @@ page {
 
 .doctor-profile-card {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
 	min-height: 180rpx;
 	background: linear-gradient(140deg, #6fa8f5 0%, #4a7fe8 100%);
 	box-shadow: 0 10rpx 28rpx rgba(74, 127, 232, 0.22);
+}
+
+.doctor-profile-main {
+	display: flex;
+	align-items: center;
+	width: 100%;
+}
+
+/* 设计稿名片头底部的问诊服务入口；能力未开放前点击进入状态页说明。 */
+.doctor-consult-tags {
+	display: flex;
+	gap: 18rpx;
+	margin-top: 22rpx;
+}
+
+.doctor-consult-tag {
+	display: flex;
+	box-sizing: border-box;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	gap: 10rpx;
+	height: 72rpx;
+	margin: 0;
+	padding: 0;
+	border-radius: 36rpx;
+	background: rgba(255, 255, 255, 0.18);
+	border: 1rpx solid rgba(255, 255, 255, 0.35);
+	color: #ffffff;
+	font-size: 25rpx;
+	line-height: 70rpx;
+}
+
+.doctor-consult-tag::after {
+	border: 0;
+}
+
+.doctor-consult-tag-icon {
+	display: block;
+	width: 40rpx;
+	height: 40rpx;
 }
 
 .doctor-profile-avatar {

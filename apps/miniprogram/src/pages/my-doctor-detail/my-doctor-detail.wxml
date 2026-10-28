@@ -13,11 +13,12 @@
 
 		<block wx:else>
 			<view class="doctor-profile-card">
-				<doctor-avatar
-					class="doctor-profile-avatar"
-					src="{{doctor.doctorAvatarUrl}}"
-					label="{{doctor.doctorName}}的头像"
-				/>
+				<view class="doctor-profile-main">
+					<doctor-avatar
+						class="doctor-profile-avatar"
+						src="{{doctor.doctorAvatarUrl}}"
+						label="{{doctor.doctorName}}的头像"
+					/>
 				<view class="doctor-profile-copy">
 					<view class="doctor-profile-name-row">
 						<text class="doctor-profile-name">{{doctor.doctorName}}</text>
@@ -33,6 +34,17 @@
 					disabled="{{actionLoading}}"
 					bindtap="onFollowTap"
 				>{{actionLoading ? '处理中' : followed ? '已关注' : '关注'}}</button>
+				</view>
+				<view class="doctor-consult-tags">
+					<button class="doctor-consult-tag" bindtap="onConsultTap">
+						<image class="doctor-consult-tag-icon" src="/assets/legacy-user/consultation.svg" mode="aspectFit" />
+						<text>图文问诊</text>
+					</button>
+					<button class="doctor-consult-tag" bindtap="onConsultTap">
+						<image class="doctor-consult-tag-icon" src="/assets/legacy-user/video-consultation.svg" mode="aspectFit" />
+						<text>视频问诊</text>
+					</button>
+				</view>
 			</view>
 
 			<view wx:if="{{doctor.expertise}}" class="doctor-introduction-card">
