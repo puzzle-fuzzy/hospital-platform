@@ -44,11 +44,12 @@ describe("迁移事实文档审计", () => {
 			expect(currentBoundary).toBeGreaterThan(0);
 			const currentPrefix = original.slice(0, currentBoundary);
 			const historicalSuffix = original.slice(currentBoundary);
+			// 从真实当前段落构造旧候选；避免 fixture 自身锁死旧页数后不再修改任何输入。
 			const stalePrefix = currentPrefix
-				.replace("47 个原生页面", "40 个原生页面")
-				.replace("surface-only=18", "surface-only=25")
+				.replace(/64 个旧页面、\d+ 个原生页面/u, "64 个旧页面、40 个原生页面")
+				.replace(/surface-only=\d+/u, "surface-only=25")
 				.replace(
-					"当前小程序运行输入的最近一次相关提交为 `47574b9acbe79203d23a7acbfe034ffd5fee3c31`",
+					/当前小程序运行输入的最近一次相关提交为 `[0-9a-f]+`/u,
 					"当前小程序运行输入的最近一次相关提交为 `02dbf10`",
 				);
 			await Bun.write(coveragePath, `${stalePrefix}${historicalSuffix}`);
