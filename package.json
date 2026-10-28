@@ -65,7 +65,7 @@
 		"payment:operations:backfill": "bun run packages/persistence/scripts/payment-operations-backfill.ts",
 		"zhongyang:docs": "node --no-warnings --experimental-strip-types tools/zhongyang-docs/cli.ts",
 		"test": "turbo run test",
-		"test:tools": "bun test --cwd tools",
+		"test:tools": "bun test ./tools",
 		"toolchain:audit": "bun tools/toolchain-audit.mjs",
 		"typecheck": "turbo run typecheck",
 		"repository:inventory": "bun tools/repository-inventory.mjs",
