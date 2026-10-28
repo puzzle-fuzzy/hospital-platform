@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { join, resolve } from "node:path";
-import { readRawLogTraceFromSerialized } from "../apps/admin/src/raw-logs.ts";
 import {
 	assignRawEntriesToOrder,
 	collectOrders,
@@ -11,6 +10,7 @@ import {
 	parseRecords,
 	selectOrdersForWindow,
 } from "./payment-day-export.mjs";
+import { readRawLogTraceFromSerialized } from "./provider-raw-log-reader.ts";
 
 function journalLine(message, asBytes = false) {
 	const value = JSON.stringify(message);

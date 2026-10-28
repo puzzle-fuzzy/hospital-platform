@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import {
 	formatJournalTimestamp,
 	readRawLogTrace,
-} from "../apps/admin/src/raw-logs.ts";
+} from "./provider-raw-log-reader.ts";
 
 const JOURNAL_UNITS = Object.freeze([
 	"hospital-platform-api-v2.service",

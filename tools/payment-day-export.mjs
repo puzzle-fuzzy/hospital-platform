@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { platform, tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
-import { readRawLogTraceFromSerialized } from "../apps/admin/src/raw-logs.ts";
+import { readRawLogTraceFromSerialized } from "./provider-raw-log-reader.ts";
 
 const JOURNAL_UNITS = Object.freeze([
 	"hospital-platform-api-v2.service",

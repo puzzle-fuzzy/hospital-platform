@@ -7,6 +7,7 @@ import {
 	auditCurrentReadonlyBusinessBoundaries,
 	auditCurrentReleaseConsistency,
 	auditCurrentSourceRevisionAnnouncements,
+	auditDocumentationNavigation,
 	auditServerRuntimeSourceChanges,
 	auditServerSourceRelease,
 	extractCurrentBaseline,
@@ -21,7 +22,7 @@ test("当前候选语义规则必须注册到当前基线文档集合", () => {
 		auditCurrentCandidateRuleRegistration([
 			"docs/发布/当前项目基线-2026-08-27.md",
 		]),
-	).toContain("当前候选引用规则未注册到基线文档集合：docs/README.md");
+	).toContain("当前候选引用规则未注册到基线文档集合：docs/微信授权登录.md");
 });
 
 test("当前日期的运行包来源声明不能漂移到历史候选", () => {
@@ -290,31 +291,27 @@ test("剩余迁移清单允许当前执行章节随发布窗口更新日期", ()
 	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([]);
 });
 
-test("文档导航的历史窗口说明必须跟随当前小程序候选", () => {
-	const baseline = {
-		serverRelease: "1b94c46",
-		miniProgramCommit: "4c9cfb4",
-		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
-	};
-	const documents = [
-		{
-			path: "docs/README.md",
-			content: `> 最新事实（2026-09-01）：线上服务端 release 为 \`1b94c46\`；最新小程序运行相关源码和本地 live 运行输入为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
-# 项目文档导航
-
-该窗口因早于当前 \`old-candidate\` 构建。
-## 发布与运行
-当前发布基线（2026-08-27）为：线上服务端为 \`1b94c46\`，当前本地 live 运行输入为
-\`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
-当前运行包规则（2026-08-27）：当前为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
-## 首先阅读
-`,
-		},
-	];
-
-	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
-		"文档导航 的“因早于当前”未指向当前完整小程序 sourceRevision",
-	]);
+test("导航使用唯一基线链接，缺失入口或复制旧指纹会失败", () => {
+	const navigation = [
+		"[登记快照](发布/当前基线.json)",
+		"[候选](发布/候选-5738a71-服务端发布-2026-08-31.md)",
+	].join("\n");
+	expect(auditDocumentationNavigation(navigation)).toEqual([]);
+	expect(auditDocumentationNavigation("# 文档导航")).toHaveLength(2);
+	expect(
+		auditDocumentationNavigation(
+			`${navigation}\n当前发布基线（2026-08-27）为 old-server`,
+		),
+	).toHaveLength(1);
+	expect(
+		auditDocumentationNavigation(`${navigation}\n${"a".repeat(40)}`),
+	).toHaveLength(1);
+	expect(
+		auditCurrentBaselineDocuments(
+			{ serverRelease: "server", miniProgramSourceRevision: "mini" },
+			[{ path: "docs/README.md", navigationOnly: true, content: navigation }],
+		).passed,
+	).toBe(true);
 });
 
 test("当前事实入口必须同时锁定服务端和小程序完整来源", () => {
@@ -346,8 +343,6 @@ test("当前事实入口必须同时锁定服务端和小程序完整来源", ()
 	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
 		"当前项目发布与迁移基线 的“当前成套验收基线”未指向当前服务端 release",
 		"当前项目发布与迁移基线 的“当前成套验收基线”未指向当前完整小程序 sourceRevision",
-		"文档导航当前事实 的“最新事实（2026-08-28）”未指向当前服务端 release",
-		"文档导航当前事实 的“最新事实（2026-08-28）”未指向当前完整小程序 sourceRevision",
 	]);
 });
 

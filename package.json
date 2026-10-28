@@ -13,11 +13,10 @@
 		"admin2:build": "node apps/admin2/tools/build.mjs",
 		"admin2:typecheck": "node apps/admin2/tools/run.mjs typecheck",
 		"admin2:verify-vben": "node apps/admin2/tools/verify-upstream.mjs",
-		"admin2:start": "bun apps/admin2/dist/server.js",
 		"architecture:audit": "bun tools/architecture-audit.mjs",
 		"build": "turbo run build",
 		"check": "pnpm check:candidate && pnpm release:baseline:audit",
-		"check:candidate": "pnpm architecture:audit && pnpm migration:audit && pnpm migration:boundary:audit && pnpm migration:contract:audit && pnpm migration:fact:audit && pnpm todo:audit && pnpm migration:breadth:audit && pnpm miniprogram:navigation:audit && pnpm miniprogram:patient-display:audit && pnpm clinical:contract:audit && pnpm readonly:audit && pnpm provider:audit && pnpm docs:audit && pnpm release:baseline:index:audit && pnpm toolchain:audit && pnpm env:template:audit && pnpm secret:audit && pnpm logging:audit && pnpm error:contract:audit && pnpm format:check && pnpm lint && pnpm test:tools && pnpm typecheck && pnpm test && pnpm build && pnpm runtime:verify",
+		"check:candidate": "pnpm architecture:audit && pnpm migration:audit && pnpm migration:boundary:audit && pnpm migration:contract:audit && pnpm migration:fact:audit && pnpm todo:audit && pnpm migration:breadth:audit && pnpm miniprogram:navigation:audit && pnpm miniprogram:patient-display:audit && pnpm clinical:contract:audit && pnpm readonly:audit && pnpm provider:audit && pnpm docs:audit && pnpm release:baseline:index:audit && pnpm toolchain:audit && pnpm env:template:audit && pnpm secret:audit && pnpm logging:audit && pnpm error:contract:audit && pnpm format:check && pnpm lint && pnpm test:tools && pnpm admin2:test && pnpm typecheck && pnpm test && pnpm build && pnpm runtime:verify",
 		"db:integration": "pnpm --filter @hospital/persistence integration",
 		"db:migrate": "pnpm --filter @hospital/persistence migrate",
 		"db:schema": "pnpm --filter @hospital/persistence schema",
@@ -66,9 +65,11 @@
 		"payment:operations:backfill": "bun run packages/persistence/scripts/payment-operations-backfill.ts",
 		"zhongyang:docs": "node --no-warnings --experimental-strip-types tools/zhongyang-docs/cli.ts",
 		"test": "turbo run test",
-		"test:tools": "bun test tools",
+		"test:tools": "bun test --cwd tools",
 		"toolchain:audit": "bun tools/toolchain-audit.mjs",
-		"typecheck": "turbo run typecheck"
+		"typecheck": "turbo run typecheck",
+		"repository:inventory": "bun tools/repository-inventory.mjs",
+		"admin2:test": "node --test apps/admin2/tools/tools.test.mjs apps/admin2/tools/ensure-public-env.test.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "catalog:",

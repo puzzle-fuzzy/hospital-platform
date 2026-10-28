@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { spawn } from 'node:child_process';
 import { cp, mkdir, readFile, rm, stat } from 'node:fs/promises';
 import { relative, resolve } from 'node:path';
 
@@ -66,21 +65,7 @@ export async function build() {
   await rm(output, { force: true, recursive: true });
   await mkdir(output, { recursive: true });
   await cp(applicationDist, resolve(output, 'client'), { recursive: true, force: false, errorOnExist: true });
-  const serverSource = resolve(admin2Root, '../admin/src/server.ts');
-  const serverOutput = resolve(output, 'server.js');
-  console.log('[admin2] 复用原 Admin Bun 同源服务端，不改变 API 或权限');
-  await new Promise((done, reject) => {
-    const child = spawn('bun', ['build', serverSource, '--outfile', serverOutput, '--target', 'bun'], {
-      cwd: admin2Root,
-      shell: false,
-      stdio: 'inherit',
-      windowsHide: true,
-    });
-    child.once('error', reject);
-    child.once('exit', (code, signal) => code === 0 ? done() : reject(new Error(`管理服务构建失败（${signal || code}）`)));
-  });
-  if (!(await stat(serverOutput)).isFile()) throw new Error('管理服务构建缺少 server.js');
-  console.log(`[admin2] 完整交付目录：${relative(resolve(admin2Root, '../..'), output)}`);
+  console.log(`[admin2] 静态客户端交付目录：${relative(resolve(admin2Root, '../..'), output)}`);
   console.log(`[admin2] 官方核心 ${after.checked}/${after.total} 文件一致，锁文件保持原样`);
 }
 

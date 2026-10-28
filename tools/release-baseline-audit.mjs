@@ -166,7 +166,7 @@ const currentCandidateDocumentPath =
  * hash，不能因为它们曾经写过“当前”就被重新解释成这次真机验收版本。
  */
 export const currentBaselineDocuments = Object.freeze([
-	{ path: "docs/README.md", label: "文档导航" },
+	{ path: "docs/README.md", label: "文档导航", navigationOnly: true },
 	{
 		path: "docs/发布/当前项目基线-2026-08-27.md",
 		label: "当前项目发布与迁移基线",
@@ -507,48 +507,6 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/README.md",
-		label: "文档导航当前事实",
-		sections: [
-			{
-				start: /^> 最新事实（\d{4}-\d{2}-\d{2}）：/mu,
-				end: "# 项目文档导航",
-				// 导航页是新会话最容易先打开的文档，顶部事实必须成套锁定。
-				phrases: [
-					{
-						text: "最新事实（日期）",
-						// 日期属于文档更新时间，不应随每个发布窗口写死；
-						// 候选 hash 和 server release 才是需要严格比对的事实。
-						patterns: [/最新事实（\d{4}-\d{2}-\d{2}）/u],
-						serverExpected: "full",
-						expected: "full",
-					},
-				],
-			},
-		],
-	},
-	{
-		path: "docs/README.md",
-		label: "文档导航当前发布基线",
-		sections: [
-			{
-				// README 的这段内容位于导航正文之前，是新会话在打开
-				// 文档后最容易复制的运行包入口；它必须和顶部事实源
-				// 使用同一套服务端 release 与小程序完整指纹。
-				start: "当前发布基线（2026-08-27）为",
-				end: "## 首先阅读",
-				phrases: [
-					{
-						text: "当前发布基线（2026-08-27）为",
-						serverExpected: "full",
-						expected: "full",
-					},
-					{ text: "当前运行包规则（2026-08-27）", expected: "full" },
-				],
-			},
-		],
-	},
-	{
 		path: "docs/微信授权登录.md",
 		label: "微信授权登录手册",
 		sections: [
@@ -593,17 +551,6 @@ const currentCandidateReferenceRules = Object.freeze([
 						expected: "pending-full",
 					},
 				],
-			},
-		],
-	},
-	{
-		path: "docs/README.md",
-		label: "文档导航",
-		sections: [
-			{
-				start: "# 项目文档导航",
-				end: "## 发布与运行",
-				phrases: [{ text: "因早于当前", expected: "short" }],
 			},
 		],
 	},
@@ -1295,6 +1242,27 @@ export function auditCurrentReadonlyBusinessBoundaries(
 	return failures;
 }
 
+/** 导航只维护稳定入口；发布指纹仍由候选、基线 JSON 和执行手册校验。 */
+export function auditDocumentationNavigation(content) {
+	const failures = [];
+	const targets = new Set(
+		Array.from(content.matchAll(/\]\(([^)]+)\)/gu), (match) => match[1]),
+	);
+	for (const target of [
+		"发布/当前基线.json",
+		currentCandidateDocumentPath.replace(/^docs\//u, ""),
+	]) {
+		if (!targets.has(target)) failures.push(`文档导航缺少基线入口：${target}`);
+	}
+	if (
+		/\b[0-9a-f]{40}\b/u.test(content) ||
+		/最新事实（|当前发布基线（|当前运行包规则（|因早于当前/u.test(content)
+	) {
+		failures.push("文档导航不得复制发布指纹或历史当前声明，请链接唯一基线入口");
+	}
+	return failures;
+}
+
 /**
  * 检查一组文档是否都写明同一套当前候选。
  * 返回低敏失败信息，便于本地门禁和测试复用，不输出 token、患者或 Provider 内容。
@@ -1306,6 +1274,10 @@ export function auditCurrentBaselineDocuments(
 ) {
 	const failures = [];
 	for (const document of documents) {
+		if (document.navigationOnly) {
+			failures.push(...auditDocumentationNavigation(document.content));
+			continue;
+		}
 		if (document.candidateOnly) continue;
 		if (!document.content.includes(baseline.serverRelease)) {
 			failures.push(
