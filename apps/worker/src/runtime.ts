@@ -7,6 +7,7 @@ import {
 	createWechatPaymentGateway,
 	createYunhealthRegistrationPluginPaymentGateway,
 	createYunhealthRegistrationSettlementGateway,
+	DEFAULT_HIS_SETTLEMENT_SOURCE,
 } from "@hospital/adapters";
 import {
 	config as defaultConfig,
@@ -20,8 +21,8 @@ import type { DependencyState } from "@hospital/contracts";
 import {
 	buildPaymentOrderOperationsProjection,
 	type HospitalSettlementGateway,
-	normalizeHisPaymentReference,
 	MedicalInsuranceRefundNotificationCoordinator,
+	normalizeHisPaymentReference,
 	type PaymentOrder,
 	PaymentOrderService,
 	PaymentSyncCoordinator,
@@ -538,6 +539,7 @@ export function createWorkerRuntime(
 		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig)
 			.length === 0
 			? createYunhealthRegistrationSettlementGateway({
+					settlementSource: DEFAULT_HIS_SETTLEMENT_SOURCE,
 					baseUrl: runtimeConfig.yunhealthBaseUrl ?? "",
 					authorizationToken: runtimeConfig.yunhealthAuthorizationToken ?? "",
 					paymentOrgId: runtimeConfig.yunhealthPaymentOrgId ?? "",
@@ -557,6 +559,7 @@ export function createWorkerRuntime(
 		yunhealthRegistrationSettlementConfigurationMissingFields(runtimeConfig)
 			.length === 0
 			? createYunhealthRegistrationPluginPaymentGateway({
+					settlementSource: DEFAULT_HIS_SETTLEMENT_SOURCE,
 					baseUrl: runtimeConfig.yunhealthBaseUrl ?? "",
 					authorizationToken: runtimeConfig.yunhealthAuthorizationToken ?? "",
 					paymentOrgId: runtimeConfig.yunhealthPaymentOrgId ?? "",
@@ -707,6 +710,7 @@ export function createWorkerRuntime(
 		medicalInsuranceConfigurationMissingFields(runtimeConfig).length === 0 &&
 		runtimeConfig.zhongyangBaseUrl
 			? createLegacyFsiMedicalInsuranceGateway({
+					settlementSource: DEFAULT_HIS_SETTLEMENT_SOURCE,
 					legacyFsi: createLegacyFsiGateway({
 						relayUrl: runtimeConfig.medicalInsuranceRelayUrl ?? "",
 						directBaseUrl: runtimeConfig.medicalInsuranceDirectBaseUrl ?? "",

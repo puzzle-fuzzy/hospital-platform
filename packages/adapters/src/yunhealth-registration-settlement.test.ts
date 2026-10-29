@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { RegistrationSelfPaySettlementContext } from "@hospital/domain";
+import type { HisSettlementSource } from "./his-settlement-source";
 import type { ProviderFetcher, ProviderRequestLogger } from "./http";
 import {
 	createYunhealthRegistrationPluginPaymentGateway,
@@ -12,6 +13,15 @@ const context = {
 	traceId: "registration-self-pay-trace-001",
 	idempotencyKey: "registration-self-pay-request-001",
 };
+
+const injectedSettlementSource: HisSettlementSource = {
+	appCode: "fixture-yunhealth-source",
+	sceneCode: "GZH",
+};
+const settlementSourceCases = [
+	["缺省", undefined],
+	["注入", injectedSettlementSource],
+] as const;
 
 const yunhealthMd5Result = {
 	appId: "wx1234567890abcdef",
@@ -41,7 +51,11 @@ const registrationContext = {
 	hisPaymentReferenceId: "9223372036854775807",
 };
 
-function gateway(fetcher: ProviderFetcher, workStationId = "") {
+function gateway(
+	fetcher: ProviderFetcher,
+	workStationId = "",
+	settlementSource?: HisSettlementSource,
+) {
 	return createYunhealthRegistrationSettlementGateway({
 		baseUrl: "https://yunhealth.example.test",
 		authorizationToken: "server-token",
@@ -49,11 +63,14 @@ function gateway(fetcher: ProviderFetcher, workStationId = "") {
 		pluginPayTypeId: "5033",
 		pluginPayType: "CREDIT",
 		workStationId,
+		...(settlementSource ? { settlementSource } : {}),
 		fetcher,
 	});
 }
 
-test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返回插件流水号", async () => {
+async function assertPluginPreOrderSettlementSource(
+	settlementSource?: HisSettlementSource,
+) {
 	let request:
 		| {
 				url: string;
@@ -68,6 +85,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 		pluginPayTypeId: "5033",
 		pluginPayType: "CREDIT",
 		workStationId: "registration-machine-01",
+		...(settlementSource ? { settlementSource } : {}),
 		fetcher: async (input, init) => {
 			request = {
 				url: String(input),
@@ -107,7 +125,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 	);
 	expect(request?.headers.get("authorization")).toBe("Bearer server-token");
 	expect(request?.body).toMatchObject({
-		appCode: "WeChatSmallProg",
+		appCode: settlementSource?.appCode ?? "WeChatSmallProg",
 		authSysCode: "thirdSelfMachine",
 		autoSettle: 3,
 		body: "支付",
@@ -117,7 +135,7 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 		payTypeId: 5033,
 		recordCode: "0123456789abcdef0123456789abcdef",
 		requestId: "0123456789abcdef0123456789abcdef",
-		sceneCode: "WeChatSmallProgram",
+		sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
 		total: 12.34,
 		tradeCode: "REGISTRATION-001",
 		tradeTypeCode: "10",
@@ -143,7 +161,13 @@ test("云健康插件版第二次 .2 使用旧服务的支付上下文并只返�
 			requestId: "yunhealth-plugin-2",
 		},
 	});
-});
+}
+
+test.each(settlementSourceCases)(
+	"%s来源：云健康插件版第二次 .2 使用旧服务的支付上下文并只返回插件流水号",
+	(_label, settlementSource) =>
+		assertPluginPreOrderSettlementSource(settlementSource),
+);
 
 test("历史 5031 云健康 .2 将 result 的 MD5 sign 安全投影为小程序 paySign", async () => {
 	const gatewayInstance = createYunhealthRegistrationPluginPaymentGateway({
@@ -707,7 +731,9 @@ test("历史 5031 医保合单 .2 固定外层 H5/2 并保留原支付腿", asyn
 	});
 });
 
-test("医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结果", async () => {
+async function assertPluginCompleteSettlementSource(
+	settlementSource?: HisSettlementSource,
+) {
 	let request:
 		| { path: string; body: Record<string, unknown>; headers: Headers }
 		| undefined;
@@ -718,6 +744,7 @@ test("医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结�
 		pluginPayTypeId: "5033",
 		pluginPayType: "CREDIT",
 		workStationId: "registration-machine-01",
+		...(settlementSource ? { settlementSource } : {}),
 		fetcher: async (input, init) => {
 			request = {
 				path: new URL(String(input)).pathname,
@@ -752,17 +779,23 @@ test("医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结�
 	);
 	expect(request?.headers.get("authorization")).toBe("Bearer server-token");
 	expect(request?.body).toEqual({
-		appCode: "WeChatSmallProg",
+		appCode: settlementSource?.appCode ?? "WeChatSmallProg",
 		authSysCode: "WeChatSmallProg",
 		autoSettle: 2,
 		businessId: "settlement-business-001",
 		hospitalId: 10389001,
-		sceneCode: "WeChatSmallProgram",
+		sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
 		thirdFlag: 1,
 		tradeTypeCode: "10",
 		workStationId: "registration-machine-01",
 	});
-});
+}
+
+test.each(settlementSourceCases)(
+	"%s来源：医保后置分项完成后使用非 HIS 收款 .5 并等待 .9 查询结果",
+	(_label, settlementSource) =>
+		assertPluginCompleteSettlementSource(settlementSource),
+);
 
 test("云健康 .2 业务拒绝保留精确错误码并记录原始响应", async () => {
 	const previousRawLogging = Bun.env.PROVIDER_RAW_LOGGING;
@@ -1049,23 +1082,34 @@ test("旧服务允许 Token 为空时云健康请求不发送授权头", async (
 	expect(headers?.get("authorization")).toBeNull();
 });
 
-test("普通微信自费回写只执行 .5，不调用 .29/.15", async () => {
+async function assertOrdinarySelfPaySettlementSource(
+	settlementSource?: HisSettlementSource,
+) {
 	const paths: string[] = [];
 	let call = 0;
-	const gatewayInstance = gateway(async (input, init) => {
-		paths.push(new URL(String(input)).pathname);
-		call += 1;
-		expect(String(init?.body)).toContain(
-			'"businessId":"settlement-business-001"',
-		);
-		return new Response(
-			JSON.stringify({ success: true, data: { isSettle: 1 } }),
-			{
-				status: 200,
-				headers: { "x-request-id": `ordinary-self-pay-${call}` },
-			},
-		);
-	});
+	const gatewayInstance = gateway(
+		async (input, init) => {
+			paths.push(new URL(String(input)).pathname);
+			call += 1;
+			expect(String(init?.body)).toContain(
+				'"businessId":"settlement-business-001"',
+			);
+			expect(JSON.parse(String(init?.body))).toMatchObject({
+				appCode: settlementSource?.appCode ?? "WeChatSmallProg",
+				sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
+				authSysCode: "WeChatSmallProg",
+			});
+			return new Response(
+				JSON.stringify({ success: true, data: { isSettle: 1 } }),
+				{
+					status: 200,
+					headers: { "x-request-id": `ordinary-self-pay-${call}` },
+				},
+			);
+		},
+		"",
+		settlementSource,
+	);
 	let legacyCallbackCalled = false;
 
 	const trace = await gatewayInstance.writeBack(
@@ -1107,11 +1151,22 @@ test("普通微信自费回写只执行 .5，不调用 .29/.15", async () => {
 		requestIds: ["ordinary-self-pay-1"],
 		providerOrderId: "settlement-business-001",
 	});
-});
+}
 
-test.each(["10", "2"])(
-	"医保现金回写业务 %s 的 .29 发送无损整型三方记录 ID，仍执行 .29 -> .15 -> .5",
-	async (tradeTypeCode) => {
+test.each(settlementSourceCases)(
+	"%s来源：普通微信自费回写只执行 .5，不调用 .29/.15",
+	(_label, settlementSource) =>
+		assertOrdinarySelfPaySettlementSource(settlementSource),
+);
+
+test.each([
+	["10", "缺省", undefined],
+	["2", "缺省", undefined],
+	["10", "注入", injectedSettlementSource],
+	["2", "注入", injectedSettlementSource],
+] as const)(
+	"医保现金回写业务 %s %s来源的 .29 发送无损整型三方记录 ID，仍执行 .29 -> .15 -> .5",
+	async (tradeTypeCode, _label, settlementSource) => {
 		const requests: Array<{
 			path: string;
 			bodyText: string;
@@ -1127,27 +1182,34 @@ test.each(["10", "2"])(
 			  }
 			| undefined;
 		let call = 0;
-		const gatewayInstance = gateway(async (input, init) => {
-			const path = new URL(String(input)).pathname;
-			const bodyText = String(init?.body);
-			events.push(`request:${path}`);
-			requests.push({
-				path,
-				bodyText,
-				body: JSON.parse(bodyText) as Record<string, unknown>,
-				headers: new Headers(init?.headers),
-			});
-			call += 1;
-			const body = path.endsWith("/thirdPartPay/start")
-				? { success: true, data: { thirdPartPayRecordId: "9007199254740995" } }
-				: path.endsWith("/complete-settle")
-					? { success: true, data: { isSettle: 1 } }
-					: { success: true, data: "success" };
-			return new Response(JSON.stringify(body), {
-				status: 200,
-				headers: { "x-request-id": `yunhealth-request-${call}` },
-			});
-		});
+		const gatewayInstance = gateway(
+			async (input, init) => {
+				const path = new URL(String(input)).pathname;
+				const bodyText = String(init?.body);
+				events.push(`request:${path}`);
+				requests.push({
+					path,
+					bodyText,
+					body: JSON.parse(bodyText) as Record<string, unknown>,
+					headers: new Headers(init?.headers),
+				});
+				call += 1;
+				const body = path.endsWith("/thirdPartPay/start")
+					? {
+							success: true,
+							data: { thirdPartPayRecordId: "9007199254740995" },
+						}
+					: path.endsWith("/complete-settle")
+						? { success: true, data: { isSettle: 1 } }
+						: { success: true, data: "success" };
+				return new Response(JSON.stringify(body), {
+					status: 200,
+					headers: { "x-request-id": `yunhealth-request-${call}` },
+				});
+			},
+			"",
+			settlementSource,
+		);
 
 		const trace = await gatewayInstance.writeBack(
 			{
@@ -1208,6 +1270,7 @@ test.each(["10", "2"])(
 			settleId: "settlement-business-001",
 			tradingId: "1952638941030000003",
 			transStatus: "0",
+			sceneCode: "OUT",
 		});
 		expect(requests[0]?.bodyText).toContain(
 			'"thirdPartPayRecordId":9223372036854775807',
@@ -1235,12 +1298,12 @@ test.each(["10", "2"])(
 			'"receiveAmount":12.34',
 		);
 		expect(requests[2]?.body).toEqual({
-			appCode: "WeChatSmallProg",
+			appCode: settlementSource?.appCode ?? "WeChatSmallProg",
 			authSysCode: "WeChatSmallProg",
 			autoSettle: 2,
 			businessId: "settlement-business-001",
 			hospitalId: 10389001,
-			sceneCode: "WeChatSmallProgram",
+			sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
 			thirdFlag: 1,
 			tradeTypeCode,
 			workStationId: "",
@@ -1715,7 +1778,9 @@ test("门诊自费在 .29/.15 已完成后只续跑 .5 并沿用 tradeTypeCode=2
 	expect(body).toMatchObject({ autoSettle: 2, tradeTypeCode: "2" });
 });
 
-test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整数流水", async () => {
+async function assertRegistrationSelfPayPreparationSource(
+	settlementSource?: HisSettlementSource,
+) {
 	const requests: Array<{
 		path: string;
 		method: string;
@@ -1789,6 +1854,7 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		workStationId: "",
 		tradeTypeCode: "10",
 		miniProgramAppId: yunhealthMd5Result.appId,
+		...(settlementSource ? { settlementSource } : {}),
 		fetcher: async (request, init) => {
 			const bodyText = String(init?.body ?? "");
 			requests.push({
@@ -1830,6 +1896,10 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		"/msun-middle-open-settlepay/api/v2/open/payment/pre-order",
 	]);
 	expect(requests[0]?.body).toMatchObject({
+		appCode: settlementSource?.appCode ?? "WeChatSmallProg",
+		sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
+		authSysCode: "thirdSelfMachine",
+		paySceneCode: "WeChatSmallProgram",
 		patId: "1952638941030000200",
 		requestParam: {
 			registerId: "1952638941030000100",
@@ -1838,6 +1908,9 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		},
 	});
 	expect(requests[2]?.body).toMatchObject({
+		appCode: settlementSource?.appCode ?? "WeChatSmallProg",
+		sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
+		authSysCode: "thirdSelfMachine",
 		payModel: "MINI_PROGRAM",
 		payTypeId: 5032,
 		paymentSystemUserId: "openid-self-001",
@@ -1872,9 +1945,17 @@ test("普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整
 		"prepare-2",
 		"prepare-3",
 	]);
-});
+}
 
-test("门诊自费使用 tradeTypeCode=2、挂号相同 autoSettle 和 2.6.33 订单集合", async () => {
+test.each(settlementSourceCases)(
+	"%s来源：普通挂号自费在微信前严格执行 .1 -> .27 -> .2 并保留大整数流水",
+	(_label, settlementSource) =>
+		assertRegistrationSelfPayPreparationSource(settlementSource),
+);
+
+async function assertOutpatientSelfPayPreparationSource(
+	settlementSource?: HisSettlementSource,
+) {
 	const requests: Array<{ path: string; body?: Record<string, unknown> }> = [];
 	const responses = [
 		{
@@ -1915,6 +1996,7 @@ test("门诊自费使用 tradeTypeCode=2、挂号相同 autoSettle 和 2.6.33 �
 		workStationId: "",
 		tradeTypeCode: "10",
 		miniProgramAppId: yunhealthMd5Result.appId,
+		...(settlementSource ? { settlementSource } : {}),
 		fetcher: async (input, init) => {
 			const bodyText = String(init?.body ?? "");
 			requests.push({
@@ -1949,12 +2031,19 @@ test("门诊自费使用 tradeTypeCode=2、挂号相同 autoSettle 和 2.6.33 �
 	);
 
 	expect(requests[0]?.body).toMatchObject({
+		appCode: settlementSource?.appCode ?? "WeChatSmallProg",
+		sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
+		authSysCode: "thirdSelfMachine",
+		paySceneCode: "WeChatSmallProgram",
 		autoSettle: "2",
 		patId: "1952638941030000200",
 		tradeTypeCode: "2",
 		requestParam: { outTradeOrderIds: ["401", "402"], settleWay: 6 },
 	});
 	expect(requests[2]?.body).toMatchObject({
+		appCode: settlementSource?.appCode ?? "WeChatSmallProg",
+		sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
+		authSysCode: "thirdSelfMachine",
 		autoSettle: 3,
 		tradeTypeCode: "2",
 		payTypeId: 5032,
@@ -1964,7 +2053,13 @@ test("门诊自费使用 tradeTypeCode=2、挂号相同 autoSettle 和 2.6.33 �
 		businessId: "1952638941030000101",
 		tradeTypeCode: "2",
 	});
-});
+}
+
+test.each(settlementSourceCases)(
+	"%s来源：门诊自费使用 tradeTypeCode=2、挂号相同 autoSettle 和 2.6.33 订单集合",
+	(_label, settlementSource) =>
+		assertOutpatientSelfPayPreparationSource(settlementSource),
+);
 
 test("云健康自费回写拒绝混合金额，不能发出任何请求", async () => {
 	let calls = 0;

@@ -25,6 +25,7 @@ import {
 	createZhongyangPatientBindingGateway,
 	createZhongyangPatientGateway,
 	createZhongyangReportGateway,
+	DEFAULT_HIS_SETTLEMENT_SOURCE,
 } from "@hospital/adapters";
 import {
 	PythonLocalAiCustomerModelGateway,
@@ -416,6 +417,7 @@ const reportAttachmentGateway =
 const hospitalSettlementGateway =
 	yunhealthRegistrationSettlementStatus === "configured"
 		? createYunhealthRegistrationSettlementGateway({
+				settlementSource: DEFAULT_HIS_SETTLEMENT_SOURCE,
 				baseUrl: config.yunhealthBaseUrl ?? "",
 				authorizationToken: config.yunhealthAuthorizationToken ?? "",
 				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
@@ -437,6 +439,7 @@ const hospitalSettlementGateway =
 const registrationSelfPayPreparationGateway =
 	yunhealthRegistrationSettlementStatus === "configured"
 		? createYunhealthRegistrationSelfPayPreparationGateway({
+				settlementSource: DEFAULT_HIS_SETTLEMENT_SOURCE,
 				baseUrl: config.yunhealthBaseUrl ?? "",
 				authorizationToken: config.yunhealthAuthorizationToken ?? "",
 				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
@@ -507,6 +510,7 @@ const registrationRefundUnavailableReason =
 const yunhealthRegistrationPluginPaymentGateway =
 	yunhealthRegistrationSettlementStatus === "configured"
 		? createYunhealthRegistrationPluginPaymentGateway({
+				settlementSource: DEFAULT_HIS_SETTLEMENT_SOURCE,
 				baseUrl: config.yunhealthBaseUrl ?? "",
 				authorizationToken: config.yunhealthAuthorizationToken ?? "",
 				paymentOrgId: config.yunhealthPaymentOrgId ?? "",
@@ -626,6 +630,7 @@ const legacyFsiGateway =
 const medicalInsuranceGateway =
 	legacyFsiGateway && readyRepositories && config.zhongyangBaseUrl
 		? createLegacyFsiMedicalInsuranceGateway({
+				settlementSource: DEFAULT_HIS_SETTLEMENT_SOURCE,
 				legacyFsi: legacyFsiGateway,
 				orders: readyRepositories.medicalInsuranceOrders,
 				authorizations: readyRepositories.medicalInsuranceAuthorizations,

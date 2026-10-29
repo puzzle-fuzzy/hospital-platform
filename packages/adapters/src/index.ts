@@ -14,6 +14,10 @@ export {
 	createFixtureWechatIdentityGateway,
 	createFixtureWechatPaymentGateway,
 } from "./fixtures/replay";
+export {
+	DEFAULT_HIS_SETTLEMENT_SOURCE,
+	type HisSettlementSource,
+} from "./his-settlement-source";
 export type {
 	ProviderFetcher,
 	ProviderRequest,

@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import * as adapters from "@hospital/adapters";
 import { loadRuntimeConfig } from "@hospital/config";
 import { createLogger } from "@hospital/observability";
 import type { PersistenceRuntime } from "@hospital/persistence";
@@ -203,4 +204,95 @@ test("worker does not enter ready before database and schema probes pass", async
 		reconciliation: "idle",
 	});
 	await runtime.close();
+});
+
+test("worker composes HIS gateways with one settlement source while preserving provider routing", async () => {
+	const runtimeConfig = {
+		...completeMedicalInsuranceWorkerConfig(),
+		yunhealthRegistrationSettlementReady: true,
+		yunhealthBaseUrl: "https://yunhealth.example.test",
+		yunhealthAuthorizationToken: "fixture-yunhealth-token",
+		yunhealthPaymentOrgId: "10001",
+		yunhealthRegistrationPluginPayTypeId: "5033",
+		yunhealthRegistrationPluginPayType: "CREDIT",
+		yunhealthRegistrationWorkStationId: "",
+		yunhealthRegistrationAuthSysCode: "fixture-auth-system",
+	};
+	const forbiddenProviderCall = async (): Promise<never> => {
+		throw new Error("Composition must not execute a provider operation");
+	};
+	const settlement = spyOn(
+		adapters,
+		"createYunhealthRegistrationSettlementGateway",
+	).mockReturnValue({ writeBack: forbiddenProviderCall });
+	const plugin = spyOn(
+		adapters,
+		"createYunhealthRegistrationPluginPaymentGateway",
+	).mockReturnValue({
+		createPreOrder: forbiddenProviderCall,
+		completeSettlement: forbiddenProviderCall,
+	});
+	const medical = spyOn(
+		adapters,
+		"createLegacyFsiMedicalInsuranceGateway",
+	).mockReturnValue({
+		authorize: forbiddenProviderCall,
+		uploadFees: forbiddenProviderCall,
+		settle: forbiddenProviderCall,
+		query: forbiddenProviderCall,
+		cancel: forbiddenProviderCall,
+	});
+	const fetch = spyOn(globalThis, "fetch").mockImplementation(
+		Object.assign(forbiddenProviderCall, { preconnect() {} }),
+	);
+	let runtime: ReturnType<typeof createWorkerRuntime> | undefined;
+	try {
+		expect(workerConfigurationMissingFields(runtimeConfig)).toEqual([]);
+		runtime = createWorkerRuntime({
+			runtimeConfig,
+			persistence: {
+				database: { check: async () => "ok" as const },
+				redis: { check: async () => "not_configured" as const },
+				schema: { check: async () => "unavailable" as const },
+				repositories: {} as PersistenceRuntime["repositories"],
+				sessions: undefined,
+				async close() {},
+			} as PersistenceRuntime,
+		});
+		expect(settlement).toHaveBeenCalledTimes(1);
+		expect(plugin).toHaveBeenCalledTimes(1);
+		expect(medical).toHaveBeenCalledTimes(1);
+		for (const factory of [settlement, plugin]) {
+			const options = factory.mock.calls[0]?.[0];
+			expect(options?.settlementSource).toBe(
+				adapters.DEFAULT_HIS_SETTLEMENT_SOURCE,
+			);
+			expect(options).toMatchObject({
+				baseUrl: runtimeConfig.yunhealthBaseUrl,
+				authorizationToken: runtimeConfig.yunhealthAuthorizationToken,
+				authSysCode: runtimeConfig.yunhealthRegistrationAuthSysCode,
+				pluginPayTypeId: "5033",
+			});
+		}
+		expect(medical.mock.calls[0]?.[0].settlementSource).toBe(
+			adapters.DEFAULT_HIS_SETTLEMENT_SOURCE,
+		);
+		expect(medical.mock.calls[0]?.[0]).toMatchObject({
+			relayUrl: runtimeConfig.medicalInsuranceRelayUrl,
+			foundationBaseUrl: runtimeConfig.medicalInsuranceFoundationBaseUrl,
+			zhongyangBaseUrl: runtimeConfig.zhongyangBaseUrl,
+		});
+		expect(await runtime.initialize()).toMatchObject({ status: "not_ready" });
+		expect(await runtime.runOnce()).toEqual({
+			outbox: "idle",
+			reconciliation: "idle",
+		});
+		expect(fetch).not.toHaveBeenCalled();
+	} finally {
+		await runtime?.close();
+		fetch.mockRestore();
+		medical.mockRestore();
+		plugin.mockRestore();
+		settlement.mockRestore();
+	}
 });

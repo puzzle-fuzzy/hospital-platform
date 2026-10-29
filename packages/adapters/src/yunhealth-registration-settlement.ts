@@ -14,9 +14,15 @@ import type {
 	YunhealthMiniProgramPayParams,
 	YunhealthRegistrationPluginPaymentGateway,
 } from "@hospital/domain";
-import { normalizeHisPaymentReference } from "@hospital/domain";
-import { medicalInsuranceGroupPayTypeId } from "@hospital/domain";
+import {
+	medicalInsuranceGroupPayTypeId,
+	normalizeHisPaymentReference,
+} from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
+import {
+	DEFAULT_HIS_SETTLEMENT_SOURCE,
+	type HisSettlementSource,
+} from "./his-settlement-source";
 import {
 	type ProviderFetcher,
 	type ProviderRequestLogger,
@@ -68,6 +74,8 @@ export type YunhealthRegistrationPluginPayType =
 	| "CROWD_FUNDING";
 
 export type YunhealthRegistrationSettlementGatewayOptions = {
+	/** 结算统计来源；不作为鉴权参数或微信应用标识使用。 */
+	settlementSource?: HisSettlementSource;
 	/** 云健康/众阳共享上游地址，必须是 HTTPS 且只来自服务端配置。 */
 	baseUrl: string;
 	/** 不得从小程序请求传入；支持原始 token 或完整 Bearer 值。旧服务允许为空。 */
@@ -1075,6 +1083,8 @@ export function createYunhealthRegistrationSelfPayRefundNotificationGateway(
 export function createYunhealthRegistrationSettlementGateway(
 	options: YunhealthRegistrationSettlementGatewayOptions,
 ): HospitalSettlementGateway {
+	const settlementSource =
+		options.settlementSource ?? DEFAULT_HIS_SETTLEMENT_SOURCE;
 	const baseUrl = requiredText(options.baseUrl, "baseUrl");
 	const providerBaseUrl = providerUrl(baseUrl, "");
 	const authorization = normalizedAuthorization(options.authorizationToken);
@@ -1379,12 +1389,12 @@ export function createYunhealthRegistrationSettlementGateway(
 				COMPLETE_SETTLE_OPERATION,
 				COMPLETE_SETTLE_PATH,
 				{
-					appCode: "WeChatSmallProg",
+					appCode: settlementSource.appCode,
 					authSysCode: COMPLETE_SETTLE_AUTH_SYS_CODE,
 					autoSettle: 2,
 					businessId: normalizedContext.businessId,
 					hospitalId: normalizedContext.hospitalId,
-					sceneCode: "WeChatSmallProgram",
+					sceneCode: settlementSource.sceneCode,
 					thirdFlag: 1,
 					tradeTypeCode: requestTradeTypeCode,
 					workStationId: requestWorkStationId,
@@ -1467,6 +1477,8 @@ function stableNumericRequestId(value: string): number {
 export function createYunhealthRegistrationSelfPayPreparationGateway(
 	options: YunhealthRegistrationSettlementGatewayOptions,
 ): RegistrationSelfPayPreparationGateway {
+	const settlementSource =
+		options.settlementSource ?? DEFAULT_HIS_SETTLEMENT_SOURCE;
 	const baseUrl = requiredText(options.baseUrl, "baseUrl");
 	const providerBaseUrl = providerUrl(baseUrl, "");
 	const authorization = normalizedAuthorization(options.authorizationToken);
@@ -1583,7 +1595,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 				context,
 				body: {
 					authSysCode,
-					appCode: "WeChatSmallProg",
+					appCode: settlementSource.appCode,
 					autoSettle: "2",
 					hospitalId,
 					patId: providerPatientId,
@@ -1596,7 +1608,7 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 									registerSource: 15,
 									settleWay: 6,
 								},
-					sceneCode: "WeChatSmallProgram",
+					sceneCode: settlementSource.sceneCode,
 					paySceneCode: "WeChatSmallProgram",
 					tradeTypeCode: businessType === "outpatient" ? "2" : tradeTypeCode,
 					workStationId,
@@ -1769,6 +1781,8 @@ export function createYunhealthRegistrationSelfPayPreparationGateway(
 export function createYunhealthRegistrationPluginPaymentGateway(
 	options: YunhealthRegistrationSettlementGatewayOptions,
 ): YunhealthRegistrationPluginPaymentGateway {
+	const settlementSource =
+		options.settlementSource ?? DEFAULT_HIS_SETTLEMENT_SOURCE;
 	const baseUrl = requiredText(options.baseUrl, "baseUrl");
 	const providerBaseUrl = providerUrl(baseUrl, "");
 	const authorization = normalizedAuthorization(options.authorizationToken);
@@ -1962,7 +1976,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						? { headers: { Authorization: authorization } }
 						: {}),
 					body: {
-						appCode: "WeChatSmallProg",
+						appCode: settlementSource.appCode,
 						authSysCode,
 						autoSettle: 3,
 						body: "支付",
@@ -1990,7 +2004,7 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						paymentSystemUserId,
 						recordCode,
 						requestId: recordCode,
-						sceneCode: "WeChatSmallProgram",
+						sceneCode: settlementSource.sceneCode,
 						spbillCreateIp: "",
 						total: Number((totalFen / 100).toFixed(2)),
 						tradeCode,
@@ -2101,12 +2115,12 @@ export function createYunhealthRegistrationPluginPaymentGateway(
 						? { headers: { Authorization: authorization } }
 						: {}),
 					body: {
-						appCode: "WeChatSmallProg",
+						appCode: settlementSource.appCode,
 						authSysCode: COMPLETE_SETTLE_AUTH_SYS_CODE,
 						autoSettle: 2,
 						businessId,
 						hospitalId,
-						sceneCode: "WeChatSmallProgram",
+						sceneCode: settlementSource.sceneCode,
 						thirdFlag: 1,
 						tradeTypeCode: requestTradeTypeCode,
 						workStationId: requestWorkStationId,

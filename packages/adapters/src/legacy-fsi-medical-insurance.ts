@@ -27,6 +27,10 @@ import {
 	ProviderRequestError,
 	type ProviderRequestOutcome,
 } from "./errors";
+import {
+	DEFAULT_HIS_SETTLEMENT_SOURCE,
+	type HisSettlementSource,
+} from "./his-settlement-source";
 import { type ProviderFetcher, requestJson } from "./http";
 import {
 	type classifyLegacyFsiOrderStatus,
@@ -46,11 +50,11 @@ const DEFAULT_FOUNDATION_PATH = "/mbs-fsi/web/api/fsi/callService";
 const DEFAULT_AUTH_SYS_CODE = "thirdSelfMachine";
 // 2.6.65.5 完成结算使用微信小程序渠道标识；其他支付查询/关单接口仍沿用 DEFAULT_AUTH_SYS_CODE。
 const COMPLETE_SETTLE_AUTH_SYS_CODE = "WeChatSmallProg";
-const DEFAULT_APP_CODE = "WeChatSmallProg";
-const DEFAULT_SCENE_CODE = "WeChatSmallProgram";
+const DEFAULT_PAY_SCENE_CODE = "WeChatSmallProgram";
 const DEFAULT_TRADE_TYPE_CODE = "10";
 const DEFAULT_REGISTER_SOURCE = 15;
-const DEFAULT_SETTLE_WAY = 6;
+// 2026-10 三方结算扩展通知：移动医保发起结算固定使用 14，纯自费另行取值。
+const MOBILE_MEDICAL_INSURANCE_SETTLE_WAY = 14;
 const DEFAULT_PRE_ORDER_AUTO_SETTLE = 3;
 // HIS 2.27.2.32 的 insurOrgId 是医保测试通道的数值机构 ID，
 // 与 1101/6201/6202 使用的 fixmedins/orgCodg 字符串不能混用。
@@ -100,6 +104,8 @@ export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	foundationPath?: string;
 	zhongyangBaseUrl: string;
 	zhongyangAuthorizationToken?: string;
+	/** 仅结算来源统计字段，由 API/Worker 的服务端装配统一传入。 */
+	settlementSource?: HisSettlementSource;
 	userQueryBaseUrl?: string;
 	userQueryPath?: string;
 	/** 腾讯医保合作方密钥，只用于服务端 userQuery 请求签名。 */
@@ -2062,6 +2068,8 @@ function normalizeSettlementNetworkRegister(
 export function createLegacyFsiMedicalInsuranceGateway(
 	options: LegacyFsiMedicalInsuranceGatewayOptions,
 ): MedicalInsuranceGateway {
+	const settlementSource =
+		options.settlementSource ?? DEFAULT_HIS_SETTLEMENT_SOURCE;
 	const relayUrl = absoluteUrl(options.relayUrl);
 	const foundationBaseUrl = absoluteUrl(options.foundationBaseUrl);
 	const foundationPath = forwardPath(options.foundationPath);
@@ -2847,10 +2855,12 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
 				completionContext,
 				{
+					appCode: settlementSource.appCode,
 					authSysCode: COMPLETE_SETTLE_AUTH_SYS_CODE,
 					autoSettle: 2,
 					businessId: settlementContext.businessId,
 					hospitalId: settlementContext.hospitalId,
+					sceneCode: settlementSource.sceneCode,
 					tradeTypeCode: input.businessType === "outpatient" ? "2" : "10",
 					workStationId: "",
 				},
@@ -3563,7 +3573,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					context,
 					{
 						authSysCode: DEFAULT_AUTH_SYS_CODE,
-						appCode: DEFAULT_APP_CODE,
+						appCode: settlementSource.appCode,
 						autoSettle: "2",
 						hospitalId,
 						patId: providerPatientId,
@@ -3574,15 +3584,15 @@ export function createLegacyFsiMedicalInsuranceGateway(
 							businessType === "outpatient"
 								? {
 										outTradeOrderIds: outpatientOrderIds,
-										settleWay: DEFAULT_SETTLE_WAY,
+										settleWay: MOBILE_MEDICAL_INSURANCE_SETTLE_WAY,
 									}
 								: {
 										registerId,
 										registerSource: DEFAULT_REGISTER_SOURCE,
-										settleWay: DEFAULT_SETTLE_WAY,
+										settleWay: MOBILE_MEDICAL_INSURANCE_SETTLE_WAY,
 									},
-						sceneCode: DEFAULT_SCENE_CODE,
-						paySceneCode: DEFAULT_SCENE_CODE,
+						sceneCode: settlementSource.sceneCode,
+						paySceneCode: DEFAULT_PAY_SCENE_CODE,
 						tradeTypeCode:
 							businessType === "outpatient" ? "2" : DEFAULT_TRADE_TYPE_CODE,
 						workStationId: "",

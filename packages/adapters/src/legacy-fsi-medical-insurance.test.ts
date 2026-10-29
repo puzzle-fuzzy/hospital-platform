@@ -7,6 +7,7 @@ import type {
 	MedicalInsuranceSettlementContext,
 	OutpatientPaymentRecord,
 } from "@hospital/domain";
+import type { HisSettlementSource } from "./his-settlement-source";
 import {
 	accountFlag,
 	createLegacyFsiMedicalInsuranceGateway,
@@ -163,6 +164,7 @@ function feeUploadDepartmentFixture(
 	detailOverrides: Readonly<Record<string, unknown>> = {},
 	applyOverrides: Readonly<Record<string, unknown>> = {},
 	hooks: {
+		settlementSource?: HisSettlementSource;
 		detailData?: (detail: Record<string, unknown>) => unknown;
 		beforeContextSave?: (
 			next: MedicalInsuranceSettlementContext,
@@ -175,6 +177,7 @@ function feeUploadDepartmentFixture(
 		| string[]
 		| undefined) ?? ["trade-current-001"];
 	const providerUrls: URL[] = [];
+	const applyBodies: Record<string, unknown>[] = [];
 	const feeUploads: Record<string, unknown>[] = [];
 	const contextWrites: MedicalInsuranceSettlementContext[] = [];
 	const detail = {
@@ -285,12 +288,16 @@ function feeUploadDepartmentFixture(
 		relayAuthorizationToken: "synthetic-token",
 		foundationBaseUrl: "https://foundation.example",
 		zhongyangBaseUrl: "https://zhongyang.example",
+		...(hooks.settlementSource
+			? { settlementSource: hooks.settlementSource }
+			: {}),
 		now: () => new Date("2026-10-15T06:00:00.000Z"),
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = new URL(String(input));
 			providerUrls.push(url);
 			let data: unknown;
 			if (url.pathname.endsWith("/apply-pay-settle")) {
+				applyBodies.push(JSON.parse(String(init?.body)));
 				data = {
 					businessId: "business-current-001",
 					businessCode: "business-code-current-001",
@@ -331,6 +338,7 @@ function feeUploadDepartmentFixture(
 	});
 	return {
 		providerUrls,
+		applyBodies,
 		feeUploads,
 		contextWrites,
 		readSettlementContext: () => settlementContext,
@@ -383,6 +391,51 @@ const currentDepartmentChild = {
 	billDeptId: "6309619828601651001",
 	billDeptCode: "DEPT-CODE-001",
 };
+
+const customSettlementSource: HisSettlementSource = {
+	appCode: "fixture-payment-application",
+	sceneCode: "ThirdPartApp",
+};
+
+test.each(["registration", "outpatient"] as const)(
+	"医保 %s .65.1 发送服务端来源和移动医保 settleWay=14",
+	async (businessType) => {
+		for (const settlementSource of [undefined, customSettlementSource]) {
+			const fixture = feeUploadDepartmentFixture(
+				[currentDepartmentChild],
+				false,
+				businessType === "outpatient"
+					? {
+							recordId: "fixture-source-outpatient",
+							status: "unpaid",
+							billDate: "2026-10-15 14:00:00",
+							amountFen: 1000,
+						}
+					: undefined,
+				{},
+				{},
+				settlementSource ? { settlementSource } : {},
+			);
+			await fixture.upload();
+			expect(fixture.applyBodies).toEqual([
+				expect.objectContaining({
+					appCode: settlementSource?.appCode ?? "WeChatSmallProg",
+					sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
+					authSysCode: "thirdSelfMachine",
+					requestParam:
+						businessType === "outpatient"
+							? { outTradeOrderIds: ["trade-current-001"], settleWay: 14 }
+							: {
+									registerId: "registration-current-001",
+									registerSource: 15,
+									settleWay: 14,
+								},
+				}),
+			]);
+			expect(fixture.feeUploads).toHaveLength(1);
+		}
+	},
+);
 
 test.each([
 	{ price: 0.3125, expected: "0.3125" },
@@ -1749,6 +1802,7 @@ test("重授权不校验旧支付流水，只调用 .6 取消结算", async () =
 
 test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 	const providerPaths: string[] = [];
+	const completionBodies: Record<string, unknown>[] = [];
 	const medicalOrder = {
 		medicalOrderId: "medical-order-zero-cash-001",
 		ownerUserId: "user-zero-cash-001",
@@ -1831,9 +1885,12 @@ test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 		relayAuthorizationToken: "synthetic-token",
 		foundationBaseUrl: "https://foundation.example",
 		zhongyangBaseUrl: "https://zhongyang.example",
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = new URL(String(input));
 			providerPaths.push(url.pathname);
+			if (url.pathname.endsWith("/complete-settle")) {
+				completionBodies.push(JSON.parse(String(init?.body)));
+			}
 			const data = url.pathname.endsWith("/complete-settle")
 				? { success: true, data: { isSettle: 1 } }
 				: { success: true, data: { insur: "SUCCESS", settle: "SUCCESS" } };
@@ -1885,6 +1942,15 @@ test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 	expect(providerPaths).not.toContain(
 		"/msun-yb-app-miop/v1/out-insur-settle-infos",
 	);
+	expect(completionBodies).toEqual([
+		expect.objectContaining({
+			appCode: "WeChatSmallProg",
+			sceneCode: "WeChatSmallProgram",
+			authSysCode: "WeChatSmallProg",
+			businessId: "10001",
+			tradeTypeCode: "2",
+		}),
+	]);
 	await expect(
 		gateway.query(
 			{
@@ -1895,6 +1961,7 @@ test("门诊纯医保零元订单在 .32 成功后调用 .5", async () => {
 			context,
 		),
 	).resolves.toMatchObject({ state: "insurance_settled" });
+	expect(completionBodies).toHaveLength(1);
 	expect(querySettlementCalls).toBe(0);
 });
 
@@ -2022,12 +2089,20 @@ test("历史 5031 门诊医保合单只调用一次 .32 和一次 .5", async () 
 		settleBackNo: "medical-order-outpatient-split-001",
 		transId: "paying-outpatient-combined-001",
 	});
+	expect(providerBodies[1]).toMatchObject({
+		appCode: "WeChatSmallProg",
+		sceneCode: "WeChatSmallProgram",
+		authSysCode: "WeChatSmallProg",
+		tradeTypeCode: "2",
+	});
 	expect(settlementContext.settlementCompletion?.status).toBe("succeeded");
 	expect(settlementContext.selfPaySettlementWriteback).toBeUndefined();
 	expect(settlementContext.selfPaySettlementCompletion).toBeUndefined();
 });
 
-test("历史拆分支付的两次 .32 都回传平台 orderId 到 settleBackNo", async () => {
+async function assertLegacySplitSettlementSource(
+	settlementSource?: HisSettlementSource,
+) {
 	const medicalOrder = {
 		medicalOrderId: "medical-order-legacy-split-001",
 		ownerUserId: "user-legacy-split-001",
@@ -2083,7 +2158,12 @@ test("历史拆分支付的两次 .32 都回传平台 orderId 到 settleBackNo",
 		],
 	};
 	const notifyBodies: Record<string, unknown>[] = [];
+	const completionRequests: {
+		body: Record<string, unknown>;
+		idempotencyKey: string | null;
+	}[] = [];
 	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		...(settlementSource ? { settlementSource } : {}),
 		legacyFsi: {} as never,
 		orders: {
 			findByMedicalOrderId: async () => medicalOrder,
@@ -2109,6 +2189,12 @@ test("历史拆分支付的两次 .32 都回传平台 orderId 到 settleBackNo",
 				typeof init?.body === "string"
 			) {
 				notifyBodies.push(JSON.parse(init.body) as Record<string, unknown>);
+			}
+			if (path.endsWith("/complete-settle")) {
+				completionRequests.push({
+					body: JSON.parse(String(init?.body)),
+					idempotencyKey: new Headers(init?.headers).get("idempotency-key"),
+				});
 			}
 			const data = path.endsWith("/settle-info/notify")
 				? { success: true, data: { insur: "SUCCESS", settle: "SUCCESS" } }
@@ -2139,6 +2225,40 @@ test("历史拆分支付的两次 .32 都回传平台 orderId 到 settleBackNo",
 			settleBackNo: medicalOrder.medicalOrderId,
 		});
 	}
+	expect(completionRequests).toHaveLength(2);
+	for (const { body } of completionRequests) {
+		expect(body).toMatchObject({
+			appCode: settlementSource?.appCode ?? "WeChatSmallProg",
+			sceneCode: settlementSource?.sceneCode ?? "WeChatSmallProgram",
+			authSysCode: "WeChatSmallProg",
+			businessId: "business-legacy-split-001",
+			tradeTypeCode: "2",
+		});
+	}
+	expect(completionRequests.map((request) => request.idempotencyKey)).toEqual([
+		"medical-insurance-2.6.65.5:business-legacy-split-001:medical",
+		"medical-insurance-2.6.65.5:business-legacy-split-001:self_pay",
+	]);
+	await expect(
+		gateway.query(
+			{
+				orderId: medicalOrder.medicalOrderId,
+				ownerUserId: medicalOrder.ownerUserId,
+				cashPaymentConfirmed: true,
+			},
+			context,
+		),
+	).resolves.toMatchObject({ state: "insurance_settled" });
+	expect(notifyBodies).toHaveLength(2);
+	expect(completionRequests).toHaveLength(2);
+}
+
+test("历史拆分支付两腿 .32/.5 保留默认来源、业务引用和幂等", async () => {
+	await assertLegacySplitSettlementSource();
+});
+
+test("历史拆分支付两腿 .5 使用服务端来源，不改写 authSysCode 或重放", async () => {
+	await assertLegacySplitSettlementSource(customSettlementSource);
 });
 
 test(".32 失败后不重复提交同一结算 ID", async () => {
@@ -2290,6 +2410,10 @@ function primaryMedicalWritebackFixture(
 		personalAccountFen: 100,
 		fundFen: 0,
 	},
+	options: {
+		settlementSource?: HisSettlementSource;
+		completionUnconfirmed?: boolean;
+	} = {},
 ) {
 	const medicalOrder = {
 		medicalOrderId: "medical-primary-writeback-001",
@@ -2316,6 +2440,9 @@ function primaryMedicalWritebackFixture(
 	};
 	const requests: { path: string; body: Record<string, unknown> }[] = [];
 	const gateway = createLegacyFsiMedicalInsuranceGateway({
+		...(options.settlementSource
+			? { settlementSource: options.settlementSource }
+			: {}),
 		legacyFsi: {} as never,
 		orders: {
 			findByMedicalOrderId: async () => medicalOrder,
@@ -2339,7 +2466,9 @@ function primaryMedicalWritebackFixture(
 			requests.push({ path, body: JSON.parse(String(init?.body)) });
 			const data = path.endsWith("/settle-info/notify")
 				? { insur: "SUCCESS", settle: "SUCCESS" }
-				: { isSettle: 1 };
+				: options.completionUnconfirmed
+					? {}
+					: { isSettle: 1 };
 			return Response.json({ success: true, data });
 		},
 	});
@@ -2376,8 +2505,42 @@ test.each(["medical", "combined", "personal_account"] as const)(
 			tradingId: account.tradingId,
 			outNetworkSettleMain: { transId: account.payingId },
 		});
+		expect(fixture.requests[1]?.body).toMatchObject({
+			appCode: "WeChatSmallProg",
+			sceneCode: "WeChatSmallProgram",
+			authSysCode: "WeChatSmallProg",
+			tradeTypeCode: "10",
+		});
 	},
 );
+
+test(".5 来源参数不把未知结果变成成功，也不触发重复提交", async () => {
+	const fixture = primaryMedicalWritebackFixture(
+		[writebackComponent("medical", "5", 100)],
+		undefined,
+		{ settlementSource: customSettlementSource, completionUnconfirmed: true },
+	);
+	for (let attempt = 0; attempt < 2; attempt += 1) {
+		await expect(fixture.query()).resolves.toMatchObject({
+			state: "awaiting_confirmation",
+			providerStatus: "completion=UNKNOWN",
+			authoritative: false,
+		});
+	}
+	expect(fixture.requests.map((request) => request.path)).toEqual([
+		"/msun-yb-app-miop/outSettle/v2/settle-info/notify",
+		"/msun-middle-open-settlepay/api/v2/open/payment/complete-settle",
+	]);
+	expect(fixture.requests[1]?.body).toMatchObject({
+		...customSettlementSource,
+		authSysCode: "WeChatSmallProg",
+		tradeTypeCode: "10",
+	});
+	expect(fixture.readContext().settlementCompletion).toMatchObject({
+		status: "failed",
+		providerStatus: "completion=UNKNOWN",
+	});
+});
 
 test(".32 个账主组不被现金、减免或顶层旧流水覆盖", async () => {
 	const account = writebackComponent("medical", "5", 80, { totalFen: 120 });
