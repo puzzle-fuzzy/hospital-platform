@@ -1,195 +1,493 @@
 page {
-	background: #f5f6fa;
+	background: #f8f8f8;
 }
 
 .my-doctor-detail-scroll {
 	height: 100vh;
-	background: #f5f6fa;
+	background: #f8f8f8;
 }
 
 .my-doctor-detail-page {
 	box-sizing: border-box;
 	min-height: 100vh;
-	/* 头部为全宽下沉式渐变名片头，内边距由各卡片自行控制。 */
-	padding: 0 0 calc(180rpx + env(safe-area-inset-bottom));
+	padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+	background: #ffffff;
 }
 
-.doctor-introduction-card,
-.doctor-schedule-card {
-	box-sizing: border-box;
-	margin: 0 24rpx 20rpx;
-	padding: 26rpx 24rpx;
-	border-radius: 20rpx;
-	background: #ffffff;
-	box-shadow: 0 8rpx 24rpx rgba(40, 67, 118, 0.05);
+/* 蓝湖 750px 画板：背景 270rpx，白卡从 70rpx 开始，头像悬浮于卡片顶边。 */
+.doctor-profile-hero {
+	position: relative;
+	padding: 70rpx 30rpx 0;
+}
+
+.doctor-profile-background {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	height: 270rpx;
+	background: radial-gradient(ellipse at 44% 20%, rgba(255, 255, 255, 0.96) 0%, rgba(239, 248, 255, 0.7) 32%, transparent 72%), linear-gradient(150deg, #c7f5ff 0%, #c3d8f5 55%, #6bb7ee 100%);
 }
 
 .doctor-profile-card {
-	display: flex;
+	position: relative;
 	box-sizing: border-box;
-	flex-direction: column;
-	min-height: 180rpx;
-	margin-bottom: 24rpx;
-	padding: 30rpx 30rpx 28rpx;
-	border-radius: 0 0 44rpx 44rpx;
-	background: linear-gradient(150deg, #4fa0f5 0%, #2e7cf0 100%);
-	box-shadow: 0 10rpx 28rpx rgba(46, 124, 240, 0.22);
-}
-
-.doctor-profile-main {
-	display: flex;
-	align-items: center;
-	width: 100%;
-}
-
-.doctor-consult-tags {
-	display: flex;
-	gap: 20rpx;
-	margin-top: 26rpx;
-}
-
-.doctor-consult-tag {
-	display: flex;
-	box-sizing: border-box;
-	flex: 1;
-	align-items: center;
-	justify-content: center;
-	gap: 10rpx;
-	height: 84rpx;
-	margin: 0;
-	padding: 0;
-	border-radius: 42rpx;
+	min-height: 272rpx;
+	padding: 100rpx 30rpx 16rpx;
+	border-radius: 12rpx;
 	background: #ffffff;
-	color: #2e7cf0;
-	font-size: 27rpx;
-	font-weight: 600;
-	line-height: 82rpx;
-	box-shadow: 0 6rpx 16rpx rgba(31, 66, 135, 0.14);
-}
-
-.doctor-consult-tag::after {
-	border: 0;
-}
-
-.doctor-consult-tag-icon {
-	display: block;
-	width: 40rpx;
-	height: 40rpx;
+	box-shadow: 0 10rpx 28rpx rgba(40, 67, 118, 0.05);
 }
 
 .doctor-profile-avatar {
+	position: absolute;
+	top: -38rpx;
+	left: 30rpx;
 	display: block;
-	box-sizing: border-box;
-	flex: 0 0 136rpx;
-	width: 136rpx;
-	height: 136rpx;
-	border: 5rpx solid rgba(255, 255, 255, 0.9);
+	width: 92rpx;
+	height: 92rpx;
 	border-radius: 50%;
-	background: #edf3ff;
-	box-shadow: 0 8rpx 18rpx rgba(31, 66, 135, 0.3);
+	background: #eef3fa;
 }
 
-.doctor-profile-avatar-photo {
-	background: #eef1f6;
-}
-
-.doctor-profile-copy {
+/* 覆盖 v2 原生按钮的尺寸和 auto 边距，限定在名片页的小按钮。 */
+button.doctor-follow-button[size="mini"] {
+	position: absolute;
+	top: -30rpx;
+	right: 36rpx;
 	display: flex;
+	box-sizing: border-box;
+	align-items: center;
+	justify-content: center;
+	gap: 10rpx;
+	width: 148rpx;
 	min-width: 0;
-	flex: 1;
-	flex-direction: column;
-	margin-left: 22rpx;
+	height: 60rpx;
+	margin: 0;
+	padding: 0;
+	border-radius: 30rpx;
+	background: #d87518;
+	color: #ffffff;
+	font-size: 32rpx;
+	font-weight: 600;
+	line-height: 60rpx;
+	white-space: nowrap;
+}
+
+.doctor-follow-heart {
+	font-size: 36rpx;
+	font-weight: 400;
+	line-height: 1;
+}
+
+button.doctor-follow-button.doctor-followed[size="mini"] {
+	background: #fff1e2;
+	color: #a7530c;
+}
+
+button.doctor-follow-button[size="mini"][disabled] {
+	opacity: 0.7;
 }
 
 .doctor-profile-name-row {
 	display: flex;
-	align-items: baseline;
 	min-width: 0;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: 6rpx 14rpx;
 }
 
 .doctor-profile-name {
-	max-width: 260rpx;
-	overflow: hidden;
-	color: #ffffff;
-	font-size: 40rpx;
-	font-weight: 700;
-	line-height: 1.4;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	max-width: 100%;
+	color: #111111;
+	font-size: 36rpx;
+	font-weight: 600;
+	line-height: 48rpx;
+	word-break: break-all;
 }
 
 .doctor-profile-title {
-	margin-left: 12rpx;
-	color: rgba(255, 255, 255, 0.92);
+	color: #222222;
 	font-size: 24rpx;
-	white-space: nowrap;
+	line-height: 36rpx;
+	word-break: break-all;
 }
 
-.doctor-profile-department,
-.doctor-profile-hospital {
-	margin-top: 10rpx;
-	overflow: hidden;
-	color: rgba(255, 255, 255, 0.95);
-	font-size: 25rpx;
-	line-height: 1.4;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.doctor-profile-summary {
+	display: flex;
+	align-items: flex-start;
+	gap: 16rpx;
+	margin-top: 12rpx;
 }
 
-.doctor-profile-hospital {
-	margin-top: 6rpx;
-	color: rgba(255, 255, 255, 0.78);
-	font-size: 23rpx;
+.doctor-summary-label {
+	flex: 0 0 118rpx;
+	color: #136fd7;
+	font-size: 26rpx;
+	font-style: italic;
+	font-weight: 700;
+	line-height: 48rpx;
 }
 
-.doctor-profile-location {
-	margin-top: 5rpx;
-	overflow: hidden;
-	color: rgba(255, 255, 255, 0.68);
-	font-size: 23rpx;
-	line-height: 1.4;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.doctor-follow-button {
-	box-sizing: border-box;
-	min-width: 116rpx;
-	height: 62rpx;
-	margin: 0 0 0 14rpx;
-	padding: 0 20rpx;
-	border: 2rpx solid rgba(255, 255, 255, 0.9);
-	border-radius: 999rpx;
-	background: rgba(255, 255, 255, 0.16);
-	color: #ffffff;
-	font-size: 24rpx;
-	line-height: 58rpx;
-}
-
-.doctor-follow-button.doctor-followed {
-	border-color: rgba(255, 255, 255, 0.6);
-	background: rgba(255, 255, 255, 0.28);
-	color: #ffffff;
+.doctor-summary-body {
+	position: relative;
+	min-width: 0;
+	flex: 1;
+	min-height: 96rpx;
 }
 
 .doctor-introduction-copy {
-	display: block;
-	margin-top: 16rpx;
-	color: #6c7483;
+	display: -webkit-box;
+	max-height: 96rpx;
+	overflow: hidden;
+	color: #757575;
 	font-size: 26rpx;
-	line-height: 1.65;
+	line-height: 48rpx;
+	word-break: break-all;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 }
 
-.doctor-introduction-expertise {
+button.doctor-profile-link[size="mini"] {
+	position: absolute;
+	right: -2rpx;
+	bottom: 0;
+	box-sizing: border-box;
 	display: block;
-	margin-top: 14rpx;
+	width: auto;
+	min-width: 0;
+	height: 48rpx;
+	margin: 0;
+	padding: 0 0 0 24rpx;
+	border-radius: 0;
+	background: linear-gradient(90deg, rgba(255, 255, 255, 0), #ffffff 18rpx);
+	color: #386ec9;
+	font-size: 26rpx;
+	line-height: 48rpx;
 }
 
-.doctor-profile-link {
-	margin-top: 18rpx;
-	color: #2e7cf0;
-	font-size: 25rpx;
+.doctor-introduction-empty {
+	display: block;
+	margin-top: 12rpx;
+	color: #757575;
+	font-size: 26rpx;
+	line-height: 48rpx;
+}
+
+.doctor-schedule-card {
+	margin-top: 30rpx;
+	background: #ffffff;
+}
+
+.detail-section-heading {
+	display: flex;
+	align-items: center;
+	gap: 18rpx;
+	min-height: 48rpx;
+}
+
+.detail-section-marker {
+	width: 10rpx;
+	height: 36rpx;
+	flex: 0 0 10rpx;
+	background: linear-gradient(#83d0ff, #1474ff);
+}
+
+.detail-section-title {
+	color: #111111;
+	font-size: 34rpx;
+	font-weight: 400;
+	line-height: 48rpx;
+}
+
+.doctor-hospital-heading {
+	margin-top: 8rpx;
+	padding: 0 30rpx;
+	border-bottom: 2rpx solid #e8e8e8;
+}
+
+.doctor-hospital-tab {
+	display: inline-block;
+	box-sizing: border-box;
+	max-width: 100%;
+	padding: 4rpx 0 28rpx;
+	border-bottom: 2rpx solid #4c8fff;
+	color: #386ec9;
+	font-size: 26rpx;
+	line-height: 38rpx;
+	word-break: break-all;
+}
+
+.doctor-location-caption {
+	display: block;
+	padding: 0 0 18rpx;
+	color: #757575;
+	font-size: 24rpx;
 	line-height: 36rpx;
+	word-break: break-all;
+}
+
+.doctor-date-scroll {
+	width: 100%;
+	padding: 36rpx 0;
+	white-space: nowrap;
+}
+
+.doctor-date-list {
+	display: flex;
+}
+
+.doctor-date-item {
+	display: flex;
+	box-sizing: border-box;
+	width: 150rpx;
+	height: 86rpx;
+	flex: 0 0 150rpx;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	color: #222222;
+	font-size: 28rpx;
+	line-height: 44rpx;
+}
+
+.doctor-date-item-active {
+	background: #e9f1ff;
+	color: #386ec9;
+}
+
+.doctor-date-weekday {
+	display: block;
+}
+
+.doctor-schedule-list {
+	border-top: 2rpx solid #e8e8e8;
+}
+
+.doctor-schedule-row {
+	display: flex;
+	box-sizing: border-box;
+	align-items: stretch;
+	min-height: 194rpx;
+	border-bottom: 2rpx solid #e8e8e8;
+}
+
+.doctor-schedule-period {
+	display: flex;
+	width: 54rpx;
+	flex: 0 0 54rpx;
+	align-items: center;
+	justify-content: center;
+	background: #e9f1ff;
+	color: #386ec9;
+	font-size: 26rpx;
+	line-height: 38rpx;
+	text-align: center;
+	word-break: break-all;
+}
+
+.doctor-schedule-copy {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	justify-content: center;
+	padding: 10rpx 12rpx 10rpx 20rpx;
+}
+
+.doctor-schedule-department {
+	color: #222222;
+	font-size: 28rpx;
+	line-height: 44rpx;
+	word-break: break-all;
+}
+
+.doctor-schedule-tags {
+	display: flex;
+	flex-wrap: wrap;
+	margin: 10rpx 0 4rpx;
+}
+
+.doctor-schedule-registration-class {
+	max-width: 100%;
+	padding: 0 10rpx;
+	border-radius: 4rpx;
+	background: #f9ecd9;
+	color: #835a34;
+	font-size: 24rpx;
+	line-height: 36rpx;
+	word-break: break-all;
+}
+
+.doctor-schedule-doctor,
+.doctor-schedule-time {
+	display: block;
+	color: #333333;
+	font-size: 24rpx;
+	line-height: 34rpx;
+	word-break: break-all;
+}
+
+.doctor-schedule-time {
+	color: #757575;
+	font-size: 22rpx;
+}
+
+.doctor-schedule-action {
+	display: flex;
+	box-sizing: border-box;
+	width: 150rpx;
+	flex: 0 0 150rpx;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12rpx;
+	padding: 14rpx 18rpx 14rpx 0;
+}
+
+.doctor-schedule-slots {
+	color: #757575;
+	font-size: 24rpx;
+	line-height: 36rpx;
+	text-align: center;
+}
+
+.doctor-slots-available {
+	color: #c6532e;
+}
+
+button.doctor-schedule-booking[size="mini"] {
+	box-sizing: border-box;
+	display: flex;
+	width: 106rpx;
+	min-width: 0;
+	max-width: 100%;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	height: 54rpx;
+	margin: 0;
+	padding: 0;
+	border-radius: 27rpx;
+	background: #4c8fff;
+	color: #ffffff;
+	font-size: 28rpx;
+	font-weight: 600;
+	line-height: 54rpx;
+	white-space: nowrap;
+}
+
+button.doctor-schedule-booking[size="mini"][disabled] {
+	background: #eeeeee;
+	color: #757575;
+}
+
+.doctor-online-services {
+	box-sizing: border-box;
+	min-height: 306rpx;
+	padding-top: 32rpx;
+	background: #ffffff;
+}
+
+.doctor-consult-tags {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-start;
+	gap: 14rpx;
+	padding: 34rpx 30rpx 40rpx;
+}
+
+button.doctor-consult-tag[size="mini"] {
+	display: flex;
+	box-sizing: border-box;
+	width: 164rpx;
+	min-height: 110rpx;
+	flex: 0 0 164rpx;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12rpx;
+	margin: 0;
+	padding: 12rpx 8rpx;
+	border: 2rpx solid #eeeeee;
+	border-radius: 10rpx;
+	background: #ffffff;
+	line-height: 36rpx;
+}
+
+.doctor-consult-name {
+	color: #111111;
+	font-size: 28rpx;
+	font-weight: 600;
+}
+
+.doctor-consult-state {
+	color: #757575;
+	font-size: 24rpx;
+}
+
+.detail-note {
+	display: block;
+	padding: 20rpx 30rpx;
+	background: #f8f8f8;
+	color: #757575;
+	font-size: 22rpx;
+	line-height: 34rpx;
+}
+
+.schedule-state,
+.detail-state {
+	display: flex;
+	box-sizing: border-box;
+	align-items: center;
+	justify-content: center;
+	padding: 40rpx;
+	color: #757575;
+	font-size: 26rpx;
+	line-height: 40rpx;
+	text-align: center;
+}
+
+.schedule-state {
+	min-height: 194rpx;
+	border-top: 2rpx solid #e8e8e8;
+	border-bottom: 2rpx solid #e8e8e8;
+}
+
+.detail-state {
+	min-height: 600rpx;
+	flex-direction: column;
+	gap: 24rpx;
+}
+
+.detail-state-icon {
+	width: 112rpx;
+	height: 112rpx;
+}
+
+.detail-retry {
+	padding: 12rpx 34rpx;
+	border-radius: 30rpx;
+	background: #e9f1ff;
+	color: #386ec9;
+}
+
+.detail-spinner {
+	box-sizing: border-box;
+	width: 50rpx;
+	height: 50rpx;
+	border: 6rpx solid #e9f1ff;
+	border-top-color: #4c8fff;
+	border-radius: 50%;
+	animation: detail-spin 900ms linear infinite;
+}
+
+@keyframes detail-spin {
+	to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.detail-spinner { animation: none; }
 }
 
 .doctor-profile-modal {
@@ -217,26 +515,24 @@ page {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	box-sizing: border-box;
-	height: 92rpx;
-	padding: 0 28rpx;
-	border-bottom: 1rpx solid #edf0f4;
+	padding: 28rpx;
+	border-bottom: 2rpx solid #eeeeee;
 }
 
 .doctor-profile-modal-title {
-	color: #252a34;
+	color: #222222;
 	font-size: 32rpx;
-	font-weight: 700;
+	font-weight: 600;
 }
 
 .doctor-profile-modal-close {
-	color: #8b93a1;
+	color: #386ec9;
 	font-size: 26rpx;
 }
 
 .doctor-profile-modal-scroll {
 	box-sizing: border-box;
-	max-height: calc(80vh - 92rpx);
+	max-height: calc(80vh - 96rpx);
 	padding: 26rpx 28rpx 36rpx;
 }
 
@@ -250,300 +546,15 @@ page {
 }
 
 .doctor-profile-modal-section-title {
-	color: #343b47;
+	color: #222222;
 	font-size: 28rpx;
 	font-weight: 600;
 }
 
 .doctor-profile-modal-copy {
 	margin-top: 12rpx;
-	color: #697181;
+	color: #666666;
 	font-size: 26rpx;
 	line-height: 1.7;
-}
-
-.detail-section-heading {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-}
-
-.detail-section-title {
-	color: #2d3440;
-	font-size: 30rpx;
-	font-weight: 700;
-	line-height: 1.4;
-}
-
-.detail-section-caption {
-	color: #a0a6b1;
-	font-size: 22rpx;
-}
-
-.doctor-date-scroll {
-	margin: 22rpx -22rpx 0;
-	white-space: nowrap;
-}
-
-.doctor-date-list {
-	display: flex;
-	padding: 0 22rpx 4rpx;
-}
-
-.doctor-date-item {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	box-sizing: border-box;
-	min-width: 116rpx;
-	height: 76rpx;
-	margin-right: 14rpx;
-	border: 1rpx solid #edf0f5;
-	border-radius: 14rpx;
-	background: #fafbfc;
-	color: #727a89;
-	font-size: 24rpx;
-	line-height: 1.2;
-	flex-direction: column;
-}
-
-.doctor-date-item-active {
-	border-color: #5d8ff3;
-	background: #edf3ff;
-	color: #4d7fe4;
-	font-weight: 600;
-}
-
-.doctor-date-weekday {
-	margin-top: 5rpx;
-	color: #a1a7b2;
-	font-size: 21rpx;
-}
-
-.doctor-date-item-active .doctor-date-weekday {
-	color: #6f91dc;
-}
-
-.doctor-schedule-list {
-	margin-top: 22rpx;
-	border-top: 1rpx solid #f0f1f4;
-}
-
-.doctor-schedule-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	min-height: 116rpx;
-	border-bottom: 1rpx solid #f0f1f4;
-}
-
-.doctor-schedule-copy {
-	display: flex;
-	min-width: 0;
-	flex-direction: column;
-}
-
-.doctor-schedule-shift {
-	color: #343b47;
-	font-size: 28rpx;
-	font-weight: 600;
-}
-
-.doctor-schedule-registration-class {
-	display: inline-block;
-	align-self: flex-start;
-	margin-top: 8rpx;
-	padding: 4rpx 12rpx;
-	border-radius: 8rpx;
-	background: #fff0d9;
-	color: #925a05;
-	font-size: 21rpx;
-	line-height: 1.35;
-}
-
-.doctor-schedule-time {
-	margin-top: 8rpx;
-	color: #9299a5;
-	font-size: 23rpx;
-}
-
-.doctor-schedule-action {
-	display: flex;
-	align-items: flex-end;
-	flex-direction: column;
-	margin-left: 16rpx;
-}
-
-.doctor-schedule-slots {
-	color: #a3a8b2;
-	font-size: 23rpx;
-}
-
-.doctor-slots-available {
-	color: #f08a59;
-}
-
-
-.doctor-schedule-booking {
-	box-sizing: border-box;
-	min-width: 108rpx;
-	height: 60rpx;
-	margin-left: 14rpx;
-	padding: 0 26rpx;
-	border-radius: 30rpx;
-	background: #2e7cf0;
-	color: #ffffff;
-	font-size: 25rpx;
-	line-height: 60rpx;
-	text-align: center;
-	white-space: nowrap;
-}
-
-.doctor-schedule-arrow-label {
-	color: #5687ed;
-	font-size: 23rpx;
-}
-
-.doctor-schedule-arrow {
-	display: block;
-	width: 22rpx;
-	height: 22rpx;
-	margin-left: 4rpx;
-}
-
-.schedule-state {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	min-height: 190rpx;
-	color: #9aa1ad;
-	font-size: 25rpx;
-}
-
-.detail-note {
-	display: block;
-	margin: 4rpx 30rpx 0;
-	color: #9aa3b5;
-	font-size: 22rpx;
-	line-height: 34rpx;
-}
-
-.detail-state {
-	display: flex;
-	box-sizing: border-box;
-	min-height: 320rpx;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 18rpx;
-	padding: 60rpx 40rpx;
-	color: #8a93a6;
-	font-size: 26rpx;
-	line-height: 38rpx;
-}
-
-.detail-state-error {
-	color: #875c5c;
-}
-
-.detail-state-icon {
-	width: 112rpx;
-	height: 112rpx;
-	margin-bottom: 24rpx;
-	opacity: 0.72;
-}
-
-.detail-retry {
-	margin-top: 28rpx;
-	padding: 12rpx 34rpx;
-	border-radius: 999rpx;
-	background: #eaf1ff;
-	color: #4f82eb;
-	font-size: 25rpx;
-}
-
-.detail-spinner {
-	box-sizing: border-box;
-	width: 50rpx;
-	height: 50rpx;
-	margin-bottom: 24rpx;
-	border: 6rpx solid #e7ecf6;
-	border-top-color: #598af2;
-	border-radius: 50%;
-	animation: detail-spin 900ms linear infinite;
-}
-
-@keyframes detail-spin {
-	to {
-		transform: rotate(360deg);
-	}
-}
-
-
-/* 设计稿底部固定操作栏：左侧关注描边按钮，右侧“立即挂号”主按钮。 */
-.doctor-action-bar {
-	position: fixed;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	z-index: 20;
-	display: flex;
-	box-sizing: border-box;
-	align-items: center;
-	gap: 20rpx;
-	padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
-	background: #ffffff;
-	box-shadow: 0 -6rpx 20rpx rgba(40, 67, 118, 0.08);
-}
-
-.doctor-action-bar button {
-	margin: 0;
-}
-
-.doctor-action-bar button::after {
-	border: 0;
-}
-
-.doctor-action-follow {
-	box-sizing: border-box;
-	width: 168rpx;
-	height: 88rpx;
-	flex: 0 0 168rpx;
-	padding: 0;
-	border: 2rpx solid #2e7cf0;
-	border-radius: 44rpx;
-	background: #ffffff;
-	color: #2e7cf0;
-	font-size: 27rpx;
-	line-height: 84rpx;
-}
-
-.doctor-action-follow.doctor-action-followed {
-	border-color: #c6d4ec;
-	background: #f2f6fd;
-	color: #8ba3c9;
-}
-
-.doctor-action-follow[disabled] {
-	opacity: 1;
-	color: #4a7fe8;
-}
-
-.doctor-action-follow.doctor-action-followed[disabled] {
-	color: #8ba3c9;
-}
-
-.doctor-action-book {
-	box-sizing: border-box;
-	height: 88rpx;
-	min-width: 0;
-	flex: 1;
-	padding: 0;
-	border-radius: 44rpx;
-	background: linear-gradient(135deg, #4fa0f5 0%, #2e7cf0 100%);
-	color: #ffffff;
-	font-size: 30rpx;
-	font-weight: 600;
-	line-height: 88rpx;
-	box-shadow: 0 8rpx 20rpx rgba(46, 124, 240, 0.3);
+	word-break: break-all;
 }

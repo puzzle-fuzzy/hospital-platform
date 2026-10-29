@@ -1,8 +1,8 @@
 {
 	"navigationBarTitleText": "医生名片",
-	"navigationBarBackgroundColor": "#ffffff",
+	"navigationBarBackgroundColor": "#f8f8f8",
 	"navigationBarTextStyle": "black",
-	"backgroundColor": "#f5f6fa",
+	"backgroundColor": "#f8f8f8",
 	"disableScroll": true,
 	"enablePullDownRefresh": true,
 	"usingComponents": {
